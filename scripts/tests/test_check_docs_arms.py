@@ -21,22 +21,37 @@ from typing import Final
 
 from conftest import git, write
 from test_check_docs import (
+    BE_DERIVATION_ROW,
+    BLOCKED_ENTRY,
+    BLOCKED_FIELDS,
+    BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
+    DROPPED_GATE_ROW,
+    EDGE_DERIVATION_ROW,
+    GATE_DERIVATION_ROW,
     HASH,
     NEWLINE,
     NOTES,
     ORPHAN_ENTRY,
+    QUALIFIED_BE_ROW,
     QUOTES,
     ROADMAP,
     ROADMAP_TAIL,
     SCRIPTS_COPY,
+    SHORT_FORM,
     SLICE_DONE,
     SLICE_ROW,
     SLICE_STRAY,
     SPIELER_PANEL,
     UNDECODABLE_BYTES,
+    UNHELD_FILE_ROW,
+    UNHELD_SUBTREE_ROW,
     UNTOKENIZABLE_MODULE,
+    VOCAB_ENTRY,
+    VOCAB_FIELDS,
+    VOCAB_ROW,
+    WIDENED_GATE_ROW,
     Reported,
     _append,
     _assert_corpus_restored,
@@ -145,6 +160,74 @@ def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     _assert_corpus_restored()
 
 
+EMPTY_STATUS: Final = "|  |"
+
+
+def test_a_status_cell_left_empty_is_reported_in_the_listing_that_holds_it() -> None:
+    """An empty cell agrees with an empty cell, so a page emptied on both sides reads as one that agrees."""
+
+    def emptied() -> None:
+        _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS))
+        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS))
+
+    both = _roadmap_findings(emptied)
+    one = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS)))
+    assert both[("fail", "roadmap-shape", ROADMAP)] == 2, "two empty status cells agreed with each other: " + _shape(both)
+    assert one[("fail", "roadmap-shape", ROADMAP)] == 2, "one empty status cell drew the disagreement alone: " + _shape(one)
+    _assert_corpus_restored()
+
+
+def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
+    """Its own token resolves against the index, so the arm reading the column finds an entry and passes."""
+
+    def itself() -> None:
+        _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+        _replace(ROADMAP, BLOCKED_FIELDS, "| Docs | Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |")
+
+    reported = _roadmap_findings(itself)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_entry_naming_itself_in_its_dependency_column_is_reported_whatever_its_status() -> None:
+    """Inside the `Blocked` fork the test read no `Open` entry, whose self-reference never clears either."""
+
+    def itself() -> None:
+        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| — |", "| " + _tick(VOCAB_ENTRY) + " |"))
+
+    reported = _roadmap_findings(itself)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an open entry depending on itself passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_the_tag_derivation_table_is_held_to_the_paths_the_gate_derives_tags_from() -> None:
+    """One fact in two places, with nothing pairing them: the page's row and the gate's own tuple.
+
+    Both directions: a prefix dropped from the row narrows what a reader thinks earns the tag, and
+    one added widens it.
+    """
+    dropped = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, DROPPED_GATE_ROW))
+    widened = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, WIDENED_GATE_ROW))
+    assert dropped[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix dropped from the row passed: " + _shape(dropped)
+    assert widened[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix no tag derives from passed: " + _shape(widened)
+    _assert_corpus_restored()
+
+
+def test_a_source_cell_naming_a_path_no_prefix_of_its_row_reaches_is_reported() -> None:
+    """A token carrying no repository prefix is read by neither direction above.
+
+    The third arm keeps that silence from reading as a ban on relative names: a folder under a
+    prefix the cell itself writes qualifies its reach.
+    """
+    subtree = _roadmap_findings(lambda: _replace(ROADMAP, EDGE_DERIVATION_ROW, UNHELD_SUBTREE_ROW))
+    filename = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, UNHELD_FILE_ROW))
+    qualified = _roadmap_findings(lambda: _replace(ROADMAP, BE_DERIVATION_ROW, QUALIFIED_BE_ROW))
+    assert subtree[("fail", "roadmap-shape", ROADMAP)] == 1, "a subtree nothing holds passed: " + _shape(subtree)
+    assert filename[("fail", "roadmap-shape", ROADMAP)] == 1, "a filename no prefix of its row reaches passed: " + _shape(filename)
+    assert qualified[("fail", "roadmap-shape", ROADMAP)] == 0, "a folder under the row's own prefix was reported: " + _shape(qualified)
+    _assert_corpus_restored()
+
+
 def test_a_file_the_byte_check_cannot_open_is_named_rather_than_passed_over() -> None:
     """Silence there is indistinguishable from a file proved to hold neither byte."""
     _reset()
@@ -174,8 +257,10 @@ def test_a_sha_this_clone_resolves_is_failed_like_any_other() -> None:
     branch = _module("docs_gate.branch")
     kernel = _module("docs_gate.kernel")
     head = git(_gate().root, "rev-parse", "HEAD")
-    live = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
-    assert live is not None, "HEAD's short form carries no digit and letter, so it proves nothing here"
+    live = head[:SHORT_FORM]
+    # What the fixture builder mints, never what one commit's own hash carries: a run of digits
+    # alone is not the shape `sha` fails, so the case would prove nothing about the check.
+    assert any(c.isdigit() for c in live) and any(c.isalpha() for c in live), "the fixture no longer mints a mixed short form: " + live
     _append(NOTES, "The commit `" + live + "` is named here.")
     _clear_caches(_gate().root / SCRIPTS_COPY)
     try:

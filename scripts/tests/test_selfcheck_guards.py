@@ -8,16 +8,22 @@ regression in the gate's own copy is what fails.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Final
 
-from conftest import lift_function, run_shell, write_shell
+from conftest import declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 SELFCHECK: Final = SCRIPTS / "gate" / "selfcheck.sh"
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
+CHECKER: Final = SCRIPTS / "checks" / "docs_gate" / "checks.py"
+
+# Every line-anchored awk pattern the script spells, so a literal is found wherever inside it the
+# reader that arms on one has moved to.
+AWK_PATTERN_RE: Final = re.compile(r"/(\^[^/\n]*)/")
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -170,6 +176,28 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
     )
     assert done.returncode == 0, done.stderr
     assert "call\tset_not_run" in done.stdout, "verify.sh's set_not_run call is invisible to the reader"
+
+
+def _armed_patterns(script: Path) -> set[str]:
+    """Every line-anchored awk pattern in one script, its escaping dropped.
+
+    Unescaped rather than the checker's constant escaped: awk leaves a space alone where
+    `re.escape` escapes it, so the two could never agree.
+    """
+    return {pattern.replace("\\", "") for pattern in AWK_PATTERN_RE.findall(script.read_text(encoding="utf-8"))}
+
+
+def test_the_verb_table_is_read_off_the_same_two_literals() -> None:
+    """Two readers of one table, and only the same literals read the same one.
+
+    This script skips where the gate fails, so a drifted pair leaves the gate green and the skip on
+    somebody else's branch.
+    """
+    patterns = _armed_patterns(SELFCHECK)
+    assert patterns, "no line-anchored awk pattern was read out of selfcheck.sh, so nothing was compared"
+    for name in ("OUTPUT_STANDARD_LEAD_IN", "OUTPUT_VERB_COLUMN"):
+        spelled = str(declared(CHECKER, name)).replace("\\", "")
+        assert spelled in patterns, f"{name} is spelled in no awk pattern of selfcheck.sh: {sorted(patterns)}"
 
 
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of

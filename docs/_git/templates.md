@@ -63,9 +63,13 @@ than one surface combines them — `Backend + Frontend` — each component resol
 vocabulary on its own.
 
 `scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`:: BANNED`), every trailer name but `Closes` and every `Closes:` value that is not a token
-(`:: CLOSES_RE`), and a subject or a body line past the hard maximum (`:: LINE_MAX`) — unless that
-line is one unbroken token or carries a long URL, which wrapping would break (`:: UNWRAPPABLE`).
+(`:: BANNED`), every trailer name but `Closes` in a closing paragraph it reads as trailers
+(`:: TRAILER_EVIDENCE_RE`), a line that paragraph carries twice, every `Closes:` value that is
+not a token (`:: CLOSES_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it
+unless git wrote the message (`:: GENERATED_SUBJECT`), a body line unless it is one unbroken token or
+carries a long URL, which wrapping would break (`:: UNWRAPPABLE`). A hyphenless name earns that reading on its value: one unbroken token ending in
+no sentence punctuation, so `Verified: green` is read as a trailer and refused while a closing
+`Verified: the gate returned exit 0.` is prose.
 
 A commit Dependabot wrote — matched on an exact author identity
 (`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
@@ -78,8 +82,8 @@ from no other refusal here.
 
 ```
 <One orientation sentence, for a multi-commit PR only: how many commits there are and what they
-do, grouped by theme rather than listed one per line. Name a commit's SHA only where a reader has
-to find that specific commit.>
+do, grouped by theme rather than listed one per line. Name a commit by its subject where a reader
+has to find that specific one, never by its hash (COR-6).>
 
 <What the branch achieves as a whole, at a level the individual commits do not — one or two
 paragraphs. For a single-commit PR, this is the whole body, and the commit's own body already

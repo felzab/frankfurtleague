@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
+# HOOKS · the local compose file, required rather than assumed
 # PreToolUse hook on Bash and PowerShell — refuses a compose subcommand that would create, start,
 # stop or enter a container while the PRODUCTION definition is what compose reads. With no `-f`
 # naming `docker-compose.local.yml` compose reads `docker-compose.yml`, whose `env_file` is
-# `./fl_backend/.env` — so the stack comes up wired to the production database, and the two files
-# share a project name, which is what makes the bare command look like it worked.
+# `./fl_backend/.env`, so the stack comes up wired to the production database.
 #
-# `config` refuses against EITHER file. At compose v5.4.0 it resolves every `env_file` into the
-# rendered `environment:` block, so it prints `.env` to stdout, and `-o` saves that rendering to any
-# path. That is disclosure, not operation, and consent to the local stack was never consent to it.
-#
-# A subcommand that only reads is released against either file. An unrecognised subcommand refuses:
-# the list below is closed, and a compose release adding a verb must not open a hole by doing so. A
-# segment naming docker whose PROGRAM this hook cannot place refuses on the same ground — an
-# unrecognised leading word means "cannot tell", never "not docker". A segment FED by a pipe, a
-# heredoc or a redirection refuses on it too unless its program can run neither an argument nor its
-# input: the invocation then arrives in text this payload never carries.
+# The rule is `.claude/CLAUDE.md` §5; each refusal's own condition is written at the arm deciding
+# it, never here.
 
 deny() {
   # The backticks are Markdown in the refusal copy, not substitution.
@@ -285,8 +277,9 @@ while IFS= read -r seg; do
     i=$((i + 1))
   done
 
-  # Disclosure is judged ahead of consent: the local file carries the same `env_file` lines, so
-  # rendering it prints the same credentials.
+  # Disclosure is judged ahead of consent: `config` renders rather than operates, so no `-f`
+  # releases it. At compose v5.4.0 it resolves every `env_file` into the printed `environment:`
+  # block, and the local file carries the same lines.
   [ "$subcommand" = "config" ] && deny_config
 
   # The local file is the developer's own stack, so what is run against it is their business — but
@@ -305,6 +298,8 @@ while IFS= read -r seg; do
   case "$READS" in
     *" $subcommand "*) continue ;;
   esac
+  # The two files share a project name, so a bare invocation attaches to whatever containers are
+  # already up and looks like it worked.
   deny
 done <<<"$segments"
 

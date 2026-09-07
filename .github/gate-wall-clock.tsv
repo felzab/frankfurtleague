@@ -57,6 +57,17 @@
 # start all four at once, and either way it sits inside the 14% floor the backend row carries, so
 # neither reference nor budget moves and neither takes a new stamp.
 #
+# `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
+# `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
+# reader answers for and the prose corpus by the notice file, with the fork-pool read behind the
+# comment ceiling and the fork's standard behind the rule families. Measured whole rather than per
+# check: the docs checker over the fork's tree and the branch's tree, interleaved, five rounds after
+# one warm run each, on 2026-09-07 with nothing else running -- 7988 ms at the fork's median against
+# 9267 ms at the branch's, spreads 16 ms and 59 ms, a difference of 1.3 s. That sits inside the 8%
+# floor the docs row carries, 2.8 s against a 35 s reference, so neither reference nor budget moves
+# and neither takes a new stamp; the figures are one machine's upper bound, and the runner's own
+# median is what the report compares.
+#
 # `ops` is the one seconds figure below that is a projection rather than a measurement: the 12 s
 # that scope took in CI before `nginx/redaction_test.sh` joined it, plus the 14 s the new check
 # costs, measured locally rather than on a runner. Replace it with a real median once twelve main

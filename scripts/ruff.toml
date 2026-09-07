@@ -1,4 +1,4 @@
-# scripts/ruff.toml — makes the repository's Python rules apply to the gate's own tooling.
+# SCRIPTS · makes the repository's Python rules apply to the gate's own tooling
 #
 # `extend` rather than a copy, and here rather than at the repository root: `docs/ops/spec.md` §1.6
 # argues both. It must keep adding and overriding nothing — the moment it carries its own `select`,

@@ -6,16 +6,20 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
-from pathlib import Path
-from typing import Final, Iterable
+from pathlib import Path, PurePosixPath
+from typing import Final, Iterable, NamedTuple
 
-from checker_kernel import git
+from checker_kernel import git, git_input, resolve_base
 
 from .kernel import (
+    DOCS_DIR,
+    INVARIANT_ROW_RE,
     OPS_FILENAMES,
+    PROSE_FILENAMES,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
+    SPEC_GLOB,
     UNPARSEABLE,
     Finding,
     _read_text,
@@ -23,23 +27,13 @@ from .kernel import (
     _skipped,
     comment_runs,
     comment_style,
+    invariant_rows,
     roadmap_ids,
+    strip_fences,
     unlisted,
     unmarked_line,
     untracked_files,
     word_count,
-)
-
-# The trees `docs/_standard/standard.md` In-code's Scope names, which `test_scope_agreement.py` holds it to
-# and sweeps. Nothing selects on them -- `_bounded` reads the kind, a tree admitting kinds the gate
-# cannot read.
-INCODE_SCOPES: Final[tuple[str, ...]] = (
-    "fl_frontend/src/",
-    "fl_backend/app/",
-    "fl_backend/tests/",
-    "scripts/",
-    ".claude/hooks/",
-    ".githooks/",
 )
 
 # INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.
@@ -115,29 +109,127 @@ def _endpoint_docstrings(raw: str) -> frozenset[int]:
     return frozenset(lines)
 
 
-def _blocks_over_bound(text: str, style: str) -> list[tuple[frozenset[str], int]]:
-    """Each over-bound block in some text, as the lines it holds and the words it runs to."""
+class Ancestor(NamedTuple):
+    """One block the fork held over the bound, at the path the branch files it under.
+
+    The path is part of the value: counting copies across files would let a block grow by being
+    duplicated into another.
+    """
+
+    file: str
+    lines: frozenset[str]
+    words: int
+
+
+def _blocks_over_bound(rel: str, text: str, style: str) -> list[Ancestor]:
+    """Each over-bound block in one fork file, as the lines it holds and the words it runs to."""
     return [
-        (frozenset(line for line in block if line), word_count(_block_text(block)))
+        Ancestor(rel, frozenset(line for line in block if line), word_count(_block_text(block)))
         for _, block in comment_runs(text, style)
         if _over_bound(block)
     ]
 
 
-def _fork_ceiling(block: list[str], older: list[tuple[frozenset[str], int]]) -> int | None:
-    """What this block ran to at the fork, or None where the fork carried no block of its."""
+BATCH_HEADER: Final = " blob "
+
+# What the pool's own refusal names. Alone rather than inside `DIFF_READERS`: the pool is a second
+# read this one check makes, and the three beside it answer from the diff whatever it does.
+POOL_READER: Final = "comment length"
+
+
+@cache
+def _fork_pool(fork: str) -> list[Ancestor] | None:
+    """Every block the fork's tree held over the bound.
+
+    A read per path finds nothing where the fork holds no such file: a block carried into one
+    keeps its earlier self wherever the fork filed it.
+    """
+    listing = git("-c", "core.quotePath=false", "ls-tree", "-r", "-z", fork)
+    if listing is None:
+        return None
+    named: list[tuple[str, str]] = []
+    for record in listing.split("\0"):
+        meta, _, rel = record.partition("\t")
+        fields = meta.split(" ")
+        if len(fields) == 3 and fields[1] == "blob" and _bounded(rel):
+            named.append((fields[2], rel))
+    if not named:
+        return []
+    batch = git_input("cat-file", "--batch", stdin="\n".join(oid for oid, _ in named) + "\n")
+    if batch is None:
+        return None
+    renamed = _renamed_to(fork)
+    pool: list[Ancestor] = []
+    at = 0
+    for index, (oid, rel) in enumerate(named):
+        # Each record opens where the last closed and on the oid asked for: a byte size cannot
+        # index a decoded stream, and a looser split takes a content line for a header.
+        if not batch.startswith(oid + BATCH_HEADER, at):
+            return None
+        opened = batch.find("\n", at)
+        # `git_input` right-strips the stream, so a final blob that is empty or all whitespace ends
+        # it on its own header, where an offset of 0 would take the whole batch. Earlier the stream
+        # is short of a record.
+        if opened == -1:
+            return pool if index == len(named) - 1 else None
+        start = opened + 1
+        following = named[index + 1][0] if index + 1 < len(named) else None
+        end = len(batch) if following is None else batch.find("\n" + following + BATCH_HEADER, start)
+        if end == -1:
+            return None
+        # Filed under the branch's name for the path, never the fork's: `_fork_ceiling` asks whether
+        # THIS file is the one the fork filed the block in. The style stays the fork path's, whose
+        # blob this reads.
+        pool.extend(_blocks_over_bound(renamed.get(rel, rel), batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
+        at = end + 1
+    return pool
+
+
+def _fork_ancestor(block: list[str], older: list[Ancestor]) -> Ancestor | None:
+    """The fork block this one came from, or None where too little of it is the fork's.
+
+    Half its own distinct lines: a moved or edited block shares most of itself; one padded with a
+    borrowed line does not.
+    """
     lines = frozenset(line for line in block if line)
     # Never the opening line as a key: it drops the exemption the moment a writer improves that
     # sentence, which pays them to leave the worst prose in the file exactly as it stands.
-    matched = max(
-        (candidate for candidate in older if candidate[0] & lines),
-        key=lambda candidate: (len(candidate[0] & lines), candidate[1]),
+    return max(
+        (candidate for candidate in older if 2 * len(candidate.lines & lines) >= len(lines)),
+        key=lambda candidate: (len(candidate.lines & lines), candidate.words),
         default=None,
     )
-    return None if matched is None else matched[1]
 
 
-def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Callable[[], str | None] | None = None) -> list[Finding]:
+def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> dict[Ancestor, list[int]]:
+    """What each block sharing one ancestor runs to, whose sum is what its ceiling buys.
+
+    A ceiling handed out per block pays a writer to split an over-bound block and keep both
+    halves over it.
+    """
+    charges: dict[Ancestor, list[int]] = {}
+    for _, block in runs:
+        # Every over-bound block, touched or not: leaving the original standing while copying it
+        # doubles the prose one ceiling was written for.
+        ancestor = _fork_ancestor(block, older) if _over_bound(block) else None
+        if ancestor is not None:
+            charges.setdefault(ancestor, []).append(word_count(_block_text(block)))
+    return charges
+
+
+def _fork_ceiling(ancestor: Ancestor, arrived: int, older: list[Ancestor], rel: str) -> int:
+    """What the blocks matching one ancestor may run to together.
+
+    One standing per copy that arrived, never more than the fork filed in the file this one came
+    from: a match anywhere else inherits one (INC-9).
+    """
+    # Where git reads a rename as a fresh file, a duplicated over-bound block it carries draws a
+    # finding its author repairs: cheaper than letting any fresh file inherit copies it never forked.
+    copies = older.count(ancestor) if ancestor.file == rel else 1
+    return ancestor.words * min(arrived, copies)
+
+
+def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None]) -> list[Finding]:
     """A comment block this branch touched, unless the branch found it over the bound already.
 
     Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
@@ -151,8 +243,10 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
     endpoints = _endpoint_docstrings(raw) if style == ".py" and rel.startswith(ENDPOINT_TREE) else frozenset()
 
     found: list[Finding] = []
-    older: list[tuple[frozenset[str], int]] | None = None
-    for first_line, block in comment_runs(raw, style):
+    runs = comment_runs(raw, style)
+    charges: dict[Ancestor, list[int]] = {}
+    older: list[Ancestor] | None = None
+    for first_line, block in runs:
         numbers = range(first_line, first_line + len(block))
         if added.isdisjoint(numbers) or not _over_bound(block):
             continue
@@ -161,20 +255,32 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
         if routed and publishes:
             continue  # INC-4's contract, at a rung no bound written for a comment reaches
         if older is None:
-            # Read here rather than per call: the fork costs a git spawn per file, and a file whose
-            # touched blocks all keep the bound never needs one.
-            before = fork_text() if fork_text is not None else None
-            older = [] if before is None else _blocks_over_bound(before, style)
+            # Read here rather than per call: the pool costs one listing and one batch, and a file
+            # whose touched blocks all keep the bound never needs either.
+            older = fork_blocks()
+            if older is None:
+                # Refused rather than read as an empty pool: with no ceilings at all every block the
+                # fork already carried is failed for prose this branch never wrote.
+                return [_branch_scope_skipped(POOL_READER, "read the blocks the fork's tree held over the bound")]
+            charges = _fork_charges(runs, older)
         words = word_count(text)
-        ceiling = _fork_ceiling(block, older)
-        if ceiling is not None and words <= ceiling:
+        ancestor = _fork_ancestor(block, older)
+        matching = [words] if ancestor is None else charges[ancestor]
+        ceiling = None if ancestor is None else _fork_ceiling(ancestor, len(matching), older, rel)
+        charged = sum(matching)
+        if ceiling is not None and charged <= ceiling:
             continue
-        found.append(Finding("fail", "comment-length", rel, _bound_detail(words, ceiling, routed, publishes), first_line))
+        found.append(Finding("fail", "comment-length", rel, _bound_detail(words, ceiling, charged, routed, publishes), first_line))
     return found
 
 
-def _bound_detail(words: int, ceiling: int | None, routed: bool, publishes: bool) -> str:
+def _bound_detail(words: int, ceiling: int | None, charged: int, routed: bool, publishes: bool) -> str:
     """What a block over the bound is told, which differs by why the exemptions did not reach it."""
+    if ceiling is not None and charged > words:
+        return (
+            f"the comment block runs {words} words, and the blocks matching its earlier self run {charged} together,"
+            f" up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
+        )
     if ceiling is not None:
         return f"the comment block runs {words} words, up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
     if routed:
@@ -222,8 +328,40 @@ REVIEW_REF_RE: Final = re.compile(
 LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 
 
+# An issue number's spelling, whose tracker sits outside this history (INC-6). Two runs carry the
+# shape and name no issue whatever the kind: `&#39;` an entity, `#2-invariants` a hyphenated slug.
+ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-])")
+# The third belongs to the file kind rather than to the punctuation: "#000;" and "#000)" are a
+# colour where a stylesheet writes them, and "(#412)" is what GitHub appends to a squash subject.
+STYLESHEET_ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
+
+# A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
+# it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.
+LOCATION_SUFFIXES: Final[tuple[str, ...]] = (".md", *SCANNED_SUFFIXES)
+RUN_BREAK_RE: Final = re.compile(r"\s")
+
+
+def _locates(before: str) -> bool:
+    """Whether the run in front of a `#<digits>` points at a location rather than a tracker.
+
+    Read to the last space rather than by a lookbehind: the two shapes run to any length, and
+    `re` takes no variable-width one.
+    """
+    run = RUN_BREAK_RE.split(before)[-1]
+    return "://" in run or run.endswith(LOCATION_SUFFIXES)
+
+
+# Taken off before `SPOKEN_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
+# them, so the whole of it reads as quoted and nothing inside it is ever seen.
+TRIPLE_QUOTE_RE: Final = re.compile(r"\"{3}|'{3}")
+
+# The runs a mention sits in, which is `kernel.py :: QUOTED_SPAN_RE` without its backtick arm: a
+# number marked up as code is being cited rather than named, so backticks spare nothing here.
+SPOKEN_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
+
+
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
-    """A roadmap id or a review round in a comment this branch added (INC-6).
+    """INC-6's bans that read a diff, over the lines this branch added.
 
     Branch-scoped: the branch that wrote the line is the one place the constraint behind it is
     still known, and the standing backlog is `/docs:audit`'s (CUR-6).
@@ -241,6 +379,13 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             found.append(
                 Finding("fail", "comment-citation", rel, f"roadmap id {roadmap_id} in an added comment -- state the constraint (INC-6)")
             )
+        # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
+        # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
+        mentions = SPOKEN_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
+        pattern = STYLESHEET_ISSUE_REF_RE if rel.endswith(".css") else ISSUE_REF_RE
+        issues = {hit.group(0) for hit in pattern.finditer(mentions) if not _locates(mentions[: hit.start()])}
+        for issue in sorted(issues):
+            found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
 
 
@@ -268,20 +413,141 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     return Finding("fail", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
 
 
-@cache
-def _blob_at(fork: str, rel: str) -> str | None:
-    """One file as the fork commit holds it, or None where the commit has no such file.
+def _spec_sheet(rel: str) -> bool:
+    """Whether a repository-relative path is one `kernel.py :: SPEC_GLOB` names.
 
-    Cached: several checks ask for the same page's earlier version, and `git show` is a process each.
+    Anchored with a leading slash: a relative pattern matches from the RIGHT, which takes a
+    `spec.md` one directory deep under any tree at all.
     """
-    return git("show", f"{fork}:{rel}")
+    return PurePosixPath("/" + rel).match("/" + SPEC_GLOB)
+
+
+@cache
+def fork_page(rel: str) -> str | None:
+    """One page as the branch's fork holds it, or None where fork or page will not resolve.
+
+    Resolved here rather than taken from `Branch`: the reader wanting one runs where no check has
+    it in hand.
+    """
+    # The default base is the one base a run can be given: the checker takes no base argument, so
+    # nothing supplies another for a reader here to thread through.
+    fork = resolve_base()
+    return None if fork is None else git("show", f"{fork}:{rel}")
+
+
+@cache
+def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
+    """Every invariant number each spec sheet's own table defined at the fork.
+
+    Never the working tree: it already holds the row under test, and would answer that every number
+    a branch adds is taken.
+    """
+    listing = git("-c", "core.quotePath=false", "ls-tree", "-r", "--name-only", "-z", fork, "--", DOCS_DIR)
+    if listing is None:
+        return None
+    sheets: dict[str, frozenset[str]] = {}
+    for rel in listing.split("\0"):
+        if not _spec_sheet(rel):
+            continue
+        if (text := git("show", f"{fork}:{rel}")) is None:
+            return None
+        # Sectioned as the corpus reader sections it: a row of this shape outside `## 2. Invariants`
+        # defines nothing a citation resolves against, so it allocates nothing either.
+        sheets[rel] = frozenset(invariant_rows(strip_fences(text)))
+    return sheets
+
+
+def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[str]]:
+    """The invariant numbers a branch's added rows declare, per spec sheet.
+
+    Sectioned as `_fork_invariants` sections the fork's side: a row under the remedy table defines
+    nothing, so judging its number fails a branch at an allocation it never made.
+    """
+    declared: dict[str, frozenset[str]] = {}
+    for rel, lines in additions.items():
+        if not _spec_sheet(rel):
+            continue
+        numbers = frozenset(match.group(1) for line in lines if (match := INVARIANT_ROW_RE.match(line)))
+        raw = _read_text(REPO_ROOT / rel)[0]
+        tabled = frozenset() if raw is None else frozenset(invariant_rows(strip_fences(raw)))
+        if allocated := numbers & tabled:
+            declared[rel] = allocated
+    return declared
+
+
+# The digits of an `I<n>` id, a suffix included. `L<n>` is the logging sheet's own band, allocated
+# against that sheet (OUT-4), so the ceiling below never counts one.
+INVARIANT_NUMBER_RE: Final = re.compile(r"^I(\d{1,3})")
+# A suffixed row (`I24a`) extends the number above it rather than allocating one, so it answers to
+# the collision arm alone and takes no place in the run.
+ALLOCATING_RE: Final = re.compile(r"^I\d{1,3}$")
+
+
+def _highest_at_fork(at_fork: dict[str, frozenset[str]]) -> int:
+    """The highest number the `I<n>` band reached at the fork, or 0 where none did.
+
+    One namespace across the surface sheets (OUT-4), so the ceiling is the whole band's and never
+    the sheet under test's.
+    """
+    found = (INVARIANT_NUMBER_RE.match(number) for sheet in at_fork.values() for number in sheet)
+    return max((int(match.group(1)) for match in found if match is not None), default=0)
+
+
+def _run_named(highest: int, count: int) -> str:
+    """The numbers OUT-4 leaves a branch adding this many rows, as a finding spells them."""
+    return f"I{highest + 1}" if count == 1 else f"I{highest + 1} to I{highest + count}"
+
+
+def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) -> list[Finding]:
+    """An invariant row this branch adds takes one past the fork's highest number, contiguously (OUT-4).
+
+    Branch-scoped rather than over the corpus: failing a branch for a row it did not write is the
+    standing tax CUR-6 refuses.
+    """
+    added = _added_invariants(additions)
+    # Read only where a row arrived: the listing and a blob per sheet buy nothing on a branch that
+    # touches no invariant table.
+    if not added or branch.fork is None:
+        return []
+    # A sheet git could not read as a rename arrives under a path the fork has no row for, so every
+    # row reads as newly allocated: the cost the comment-length ceiling accepts too, cheaper than
+    # pairing sheets by content.
+    at_fork = _fork_invariants(branch.fork)
+    if at_fork is None:
+        return [_branch_scope_skipped("added invariant rows", "read the fork's spec sheets")]
+    # A number this sheet already carried is the fork's own row reflowed or reordered, and the
+    # shared low band rides in on that arm rather than on an allowlist somebody keeps current.
+    arrived = {rel: added[rel] - at_fork.get(rel, frozenset()) for rel in added}
+    found: list[Finding] = []
+    # What the run is judged over, one sheet each: a number two sheets add is the collision arm's, a
+    # defect already told, and charging it again for its place in the run would be one defect twice.
+    allocating: dict[str, str] = {}
+    for rel in sorted(arrived):
+        for number in sorted(arrived[rel]):
+            elsewhere = {sheet for sheet, numbers in at_fork.items() if number in numbers}
+            # The branch's own other sheets too: two rows added under one number are both new, so
+            # neither is in the fork's population to catch the other.
+            elsewhere |= {sheet for sheet, numbers in arrived.items() if number in numbers}
+            if homes := sorted(elsewhere - {rel}):
+                named = ", ".join(f"`{home}`" for home in homes)
+                detail = f"{number} is defined by {named} already -- OUT-4 takes one past the highest number any sheet defines"
+                found.append(Finding("fail", "invariant-number", rel, detail))
+            elif ALLOCATING_RE.match(number) is not None:
+                allocating[number] = rel
+    highest = _highest_at_fork(at_fork)
+    run = {f"I{highest + offset}" for offset in range(1, len(allocating) + 1)}
+    span = _run_named(highest, len(allocating))
+    for number in sorted(set(allocating) - run):
+        detail = f"{number} is outside {span} -- OUT-4 allocates from one past I{highest}, the highest number any sheet defines at the fork"
+        found.append(Finding("fail", "invariant-number", allocating[number], detail))
+    return found
 
 
 def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
-    """No commit SHA is named in prose or in a comment (COR-6).
+    """No backticked commit SHA in prose or a comment, the spelling COR-6 narrows `sha` to.
 
-    Every SHA and not only a dangling one: resolving each against the clone would enforce "no
-    dangling SHA" under this check's name while every SHA written today passed.
+    Every one, not only a dangling one: resolving each against the clone would enforce "no
+    dangling SHA" under this name while every SHA passed.
     """
     found: list[Finding] = []
     for path in paths:
@@ -303,10 +569,58 @@ def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
     One diff, walked once: a lone pathspec leaves git nothing to detect a rename against. Against
     the working tree, the gate running before the commit exists.
     """
+    return _walk_added(_diff_at(fork))
+
+
+@cache
+def _added_ignoring_renames(fork: str) -> dict[str, list[tuple[int, str]]] | None:
+    """The same walk, rename detection off, for `check_comment_length`.
+
+    A detected rename emits hunks for the edited lines, so a carried block goes unmeasured.
+    `branch_additions` keeps the rename-detecting map, where a moved file's history phrases would
+    read as this branch's own.
+    """
+    return _walk_added(_diff_at(fork, "--no-renames"))
+
+
+RENAME_FROM: Final = "rename from "
+RENAME_TO: Final = "rename to "
+
+
+@cache
+def _renamed_to(fork: str) -> dict[str, str]:
+    """Where the branch files each fork path git reads as a rename, fork name to branch name.
+
+    The line walk keeps rename detection off, so alone it cannot part a moved file from a fresh copy.
+    """
+    pairs: dict[str, str] = {}
+    source, in_header = "", False
+    # The rename-detecting diff `_added_by_file` already takes, so the pairs and that walk can never
+    # disagree about which files git paired, whatever a developer's `diff.renames` says.
+    for line in (_diff_at(fork) or "").split("\n"):
+        if line.startswith("diff --git "):
+            source, in_header = "", True
+        elif HUNK_HEADER_RE.match(line):
+            in_header = False
+        elif in_header and line.startswith(RENAME_FROM):
+            source = line.removeprefix(RENAME_FROM).rstrip("\r")
+        elif in_header and source and line.startswith(RENAME_TO):
+            pairs[source] = line.removeprefix(RENAME_TO).rstrip("\r")
+            source = ""
+    return pairs
+
+
+@cache
+def _diff_at(fork: str, *extra: str) -> str | None:
+    """The branch's diff against the fork, in the one shape every reader of it takes."""
     # Both overrides beat a developer's own config, which silently drops a whole file otherwise:
     # `core.quotePath` spells a non-ASCII path `"b/f\303\274r.md"`, and `diff.noprefix` drops the
     # `b/` this walk keys on. `kernel.py :: _listed` reaches for `-z` against the same hazard.
-    diff = git("-c", "core.quotePath=false", "diff", "-U0", "--src-prefix=a/", "--dst-prefix=b/", fork)
+    return git("-c", "core.quotePath=false", "diff", "-U0", *extra, "--src-prefix=a/", "--dst-prefix=b/", fork)
+
+
+def _walk_added(diff: str | None) -> dict[str, list[tuple[int, str]]] | None:
+    """One diff's added lines per file, or None where git would not give the diff."""
     if diff is None:
         return None
     added: dict[str, list[tuple[int, str]]] = {}
@@ -358,10 +672,10 @@ def branch_additions(branch: Branch) -> dict[str, list[str]]:
     """
     additions: dict[str, list[str]] = {}
     for rel, lines in ((_added_by_file(branch.fork) if branch.fork is not None else None) or {}).items():
-        # By whole name, as `_bounded` and `kernel.py :: _of_kind` select the same population: an
-        # `endswith` also admits a page whose own name merely ENDS in one, `docs/<page>-pre-commit`,
-        # which neither of those two holds.
-        if not (rel.endswith((*SCANNED_SUFFIXES, ".md")) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES):
+        # The corpus `kernel.py :: _of_kind` lists, by whole name as it selects: an `endswith`
+        # admits a page whose name merely ENDS in one, `docs/<page>-pre-commit`. A file read whole
+        # is here for `history`, which reads a sentence rather than a comment.
+        if not (rel.endswith((*SCANNED_SUFFIXES, ".md")) or rel.rsplit("/", 1)[-1] in (*OPS_FILENAMES, *PROSE_FILENAMES)):
             continue
         scanned = _scan_body(REPO_ROOT / rel).split("\n")
         for number, _ in lines:
@@ -388,7 +702,7 @@ def check_history_phrases(additions: dict[str, list[str]]) -> list[Finding]:
     return found
 
 
-DIFF_READERS: Final = "history, added comment citations and comment length"
+DIFF_READERS: Final = "history, added comment citations, added invariant rows and comment length"
 
 
 def check_branch_diff(branch: Branch) -> list[Finding]:
@@ -399,7 +713,7 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
     """
     if branch.fork is None:
         return [_branch_scope_skipped(DIFF_READERS, branch.unresolved)]
-    if _added_by_file(branch.fork) is not None:
+    if _added_by_file(branch.fork) is not None and _added_ignoring_renames(branch.fork) is not None:
         return []
     return [_branch_scope_skipped(DIFF_READERS, "read this branch's diff")]
 
@@ -410,6 +724,8 @@ def _bounded(rel: str) -> bool:
     `comment_style` answers every kind rather than refusing one, so selecting by tree would hand the
     images under `fl_frontend/src/` to the `#` reader.
     """
+    # Never the prose register: `comment_runs` would skip a prose file's `#`-opening run as a header
+    # that no header check measures, so its lines would be held to neither bound.
     return rel.endswith(SCANNED_SUFFIXES) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES
 
 
@@ -420,7 +736,7 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         return []
     # The one diff, rather than a second `--name-only` call: a file changed by deletions alone has
     # no added line for a block to sit inside.
-    added = _added_by_file(fork)
+    added = _added_ignoring_renames(fork)
     if added is None:
         return []
     found: list[Finding] = []
@@ -431,5 +747,10 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         raw = _read_text(path)[0]
         if raw is None:
             continue
-        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_blob_at, fork, rel)))
+        measured = check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_fork_pool, fork))
+        # One cached read answers every file alike, so a refusal from it is the run's whole answer
+        # rather than the same sentence once per file.
+        if measured and measured[0].check == "branch-scope":
+            return measured
+        found.extend(measured)
     return found

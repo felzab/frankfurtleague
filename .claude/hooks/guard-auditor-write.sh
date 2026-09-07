@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
+# HOOKS · the cold auditor's tree, read-only by mechanism rather than by a brief
 # PreToolUse hook on Write|Edit|NotebookEdit, declared by `.claude/agents/cold-auditor.md`: refuses
 # a write inside the repository. That agent's report is its final message rather than a file, so the
-# `Write` grant reaches nothing it is asked for and this refusal is what the grant still buys: the
-# tree stays read-only by mechanism, not by a brief.
+# `Write` grant reaches nothing it is asked for and this refusal is what the grant still buys.
 
 deny() {
   printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: a cold-auditor agent makes no write inside the repository, and this path is inside it. Describe the finding in your report, which is your final message rather than a file; the coordinator applies fixes."}}'

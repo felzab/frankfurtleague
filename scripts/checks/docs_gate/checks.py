@@ -12,12 +12,15 @@ alone; the readers, caches and vocabulary are `kernel.py`'s; the German copy rul
 from __future__ import annotations
 
 import argparse
-import os
+import ast
+import posixpath
 import re
 import sys
+from bisect import bisect_right
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path, PurePosixPath
-from typing import Final
+from typing import Any, Final
 
 import check_pr_body
 import checker_kernel
@@ -27,12 +30,15 @@ from .branch import (
     Branch,
     branch_additions,
     check_added_citations,
+    check_added_invariant_rows,
     check_branch_diff,
     check_comment_bounds,
     check_history_phrases,
     check_prose_shas,
+    fork_page,
 )
 from .copy_rules import check_copy_rules
+from .error_codes import ERROR_CODES_PAGE, check_error_codes
 from .kernel import (
     BACKTICK_RE,
     BACKTICK_SPAN_RE,
@@ -42,23 +48,34 @@ from .kernel import (
     DOCS_DIR,
     ENTRY_TOKEN_ALPHABET,
     ENTRY_TOKEN_PATTERN,
+    FENCE_RE,
+    GATE,
     GLOSSARY_PAGE,
+    HEADER_SUFFIXES,
+    INVARIANT_ID_RE,
     OPS_FILENAMES,
+    OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
+    PROSE_FILENAMES,
+    PROTOCOL_PAGE,
+    QUOTED_SPAN_RE,
     REPO_PREFIXES,
     REPO_ROOT,
     ROADMAP_PAGE,
     SCANNED_SUFFIXES,
     SPEC_GLOB,
+    SPEC_SECTIONS,
     STANDARD_PAGE,
     SWEEP_PAGE,
     TEMPLATES_PAGE,
+    Check,
     Finding,
     _header_line,
     _module_header,
     _read_text,
     _readable,
     _scan_body,
+    _section,
     _tree_index,
     _untracked_index,
     anchors_of,
@@ -66,9 +83,13 @@ from .kernel import (
     comment_runs,
     comment_style,
     defined_symbols,
+    holds_file,
+    holds_path,
+    invariant_rows,
     is_entry_token,
     is_gitignored,
     is_placeholder,
+    is_prose,
     line_of,
     repo_path,
     scanned_files,
@@ -85,22 +106,71 @@ from .scheme import check_scheme_tokens
 
 # The label is bounded because a bold sentence ending in a colon is prose, and holding prose to a
 # layout rule gets a check ignored.
-METADATA_LINE_RE: Final = re.compile(r"^\*\*([A-Z][A-Za-z ]{0,30}):\*\*(?:\s|$)")
+METADATA_LABEL: Final = r"\*\*([A-Z][A-Za-z ]{0,30}):\*\*"
+# Column 0 on purpose: indented, a discovery pattern run over every page meets the bold sentence a
+# list item opens with, and reports prose. An answer would have to tell a nested metadata block
+# from one.
+METADATA_LINE_RE: Final = re.compile(rf"^{METADATA_LABEL}(?:\s|$)")
 # Whitespace before the second label is spared: a report header may carry fields on one physical
 # line on purpose.
-METADATA_JOIN_RE: Final = re.compile(r"(?:(\\n)\s*|(?<=\S))\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
+METADATA_JOIN_RE: Final = re.compile(rf"(?:(\\n)\s*|(?<=\S)){METADATA_LABEL}")
 
 
-RULE_HEAD_RE: Final = re.compile(r"^((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b(.*)$")
-# The indent-tolerant twin of `METADATA_LINE_RE`, which no check calls: it exists for the corpus to
-# cite through `check_docs.py`'s re-export when arguing what an anchored pattern cannot reach.
-RULE_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Z][A-Za-z ]{0,30}):\*\*", re.MULTILINE)
-RULE_INDEX_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}):\*\*", re.MULTILINE)
+# The families the standard states, read off its list lines by a reader closed on none of them
+# (PRE-4), so a family added under a new prefix is checked from the commit that adds it.
+RULE_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*([A-Z]+)-\d{1,2}:\*\*", re.MULTILINE)
+# Its headings too: a rule written as a section under a new family is the shape `rule-shape`
+# exists to refuse, and a family read off the list lines alone never sees it.
+RULE_HEADING_RE: Final = re.compile(r"^ {0,3}###[ \t]+([A-Z]+)-\d{1,2}\b", re.MULTILINE)
+# Where a pattern below takes the derived alternation.
+FAMILY_SLOT: Final = "<family>"
+
+
+class RulePattern:
+    """A pattern over rule ids, compiled on first use from the families the standard states.
+
+    Lazy, the standard being read per run and never at import; `cache_clear` is what the fixture
+    net's cache reset calls on every memo here.
+    """
+
+    __slots__ = ("_compiled", "_flags", "_template")
+
+    def __init__(self, template: str, flags: int = 0) -> None:
+        self._template = template
+        self._flags = flags
+        self._compiled: re.Pattern[str] | None = None
+
+    def _pattern(self) -> re.Pattern[str]:
+        if self._compiled is None:
+            self._compiled = re.compile(self._template.replace(FAMILY_SLOT, rule_family()), self._flags)
+        return self._compiled
+
+    def cache_clear(self) -> None:
+        self._compiled = None
+
+    def match(self, text: str) -> re.Match[str] | None:
+        return self._pattern().match(text)
+
+    def fullmatch(self, text: str) -> re.Match[str] | None:
+        return self._pattern().fullmatch(text)
+
+    def findall(self, text: str) -> list[Any]:
+        return self._pattern().findall(text)
+
+    def __getattr__(self, name: str) -> Any:
+        """Every other attribute from the compiled pattern, so an export of one is a whole pattern.
+
+        The three methods above are typed for their callers; `search`, `finditer` and `sub` reach
+        one through here rather than failing at the export.
+        """
+        return getattr(self._pattern(), name)
+
+
+RULE_HEAD_RE: Final = RulePattern(r"^(<family>-\d{1,2})\b(.*)$")
 # Runs to the next rule bullet or heading, not to a blank line: a list item's continuation is
 # indented under it, so a blank line inside one ends nothing.
-RULE_INDEX_BLOCK_RE: Final = re.compile(
-    r"^[ \t]*[-*]\s+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}:\*\*(.*?)"
-    r"(?=^[ \t]*[-*][ \t]+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-|^#|\Z)",
+RULE_INDEX_RE: Final = RulePattern(
+    r"^[ \t]*[-*]\s+\*\*(<family>-\d{1,2}):\*\*(.*?)(?=^[ \t]*[-*][ \t]+\*\*<family>-|^#|\Z)",
     re.MULTILINE | re.DOTALL,
 )
 # Either emphasis marker: prettier rewrites `*text*` to `_text_`, so matching one spelling leaves
@@ -121,15 +191,36 @@ SEGMENT_SAMPLE: Final = 8
 # The checker whose quoted fragments `template-fragment` confirms, named so a fault in the list
 # itself points at the file to fix rather than at the form it reads.
 PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
+# Where a finding about a registered claim is filed: the row to repair is there.
+KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
+# Named by a finding about the tag derivation, for the same reason.
+CHECKS_PAGE: Final = "scripts/checks/docs_gate/checks.py"
+
+# Fence info strings a renderer other than mermaid reads, so a diagram in one is one GitHub draws
+# for nobody (OUT-7). Kept by hand: nothing this repository holds enumerates them, so no
+# derivation can stand in for the list (COR-4).
+DIAGRAM_LANGUAGES: Final[frozenset[str]] = frozenset(
+    {"plantuml", "puml", "dot", "graphviz", "d2", "ditaa", "nomnoml", "svgbob", "structurizr", "c4plantuml", "wavedrom", "kroki"}
+)
+MERMAID: Final = "mermaid"
+# Mermaid's own quoting of a node label. A square bracket inside one is shape syntax to its
+# parser, so the label OUT-7 refuses is exactly what a renderer refuses.
+QUOTED_LABEL_RE: Final = re.compile(r'"([^"\n]*)"')
+BRACKETS: Final = "[]"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     STANDARD_PAGE,
     ROADMAP_PAGE,
+    PROTOCOL_PAGE,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
     SWEEP_PAGE,
+    ERROR_CODES_PAGE,
+    # The register's own name is the path: the notice a distribution reads sits at the root.
+    # Renamed, it drops out of the corpus listing while every check that reads it stays wired.
+    *PROSE_FILENAMES,
 )
 
 # The file both byte checks answer to, and what each names when the fault is the listing rather
@@ -146,17 +237,19 @@ CRLF_MANDATED: Final = "eol=crlf"
 # `check_binary_bytes`: content cannot decide it, the byte hunted there being what misleads git.
 DECLARED_BINARY: Final = "-text"
 
-# The closing sections are fixed so a growing contract cannot push Invariants down and silently
-# repoint every citation of section 3 — which is what makes an invariant number safe to cite.
-SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 SPEC_SUBSECTION_RE: Final = re.compile(r"^1\.(\d+)\b")
 SPEC_COLUMNS: Final = 3
-# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
-# enough that an id is resolved against every sheet.
-INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 INVARIANT_REF_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-Za-z0-9])")
 # The invariant table's other rows: what `INVARIANT_ID_RE` skips reaches no arm keyed on an id.
 TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
+
+# The two patterns `scripts/gate/selfcheck.sh` step 4 arms its verb reader on, in that script's own
+# dialect: the spellings compare literal for literal once each side's escaping is dropped
+# (`scripts/tests/test_selfcheck_guards.py :: test_the_verb_table_is_read_off_the_same_two_literals`).
+OUTPUT_STANDARD_LEAD_IN: Final = r"^\*\*The output standard\."
+# Retyped rather than read out of `scripts/lib/_lib.sh`: `kernel.py :: defined_symbols` reads
+# Python alone, and a bash reader this gate has no other use for is the wrong price.
+OUTPUT_VERB_COLUMN: Final = r"^\| `[a-z_]+`"
 
 OVERVIEW_OPENING: Final = "How it is organised"
 OVERVIEW_CLOSING: Final = "Read next"
@@ -168,40 +261,61 @@ GLOSSARY_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Za-z][A-Za-z ]*):\*\*", r
 GLOSSARY_FIELDS: Final[tuple[str, ...]] = ("Is", "In code", "Trap", "See")
 
 
-INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
-
-
 # `check_commits.py :: ENTRY_HEADING_DIFF_RE` reads this same heading out of a diff. The id is
 # captured loose so a malformed one is caught against the alphabet rather than dropping out of a
 # listing the alphabet selected (PRE-4).
-ROADMAP_ENTRY_RE: Final = re.compile(r"^ {0,3}###[ \t]+`?([^\s`]+)`?[ \t]+·", re.MULTILINE)
+ROADMAP_HEADING_SEPARATOR: Final = "·"
+ROADMAP_ENTRY_RE: Final = re.compile(rf"^ {{0,3}}###[ \t]+`?([^\s`]+)`?[ \t]+{ROADMAP_HEADING_SEPARATOR}[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 # An index row is a table row opening on an id. The token's shape is what separates one from the
 # file's other tables, and a heading is where a malformed id is caught instead.
 ROADMAP_INDEX_ROW_RE: Final = re.compile(rf"^[ \t]*\|\s*`({ENTRY_TOKEN_PATTERN})`\s*\|(.*)$", re.MULTILINE)
 # The index row's columns past the id, in the order `docs/_roadmap/protocol.md` states: a column
 # order read out of the row instead would be whatever the row happened to carry.
+ROADMAP_CLAIM_CELL: Final = 0
 ROADMAP_TAGS_CELL: Final = 1
+ROADMAP_STATUS_CELL: Final = 2
 ROADMAP_ROW_CELLS: Final = 3
 # Closed exists for no commit at all: the `Closes:` trailer concluding an entry deletes it.
 ROADMAP_TRANSIENT_STATUS: Final = "Closed"
+# The one status that is a claim about another entry, which is why it is held to the column beside
+# it rather than to the vocabulary alone.
+ROADMAP_BLOCKED_STATUS: Final = "Blocked"
+# The two field columns read by name. A position would read the neighbouring field where a sheet
+# adds a column, and both tables here have carried different ones.
+STATUS_COLUMN: Final = "Status"
+DEPENDS_COLUMN: Final = "Depends on"
+# Which rows of `PROTOCOL_PAGE`'s status table carry a value: the derivation numbers its rules, and
+# the delimiter row's dashes are what this parts them from.
+PROTOCOL_RULE_RE: Final = re.compile(r"^\d+$")
+# The section that derives the statuses, by the number the page's own prose and every finding here
+# cite it under (§4); its heading's words are free to move.
+PROTOCOL_STATUS_SECTION: Final = "4."
 
 # One table row's cells, the outer pipes' empty halves dropped.
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
+TABLE_DELIMITER_RE: Final = re.compile(r"^:?-+:?$")
 
-# `docs/_roadmap/items.md`'s tag derivation table, as far as a path can carry it. A path is
-# resolved before it is matched, so a prefix here is a real subtree rather than a spelling.
+# What `_check_tag_derivation` holds `docs/_roadmap/items.md`'s derivation table to, as far as a
+# path can carry it. A path is resolved before it is matched, so a prefix here is a real subtree
+# rather than a spelling.
 TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("FE", ("fl_frontend/",)),
     ("BE", ("fl_backend/",)),
     ("DB", ("fl_backend/app/core/crud.py",)),
-    ("Ops", ("scripts/", "nginx/", ".githooks/")),
+    # `.claude/hooks/` sits under `Docs`' prefix as well, and a hook is a guard rather than a page:
+    # derived as documentation alone it is invisible to the filter its own work answers to.
+    ("Ops", ("scripts/", "nginx/", ".githooks/", ".claude/hooks/")),
     # A `corpus` row's paths would be this row's exactly, which is one fact stated twice (COR-2).
     ("Docs", ("docs/", ".claude/")),
-    ("gate", ("scripts/gate/", "scripts/checks/", ".githooks/")),
+    ("gate", ("scripts/gate/", "scripts/checks/", ".githooks/", ".claude/hooks/")),
     ("ci", (".github/",)),
     ("tests", ("scripts/tests/", "fl_backend/tests/")),
     ("edge", ("nginx/",)),
 )
+# The two columns of that table read by name, for `STATUS_COLUMN`'s reason.
+DERIVATION_VOCABULARY_COLUMN: Final = "Vocabulary"
+DERIVATION_SOURCE_COLUMN: Final = "Derived from a path or symbol under"
+
 # The axes, in the order the Tags cell writes them. A slice is the third axis and the tree's own,
 # so it is not spelled here.
 SURFACE_TAGS: Final[tuple[str, ...]] = ("FE", "BE", "DB", "Ops", "Docs")
@@ -230,10 +344,8 @@ TAG_SEPARATOR_RE: Final = re.compile(r"[,·]")
 # the line are resolved.
 BATCH_LINE_RE: Final = re.compile(r"^[ \t]*Lands with:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 
-# Quoted and backticked spans come out first: naming the phrase to ban it, as the rule itself
-# does, is a mention rather than a use.
+# Read with `QUOTED_SPAN_RE`'s spans taken out, for that pattern's reason.
 OWNER_PHRASE_RE: Final = re.compile(r"\bthe owner\b", re.IGNORECASE)
-QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
 OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
 
@@ -261,6 +373,36 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
     return blocks
 
 
+def _families(text: str) -> frozenset[str]:
+    """The rule families one copy of the standard states, as list lines or as sections."""
+    return frozenset(RULE_LINE_RE.findall(text)) | frozenset(RULE_HEADING_RE.findall(text))
+
+
+@cache
+def rule_prefixes() -> frozenset[str]:
+    """The families the standard states, here and at the branch's fork, as list lines or sections.
+
+    A family this branch retires keeps its citations checked (PRE-4); with no fork readable, this
+    tree's families alone.
+    """
+    text = _tracked_text(STANDARD_PAGE)
+    if text is None:
+        # The disk where the index declines the page: an untracked standard's ids still have to be
+        # recognised, or every citation of one passes in silence instead of failing.
+        raw = _read_text(REPO_ROOT / STANDARD_PAGE)[0]
+        text = None if raw is None else strip_fences(raw)
+    # The fork's copy too: a family gone from this tree matches no pattern, so every citation of
+    # one drops out of `rule-id`'s listing rather than failing it (PRE-4).
+    earlier = fork_page(STANDARD_PAGE)
+    return _families(text or "") | _families("" if earlier is None else strip_fences(earlier))
+
+
+def rule_family() -> str:
+    """The derived families as one alternation, matching nothing where there are none."""
+    prefixes = sorted(rule_prefixes())
+    return "(?:" + "|".join(prefixes) + ")" if prefixes else "(?!)"
+
+
 def rule_ids() -> dict[str, list[str]]:
     """Every rule id `docs/_standard/standard.md` defines, mapped to its homes (PRE-4).
 
@@ -273,24 +415,24 @@ def rule_ids() -> dict[str, list[str]]:
         return ids
     for rule_id, _, _ in rule_blocks(text):
         ids.setdefault(rule_id, []).append("a section")
-    for rule_id in RULE_INDEX_LINE_RE.findall(text):
+    for rule_id, _ in _rule_lines(text):
         ids.setdefault(rule_id, []).append("a list line")
     return ids
 
 
 def invariant_ids() -> dict[str, list[str]]:
-    """Every `I<n>` an invariant table defines, mapped to the sheets defining it.
+    """Every id an invariant table defines, mapped to the sheets defining it.
 
-    OUT-4 makes a number permanent per sheet, not unique across them, so one id names different
-    rules on different sheets -- hence the list.
+    The list survives the one namespace OUT-4 now fixes: the low band two sheets each define
+    predates it, and renumbering it would invalidate every citation.
     """
     ids: dict[str, list[str]] = {}
     for spec in tracked_glob(SPEC_GLOB):
-        if (text := _read_text(spec)[0]) is None:
+        if (body := _readable(spec)) is None:
             continue
         rel = spec.relative_to(REPO_ROOT).as_posix()
-        for match in INVARIANT_ROW_RE.finditer(text):
-            homes = ids.setdefault(match.group(1), [])
+        for invariant in invariant_rows(body):
+            homes = ids.setdefault(invariant, [])
             if rel not in homes:
                 homes.append(rel)
     return ids
@@ -353,30 +495,35 @@ def check_roadmap() -> list[Finding]:
 
     Nothing here reads a position: entries are categorised by their tags rather than ordered.
     """
+    found = _check_status_vocabulary()
     rel = ROADMAP_PAGE
     page = tracked_page(rel)
     if page is None:
         # Absence is `check_inputs`' alone. A page on disk but untracked is neither absent nor
         # selected by anything reading the corpus, so this is the one place it is not green.
         if (REPO_ROOT / rel).exists():
-            return [Finding("fail", "roadmap-shape", rel, "untracked, so the roadmap was read against nothing")]
-        return []
+            found.append(Finding("fail", "roadmap-shape", rel, "untracked, so the roadmap was read against nothing"))
+        return found
     if (body := _readable(page)) is None:
-        return [Finding("fail", "roadmap-shape", rel, "unreadable, so the roadmap was read against nothing")]
-    return _check_roadmap_page(rel, body)
+        found.append(Finding("fail", "roadmap-shape", rel, "unreadable, so the roadmap was read against nothing"))
+        return found
+    return found + _check_roadmap_page(rel, body)
 
 
-def _entry_sections(body: str) -> list[tuple[str, str]]:
-    """Each entry as the id its heading carries and the lines under it, in the page's own order."""
+def _entry_sections(body: str) -> list[tuple[str, str, str]]:
+    """Each entry as the id its heading carries, the claim beside it, and the lines under it.
+
+    In the page's own order, which is what the run check reads.
+    """
     lines = body.split("\n")
     # Every heading carrying the separator, whatever the id looks like: this is the listing the id
     # itself is judged from, so selecting by a well-formed id would leave a malformed one unjudged
     # (PRE-4).
-    opened = [(match.group(1), number) for number, line in enumerate(lines) if (match := ROADMAP_ENTRY_RE.match(line))]
-    sections: list[tuple[str, str]] = []
-    for token, start in opened:
+    opened = [(match.group(1), match.group(2), number) for number, line in enumerate(lines) if (match := ROADMAP_ENTRY_RE.match(line))]
+    sections: list[tuple[str, str, str]] = []
+    for token, claim, start in opened:
         end = next((n for n in range(start + 1, len(lines)) if _leaves_entry(lines[n])), len(lines))
-        sections.append((token, "\n".join(lines[start:end])))
+        sections.append((token, claim, "\n".join(lines[start:end])))
     return sections
 
 
@@ -394,6 +541,89 @@ def _table_rows(text: str) -> list[list[str]]:
     return rows
 
 
+def _protocol_section(text: str) -> str:
+    """The section of `PROTOCOL_PAGE` numbered `PROTOCOL_STATUS_SECTION`, or nothing where no heading carries the number."""
+    heading = next((head for head in _headings(text, 2) if head.startswith(PROTOCOL_STATUS_SECTION)), None)
+    return "" if heading is None else _section(text, heading)
+
+
+@cache
+def protocol_statuses() -> frozenset[str]:
+    """The statuses `PROTOCOL_PAGE` §4 derives, read from the table deriving them.
+
+    A vocabulary retyped here would go stale with the gate green either way (COR-4), the argument
+    `scripts/checks/docs_gate/checks.py :: slice_names` rests on too.
+    """
+    text = _tracked_text(PROTOCOL_PAGE)
+    if text is None:
+        return frozenset()
+    values: set[str] = set()
+    column: int | None = None
+    # The one section: a `Status`-headed table elsewhere on the page is an example of the page's
+    # shape, and a reader re-arming on any header would widen the vocabulary by it.
+    for cells in _table_rows(_protocol_section(text)):
+        # The header arms the read and fixes the column, so a table with no `Status` heading over it
+        # contributes nothing however its rows are numbered.
+        if STATUS_COLUMN in cells:
+            column = cells.index(STATUS_COLUMN)
+        elif column is not None and column < len(cells) and PROTOCOL_RULE_RE.match(cells[0]):
+            # The bold comes off because the derivation marks its answer.
+            values.add(cells[column].strip("*").strip())
+    return frozenset(values)
+
+
+def _check_status_vocabulary() -> list[Finding]:
+    """§4's table still yields a vocabulary, or every status cell below was compared with nothing.
+
+    Absence is `check_inputs`' finding; an empty vocabulary switches the arm reading it off in
+    silence, so each way of emptying one is reported.
+    """
+    rel = PROTOCOL_PAGE
+    page = tracked_page(rel)
+    if page is None:
+        if (REPO_ROOT / rel).exists():
+            return [Finding("fail", "roadmap-shape", rel, "untracked, so the status vocabulary was derived from nothing")]
+        return []
+    if _readable(page) is None:
+        return [Finding("fail", "roadmap-shape", rel, "unreadable, so the status vocabulary was derived from nothing")]
+    if protocol_statuses():
+        return []
+    detail = f"§4's table yields no status, so `{ROADMAP_PAGE}`'s status cells were held to nothing"
+    return [Finding("fail", "roadmap-shape", rel, detail)]
+
+
+def _entry_table(section: str) -> dict[str, str]:
+    """One entry's field table, its columns mapped to the values row beneath them.
+
+    Read by name: the two tables here carry different columns, so a position would read the
+    neighbouring field on whichever grows first.
+    """
+    rows = _table_rows(section)
+    head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
+    if head is None:
+        return {}
+    for cells in rows[head + 1 :]:
+        if cells and all(TABLE_DELIMITER_RE.match(cell) for cell in cells):
+            continue
+        return dict(zip(rows[head], cells, strict=False))
+    return {}
+
+
+def _filed_once(tokens: list[str]) -> list[str]:
+    """The well-formed tokens in page order, a repeat dropped.
+
+    A malformed id and a second entry under one id are each reported above, and reporting them here
+    too would give one defect two findings.
+    """
+    seen: set[str] = set()
+    run: list[str] = []
+    for token in tokens:
+        if is_entry_token(token) and token not in seen:
+            seen.add(token)
+            run.append(token)
+    return run
+
+
 def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     """The file's entries against its index table, its ids, its batches and the tags they name."""
     found: list[Finding] = []
@@ -401,7 +631,7 @@ def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     rows = {match.group(1): match.group(2) for match in ROADMAP_INDEX_ROW_RE.finditer(body)}
 
     seen: set[str] = set()
-    for token, _ in sections:
+    for token, _, _ in sections:
         if not is_entry_token(token):
             detail = f"entry id `{token}` is not four characters of `{ENTRY_TOKEN_ALPHABET}`, a hyphen, and four more"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
@@ -417,11 +647,21 @@ def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     for token in sorted(set(rows) - valid):
         found.append(Finding("fail", "roadmap-shape", rel, f"index row {token} has no entry below it"))
 
-    paired = [(token, section) for token, section in sections if token in valid and token in rows]
+    paired = [(token, section) for token, _, section in sections if token in valid and token in rows]
+    # One entry per id, the first: the arms below hold a row to an entry, and a second entry under
+    # that id would hold the one row twice.
+    filed: dict[str, tuple[str, str]] = {}
+    for token, claim, section in sections:
+        if token in valid and token in rows:
+            filed.setdefault(token, (claim, section))
     found.extend(_check_flat_run(rel, body))
+    found.extend(_check_tag_derivation(rel, body))
     found.extend(_check_batches(rel, valid, paired))
     found.extend(_check_transient_status(rel, rows, paired))
     found.extend(_check_derived_tags(rel, rows, paired))
+    found.extend(_check_status_agreement(rel, rows, filed))
+    found.extend(_check_claim_agreement(rel, rows, filed))
+    found.extend(_check_token_order(rel, [token for token, _, _ in sections], rows, filed))
     return found
 
 
@@ -441,6 +681,86 @@ def _check_flat_run(rel: str, body: str) -> list[Finding]:
         if (heading := atx_heading(lines[number], 2)) is not None:
             detail = f"`{heading}` groups the entries below it -- the run is flat, and the tag column is the category"
             found.append(Finding("fail", "roadmap-shape", rel, detail, number + 1))
+    return found
+
+
+def _derivation_rows(body: str) -> list[list[str]] | None:
+    """The derivation table's rows, or None where the page opens no table carrying both columns.
+
+    Bounded at the first line that is not a row, so a later table's rows cannot stand in for a row
+    this one lost.
+    """
+    lines = body.split("\n")
+    wanted = {DERIVATION_VOCABULARY_COLUMN, DERIVATION_SOURCE_COLUMN}
+    opened = next((number for number, line in enumerate(lines) if wanted <= set(next(iter(_table_rows(line)), []))), None)
+    if opened is None:
+        return None
+    kept: list[str] = []
+    for line in lines[opened:]:
+        if not TABLE_LINE_RE.match(line):
+            break
+        kept.append(line)
+    return _table_rows("\n".join(kept))
+
+
+def _unheld_sources(prefixes: frozenset[str], cell: str) -> list[str]:
+    """Every path-shaped token in the source cell the comparison below reads neither way.
+
+    A name resolving under a prefix the cell itself writes qualifies that prefix's reach; one
+    resolving nowhere derives the tag from a path nothing here holds.
+    """
+    dropped: set[str] = set()
+    for token in BACKTICK_RE.findall(cell):
+        if token.startswith(REPO_PREFIXES) or is_placeholder(token):
+            continue
+        # A slash or a scanned suffix is what parts a path from the prose this column carries
+        # beside one: a `Dockerfile` and a compose service both derive a tag and name no subtree.
+        if ("/" not in token and not token.endswith(SCANNED_SUFFIXES)) or any(holds_path(prefix + token) for prefix in prefixes):
+            continue
+        dropped.add(token)
+    return sorted(dropped)
+
+
+def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
+    """The page's derivation table against `TAG_PATH_SOURCES`, both directions.
+
+    One fact in two places otherwise: a prefix dropped from either leaves the tag derived one way
+    and documented the other, with nothing pairing them.
+    """
+    # `TAGS_DERIVED_ONE_WAY` off, its rows naming a collection and a manifest this tuple cannot
+    # spell; the slice row is prose in the vocabulary column and matches no tag at all.
+    held = {tag: frozenset(prefixes) for tag, prefixes in TAG_PATH_SOURCES if tag not in TAGS_DERIVED_ONE_WAY}
+    rows = _derivation_rows(body)
+    if rows is None:
+        headed = f"`{DERIVATION_VOCABULARY_COLUMN}` and `{DERIVATION_SOURCE_COLUMN}`"
+        return [Finding("fail", "roadmap-shape", rel, f"opens no table under {headed}, so no tag's paths were held to the gate's")]
+
+    written: dict[str, frozenset[str]] = {}
+    unheld: dict[str, list[str]] = {}
+    columns = (rows[0].index(DERIVATION_VOCABULARY_COLUMN), rows[0].index(DERIVATION_SOURCE_COLUMN))
+    for cells in rows[1:]:
+        if max(columns) >= len(cells):
+            continue
+        tag = cells[columns[0]].strip("*` ")
+        if tag in held:
+            written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(REPO_PREFIXES))
+            unheld[tag] = _unheld_sources(written[tag], cells[columns[1]])
+
+    found: list[Finding] = []
+    for tag, prefixes in sorted(held.items()):
+        if tag not in written:
+            detail = f"the derivation table states no row for `{tag}`, so its paths were held to nothing"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+            continue
+        for prefix in sorted(written[tag] - prefixes):
+            detail = f"the derivation table derives `{tag}` from `{prefix}`, which `{CHECKS_PAGE}`'s own derivation does not"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for prefix in sorted(prefixes - written[tag]):
+            detail = f"the gate derives `{tag}` from `{prefix}`, and the derivation table's row does not name it"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for token in unheld[tag]:
+            detail = f"the derivation table derives `{tag}` from `{token}`, which names a path the gate derives nothing from"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 
@@ -487,6 +807,85 @@ def _check_transient_status(rel: str, rows: dict[str, str], paired: list[tuple[s
         for token, section in paired
         if any(ROADMAP_TRANSIENT_STATUS in cells for cells in _table_rows(section))
     )
+    return found
+
+
+def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """Both listings' status cells, held to each other and to `PROTOCOL_PAGE` §4's closed set.
+
+    A value repaired in one listing and left in the other leaves the index saying one thing and the
+    entry another.
+    """
+    vocabulary = protocol_statuses()
+    found: list[Finding] = []
+    for token, (_, section) in filed.items():
+        cells = _row_cells(rows[token])
+        # A row of another width is `_check_derived_tags`' finding, and its cells place nothing.
+        if len(cells) != ROADMAP_ROW_CELLS:
+            continue
+        fields = _entry_table(section)
+        row_status = cells[ROADMAP_STATUS_CELL]
+        entry_status = fields.get(STATUS_COLUMN, "")
+        if row_status != entry_status:
+            detail = f"index row {token} states `{row_status}` where its entry states `{entry_status}` -- one status, written twice"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for where, value in (("index row", row_status), ("entry", entry_status)):
+            # An empty cell is reported here or nowhere: it agrees with the empty cell beside it, so
+            # the arm above passes a page emptied on both sides. The transient value is
+            # `_check_transient_status`' finding, which this arm therefore leaves alone.
+            if not value:
+                found.append(Finding("fail", "roadmap-shape", rel, f"{where} {token} states no status"))
+            elif vocabulary and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
+                detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
+        cell = fields.get(DEPENDS_COLUMN, "")
+        named = BACKTICK_RE.findall(cell) or [cell.strip()]
+        # Ahead of the status fork: a dependency on oneself never clears, whatever the status says,
+        # and the `Blocked` arm below would read it as a blocker filed.
+        if token in named:
+            found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} names itself in `{DEPENDS_COLUMN}`"))
+        # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it --
+        # token by token, one filed being enough, since a cell names every blocker at once.
+        elif ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and not any(one in rows for one in named):
+            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+    return found
+
+
+def _check_claim_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """The index row's claim against the heading it files.
+
+    Held identical rather than free to shorten, because nothing mechanical separates a shortening
+    from a claim that has drifted -- which is what a reader filtering the index acts on.
+    """
+    found: list[Finding] = []
+    for token, (claim, _) in filed.items():
+        cells = _row_cells(rows[token])
+        if len(cells) != ROADMAP_ROW_CELLS:
+            continue
+        if cells[ROADMAP_CLAIM_CELL] != claim:
+            detail = f"index row {token} states a claim its entry's heading does not repeat -- one claim, written twice"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+    return found
+
+
+def _check_token_order(rel: str, opened: list[str], rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """Each listing is one ascending run of tokens, the order `sorted()` gives.
+
+    Two concatenated runs read as one, so a reader who reached the end of the first took a token's
+    absence for an answer.
+    """
+    # A token the pairing above already reported is in neither run, or one defect there would end a
+    # run here as well.
+    entries = [token for token in _filed_once(opened) if token in filed]
+    indexed = [token for token in rows if token in filed]
+    found: list[Finding] = []
+    for one, many, tokens in (("entry", "entries", entries), ("index row", "index rows", indexed)):
+        # The first out-of-order pair alone: what follows it is whatever the unfolded run left.
+        pair = next(((this, next_one) for this, next_one in zip(tokens, tokens[1:], strict=False) if this > next_one), None)
+        if pair is not None:
+            detail = f"{one} {pair[1]} follows {pair[0]} -- the {many} are one run in token order"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 
@@ -621,20 +1020,6 @@ def _headings(body: str, level: int) -> list[str]:
     return [text for line in body.split("\n") if (text := atx_heading(line, level)) is not None]
 
 
-def _section(body: str, heading: str) -> str:
-    """One `## <heading>` section's body.
-
-    Matched through `atx_heading`: a verbatim line match empties the section on a trailing space,
-    and a subsection check over nothing passes.
-    """
-    lines = body.split("\n")
-    start = next((index for index, line in enumerate(lines) if atx_heading(line, 2) == heading), None)
-    if start is None:
-        return ""
-    end = next((index for index in range(start + 1, len(lines)) if atx_heading(lines[index], 2) is not None), len(lines))
-    return "\n".join(lines[start + 1 : end])
-
-
 def check_spec_sheets() -> list[Finding]:
     """OUT-4's spine over every spec sheet: its sections, and the contract's numbering.
 
@@ -690,7 +1075,7 @@ def check_invariant_tables() -> list[Finding]:
         return [Finding("fail", "invariant-row", DOCS_DIR, "no tracked spec sheet, so no invariant table is checked")]
 
     bodies = {sheet: body for sheet in sheets if (body := _readable(sheet)) is not None}
-    defined = {match for body in bodies.values() for match in INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))}
+    defined = {invariant for body in bodies.values() for invariant in invariant_rows(body)}
 
     found: list[Finding] = []
     for sheet, body in bodies.items():
@@ -908,11 +1293,11 @@ def check_binary_bytes() -> list[Finding]:
     return found
 
 
-def check_enforced_by() -> list[Finding]:
-    """A rule's enforcement claim names gate checks this script actually emits.
+def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
+    """A rule's enforcement claim and a check's registered claim name each other (PRE-4).
 
-    Read from the one shape PRE-4 admits, a list line's `_Enforced by_`. A drifted claim is worse
-    than an unenforced rule: it reads as covered.
+    Both directions: a field naming a check the gate does not emit reads as covered, and a check
+    nothing claims is one nobody would miss.
     """
     text = _tracked_text(STANDARD_PAGE)
     if text is None:
@@ -921,17 +1306,103 @@ def check_enforced_by() -> list[Finding]:
         return []
 
     found: list[Finding] = []
-
-    def resolve(field: str) -> None:
-        field = " ".join(field.split())
+    named: dict[str, set[str]] = {}
+    for rule_id, block in _rule_lines(text):
+        if (claim := INDEX_ENFORCED_RE.search(block)) is None:
+            continue
+        field = " ".join(claim.group(1).split())
         for name in CHECK_NAME_RE.findall(field):
-            if name not in CHECKS:
+            if name in CHECKS:
+                named.setdefault(name, set()).add(rule_id)
+            else:
                 detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
                 found.append(Finding("fail", "enforced-by", STANDARD_PAGE, detail))
+    for name, check in CHECKS.items():
+        found.extend(_check_claims(name, check, named.get(name, set()), invariants))
+    return found
 
-    for block in RULE_INDEX_BLOCK_RE.findall(text):
-        if (claim := INDEX_ENFORCED_RE.search(block)) is not None:
-            resolve(claim.group(1))
+
+REGISTRY_NAME: Final = "CHECKS"
+
+
+@cache
+def _registry_rows() -> dict[str, frozenset[int]]:
+    """Each registered check's own lines in `KERNEL_PAGE`, taken from the registry's syntax.
+
+    A row spells its contract inside a string, never as a citation, so a text match finds no citing
+    line and certifies its own claim.
+    """
+    text = _read_text(REPO_ROOT / KERNEL_PAGE)[0]
+    if text is None:
+        return {}
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return {}
+    rows: dict[str, frozenset[int]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.AnnAssign) or not isinstance(node.target, ast.Name) or node.target.id != REGISTRY_NAME:
+            continue
+        if not isinstance(node.value, ast.Dict):
+            continue
+        for key, value in zip(node.value.keys, node.value.values, strict=True):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                rows[key.value] = frozenset(range(key.lineno, (value.end_lineno or value.lineno) + 1))
+    return rows
+
+
+def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str, list[str]]) -> list[Finding]:
+    """One registered check's claims: its rule ids against the standard's fields, its citations against the corpus."""
+    if not check.claims:
+        detail = f"`{name}` is registered with no claim -- name the rule whose field names it, the contract it holds, or `GATE`"
+        return [Finding("fail", "enforced-by", KERNEL_PAGE, detail)]
+    rules = {claim for claim in check.claims if RULE_ID_RE.fullmatch(claim)}
+    found: list[Finding] = []
+    if rules != named:
+        registry, standard = ", ".join(sorted(rules)) or "no rule", ", ".join(sorted(named)) or "no rule"
+        detail = f"`{name}` is claimed by {registry} here and by {standard} in the standard's fields -- the two listings must agree"
+        found.append(Finding("fail", "enforced-by", KERNEL_PAGE, detail))
+    for contract in sorted(check.claims - rules - {GATE}):
+        # Asked of the resolver first: the citation check passes a left half that reads as no file.
+        # Gitignored beside it: the check below reads one off the disk, and refusing it here would
+        # call absent a file it resolves.
+        left = contract.partition(" :: ")[0].strip()
+        if not _resolve(left) and not is_gitignored(left):
+            found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which names no file"))
+            continue
+        for dead in _check_citation(contract, KERNEL_PAGE, invariants, _registry_rows().get(name)):
+            found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which does not resolve: {dead.detail}"))
+    return found
+
+
+def _fence_info(line: str) -> str:
+    """The language a fence line names, lower-cased, or the empty string."""
+    return line.strip().lstrip("`~").strip().split(" ")[0].lower()
+
+
+def check_diagrams(rel: str, raw: str) -> list[Finding]:
+    """OUT-7's two decidable clauses: a diagram is mermaid, and a quoted node label holds no bracket.
+
+    Read off the raw page: the scan body arrives with every fence blanked.
+    """
+    found: list[Finding] = []
+    language: str | None = None
+    for number, line in enumerate(raw.split("\n"), start=1):
+        # `FENCE_RE`, so this reader and the one blanking fences open and close on the same lines.
+        if FENCE_RE.match(line):
+            if language is not None:
+                language = None
+                continue
+            language = _fence_info(line)
+            if language in DIAGRAM_LANGUAGES:
+                detail = f"a `{language}` fence -- OUT-7 draws a diagram in mermaid, which renders in-repo"
+                found.append(Finding("fail", "diagram", rel, detail, number))
+            continue
+        if language != MERMAID:
+            continue
+        for label in QUOTED_LABEL_RE.findall(line):
+            if any(bracket in label for bracket in BRACKETS):
+                found.append(Finding("fail", "diagram", rel, f'a square bracket inside the quoted node label "{label}" (OUT-7)', number))
     return found
 
 
@@ -963,14 +1434,12 @@ def check_rule_shape() -> list[Finding]:
 
 
 def _rule_lines(text: str) -> list[tuple[str, str]]:
-    """Each rule the standard states as a list line, with the block running under it.
+    """Each rule the standard states as a list line, with the block under it.
 
-    Two patterns over one page, so a rule with nothing under it is still in the listing rather than
-    dropping out of it (PRE-4).
+    One pattern with both groups: paired by position, a swallowed bullet drops its id and credits
+    it with the next rule's field (PRE-4).
     """
-    ids = RULE_INDEX_LINE_RE.findall(text)
-    blocks = RULE_INDEX_BLOCK_RE.findall(text)
-    return list(zip(ids, blocks, strict=False))
+    return RULE_INDEX_RE.findall(text)
 
 
 def _glob_table(text: str, header: re.Pattern[str], glob_cell: int = 1) -> dict[str, list[str]] | None:
@@ -1044,6 +1513,36 @@ def _sample(paths: list[str]) -> str:
     return head if len(paths) <= SEGMENT_SAMPLE else f"{head} and {len(paths) - SEGMENT_SAMPLE} more"
 
 
+def check_output_verbs() -> list[Finding]:
+    """The verb table is still where `scripts/gate/selfcheck.sh`'s awk looks for it.
+
+    That awk skips rather than fails, and this sheet selects no `scripts` scope, so the skip lands
+    on a later branch, not on the one that moved it.
+    """
+    rel = OPS_SPEC_PAGE
+    text = _tracked_text(rel)
+    if text is None:
+        detail = "untracked or unreadable, so the output standard's table was read against nothing"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    lines = text.split("\n")
+    opened = next((number for number, line in enumerate(lines) if re.match(OUTPUT_STANDARD_LEAD_IN, line)), None)
+    if opened is None:
+        detail = f"no line matches `{OUTPUT_STANDARD_LEAD_IN}`, the pattern `scripts/gate/selfcheck.sh` arms its verb reader on"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    # The first table below the lead-in and no other, as the awk takes it: prose and blank lines are
+    # stepped over, and the first line that is not a row after one has been seen ends the table.
+    rows: list[str] = []
+    for line in lines[opened + 1 :]:
+        if line.startswith("|"):
+            rows.append(line)
+        elif rows:
+            break
+    if not any(re.match(OUTPUT_VERB_COLUMN, row) for row in rows):
+        detail = f"the table under `{OUTPUT_STANDARD_LEAD_IN}` opens no row matching `{OUTPUT_VERB_COLUMN}`, so that reader keeps no verb"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    return []
+
+
 def check_template_fragments() -> list[Finding]:
     """The pull request form still carries every fragment the body gate quotes from it.
 
@@ -1080,15 +1579,6 @@ SEE_ENTRY_RE: Final = re.compile(r"\s+")
 SUFFIXED_RE: Final = re.compile(r"\.[A-Za-z]{1,5}$")
 
 
-# INC-2's header shapes, checked only where that rule binds. Presence is never checked: INC-2 fixes
-# the shape of a header that exists, so a file with none passes unchecked.
-HEADER_SCOPES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    # TypeScript is out of scope: INC-2 permits no header there, so a block opening one of its
-    # files is an ordinary comment block, which `comment-length` bounds (INC-9).
-    ("fl_backend/app/", (".py",)),
-    ("fl_backend/tests/", (".py",)),
-    ("scripts/", (".py", ".sh")),
-)
 # Words rather than lines: a header reflowed to fewer lines carries the same facts (INC-2).
 HEADER_WORD_CAP: Final = 175
 # A label line is one or two capitalised words ending in a colon: anything longer is wrapped prose,
@@ -1100,9 +1590,11 @@ HEADER_LABEL_RE: Final = re.compile(r"[A-Z][A-Za-z]*( [A-Za-z]+)?:")
 HEADER_LABELS: Final[tuple[str, ...]] = ("Invariants:", "See:")
 
 
-def _header_scoped(rel: str, suffix: str) -> bool:
-    """True where INC-2 binds a file's header to its shape."""
-    return any(rel.startswith(prefix) and suffix in suffixes for prefix, suffixes in HEADER_SCOPES)
+# A property of the kind and never of the tree: a Dockerfile has no suffix for a prefix list to
+# pair with.
+def _header_scoped(style: str) -> bool:
+    """True where INC-2 binds a file's header to its shape: the kinds `_module_header` reads one from."""
+    return style in HEADER_SUFFIXES
 
 
 def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
@@ -1130,20 +1622,21 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
     """
     found: list[Finding] = []
     header = _module_header(raw, suffix)
+    # Presence is never checked: INC-2 fixes the shape of a header that exists, so a file opening on
+    # none passes here unless a header-shaped block sits lower down.
     if header is None:
         misplaced = _misplaced_header(raw, suffix)
         if misplaced is None:
             return []
         first_line, header = misplaced
-        found.append(
-            Finding(
-                "fail",
-                "module-header",
-                rel,
-                "the module header sits below the first statement -- INC-7 places it above the imports",
-                first_line,
-            )
+        # By kind, because the two rules place a header differently: a workflow, a TOML manifest and a
+        # Dockerfile are in this check's scope and have no import for INC-7's clause to sit above.
+        placement = (
+            "the module header sits below the first statement -- INC-7 places it above the imports"
+            if suffix == ".py"
+            else "the module header sits below the file's opening -- INC-2 puts it first, below a shebang alone"
         )
+        found.append(Finding("fail", "module-header", rel, placement, first_line))
     stripped = [_header_line(line, suffix) for line in header]
     # `unlisted`, so INC-2's own `Invariants:` and `See:` lists are not charged a word per entry
     # for taking the shape COR-8 asks for -- the reason INC-9 already strips them.
@@ -1232,8 +1725,51 @@ def continuation_markers(style: str) -> tuple[str, ...]:
     return ("//", "*") if style in CSTYLE_SUFFIXES or style == ".json" else ("#",)
 
 
-# Two segments and a short number, so the backend's three-segment error codes cannot collide.
-RULE_ID_RE: Final = re.compile(r"\b((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b")
+# Ticks paired in order, as a renderer pairs them: a whole span on one line is consumed unread, so
+# a wrapped one never opens on the closing tick before it. One break, never a blank line, for
+# `_wrap_re`'s reason.
+@cache
+def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
+    """A backticked span whole on its line, or one parted by a wrap, with the continuation's marker off."""
+    tail = "(?:(?:" + "|".join(re.escape(m) for m in markers) + ")+[ \t]*)?" if markers else ""
+    return re.compile(r"`[^`\n]*`|`([^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"([^`\n]*)`")
+
+
+def _reads_as_path(token: str) -> bool:
+    """Whether `path` would judge this token, asked of one that check cannot see."""
+    return token.startswith(REPO_PREFIXES) and LINE_CITATION_RE.fullmatch(f"`{token}`") is None and not is_gitignored(token)
+
+
+def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
+    """A backticked repository path a line wrap parts, rendering with a space inside it.
+
+    Whether or not the join names a file: `path` sees no wrapped span, so a dead one is loud here
+    or nowhere.
+    """
+    found: list[Finding] = []
+    for match in _span_re(markers).finditer(body):
+        head = (match.group(1) or "").rstrip()
+        # Inside the path alone: a citation parted at its separator still names its file whole.
+        if match.group(1) is None or not head or "::" in head:
+            continue
+        token = (head + match.group(2).lstrip()).partition(" :: ")[0]
+        if is_placeholder(token):
+            continue
+        rendered = head + " " + match.group(2).lstrip()
+        if repo_path(token) is not None:
+            detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
+        elif _reads_as_path(token):
+            detail = f"`{rendered}` wraps inside the path, and the join names no file -- keep a path on one line, and repoint it (COR-6)"
+        else:
+            continue
+        found.append(Finding("fail", "wrapped-path", rel, detail, line_of(body, match.start())))
+    return found
+
+
+# Two segments and a short number, so the backend's three-segment refusal codes cannot collide
+# whatever the families: their middle segment is letters (`error_codes.py :: CODE_RE`), which the
+# digits refuse.
+RULE_ID_RE: Final = RulePattern(r"\b(<family>-\d{1,2})\b")
 
 
 INVARIANT_CITE_RE: Final = re.compile(r"(?<![A-Za-z0-9])(I\d{1,3}[a-z]?)(?![A-Za-z0-9])")
@@ -1276,23 +1812,61 @@ def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
     return _wrap_re(markers).sub(" ", body)
 
 
+def _source_offset(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
+    """An offset in the joined body read back to its offset in the file.
+
+    The join replaces each wrap with a space, so the joined text is short of a line at every one of
+    them.
+    """
+    opens = [(0, 0)]
+    shift = 0
+    for match in _wrap_re(markers).finditer(body):
+        shift += match.end() - match.start() - 1
+        opens.append((match.end() - shift, match.end()))
+    starts = [joined for joined, _ in opens]
+
+    def at(offset: int) -> int:
+        run = bisect_right(starts, offset) - 1
+        return opens[run][1] + offset - starts[run]
+
+    return at
+
+
+def _source_line(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
+    """An offset in the joined body read back to its line in the file."""
+    at = _source_offset(body, markers)
+    return lambda offset: line_of(body, at(offset))
+
+
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename."""
-    direct = REPO_ROOT / file_part
-    if direct.is_file():
-        return [direct]
+    if holds_file(file_part):
+        return [REPO_ROOT / file_part]
     # A comment beside the code cites the way its own package spells a path, and reporting that as
     # a dead file is the false positive that gets a citation rewritten to something looser.
-    if (resolved := repo_path(file_part)) is not None and (REPO_ROOT / resolved).is_file():
+    if (resolved := repo_path(file_part)) is not None and holds_file(resolved):
         return [REPO_ROOT / resolved]
     if "/" in file_part:
         return []
     # The index answers first, so a stray copy can neither shadow a tracked file nor make one
     # ambiguous; the tree answers a name the index lacks. Calling a file just written dead invites
     # repointing the citation at a similar name, which then passes.
-    key = os.path.normcase(file_part)
-    named = _tree_index().get(key) or _untracked_index().get(key, ())
-    return [p for p in named if p.is_file()][:5]
+    named = _tree_index().get(file_part) or _untracked_index().get(file_part, ())
+    # Not filtered by presence on disk: a name the index holds and the tree lacks is a rename half
+    # done, and the read below then reports it, as the listing arms above do for a full path.
+    return list(named[:5])
+
+
+def _another_spelling(file_part: str) -> bool:
+    """Whether a file git lists ends with this cited path, as whole segments.
+
+    The basename alone calls `page.tsx` another spelling of every dead route path, and a reader
+    told a file is merely misspelled repoints the citation.
+    """
+    name = PurePosixPath(file_part).name
+    tail = "/" + file_part.strip("/")
+    listed = (*_tree_index().get(name, ()), *_untracked_index().get(name, ()))
+    return any(("/" + path.relative_to(REPO_ROOT).as_posix()).endswith(tail) for path in listed)
 
 
 def names_a_file(file_part: str) -> bool:
@@ -1314,8 +1888,35 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
     return parts if all(part.isidentifier() for part in parts) else None
 
 
-def _check_citation(citation: str, rel: str) -> list[Finding]:
-    """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
+@cache
+def _uncited_lines(path: Path) -> tuple[str, ...]:
+    """One file's lines with their citation spans out, as `bare-path` scrubs its quoted spans.
+
+    A second citation of an anchor is another claim about it, never the definition: spec sheets
+    share section names, and symbol names repeat across modules.
+    """
+    raw = _read_text(path)[0]
+    if raw is None:
+        return ()
+    markers = () if is_prose(path) else continuation_markers(comment_style(path))
+    # Found over the JOINED body and blanked back on the source line: a wrap parts a citation, and
+    # neither of its lines then holds a whole span for a per-line strip to take.
+    at = _source_offset(raw, markers)
+    joined = unwrapped(raw, markers)
+    kept = list(raw)
+    for pattern in (CITATION_RE, CONTINUATION_RE):
+        for match in pattern.finditer(joined):
+            for offset in range(at(match.start()), at(match.end() - 1) + 1):
+                if kept[offset] != "\n":
+                    kept[offset] = " "
+    return tuple("".join(kept).split("\n"))
+
+
+def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
+    """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
+
+    By name in Python, by a table row for an invariant id, and by presence anywhere else.
+    """
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
     if not file_part or not anchor:
@@ -1328,7 +1929,21 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         # after a file nobody named.
         if not names_a_file(file_part):
             return []
-        return [Finding("fail", "citation", rel, f"cited file not found: {file_part}")]
+        # A gitignored file is absent from a clone by design, so no listing holds it: one here is
+        # read off the disk, its anchor still a claim; an absent one is excused as the `path` arm
+        # excuses one.
+        if is_gitignored(file_part):
+            if not (ignored := REPO_ROOT / file_part).is_file():
+                return []
+            matches = [ignored]
+        elif _another_spelling(file_part):
+            # Never `not found` here: the file is present under a spelling this refuses, and a
+            # reader told it is missing deletes a claim that was true.
+            return [Finding("fail", "citation", rel, f"cited path is neither repository-relative nor package-relative: {file_part}")]
+        else:
+            # Nothing of that name anywhere, so the reader is sent after a rename or a deletion
+            # rather than after another spelling.
+            return [Finding("fail", "citation", rel, f"cited path names no file in the repository, under any spelling: {file_part}")]
     if len(matches) > 1:
         names = ", ".join(sorted(m.relative_to(REPO_ROOT).as_posix() for m in matches)[:4])
         return [Finding("fail", "citation", rel, f"ambiguous file '{file_part}' matches: {names}")]
@@ -1347,8 +1962,30 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         if defined.isdisjoint(names):
             return [Finding("fail", "citation", rel, f"anchor '{anchor}' is not defined in {where}")]
         return []
-    if anchor not in content:
+    # An invariant id is proved by the sheets whose table defines it, never by presence: a sheet
+    # names a neighbour's number in prose as readily as its own. Among the homes, the low band
+    # being defined twice.
+    if INVARIANT_CITE_RE.fullmatch(anchor):
+        homes = invariants.get(anchor, [])
+        if where in homes:
+            return []
+        elsewhere = f"{' and '.join(homes)} defines it" if homes else "no tracked spec sheet's table defines it"
+        return [Finding("fail", "citation", rel, f"anchor '{anchor}' is no invariant row of {where} -- {elsewhere}")]
+    lines = content.split("\n")
+    spellings = {number for number, line in enumerate(lines, start=1) if anchor in line}
+    if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
+    # A file citing itself proves the anchor with the citing line, so renaming the block it points
+    # at leaves this green. The Python and invariant arms above list definitions and never presence.
+    if where == rel:
+        # Where the citation sits, by line rather than by its text: a continuation and a wrapped
+        # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
+        # lines spelling the citation standing in.
+        on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
+        uncited = _uncited_lines(target)
+        if not any(anchor in uncited[number - 1] for number in spellings - on):
+            detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
+            return [Finding("fail", "citation", rel, detail)]
     return []
 
 
@@ -1366,32 +2003,38 @@ def _files_named(joined: str) -> list[tuple[int, str]]:
     return sorted(named)
 
 
-def _continuations(joined: str, rel: str) -> list[Finding]:
+def _continuations(joined: str, rel: str, invariants: dict[str, list[str]], source_line: Callable[[int], int]) -> list[Finding]:
     """Every `:: <anchor>` continuation, resolved against the last file named above it.
 
     An anchor that is itself a filename names a SIBLING of that file rather than a symbol in it,
     which is how a table cell lists two modules of one folder.
     """
-    carried = [(match.start(), match.group(1).strip()) for match in CONTINUATION_RE.finditer(joined) if not is_placeholder(match.group(1))]
+    carried = [
+        (match.start(1), match.end(1), match.group(1).strip())
+        for match in CONTINUATION_RE.finditer(joined)
+        if not is_placeholder(match.group(1))
+    ]
     if not carried:
         return []
     named = _files_named(joined)
     found: list[Finding] = []
-    pairs: set[tuple[str, str]] = set()
-    for at, anchor in carried:
+    pairs: dict[tuple[str, str], set[int]] = {}
+    for at, ends, anchor in carried:
         antecedent = next((spelling for offset, spelling in reversed(named) if offset < at), None)
         if antecedent is None:
             detail = f"`:: {anchor}` continues a citation, and no file is named above it"
-            found.append(Finding("fail", "citation", rel, detail, line_of(joined, at)))
+            found.append(Finding("fail", "citation", rel, detail, source_line(at)))
             continue
-        pairs.add((antecedent, anchor))
-    for antecedent, anchor in sorted(pairs):
+        # A continuation's citing line is its OWN, never the antecedent's: the file it resolves
+        # against can be named paragraphs above, where the anchor has nothing to prove.
+        pairs.setdefault((antecedent, anchor), set()).update(range(source_line(at), source_line(ends - 1) + 1))
+    for (antecedent, anchor), lines in sorted(pairs.items()):
         if anchor.endswith(CITABLE_SUFFIXES):
-            folder = PurePosixPath(antecedent).parent
-            if not (REPO_ROOT / folder / anchor).is_file():
+            sibling = (PurePosixPath(antecedent).parent / anchor).as_posix()
+            if not holds_file(sibling) and not is_gitignored(sibling):
                 found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
             continue
-        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel))
+        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel, invariants, frozenset(lines)))
     return found
 
 
@@ -1403,6 +2046,12 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     is_markdown = path.suffix == ".md"
+    # Prose is wider than markdown by the files read whole by name: those take a page's readers
+    # for what is written bare in them, and markdown's alone for what its syntax carries.
+    prose = is_prose(path)
+    # The style rather than `path.suffix` on both sides of the header check: read for a suffix a
+    # Dockerfile does not have, the reader answers no header and the check runs over nothing.
+    style = comment_style(path)
     raw, error = _read_text(path)
     if raw is None:
         return [Finding("fail", "unreadable", rel, error)]
@@ -1410,20 +2059,29 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
 
     found: list[Finding] = []
 
-    if not is_markdown and _header_scoped(rel, path.suffix):
-        found.extend(check_module_header(rel, raw, path.suffix))
-        found.extend(check_header_see(rel, raw, path.suffix))
+    # A page's H1 opens on the marker the `#` reader takes for a header, so the kind test alone
+    # would hold every page to INC-2's shape.
+    if not prose and _header_scoped(style):
+        found.extend(check_module_header(rel, raw, style))
+        found.extend(check_header_see(rel, raw, style))
 
     if is_markdown and path.name == "README.md" and (words := _readme_words(raw)) > README_WORD_CAP:
         detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
+    found.extend(check_wrapped_paths(rel, body, () if prose else continuation_markers(style)))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
+        found.extend(check_diagrams(rel, raw))
     else:
-        found.extend(check_comment_citations(rel, body))
+        # `is_markdown` rather than `prose` here: a notice spells its paths bare, and only a PAGE
+        # is held to COR-6's backticks instead.
         found.extend(check_bare_paths(rel, body))
+    # `prose` rather than markdown on the two citation readers: each judges a COMMENT, and a file
+    # read whole carries none, so its sentences would answer for a rule they are not under (INC-6).
+    if not prose:
+        found.extend(check_comment_citations(rel, body))
 
     for rule_id in sorted(set(RULE_ID_RE.findall(body))):
         homes = rules.get(rule_id, [])
@@ -1433,7 +2091,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             detail = f"{rule_id} has more than one home in docs/_standard/standard.md ({' and '.join(homes)}) -- a citation cannot say which"
             found.append(Finding("fail", "rule-id", rel, detail))
 
-    if not is_markdown:
+    if not prose:
         found.extend(check_invariant_citations(rel, body, invariants))
 
     # Prefilters, sound because `_wrap_re` joins with a SPACE: no wrap spells a `::` or `:`digit the
@@ -1441,12 +2099,18 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     cites = "::" in body
     cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
     if cites or cites_lines:
-        joined = unwrapped(body, () if is_markdown else continuation_markers(comment_style(path)))
+        markers = () if prose else continuation_markers(style)
+        joined = unwrapped(body, markers)
         if cites:
-            for citation in sorted(set(CITATION_RE.findall(joined))):
-                if not is_placeholder(citation):
-                    found.extend(_check_citation(citation, rel))
-            found.extend(_continuations(joined, rel))
+            source_line = _source_line(body, markers)
+            citing: dict[str, set[int]] = {}
+            for match in CITATION_RE.finditer(joined):
+                if not is_placeholder(match.group(1)):
+                    lines = range(source_line(match.start(1)), source_line(match.end(1) - 1) + 1)
+                    citing.setdefault(match.group(1), set()).update(lines)
+            for citation in sorted(citing):
+                found.extend(_check_citation(citation, rel, invariants, frozenset(citing[citation])))
+            found.extend(_continuations(joined, rel, invariants, source_line))
 
         # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
         # it names, so it has to be caught at the form.
@@ -1468,10 +2132,17 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             if is_markdown and anchor and anchor not in anchors:
                 found.append(Finding("fail", "anchor", rel, f"no heading in this file yields #{anchor}"))
             continue
-        target = (path.parent / raw_target).resolve()
-        if not target.exists():
-            found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
-            continue
+        # Joined on the repo-relative spelling rather than through `Path.resolve`, which hands back
+        # the filesystem's own casing on Windows and would answer a mis-cased link yes.
+        joined = posixpath.normpath(posixpath.join(posixpath.dirname(rel), raw_target))
+        outside = joined == ".." or joined.startswith("../")
+        target = (path.parent / raw_target).resolve() if outside else REPO_ROOT / joined
+        if not (target.exists() if outside else holds_path(joined)):
+            # A gitignored target is absent from a clone by design, as the `path` arm below excuses
+            # one; where it is here, the anchor check beneath still reads it.
+            if not is_gitignored(joined):
+                found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
+                continue
         # The file resolves and the heading it names does not, so the link opens the right page at
         # the top and looks correct.
         if anchor and target.suffix == ".md" and (reachable := anchors_of(target)) is not None and anchor not in reachable:
@@ -1484,20 +2155,22 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             continue
         if LINE_CITATION_RE.fullmatch(f"`{token}`"):
             continue
-        if not (REPO_ROOT / token).exists() and not is_gitignored(token):
+        # Placed by the resolver rather than by a second `exists`, so this arm answers for a
+        # spelling the day the resolver does, and refuses a traversal it would.
+        if repo_path(token) is None and not is_gitignored(token):
             found.append(Finding("fail", "path", rel, f"path named but not present: {token}"))
 
     return found
 
 
 def check_bare_paths(rel: str, body: str) -> list[Finding]:
-    """A repository path named in a comment without backticks, resolving to nothing.
+    """A repository path named without backticks, in a comment or a prose file, resolving to nothing.
 
-    Comments only, a document being held to COR-6's backticks instead. A token is resolved from
-    every directory above the file, as a reader would.
+    Never a page, which is held to COR-6's backticks instead. A token is resolved from every
+    directory above the file, as a reader would.
     """
     found: list[Finding] = []
-    bases = [REPO_ROOT, *(REPO_ROOT / parent for parent in Path(rel).parents if parent.as_posix() != ".")]
+    prefixes = ["", *(f"{parent.as_posix()}/" for parent in Path(rel).parents if parent.as_posix() != ".")]
     # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
     # span holds no newline, so removing one moves an offset along its line and never off it.
     scrubbed = BACKTICK_SPAN_RE.sub("", body)
@@ -1506,7 +2179,7 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
         first_seen.setdefault(match.group(0), match.start())
     for token in sorted(first_seen):
         # `is_gitignored` shells out, so it stays behind the tests that answer without one.
-        if is_placeholder(token) or any((base / token).exists() for base in bases) or is_gitignored(token):
+        if is_placeholder(token) or any(holds_path(prefix + token) for prefix in prefixes) or is_gitignored(token):
             continue
         detail = f"path named but not present: {token} -- and unbackticked, so `path` never saw it"
         found.append(Finding("fail", "bare-path", rel, detail, line_of(scrubbed, first_seen[token])))
@@ -1615,7 +2288,7 @@ def _prose_blocks(path: Path) -> list[tuple[int, str]]:
     clause keeps a one-sentence claim at every constrained line. A restated argument is
     `/docs:audit`'s to read.
     """
-    if path.suffix != ".md":
+    if not is_prose(path):
         return []
     blocks: list[tuple[int, str]] = []
     current: list[str] = []
@@ -1712,18 +2385,21 @@ def main() -> int:
     findings.extend(check_invariant_tables())
     findings.extend(check_overviews())
     findings.extend(check_glossary())
-    findings.extend(check_enforced_by())
+    findings.extend(check_enforced_by(existing_invariants))
     findings.extend(check_rule_shape())
     findings.extend(check_cell_prose())
     findings.extend(check_echo())
     findings.extend(check_segment_map())
+    findings.extend(check_output_verbs())
     findings.extend(check_template_fragments())
     findings.extend(check_prose_shas(files))
     findings.extend(check_history_phrases(additions))
     findings.extend(check_added_citations(additions))
+    findings.extend(check_added_invariant_rows(branch, additions))
     findings.extend(check_comment_bounds(branch))
     findings.extend(check_copy_rules())
     findings.extend(check_platform_branches())
+    findings.extend(check_error_codes())
     findings.extend(check_text_writes())
     findings.extend(check_scheme_tokens())
 
@@ -1733,7 +2409,7 @@ def main() -> int:
     else:
         _print_human(findings)
 
-    docs = sum(1 for f in files if f.suffix == ".md")
+    docs = sum(1 for f in files if is_prose(f))
     sources = len(files) - docs
     print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_rules)} rules")
     return checker_kernel.EXIT_FINDINGS if findings else checker_kernel.EXIT_OK

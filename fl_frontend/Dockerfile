@@ -1,3 +1,5 @@
+# FRONTEND · the site image
+
 # The OS layer the build and the runtime share, so anything added here ships in the image.
 FROM node:26-alpine3.24 AS base
 

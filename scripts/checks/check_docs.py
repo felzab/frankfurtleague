@@ -20,7 +20,6 @@ from checker_kernel import run  # noqa: E402 -- the insert above is what resolve
 from docs_gate.branch import check_comment_bounds  # noqa: E402
 from docs_gate.checks import (  # noqa: E402
     METADATA_LINE_RE,
-    RULE_FIELD_RE,
     RULE_ID_RE,
     check_enforced_by,
     check_metadata_breaks,
@@ -35,7 +34,6 @@ from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids  # noqa: E402
 __all__ = [
     "CHECKS",
     "METADATA_LINE_RE",
-    "RULE_FIELD_RE",
     "RULE_ID_RE",
     "SCANNED_SUFFIXES",
     "check_comment_bounds",

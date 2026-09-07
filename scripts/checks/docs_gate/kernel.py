@@ -1,9 +1,10 @@
 """SCRIPTS · the documentation gate's readers, caches and vocabulary.
 
-Nothing here imports a sibling, so each `functools.cache` exists once per run. Two listings, and
+Nothing here imports a sibling, so each `functools.cache` exists once per run. Three listings, and
 what a caller does with the answer picks between them: a file a check READS comes from
 `scanned_files`, which is the working tree; a glob or a page a document NAMES resolves through
-`tracked_files`, which is the index CI checks out.
+`tracked_files`, which is the index CI checks out; and whether one path is THERE at all is
+`holds_file`, which is unfiltered by kind because a citation names an image as readily as a page.
 """
 
 from __future__ import annotations
@@ -40,6 +41,9 @@ OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".jso
 # A dotfile and a hook have no suffix for `Path.suffix` to dispatch on, so INC-6 reaches them by
 # whole name here or the In-code section's Scope would name files no check reads.
 OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg", "pre-push")
+# Read whole as prose by name, as a page is: no suffix, no comment marker, and the asset paths it
+# names written bare, so the `#` reader keeps nothing of it and `bare-path` has to see the text.
+PROSE_FILENAMES: Final[tuple[str, ...]] = ("NOTICE",)
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
 # Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
@@ -59,6 +63,18 @@ PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
 BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
+# What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
+# rule itself does, is a mention rather than a use.
+QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
+# A row of the invariant shape wherever it sits, for a reader of diff lines, which carry no
+# section; `invariant_rows` reads the table alone.
+INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
+# enough that an id is resolved against every sheet.
+INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+# The closing sections are fixed so a growing contract cannot push Invariants down and silently
+# repoint every citation of section 3 — which is what makes an invariant number safe to cite.
+SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 
 
 FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
@@ -88,57 +104,93 @@ STANDARD_PAGE: Final = f"{DOCS_DIR}/_standard/standard.md"
 # `ROADMAP_GLOB` also matches the folder's other pages, so presence and tracking are asked of this
 # one by name instead.
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/items.md"
+# Where the status vocabulary is derived, so the checker compares against a read rather than a
+# retyped list (COR-4).
+PROTOCOL_PAGE: Final = f"{ROADMAP_DIR}/protocol.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
+# Named rather than reached through `SPEC_GLOB`: one reader outside this package arms itself on a
+# line of this sheet in particular.
+OPS_SPEC_PAGE: Final = f"{DOCS_DIR}/ops/spec.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 
 
 # One severity: a check fails, or it does not exist. A tier nobody had to clear was read as a list
-# of things somebody else would get to, so every check here is one the run stops for.
+# of things somebody else would get to; a citation-drift warning a branch need not clear was refused
+# too.
 Severity = Literal["fail"]
+FAIL: Final[frozenset[Severity]] = frozenset({"fail"})
 
-# `enforced-by` resolves the standard's claims against this; `Finding` refuses a name outside it.
-CHECKS: Final[dict[str, frozenset[Severity]]] = {
-    "anchor": frozenset({"fail"}),
-    "bare-path": frozenset({"fail"}),
-    "binary-byte": frozenset({"fail"}),
-    "branch-scope": frozenset({"fail"}),
-    "cell-prose": frozenset({"fail"}),
-    "citation": frozenset({"fail"}),
-    "comment-citation": frozenset({"fail"}),
-    "comment-length": frozenset({"fail"}),
-    "copy-corpus": frozenset({"fail"}),
-    "copy-dash": frozenset({"fail"}),
-    "copy-formal": frozenset({"fail"}),
-    "copy-informal": frozenset({"fail"}),
-    "copy-term": frozenset({"fail"}),
-    "crlf-write": frozenset({"fail"}),
-    "echo": frozenset({"fail"}),
-    "enforced-by": frozenset({"fail"}),
-    "glossary-entry": frozenset({"fail"}),
-    "header-see": frozenset({"fail"}),
-    "history": frozenset({"fail"}),
-    "inputs": frozenset({"fail"}),
-    "invariant-id": frozenset({"fail"}),
-    "invariant-row": frozenset({"fail"}),
-    "line-citation": frozenset({"fail"}),
-    "line-endings": frozenset({"fail"}),
-    "link": frozenset({"fail"}),
-    "metadata-break": frozenset({"fail"}),
-    "module-header": frozenset({"fail"}),
-    "overview-spine": frozenset({"fail"}),
-    "owner-voice": frozenset({"fail"}),
-    "path": frozenset({"fail"}),
-    "platform-branch": frozenset({"fail"}),
-    "readme-cap": frozenset({"fail"}),
-    "roadmap-shape": frozenset({"fail"}),
-    "rule-id": frozenset({"fail"}),
-    "rule-shape": frozenset({"fail"}),
-    "scheme-token": frozenset({"fail"}),
-    "segment-map": frozenset({"fail"}),
-    "sha": frozenset({"fail"}),
-    "spec-spine": frozenset({"fail"}),
-    "template-fragment": frozenset({"fail"}),
-    "unreadable": frozenset({"fail"}),
+# The claim of a check answering to no rule and no page: what it stops is this gate reading
+# nothing, or the wrong thing, and calling that a pass.
+GATE: Final = "the gate"
+
+
+@dataclass(frozen=True, slots=True)
+class Check:
+    """One registered check, and what claims it.
+
+    A rule id whose field names the check, a citation of the contract it holds outside the
+    standard, or `GATE`; `enforced-by` resolves each, a rule both ways.
+    """
+
+    severities: frozenset[Severity]
+    claims: frozenset[str]
+
+
+def claimed(*claims: str) -> frozenset[str]:
+    """One registry row's claims."""
+    return frozenset(claims)
+
+
+# `enforced-by` holds the standard's claims and these to each other; `Finding` refuses a name
+# outside it.
+CHECKS: Final[dict[str, Check]] = {
+    "anchor": Check(FAIL, claimed("COR-6", "INC-6")),
+    "bare-path": Check(FAIL, claimed("INC-6")),
+    "binary-byte": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),
+    "branch-scope": Check(FAIL, claimed(GATE)),
+    "cell-prose": Check(FAIL, claimed("OUT-4")),
+    "citation": Check(FAIL, claimed("COR-6", "INC-6", "OUT-4", "CUR-1")),
+    "comment-citation": Check(FAIL, claimed("COR-1", "INC-6")),
+    "comment-length": Check(FAIL, claimed("INC-4", "INC-8", "INC-9")),
+    "copy-corpus": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-dash": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-formal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-informal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-term": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "crlf-write": Check(FAIL, claimed("docs/ops/spec.md :: I16")),
+    "diagram": Check(FAIL, claimed("OUT-7")),
+    "echo": Check(FAIL, claimed("COR-2")),
+    "enforced-by": Check(FAIL, claimed("PRE-4")),
+    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176")),
+    "glossary-entry": Check(FAIL, claimed("COR-12", "OUT-6")),
+    "header-see": Check(FAIL, claimed("INC-2")),
+    "history": Check(FAIL, claimed("COR-3")),
+    "inputs": Check(FAIL, claimed(GATE)),
+    "invariant-id": Check(FAIL, claimed("OUT-4")),
+    "invariant-number": Check(FAIL, claimed("OUT-4")),
+    "invariant-row": Check(FAIL, claimed("COR-12", "OUT-4")),
+    "line-citation": Check(FAIL, claimed("COR-4", "COR-6", "INC-6")),
+    "line-endings": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),
+    "link": Check(FAIL, claimed("COR-6", "INC-6")),
+    "metadata-break": Check(FAIL, claimed("COR-8")),
+    "module-header": Check(FAIL, claimed("COR-12", "INC-2")),
+    "output-verbs": Check(FAIL, claimed("docs/ops/spec.md :: 1.7 Script conventions")),
+    "overview-spine": Check(FAIL, claimed("COR-12", "OUT-5")),
+    "owner-voice": Check(FAIL, claimed("COR-11")),
+    "path": Check(FAIL, claimed("COR-6", "INC-6", "OUT-4", "CUR-1")),
+    "platform-branch": Check(FAIL, claimed("docs/ops/spec.md :: I15")),
+    "readme-cap": Check(FAIL, claimed("COR-12", "OUT-3")),
+    "roadmap-shape": Check(FAIL, claimed("docs/_roadmap/protocol.md :: 1. The shape of the page")),
+    "rule-id": Check(FAIL, claimed("PRE-4", "COR-6", "INC-6", "OUT-4")),
+    "rule-shape": Check(FAIL, claimed("PRE-4", "COR-12")),
+    "scheme-token": Check(FAIL, claimed("docs/frontend/spec.md :: 1.17 Colour roles and the brand budget")),
+    "segment-map": Check(FAIL, claimed(".claude/commands/docs/audit.md :: Partition it into segments")),
+    "sha": Check(FAIL, claimed("COR-6")),
+    "spec-spine": Check(FAIL, claimed("COR-12", "OUT-4")),
+    "template-fragment": Check(FAIL, claimed("OUT-9")),
+    "unreadable": Check(FAIL, claimed(GATE)),
+    "wrapped-path": Check(FAIL, claimed("COR-6")),
 }
 
 
@@ -173,7 +225,8 @@ class Finding:
 
     def __post_init__(self) -> None:
         # Or the registry falls behind the code.
-        if self.severity not in CHECKS.get(self.check, frozenset()):
+        registered = CHECKS.get(self.check)
+        if registered is None or self.severity not in registered.severities:
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
     @property
@@ -270,10 +323,12 @@ def _listed(*args: str) -> tuple[Path, ...] | None:
 
 
 def _by_name(paths: Iterable[Path]) -> dict[str, tuple[Path, ...]]:
+    # Case-exact, for `holds_file`'s reason: a name folded to one case resolves a citation here that
+    # the Linux runner cannot resolve at all.
     index: dict[str, list[Path]] = {}
     for path in paths:
         if not _skipped(path):
-            index.setdefault(os.path.normcase(path.name), []).append(path)
+            index.setdefault(path.name, []).append(path)
     return {name: tuple(sorted(found)) for name, found in index.items()}
 
 
@@ -305,6 +360,47 @@ def _untracked_paths() -> tuple[Path, ...]:
     return _listed("--others", "--exclude-standard") or ()
 
 
+@cache
+def _listed_files() -> frozenset[str] | None:
+    """Every path git lists, tracked or unstaged, as the repo-relative spelling git holds.
+
+    Unfiltered by kind, which `scanned_files` is not: a citation names an image, a lockfile and an
+    ignore file as readily as a document.
+    """
+    listed = _listed()
+    if listed is None:
+        return None
+    return frozenset(path.relative_to(REPO_ROOT).as_posix() for path in (*listed, *_untracked_paths()))
+
+
+@cache
+def _listed_paths() -> frozenset[str] | None:
+    """`_listed_files` and every folder above one: a listing spells no folder, and a path names one."""
+    files = _listed_files()
+    if files is None:
+        return None
+    return files | frozenset(str(parent) for rel in files for parent in PurePosixPath(rel).parents if str(parent) != ".")
+
+
+def holds_file(rel: str) -> bool:
+    """Whether the repository holds this file, by git's listing rather than by the filesystem.
+
+    Windows answers a mis-cased path yes where the Linux runner answers no, so only git's own
+    spelling makes the two agree.
+    """
+    listing = _listed_files()
+    # A git that cannot answer leaves the disk deciding, for `gitignored`'s reason: a refusal
+    # narrows what is proved rather than calling every citation in the corpus dead.
+    return (REPO_ROOT / rel).is_file() if listing is None else rel in listing
+
+
+def holds_path(token: str) -> bool:
+    """`holds_file` widened to a folder, and tolerant of the trailing slash a folder is written with."""
+    rel = token.rstrip("/")
+    listing = _listed_paths()
+    return (REPO_ROOT / rel).exists() if listing is None else rel in listing
+
+
 def _walked_index() -> dict[str, tuple[Path, ...]]:
     """The same index where git could not answer it.
 
@@ -322,7 +418,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
             kept = [name for name in kept if rels[name] not in dropped]
         directories[:] = kept
         for name in names:
-            index.setdefault(os.path.normcase(name), []).append(parent / name)
+            index.setdefault(name, []).append(parent / name)
     return {name: tuple(sorted(paths)) for name, paths in index.items()}
 
 
@@ -533,12 +629,22 @@ def comment_style(path: Path) -> str:
     return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
+def is_prose(path: Path) -> bool:
+    """Whether a file is read whole, as a page is, rather than for its comments.
+
+    By name as well as by kind: handed to `comment_style`, a prose file is read for `#` lines and
+    passes every check in silence.
+    """
+    return path.suffix == ".md" or path.name in PROSE_FILENAMES
+
+
 # A directive stays above the header (INC-7), so the header scan steps over it.
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
 
-# The only two kinds INC-2 lets a module header survive in. Anywhere else an opening block is an
-# ordinary comment block, so `comment_runs` yields it and INC-9's bound measures it.
+# Comment STYLES rather than kinds: `comment_style` hands a suffix it does not know to the shell
+# reader, so a hook and a Dockerfile arrive here as `.sh`. A style outside this register has its
+# opening block measured by INC-9 instead.
 HEADER_SUFFIXES: Final[tuple[str, ...]] = (".py", ".sh")
 
 
@@ -733,14 +839,15 @@ def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
     `is_file` drops a path the index holds and the tree does not, which a branch mid-rename carries.
     """
     suffixes = {".md", *SCANNED_SUFFIXES}
-    return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in OPS_FILENAMES)}))
+    names = {*OPS_FILENAMES, *PROSE_FILENAMES}
+    return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in names)}))
 
 
 @cache
 def _kind_patterns() -> tuple[str, ...]:
     """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
     # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the widening.
-    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
+    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in (*OPS_FILENAMES, *PROSE_FILENAMES)))
 
 
 @cache
@@ -850,6 +957,29 @@ def atx_heading(line: str, level: int | None = None) -> str | None:
     return match.group(2)
 
 
+def _section(body: str, heading: str) -> str:
+    """One `## <heading>` section's body.
+
+    Matched through `atx_heading`: a verbatim line match empties the section on a trailing space,
+    and a subsection check over nothing passes.
+    """
+    lines = body.split("\n")
+    start = next((index for index, line in enumerate(lines) if atx_heading(line, 2) == heading), None)
+    if start is None:
+        return ""
+    end = next((index for index in range(start + 1, len(lines)) if atx_heading(lines[index], 2) is not None), len(lines))
+    return "\n".join(lines[start + 1 : end])
+
+
+def invariant_rows(body: str) -> list[str]:
+    """The ids a sheet's `## 2. Invariants` table defines, in row order, a repeat kept.
+
+    One reader behind the table check, the homes mapping and the fork's population: a row that
+    check does not prove is one nothing resolves against.
+    """
+    return INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))
+
+
 def heading_anchors(body: str) -> set[str]:
     """The fragment ids GitHub derives from this file's headings.
 
@@ -927,18 +1057,25 @@ def is_gitignored(token: str) -> bool:
 
 
 def repo_path(token: str) -> str | None:
-    """The repository path a backticked token names, or None.
+    """The repository path a backticked token names, or None, spelled as a git listing spells it.
 
-    Existence decides, so a token naming a KIND of file stays prose. A traversal is refused, not
-    normalised: what comes back must be a git listing's spelling.
+    Wider than COR-6's forms by the package-relative spelling alone, and every answer is still one
+    path a reader can grep for.
     """
-    if token.startswith(("/", "./")) or ".." in token:
+    # A dot-only SEGMENT, never the substring: `..` traverses, and Windows strips a trailing `...`
+    # back to the directory above it, a spelling no Linux runner holds. `[...nextauth]` is a real
+    # route segment a substring test refuses.
+    if token.startswith("/") or any(set(part) == {"."} for part in token.split("/")):
         return None
-    if token.startswith(REPO_PREFIXES) and (REPO_ROOT / token).exists():
+    if token.startswith(REPO_PREFIXES) and holds_path(token):
         return token
+    # A root arm rather than a prefix list, which names the next root-level file only after
+    # something has cited it: COR-6 admits a bare backticked path wherever the file sits.
     if "/" not in token:
-        return None
-    return next((f"{root}{token}" for root in PACKAGE_ROOTS if (REPO_ROOT / root / token).exists()), None)
+        # Existence decides, so `queries.ts`, a KIND of file, stays prose. A file, not a folder:
+        # `scripts` standing alone is a tree's name in prose.
+        return token if holds_file(token) else None
+    return next((f"{root}{token}" for root in PACKAGE_ROOTS if holds_path(f"{root}{token}")), None)
 
 
 # --- what a cited anchor has to be, in a file whose definitions can be listed exactly ------------
@@ -998,4 +1135,4 @@ def _scan_body(path: Path) -> str:
     raw = _read_text(path)[0]
     if raw is None:
         return ""
-    return strip_fences(raw) if path.suffix == ".md" else comments_only(raw, comment_style(path))
+    return strip_fences(raw) if is_prose(path) else comments_only(raw, comment_style(path))

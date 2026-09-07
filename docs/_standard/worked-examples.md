@@ -283,10 +283,10 @@ sheet's rung and not a comment's (COR-14). The ceiling's own sentence is the lin
 at whoever is about to change the number.
 
 **After**, the contract is an invariant row in [`backend/spec.md`](../backend/spec.md#2-invariants),
-taking that sheet's next free number, which OUT-4 then makes permanent:
+taking one past the highest number any sheet defines, which OUT-4 then makes permanent:
 
 ```markdown
-| I<n> | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_submission_refusal.py :: TestTheAgeBound`; no test compares the frontend copy |
+| I<n> | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestTheAgeAtConfirmation` and compared to the frontend copy by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number` |
 ```
 
 and the comment is the line constraint plus the line citing the row:
@@ -304,8 +304,9 @@ under the bound instead leaves the contract at a rung nobody consults for one, w
 the bound reveals rather than the repair (COR-5).
 
 **The row's third column is where a move earns its keep.** It has to say what enforces the claim, and
-here that answer is uneven: the backend half is swept by a test, and the two numbers on the frontend
-are compared to these by nothing. A fact spread across two comments hides that; a row states it.
+here that is two tests: one sweeps the refusal, the other holds the frontend copy to the same two
+numbers. A fact spread across two comments leaves a reader to find both; a row states what they
+prove in one place.
 
 ## A block over the bound can be finished already
 
@@ -337,10 +338,11 @@ of its two halves, so it stays over it (INC-9).
 **This lesson reaches an existing block, and which blocks count as existing is a matching rule
 rather than a judgment.** Gate check `comment-length` holds a block the fork already carried over the
 bound to the word count it ran to there rather than to the bound.
-`scripts/checks/docs_gate/branch.py :: _fork_ceiling` matches a block to its earlier self by the
-content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
-goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound
-and no others. Four consequences, each of which otherwise costs a rebase to discover:
+`scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a block to its earlier self by the
+content lines the two share — **half of this block's own distinct lines is a match**, the largest overlap
+wins, and a tie goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
+anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
+The consequences, each of which otherwise costs a rebase to discover:
 
 - **Improving this block's opening sentence costs it nothing.** An overlap of lines is not a key on
   the first one, so the edit an over-bound block most invites is free
@@ -348,20 +350,43 @@ and no others. Four consequences, each of which otherwise costs a rebase to disc
 - **This block may not grow.** Its ceiling is the count it ran to at the fork rather than the bound,
   so a clause added to it fails the branch at a number the bound alone never reaches, and the finding
   names both.
-- **A block is new only where it shares no content line with any block the fork held over the
-  bound.** Otherwise it inherits that block's ceiling however little else it has in common, so a
-  block written from scratch this branch can pass at a length the bound would refuse. Read a pass as
-  the check's answer about matching rather than as a verdict on the prose: COR-5's test and INC-9's
-  three questions decide the block, and the ceiling only says what the gate will let through.
+- **A block is new where fewer than half its own distinct content lines sit in any one block the
+  fork held over the bound, at whatever path the fork filed it under.** Padding a fresh block with a
+  line lifted from a legacy one therefore buys nothing, while a block that keeps half of itself inherits
+  that ceiling however differently the rest of it reads. Read a pass as the check's answer about
+  matching rather than as a verdict on the prose: COR-5's test and INC-9's three questions decide
+  the block, and the ceiling only says what the gate will let through.
+- **The blocks in one file matching this one are charged together, against one standing for each
+  copy that arrives there and never more than the fork filed in the file this one forked from — a
+  rename git detects included.** Split this block in two and the halves are charged against the
+  single count it ran to at the fork; copy it inside that file and leave the original standing, and
+  the pair is charged the same way; a file the fork itself filed the block in twice pays for two
+  where two arrive
+  (`scripts/tests/test_branch_checks.py :: test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each`),
+  and for one where the branch deletes a copy and grows the one it keeps
+  (`scripts/tests/test_branch_checks.py :: test_a_deleted_copy_leaves_its_standing_behind_rather_than_lending_it_to_the_one_that_grew`).
+  The block reported is the one the branch's own diff touched, which is the half a rebase can fix
+  (CUR-6).
+- **A copy in another file inherits one standing and spends none of it, whatever the fork filed
+  beside it.** Charging the pair across files would fail a branch for a file it never opened, so a
+  block carried into a second file passes at the length its earlier self ran to and the pair is
+  `/docs:audit`'s
+  (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`),
+  while two copies pasted into one are charged against that single standing
+  (`scripts/tests/test_branch_checks.py :: test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two`).
+- **A rename git does not recognise is charged as a fresh file.** The line walk keeps rename
+  detection off, so the pairing comes from the diff's own rename headers; rewrite more than half of a
+  file's lines while moving it and git records a deletion and an addition, so a duplicated over-bound
+  block in it inherits one standing between its copies and the branch fails, loudly, where a silent
+  pass would have let the second copy through
+  (`scripts/tests/test_branch_checks.py :: test_a_rename_git_reads_as_a_fresh_file_charges_its_pair_against_one_standing`).
 - **A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
   being no answer to a gate that has already refused. Where the fact will not compress, it is at the
   wrong rung: take INC-9's first question again and move the contract half out, as the example above
   does.
 
-**Splitting an over-bound block hands each half the whole original's ceiling**, both halves matching
-the original on the lines they kept, so two blocks as long as the one they came from pass. That is
-the matching rule reaching past what the exemption was written for rather than a licence: the split
-INC-9 asks for puts each half at the line it constrains, where neither half needs a ceiling to reach.
+**The split INC-9 asks for needs no ceiling to reach**: it puts each half at the line it constrains,
+where each is a single constraint under the bound on its own.
 
 ## A directory answers one column; a decision answers the other
 
@@ -385,7 +410,7 @@ After:
 | Slice         | queries | mutations | actions | schemas | Owns, beyond the four modules and `components/`                                                                                                |
 | ------------- | :-----: | :-------: | :-----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `saisons`     |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw and its undraw — no delete, and the draw's `replace` where the season already holds one |
-| `bewerbungen` |   ✅    |    ✅     |   ✅    |   ✅    | Triage and the public application form — an acceptance and a decline, both irreversible, plus one unauthenticated create that decides nothing  |
+| `bewerbungen` |   ✅    |    ✅     |   ✅    |   ✅    | Triage, the public application form and the contact confirmation — two irreversible decisions, two unauthenticated writes                      |
 | `aktionen`    |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                           |
 | `admin`       |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
 ```

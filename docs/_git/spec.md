@@ -78,17 +78,20 @@ Four things a body carries that the diff cannot:
 - **where a prior assumption turned out to be wrong**
 - **the rejected alternative**, where there was one
 
-No issue-closing keywords and no emoji. **One trailer, `Closes: <token>`**, naming the roadmap entry
-the commit retires, in the last paragraph where git reads a trailer at all and with nothing else in
-that paragraph. It is **required** of a commit whose diff retires an entry — a heading it removes
-from the roadmap and does not put back — and **refused** of a commit whose diff retires none, the
-second half being what stops the convention drifting back toward general-purpose trailers. The token
-is the entry's own id and nothing else validates
-(`scripts/checks/check_commits.py :: CLOSES_RE`): **a serial id in that position is a mistake rather
-than an older spelling**, and the checker says so. **The hyphen in it is load-bearing** — it is what
-parts a token from the eight bare alphanumerics ordinary code spells for its own reasons, and so
-what makes `git grep <token>` a uniqueness proof and the corpus-wide id registry
-(`scripts/checks/docs_gate/kernel.py :: roadmap_ids`) able to exclude the unhyphenated shape.
+No issue-closing keywords and no emoji. **One trailer kind, `Closes: <token>`**, one line per
+roadmap entry the commit retires, in the last paragraph where git reads a trailer at all and with
+nothing else in that paragraph — the lines and the entries the diff retires are compared as sets, so
+a commit retiring two carries two and one carrying a line it did not retire is refused alike, and a
+line written twice is refused on its own, one member of that set saying nothing about the second
+copy. It is **required** of a commit whose diff retires an entry — a heading it removes from the
+roadmap and does not put back — and **refused** of a commit whose diff retires none, the second half
+being what stops the convention drifting back toward general-purpose trailers. The token is the
+entry's own id and nothing else validates (`scripts/checks/check_commits.py :: CLOSES_RE`): **a
+serial id in that position is a mistake rather than an older spelling**, and the checker says so.
+**The hyphen in it is load-bearing** — it is what parts a token from the eight bare alphanumerics
+ordinary code spells for its own reasons, and so what makes `git grep <token>` a uniqueness proof
+and the corpus-wide id registry (`scripts/checks/docs_gate/kernel.py :: roadmap_ids`) able to
+exclude the unhyphenated shape.
 
 **An entry that ends only partly done is rewritten rather than deleted**, and the commit doing that
 carries no trailer ([`../_roadmap/protocol.md`](../_roadmap/protocol.md) §3).

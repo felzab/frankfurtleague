@@ -10,6 +10,7 @@ in-process would collide with `scripts/tests/test_check_docs.py`'s copy over one
 from __future__ import annotations
 
 import json
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -26,10 +27,23 @@ MOD: Final = "fl_backend/app/mod.py"
 SIDE: Final = "fl_backend/app/side.py"
 LEGACY: Final = "fl_backend/app/legacy.py"
 FRESH: Final = "fl_backend/app/fresh.py"
+MOVED: Final = "fl_backend/app/moved.py"
+EMBEDDED: Final = "fl_backend/app/embedded.py"
+TWIN: Final = "fl_backend/app/twin.py"
+TWINNED: Final = "fl_backend/app/twinned.py"
+OTHER: Final = "fl_backend/app/other.py"
+STYLES: Final = "fl_frontend/src/styles.css"
+# Empty, and last in `ls-tree -r` order, so the batch the fork pool splits closes on a header line
+# with nothing under it. The scenario reading it asserts that position rather than assuming it.
+TAIL: Final = "tail.sh"
 # The document INC-4's exemption is taken from, and the tree the second listing is read out of.
 OPENAPI: Final = "fl_backend/openapi.json"
 NOTES: Final = "docs/notes.md"
 SPARE: Final = "docs/spare.md"
+BACKEND_SPEC: Final = "docs/backend/spec.md"
+FRONTEND_SPEC: Final = "docs/frontend/spec.md"
+# Where a scenario moves the frontend sheet: still a spec sheet, under a folder the fork holds none in.
+MOVED_SPEC: Final = "docs/ui/spec.md"
 # A German page name, which `core.quotePath` spells back as an escaped run this diff walk cannot
 # key on. The domain vocabulary is German, so this path is the ordinary case and not the exotic one.
 UMLAUT_PAGE: Final = "docs/prüfung.md"
@@ -54,8 +68,63 @@ ROADMAP_ID: Final = "q7mf-zd4x"
 # citation from either.
 PLAIN_WORD: Final = "read-only"
 UNFILED_TOKEN: Final = "zzzz-9999"
+# The issue shape INC-6 bars, and three runs shaped like it that name no issue: an HTML entity, a
+# page anchor, and the ban's own form quoted to name it.
+ISSUE_REF: Final = HASH + "412"
+# The cross-repository spelling INC-6 names, which a word before the hash would let through.
+QUALIFIED_ISSUE: Final = "owner/repo" + ISSUE_REF
+ENTITY: Final = "&" + HASH + "39;"
+ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
+QUOTED_BAN: Final = '"closes ' + HASH + '12"'
+# Three spellings of one number, each an issue number outside a stylesheet: the form GitHub appends
+# to a squash subject, the terminated one, and the one a comment marks up as code.
+PAREN_ISSUE: Final = "(" + ISSUE_REF + ")"
+TERMINATED_ISSUE: Final = ISSUE_REF + ";"
+BACKTICKED_ISSUE: Final = "`" + ISSUE_REF + "`"
+# Two runs carrying the shape and pointing at a location: a URL's fragment, and a numeric anchor
+# into a page, which the hyphenated slug's lookahead does not reach.
+URL_FRAGMENT: Final = "https://example.com/page" + HASH + "12"
+NUMBERED_ANCHOR: Final = BACKEND_SPEC + HASH + "3"
+# A hex colour, whose digits-only spelling is the one shape a stylesheet writes that reads as an
+# issue number. The two closers are what a rule declaration and a colour function put after it.
+HEX: Final = HASH + "000"
+# The same colour as INC-6 has a module write it, the quotes being all that parts it from a tracker.
+QUOTED_HEX: Final = '"' + HEX + '"'
+# The number both fixture sheets define at the fork: the shape of the low band the real sheets
+# share, which OUT-4's allocation rule leaves standing.
+SHARED_ID: Final = "I1"
+BACKEND_ID: Final = "I2"
+FRONTEND_ID: Final = "I3"
+# The ceiling the band reaches at the fork, then the two numbers a branch adding two rows takes and
+# the one past them.
+HIGH_ID: Final = "I17"
+FREE_ID: Final = "I18"
+SECOND_ID: Final = "I19"
+GAPPED_ID: Final = "I20"
+# Under the ceiling and defined by no sheet, which is the shape a number allocated and never filled
+# leaves behind: no collision arm can see one.
+HOLE_ID: Final = "I5"
+# Neither sheet holds it at the fork, so only the branch's own rows can catch the second one.
+RACED_ID: Final = "I9"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
+# A run no comment reader finds in its own file, the `.py` tokenizer reading it as a string: only a
+# batch split at the wrong offset, which reads every blob as shell, turns it into an ancestor.
+SPURIOUS_TEXT: Final = "a line of a shell snippet a module keeps as a string rather than as prose"
+SPURIOUS_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + SPURIOUS_TEXT for _ in range(3))
+SPURIOUS_WORDS: Final = len(" ".join([SPURIOUS_TEXT] * 3).split())
+# The block one fixture module carries twice over, so its earlier self is two identical pool entries.
+TWIN_TEXT: Final = "a line of the block a module carries word for word twice over, in two runs"
+TWIN_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + TWIN_TEXT for _ in range(3))
+TWIN_WORDS: Final = len(" ".join([TWIN_TEXT] * 3).split())
+# A block only this branch writes: five of the twin's line, so it matches the pair the fixture
+# module carries and runs to well past what either of them does.
+WIDE_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + TWIN_TEXT for _ in range(5))
+WIDE_WORDS: Final = len(" ".join([TWIN_TEXT] * 5).split())
+# git reads a rename by how much of the source survives in the destination, so bulk the fork never
+# held is what hides one. The case asserts git missed it rather than trusting this count.
+REWRITE_TEXT: Final = "a distinct line the rewrite adds, so too little of the twin survives for git to read a rename"
+REWRITE_LINES: Final = 12
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
 LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork text exempts the block it opens"
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
@@ -84,7 +153,7 @@ ADDED_CLAUSE: Final = "a further clause a scenario writes into a block that was 
 # What every diff-reading check's refusal names, and that refusal's own shape
 # (`scripts/checks/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
 # behaviour a consolidation must preserve.
-DIFF_READERS: Final = "history, added comment citations and comment length"
+DIFF_READERS: Final = "history, added comment citations, added invariant rows and comment length"
 
 # The driver composes the branch checks in the gate's own order, read from whichever module wires
 # the run rather than listed here: a check dropped from that wiring has to fail this net, and a
@@ -117,6 +186,7 @@ calls = {
     "check_branch_diff": lambda: branch.check_branch_diff(state),
     "check_history_phrases": lambda: branch.check_history_phrases(additions),
     "check_added_citations": lambda: branch.check_added_citations(additions),
+    "check_added_invariant_rows": lambda: branch.check_added_invariant_rows(state, additions),
     "check_comment_bounds": lambda: branch.check_comment_bounds(state),
     "check_prose_shas": lambda: branch.check_prose_shas(scanned_files()),
 }
@@ -154,6 +224,41 @@ def _module(title: str) -> str:
     return _page(QUOTES + "BACKEND · " + title + QUOTES, "", "VALUE = 1")
 
 
+def _row(number: str, invariant: str) -> str:
+    return "| " + number + " | " + invariant + " | Its own test |"
+
+
+def _sheet(surface: str, *rows: str) -> str:
+    """One spec sheet in OUT-4's four sections, holding the invariant rows it is given."""
+    return _page(
+        HASH + " " + surface + " — spec",
+        "",
+        "The contract this surface answers to.",
+        "",
+        HASH * 2 + " 1. Contract",
+        "",
+        HASH * 3 + " 1.1 The one path",
+        "",
+        "It answers once.",
+        "",
+        HASH * 2 + " 2. Invariants",
+        "",
+        "| ID | Invariant | Enforced by |",
+        "| --- | --- | --- |",
+        *rows,
+        "",
+        HASH * 2 + " 3. Violation → remedy",
+        "",
+        "| Symptom | Remedy |",
+        "| --- | --- |",
+        "| A value nothing names | Name it |",
+        "",
+        HASH * 2 + " 4. Known-open",
+        "",
+        "Nothing is open.",
+    )
+
+
 def _corpus() -> dict[str, str]:
     return {
         GITIGNORE: _page("/" + SCRIPTS_COPY + "/", "/" + IGNORED.partition("/")[0] + "/"),
@@ -166,8 +271,33 @@ def _corpus() -> dict[str, str]:
             "| --- | --- | --- | --- |",
             "| `" + ROADMAP_ID + "` | A scenario item | Docs | Open |",
         ),
+        BACKEND_SPEC: _sheet(
+            "Backend",
+            _row(SHARED_ID, "The write path validates its input"),
+            _row(BACKEND_ID, "One document comes back"),
+            _row(HIGH_ID, "The number the band has reached"),
+        ),
+        FRONTEND_SPEC: _sheet("Frontend", _row(SHARED_ID, "A route names its own data"), _row(FRONTEND_ID, "One page renders")),
         MOD: _module("a module the scenarios write comments into."),
         SIDE: _module("a module kept beside the first, so per-file answers separate."),
+        EMBEDDED: _page(
+            QUOTES + "BACKEND · a module keeping a shell snippet where no comment reader may find one." + QUOTES,
+            "",
+            "SNIPPET = " + QUOTES,
+            *SPURIOUS_BLOCK,
+            QUOTES,
+        ),
+        TWIN: _page(
+            QUOTES + "BACKEND · a module whose committed block is written out twice over." + QUOTES,
+            "",
+            "VALUE = 1",
+            "",
+            *TWIN_BLOCK,
+            "",
+            *TWIN_BLOCK,
+        ),
+        STYLES: _page("/* A stylesheet the scenarios write comments into. */", "", ".card {", "  color: " + HEX + ";", "}"),
+        TAIL: "",
         LEGACY: _page(
             QUOTES + "BACKEND · a module whose committed comment block breaks the bound." + QUOTES,
             "",
@@ -184,6 +314,25 @@ def _corpus() -> dict[str, str]:
     }
 
 
+MIXED_FORM_TRIES: Final = 60
+
+
+def _mix_the_short_form(root: Path) -> None:
+    """Amend until HEAD's short form carries a digit and a letter both.
+
+    One commit's own does only by chance, and the sha scenario needs one that does; amending moves
+    the hash and leaves the tree alone.
+    """
+    for attempt in range(MIXED_FORM_TRIES):
+        short = git(root, "rev-parse", "HEAD")[:7]
+        if any(c.isdigit() for c in short) and any(c.isalpha() for c in short):
+            return
+        # The author date, the one field a commit takes from an argument rather than from the clock:
+        # a second amend inside one second is otherwise the same commit and the loop never ends.
+        git(root, "commit", "--amend", "--no-edit", "--date", "2026-01-01T00:00:" + str(attempt).rjust(2, "0") + "+00:00")
+    raise AssertionError("no amend of the corpus commit in " + str(MIXED_FORM_TRIES) + " gave it a mixed short form")
+
+
 def _build() -> tuple[Path, Path]:
     """One fixture repository beside the driver that reads it, built once per session."""
     parent = new_root("branch-checks-fixture-")
@@ -198,6 +347,7 @@ def _build() -> tuple[Path, Path]:
     # By name, never `add -A`: the scripts copy sits in this tree too, gitignored on top.
     git(root, "add", "--", *pages)
     git(root, "commit", "-m", "Corpus: the branch scenarios start from here")
+    _mix_the_short_form(root)
     return parent, root
 
 
@@ -283,8 +433,39 @@ def _scope_refusal(missing: str) -> tuple[str, str, str, str]:
     return ("fail", "branch-scope", BRANCH_DIFF, DIFF_READERS + " did not run: git could not " + missing)
 
 
+# What the pool's own refusal names, spelled here for `DIFF_READERS`' reason. The pool is a second
+# read one check makes, so it degrades alone rather than with the diff its siblings share.
+POOL_READER: Final = "comment length"
+
+
+def _pool_refusal() -> tuple[str, str, str, str]:
+    missing = " did not run: git could not read the blocks the fork's tree held over the bound"
+    return ("fail", "branch-scope", BRANCH_DIFF, POOL_READER + missing)
+
+
 LONG_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + LONG_TEXT for _ in range(6))
 LONG_WORDS: Final = len(" ".join([LONG_TEXT] * 6).split())
+
+# The committed over-bound block, as the fixture spells it and as the ceiling scenarios move it.
+LEGACY_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, LEGACY_MID, LEGACY_END)
+LEGACY_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in LEGACY_LINES)
+LEGACY_WORDS: Final = len(" ".join(LEGACY_LINES).split())
+
+# One of that block's three lines under two the fork never held, and short of the words the legacy
+# block runs to: the shape a ceiling keyed on any single shared line waves through.
+PADDED_FIRST: Final = "a fresh line the padded block writes, sharing nothing with any block the fork committed"
+PADDED_SECOND: Final = "a second fresh line of the padded block, so its own lines outnumber the one it shares"
+PADDED_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, PADDED_FIRST, PADDED_SECOND)
+PADDED_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in PADDED_LINES)
+PADDED_WORDS: Final = len(" ".join(PADDED_LINES).split())
+
+
+def _shared_fail(rel: str, words: int, charged: int, ceiling: int) -> tuple[str, str, str, str]:
+    detail = (
+        f"the comment block runs {words} words, and the blocks matching its earlier self run {charged} together,"
+        f" up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
+    )
+    return ("fail", "comment-length", rel, detail)
 
 
 def test_a_clean_branch_arms_nothing_and_reports_nothing() -> None:
@@ -313,6 +494,143 @@ def test_an_added_comment_citation_fails_on_the_review_reference_and_the_roadmap
     ]
 
 
+def test_an_added_comment_citation_fails_on_the_issue_number_too() -> None:
+    """INC-6 bars five families and this is the fifth: a tracker sitting outside this history."""
+    _reset()
+    _append(MOD, HASH + " " + ISSUE_REF + " explains the shape")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [
+        ("fail", "comment-citation", MOD, "issue number " + ISSUE_REF + " in an added comment -- state the constraint (INC-6)")
+    ]
+
+
+def _issue_fail(rel: str) -> tuple[str, str, str, str]:
+    return ("fail", "comment-citation", rel, "issue number " + ISSUE_REF + " in an added comment -- state the constraint (INC-6)")
+
+
+def test_a_cross_repository_issue_reference_is_read_as_an_issue_number() -> None:
+    """A word before the hash is INC-6's qualified form rather than any citation COR-6 admits.
+
+    Alone in its scenario: a second shape carrying the same number would raise this finding for it.
+    """
+    _reset()
+    _append(MOD, HASH + " " + QUALIFIED_ISSUE + " explains the shape")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [_issue_fail(MOD)]
+
+
+def test_an_issue_number_inside_a_one_line_docstring_is_read_too() -> None:
+    """A one-line docstring opens and closes on a quoted span, so a span filter eats the whole of it.
+
+    Alone in its scenario, for the case above's reason.
+    """
+    _reset()
+    _append(MOD, "", "def read():", "    " + QUOTES + "The shape " + ISSUE_REF + " asks for." + QUOTES, "    return VALUE")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [_issue_fail(MOD)]
+
+
+def test_a_closer_or_a_backtick_after_the_number_leaves_it_an_issue_number() -> None:
+    """The three spellings the colour exemption spared while it keyed on punctuation.
+
+    One finding between them: the check reports the number rather than each run carrying it.
+    """
+    _reset()
+    _append(MOD, HASH + " " + PAREN_ISSUE + " and " + TERMINATED_ISSUE + " and " + BACKTICKED_ISSUE)
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [_issue_fail(MOD)]
+
+
+def test_a_hex_colour_in_a_stylesheet_comment_names_no_issue() -> None:
+    """A colour is the run's other innocent spelling, and a stylesheet is where it is written.
+
+    The review reference beside it is the evidence the check read the file at all.
+    """
+    _reset()
+    _append(STYLES, "/* the disabled swatch stays " + HEX + "; and the focus ring darkens to " + HEX + ") beside it */")
+    _append(STYLES, "/* drawn up in the last session */")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert STYLES in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", STYLES, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_a_hex_colour_in_a_module_comment_is_an_issue_number_until_it_is_quoted() -> None:
+    """The exemption above is the stylesheet's alone, so the same colour named in a module reports.
+
+    The second run is the spelling INC-6 sends that writer to, and the first is what makes the
+    quotes load-bearing rather than decorative.
+    """
+    _reset()
+    try:
+        _append(MOD, HASH + " the swatch stays " + HEX + " while the theme holds")
+        bare = _run()
+        _reset()
+        _append(MOD, HASH + " the swatch stays " + QUOTED_HEX + " while the theme holds")
+        # The review reference beside it is the evidence the check read the file at all.
+        _append(MOD, HASH + " drawn up in the last session")
+        quoted = _run()
+    finally:
+        _reset()
+    assert MOD in bare["additions"]
+    colour = "issue number " + HEX + " in an added comment -- state the constraint (INC-6)"
+    assert _findings(bare) == [("fail", "comment-citation", MOD, colour)]
+    assert _findings(quoted) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_a_hash_shaped_run_that_names_no_issue_stays_silent() -> None:
+    """An HTML entity, a page anchor and the ban quoted to name it each carry the shape and no issue.
+
+    The quoted run is what lets a file documenting the ban spell the very form it bans.
+    """
+    _reset()
+    _append(MOD, HASH + " " + ENTITY + " and " + ANCHOR + " and " + HASH + "2-invariants and " + QUOTED_BAN)
+    # The review reference beside them is the evidence the check read the file at all.
+    _append(MOD, HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_a_url_fragment_and_a_numbered_anchor_point_at_a_location_rather_than_an_issue() -> None:
+    """The run in front decides: a scheme makes a fragment, a corpus suffix makes a page anchor.
+
+    Neither carries the hyphen the slug spelling is held out by, so the shape alone reads both as
+    issue numbers.
+    """
+    _reset()
+    _append(MOD, HASH + " " + URL_FRAGMENT + " and " + NUMBERED_ANCHOR + " point into a page")
+    # The review reference beside them is the evidence the check read the file at all.
+    _append(MOD, HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
 def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
     """Resolving a hit against the roadmap table is what separates a citation from an ordinary word.
 
@@ -329,6 +647,185 @@ def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
         _reset()
     assert MOD in data["additions"]
     assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def _number_fail(rel: str, number: str, *homes: str) -> tuple[str, str, str, str]:
+    named = ", ".join("`" + home + "`" for home in homes)
+    detail = number + " is defined by " + named + " already -- OUT-4 takes one past the highest number any sheet defines"
+    return ("fail", "invariant-number", rel, detail)
+
+
+def _outside_fail(rel: str, number: str, span: str) -> tuple[str, str, str, str]:
+    detail = (
+        number + " is outside " + span + " -- OUT-4 allocates from one past " + HIGH_ID + ", the highest number any sheet defines at the fork"
+    )
+    return ("fail", "invariant-number", rel, detail)
+
+
+def test_an_added_invariant_row_taking_another_sheet_s_number_fails_and_the_move_clears_it() -> None:
+    """OUT-4's allocation rule reaches the branch that breaks it, at the row rather than at a citation.
+
+    The second run is the repair the finding asks for: the same row under a number no sheet defines.
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(BACKEND_ID, "A row reaching for a number the other sheet holds"))
+        collided = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row reaching for a number no sheet holds"))
+        moved = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in collided["additions"]
+    assert _findings(collided) == [_number_fail(FRONTEND_SPEC, BACKEND_ID, BACKEND_SPEC)]
+    assert FRONTEND_SPEC in moved["additions"]
+    assert _findings(moved) == []
+
+
+def test_a_number_this_sheet_defined_at_the_fork_stays_silent_when_its_row_is_rewritten() -> None:
+    """A reflowed or reordered row arrives as an addition, and the shared band is not the branch's.
+
+    The second run is the evidence the check armed here: the same row under the other sheet's own
+    number fails.
+    """
+    _reset()
+    shared = _row(SHARED_ID, "A route names its own data")
+    try:
+        _replace(FRONTEND_SPEC, shared, _row(SHARED_ID, "A route names the data it renders"))
+        rewritten = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, shared, _row(BACKEND_ID, "A route names its own data"))
+        renumbered = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in rewritten["additions"]
+    assert _findings(rewritten) == []
+    assert _findings(renumbered) == [_number_fail(FRONTEND_SPEC, BACKEND_ID, BACKEND_SPEC)]
+
+
+def test_two_sheets_reaching_for_one_number_on_one_branch_each_name_the_other() -> None:
+    """A number neither sheet held at the fork sits in no fork population, so only the branch's own rows catch it."""
+    _reset()
+    raced = _row(RACED_ID, "A number this branch reached for twice")
+    backend_kept = _row(BACKEND_ID, "One document comes back")
+    frontend_kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(BACKEND_SPEC, backend_kept, backend_kept + "\n" + raced)
+        _replace(FRONTEND_SPEC, frontend_kept, frontend_kept + "\n" + raced)
+        data = _run()
+    finally:
+        _reset()
+    assert _findings(data) == [
+        _number_fail(BACKEND_SPEC, RACED_ID, FRONTEND_SPEC),
+        _number_fail(FRONTEND_SPEC, RACED_ID, BACKEND_SPEC),
+    ]
+
+
+def test_an_added_row_skipping_a_number_fails_and_the_run_spans_both_sheets() -> None:
+    """OUT-4's run is contiguous from one past the ceiling, so a skipped number is a gap.
+
+    The second run is the repair, with the two rows on different sheets: one namespace across the
+    surfaces (OUT-4).
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    backend_kept = _row(HIGH_ID, "The number the band has reached")
+    try:
+        added = kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling") + "\n" + _row(GAPPED_ID, "A row skipping the number below it")
+        _replace(FRONTEND_SPEC, kept, added)
+        gapped = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling"))
+        _replace(BACKEND_SPEC, backend_kept, backend_kept + "\n" + _row(SECOND_ID, "The second of the run, on the other sheet"))
+        contiguous = _run()
+    finally:
+        _reset()
+    assert _findings(gapped) == [_outside_fail(FRONTEND_SPEC, GAPPED_ID, FREE_ID + " to " + SECOND_ID)]
+    assert sorted(contiguous["additions"]) == [BACKEND_SPEC, FRONTEND_SPEC]
+    assert _findings(contiguous) == []
+
+
+def test_an_added_row_reaching_below_the_ceiling_fails_where_no_sheet_defines_that_number() -> None:
+    """A number the band passed over is allocated and never reused, so no collision arm sees it.
+
+    The fork's sheets say where the band has reached, so the row under test is outside the
+    population judging it (PRE-4).
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(HOLE_ID, "A row reaching for a number the band passed over"))
+        data = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in data["additions"]
+    assert _findings(data) == [_outside_fail(FRONTEND_SPEC, HOLE_ID, FREE_ID)]
+
+
+def test_an_invariant_row_outside_the_fork_s_own_section_defines_nothing() -> None:
+    """The fork's sheets are read as the corpus reads them, `## 2. Invariants` and nothing else.
+
+    An unsectioned reader takes the remedy table's rows too, and every number a branch adds under
+    one of them then reads as taken.
+    """
+    _reset()
+    stray = _row(FREE_ID, "A row of the invariant shape under the remedy table")
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(BACKEND_SPEC, "| A value nothing names | Name it |", "| A value nothing names | Name it |\n" + stray)
+        git(_root(), "commit", "-aqm", "Corpus: a row of the invariant shape outside section 2")
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling"))
+        data = _run()
+    finally:
+        git(_root(), "reset", "-q", "--soft", "HEAD~1")
+        _reset()
+    assert FRONTEND_SPEC in data["additions"]
+    assert _findings(data) == []
+
+
+def test_an_added_invariant_row_outside_this_sheet_s_own_section_allocates_nothing() -> None:
+    """The added side is sectioned as the fork side is, so the two are one reader.
+
+    Unsectioned it draws an allocation finding for a row the sheet's own table never defines.
+    """
+    _reset()
+    stray = _row(GAPPED_ID, "A row of the invariant shape under the remedy table")
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, "| A value nothing names | Name it |", "| A value nothing names | Name it |\n" + stray)
+        outside = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + stray)
+        inside = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in outside["additions"] and FRONTEND_SPEC in inside["additions"]
+    assert _findings(outside) == []
+    assert _findings(inside) == [_outside_fail(FRONTEND_SPEC, GAPPED_ID, FREE_ID)]
+
+
+def test_a_sheet_git_cannot_read_as_a_rename_has_every_row_it_kept_charged_as_a_new_one() -> None:
+    """The accepted cost, pinned rather than left for a rebase to discover.
+
+    Additions come from the rename-detecting diff while the fork population is keyed on the fork's
+    path, so a sheet rewritten past git's threshold has no earlier self.
+    """
+    _reset()
+    root = _root()
+    (root / MOVED_SPEC).parent.mkdir(parents=True)
+    git(root, "mv", FRONTEND_SPEC, MOVED_SPEC)
+    _append(MOVED_SPEC, *(REWRITE_TEXT + " " + str(number) for number in range(REWRITE_LINES)))
+    try:
+        status = git(root, "diff", "-M", "--name-status", "HEAD").split("\n")
+        data = _run()
+    finally:
+        _reset()
+    assert not [line for line in status if line.startswith("R")], "git read the rename after all, so this proves nothing: " + repr(status)
+    assert _findings(data, "invariant-number") == [
+        _number_fail(MOVED_SPEC, SHARED_ID, BACKEND_SPEC, FRONTEND_SPEC),
+        _number_fail(MOVED_SPEC, FRONTEND_ID, FRONTEND_SPEC),
+    ]
 
 
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
@@ -371,18 +868,10 @@ def test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not() -> None:
     one.
     """
     _reset()
-    # Whichever commit supplies it must be reachable, so the checker resolves it -- but a single
-    # commit's short form carries a digit and a letter only by chance, and this walks until one does.
-    resolvable = next(
-        (
-            sha[:n]
-            for sha in git(_root(), "rev-list", "--max-count=20", "HEAD").split("\n")
-            for n in (8, 7)
-            if any(c.isdigit() for c in sha[:n]) and any(c.isalpha() for c in sha[:n])
-        ),
-        None,
-    )
-    assert resolvable is not None, "no recent commit has a mixed short form, so this proves nothing here"
+    resolvable = git(_root(), "rev-parse", "HEAD")[:7]
+    # Asserted rather than assumed: `_mix_the_short_form` is what makes this hold, and without this
+    # line a fixture that stopped doing so fails below on a findings mismatch that names nothing.
+    assert any(c.isdigit() for c in resolvable) and any(c.isalpha() for c in resolvable), "the fixture's HEAD has no mixed short form"
     tick = "`"
     _append(
         NOTES,
@@ -617,6 +1106,247 @@ def test_lengthening_an_older_block_fails_and_names_both_numbers() -> None:
     grown = committed + len(ADDED_CLAUSE.split())
     detail = f"the comment block runs {grown} words, up from {committed} where the branch forked -- INC-9 lets neither number rise"
     assert _findings(data, "comment-length") == [("fail", "comment-length", LEGACY, detail)]
+
+
+def test_a_split_block_spends_its_earlier_self_s_ceiling_once_between_the_halves() -> None:
+    """Two blocks as long as the one they came from are what a per-block ceiling waves through."""
+    _reset()
+    _replace(LEGACY, "\n".join(LEGACY_BLOCK), "\n".join(LEGACY_BLOCK) + "\n\n" + "\n".join(LEGACY_BLOCK))
+    first = _line_of(LEGACY, LEGACY_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = LEGACY_WORDS * 2
+    # The half the diff leaves as context is charged and not reported: what the branch can fix is
+    # the half it wrote (CUR-6).
+    assert _findings(data, "comment-length") == [_shared_fail(LEGACY, LEGACY_WORDS, charged, LEGACY_WORDS)]
+    assert _lines(data, "comment-length") == [first + len(LEGACY_BLOCK) + 1]
+
+
+def test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling() -> None:
+    """The charge is summed per file, so a copy into a second file is the split this does NOT catch.
+
+    Charging across files would fail a branch for a file it never opened, so the pair is
+    `/docs:audit`'s (CUR-6).
+    """
+    _reset()
+    _append(SIDE, *LEGACY_BLOCK)
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert sorted(data["additions"]) == [SIDE]
+    assert _findings(data, "comment-length") == []
+
+
+def test_a_block_padded_with_one_borrowed_line_inherits_no_ceiling() -> None:
+    """A moved or edited block shares most of itself; one line lifted from a legacy block is not that.
+
+    Its total stays under the legacy block's own count, so any ceiling it inherits waves it through.
+    """
+    _reset()
+    _append(SIDE, *PADDED_BLOCK)
+    line = _line_of(SIDE, PADDED_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert PADDED_WORDS < LEGACY_WORDS, "the padded block outgrew the ceiling it must not reach"
+    assert _findings(data, "comment-length") == [_bound_fail(SIDE, PADDED_WORDS)]
+    assert _lines(data, "comment-length") == [line]
+
+
+def test_a_second_copy_in_another_file_buys_a_new_block_no_ceiling() -> None:
+    """A standing is the fork's copies in ONE file, so a pair it filed elsewhere doubles nothing here.
+
+    Counted over the fork's whole tree the twin's pair would wave it through.
+    """
+    _reset()
+    _append(SIDE, *WIDE_BLOCK)
+    line = _line_of(SIDE, WIDE_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    detail = f"the comment block runs {WIDE_WORDS} words, up from {TWIN_WORDS} where the branch forked -- INC-9 lets neither number rise"
+    assert _findings(data, "comment-length") == [("fail", "comment-length", SIDE, detail)]
+    assert _lines(data, "comment-length") == [line]
+
+
+def test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each() -> None:
+    """One ceiling for the pair would charge a rename that changed neither of them for both.
+
+    Identical blocks are one value, so the fork's copies have to be counted rather than keyed.
+    """
+    _reset()
+    root = _root()
+    git(root, "mv", TWIN, TWINNED)
+    try:
+        # Read from the fixture: rename detection is on for `additions`, which leaves a pure rename
+        # looking exactly like a clean tree there.
+        touched = sorted(git(root, "diff", "--name-only", "--no-renames", "HEAD").splitlines())
+        data = _run()
+    finally:
+        _reset()
+    assert touched == [TWIN, TWINNED]
+    assert _findings(data, "comment-length") == []
+
+
+def test_a_deleted_copy_leaves_its_standing_behind_rather_than_lending_it_to_the_one_that_grew() -> None:
+    """A standing the file has no copy for buys nothing, or one block spends what the pair was given.
+
+    Counted on the fork's copies alone, deleting one and growing the other passes at a length no
+    block here reaches.
+    """
+    _reset()
+    _replace(TWIN, "\n".join(TWIN_BLOCK) + "\n\n" + "\n".join(TWIN_BLOCK), "\n".join((*TWIN_BLOCK, HASH + " " + ADDED_CLAUSE)))
+    line = _line_of(TWIN, TWIN_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    grown = TWIN_WORDS + len(ADDED_CLAUSE.split())
+    detail = f"the comment block runs {grown} words, up from {TWIN_WORDS} where the branch forked -- INC-9 lets neither number rise"
+    assert _findings(data, "comment-length") == [("fail", "comment-length", TWIN, detail)]
+    assert _lines(data, "comment-length") == [line]
+
+
+def test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two() -> None:
+    """A standing is the fork's copies in the file it filed them in, and no other file gets two.
+
+    Counted per copy that arrived instead, a branch pastes the pair anywhere and passes.
+    """
+    _reset()
+    body = _page(QUOTES + "BACKEND · the module the fork's pair is pasted into." + QUOTES, "", "VALUE = 1", "", *TWIN_BLOCK, "", *TWIN_BLOCK)
+    write(_root(), FRESH, body)
+    first = _line_of(FRESH, TWIN_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = TWIN_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(FRESH, TWIN_WORDS, charged, TWIN_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(TWIN_BLOCK) + 1]
+
+
+def test_a_rename_git_reads_as_a_fresh_file_charges_its_pair_against_one_standing() -> None:
+    """The cost the ceiling accepts: a rename git cannot read draws a finding its author repairs.
+
+    A file carrying a duplicated over-bound block, rewritten past git's threshold, is what reaches it.
+    """
+    _reset()
+    root = _root()
+    git(root, "mv", TWIN, OTHER)
+    _append(OTHER, "FILLER = (", *('    "' + REWRITE_TEXT + " " + str(n) + '",' for n in range(REWRITE_LINES)), ")")
+    first = _line_of(OTHER, TWIN_BLOCK[0])
+    try:
+        status = git(root, "diff", "-M", "--name-status", "HEAD").split("\n")
+        data = _run()
+    finally:
+        _reset()
+    assert not [line for line in status if line.startswith("R")], "git read the rename after all, so this proves nothing: " + repr(status)
+    charged = TWIN_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(OTHER, TWIN_WORDS, charged, TWIN_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(TWIN_BLOCK) + 1]
+
+
+def test_a_hash_run_a_string_holds_is_no_ancestor_when_the_fork_s_last_blob_is_empty() -> None:
+    """An empty final blob closes the batch on its header, with no content line under it.
+
+    Read at offset zero that record takes the whole batch, and every `#` line in it becomes an
+    ancestor a new block can inherit.
+    """
+    _reset()
+    listed = git(_root(), "ls-tree", "-r", "--name-only", "HEAD").splitlines()
+    assert listed[-1] == TAIL, "a corpus file now sorts below the empty one, so this proves nothing"
+    _append(MOD, *SPURIOUS_BLOCK)
+    line = _line_of(MOD, SPURIOUS_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert _findings(data, "comment-length") == [_bound_fail(MOD, SPURIOUS_WORDS)]
+    assert _lines(data, "comment-length") == [line]
+
+
+def test_a_fork_blob_the_object_store_lost_is_refused_rather_than_read_as_no_ceilings() -> None:
+    """An unreadable pool read as empty drops every ceiling and fails prose the fork carried.
+
+    The diff still answers, so `check_branch_diff` cannot cover this: it degrades on the fork ref,
+    and one blob is missing rather than the ref.
+    """
+    _reset()
+    root = _root()
+    _replace(LEGACY, "amends", "adjusts")
+    oid = git(root, "rev-parse", "HEAD:" + MOD)
+    loose = root / ".git" / "objects" / oid[:2] / oid[2:]
+    kept = loose.read_bytes()
+    try:
+        # git writes a loose object read-only, which Windows will not unlink.
+        loose.chmod(stat.S_IWRITE)
+        loose.unlink()
+        data = _run()
+    finally:
+        loose.write_bytes(kept)
+        _reset()
+    assert data["diffed"] == [LEGACY]
+    assert _findings(data) == [_pool_refusal()]
+
+
+def test_one_lost_fork_blob_is_one_refusal_however_many_files_the_branch_touched() -> None:
+    """The pool is one cached read, so a second file repeating its refusal names nothing new.
+
+    Two touched files, each carrying a block the pool would have had to answer for.
+    """
+    _reset()
+    root = _root()
+    _replace(LEGACY, "amends", "adjusts")
+    _append(SIDE, *LONG_BLOCK)
+    oid = git(root, "rev-parse", "HEAD:" + MOD)
+    loose = root / ".git" / "objects" / oid[:2] / oid[2:]
+    kept = loose.read_bytes()
+    try:
+        # git writes a loose object read-only, which Windows will not unlink.
+        loose.chmod(stat.S_IWRITE)
+        loose.unlink()
+        data = _run()
+    finally:
+        loose.write_bytes(kept)
+        _reset()
+    assert data["diffed"] == [LEGACY, SIDE]
+    assert _findings(data) == [_pool_refusal()]
+
+
+def test_a_block_moved_to_a_path_the_fork_has_no_version_of_keeps_its_standing() -> None:
+    """A pool drawn from the destination path alone would be empty, and the carried block would read as new."""
+    _reset()
+    root = _root()
+    _replace(LEGACY, "\n" + "\n".join(LEGACY_BLOCK), "")
+    write(root, FRESH, _page(QUOTES + "BACKEND · the module the block moved into." + QUOTES, "", "VALUE = 1", "", *LEGACY_BLOCK))
+    try:
+        data = _run()
+    finally:
+        _reset()
+    # The source file leaves no addition behind, the move being a deletion there.
+    assert sorted(data["additions"]) == [FRESH]
+    assert _findings(data, "comment-length") == []
+
+
+def test_a_renamed_file_s_carried_block_is_charged_beside_the_copy_added_next_to_it() -> None:
+    """With rename detection on, the carried lines would arrive as context and spend none of the ceiling."""
+    _reset()
+    root = _root()
+    git(root, "mv", LEGACY, MOVED)
+    _append(MOVED, *LEGACY_BLOCK)
+    first = _line_of(MOVED, LEGACY_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = LEGACY_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(MOVED, LEGACY_WORDS, charged, LEGACY_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(LEGACY_BLOCK) + 1]
 
 
 def test_a_list_s_markers_cost_a_block_nothing() -> None:

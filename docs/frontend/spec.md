@@ -162,7 +162,8 @@ fixes E592.** Every configuration lever around E592 is closed:
 `dynamic = "force-dynamic"` build-errors under `cacheComponents`, 16.3 offers no
 per-route PPR opt-out, `generateStaticParams` leaves fallback params on unlisted ids regardless,
 disabling `cacheComponents` would take every cached read in §1.2 with it, and uncaching the read
-shipped and was disproven by retest — 16.3.0 and 16.3.1-canary.4 both still reproduce it.
+shipped and was disproven by retest — on 2026-08-06, 16.3.0 and 16.3.1-canary.4 both still
+reproduce it.
 
 **The app's other route handlers sit outside that boundary, each for its own reason.** The Auth.js
 catch-all and the client-error ingest (`FE-CLIENT-001`) mutate no application data at all. The
@@ -1121,6 +1122,16 @@ arriving, not a deficit to fill:
 - **Nothing is spent in the dark theme that the light theme does not spend.** The tokens flip; the
   counts never do.
 
+**The rules held mechanically are the ones `scripts/checks/docs_gate/scheme.py` reaches**, as gate
+check `scheme-token` — every file under `fl_frontend/src/app/schemes/` declaring the token list the
+season in force declares, both themes alike; `fl_frontend/src/app/globals.css :: @theme` bridging
+each utility to a token of that roster and never to a literal `--color-*` value; one import of a
+scheme file and no second, the last of two deciding the season in force unseen; a hover taken from
+a declared token rather than composited from an alpha; and the pairs
+`scripts/checks/docs_gate/scheme.py :: PAIRS` names re-measured against the values as they stand.
+**The table above holds by review**: which surface may spend a grade is a reading of the screen and
+not of the scheme file.
+
 ### 1.18 The box
 
 **Every box has an edge and a shadow, and the edge names the tone** (I165). A neutral box is
@@ -1300,7 +1311,6 @@ holds whether a conditional block renders or not
 | I135 | **Both auth lifetimes are set explicitly and below `@auth/core`'s defaults**: dropping either as redundant restores the library's, a far longer window                                                                                     | Unenforced — no check compares either against a default; `fl_frontend/src/core/auth.ts` holds both, each with the argument for its own value                                                                                                                                                    |
 | I136 | **Every retirable editor's retirement banner names the exclusion in its title and what survives in its body, and points at no control**                                                                                                    | `fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/banners.test.ts :: the exclusion plus what survives, and points at no control`, and the same case in each other retirable editor's `banners.test.ts`                                                                 |
 | I139 | **An unreadable kit-colour read degrades to the EMPTY set**: narrowing would withhold a colour nobody holds                                                                                                                                | `fl_frontend/src/app/(public)/bewerbung/[saison_id]/page.tsx :: Degraded to the EMPTY set`; `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts :: degrades to the empty set rather than to a narrowed palette`                                                                          |
-| I140 | **The privacy notice and the imprint are linked from every public page's footer and from the public application form**                                                                                                                     | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
 | I147 | **The confirmation page renders every standing paragraph from the version it stamps**; the age warning, the armed alert and the answered states are its own                                                                                | `fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`, rendered by `fl_frontend/src/features/bewerbungen/components/views/BestaetigungHinweise.tsx`; `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts :: renders every paragraph the version holds` and the cases beside it |
 | I148 | **The confirmation page's stored wording label is the registry's, stamped by the route handler**: a label the browser sends is read and dropped                                                                                            | `fl_frontend/src/features/bewerbungen/utils.ts :: stampEinwilligungFassung`, called by `fl_frontend/src/app/api/bestaetigung/route.ts`; `fl_frontend/src/features/bewerbungen/utils.test.ts :: replaces whatever label the request carried with the registry's own`                             |
 | I159 | **In the display face, no weight utility beyond the shared recipe's own reset, no `italic`, no `tracking-tight`**                                                                                                                          | review — `fl_frontend/src/app/layout.tsx :: anton` loads the one weight, and `fl_frontend/src/app/globals.css` makes a stray utility inert rather than faked                                                                                                                                    |
@@ -1317,6 +1327,8 @@ holds whether a conditional block renders or not
 | I170 | **A label pill names its tone from `fl_frontend/src/shared/components/ui/badges.ts :: PillTone`, a closed set with no neutral member**                                                                                                     | The type, at every `labelBadge` call; `fl_frontend/src/shared/components/ui/badges.test.ts` for the HeroUI `Chip` route, which no type reaches                                                                                                                                                  |
 | I171 | **The five phase hues are one ordered arc; a collision with a feedback hue is not a reason to move one off it**                                                                                                                            | Review, against `fl_frontend/src/app/schemes/`; the contrast rows in `scripts/checks/docs_gate/scheme.py :: PAIRS` hold each phase pair readable, never separated                                                                                                                               |
 | I172 | **The block's left edge is the halfway line and its right edge the goal line, so neither is drawn**                                                                                                                                        | Review, against `fl_frontend/src/shared/components/ui/BrandHero.tsx :: PitchTrace`, at the narrowest viewport                                                                                                                                                                                   |
+| I173 | **Every tab stop shows focus**: where the border-based indicator is suppressed, an outline replaces it (WCAG 2.4.7)                                                                                                                        | Review, against `fl_frontend/src/app/globals.css :: A frozen field and a closed picker`, at every suppressed border                                                                                                                                                                             |
+| I175 | **The privacy notice is linked from every public page's footer and from the public application form; the imprint from that footer**                                                                                                        | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
 
 ## 3. Violation → remedy
 

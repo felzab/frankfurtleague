@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the port 3000 listener nobody stopped
 # Stop hook — names what still holds port 3000 when the turn ends. Advisory, never blocking.
 # A listener is found by its wildcard foreign address: netstat localises the state column, and this
 # machine prints ABHÖREN, so matching "LISTENING" would make the hook silently dead.

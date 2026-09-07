@@ -231,7 +231,8 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block holds the argument for each override). The same
+(`docker-compose.local.yml`, whose invariant block lists the overrides while each argument sits at
+the line it constrains). The same
 block sets `BEWERBUNG_SWEEP` off, because the database is a copy of production and
 `fl_frontend/.env` holds the real `AUTH_RESEND_KEY`: an armed sweep here mails the league's actual
 contact people, and one checked-in line is what a developer flips to exercise it (§1.1).
@@ -571,9 +572,10 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: measured by resampling whole runs, a 12-run median moves 8% on `docs` at p95, 10% on
-`frontend` and 22% on `backend-db`, so a single global figure dismisses a real move on the quiet
-jobs and cries wolf on the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
+of them: resampled over whole runs of the population `.github/gate-wall-clock.tsv`'s header stamps
+at 2026-09-01, a 12-run median moves 8% on `docs` at p95, 10% on `frontend` and 22% on
+`backend-db`, so a single global figure dismisses a real move on the quiet jobs and cries wolf on
+the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
 
 **The report decides nothing** — no threshold in it refuses anything and pull requests skip it, so
 the seconds it costs land where no merge is waiting; the budget below is where a figure refuses.
@@ -587,15 +589,17 @@ first step to its last, and `measured`, the completed runs the row was taken ove
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
-a length nothing measured being no pass. A single run swings far wider than a median — inside the 24
-main runs the budgets were set from, `backend-db` reached 1.6 times its median and `ops` 2.3 times —
-so each budget is the population's highest single-run span plus a quarter of it or ten seconds,
+a length nothing measured being no pass. A single run swings far wider than a median — inside the
+main runs the budgets were set from, stamped 2026-09-01, `backend-db` reached 1.6 times its median
+and `ops` 2.3 times — so each budget is the population's highest single-run span plus a quarter of
+it or ten seconds,
 whichever is more, rounded up to the next five, a rule the table's header records. **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
 a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
-being the layer cache's before it is the tree's — a cold cache costs five times the median, and the
-Dockerfile change most worth catching is the one that empties it — so the median report is its only
+being the layer cache's before it is the tree's — at that same 2026-09-01 stamp a cold cache costs
+five times the median, and the Dockerfile change most worth catching is the one that empties it —
+so the median report is its only
 guard. `commits` and `format` run on pull requests alone, so their rows are measured from
 pull-request runs and carry `-` where the report, cut from main runs, would read a reference.
 **Raising a budget or a reference costs a measurement.** In the `commits` job,
@@ -609,14 +613,22 @@ and the clause are one mechanism's three parts, and `scripts/tests/test_check_ga
 drives the committed table red and green against its own budgets so the file can never become one
 the check reads but cannot fail on.
 
-**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs`, the source comments
-beside the code and the configuration files scanned with them, and its byte-level checks read every
-tracked text file — so a finding this scope raises need not be about a document at all. Its checks
-are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
+**The documentation gate** (`scripts/checks/check_docs.py`) reads as prose every tracked markdown
+page wherever it sits — the [`docs/`](../README.md) tree, the root and package READMEs, the pages
+under `.claude/` — and `NOTICE` beside them, plus the source comments next to the code and the
+configuration files scanned with them; its byte-level checks read every tracked text file, so a
+finding this scope raises need not be about a document at all. Its checks are registered in
+`scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else. **The modules reading code rather
+than prose** are `scripts/checks/docs_gate/platform.py` and
+`scripts/checks/docs_gate/error_codes.py`, below;
+`scripts/checks/docs_gate/copy_rules.py`, held by
+[frontend §1.12](../frontend/spec.md#112-the-copy-rules); and
+`scripts/checks/docs_gate/scheme.py`, held by
+[frontend §1.17](../frontend/spec.md#117-colour-roles-and-the-brand-budget).
 
-**Two of its checks read code rather than prose** (`scripts/checks/docs_gate/platform.py`), and I15 and
-I16 are what they hold. `platform-branch` holds four clauses. PLAT-1: a Python read of the platform
-is a module-level UPPER_CASE `Final`, or an allowlist row. PLAT-2: no test under
+**`scripts/checks/docs_gate/platform.py` is what I15 and I16 hold.** `platform-branch` holds four
+clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an
+allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
 every admitted constant is bound to both values somewhere in that same test corpus. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
@@ -630,6 +642,12 @@ cannot, and only this gate's Linux run in CI proves one. `crlf-write` holds
 `"\n"`, or is a row of `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW` with its reason. A
 redirect of a program's stdout leaves no call in the source to read, so that half of the trap stays
 with the reader.
+
+**`scripts/checks/docs_gate/error_codes.py` is what I176 holds:**
+[`../logging/error-codes.md`](../logging/error-codes.md)'s rows and the
+codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directions, each tree
+answering for its own prefixes so that the backend codes the frontend words for a reader are not
+read as the frontend's own.
 
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
@@ -724,29 +742,31 @@ its human-readable line on stderr, where it cannot reach the outputs.
 
 ## 2. Invariants
 
-| #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                        |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1   | Only nginx publishes a port another host can reach — the local database's is bound to `127.0.0.1`                                                                             | `scripts/checks/check_compose_mirror.py :: off_host_ports`, over both files                                                                                                                        |
-| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `nginx/prod.conf :: location /_next/static/` and `:: location = /api/v0/system/is_live`, each restating the set its own `add_header` replaced; both observed carrying the full set, 2026-08-30     |
-| I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                          |
-| I4   | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                         |
-| I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                |
-| I6   | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                             |
-| I7   | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                    |
-| I8   | Publishing stops on a dirty tree by default                                                                                                                                   | `publish.sh`, whose `--allow-dirty` escape suffixes the tag `-dirty` and a fingerprint of the tree (`scripts/ops/publish.sh :: DIRTY_ID`)                                                          |
-| I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                        |
-| I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                  |
-| I11  | The three API keys are 64 characters and match on both sides                                                                                                                  | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                          |
-| I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                   |
-| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | unenforced — `nginx -t` reads no location it parses (§1.6), nothing compares `nginx/local.conf` against production's (§4, db2a-9qu3), and no test requests a backend path                          |
-| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                            |
-| I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                      |
-| I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                    |
-| I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6) |
-| I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone |
-| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                 |
-| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                     |
-| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                |
+| #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1   | Only nginx publishes a port another host can reach — the local database's is bound to `127.0.0.1`                                                                             | `scripts/checks/check_compose_mirror.py :: off_host_ports`, over both files                                                                                                                                                     |
+| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `nginx/prod.conf :: location /_next/static/` and `:: location = /api/v0/system/is_live`, each restating the set its own `add_header` replaced; both observed carrying the full set, 2026-08-30                                  |
+| I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                                                       |
+| I4   | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                                                      |
+| I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                                             |
+| I6   | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                                                          |
+| I7   | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                                                 |
+| I8   | Publishing stops on a dirty tree by default                                                                                                                                   | `publish.sh`, whose `--allow-dirty` escape suffixes the tag `-dirty` and a fingerprint of the tree (`scripts/ops/publish.sh :: DIRTY_ID`)                                                                                       |
+| I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                                                     |
+| I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                               |
+| I11  | The three API keys are 64 characters and match on both sides                                                                                                                  | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                                                       |
+| I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                                                |
+| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | unenforced — `nginx -t` reads no location it parses (§1.6), nothing compares `nginx/local.conf` against production's (§4, db2a-9qu3), and no test requests a backend path                                                       |
+| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                                                         |
+| I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                   |
+| I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                 |
+| I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                              |
+| I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                              |
+| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                              |
+| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                  |
+| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                             |
+| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/checks/check_compose_mirror.py :: uncovered`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for a difference no row pins                                         |
+| I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name |
 
 ## 3. Violation → remedy
 
@@ -792,7 +812,6 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | Certificate renewal is outside this repository                      | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                             | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
 | The local database holds real contact records                       | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume and the `.local-db/` copy                                                            |
-| INC-9 measures none of a renamed file's comment blocks              | Open — `scripts/checks/docs_gate/branch.py :: check_comment_length` reads every block the branch added a line to, and a rename's carried lines arrive as context                                   |
 | No gate scope COMPARES `nginx/local.conf` against production's      | Open — its header claims production's routing and headers, and nothing compares the pair. The parse half is closed: `nginx/redaction_test.sh` serves `local.conf` itself (§1.6)                    |
 | A guard the database tier stays green without                       | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
 | The linter behind §1.4's compensating control is past end of life   | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |

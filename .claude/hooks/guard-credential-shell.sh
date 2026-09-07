@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# HOOKS · credential material on the shell route
 # PreToolUse hook on Bash and PowerShell — refuses a command that reads, prints, encodes or
 # transmits credential material, or that names a path .gitignore matches. CLAUDE.md section 1 is
-# absolute, and a permissions.deny entry never reads a command line, so the shell route had no
-# mechanical enforcement at all.
+# absolute, and a permissions.deny entry never reads a command line, so this hook is that route's
+# only mechanical enforcement.
 #
 # It decides on the command TEXT, plus one question to git: the payload carries no output, so
 # nothing in it separates a mention from a read. A grep pattern or a heredoc naming .env refuses

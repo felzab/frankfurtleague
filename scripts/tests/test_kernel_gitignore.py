@@ -36,7 +36,14 @@ COMMENT_HOME: Final = "docs/plan.md"
 
 HOOK: Final = ".githooks/pre-push"
 DEAD_PATH: Final = "docs/gone.md"
-HOOK_LINES: Final = (HASH + "!/usr/bin/env bash", HASH, HASH + " A hook whose comment names " + TICK + DEAD_PATH + TICK + ".", "exit 0")
+# Titled: the opening block of a hook is a module header held to INC-2's shape, so a title-less one
+# would draw `module-header` beside the `path` finding the scan case counts.
+HOOK_LINES: Final = (
+    HASH + "!/usr/bin/env bash",
+    HASH,
+    HASH + " GITHOOKS · a hook whose comment names " + TICK + DEAD_PATH + TICK + ".",
+    "exit 0",
+)
 
 # Blank-line separated from the header, or `comment_runs` reads them as one block and the fork's copy
 # exempts the plant.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the branch rule, on the PowerShell route
 # PreToolUse hook on PowerShell — refuses a command that is not provably harmless while HEAD is `main`.
 # It enumerates READS and refuses the rest, the inverse of guard-branch-bash.sh, because PowerShell
 # writes through an open-ended vocabulary and every verb a write list misses is a silent hole.

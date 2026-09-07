@@ -1,6 +1,8 @@
 import ast
 import functools
 import importlib
+import json
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -15,7 +17,7 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
+from app.core.constraints import COLLECTION_VALIDATORS, SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -44,12 +46,52 @@ PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ
 
 _CODE_PATTERN = "REQ-"
 
+# The declaration's own module, which never answers for a reason's own text: it is dropped from
+# every listing built out of the source trees, and a citation naming it resolves against nothing
+# (`docs/_standard/standard.md :: PRE-4`).
+DECLARATION = APP_ROOT / "core" / "domain.py"
 
-def _codes_in(root: Path) -> set[str]:
-    """Every `REQ-*` code under `root`, comments included."""
+# A `READ-*` rule refuses nothing, so no endpoint carries its code and `_codes_in` cannot reach one.
+# Its home is the read-rules table in `docs/backend/spec.md`, whose every row opens on the code.
+READ_RULES_SHEET = REPO_ROOT / "docs" / "backend" / "spec.md"
+_READ_RULE_ROW = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ")
+
+# What a `reason=` cites, by shape. Each kind carries its own idea of resolving, so a token is
+# classified before it is looked up, and one matching no shape at all fails rather than passing.
+_REASON_TOKEN = re.compile(r"`([^`]+)`")
+_RULE_CODE = re.compile(r"^(?:REQ|READ)-[A-Z]+-\d+$")
+_CODE_FAMILY = re.compile(r"^((?:REQ|READ)-[A-Z]+-)\*$")
+_CITATION = re.compile(r"^(\S+\.\w+) :: (.+)$")
+_ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
+_SURFACE = re.compile(r"^/\S*$")
+_REPO_PATH = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
+_INDEX_KEY = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
+# Ahead of the name shape, which every letter-and-digit token satisfies: an `I<n>` resolves against
+# the invariant tables, one namespace across the surface sheets with the logging band beside it
+# (OUT-4).
+_INVARIANT = re.compile(r"^[IL]\d{1,3}[a-z]?$")
+_NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
+_WORD = re.compile(r"[A-Za-z_]\w*")
+
+_SPEC_SHEETS = "docs/*/spec.md"
+_INVARIANTS_HEADING = re.compile(r"^## 2\. Invariants *$", re.MULTILINE)
+_SECTION_HEADING = re.compile(r"^## ", re.MULTILINE)
+_INVARIANT_ROW = re.compile(r"^\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+
+# The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
+# field beside the value it holds, and a type expression.
+_VALUE = re.compile(r"^\d+$")
+_FIELD_VALUE = re.compile(r"^[\w.]+: \S+$")
+_TYPE_EXPRESSION = re.compile(r"^[\w\[\], |]*[\[|][\w\[\], |]*$")
+
+
+def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
+    """Every `REQ-*` code under `root`, comments included; `skip` drops a file that must not answer for its own text."""
 
     found: set[str] = set()
     for path in sorted(root.rglob("*.py")):
+        if path == skip:
+            continue
         for token in path.read_text(encoding="utf-8").split():
             start = token.find(_CODE_PATTERN)
             if start == -1:
@@ -59,6 +101,130 @@ def _codes_in(root: Path) -> set[str]:
             if code.count("-") == 2 and code.rsplit("-", 1)[1].isdigit():
                 found.add(code)
     return found
+
+
+def _resolved_path(cited: str) -> Path | None:
+    """Package-relative first: a reason spells a backend path as the package does, `app/core/crud.py` rather than repository-relative."""
+
+    return next((candidate for candidate in (BACKEND_ROOT / cited, REPO_ROOT / cited) if candidate.exists()), None)
+
+
+@functools.cache
+def _resolvable_codes() -> frozenset[str]:
+    """Two listings reached by different routes.
+
+    A `REQ-*` code reaches `app/` through the endpoint that raises it; a `READ-*` rule refuses
+    nothing, so the spec sheet's table is its only home.
+    """
+
+    rows = READ_RULES_SHEET.read_text(encoding="utf-8").splitlines()
+    read_rules = {match.group(1) for line in rows if (match := _READ_RULE_ROW.match(line))}
+
+    return frozenset(_codes_in(APP_ROOT, skip=DECLARATION) | read_rules)
+
+
+@functools.cache
+def _declared_index_keys() -> frozenset[tuple[str, ...]]:
+    """Key fields alone, the sort direction dropped: a reason names the group an index covers, never the order it walks it in."""
+
+    return frozenset(
+        {tuple(index.keys) for index in UNIQUE_INDEXES}
+        | {tuple(field for field, _ in support.keys) for support in SUPPORT_INDEXES}
+        | {(ttl.key,) for ttl in TTL_INDEXES}
+    )
+
+
+@functools.cache
+def _published_routes() -> Mapping[str, Any]:
+    """`openapi.json` rather than the application object.
+
+    The published document is the surface a route claim is about, and the gate holds it to the
+    endpoints it describes.
+    """
+
+    return json.loads((BACKEND_ROOT / "openapi.json").read_text(encoding="utf-8"))["paths"]
+
+
+@functools.cache
+def _names_the_source_trees_spell() -> frozenset[str]:
+    """Weak on purpose, because the rot it answers is a rename.
+
+    A name neither tree spells is gone, whatever it named -- a field, a symbol, an index, or a
+    label a page prints.
+    """
+
+    words: set[str] = set()
+    for root, suffixes in ((APP_ROOT, ("*.py",)), (REPO_ROOT / "fl_frontend" / "src", ("*.ts", "*.tsx", "*.css"))):
+        for suffix in suffixes:
+            for path in root.rglob(suffix):
+                if path != DECLARATION:
+                    words.update(_WORD.findall(path.read_text(encoding="utf-8")))
+
+    return frozenset(words)
+
+
+@functools.cache
+def _invariants_the_spec_sheets_define() -> frozenset[str]:
+    """Every number a sheet's own `## 2. Invariants` table declares.
+
+    Read here rather than through the documentation gate: `scripts/` is another package, and this
+    suite runs with the backend virtualenv alone on its path.
+    """
+
+    numbers: set[str] = set()
+    for sheet in sorted(REPO_ROOT.glob(_SPEC_SHEETS)):
+        text = sheet.read_text(encoding="utf-8")
+        opened = _INVARIANTS_HEADING.search(text)
+        if opened is None:
+            continue
+        closing = _SECTION_HEADING.search(text, opened.end())
+        numbers.update(_INVARIANT_ROW.findall(text[opened.end() : closing.start() if closing else len(text)]))
+    return frozenset(numbers)
+
+
+def _classify(token: str) -> tuple[str, bool | None]:
+    """The kind, and whether it resolves -- `None` where the kind has no address, parting a spared value from one nothing answers for."""
+
+    if _RULE_CODE.match(token):
+        return "rule code", token in _resolvable_codes()
+
+    if family := _CODE_FAMILY.match(token):
+        return "code family", any(code.startswith(family.group(1)) for code in _resolvable_codes())
+
+    if citation := _CITATION.match(token):
+        file = _resolved_path(citation.group(1))
+        anchor = re.escape(citation.group(2))
+        cited = (
+            file is not None
+            and file != DECLARATION
+            and file.is_file()
+            and re.search(rf"(?<!\w){anchor}(?!\w)", file.read_text(encoding="utf-8")) is not None
+        )
+        return "citation", cited
+
+    if endpoint := _ENDPOINT.match(token):
+        route, method = endpoint.group(2), endpoint.group(1).lower()
+        return "endpoint", any(path.endswith(route) and method in operations for path, operations in _published_routes().items())
+
+    if _SURFACE.match(token):
+        return "surface", (REPO_ROOT / f"fl_frontend/src/app{token}/page.tsx").is_file()
+
+    if _REPO_PATH.match(token):
+        return "path", _resolved_path(token) is not None
+
+    if key := _INDEX_KEY.match(token):
+        return "index key", tuple(key.group(1).split(", ")) in _declared_index_keys()
+
+    if _INVARIANT.match(token):
+        return "invariant", token in _invariants_the_spec_sheets_define()
+
+    if _NAME.match(token):
+        return "name", all(segment in _names_the_source_trees_spell() for segment in token.split("."))
+
+    if _VALUE.match(token) or _FIELD_VALUE.match(token) or _TYPE_EXPRESSION.match(token):
+        return "value", None
+
+    return "a shape this check does not read", False
 
 
 def _validator_properties(collection: Collection) -> Mapping[str, Any]:
@@ -349,7 +515,7 @@ def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
 
     assert entry.near, f"'{entry.subject}' names no adjacent rule and so clears no entry bar"
 
-    defined = _codes_in(APP_ROOT)
+    defined = _codes_in(APP_ROOT, skip=DECLARATION)
     unknown = [code for code in entry.near if code not in defined]
 
     assert not unknown, f"'{entry.subject}' sits near {unknown}, which the application defines nowhere"
@@ -365,6 +531,53 @@ def test_every_unenforced_surface_resolves(entry):
     target = REPO_ROOT / (f"fl_frontend/src/app{entry.surfaced_by}/page.tsx" if entry.surfaced_by.startswith("/") else entry.surfaced_by)
 
     assert target.is_file(), f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
+
+
+@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
+def test_every_anchor_a_reason_names_resolves(entry):
+    """The entry's argument, held to the bar its three addressed fields meet.
+
+    A reason arguing from a rule, a page or an index renamed away reads as evidence and is none.
+    """
+
+    unresolved = []
+    for token in _REASON_TOKEN.findall(entry.reason):
+        kind, resolved = _classify(token)
+        if resolved is False:
+            unresolved.append(f"`{token}` ({kind})")
+
+    assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
+
+
+def test_an_invariant_number_resolves_against_the_spec_sheets_rather_than_the_source_trees():
+    """A letter and a digit is a word either tree spells, so read as a bare name a renamed row resolves."""
+
+    assert _classify("I1") == ("invariant", True)
+    assert _classify("L1") == ("invariant", True)
+    assert _classify("I999") == ("invariant", False)
+
+
+def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():
+    """Per kind: one arm resolving whatever the trees spell satisfies a bare floor for all of them.
+
+    A listing that answers nothing is then named here, rather than reaching
+    `fl_backend/tests/core/test_domain.py :: test_every_anchor_a_reason_names_resolves` alone, as
+    reasons that invented their evidence.
+    """
+
+    present: set[str] = set()
+    resolved: set[str] = set()
+    for entry in UNENFORCED:
+        for token in _REASON_TOKEN.findall(entry.reason):
+            kind, answer = _classify(token)
+            if answer is None:
+                continue
+            present.add(kind)
+            if answer:
+                resolved.add(kind)
+
+    assert present, "no reason names anything with an address, so the per-entry sweep passed over nothing"
+    assert present == resolved, f"nothing resolved for {sorted(present - resolved)}, so the listing behind that kind answers for nothing"
 
 
 def test_every_unenforced_entry_is_paired_with_the_test_that_proves_it():

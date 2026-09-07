@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the standard's rules, in the prompt rather than behind a citation
 # PreToolUse hook on Edit|Write — slices the Spine out of docs/_standard/standard.md before a
 # documentation-shaped write, small enough to arrive inline, and names both documents to read.
 # It informs rather than protects, so failure is silence.
@@ -67,7 +68,11 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const base = path.basename(rel).toLowerCase();
   const ext = path.extname(base);
   let isDocs = false;
-  if (ext === ".md" || ext === ".mdx") {
+  // NOTICE is read whole as a page by the documentation gate, whose prose-filename register tests
+  // the name case-exactly, so the arm reads the basename as the write spelled it, before the fold.
+
+  // No backtick in a comment here: inside the single-quoted script it reads as a substitution.
+  if (ext === ".md" || ext === ".mdx" || path.basename(strip(raw)) === "NOTICE") {
     isDocs = true;
   } else if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].indexOf(ext) !== -1) {
     isDocs = fresh.indexOf("//") !== -1 || fresh.indexOf("/*") !== -1;

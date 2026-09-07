@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the branch rule, on the file-tool route
 # PreToolUse hook on Edit|Write|NotebookEdit — refuses a write to a tracked file while HEAD is `main`.
 # The exemption is asked of git rather than kept as a list of blessed directories, so a path
 # gitignored tomorrow is covered without editing this file. Every "cannot tell" here denies.

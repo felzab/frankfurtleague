@@ -4,22 +4,16 @@
 # it. Pulls published images and never builds -- `deploy.sh` enforces that, because a server that
 # builds is a server that can fail a build with the site down.
 #
-#  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
+# Invariants:
+# - ONLY nginx publishes ports. The application containers are reachable solely from inside
+#   `frankfurtleague-net`, so anything nginx does not route simply does not exist for the internet.
+#   A `ports:` entry on frontend or backend removes that silently (`docs/ops/spec.md :: I1`).
+# - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
+# - Keep this file and docker-compose.local.yml in step. A difference here is a difference the
+#   local stack will not have caught.
 #
-#   • ONLY nginx publishes ports. The application containers are reachable solely from inside
-#     `frankfurtleague-net`, so anything nginx does not route simply does not exist for the
-#     internet. A `ports:` entry on frontend or backend removes that silently.
-#   • nginx waits on both upstreams being HEALTHY, not merely started, before it STARTS -- so a stack
-#     coming up from nothing never serves a half-ready app. It is not what a deploy rests on:
-#     `scripts/ops/deploy.sh` recreates the application pair alone and leaves nginx up.
-#   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
-#     pins the immutable `:sha-<commit>` tag instead. One package per service.
-#   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the
-#     local stack will not have caught.
-#
-#  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────
-#
-#   docs/ops/spec.md -- the service table and invariants
+# See:
+# - docs/ops/spec.md -- the service table and invariants
 
 # Capped so a chatty container cannot fill the server's disk: 30 MB per service, worst case.
 x-logging: &default-logging
@@ -31,9 +25,9 @@ x-logging: &default-logging
 services:
   frontend:
     env_file: ./fl_frontend/.env
-    # A moving tag: `publish.sh` re-points it at every publish, so `deploy.sh` with no argument
-    # means the newest published image. A rollback pins the immutable `:sha-<commit>` instead. The
-    # package is public, so this pull needs no credentials.
+    # A moving tag, on each package's image below: `publish.sh` re-points it at every publish, so
+    # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
+    # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     networks:

@@ -35,9 +35,10 @@ TOOL: Final = "scripts/tool.py"
 TOOL_TEST: Final = "scripts/tests/test_tool.py"
 RUN_SH: Final = "scripts/run.sh"
 HOOK: Final = ".claude/hooks/probe.sh"
-# `commit-msg` rather than `pre-commit`: the real allowlist names a symbol in the latter, and a row is
-# held to any file of that path the corpus holds -- this fixture's included.
+# `commit-msg` rather than `pre-commit`: this corpus must hold no file at the path below, or the row
+# a case plants for it would be shielded by a file of its own path in a tree the check never read.
 GIT_HOOK: Final = ".githooks/commit-msg"
+ABSENT_HOOK: Final = ".githooks/pre-commit"
 BACKEND: Final = "fl_backend/app/writer.py"
 # Every registered check's verdict is a failure, so a red run is exit 1 and a green one 0.
 RED: Final = 1
@@ -105,8 +106,10 @@ def _corpus() -> dict[str, str]:
             "from docs_gate import platform",
             "",
             "rows, write_rows = json.loads(sys.argv[1]), json.loads(sys.argv[2])",
-            "found = platform.check_platform_branches({**platform.PLATFORM_ALLOW, **rows})",
-            "found += platform.check_text_writes({**platform.TEXT_WRITE_ALLOW, **write_rows})",
+            # A case's rows are the whole allowlist: this repository's own rows name files the corpus
+            # below does not hold, and a row outside the population read is itself a finding.
+            "found = platform.check_platform_branches(rows)",
+            "found += platform.check_text_writes(write_rows)",
             "for finding in found:",
             "    print(chr(9).join((finding.check, finding.file, str(finding.line or 0), finding.detail)))",
             'raise SystemExit(1 if any(finding.severity == "fail" for finding in found) else 0)',
@@ -176,6 +179,18 @@ def _planted(rel: str, text: str) -> Iterator[None]:
             path.unlink()
         else:
             path.write_bytes(before)
+
+
+@contextlib.contextmanager
+def _bytes_planted(rel: str, raw: bytes) -> Iterator[None]:
+    """One corpus file's bytes swapped for a case: `_planted`, where what a case writes is not text."""
+    path = _gate().root / rel
+    before = path.read_bytes()
+    path.write_bytes(raw)
+    try:
+        yield
+    finally:
+        path.write_bytes(before)
 
 
 def _appended(rel: str, *lines: str) -> contextlib.AbstractContextManager[None]:
@@ -347,15 +362,35 @@ def test_a_row_naming_a_function_does_not_excuse_the_lines_calling_it() -> None:
 
 
 def test_an_allow_row_is_held_to_the_tree_it_excuses() -> None:
-    """A row naming a symbol the file lost, or shielding nothing, fails; one naming an absent file is not this tree's."""
+    """A row naming a symbol the file lost, shielding nothing, or naming a file outside the corpus, each fails."""
     code, found = _run(rows={RUN_SH + " :: nothing_here": "a symbol the script never spelled"})
     assert code == RED
     _only(found, PLATFORM, RUN_SH, "names a symbol the file no longer spells")
     code, found = _run(rows={TOOL + " :: stop": "a symbol that reads no predicate"})
     assert code == RED
     _only(found, PLATFORM, TOOL, "shields no site")
-    code, found = _run(rows={"scripts/absent.sh :: anything": "a file this corpus does not hold"})
-    assert (code, found) == (GREEN, []), found
+    code, found = _run(rows={ABSENT_HOOK + " :: work": "a hook of a path this corpus holds no file at"})
+    assert code == RED
+    _only(found, PLATFORM, ABSENT_HOOK, "names a file outside the scanned population")
+
+
+def test_a_row_whose_file_the_scan_could_not_read_is_not_reported_as_absent() -> None:
+    """The two remedies are opposite: a file in the population is repaired, a path outside it is repointed or dropped."""
+    with _planted(TOOL, _lines('"""SCRIPTS · a module the parser cannot read."""', "def stop(")):
+        code, found = _run(rows={TOOL + " :: stop": "a row whose file stopped parsing"})
+        assert code == RED
+        _only(found, PLATFORM, TOOL, "could not read")
+
+
+def test_a_row_whose_shell_file_the_scan_could_not_read_is_not_reported_as_absent() -> None:
+    """The shell half of that pair: a row is held to a file the scan opened, whatever kind it is.
+
+    Undecodable bytes rather than a syntax error, a shell file having no parse step to fail in.
+    """
+    with _bytes_planted(RUN_SH, b"#!/usr/bin/env bash\nprintf '\xff\xfe'\n"):
+        code, found = _run(rows={RUN_SH + " :: printf": "a row whose file stopped decoding"})
+        assert code == RED
+        _only(found, PLATFORM, RUN_SH, "could not read")
 
 
 def test_a_text_mode_write_without_newline_is_red_and_removing_it_is_green() -> None:

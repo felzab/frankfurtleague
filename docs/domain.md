@@ -274,9 +274,13 @@ no later feature can quietly come to depend on one.
 A reason a reader nods at is not evidence, so each entry is checked in full: the refusal codes it claims to
 sit near must exist, a state sitting near none surprising nobody; the class of
 `fl_backend/tests/core/test_unenforced.py` it pairs with must execute the state, exactly and in **both**
-directions, so an entry nothing runs fails and a test class no entry claims fails with it; and the surface it
+directions, so an entry nothing runs fails and a test class no entry claims fails with it; the surface it
 names is resolved against the frontend tree, so an entry cannot go on claiming a person can see a state after
-the page showing it has gone.
+the page showing it has gone; and every anchor the reason argues from — a rule code, an invariant, a route, a
+repository path, an index — is resolved as well, so a reason arguing from something renamed away fails rather
+than reading as the evidence it is not. A bare name is resolved weakly on purpose, against every word either
+source tree spells outside the declaration itself, so one still written anywhere else in either tree passes
+whatever it names there.
 
 **Most of what a model change owes is caught at the gate**, `test_domain.py` resolving what the declaration
 names and holding the claims it makes rather than merely the addresses. Three obligations are not, because no

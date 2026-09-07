@@ -429,7 +429,7 @@ def _row_for(site: _Site, allow: Mapping[str, str]) -> str | None:
     return next((key for key in allow if key.startswith(prefix) and key[len(prefix) :] in site.candidates), None)
 
 
-def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], present: frozenset[str]) -> list[Finding]:
+def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], reached: frozenset[str], population: frozenset[str]) -> list[Finding]:
     """Findings for the sites no row shields, and for the rows the tree no longer bears out."""
     used: set[str] = set()
     findings: list[Finding] = []
@@ -441,9 +441,12 @@ def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], present: 
             used.add(row)
     for key in allow:
         rel, _, symbol = key.partition(" :: ")
-        # Judged only inside the population this check read: a row naming a file the gate's own
-        # fixture trees do not hold would read as stale inside each of them.
-        if rel not in present:
+        # A row is held to the file it names, so one the scan never opened is held to nothing --
+        # and the two cases part here because their remedies are opposite: repair, or repoint.
+        if rel not in reached:
+            unread = f"allowlist row `{key}` names a file in the population the scan could not read -- repair the file, not the row"
+            absent = f"allowlist row `{key}` names a file outside the scanned population -- repoint or delete it"
+            findings.append(Finding("fail", check, rel, unread if rel in population else absent))
             continue
         text = _read_text(REPO_ROOT / rel)[0] or ""
         if symbol not in text:
@@ -464,27 +467,28 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
     a platform (PRE-4).
     """
     scan = _Scan()
-    present: set[str] = set()
+    reached: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
         if tree is None:
             continue
         rel = _rel(path)
-        present.add(rel)
+        reached.add(rel)
         _scan_module(rel, tree, _source_lines(path) or (), scan, allow)
     names = frozenset(name for _, name, _ in scan.constants)
     sites = list(scan.sites)
     for path in _test_files():
         tree = _tree(path)
-        if tree is not None and (rel := _rel(path)) in present:
+        if tree is not None and (rel := _rel(path)) in reached:
             sites.extend(_scan_tests(rel, tree, _source_lines(path) or (), names))
     sites.extend(_both_values(scan))
     shell = _shell_files()
     for path in shell:
         if (lines := _source_lines(path)) is not None:
             sites.extend(_scan_shell(_rel(path), lines))
-    present.update(_rel(path) for path in shell)
-    return _resolve(PLATFORM_CHECK, sites, allow, frozenset(present))
+            reached.add(_rel(path))
+    population = frozenset(_rel(path) for path in (*_python_files(), *shell))
+    return _resolve(PLATFORM_CHECK, sites, allow, frozenset(reached), population)
 
 
 def _mode_position(func: ast.expr) -> tuple[str, int] | None:
@@ -567,12 +571,12 @@ def check_text_writes(allow: Mapping[str, str] = TEXT_WRITE_ALLOW) -> list[Findi
     holds what the interpreter's own text layer is seen to open.
     """
     sites: list[_Site] = []
-    present: set[str] = set()
+    reached: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
         if tree is None:
             continue
         rel = _rel(path)
-        present.add(rel)
+        reached.add(rel)
         sites.extend(_scan_writes(rel, tree, _source_lines(path) or ()))
-    return _resolve(CRLF_CHECK, sites, allow, frozenset(present))
+    return _resolve(CRLF_CHECK, sites, allow, frozenset(reached), frozenset(_rel(path) for path in _python_files()))

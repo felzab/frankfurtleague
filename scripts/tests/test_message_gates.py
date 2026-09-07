@@ -149,6 +149,19 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         _message("Ops: the gate proves it", CLEAN_BODY, "Refs-Item: OPS-1"),
         (("fail", "is the only trailer the convention carries"),),
     ),
+    # The same trailer with the hyphen out of its name, which is the whole of what the value half of
+    # `TRAILER_EVIDENCE_RE` reaches: without it the paragraph reads as prose and no rule runs on it.
+    Case(
+        "a trailer block whose name carries no hyphen",
+        _message("Ops: the gate proves it", CLEAN_BODY, "Refs: something"),
+        (("fail", "is the only trailer the convention carries"),),
+    ),
+    # What that half may not cost: the form asks every body to close on what was run, and a
+    # colon-bearing sentence is a sentence.
+    Case(
+        "a body closing on a colon-bearing sentence",
+        _message("Ops: the gate proves it", CLEAN_BODY, "Verified: the four endings ran and the gate returned exit 0."),
+    ),
     # The five clauses of the `Closes:` contract, in order. A closing commit is the one message the
     # convention admits a trailer in, and the diff is what decides whether it may.
     Case(
@@ -193,6 +206,14 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         "a Closes trailer beside another",
         _message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}\nRefs-Item: OPS-1"),
         (("fail", "is the only trailer the convention carries"),),
+        departed=frozenset({TOKEN}),
+    ),
+    # The entries and the trailer lines are compared as sets, where one line written twice is one
+    # member: without this refusal a doubled trailer agrees with a diff retiring the entry once.
+    Case(
+        "a Closes trailer written out twice",
+        _message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}\nCloses: {TOKEN}"),
+        (("fail", "the message repeats the trailer"),),
         departed=frozenset({TOKEN}),
     ),
     Case(
@@ -471,6 +492,14 @@ def test_the_trailer_takes_a_token_and_refuses_every_shape_next_to_it() -> None:
     for spelling in wrong:
         assert not commits.CLOSES_RE.match(f"Closes: {spelling}"), spelling
     assert not commits.CLOSES_RE.match(f"closes: {TOKEN}")
+
+
+def test_a_hyphenless_trailer_name_is_parted_from_a_body_s_closing_sentence() -> None:
+    """`pages: clean.` is the sharp one: a single-token value, parted from a reference by the full stop alone."""
+    trailer = _message("Ops: the gate proves it", CLEAN_BODY, "Refs: something")
+    assert commits.trailer_block(trailer) == ["Refs: something"]
+    for prose in ("Verified: the four endings ran and the gate returned exit 0.", "Verified: gate exit 0.", "pages: clean."):
+        assert commits.trailer_block(_message("Ops: the gate proves it", CLEAN_BODY, prose)) == [], prose
 
 
 def test_a_closing_trailer_is_not_an_issue_closing_keyword() -> None:
