@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                         | Tags                                                                        | Status   |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2cff-xeqr` | Three metadata routes serve public URLs the route accounting cannot see                                                      | FE, Ops, Docs, gate, tests, edge                                            | Open     |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                    | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                      | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
@@ -175,45 +174,6 @@ deliverable.
 | `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                      | Ops, gate, tests                                                            | Open     |
 
 ## The items
-
-### `2cff-xeqr` · Three metadata routes serve public URLs the route accounting cannot see
-
-| Tags                             | Status | Depends on |
-| -------------------------------- | ------ | ---------- |
-| FE, Ops, Docs, gate, tests, edge | Open   | —          |
-
-**`scripts/checks/check_public_routes.py` accounts for every file whose name is one of
-`:: ROUTE_FILES` and for nothing else**, so `fl_frontend/src/app/sitemap.ts`,
-`fl_frontend/src/app/robots.ts` and `fl_frontend/src/app/manifest.ts` are outside its population.
-Each answers a public URL — `/robots.txt` names `/sitemap.xml` as the crawl's entry point — and each
-is served by `nginx/prod.conf :: location /`, the prefix that carries no `limit_req`. The checker's
-own header states the rule these three fall outside of: a handler is a public URL from the moment
-the file exists.
-
-**Whether they warrant naming at the edge is the open question, and the cheap answer looks wrong from
-both sides.** All three export a function that reads no request and no live value —
-`fl_frontend/src/app/sitemap.ts` pins its own `CONTENT_LAST_MODIFIED` rather than calling
-`new Date()`, for the reason written at that line — so Next prerenders them and a flood costs the
-origin a static response rather than a render or a backend call. That argues for leaving them
-unmetered. What it does not answer is the accounting: the check is total on purpose, because no
-predicate picks out the handlers that need a location, and a population that silently omits a file
-kind is one nobody can read a green run off.
-
-**Why it matters more than the three URLs do.** The gap is in the reader rather than in the edge, so
-it is not these three files that are at risk: it is the next metadata route added under
-`fl_frontend/src/app/`, which will serve a URL and pass the accounting without anyone deciding
-anything. A route file gets a decision; a metadata file gets silence.
-
-**Done when the accounting reaches every file kind that answers a URL, or records in its own words
-which kinds it does not read and why that is safe.** The second is the smaller change and the one to
-weigh first, `scripts/checks/check_public_routes.py :: REASONS` being where a covering location is
-already recorded rather than inferred. Either way the edge's own inventory in
-[`docs/ops/spec.md`](../ops/spec.md) §1.3 lists the locations and their meters, and whichever answer
-lands is what that section then says about these three.
-
-**Not verified.** No request was made against the running stack: the URLs are read off the route
-files and off `fl_frontend/src/app/robots.test.ts`, and the absence of a matching location is a read
-of every `location` in `nginx/prod.conf` as it stands on this branch.
 
 ### `2qae-xcut` · A rule declared multi-document reads only the row its own endpoint writes
 

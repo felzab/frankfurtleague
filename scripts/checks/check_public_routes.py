@@ -8,6 +8,11 @@ one (`docs/ops/spec.md`).
 
 A construct this reader cannot place refuses rather than answering, and a reason covering no handler
 is a finding.
+
+Invariants:
+- The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places.
+- A reserved metadata name this reader cannot place refuses; an image convention supplied as an
+  image file runs no module and stands outside the population.
 """
 
 from __future__ import annotations
@@ -34,6 +39,10 @@ NGINX_CONF: Final = "nginx/prod.conf"
 # All four extensions, because Next resolves a handler from any of them (`pageExtensions`): one
 # filed as `route.tsx` answers its URL exactly as `route.ts` does.
 ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
+
+# Derived rather than spelled again: Next reads one page-extension list for a handler and for a
+# metadata convention, and two lists here would drift a metadata file out of the walk in silence.
+CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 
 # The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
 # line lands under its first.
@@ -66,6 +75,33 @@ REASONS: Final[tuple[Reason, ...]] = (
     Reason("/api/auth", "Auth.js's catch-all, whose outbound-email trigger is metered at /api/auth/signin"),
 )
 
+
+@dataclass(frozen=True)
+class Metadata:
+    """One code-generated metadata convention, and why the URL Next serves it at is owed no meter."""
+
+    stem: str
+    url: str
+    why: str
+
+
+# Beside REASONS rather than in it: what covers these at the edge is the catch-all, and a reason
+# naming `/` would count it as coverage -- the one direction this check may not fail in.
+
+# The URLs mirror Next's own metadata routing rather than anything in this repository: the Metadata
+# Files pages under https://nextjs.org/docs/llms.txt, and the installed next 16.3.4's
+# `fl_frontend/node_modules/next/dist/lib/metadata/is-metadata-route.js` for the webmanifest
+# spelling. Read 2026-09-07.
+METADATA: Final[tuple[Metadata, ...]] = (
+    Metadata("sitemap", "/sitemap.xml", "a list pinned to CONTENT_LAST_MODIFIED rather than read off the clock"),
+    Metadata("robots", "/robots.txt", "a constant object, and the crawl entry point every other URL is reached through"),
+    Metadata("manifest", "/manifest.webmanifest", "a constant object, fetched once per install"),
+)
+
+# Reserved and deliberately unplaced: Next answers a generated one at a URL carrying a hash it mints
+# at build, which no directory tree derives.
+METADATA_IMAGES: Final = ("icon", "apple-icon", "opengraph-image", "twitter-image")
+
 # A route group is dropped from the URL; a dynamic segment and a catch-all stay, because what they
 # make unmeterable is exactly what this check reports.
 GROUP_RE: Final = re.compile(r"^\([^()/]+\)$")
@@ -80,7 +116,7 @@ class NginxSyntax(Exception):
 
 
 class RouteShape(Exception):
-    """A directory segment whose URL this reader cannot derive, named with the file under it."""
+    """A segment or a reserved file name whose URL this reader cannot derive, named with its file."""
 
 
 @dataclass(frozen=True)
@@ -315,6 +351,32 @@ def handlers(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
+def metadata(app_dir: Path) -> tuple[Metadata, ...]:
+    """Every code-generated metadata convention under the tree, in path order."""
+    placed = {one.stem: one for one in METADATA}
+    served: list[Metadata] = []
+    for path in sorted(one for one in app_dir.rglob("*") if one.suffix in CODE_EXTENSIONS and one.is_file()):
+        # A private folder is out of routing (`LITERAL_RE`), and `_components/icon.tsx` is an
+        # ordinary component: refusing it would be repaired by renaming the component.
+        if any(part.startswith("_") for part in path.relative_to(app_dir).parts[:-1]):
+            continue
+        # The whole stem, so `sitemap.test.ts` beside `sitemap.ts` is the neighbour it is rather
+        # than a second claim on the same URL.
+        stem = path.stem
+        if stem in METADATA_IMAGES:
+            raise RouteShape(f"{path}: the metadata image {path.name!r}, which Next answers at a URL carrying a hash it mints at build")
+        row = placed.get(stem)
+        if row is None:
+            continue
+        if path.parent != app_dir:
+            raise RouteShape(
+                f"{path}: the metadata convention {path.name!r} outside the App Router root, where Next resolves robots and manifest "
+                "not at all and a sitemap at a URL its own exports decide"
+            )
+        served.append(row)
+    return tuple(served)
+
+
 def covering_prefix(head: str, found: tuple[Location, ...]) -> Location | None:
     """The prefix location nginx would choose for `head`, the catch-all never counting as one."""
     candidates = [one for one in found if not one.exact and one.path != CATCH_ALL and head.startswith(one.path)]
@@ -409,6 +471,20 @@ def unused(used: set[Reason], where: tuple[Location, ...]) -> list[Finding]:
     ]
 
 
+def unclaimed(served: tuple[Metadata, ...]) -> list[Finding]:
+    """Every declared metadata convention no file answers for -- `unused`'s rot, over the map."""
+    return [
+        Finding(
+            "fail",
+            f"{one.url} is declared unmetered ({one.why}) and no file in the App Router tree serves it\n"
+            f"{CONTINUATION}drop the row, or file the convention it answers for at "
+            f"scripts/checks/check_public_routes.py :: METADATA",
+        )
+        for one in METADATA
+        if one not in served
+    ]
+
+
 def twins(where: tuple[Location, ...]) -> list[Finding]:
     """Every metered exact match whose trailing-slash counterpart is missing.
 
@@ -451,6 +527,7 @@ def main() -> int:
 
     try:
         found = handlers(app_dir)
+        served = metadata(app_dir)
         # Bytes, so no platform's newline translation reaches a path this reader then compares.
         where = locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name)
     except (NginxSyntax, RouteShape) as error:
@@ -466,17 +543,21 @@ def main() -> int:
         return EXIT_REFUSED
 
     findings, used = account(found, where, root, conf_path.name)
-    findings += unused(used, where) + twins(where)
+    findings += unused(used, where) + unclaimed(served) + twins(where)
 
     code = report_findings(findings)
     if findings:
         print("\n      A route handler is a public URL, so the accounting is total: every one is either an")
-        print("      exact-match location carrying limit_req, or a prefix location with a recorded reason.")
-        print("      The rule is docs/ops/spec.md, section 1.3; the reasons are check_public_routes.py :: REASONS.")
+        print("      exact-match location carrying limit_req, or a prefix location with a recorded reason,")
+        print("      and a metadata convention is taken unmetered where check_public_routes.py :: METADATA")
+        print("      says why. The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)
-    print(f"      {len(found)} route handler(s) accounted for, {metered} metered exact-match location(s), {len(REASONS)} recorded reason(s)")
+    print(
+        f"      {len(found)} route handler(s) accounted for, {len(served)} metadata convention(s) taken unmetered, "
+        f"{metered} metered exact-match location(s), {len(REASONS)} recorded reason(s)"
+    )
     return code
 
 

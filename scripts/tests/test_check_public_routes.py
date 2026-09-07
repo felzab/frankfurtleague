@@ -127,6 +127,76 @@ def test_a_handler_filed_under_another_spelling_of_route_ts_is_not_accounted_for
     assert routes.handlers(tree("/api/sweep", file="Route.ts")) == ()
 
 
+GENERATED = "export default function meta() {\n  return [];\n}\n"
+
+
+def with_files(*names: str) -> Path:
+    """An App Router tree holding exactly the files named, each at its path under the tree's root."""
+    app = new_root("check-public-routes-") / "app"
+    app.mkdir(parents=True)
+    for name in names:
+        write(app, name, GENERATED)
+    return app
+
+
+def test_a_metadata_convention_at_the_tree_root_is_accounted_for():
+    """The population is these as well as the handlers: a file no walk sees is a URL nobody decided."""
+    assert [one.url for one in routes.metadata(with_files("sitemap.ts"))] == ["/sitemap.xml"]
+
+
+def test_a_metadata_convention_is_resolved_from_every_extension_a_handler_is():
+    """Next reads one page-extension list for both, so a walk seeing fewer accounts for part of the tree."""
+    assert [one.url for one in routes.metadata(with_files("robots.jsx"))] == ["/robots.txt"]
+
+
+def test_a_module_named_for_a_convention_and_something_else_is_not_the_convention():
+    """`sitemap.test.ts` sits beside `sitemap.ts` in this repository and answers no URL at all."""
+    assert routes.metadata(with_files("sitemap.test.ts", "brandAssets.test.ts")) == ()
+
+
+def test_an_image_convention_supplied_as_an_image_file_is_outside_the_population():
+    """Nothing runs to answer these, so the class this reader accounts for stops at the code ones."""
+    assert routes.metadata(with_files("icon.svg", "apple-icon.png", "favicon.ico")) == ()
+
+
+def test_a_reserved_name_inside_a_private_folder_is_no_claim_on_the_population():
+    """Next opts such a folder out of routing, so a component called `icon.tsx` under one answers nothing.
+
+    A refusal here would be repaired by renaming a legitimate component, which is the wrong repair.
+    """
+    assert routes.metadata(with_files("_components/icon.tsx", "_lib/sitemap.ts")) == ()
+
+
+def test_a_reserved_metadata_name_the_map_does_not_carry_refuses():
+    """The gap this population closes is the NEXT metadata file, which silence would let through."""
+    try:
+        routes.metadata(with_files("opengraph-image.tsx"))
+    except routes.RouteShape as refusal:
+        assert re.search("opengraph-image", str(refusal)), refusal
+    else:
+        raise AssertionError("a generated metadata image was given a URL")
+
+
+def test_a_metadata_convention_below_the_tree_root_refuses():
+    """A nested sitemap's URL is decided by what the file exports, which this reader does not read."""
+    try:
+        routes.metadata(with_files("dashboard/sitemap.ts"))
+    except routes.RouteShape as refusal:
+        assert re.search("outside the App Router root", str(refusal)), refusal
+    else:
+        raise AssertionError("a nested metadata convention was placed at the root's URL")
+
+
+def test_a_declared_convention_no_file_serves_is_a_finding(monkeypatch):
+    """The rot `unused` reports for a prefix location's reason, over the metadata declaration."""
+    monkeypatch.setattr(routes, "METADATA", (routes.Metadata("sitemap", "/sitemap.xml", "a pinned list"),))
+
+    findings = routes.unclaimed(())
+
+    assert severities(findings) == ["fail"]
+    assert "/sitemap.xml" in details(findings)
+
+
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():
     """The gap the check exists for: a location naming the handler and metering nothing."""
     findings, _ = judged(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
@@ -414,13 +484,22 @@ def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
     assert used == set(routes.REASONS)
 
 
+def test_the_repository_own_metadata_conventions_are_accounted_for():
+    """The three real files, so a convention filed or dropped here fails before the gate reports it."""
+    served = routes.metadata(routes.REPO_ROOT / routes.APP_ROUTER)
+
+    assert set(served) == set(routes.METADATA)
+    assert routes.unclaimed(served) == []
+
+
 def run_main(app: Path, text: str, monkeypatch) -> int:
     """One end-to-end run over a planted pair, where the exit contract is decided.
 
-    The real reasons are withdrawn, or a run answers for handlers this tree does not hold rather
-    than for the shape its case planted.
+    The real reasons and conventions are withdrawn, or a run answers for what this tree does not
+    hold rather than the shape its case planted.
     """
     monkeypatch.setattr(routes, "REASONS", ())
+    monkeypatch.setattr(routes, "METADATA", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
@@ -447,6 +526,13 @@ def test_a_construct_it_cannot_parse_exits_two(monkeypatch):
     text = "server {\n" + block("location ~ ^/api/", PASS) + "}\n"
 
     assert run_main(app, text, monkeypatch) == routes.EXIT_REFUSED
+
+
+def test_a_metadata_file_this_reader_cannot_place_exits_two(monkeypatch):
+    """The gap the population closes, at the exit contract: the next metadata route ends the run."""
+    app = with_files("api/bewerbung/route.ts", "twitter-image.tsx")
+
+    assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
 
 
 def test_a_missing_route_tree_exits_two(monkeypatch):
