@@ -91,10 +91,9 @@ class Metadata:
 # Beside REASONS rather than in it: what covers these at the edge is the catch-all, and a reason
 # naming `/` would count it as coverage -- the one direction this check may not fail in.
 
-# The URLs mirror Next's own metadata routing rather than anything in this repository: the Metadata
-# Files pages under https://nextjs.org/docs/llms.txt, and the installed next 16.3.4's
-# `fl_frontend/node_modules/next/dist/lib/metadata/is-metadata-route.js` for the webmanifest
-# spelling. Read 2026-09-07.
+# The URLs mirror Next's own metadata routing rather than anything here: the Metadata Files pages
+# under https://nextjs.org/docs/llms.txt, and next 16.3.4's own `is-metadata-route` module for the
+# webmanifest spelling, read under the installed packages no checkout carries. Read 2026-09-07.
 METADATA: Final[tuple[Metadata, ...]] = (
     Metadata("sitemap", "/sitemap.xml", "a list pinned to CONTENT_LAST_MODIFIED rather than read off the clock"),
     Metadata("robots", "/robots.txt", "a constant object, and the crawl entry point every other URL is reached through"),
