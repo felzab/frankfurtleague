@@ -11,34 +11,35 @@ scripts, `lib/` what the other four are built on, and `tests/` the python suite 
 two tool configurations stay at the top, each being read relative to its own location: one inside a
 directory would reach that directory alone.
 
-| Path                                       | Run on        | Purpose                                                                                                         |
-| ------------------------------------------ | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `scripts/gate/verify.sh`                   | any           | The pre-merge gate — whole, or scoped to the surfaces touched                                                   |
-| `scripts/gate/selfcheck.sh`                | any           | Test the scripts themselves                                                                                     |
-| `scripts/gate/scope_map.sh`                | any           | Map changed paths to gate scopes; the one copy CI reads                                                         |
-| `scripts/gate/gate_pool.py`                | any           | The gate's units as concurrent processes, for `verify.sh` to replay                                             |
-| `scripts/checks/check_docs.py`             | any           | The documentation gate                                                                                          |
-| `scripts/checks/docs_gate/`                | —             | The documentation gate: the kernel's readers, the corpus checks, the branch checks, and the copy rules          |
-| `scripts/checks/check_commits.py`          | any           | The branch's commit messages                                                                                    |
-| `scripts/checks/check_scope.py`            | any           | The scopes a run named, against the diff it was given                                                           |
-| `scripts/checks/check_compose_mirror.py`   | any           | The local stack against production, minus the differences it declares                                           |
-| `scripts/checks/check_nginx_mirror.py`     | any           | The local edge against production's, directive by directive, minus the differences it declares                  |
-| `scripts/checks/check_csp_identity.py`     | any           | Each nginx file's Content-Security-Policy copies against that file's first                                      |
-| `scripts/checks/check_public_routes.py`    | any           | Every App Router route handler against the edge locations that meter it                                         |
-| `scripts/checks/check_test_estate.py`      | any           | The backend suite's silent shapes: a db read in the wrong tier, an empty parametrize, an unconsumed fixture     |
-| `scripts/checks/check_conflict_markers.py` | any           | Every tracked file, for a merge conflict marker left in it                                                      |
-| `scripts/checks/check_pr_body.py`          | CI only       | A pull request body, which is not in the repository                                                             |
-| `scripts/checks/check_gate_budget.py`      | any           | The gate's wall-clock budget: a run's jobs against their ceilings, and a raised figure against its measurement  |
-| `scripts/checks/ts_normalize.mjs`          | any           | Whether two TypeScript files differ by anything but comments                                                    |
-| `scripts/ops/local.sh`                     | dev — Windows | Run the production image locally, behind nginx and a database of its own                                        |
-| `scripts/ops/publish.sh`                   | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                         |
-| `scripts/ops/deploy.sh`                    | prod — Linux  | Pull and restart in place, verify health, roll back                                                             |
-| `scripts/ops/make-icons.mjs`               | dev — either  | Redraw the six committed rasters from `fl_frontend/src/app/icon.svg`; `--out` writes elsewhere for a comparison |
-| `scripts/lib/_lib.sh`                      | —             | The output standard: strict mode, the traps, the sections and the exit contract; sourced, never run             |
-| `scripts/lib/checker_kernel.py`            | —             | What every checker is built on; imported, never run directly                                                    |
-| `scripts/tests/`                           | any           | pytest over the gate and the checkers this folder holds; the directory lists what is covered                    |
-| `scripts/ruff.toml`                        | —             | ruff's configuration for every python file below this folder                                                    |
-| `scripts/pyrightconfig.json`               | —             | pyright's configuration for every python file below this folder                                                 |
+| Path                                          | Run on        | Purpose                                                                                                         |
+| --------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `scripts/gate/verify.sh`                      | any           | The pre-merge gate — whole, or scoped to the surfaces touched                                                   |
+| `scripts/gate/selfcheck.sh`                   | any           | Test the scripts themselves                                                                                     |
+| `scripts/gate/scope_map.sh`                   | any           | Map changed paths to gate scopes; the one copy CI reads                                                         |
+| `scripts/gate/gate_pool.py`                   | any           | The gate's units as concurrent processes, for `verify.sh` to replay                                             |
+| `scripts/checks/check_docs.py`                | any           | The documentation gate                                                                                          |
+| `scripts/checks/docs_gate/`                   | —             | The documentation gate: the kernel's readers, the corpus checks, the branch checks, and the copy rules          |
+| `scripts/checks/check_commits.py`             | any           | The branch's commit messages                                                                                    |
+| `scripts/checks/check_scope.py`               | any           | The scopes a run named, against the diff it was given                                                           |
+| `scripts/checks/check_compose_mirror.py`      | any           | The local stack against production, minus the differences it declares                                           |
+| `scripts/checks/check_nginx_mirror.py`        | any           | The local edge against production's, directive by directive, minus the differences it declares                  |
+| `scripts/checks/check_csp_identity.py`        | any           | Each nginx file's Content-Security-Policy copies against that file's first                                      |
+| `scripts/checks/check_public_routes.py`       | any           | Every App Router route handler against the edge locations that meter it                                         |
+| `scripts/checks/check_regenerate_spelling.py` | any           | Every file printing the command that regenerates `openapi.json`, against the spelling the backend declares      |
+| `scripts/checks/check_test_estate.py`         | any           | The backend suite's silent shapes: a db read in the wrong tier, an empty parametrize, an unconsumed fixture     |
+| `scripts/checks/check_conflict_markers.py`    | any           | Every tracked file, for a merge conflict marker left in it                                                      |
+| `scripts/checks/check_pr_body.py`             | CI only       | A pull request body, which is not in the repository                                                             |
+| `scripts/checks/check_gate_budget.py`         | any           | The gate's wall-clock budget: a run's jobs against their ceilings, and a raised figure against its measurement  |
+| `scripts/checks/ts_normalize.mjs`             | any           | Whether two TypeScript files differ by anything but comments                                                    |
+| `scripts/ops/local.sh`                        | dev — Windows | Run the production image locally, behind nginx and a database of its own                                        |
+| `scripts/ops/publish.sh`                      | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                         |
+| `scripts/ops/deploy.sh`                       | prod — Linux  | Pull and restart in place, verify health, roll back                                                             |
+| `scripts/ops/make-icons.mjs`                  | dev — either  | Redraw the six committed rasters from `fl_frontend/src/app/icon.svg`; `--out` writes elsewhere for a comparison |
+| `scripts/lib/_lib.sh`                         | —             | The output standard: strict mode, the traps, the sections and the exit contract; sourced, never run             |
+| `scripts/lib/checker_kernel.py`               | —             | What every checker is built on; imported, never run directly                                                    |
+| `scripts/tests/`                              | any           | pytest over the gate and the checkers this folder holds; the directory lists what is covered                    |
+| `scripts/ruff.toml`                           | —             | ruff's configuration for every python file below this folder                                                    |
+| `scripts/pyrightconfig.json`                  | —             | pyright's configuration for every python file below this folder                                                 |
 
 **The scope table, the reasoning behind each scope, and the conventions every script shares are in
 [`../docs/ops/spec.md`](../docs/ops/spec.md)**, which also says why the tool configurations sit here

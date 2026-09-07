@@ -11,7 +11,7 @@ DOCUMENT_PATH: Final = Path(__file__).resolve().parents[1] / "openapi.json"
 
 # `uv run` rather than a bare `python`: outside an activated virtualenv the interpreter has neither
 # FastAPI nor this package, so the command fails as a broken import.
-# `scripts/tests/test_regenerate_spelling.py` holds every other site to this exact string.
+# `scripts/checks/check_regenerate_spelling.py` holds every other site to this exact string.
 REGENERATE: Final = "cd fl_backend && uv run python -m tests.openapi_document --write"
 
 # Both repairs, because the rewrite alone is the wrong one for a narrowing nobody asked for: it
@@ -97,7 +97,8 @@ def describe_drift(committed: dict[str, Any], built: dict[str, Any]) -> str:
     found = list(_differences(committed, built))
     shown = found[:DIFFERENCE_CAP]
     if len(found) > DIFFERENCE_CAP:
-        shown.append(f"  ... and {len(found) - DIFFERENCE_CAP} more differences")
+        left = len(found) - DIFFERENCE_CAP
+        shown.append(f"  ... and {left} more difference{'' if left == 1 else 's'}")
     return "\n".join(shown)
 
 

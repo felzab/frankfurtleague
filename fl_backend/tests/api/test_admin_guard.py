@@ -96,8 +96,8 @@ MUTATIONS = [
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation below
 # without editing this file, so pinning the number would ask for a bump and prove nothing.
 
-# Seven under the inventory: fewer than either of the two largest routers holds, so one dropping out
-# of it lands below the floor. `tests/api/test_actor_binding.py` floors the same operations reached
+# Set under the inventory by less than the largest router holds, so that router dropping out of the
+# mount lands below the floor. `tests/api/test_actor_binding.py` floors the same operations reached
 # through the mounted routes, and the two move together.
 MINIMUM_EXPECTED_MUTATIONS = 30
 

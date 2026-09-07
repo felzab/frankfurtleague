@@ -138,6 +138,20 @@ def test_the_summary_caps_what_it_prints_and_says_how_much_it_left_out():
     assert DRIFT_REPAIR in summary
 
 
+def test_the_summary_counts_one_left_out_difference_in_the_singular():
+    """The cap's own boundary, where a plural spelled unconditionally makes the report read as a defect of itself."""
+    committed = read_document()
+    many = deepcopy(committed)
+    schemas = walk_to(many, "components", "schemas")
+    for number in range(DIFFERENCE_CAP + 1):
+        schemas[f"FLPlanted{number}"] = {"type": "object"}
+
+    summary = summarize_drift(committed, many)
+
+    assert "... and 1 more difference" in summary
+    assert "more differences" not in summary
+
+
 @pytest.mark.parametrize("section", ["paths", "components"])
 def test_the_document_carries_the_section_the_contract_check_reads(section: str):
     """A document missing either section would let the frontend's check pass over an empty inventory."""
