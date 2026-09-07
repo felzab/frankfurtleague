@@ -248,7 +248,8 @@ TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
 # (`scripts/tests/test_selfcheck_guards.py :: test_the_helper_tables_are_read_off_the_same_literals`).
 
 # Every lead-in is spelled in a constant whose name ends `_LEAD_IN`, which is the population that
-# case compares against the script: one added here and nowhere there protects a table nobody reads.
+# case compares against the script and `_lead_ins` resolves: one added here and nowhere there
+# protects a table nobody reads.
 OUTPUT_STANDARD_LEAD_IN: Final = r"^\*\*The output standard\."
 OUTPUT_HELPERS_LEAD_IN: Final = r"^\*\*The helpers a script leans on\."
 # Retyped rather than read out of `scripts/lib/_lib.sh`: `kernel.py :: defined_symbols` reads
@@ -1517,6 +1518,15 @@ def _sample(paths: list[str]) -> str:
     return head if len(paths) <= SEGMENT_SAMPLE else f"{head} and {len(paths) - SEGMENT_SAMPLE} more"
 
 
+def _lead_ins() -> list[str]:
+    """Resolved when the check runs, from this module's own names rather than a listing.
+
+    A constant a listing had to be told about is a table the script's reader arms on and this check
+    keeps no verdict on.
+    """
+    return sorted(value for name, value in globals().items() if name.endswith("_LEAD_IN") and isinstance(value, str))
+
+
 def check_output_verbs() -> list[Finding]:
     """Both tables are still where `scripts/gate/selfcheck.sh`'s awk looks for them.
 
@@ -1530,7 +1540,7 @@ def check_output_verbs() -> list[Finding]:
         return [Finding("fail", "output-verbs", rel, detail)]
     lines = text.split("\n")
     found: list[Finding] = []
-    for lead_in in (OUTPUT_STANDARD_LEAD_IN, OUTPUT_HELPERS_LEAD_IN):
+    for lead_in in _lead_ins():
         opened = next((number for number, line in enumerate(lines) if re.match(lead_in, line)), None)
         if opened is None:
             detail = f"no line matches `{lead_in}`, one of the patterns `scripts/gate/selfcheck.sh` arms its helper reader on"

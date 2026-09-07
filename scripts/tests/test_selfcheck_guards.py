@@ -30,6 +30,17 @@ AWK_PATTERN_RE: Final = re.compile(r"/(\^[^/\n]*)/")
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
+# A value rather than a `skipif`: nothing here imports pytest (`scripts/tests/conftest.py`), and
+# without node every row reaches the same arm, so each is read for the line its machine can print.
+NODE: Final = shutil.which("node")
+NO_NODE_SAID: Final = "FAIL no hook registration was read"
+
+
+def _said(expected: str) -> str:
+    """The whole line a row is read for, its verb included: a finding downgraded to an `info` says the same words."""
+    return expected if NODE else NO_NODE_SAID
+
+
 # Joined from lines, for `test_gate_pool.py :: DRIVER`'s reason: a harness here is the lifted
 # function plus the lines one case adds, and a tuple splices where a written-out block would not.
 SHEBANG: Final = "#!/usr/bin/env bash"
@@ -349,14 +360,40 @@ def test_a_helper_the_sheet_names_and_the_library_dropped_is_a_finding(tmp_path:
 FIXTURE_GUARD: Final = '#!/usr/bin/env bash\nanswer="$(timeout -s KILL 15 bash "$0" --decide)"\n'
 
 
-def _registration(seconds: int) -> str:
-    """One PreToolUse entry, spelled as `.claude/settings.json` spells one."""
-    command = 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard.sh"'
+def _guard(dispatch: str) -> str:
+    """One guard whose child is spelled the way the row under test spells it, or run under nothing at all."""
+    run = f"{dispatch} " if dispatch else ""
+    return f'#!/usr/bin/env bash\nanswer="$({run}bash "$0" --decide)"\n'
+
+
+def _registration(seconds: int, event: str = "PreToolUse", hook: str = "guard.sh") -> str:
+    """One entry, spelled as `.claude/settings.json` spells one."""
+    command = 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/' + hook + '"'
     entry = {"type": "command", "command": command, "timeout": seconds}
-    return json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [entry]}]}})
+    return json.dumps({"hooks": {event: [{"matcher": "Bash", "hooks": [entry]}]}})
 
 
-def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path) -> str:
+def _agent_definition(seconds: int, hook: str = "guard.sh") -> str:
+    """One agent's own registration, in the frontmatter shape `.claude/agents/` carries it."""
+    command = '          command: bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/' + hook + '"'
+    return "\n".join(
+        (
+            "---",
+            "name: fixture",
+            "hooks:",
+            "  PreToolUse:",
+            '    - matcher: "Write"',
+            "      hooks:",
+            "        - type: command",
+            command,
+            f"          timeout: {seconds}",
+            "---",
+            "",
+        )
+    )
+
+
+def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path, agents: Path | None = None) -> str:
     """The step-14 comparison over a fixture pair, its verbs stubbed."""
     _, out, err = _bash(
         (
@@ -364,8 +401,11 @@ def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path) -> str:
             f"source {LIB.as_posix()!r}",
             "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
             "info() { printf 'INFO %s\\n' \"$*\"; }",
+            _function("hook_child_budgets", "  "),
+            _function("hook_reenters", "  "),
+            _function("agent_registrations", "  "),
             _function("compare_hook_budgets", "  "),
-            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r}",
+            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r} {(agents or tmp_path / 'no-agents').as_posix()!r}",
         ),
         tmp_path,
     )
@@ -381,10 +421,17 @@ def test_a_registration_that_does_not_stand_clear_of_its_guards_budget_is_a_find
     hooks = tmp_path / "hooks"
     hooks.mkdir()
     write_shell(hooks / "guard.sh", FIXTURE_GUARD)
-    for seconds, refused in ((30, False), (15, True), (10, True)):
-        settings = write_shell(tmp_path / "settings.json", _registration(seconds))
+    # The last row is the widening: before it, only `PreToolUse` was walked, and a hook registered on
+    # any other event was compared against nothing.
+    for seconds, event, said in (
+        (30, "PreToolUse", "INFO guard.sh: a 15s child under a 30s PreToolUse registration"),
+        (15, "PreToolUse", "FAIL guard.sh decides under 15s"),
+        (10, "PreToolUse", "FAIL guard.sh decides under 15s"),
+        (10, "PostToolUse", "FAIL guard.sh decides under 15s"),
+    ):
+        settings = write_shell(tmp_path / "settings.json", _registration(seconds, event))
         out = _compare_budgets(settings, hooks, tmp_path)
-        assert ("FAIL" in out) is refused, f"{seconds}s: {out!r}"
+        assert _said(said) in out, f"{seconds}s on {event}: {out!r}"
 
 
 def test_a_guard_with_no_child_is_reported_rather_than_compared(tmp_path: Path) -> None:
@@ -394,7 +441,64 @@ def test_a_guard_with_no_child_is_reported_rather_than_compared(tmp_path: Path) 
     write_shell(hooks / "guard.sh", "#!/usr/bin/env bash\nexit 0\n")
     settings = write_shell(tmp_path / "settings.json", _registration(10))
     out = _compare_budgets(settings, hooks, tmp_path)
-    assert "FAIL" not in out and "INFO" in out, out
+    assert _said("INFO guard.sh: decides in the hook process") in out, out
+
+
+# The load-bearing rows are the seven that are not `-s KILL 15`: a reader keyed to that one spelling
+# calls each of them a guard with no child, which is an `info` on the hook whose watchdog it lost.
+DISPATCHES: Final[tuple[tuple[str, str], ...]] = (
+    ("timeout -s KILL 15", "FAIL guard.sh decides under 15s"),
+    ("timeout --signal=KILL 15", "FAIL guard.sh decides under 15s"),
+    ("timeout --signal KILL 15", "FAIL guard.sh decides under 15s"),
+    ("timeout -sKILL 15", "FAIL guard.sh decides under 15s"),
+    ("timeout -k 5 15", "FAIL guard.sh decides under 15s"),
+    ("timeout --kill-after=5 15", "FAIL guard.sh decides under 15s"),
+    ("timeout 15s", "FAIL guard.sh decides under 15s"),
+    ("timeout 15", "FAIL guard.sh decides under 15s"),
+    # Neither is a watchdog this can hold against a registration, and reporting either as a readable
+    # one is the same silence under a number nobody checked.
+    ('timeout -s KILL "$BUDGET"', "FAIL guard.sh gives a child a duration this cannot read as whole seconds — line 2"),
+    ("timeout -s KILL 2m", "FAIL guard.sh gives a child a duration this cannot read as whole seconds — line 2"),
+)
+
+
+def test_every_spelling_of_one_watchdog_is_compared_and_no_other_is_read_as_seconds(tmp_path: Path) -> None:
+    """Each row runs the same child under the same 15 seconds, so a row answering differently answers on the spelling."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    settings = write_shell(tmp_path / "settings.json", _registration(10))
+    for dispatch, said in DISPATCHES:
+        write_shell(hooks / "guard.sh", _guard(dispatch))
+        out = _compare_budgets(settings, hooks, tmp_path)
+        assert _said(said) in out, f"{dispatch!r}: {out!r}"
+
+
+def test_a_guard_that_re_enters_itself_under_no_watchdog_is_a_finding(tmp_path: Path) -> None:
+    """Deleting the dispatch is the cheapest way to leave this comparison green, and nothing else asks whether a guard has a watchdog."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    write_shell(hooks / "guard.sh", _guard(""))
+    settings = write_shell(tmp_path / "settings.json", _registration(10))
+    out = _compare_budgets(settings, hooks, tmp_path)
+    assert _said("FAIL guard.sh hands its decision to a child under no timeout of its own") in out, out
+
+
+def test_a_hook_an_agent_definition_registers_is_compared_like_a_settings_one(tmp_path: Path) -> None:
+    """An agent's frontmatter is the one registration surface no settings file carries, and its hooks are killed the same way."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
+    write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
+    write_shell(agents / "fixture.md", _agent_definition(10))
+    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
+    out = _compare_budgets(settings, hooks, tmp_path, agents)
+    assert _said("FAIL guard.sh decides under 15s") in out, out
+    # The event too: it selects what the finding says a kill costs, and a bare frontmatter key read
+    # as one names the wrong price on a `PreToolUse` registration.
+    assert _said("10s on PreToolUse, so the harness kills it first and the silence reads as permission") in out, out
+    assert _said("INFO plain.sh: decides in the hook process") in out, out
 
 
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of

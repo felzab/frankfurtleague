@@ -2081,6 +2081,24 @@ def test_a_reworded_lead_in_leaves_the_verb_reader_with_nothing_to_arm_on() -> N
     _assert_corpus_restored()
 
 
+def test_a_third_lead_in_constant_is_one_this_check_resolves() -> None:
+    """A lead-in spelled in a constant the check walks past is a table nothing keeps a verdict on.
+
+    Set on the module rather than in the corpus: the pairing under test is between the constants and
+    the loop beside them.
+    """
+    names = vars(_module("docs_gate.checks"))
+    _reset()
+    names["THIRD_LEAD_IN"] = r"^\*\*A third table\."
+    try:
+        _, reported = _run()
+    finally:
+        del names["THIRD_LEAD_IN"]
+        _reset()
+    assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a lead-in no arm resolved passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_a_row_under_an_area_no_pattern_spelled_is_held_to_the_trees() -> None:
     """A code's shape is what selects it, so a fifth area's row is owed a spelling like the four's.
 
