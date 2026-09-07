@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { DECLARED_NAMES_FILE, ENVIRONMENT_FILE, scanNames, undeclaredNames } from "./check-environment-names.mjs";
+
+/** Stands in for `server-only`, whose real module throws outside a React server build. */
+const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
 
 const HERE = import.meta.dirname;
 const CHECKER = path.join(HERE, "check-environment-names.mjs");
@@ -45,6 +56,22 @@ describe("the names read out of an environment file", () => {
 
   it("reads a quoted value the same line closes, an escaped quote inside it included", () => {
     assert.deepEqual(scanNames('ALPHA_NAME="a \\" quote"\nBETA_NAME=plain\n').names, ["ALPHA_NAME", "BETA_NAME"]);
+  });
+
+  // Compose documents `VAR='Let\'s go!'`, so a reader closing on that quote takes the value's next
+  // line as a declaration -- and a `NAME=` written there answers 3, which stops a deploy.
+  it("takes the backslash escape inside a single-quoted value too, so one carrying it closes where compose closes it", () => {
+    const file = ["ALPHA_NAME='Let\\'s go", "GAMMA_NAME=this line is data", "last line'", "BETA_NAME=plain"].join("\n");
+
+    assert.deepEqual(scanNames(file).names, ["ALPHA_NAME", "BETA_NAME"]);
+  });
+
+  // Swallowed, this answers 0 over a file whose every later name went unread; compose refuses such
+  // a file outright, so the advisory arm is the honest verdict on one.
+  it("reports the line an unterminated quote opened rather than passing over the rest of the file", () => {
+    const file = 'ALPHA_NAME=fine\nBETA_NAME="never closed\nGAMMA_NAME=missed\n';
+
+    assert.deepEqual(scanNames(file), { names: ["ALPHA_NAME", "BETA_NAME"], unreadable: [2] });
   });
 
   it("reports the number of a line it cannot read rather than passing over it", () => {
@@ -92,7 +119,7 @@ describe("what the deploy grades the checker's answer as", () => {
 });
 
 describe("the key set the image carries", () => {
-  it("is emitted by the flags package.json holds, so a deploy reads what this build declared", () => {
+  it("is emitted by the flags package.json holds, so a deploy reads what this build declared", async () => {
     const [command, ...flags] = MANIFEST.scripts["environment-names"].split(" ");
     const destination = path.join(SCRATCH, "emitted.json");
 
@@ -100,27 +127,32 @@ describe("the key set the image carries", () => {
     const done = spawnSync(process.execPath, [...flags, destination], { cwd: HERE, encoding: "utf8" });
     assert.equal(done.status, 0, done.stderr);
 
-    /* The second listing comes by another route, or the comparison could not fail: the emitter reads
-       the schema objects and this reads the `runtimeEnv` block `createEnv` maps them onto
+    // `pnpm test` sets it; run bare, the import below validates on a machine holding no value for
+    // any of these names and refuses before the case can compare anything.
+    assert.equal(process.env.SKIP_ENV_VALIDATION, "true", "run this suite through `pnpm test`, which sets SKIP_ENV_VALIDATION");
+
+    /* Skipping validation makes `createEnv` hand back the `runtimeEnv` object itself, so these keys
+       are the wiring the emitter's own route never reads: two lists that can disagree
        (`docs/_standard/standard.md :: PRE-4`). */
-    const source = readFileSync(path.join(HERE, "src", "core", "config.ts"), "utf8");
-    const block = /runtimeEnv: \{([\s\S]*?)\n {2}\},/.exec(source);
-    assert.ok(block !== null, "src/core/config.ts carries no runtimeEnv block this reader can find");
-    const wired = [...block[1].matchAll(/^ {4}([A-Z][A-Z0-9_]*):/gm)].map((match) => match[1]).sort();
+    const { frontend_config } = await import("./src/core/config.ts");
+    const wired = Object.keys(frontend_config).sort();
 
     assert.ok(wired.length >= 10, `expected the schema to declare at least 10 names, read ${String(wired.length)}`);
     assert.deepEqual(JSON.parse(readFileSync(destination, "utf8")), wired);
   });
 
-  it("is copied to the paths the checker reads when the deploy gives it none", () => {
+  it("is copied to the paths the checker reads when the deploy gives it none, at a mode of its own", () => {
     const emitted = /RUN pnpm run environment-names (\S+)/.exec(DOCKERFILE);
-    const copied = /^COPY --from=builder (\/app\/\S+) (\/app\/\S+) \.\/$/m.exec(DOCKERFILE);
+    const copied = /^COPY --from=builder(?: (--chmod=\S+))? (\/app\/\S+) (\/app\/\S+) \.\/$/m.exec(DOCKERFILE);
     const workdirs = [...DOCKERFILE.matchAll(/^WORKDIR (\S+)$/gm)].map((match) => match[1]);
 
     assert.ok(emitted !== null, "fl_frontend/Dockerfile runs no environment-names step");
     assert.ok(copied !== null, "fl_frontend/Dockerfile copies no unowned pair into the runner");
+    // Left to the builder's umask, a 0600 pair would make every deploy an advisory forever, the
+    // preflight running as the host's own user and never as the builder's.
+    assert.equal(copied[1], "--chmod=644", "the reader and the key set are copied at whatever mode the builder left them");
     assert.deepEqual(new Set(workdirs), new Set(["/app"]));
-    assert.deepEqual(new Set([copied[1], copied[2]]), new Set([DECLARED_NAMES_FILE, `/app/${path.basename(CHECKER)}`]));
+    assert.deepEqual(new Set([copied[2], copied[3]]), new Set([DECLARED_NAMES_FILE, `/app/${path.basename(CHECKER)}`]));
     assert.equal(`/app/${emitted[1]}`, DECLARED_NAMES_FILE);
     assert.equal(path.posix.dirname(ENVIRONMENT_FILE), "/app");
   });

@@ -138,7 +138,7 @@ export const frontend_config = createEnv({
 
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
- * outside this set: nothing looks an undeclared name up, so it reads as omitted and the shipped
- * default serves production.
+ * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
+ * serves production.
  */
 export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys({ ...server, ...client }).sort();

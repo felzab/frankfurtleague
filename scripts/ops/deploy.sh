@@ -145,8 +145,9 @@ check_env_names() {
     refuse "the backend refuses this host's environment file, and the line above is its own answer: the
 variables it could not accept, or the type of a read that failed before it reached one. No value is
 printed either way, and which remedy the line asks for is read off the names it carries. A name the
-backend declares is a value to correct; any other name is a line to delete, nothing in a container
-ever looking an undeclared name up -- so it reads as omitted and the shipped default serves production.
+backend declares is a value to correct; any other name is a line to delete or a field to add to the
+settings class, nothing in that class reading such a name -- so it reads as omitted and the shipped
+default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
@@ -165,8 +166,9 @@ check_frontend_env_names() {
   read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs || rc=$?
   if (( rc == 3 )); then
     refuse "the frontend refuses this host's environment file, and the line above names the variables
-its schema does not declare. Nothing in a container ever looks an undeclared name up, so such a line
-reads as omitted and the shipped default serves production -- delete it, or correct its spelling.
+its schema does not declare. Nothing in that schema reads such a name, so the line reads as omitted
+and the shipped default serves production -- delete it, correct its spelling, or declare it in the
+schema.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.

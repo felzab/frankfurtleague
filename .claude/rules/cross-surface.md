@@ -13,7 +13,8 @@ paths:
 # Ratified decisions — the seams between surfaces
 
 `.claude/CLAUDE.md` §7's never-clauses, on §7's terms. Each names a contract two surfaces hold
-together, so a session on either side can break it and the paths above reach both whole.
+together, so a session on either side can break it and the paths above reach both packages,
+`nginx/` and `scripts/` whole.
 
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum

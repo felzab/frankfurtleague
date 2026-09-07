@@ -31,20 +31,22 @@ the machine is outside the repository. What it does tell you:
   must all exist beside the compose file — preflight checks each before anything is pulled.
 - **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
-  where a name no field declares is never looked up, so a typo there reads as an omission and the
+  and the settings class looks up none but its own, so a typo there reads as an omission and the
   shipped default serves production. **A name the backend does not declare, or a value it will not
   accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names the
   variables and never a value — so the remedy is read off the names: **delete an undeclared line,
-  correct a rejected value**. A check that could not be made at all is an advisory the deploy goes on
+  correct a rejected value, or declare the name in the settings class**. A check that could not be made at all is an advisory the deploy goes on
   past. Two things it does not catch: a misspelling whose value is EMPTY, which the settings reader
   drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
   carries the schema's key set rather than the schema, so **a name the frontend does not declare
-  refuses the deploy at exit 2 with nothing recreated** and the remedy is the same every time —
-  delete the line, or correct its spelling. A value it holds is judged at boot and nowhere else. It
-  does catch the misspelling whose value is EMPTY that the backend's reader drops.
+  refuses the deploy at exit 2 with nothing recreated** and the remedy is one of three — delete the
+  line, correct its spelling, or declare the name in the schema, nothing in that schema reading an
+  undeclared one. A value it holds is judged at boot and nowhere else. It does catch the misspelling
+  whose value is EMPTY that the backend's reader drops, and a line its reader cannot take at all is
+  an advisory rather than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -610,9 +612,10 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
 2. **Read the two env files against the documented shapes before anything comes down.**
    `fl_backend/.env` against [`../backend/spec.md`](../backend/spec.md) §1.5 and `fl_frontend/.env`
    against [`../frontend/spec.md`](../frontend/spec.md) §1.7 — the key lengths and the origin lists
-   especially, since both are pinned exactly and preflight reads the backend's half alone
-   (`docs/ops/spec.md :: I178`, `:: I181`). A value the frontend's startup gate refuses surfaces
-   after step 3 has removed the containers that were serving, inside the dark window step 5 is about.
+   especially, since both are pinned exactly and preflight reads the backend's names and values but
+   only the frontend's names (`docs/ops/spec.md :: I181`, `:: I183`). A value the frontend's startup
+   gate refuses surfaces after step 3 has removed the containers that were serving, inside the dark
+   window step 5 is about.
 3. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
    host was created before any subnet was declared and before Compose began recording a
    configuration hash on the networks it creates; a network carrying no such record is reused by

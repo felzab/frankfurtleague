@@ -12,10 +12,10 @@ const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 export const ENVIRONMENT_FILE = "/app/.env";
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
-/** The index just past the quote that closes `value`, or -1 while it stays open. A backslash escapes the quote inside a double-quoted value alone. */
+/** A backslash escapes either quote, the single one included: compose documents `VAR='Let\'s go!'`, and closing on that quote reads the value's next line as a declaration. */
 function endOfQuoted(value, quote, from) {
   for (let index = from; index < value.length; index += 1) {
-    if (quote === '"' && value[index] === "\\") {
+    if (value[index] === "\\") {
       index += 1;
       continue;
     }
@@ -24,6 +24,9 @@ function endOfQuoted(value, quote, from) {
   return -1;
 }
 
+// Narrower than compose deliberately: `export KEY=`, `KEY: value`, a BOM and a name outside
+// `ASSIGNMENT` all land in `unreadable`, which answers the advisory rather than the refusal
+// (`docs/ops/spec.md` §1.5).
 /**
  * A quoted value running past its own line is skipped whole: compose accepts one, and a `KEY=value`
  * written inside it is that value's data rather than a declaration.
@@ -32,6 +35,7 @@ export function scanNames(text) {
   const names = new Set();
   const unreadable = [];
   let open = "";
+  let openedAt = 0;
 
   text.split(/\r?\n/).forEach((line, index) => {
     if (open !== "") {
@@ -47,7 +51,10 @@ export function scanNames(text) {
       names.add(assigned[1]);
       const value = line.slice(assigned[0].length).trimStart();
       const quote = value[0];
-      if ((quote === '"' || quote === "'") && endOfQuoted(value, quote, 1) < 0) open = quote;
+      if ((quote === '"' || quote === "'") && endOfQuoted(value, quote, 1) < 0) {
+        open = quote;
+        openedAt = index + 1;
+      }
       return;
     }
 
@@ -59,6 +66,10 @@ export function scanNames(text) {
 
     unreadable.push(index + 1);
   });
+
+  // Compose refuses a file whose quote never closes; swallowed here, it would answer 0 over a file
+  // whose every name below this line went unread.
+  if (open !== "") unreadable.push(openedAt);
 
   return { names: [...names].sort(), unreadable };
 }

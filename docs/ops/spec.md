@@ -359,8 +359,17 @@ could not be made is an advisory (I181, [`runbooks.md`](runbooks.md) §1).
 than the schema, emitted at build from
 `fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, so a name it does not declare
 refuses at exit 2 with nothing recreated while every value stays the boot gate's (I183). Its reader
-takes the file's names as Compose's `env_file` parser does, and a line that reader cannot take at
-all is an advisory rather than a refusal, the names it did read being a guess about the rest.
+takes a comment, a blank line, `KEY=value`, the bare pass-through `KEY` and a quoted value running
+past its own line — **and no other form**. `export KEY=value`, `KEY: value`, a name opening on a
+digit or carrying a dot, a hyphen or a non-ASCII letter, a BOM before a first-line declaration and a
+quote that never closes each read as unreadable, and **an unreadable line is an advisory rather than
+a refusal**, the names it did read being a guess about the rest.
+
+**The schema's key set is the whole of what that refusal judges**, and not what the container looks
+up: Node, Next and Auth.js read `TZ`, `NODE_OPTIONS`, `PORT`, `HOSTNAME` and `AUTH_TRUST_HOST` of
+their own, and `fl_frontend/src/core/config.ts` reads `SKIP_ENV_VALIDATION`, none of them declared
+there. So an undeclared name in the file is a line to delete, a spelling to correct, or a name to
+declare in the schema — the same three the backend's arm offers for its settings class.
 
 **What that check proves stops at the names.** The preflight parses the file as python-dotenv does
 and the running container gets it parsed as Compose does; the two agree on which names a file

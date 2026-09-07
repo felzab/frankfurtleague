@@ -3,8 +3,9 @@
 `--force-recreate` discards a container's `json-file` stream and a failed deploy recreates the
 application pair twice, so `:: copy_streams` runs on both paths -- refusing where nothing has been
 recreated yet, and warning inside `:: roll_back`, where the site is already down and a log file is
-not worth leaving it there. `:: check_env_names` is the other read taken before the recreate: the
-environment file is a file to the settings class only there, and everything it prints is names.
+not worth leaving it there. `:: check_env_names` is the backend's environment read before the
+recreate: the environment file is a file to the settings class only there, and everything it prints
+is names.
 Both are lifted out of the script and driven behind a stand-in `docker`, so no daemon and no compose
 file of this machine; the snippet that reader hands the image is run for real instead, because a stub
 records an argv and answers nothing about what the image does.

@@ -1,4 +1,4 @@
-"""SCRIPTS · the frontend arm of `scripts/ops/deploy.sh :: check_env_names`, and the one function both packages go through.
+"""SCRIPTS · `scripts/ops/deploy.sh :: check_frontend_env_names`, and `:: read_env_names`, the one function both packages go through.
 
 The frontend image carries no settings class a deploy can instantiate, so the reader it runs is a
 script emitted beside the standalone server and the key set the build wrote from the schema. Both
@@ -140,10 +140,14 @@ def test_the_reader_the_arm_runs_is_the_one_the_frontend_image_carries() -> None
     """The arm names a script rather than a snippet, so a rename in the Dockerfile would leave the deploy running nothing."""
     _, _, fixture = _run(FRONTEND_ARM)
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-    copied = re.search(r"^COPY --from=builder (/app/\S+) (/app/\S+) \./$", FRONTEND_DOCKERFILE.read_text(encoding="utf-8"), re.MULTILINE)
+    pattern = r"^COPY --from=builder(?: (--chmod=\S+))? (/app/\S+) (/app/\S+) \./$"
+    copied = re.search(pattern, FRONTEND_DOCKERFILE.read_text(encoding="utf-8"), re.MULTILINE)
 
     assert copied is not None, "fl_frontend/Dockerfile copies no reader into the runner"
-    assert argv[-2:] == ["node", Path(copied.group(2)).name], argv
+    # Left to the builder's umask, a 0600 reader would answer this arm's advisory on every deploy
+    # forever -- the one verdict no other case here can tell from a pass.
+    assert copied.group(1) == "--chmod=644", copied.group(0)
+    assert argv[-2:] == ["node", Path(copied.group(3)).name], argv
 
 
 def test_the_mount_the_user_and_the_filter_are_one_function_both_arms_reach() -> None:
