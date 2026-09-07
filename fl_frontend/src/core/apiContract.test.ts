@@ -11,7 +11,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const DOCUMENT_PATH = path.resolve(SRC_DIR, "..", "..", "fl_backend", "openapi.json");
 
-const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
+const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /**
  * Backend component name → the frontend export mirroring it, where the two names differ.

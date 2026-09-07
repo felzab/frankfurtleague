@@ -1,22 +1,34 @@
 import argparse
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from app.main import create_app
 from tests.config import build_test_config
 
-DOCUMENT_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
+DOCUMENT_PATH: Final = Path(__file__).resolve().parents[1] / "openapi.json"
 
-REGENERATE = "cd fl_backend && python -m tests.openapi_document --write"
+# `uv run` rather than a bare `python`: outside an activated virtualenv the interpreter has neither
+# FastAPI nor this package, so the command fails as a broken import.
+# `scripts/tests/test_regenerate_spelling.py` holds every other site to this exact string.
+REGENERATE: Final = "cd fl_backend && uv run python -m tests.openapi_document --write"
 
 # Both repairs, because the rewrite alone is the wrong one for a narrowing nobody asked for: it
 # accepts whatever moved, and the document then agrees with the models about a change no one meant.
-DRIFT_REPAIR = f"A change nobody meant is repaired in the models, never here.\nRefresh the document for an intended one with:  {REGENERATE}"
+DRIFT_REPAIR: Final = (
+    f"A change nobody meant is repaired in the models, never here.\nRefresh the document for an intended one with:  {REGENERATE}"
+)
 
-# Long enough to tell one pattern or enum from another; the document itself carries the whole value,
-# and the key path printed above it is what finds it.
-VALUE_CHARS = 200
+# Each value is printed through a window opening `VALUE_LEAD` characters before the first character
+# the two disagree on: truncating at a fixed offset instead prints two identical-looking values
+# under a heading saying they differ.
+VALUE_CHARS: Final = 200
+VALUE_LEAD: Final = 40
+
+# Every leaf that moved is named, so a drift with two causes takes one run rather than two. The cap
+# keeps a wholesale regeneration from printing thousands of them.
+DIFFERENCE_CAP: Final = 20
 
 
 def build_document() -> dict[str, Any]:
@@ -33,67 +45,60 @@ def serialize(document: dict[str, Any]) -> str:
     return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
 
 
-def _section_keys(document: dict[str, Any], section: str) -> set[str]:
-    inner = document.get(section, {})
-    return set(inner.get("schemas", {}) if section == "components" else inner)
-
-
 def _render_key(path: str, key: str | int) -> str:
     step = f".{key}" if isinstance(key, str) and key.isidentifier() else f"[{key!r}]"
     return f"{path}{step}" if path else step.removeprefix(".")
 
 
-def _render_value(value: Any) -> str:
-    text = json.dumps(value, ensure_ascii=False, sort_keys=True)
-    return text if len(text) <= VALUE_CHARS else f"{text[:VALUE_CHARS]}..."
+def _render_window(text: str, at: int) -> str:
+    """One value through the window, an ellipsis marking each side the window cut away."""
+    start = max(0, at - VALUE_LEAD)
+    end = min(len(text), start + VALUE_CHARS)
+    return f"{'...' if start else ''}{text[start:end]}{'...' if end < len(text) else ''}"
 
 
-def _first_difference(committed: Any, built: Any, path: str = "") -> str | None:
+def _render_pair(committed: Any, built: Any) -> str:
+    """Both values around the character they first disagree on, which is the whole reason two of them are printed."""
+    mine = json.dumps(committed, ensure_ascii=False, sort_keys=True)
+    theirs = json.dumps(built, ensure_ascii=False, sort_keys=True)
+    at = next((index for index, (left, right) in enumerate(zip(mine, theirs, strict=False)) if left != right), min(len(mine), len(theirs)))
+    return f"    committed: {_render_window(mine, at)}\n    built:     {_render_window(theirs, at)}"
+
+
+def _differences(committed: Any, built: Any, path: str = "") -> Iterator[str]:
+    """Every leaf the two documents disagree on, in the committed document's own key order."""
     if isinstance(committed, dict) and isinstance(built, dict):
         for key in committed:
+            here = _render_key(path, key)
             if key not in built:
-                return f"  {_render_key(path, key)}\n    is only in the committed document"
-            if (found := _first_difference(committed[key], built[key], _render_key(path, key))) is not None:
-                return found
+                yield f"  {here}\n    is only in the committed document"
+            else:
+                yield from _differences(committed[key], built[key], here)
         for key in built:
             if key not in committed:
-                return f"  {_render_key(path, key)}\n    is only in the models"
-        return None
+                yield f"  {_render_key(path, key)}\n    is only in the models"
+        return
 
     if isinstance(committed, list) and isinstance(built, list):
         for index, (mine, theirs) in enumerate(zip(committed, built, strict=False)):
-            if (found := _first_difference(mine, theirs, _render_key(path, index))) is not None:
-                return found
-        # Length last: a shorter list whose surviving entries all differ is better reported at the
-        # first entry, where the changed value is visible, than as a count.
+            yield from _differences(mine, theirs, _render_key(path, index))
+        # Length last: a shorter list whose surviving entries all differ is reported at those
+        # entries, where the changed values are visible, rather than as a count standing for them.
         if len(committed) != len(built):
-            return f"  {path}\n    committed: {len(committed)} entries\n    built:     {len(built)} entries"
-        return None
+            yield f"  {path}\n    committed: {len(committed)} entries\n    built:     {len(built)} entries"
+        return
 
-    if committed == built:
-        return None
-
-    return f"  {path}\n    committed: {_render_value(committed)}\n    built:     {_render_value(built)}"
+    if committed != built:
+        yield f"  {path}\n{_render_pair(committed, built)}"
 
 
 def describe_drift(committed: dict[str, Any], built: dict[str, Any]) -> str:
-    """Name what moved, so the failure is actionable without diffing the whole document by eye."""
-    lines: list[str] = []
-
-    for section in ("paths", "components"):
-        committed_keys = _section_keys(committed, section)
-        built_keys = _section_keys(built, section)
-        if added := sorted(built_keys - committed_keys):
-            lines.append(f"  Only in the models: {added}")
-        if removed := sorted(committed_keys - built_keys):
-            lines.append(f"  Only in the committed document: {removed}")
-
-    # A narrowed `pattern` moves no key, so the set differences above report nothing: without the
-    # walk the reader is told that a field changed and left to find which one.
-    if (moved := _first_difference(committed, built)) is not None:
-        lines.append(moved)
-
-    return "\n".join(lines)
+    """Name every field that moved, so the failure is actionable without diffing the whole document by eye."""
+    found = list(_differences(committed, built))
+    shown = found[:DIFFERENCE_CAP]
+    if len(found) > DIFFERENCE_CAP:
+        shown.append(f"  ... and {len(found) - DIFFERENCE_CAP} more differences")
+    return "\n".join(shown)
 
 
 def _main() -> int:

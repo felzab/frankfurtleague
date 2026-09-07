@@ -841,8 +841,7 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
   step "docs · openapi.json matches the docstrings it publishes"
   unit_join openapi
   if run_checker collect "fl_backend/tests/openapi_document.py" "The published document no longer matches the models and docstrings it
-is built from. A change nobody meant is repaired in the models, never in the document. Refresh it for an intended one with:
-cd fl_backend && python -m tests.openapi_document --write" \
+is built from. The checker's own output above names the repair." \
     unit_replay openapi; then
     ok "openapi.json is current"
   else

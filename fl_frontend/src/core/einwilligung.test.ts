@@ -14,7 +14,7 @@ import {
 } from "./einwilligung.ts";
 
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
-const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
+const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 // Frozen when a label is minted and never updated afterwards: a changed digest means the stored
 // words moved, and moved words are a NEW label rather than a new number here.

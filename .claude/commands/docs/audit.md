@@ -59,12 +59,12 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 3. **Derive the corpus by subtraction, never by enumeration.** Start from every tracked file —
    `git ls-files` — and remove the excluded set. The report states the residue.
 
-   | Excluded                                            | Why                                                                                                  |
-   | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-   | `LICENSE`                                           | Licence text, not ours to edit                                                                       |
-   | `**/*.png` · `**/*.ico` · `**/*.svg`                | Images: nothing written to read                                                                      |
-   | `fl_frontend/pnpm-lock.yaml` · `fl_backend/uv.lock` | Resolver output, written by a machine for a machine                                                  |
-   | `fl_backend/openapi.json`                           | Emitted by `python -m tests.openapi_document --write`; a finding against it belongs to its generator |
+   | Excluded                                            | Why                                                                                                                          |
+   | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+   | `LICENSE`                                           | Licence text, not ours to edit                                                                                               |
+   | `**/*.png` · `**/*.ico` · `**/*.svg`                | Images: nothing written to read                                                                                              |
+   | `fl_frontend/pnpm-lock.yaml` · `fl_backend/uv.lock` | Resolver output, written by a machine for a machine                                                                          |
+   | `fl_backend/openapi.json`                           | Emitted by `cd fl_backend && uv run python -m tests.openapi_document --write`; a finding against it belongs to its generator |
 
    `node_modules`, `.venv` and `docs/audit/` need no row: they are gitignored, so `git ls-files`
    never names them.
