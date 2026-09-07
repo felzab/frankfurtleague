@@ -451,11 +451,19 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
-| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` \| `CRITICAL`, case-normalised, `INFO` where the server sets nothing                       |
+| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused              |
 | `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build |
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real
 environment.
+
+**`LOG_LEVEL` stops one level below the backend's `LOG_LEVEL_APP`**
+([`../backend/spec.md`](../backend/spec.md) §1.5), which admits `CRITICAL` and has writers there.
+The level vocabulary on the line is the same five on both surfaces
+([`../logging/spec.md`](../logging/spec.md) §1.2), and `fl_frontend/src/core/logging.ts :: logger`
+writes four of them, so a `CRITICAL` threshold would admit nothing but the env gate's own failure
+line and leave a silenced stream reading as a quiet one. Refusing the value is what makes that
+misconfiguration a boot failure naming `LOG_LEVEL` instead.
 
 The `AUTH_URL` https rule exists because `@auth/core` derives the session cookie's `Secure` flag
 from that URL's protocol, so a stray `http://` value would ship an admin session cookie in

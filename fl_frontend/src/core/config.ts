@@ -3,7 +3,7 @@ import "server-only";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
-import { formatLogLine } from "./logFormat";
+import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Printable ASCII with no space, the class `fl_backend/app/core/config.py :: InternalAPIKey` pins:
 // `secrets.compare_digest` there raises for a non-ASCII key, and `length` counts UTF-16 units here
@@ -57,7 +57,7 @@ export const frontend_config = createEnv({
     LOG_LEVEL: z
       .string()
       .transform((value) => value.toUpperCase())
-      .pipe(z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]))
+      .pipe(z.enum(LOG_THRESHOLDS))
       .default("INFO"),
 
     // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than

@@ -105,6 +105,10 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
   const headers = new Headers(getFetchHeaders(authType));
+  // Before the two minted below and never after: a caller passing `traceparent` or the actor header
+  // would otherwise file this hop's work under a trace the edge never issued.
+  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
+
   // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
   // of its own (`docs/logging/spec.md :: L12`).
   headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
@@ -113,7 +117,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // reads as one everywhere it is inspected.
   const actor = authType === "admin" ? getRequestActor() : undefined;
   if (actor) headers.set(ACTOR_HEADER, actor);
-  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
+  else headers.delete(ACTOR_HEADER);
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);

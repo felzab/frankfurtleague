@@ -32,7 +32,7 @@ registerHooks({
 
 const { apiClient } = await import("./api.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
-const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
+const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
@@ -120,5 +120,37 @@ describe("the cache-fill line", () => {
     const written = await documentsWrittenBy(() => apiClient("/saisons", z.array(z.unknown())));
 
     assert.deepEqual(written, []);
+  });
+});
+
+describe("the two headers this hop mints", () => {
+  const CALLER_HEADERS = { [TRACEPARENT_HEADER]: `00-${"c".repeat(32)}-${"d".repeat(16)}-01`, [ACTOR_HEADER]: "someone@else.example" };
+
+  it("carries the scope's trace rather than one the caller passed in the options", async () => {
+    await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () =>
+      apiClient("/saisons", z.array(z.unknown()), { headers: { ...CALLER_HEADERS } }),
+    );
+
+    assert.deepEqual(sentTraceparent(), { traceId: TRACE, spanId: SPAN });
+  });
+
+  // The actor is the admin scope's or nothing: a caller's own would attribute this read to a person
+  // who never made it, and a base call mints none to overwrite one with.
+  it("sends the scope's actor on an admin call and none at all on a base one", async () => {
+    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
+      apiClient("/saisons", z.array(z.unknown()), { authType: "admin", headers: { ...CALLER_HEADERS } }),
+    );
+    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), "admin@frankfurtleague.de");
+
+    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
+      apiClient("/saisons", z.array(z.unknown()), { headers: { ...CALLER_HEADERS } }),
+    );
+    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), null);
+  });
+
+  it("keeps a header the caller passes that this hop does not mint", async () => {
+    await apiClient("/saisons", z.array(z.unknown()), { headers: { "X-Test-Passthrough": "kept" } });
+
+    assert.equal(new Headers(sends.at(-1)?.init.headers).get("X-Test-Passthrough"), "kept");
   });
 });

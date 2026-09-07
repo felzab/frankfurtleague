@@ -582,8 +582,7 @@ for svc in frontend backend; do
   [[ -n "$cid" ]] || continue
   target="${LOG_DIR}/${LOG_STAMP}-${svc}.log"
   # Written beside the target and moved in once the copy succeeded: a copy failing midway would
-  # otherwise leave a short `.log` reading as the build's whole stream, and `logrotate`'s `*.log`
-  # glob (docs/ops/runbooks.md §7) never reaches a `.partial` name.
+  # otherwise leave a short `.log` reading as the build's whole stream.
   partial="${target}.partial"
   COPY_RC=0
   docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || COPY_RC=$?

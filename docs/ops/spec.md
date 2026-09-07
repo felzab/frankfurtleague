@@ -49,9 +49,10 @@ bump moves it; nothing here observes it.
 All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
 `frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
 the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
-destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and a `logrotate` file the deploy cannot install
-bounds those copies to thirty days and the edge's access log — a host file rather than a container
-stream (§1.2) — to eight ([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
+destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy cannot install bound
+those copies to thirty days, through `systemd-tmpfiles`, and the edge's access log — a host file
+rather than a container stream (§1.2) — to eight, through an hourly `logrotate`
+([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
 service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
 deliberate. `nginx` declares `depends_on` both application services with
 `condition: service_healthy`, and `cloudflared` declares one on `nginx` with no condition to give,

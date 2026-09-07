@@ -182,7 +182,11 @@ unauthenticated by design, which is why nginx gives it a pair of `limit_req` zon
 (`nginx/prod.conf :: zone=clienterr`, `:: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md)
 §1.3 argues the pairing) and why every field is length-capped. Its log line carries the ingest
 request's own trace — the browser cannot know the crashed request's — so the join to the crash is the
-digest, the path and the time.
+route and the time. **A digest belongs to the other half of the split**: a failure rendered with one
+is already recorded as `FE-RSC-001` by `fl_frontend/src/core/instrumentation.ts`, and the report a
+visitor sends by hand carries the digest, the route and the time together
+(`fl_frontend/src/shared/components/ui/Error.tsx :: reportBody`), which is why that form says in so
+many words that a client crash has none.
 
 ### 1.4 Development logging
 
@@ -209,8 +213,12 @@ convention rather than by enforcement.
 - `origin` is `module:line` where the envelope carries them and the `service` name otherwise.
 - The tail is one ` key=value` per envelope field in the envelope's order, `trace_id` and `span_id`
   first, never `timestamp`, `level`, `service`, `message`, `module`, `line` or `error`. A string is
-  bare unless it is empty or holds whitespace, `=`, `"` or `'`, in which case it is a JSON string;
-  every other value is its JSON, so both surfaces render one line from one envelope.
+  bare unless it is empty or carries one of the characters the two quoting classes spell identically
+  — `=`, `"`, `'`, and every space or line break either language calls whitespace
+  (`fl_frontend/src/core/logFormat.ts :: NEEDS_QUOTING`,
+  `fl_backend/app/core/logging.py :: NEEDS_QUOTING`) — in which case it is a JSON string, non-ASCII
+  kept as itself; every other value is its JSON with no space after a separator, so one envelope
+  renders one line on both surfaces.
 - An attached error contributes no pair; its stack follows on the lines after, each indented four
   spaces, or one line `name: message` where it has no stack.
 

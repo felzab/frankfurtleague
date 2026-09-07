@@ -1,5 +1,10 @@
 export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
+// The levels a threshold may name: `logging.ts :: logger` exposes a writer for each, and CRITICAL
+// for none, so admitting it would drop every application line and leave the log reading as quiet
+// rather than as silenced (`docs/frontend/spec.md` §1.7).
+export const LOG_THRESHOLDS = ["DEBUG", "INFO", "WARNING", "ERROR"] as const;
+
 export interface LogMeta extends Record<string, unknown> {
   trace_id?: string;
   span_id?: string;
@@ -28,9 +33,11 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
 };
 const RESET = "\x1b[0m";
 
-// A value carrying any of these would end the key=value pair early, so it is quoted; everything
-// else is written bare, which is what makes the common line readable at all.
-const NEEDS_QUOTING = /[\s='"]/;
+// Spelled out rather than `\s`, character for character the class in
+// `fl_backend/app/core/logging.py :: NEEDS_QUOTING`: the two languages disagree about
+// U+001C-U+001F, U+0085 and U+FEFF, so either shorthand renders a value one surface quotes and the
+// other writes bare.
+const NEEDS_QUOTING = /[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff='"]/u;
 
 function serializeError(error: unknown): unknown {
   if (error instanceof Error) {

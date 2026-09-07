@@ -9,6 +9,7 @@ personal data.
 import json
 import logging
 import logging.config
+import re
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -84,13 +85,20 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 
+# Spelled out rather than str.isspace(), character for character
+# `fl_frontend/src/core/logFormat.ts :: NEEDS_QUOTING`'s: the two languages disagree about
+# U+001C-U+001F, U+0085 and U+FEFF, so either shorthand renders a value one surface quotes and the
+# other writes bare.
+NEEDS_QUOTING = re.compile(r"[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff='\"]")
+
+
 def _console_value(value: Any) -> str:
     """A string bare unless it could split into two pairs; anything else as its JSON, which the frontend renders alike."""
-    if isinstance(value, str):
-        if value and not any(char.isspace() or char in "=\"'" for char in value):
-            return value
-        return json.dumps(value)
-    return json.dumps(value)
+    if isinstance(value, str) and value and not NEEDS_QUOTING.search(value):
+        return value
+    # `JSON.stringify`'s two defaults, which `json.dumps` does not share: a non-ASCII character
+    # raw rather than escaped, and no space after a separator.
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 class LevelAwareFormatter(logging.Formatter):

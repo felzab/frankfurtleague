@@ -29,6 +29,7 @@ settings.__flLogLevel = "INFO";
 
 const { logger } = await import("./logging.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
+const { LOG_THRESHOLDS } = await import("./logFormat.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
@@ -93,6 +94,23 @@ describe("the LOG_LEVEL threshold", () => {
       written.map((document) => document.level),
       ["WARNING", "ERROR"],
     );
+  });
+
+  // The one value `config.ts` must never admit is the one no writer reaches: at it the application
+  // log goes empty and the stream reads as a quiet service rather than as a silenced one.
+  it("leaves a writer above every threshold the environment may name", () => {
+    for (const threshold of LOG_THRESHOLDS) {
+      settings.__flLogLevel = threshold;
+
+      const written = documentsWrittenBy(() => {
+        logger.debug("d");
+        logger.info("i");
+        logger.warn("w");
+        logger.error("e");
+      });
+
+      assert.ok(written.length > 0, `${threshold} drops every line the application writes`);
+    }
   });
 });
 

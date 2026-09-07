@@ -141,6 +141,22 @@ class TestConsoleFormatter:
 
         assert line.endswith(f" path={rendered}"), line
 
+    @pytest.mark.parametrize("code_point", [0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xA0, 0x2028, 0x2029, 0x3000, 0xFEFF])
+    def test_a_value_carrying_any_code_point_the_quoting_class_names_is_quoted(self, code_point):
+        """Six of these `str.isspace()` and JS `\\s` disagree over; `fl_frontend/src/core/logFormat.test.ts` runs the same ten."""
+        value = "a" + chr(code_point) + "b"
+        inner = "a" + (f"\\u{code_point:04x}" if code_point < 0x20 else chr(code_point)) + "b"
+
+        line = plain(LevelAwareFormatter().format(make_record(path=value)))
+
+        assert line.endswith(f' path="{inner}"'), line
+
+    def test_a_non_ascii_value_is_written_as_itself_rather_than_escaped(self):
+        """`json.dumps` escapes it by default and `JSON.stringify` never does, which is the difference between one shape and one line."""
+        line = plain(LevelAwareFormatter().format(make_record(path="/teams?name=S" + chr(0xFC) + "d")))
+
+        assert line.endswith(' path="/teams?name=S' + chr(0xFC) + 'd"'), line
+
     def test_an_exception_s_stack_follows_on_indented_lines(self):
         line = plain(LevelAwareFormatter().format(record_with_exception(trace_id=TRACE, span_id=SPAN)))
 

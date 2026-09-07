@@ -200,17 +200,20 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
   visitor's address, user agent and referer, and it survives a deploy — so `logrotate` deletes what
-  is older than eight days at its next daily run, and rotates early on a day the file outgrows its
-  size cap, which is what keeps the disk bounded whatever the traffic
-  ([`ops/runbooks.md`](ops/runbooks.md) §7), installed by hand in the same deployment that
-  publishes these figures. That is an age bound
+  is older than eight days at its next run, and rotates early on a day the file outgrows its size
+  cap, which is what keeps the disk bounded whatever the traffic. That run is hourly rather than
+  daily for exactly that reason: a size cap bites only when the rotation runs, so a spike between two
+  daily runs would sit unbounded ([`ops/runbooks.md`](ops/runbooks.md) §7). The mechanism is
+  installed by hand in the same deployment that publishes these figures. That is an age bound
   rather than one traffic volume sets, which a size rotation is: under a size bound alone a quiet
   month would keep addresses far longer than a busy one. The application logs keep the container
   runtime's size rotation as their only live bound
   (`docs/logging/spec.md :: Retention is Docker's`), because the only way to rotate a file the
   runtime holds open loses lines; the deploy copies each stream off before replacing its container,
-  and those copies are what the thirty days reach (`scripts/ops/deploy.sh :: LOG_DIR`). The eight is
-  the backup window an erased person is told about
+  and those copies are what the thirty days reach (`scripts/ops/deploy.sh :: LOG_DIR`), the host's
+  own `systemd-tmpfiles` sweep deleting each one thirty days after the deploy wrote it. A copy is
+  written once and never appended, so its bound is a deletion by age rather than a rotation. The
+  eight is the backup window an erased person is told about
   ([section 5](#5-erasure-reaches-everyone-who-asks)), which lets one figure answer both the
   access-log question and the erasure question. Nothing is shipped to a collector: that would
   lengthen retention and add a processor receiving visitors' addresses. That the access line carries

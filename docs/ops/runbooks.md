@@ -14,7 +14,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
 | [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
-| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host file that bounds them, and where a deploy's copies go |
+| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
 | [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
 
 ---
@@ -438,13 +438,19 @@ by the deploy where it can; on a host whose deploying user is not root, create t
 sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfurtleague/nginx
 ```
 
-**The age bounds are one host mechanism, `logrotate`, and no file in this repository can install
-it** — the file below is written on the server, at `/etc/logrotate.d/frankfurtleague`, in the same
-deployment that ships the published texts stating the bounds
+**The age bounds are four host files no file in this repository can install** — written on the
+server in the same deployment that ships the published texts stating them
 ([`../datenschutz.md`](../datenschutz.md) §6): eight days for the access log, thirty for the copied
-application logs. Substitute the server's own checkout path for `<checkout>` — `docker compose`
-takes its project name from the directory holding the file `-f` names, so a path pointing anywhere
-else finds no `nginx` service and the rotation goes on without the reopen.
+application logs. **They are two mechanisms because they are two kinds of file.** The access log is
+open and growing, so its bound is a rotation the edge has to be told about; a deploy's copy is
+written once and never appended, so its bound is a deletion, and a rotation of it renames a file
+nothing will ever add a line to.
+
+**The access log, at `/etc/frankfurtleague/access-log.conf`.** Substitute the server's own checkout
+path for `<checkout>` — `docker compose` takes its project name from the directory holding the file
+`-f` names, so a path pointing anywhere else finds no `nginx` service and the rotation goes on
+without the reopen. Spell `docker` with the path `command -v docker` prints if it is not on
+systemd's own PATH, which is what this runs under rather than a login shell's.
 
 ```text
 # nginx writes this file through a bind mount, so it outlives the container and can be rotated by
@@ -458,6 +464,9 @@ else finds no `nginx` service and the rotation goes on without the reopen.
     # eight days above are the most an entry lives, never a period a spike can stretch.
     maxsize 100M
     dateext
+    # Seconds in the name, because a day can hold more than one rotation: under a bare `-%Y%m%d`
+    # the second one lands on the name the first took, and logrotate skips it and exits 1.
+    dateformat -%Y%m%d-%H%M%S
     create 0640 root root
     missingok
     notifempty
@@ -467,22 +476,82 @@ else finds no `nginx` service and the rotation goes on without the reopen.
         docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
     endscript
 }
-
-# The deploy's copies are written once and never appended: the first daily run moves each into a
-# dated name, and maxage deletes it thirty days after that. A glob does not cross a directory
-# separator, so this one never reaches the access log above.
-/var/log/frankfurtleague/*.log {
-    daily
-    rotate 30
-    maxage 30
-    dateext
-    nocreate
-    missingok
-    notifempty
-    compress
-    delaycompress
-}
 ```
+
+**Read once with `logrotate -d -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf`**,
+which rotates nothing, before the first real run.
+
+**That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
+cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
+between two of them is unbounded. One config file read by one scheduler against one state file of
+its own is what keeps the two from rotating the same log twice with two ideas of when it last
+happened.
+
+```text
+# /etc/systemd/system/frankfurtleague-logrotate.service
+[Unit]
+Description=Rotate the Frankfurt League access log
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf
+```
+
+```text
+# /etc/systemd/system/frankfurtleague-logrotate.timer
+[Unit]
+Description=Hourly size check on the Frankfurt League access log
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`
+is what runs it — systemd ships that timer enabled, through its own `timers.target.wants`, a quarter
+of an hour after boot and daily after that — so the thirty days need no scheduler of their own. The
+command below is what confirms it is running on this host.
+
+```text
+# Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
+# chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
+e /var/log/frankfurtleague - - - m:30d
+# The line above reaches every level below it, and the live access.log is one of them: on a quiet
+# month the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
+x /var/log/frankfurtleague/nginx
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now frankfurtleague-logrotate.timer
+systemctl list-timers frankfurtleague-logrotate.timer systemd-tmpfiles-clean.timer
+sudo systemd-tmpfiles --clean --prefix=/var/log/frankfurtleague
+```
+
+**The last of those is also how this host answers whether it reads the age qualifier at all**: one it
+cannot parse is an error naming the file and the line, an exit of 65, and nothing deleted — never a
+line skipped in silence.
+
+**What each shape refuses, and why the obvious one is not here:**
+
+- **A second `logrotate` stanza over `/var/log/frankfurtleague/*.log`** reaches a copy once. The
+  first run renames it out of the glob, and `maxage` prunes what logrotate still finds a source for,
+  so nothing looks at the file again. `olddir`, a `postrotate` or `dateext` off each move the name
+  around and leave that unchanged.
+- **`find -mtime +30 -delete` from cron** deletes the same files, and costs a second scheduler and a
+  file stating an age that `tmpfiles.d` already states declaratively.
+- **Numbered rotation instead of `dateext`** never collides, because every rotation renames every
+  older file. It also takes the date off the names, and turns `rotate 8` into eight rotations rather
+  than eight days, which is the figure that is published.
+- **`dateformat -%Y%m%d-%s`** sorts identically and reads as a number nobody can date by eye.
+- **Leaving the stanza in `/etc/logrotate.d/` and making the host's `logrotate.timer` hourly** is one
+  file fewer and changes the cadence for every other package on the machine.
+
+**Two rotations inside one second still collide**, the name carrying seconds and no more: an hourly
+timer cannot reach that, and two runs by hand can.
 
 **Nothing here rotates the containers' own `json-file` logs**, whose whole bound is the compose size
 cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runtime holds open is
@@ -495,9 +564,6 @@ only age bound over one.
 reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
 is what the rotation leaves, and the first line written after the reopen changes that ownership;
 reading the file needs the host's root either way.
-
-Read the result once with `logrotate -d /etc/logrotate.d/frankfurtleague`, which rotates nothing,
-before the first real run.
 
 ## 8. Putting the tunnel in front of the origin
 

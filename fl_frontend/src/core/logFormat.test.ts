@@ -134,6 +134,31 @@ describe("formatLogLine console", () => {
     assert.ok(line.endsWith(' empty=""'), line);
   });
 
+  /* Six code points `\s` and Python's `str.isspace()` disagree over, and four they share. The
+     backend suite parametrises the same ten (`fl_backend/tests/core/test_logging.py ::
+     TestConsoleFormatter`): a value one surface quotes and the other writes bare is two line shapes,
+     not one. */
+  it("quotes a value carrying any code point the quoting class names, and escapes the ones below U+0020", () => {
+    for (const codePoint of [0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xa0, 0x2028, 0x2029, 0x3000, 0xfeff]) {
+      const value = `a${String.fromCodePoint(codePoint)}b`;
+      const inner = codePoint < 0x20 ? `a\\u${codePoint.toString(16).padStart(4, "0")}b` : value;
+
+      const line = plain(formatLogLine("console", "INFO", "hello", { path: value }));
+
+      assert.ok(line.endsWith(` path="${inner}"`), `U+${codePoint.toString(16).padStart(4, "0")}: ${line}`);
+    }
+  });
+
+  /* The backend renders these two through `json.dumps` with `ensure_ascii=False` and no separator
+     spacing, which is what makes its line these bytes rather than merely this shape
+     (`fl_backend/tests/core/test_logging.py :: TestConsoleFormatter`). */
+  it("writes a non-ASCII character as itself and a structured value with no space after a separator", () => {
+    const line = plain(formatLogLine("console", "INFO", "hello", { team: "IGS Süd", cache_fill: { name: "spiele", args: 1 } }));
+
+    assert.ok(line.includes(' team="IGS Süd"'), line);
+    assert.ok(line.endsWith(' cache_fill={"name":"spiele","args":1}'), line);
+  });
+
   /* A number written bare is what makes a status or a duration greppable; quoting it would make
      every figure on the line read as a string. */
   it("renders a non-string value as its JSON encoding, unquoted", () => {

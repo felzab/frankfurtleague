@@ -7,11 +7,11 @@ import { readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 import type { NextRequest } from "next/server";
 
+// `fl_frontend/src/app/error.tsx` posts a crash only where the boundary got no digest, a
+// digest-bearing failure being `fl_frontend/src/core/instrumentation.ts`'s line already, so the
+// report is these three fields and no fourth.
 const ClientErrorReportSchema = z.object({
   message: z.string().min(1).max(500),
-  // A client crash has no digest; a server error rendered by the boundary carries one, and it is
-  // what joins this line to its onRequestError line.
-  digest: z.string().max(64).optional(),
   // Pathname only, so a caller cannot smuggle search text or tokens into the log.
   path: z
     .string()
@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
   logger.error("Client-side crash reported", undefined, {
     error_code: "FE-CLIENT-001",
     trace_id: incoming?.traceId,
-    digest: report.data.digest,
     route: report.data.path,
     client_message: report.data.message,
     client_stack: report.data.stack,
