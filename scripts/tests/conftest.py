@@ -28,10 +28,6 @@ from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
-# The caches are live while copied -- the scripts scope runs its tools together -- and copytree
-# raises on a path that vanishes mid-walk.
-IGNORED: Final = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-
 # So no case depends on the machine's git config.
 IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.name", "fixture"),
@@ -61,8 +57,23 @@ def write(root: Path, rel: str, text: str) -> None:
     path.write_bytes(text.encode("utf-8"))
 
 
-def copy_scripts(destination: Path) -> None:
-    shutil.copytree(REPO_ROOT / "scripts", destination, ignore=IGNORED)
+def copy_scripts(destination: Path, *, source: Path = REPO_ROOT / "scripts") -> None:
+    """Every file in one tree that git does not ignore, copied into a fresh directory.
+
+    A walk raises on a path that vanished mid-listing, and the scripts scope has its own tools
+    reading this tree while a fixture copies it.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    # `--others` beside `--cached`: a module a branch has only just written is one the suite must
+    # still test through the copy, and `--exclude-standard` is what leaves the caches behind.
+    for rel in git(source, "ls-files", "--cached", "--others", "--exclude-standard", "-z").split("\0"):
+        # The fixture holds the gate's own corpus, and the suite that drives the gate is no part of it.
+        if not rel or rel.startswith("tests/"):
+            continue
+        target = destination / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # copy2 rather than a read and a write: it copies bytes and carries the executable bit.
+        shutil.copy2(source / rel, target)
 
 
 def configure(root: Path, hooks: str) -> None:

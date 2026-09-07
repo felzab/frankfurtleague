@@ -100,7 +100,6 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                                                        | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                                                     | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                                                   | FE, BE, DB, Docs, spieler                                                   | Blocked  |
-| `9r6p-z26g` | The shared fixture builder copies a live directory behind a hand-written denylist rather than git's own file set                                                  | Ops, gate, tests                                                            | Open     |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
 | `aee2-vxqc` | Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes                       | BE, ci, tests, versions                                                     | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
@@ -934,32 +933,6 @@ as the rule gets it wrong by two years.
 the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
 `fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
 It is not a migration.
-
-### `9r6p-z26g` · The shared fixture builder copies a live directory behind a hand-written denylist rather than git's own file set
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**Every module that builds a fixture repository copies `scripts/` into a temporary directory through
-`scripts/tests/conftest.py :: copy_scripts` and imports the gate out of the copy**, and the copy is what
-makes the seam work: the checker derives its repository root from its own location, so importing the copy
-points every check at the planted corpus rather than at this repository. The one denylist the helper
-carries, `scripts/tests/conftest.py :: IGNORED`, is hand-written: it names the cache directories the
-toolchain writes today, and the next name added reaches the walk only if somebody remembers the list.
-
-**The list is load-bearing because the directory is live while it is walked.** The scripts scope starts
-`scripts/gate/selfcheck.sh`, ruff, pyright and the pytest suite together, and that suite distributes over
-`-n auto --dist loadfile`, so several copies walk `scripts/` at once while two other tools read it.
-`shutil.copytree` raises on a path that disappears between the directory listing and the copy, so the
-denylist is correct only while it enumerates every directory anything else writes under `scripts/`, and
-the run that meets a name nobody listed reports a `shutil` error against a temporary file, in a scope whose
-findings are otherwise about the corpus.
-
-**Done when** the helper's file set comes from git rather than from a denylist.
-`scripts/checks/docs_gate/kernel.py :: gitignored` already answers a whole set of tokens in one batch and
-memoises the run, and a fixture built from git's own answer keeps an untracked new module the suite must
-still test.
 
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
