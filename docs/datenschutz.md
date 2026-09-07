@@ -244,9 +244,9 @@ owed:
 
 ## 10. Adjacent decisions were accepted as recommended
 
-Roadmap items that needed no expert, each accepted on 2026-09-02 as its entry recommends. Where the
-entry is still open, what is left to do is its own `Status` in
-[`_roadmap/items.md`](_roadmap/items.md).
+Roadmap items that needed no expert, each accepted on 2026-09-02 as the entry then recommended.
+Where an entry is still open, what is left to do is its own `Status` in
+[`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives.
 
 | Entry       | Decision                                                                                                                                                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

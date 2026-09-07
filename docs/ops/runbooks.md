@@ -386,9 +386,11 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
    the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
 2. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
-   host was created before any subnet was declared, and `up` reuses an existing network rather than
-   re-declaring it, so the connector's static address would be refused at container-create time —
-   after nginx had already given up its published ports. `down` removes the network with the
+   host was created before any subnet was declared and before Compose began recording a
+   configuration hash on the networks it creates; a network carrying no such record is reused by
+   `up` as it stands, whatever the file now declares (Compose reconciles only a network whose
+   recorded hash diverged), so the connector's static address would be refused at container-create
+   time — after nginx had already given up its published ports. `down` removes the network with the
    containers, and the next `up` creates it carrying the declared subnet. The old network is left
    behind only where something outside this compose file still holds it.
 3. **Deploy, add the two public hostnames in the dashboard, then read

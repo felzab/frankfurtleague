@@ -15,7 +15,7 @@ graph TB
 
     subgraph net["Docker network: frankfurtleague-net"]
         connector["cloudflared<br/>dials out; the host publishes nothing"]
-        nginx["nginx<br/>:443 inside the network only"]
+        nginx["nginx<br/>:80 and :443 inside the network only"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
         be["backend :8000<br/>FastAPI"]
     end
