@@ -578,9 +578,9 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: resampled over whole runs of the population `.github/gate-wall-clock.tsv`'s header stamps
-at 2026-09-01, a 12-run median moves 8% on `docs` at p95, 10% on `frontend` and 22% on
-`backend-db`, so a single global figure dismisses a real move on the quiet jobs and cries wolf on
+of them: resampled over whole runs of the population each row of `.github/gate-wall-clock.tsv`
+stamps, a 12-run median moves by a different amount on every job in that table, so a single global
+figure dismisses a real move on the quiet jobs and cries wolf on
 the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
 
 **The report decides nothing** — no threshold in it refuses anything and pull requests skip it, so
@@ -595,16 +595,17 @@ first step to its last, and `measured`, the completed runs the row was taken ove
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
-a length nothing measured being no pass. A single run swings far wider than a median — inside the
-main runs the budgets were set from, stamped 2026-09-01, `backend-db` reached 1.6 times its median
-and `ops` 2.3 times — so each budget is the population's highest single-run span plus a quarter of
+a length nothing measured being no pass. A single run swings far wider than a median,
+which is why a budget is not the reference: each is the population's highest single-run span plus a
+quarter of
 it or ten seconds,
 whichever is more, rounded up to the next five, a rule the table's header records. **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
 a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
-being the layer cache's before it is the tree's — at that same 2026-09-01 stamp a cold cache costs
-five times the median, and the Dockerfile change most worth catching is the one that empties it —
+being the layer cache's before it is the tree's — the table's header records the spread that row's
+stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
+catching is the one that empties that cache —
 so the median report is its only
 guard. `commits` and `format` run on pull requests alone, so their rows are measured from
 pull-request runs and carry `-` where the report, cut from main runs, would read a reference.

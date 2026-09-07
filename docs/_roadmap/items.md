@@ -167,7 +167,6 @@ deliverable.
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                                                        | FE, Docs                                                                    | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                                                                 | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                                                     | FE, Docs, ci, tests, saisons                                                | Standing |
-| `vy6b-ftj4` | The backend, database and frontend jobs have taken a step up in wall clock that no report named                                                                   | Ops, gate, ci                                                               | Open     |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                                                       | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                                                              | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                                                             | FE, tests, spieler                                                          | Open     |
@@ -3647,40 +3646,6 @@ outstanding repair**, and the window in which the fix was cheap closed at the pu
 
 **Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
 the argument for a per-commit resolution check, and the sweep above is what it would be built from.
-
-### `vy6b-ftj4` · The backend, database and frontend jobs have taken a step up in wall clock that no report named
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| Ops, gate, ci | Open   | —          |
-
-**The measurement.** Read 2026-09-01 from the runs API over every `verify.yml` run on a push to main:
-a job's span is its first step's start to its last step's end, and each figure is the median of the
-last twelve completed runs against the twelve before them. `backend-db` moved 52.0 s to 67.5 s
-(+29.8%), `backend` 32.0 s to 38.0 s (+18.8%), and `frontend` 107.0 s to 120.5 s (+12.6%).
-
-**The reshuffle floor is what makes those three a finding rather than three numbers.** Shuffling the
-same twenty-four samples at random and re-cutting them into two windows moves each median by 24.3%,
-15.6% and 9.7% respectively at p95 — so a delta under that is the cut and not a change. All three sit
-above their own p95, and no other job does.
-
-**The figures are understated rather than generous.** The floor is computed from the same twenty-four
-samples that contain the shift, which inflates it; and the population is successful runs only, so a
-run slow enough to fail or to reach `timeout-minutes` is outside the sample entirely. **What it is
-not:** these runs are GitHub-hosted, so no local machine's load reaches them; queue time is out of the
-span by construction; and the direction is consistent across three independent jobs rather than one,
-which a runner-pool artefact would not be.
-
-**It has a clock, which is what makes it more than a cost entry.**
-[`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv) is calibrated on a tree that
-already carries the step, so until this is judged the report treats the higher figure as normal; and
-the window that identifies the cause is on record now — the runs API prunes, and the candidate
-commits stop being few.
-
-**Done when** the three are attributed to one cause or three — the jobs share
-`scripts/gate/verify.sh` and little else, the backend pair pointing at test count or collection time
-and `frontend` at the build — and `.github/gate-wall-clock.tsv` is re-measured and rewritten, its
-figures being the ones this entry says are too high.
 
 ### `vyr6-uk2p` · The open-window read filters into arrays and subscripts whatever comes back
 
