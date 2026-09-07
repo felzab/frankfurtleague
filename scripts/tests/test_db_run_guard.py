@@ -7,7 +7,8 @@ Both are lifted out of verify.sh and driven against a claim directory under `tmp
 gate being a whole gate run. `scripts/gate/verify.sh :: gate_exit` is lifted with them for the
 other half of the contract:
 the run that took the claim is the run that gives it back, and a run refused for someone else's
-claim gives back nothing.
+claim gives back nothing. `:: DB_RUN_LOCK` serialises the one window in which two runs decide
+about a single claim, so the cases below drive that window from both ends.
 """
 
 from __future__ import annotations
@@ -30,11 +31,25 @@ VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 # exists to stop.
 BASH: Final = shutil.which("bash")
 
-CLAIM: Final[tuple[str, ...]] = ("take_db_run", "claim_db_run")
+CLAIM: Final[tuple[str, ...]] = ("take_db_run", "refuse_to_the_holder", "claim_db_run")
 RECLAIM: Final[tuple[str, ...]] = (*CLAIM, "gate_exit")
 
+# The two a refusal names, printed before the call that may not return to print anything.
+ANNOUNCE: Final = "\n".join(
+    (
+        'printf "pid=%s\\n" "$$"',
+        'printf "lock=%s\\n" "$DB_RUN_LOCK"',
+    )
+)
+
 # Reported one per line, so a case reads the state the shell held rather than a formatted sentence.
-REPORT: Final = 'printf "marker=%s\\n" "$DB_RUN_MARKER"\nprintf "pid=%s\\n" "$$"\nprintf "held=%s\\n" "$(cat "${DB_RUN_DIR}/pid")"'
+REPORT: Final = "\n".join(
+    (
+        ANNOUNCE,
+        'printf "marker=%s\\n" "$DB_RUN_MARKER"',
+        'printf "held=%s\\n" "$(cat "${DB_RUN_DIR}/pid")"',
+    )
+)
 
 # A claim already standing, taken by a pid this shell knows is alive because it is its own.
 HELD_BY_A_LIVE_PID: Final = 'mkdir -p "$DB_RUN_DIR"\nprintf "%s\\n" "$$" > "${DB_RUN_DIR}/pid"'
@@ -50,6 +65,29 @@ ABANDONED: Final = "\n".join(
     )
 )
 
+# Another run's takeover, whole, at the seam this run announces its own at: it renames the
+# abandoned claim aside, clears it, and takes the machine in a name this shell knows is alive.
+A_COMPLETED_TAKEOVER: Final = "\n".join(
+    (
+        "warn() {",
+        '  mv "$DB_RUN_DIR" "${DB_RUN_DIR}.won"',
+        '  rm -rf "${DB_RUN_DIR}.won"',
+        '  mkdir "$DB_RUN_DIR"',
+        '  printf "%s\\n" "$$" > "${DB_RUN_DIR}/pid"',
+        "}",
+    )
+)
+
+
+def _declaration(name: str) -> str:
+    """One `NAME="value"` line as verify.sh spells it, for a fixture that must not respell it.
+
+    A path derived here instead would agree with the gate only until one of the two moved.
+    """
+    found = re.search(rf'^{name}="[^"]*"$', VERIFY.read_text(encoding="utf-8"), re.MULTILINE)
+    assert found is not None, f"scripts/gate/verify.sh declares no {name} as one quoted value"
+    return found.group(0)
+
 
 def _run(body: str, marker: Path, *, lifted: tuple[str, ...] = CLAIM, trap: bool = False) -> tuple[int, str]:
     """One fixture shell: `_lib.sh`, the lifted claim, and the two variables it reads."""
@@ -60,6 +98,9 @@ def _run(body: str, marker: Path, *, lifted: tuple[str, ...] = CLAIM, trap: bool
             "#!/usr/bin/env bash",
             f'source "{LIB.as_posix()}"',
             f'DB_RUN_DIR="{marker.as_posix()}"',
+            # Read out of verify.sh and never spelled here: it is derived from the line above, so a
+            # fixture naming its own would leave the gate's lock untested under a passing suite.
+            _declaration("DB_RUN_LOCK"),
             'DB_RUN_MARKER=""',
             "POOL_DIRS=()",
             'STEP_UNIT=""',
@@ -98,7 +139,7 @@ def test_the_first_claim_takes_the_directory_and_records_its_own_pid(tmp_path: P
 def test_a_second_claim_refuses_at_two_while_the_holder_is_alive(tmp_path: Path) -> None:
     """The whole subject: a refusal naming the holder, never a wait and never a finding.
 
-    Exit 2 rather than 1 is `.claude/CLAUDE.md` §7 **exit codes** — the tier did not run, so
+    Exit 2 rather than 1 is `.claude/CLAUDE.md` §7 **exit codes** -- the tier did not run, so
     nothing here is a verdict on the change.
     """
     marker = tmp_path / "db-run"
@@ -130,23 +171,67 @@ def test_a_claim_left_by_a_dead_pid_is_reported_and_taken_over(tmp_path: Path) -
     state = _reported(out)
     assert state["marker"] == marker.as_posix(), out
     assert state["held"] == state["pid"], out
+    # Given back on the way through: a lock still standing would refuse every later takeover on
+    # this machine, and nothing on the success path ever looks at it again.
+    assert not Path(state["lock"]).exists(), out
 
 
 def test_a_second_run_clearing_the_same_abandoned_claim_refuses_rather_than_joining(tmp_path: Path) -> None:
-    """Two runs reading one dead pid: a takeover deleting and re-creating would let both through.
+    """Two runs reading one dead pid: the second must not join the first.
 
-    `rm -rf` on a path already gone succeeds, so the loser would take the claim the winner holds.
+    Deciding on the rename alone lets the straggler take the machine beside the winner, whose own
+    exit then gives back the claim the straggler took.
     """
     marker = tmp_path / "db-run"
-    other = marker.with_name(marker.name + ".other")
-    # `warn` is the seam: the takeover announces itself there, between the staleness verdict and
-    # the rename, which is the window the run further along moves the claim aside in.
-    hook = f'warn() {{ mv "$DB_RUN_DIR" "{other.as_posix()}"; }}'
-    rc, out = _run(f"{ABANDONED}\n{hook}\nclaim_db_run", marker, lifted=RECLAIM, trap=True)
+    # `warn` is the seam: the takeover announces itself there, above the lock, which is the window
+    # the run further along completes the whole takeover in.
+    body = f"{ABANDONED}\n{A_COMPLETED_TAKEOVER}\n{ANNOUNCE}\nclaim_db_run"
+    rc, out = _run(body, marker, lifted=RECLAIM, trap=True)
     assert rc == 2, out
-    assert not marker.exists(), out
-    # The winner's claim, untouched: the loser reclaims nothing, having taken nothing.
-    assert (other / "pid").is_file(), out
+    state = _reported(out)
+    # Named as the live holder it now is, rather than as a run clearing something.
+    assert f"holds {marker.as_posix()} (pid {state['pid']})" in out, out
+    # The winner's claim, untouched, and still the machine's only one: the straggler took nothing,
+    # so its own trap gave nothing back.
+    assert (marker / "pid").read_text(encoding="utf-8").strip() == state["pid"], out
+    assert not Path(state["lock"]).exists(), out
+
+
+def test_a_takeover_lock_a_killed_run_left_behind_refuses_naming_both_paths(tmp_path: Path) -> None:
+    """A lock a killed run left is cleared by hand: the window it is held in is milliseconds wide.
+
+    The refusal is therefore the whole remedy, and owes both paths and the command that clears them.
+    """
+    marker = tmp_path / "db-run"
+    body = f'{ABANDONED}\nmkdir "$DB_RUN_LOCK"\n{ANNOUNCE}\nclaim_db_run'
+    rc, out = _run(body, marker, lifted=RECLAIM, trap=True)
+    assert rc == 2, out
+    state = _reported(out)
+    assert f"rm -rf {state['lock']} {marker.as_posix()}" in out, out
+    # Both left standing: a run refused for a lock it does not hold may clear neither.
+    assert Path(state["lock"]).is_dir(), out
+    assert (marker / "pid").is_file(), out
+
+
+def test_a_claim_this_run_cannot_rename_is_not_reported_as_another_run_clearing_it(tmp_path: Path) -> None:
+    """On Linux an abandoned claim can be another account's, which no rename of this run's will move.
+
+    The lock this run holds rules out the other reading, so the text owes the ownership and the
+    remedy, not a race.
+    """
+    marker = tmp_path / "db-run"
+    # The rename refused, which is what a sticky directory answers over another user's claim.
+    hook = "mv() { return 1; }"
+    body = f"{ABANDONED}\n{hook}\n{ANNOUNCE}\nclaim_db_run"
+    rc, out = _run(body, marker, lifted=RECLAIM, trap=True)
+    assert rc == 2, out
+    assert "already clearing" not in out, out
+    assert "as that user or as root" in out, out
+    assert f"rm -rf {marker.as_posix()}" in out, out
+    state = _reported(out)
+    # Nothing taken and nothing held: the claim stands and the lock is given back.
+    assert (marker / "pid").is_file(), out
+    assert not Path(state["lock"]).exists(), out
 
 
 def test_a_claim_whose_pid_write_fails_is_given_back_rather_than_left_standing(tmp_path: Path) -> None:

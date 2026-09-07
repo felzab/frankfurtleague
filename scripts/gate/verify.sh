@@ -59,8 +59,8 @@ fi
 POOL_DIRS=()
 
 # The db run's own claim, empty until `claim_db_run` takes it, so a run refused for another's claim
-# reclaims nothing. Declared up here for POOL_DIRS' reason, and never exported: a worker process
-# inheriting it would give back a claim the parent is holding.
+# reclaims nothing. Declared here for POOL_DIRS' reason, and never exported: a worker inheriting it
+# would give back a claim the parent holds.
 DB_RUN_MARKER=""
 
 # A step worker is one check body, run as its own process. It creates none of the resources below
@@ -85,9 +85,9 @@ gate_exit() {
   if (( ${#POOL_DIRS[@]} )); then
     for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
   fi
-  # Only the opener: the ledger path is exported, so a worker process re-entering this script
-  # inherits it and its own exit would reclaim the parent's file mid-write. The next `>>` recreates
-  # it holding what came after, which reads as records lost, not a file removed.
+  # Only the opener: the path is exported, so a re-entry exiting above the scripts scope's own
+  # `mktemp` would reclaim the parent's file mid-write, and the `>>` after it recreates a file
+  # reading as records lost rather than one removed.
   if [[ -n "${FL_SELFCHECK_LEDGER:-}" && "${FL_SELFCHECK_LEDGER_OWNER:-}" == "$BASHPID" ]]; then
     rm -f "$FL_SELFCHECK_LEDGER" || true
   fi
@@ -845,8 +845,8 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
   step "docs · every route handler is metered or accounted for"
   unit_join public_routes
   if run_checker collect "scripts/checks/check_public_routes.py" "The route accounting is out. Above is a handler whose exact match meters nothing, one no
-location names, a dynamic subtree no prefix covers, a prefix or an exact path charged to no
-recorded reason, a reason charging nothing, or a metered path with no trailing-slash twin." \
+location names, a dynamic subtree no prefix covers, a prefix charged to no recorded reason, a
+reason charging nothing, or a metered path with no trailing-slash twin." \
     unit_replay public_routes; then
     ok "every route handler is accounted for at the edge"
   else
@@ -1178,6 +1178,10 @@ fi
 # tiers collide over are the host's. `${TMPDIR:-/tmp}` is writable under Git Bash and on a runner.
 DB_RUN_DIR="${TMPDIR:-/tmp}/fl-gate-db-run"
 
+# Held across the takeover of an abandoned claim and nothing else: two runs reading one dead pid
+# otherwise clear and re-take it in turn, the second renaming the first's live claim aside.
+DB_RUN_LOCK="${DB_RUN_DIR}.takeover"
+
 # `mkdir` rather than a test and a write: it is the one primitive that asks and takes in a single
 # step, so a second run's failure to create IS the detection.
 take_db_run() {
@@ -1191,6 +1195,14 @@ take_db_run() {
 claim from one a killed run abandoned. The claim is given back on the way out; check that directory."
 }
 
+# One text for the two sites that read the pid, before the takeover lock and again under it: told
+# the same claim's story two ways, a reader takes it for two claims.
+refuse_to_the_holder() { # $1 the pid the claim records, empty where none could be read
+  refuse "another db-tier run holds ${DB_RUN_DIR} (pid ${1:-none recorded}), and two at once make
+each other's failures unreadable. Wait for it to finish. If no such process is running, a killed run
+left the claim behind and \`rm -rf ${DB_RUN_DIR}\` clears it."
+}
+
 # Called by the one process that runs the tier: a pooled run dispatches the db scope to a worker
 # and exits at `wrap_up`, so the parent never reaches this block; every other form runs it in the
 # one process.
@@ -1201,22 +1213,42 @@ claim_db_run() {
   # An unreadable pid is a run between its own mkdir and its write, never an abandoned claim:
   # calling that stale would delete a claim seconds old.
   if [[ ! "$held" =~ ^[0-9]+$ ]] || kill -0 "$held" 2>/dev/null; then
-    # A refusal and not a wait: a lock would make the second run queue in silence, which is the
-    # same unexplained result this guard exists to replace.
-    refuse "another db-tier run holds ${DB_RUN_DIR} (pid ${held:-none recorded}), and two at once make
-each other's failures unreadable. Wait for it to finish. If no such process is running, a killed run
-left the claim behind and \`rm -rf ${DB_RUN_DIR}\` clears it."
+    # A refusal and not a wait: a lock over the tier would make the second run queue in silence,
+    # which is the same unexplained result this guard exists to replace.
+    refuse_to_the_holder "$held"
   fi
   warn "${DB_RUN_DIR} was left behind by pid ${held}, which is gone, so this run takes it over"
-  # The rename decides the takeover and the `mkdir` after it does not: `mv` is one step, so of two
-  # runs that read this same pid dead, one moves the claim and the other finds nothing to move.
+  # Taken before anything is moved: a run held anywhere above this line while another completes the
+  # same takeover would otherwise rename that run's live claim aside and take the machine beside it.
+  mkdir "$DB_RUN_LOCK" 2>/dev/null \
+    || refuse "another db-tier run is clearing ${DB_RUN_DIR}, which a killed run left behind, and holds
+${DB_RUN_LOCK} until it is done. Wait for it to finish. Clearing spans milliseconds, so a lock still
+standing after that was left by a run killed inside them, and \`rm -rf ${DB_RUN_LOCK} ${DB_RUN_DIR}\`
+clears both."
+  # Read again under the lock, because the verdict above was reached outside it: the pid on disk is
+  # the live one of whichever run finished the same takeover while this one was still deciding.
+  held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || kill -0 "$held" 2>/dev/null; then
+    rmdir "$DB_RUN_LOCK" || true
+    refuse_to_the_holder "$held"
+  fi
   stale="${DB_RUN_DIR}.abandoned.$$"
-  mv "$DB_RUN_DIR" "$stale" 2>/dev/null \
-    || refuse "another db-tier run is already clearing ${DB_RUN_DIR}, which a killed run left behind.
-Wait for it to finish."
+  if ! mv "$DB_RUN_DIR" "$stale" 2>/dev/null; then
+    rmdir "$DB_RUN_LOCK" || true
+    # Never another run clearing it, which is what the lock this run holds rules out. What is left
+    # is a claim this account may not rename, which on Linux is one another account owns.
+    refuse "could not move ${DB_RUN_DIR} aside to clear it, and this run holds ${DB_RUN_LOCK}, so no
+other run is clearing it. On Linux the claim is the host's rather than one account's, and a temporary
+directory carrying the sticky bit lets only an entry's owner rename it: where the claim is another
+user's, clear it as that user or as root with \`rm -rf ${DB_RUN_DIR}\`."
+  fi
   rm -rf "$stale" || true
-  take_db_run || refuse "another db-tier run took ${DB_RUN_DIR} while this one was clearing a claim a
-killed run had left behind. Wait for it to finish."
+  if ! take_db_run; then
+    rmdir "$DB_RUN_LOCK" || true
+    refuse "another db-tier run took ${DB_RUN_DIR} while this one was clearing a claim a killed run
+had left behind. Wait for it to finish."
+  fi
+  rmdir "$DB_RUN_LOCK" || true
 }
 
 if (( RUN_DB )); then

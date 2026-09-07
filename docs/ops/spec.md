@@ -524,13 +524,18 @@ in CI.
 
 **One db tier at a time on a machine, and the second gate run is refused rather than queued**
 (`scripts/gate/verify.sh :: claim_db_run`). Two at once make each other's failures unreadable, §3
-naming the symptom, and neither verdict survives it, the green one included; a lock would hold the
-second run in exactly the silence that row exists to end. The claim is a directory in the shell's
-temporary directory and not in the checkout, because what two runs collide over — the daemon, the
-reaper, a fixed address — is the host's, so two clones on one machine collide exactly as two runs in
-one clone do; on Windows that directory is the signed-in user's own, which is as wide as the claim
-gets there. A claim a killed run left behind names its pid, so the next run reports it and takes it
-over rather than waiting for a process that is gone. **A db-tier figure counts only where a pair of
+naming the symptom, and neither verdict survives it, the green one included; a lock over the tier
+would hold the second run in exactly the silence that row exists to end. That refusal is
+`scripts/lib/_lib.sh :: refuse`'s, ending the run at 2 and never at 1: the tier never opened, and
+§1.7 reserves 1 for findings about the change. The claim is a directory in the shell's temporary
+directory and not in the checkout, because what two runs collide over — the daemon, the reaper, a
+fixed address — is the host's, so two clones on one machine collide exactly as two runs in one clone
+do; on Windows that directory is the signed-in user's own, which is as wide as the claim gets there,
+and on Linux it is the host's, where an abandoned claim can be another account's and a temporary
+directory carrying the sticky bit lets only that user or root `rm -rf` it. A claim a killed run left
+behind names its pid, so the next run reports it and takes it over rather than waiting for a process
+that is gone; the takeover alone is serialised, by `scripts/gate/verify.sh :: DB_RUN_LOCK` taken
+before the claim is moved, because a rename orders nothing against a run that has not started one. **A db-tier figure counts only where a pair of
 runs lands within a fifth of a second of each other on an idle machine** — a wider pair is a reading
 of the machine rather than of the tier, and neither half of it belongs in
 `.github/gate-wall-clock.tsv`.
