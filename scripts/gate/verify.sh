@@ -1142,7 +1142,9 @@ the block and the directive, and the declared deltas are the checker's own list.
   # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a
   # POSIX-looking path (`scripts/README.md`).
   rm -rf "${REPO_ROOT}/.tmp-nginx-check"
-  mkdir -p "${REPO_ROOT}/.tmp-nginx-check"
+  # `log/` as well: `nginx -t` opens every log the file declares, and the access log's directory
+  # is a bind mount `docker-compose.yml` supplies rather than a path the image carries.
+  mkdir -p "${REPO_ROOT}/.tmp-nginx-check/log"
   # Relative output paths, because a Windows openssl cannot open an MSYS-style absolute path. The
   # exclusion protects the subject alone from MSYS's rewriting, and is inert on Linux.
   MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
@@ -1154,6 +1156,7 @@ the block and the directive, and the declared deltas are the checker's own list.
     --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
     -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
+    -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
     nginx:1.31-alpine nginx -t \
     || die "nginx refuses prod.conf — its own explanation is above."
   ok "nginx accepts prod.conf"
