@@ -185,7 +185,6 @@ deliverable.
 | `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                                                      | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                                                             | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                                                     | BE, Docs, versions                                                          | Decided  |
-| `z9gx-tekp` | A README enumerates a suite's subjects, and the tree has moved past the list                                                                                      | Ops, tests                                                                  | Open     |
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                                                        | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                                                             | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                                                        | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
@@ -4340,24 +4339,6 @@ The decision is to enable ruff's `UP` rules and migrate in one pass, which is wh
 `fl_backend/pyproject.toml`'s ruff selection leaves that family out.
 [`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
 carries the typing check that owns the migration.
-
-### `z9gx-tekp` · A README enumerates a suite's subjects, and the tree has moved past the list
-
-| Tags       | Status | Depends on |
-| ---------- | ------ | ---------- |
-| Ops, tests | Open   | —          |
-
-**`scripts/README.md` answers the `scripts/tests/` row's Purpose column with a prose enumeration of
-what that suite covers**, and the directory holds modules the enumeration does not reach. A reader
-taking the row for the suite's scope is told less than the tree holds, and the row is accurate only
-while somebody keeps paying for it.
-
-**COR-4 asks what selects a set rather than what is in it**, and an enumeration survives only where
-the gate resolves every member; nothing resolves this one. Adding the missing subjects re-buys the
-same debt on the next module.
-
-**Done when** the row says what the suite is for and leaves membership to the directory, which
-answers it in seconds.
 
 ### `zeer-rnu5` · An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline
 
