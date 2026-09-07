@@ -158,7 +158,6 @@ deliverable.
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                                                                  | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
-| `srec-8jxj` | Naming the files that required the image build costs a process per file                                                                                           | Ops, Docs, gate                                                             | Open     |
 | `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                                                              | BE, DB, Docs, tests                                                         | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                                                    | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                                                   | FE, Docs, tests                                                             | Open     |
@@ -3388,37 +3387,6 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
-
-### `srec-8jxj` · Naming the files that required the image build costs a process per file
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/checks/check_scope.py :: images_culprits` runs `scripts/gate/scope_map.sh` once for every
-material path**, to learn which of them is the reason the images scope is required, so the cost
-scales with how many files a branch touched rather than with what is in them.
-
-**It is the last per-file spawn in this checker, and it sits on the failure path alone.** The passing
-path reads every earlier version through one `git cat-file --batch`, and answers every TypeScript
-pair through as few `scripts/checks/ts_normalize.mjs` batch processes as one command line holds, both
-driven from `scripts/checks/check_scope.py :: material_paths`. What is left is therefore charged only
-to a run already ending in the images refusal.
-
-**Done when** the answer costs less without changing what it says. `scripts/gate/scope_map.sh`
-answers for a file list, not for a file, so nothing it prints says which member of the list turned a
-scope on — asking it once per path is what buys that. The alternatives are a per-file mode in the
-mapping script, which puts a second output shape in the one file every workflow reads, or halving the
-list until each culprit is isolated, which is more machinery than a failure path deserves.
-
-**What must not change.** The refusal has to keep naming the files, and keep naming all of them: an
-answer that reports one culprit, or none, removes the only thing telling an author which change asked
-for the image build. `.claude/CLAUDE.md` §7 holds separately that the comment classifier must never
-give a CI job a way to shrink itself, so nothing here may narrow the set of paths the mapping is
-asked about.
-
-**Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
-to it. The mechanism above is read from the code; the magnitude is not.
 
 ### `sspn-uje4` · The worked examples' before passages still stand in the code they illustrate cutting
 
