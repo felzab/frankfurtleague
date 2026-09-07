@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-from conftest import new_root, withdraw, write
+from conftest import details, new_root, severities, withdraw, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
@@ -76,16 +76,6 @@ def tree(*urls: str, file: str = "route.ts") -> Path:
 def judged(app: Path, where: tuple) -> tuple[list, set]:
     """One accounting run over a planted tree and a planted set of locations."""
     return routes.account(routes.handlers(app), where, app.parent, SOURCE)
-
-
-def details(findings: list) -> str:
-    """Every finding's text as one string, for a case asserting on what a run reported."""
-    return "\n".join(finding.detail for finding in findings)
-
-
-def severities(findings: list) -> list:
-    """The severities a run reported, so a case pins how many findings it caused as well as which."""
-    return [finding.severity for finding in findings]
 
 
 def test_a_metered_exact_match_covers_its_handler():
@@ -393,10 +383,7 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 
 
 def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
-
-    A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
-    """
+    """`test_check_compose_mirror.py :: test_the_module_under_test_is_this_repository_own`'s argument, over the route accounting's import."""
     assert routes.REPO_ROOT == SCRIPTS.parent
 
 
@@ -448,7 +435,7 @@ def test_a_clean_pair_exits_zero(monkeypatch):
 
 
 def test_a_finding_exits_one(monkeypatch):
-    """A finding is a change to make, which the kernel separates from input it could not judge."""
+    """Held over `scripts/checks/check_public_routes.py :: main`, for `scripts/lib/checker_kernel.py :: EXIT_FINDINGS`'s reason."""
     app = tree("/api/mail/zustellung")
 
     assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 1

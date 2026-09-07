@@ -19,8 +19,7 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
-# gate at all, and a guard silently skipped is the state this file exists to catch.
+# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
 

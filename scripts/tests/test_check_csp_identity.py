@@ -221,7 +221,7 @@ def test_a_declaration_the_reader_cannot_parse_refuses_through_main(tmp_path, mo
 
 
 def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent."""
+    """`test_check_compose_mirror.py :: test_the_module_under_test_is_this_repository_own`'s argument, over the policy comparison's import."""
     assert csp.REPO_ROOT == SCRIPTS.parent
 
 

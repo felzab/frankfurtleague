@@ -379,14 +379,14 @@ def test_a_location_is_keyed_on_its_modifier_and_its_path(tmp_path):
 
 
 def test_documents_that_agree_produce_no_difference():
-    """The mirror's resting state: nothing to judge means nothing to declare."""
+    """`test_check_compose_mirror.py :: test_documents_that_agree_produce_no_difference`'s argument, over the edge reader's own shapes."""
     document = {"server[main]": {"listen": (("80",),)}}
 
     assert mirror.diff(document, document) == []
 
 
 def test_a_directive_only_the_production_file_writes_reads_as_absent_locally():
-    """`ABSENT` is a value rather than a gap, which is what lets a delta pin one side of it."""
+    """`test_check_compose_mirror.py :: test_a_key_only_the_production_file_writes_reads_as_absent_locally`'s argument, over a directive."""
     found = mirror.diff({"server[main]": {"http2": (("on",),)}}, {"server[main]": {}})
 
     assert [(one.path, one.local) for one in found] == [("server[main].http2", mirror.ABSENT)]
@@ -415,7 +415,7 @@ def test_any_accepts_whatever_that_file_writes():
 
 
 def test_any_does_not_accept_a_missing_key():
-    """`ANY` says "whatever that file writes there", and a file that writes nothing wrote nothing."""
+    """`test_check_compose_mirror.py :: test_any_does_not_accept_a_missing_key`'s argument, over the rows this list writes `ANY` on."""
     assert mirror.side_matches(mirror.ANY, mirror.ABSENT) is False
 
 
@@ -430,7 +430,7 @@ FREE = mirror.Delta("server[main].ssl_stapling", mirror.ANY, mirror.ABSENT, "no 
 
 
 def test_a_difference_both_sides_of_a_row_describe_is_declared(monkeypatch):
-    """The ordinary case, and the one every row on the real list is meant to be in."""
+    """`test_check_compose_mirror.py :: test_a_difference_both_sides_of_a_row_describe_is_declared`'s argument, over a listen row."""
     monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
 
     assert mirror.declaring(mirror.Difference("server[main].listen", (("443", "ssl"),), (("80",),))) is PINNED
@@ -445,14 +445,14 @@ def test_a_row_whose_path_matches_but_whose_pinned_value_no_longer_does_declares
 
 
 def test_a_difference_at_a_path_no_row_names_declares_nothing(monkeypatch):
-    """The undeclared-difference finding, which is the checker's primary claim."""
+    """`test_check_compose_mirror.py :: test_a_difference_at_a_path_no_row_names_declares_nothing`'s argument, over a zone directive."""
     monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
 
     assert mirror.declaring(mirror.Difference("limit_req_zone", (("a",),), (("b",),))) is None
 
 
 def test_a_row_covering_nothing_is_a_finding(monkeypatch):
-    """Allowlist rot pointed the way nothing usually catches: the files agreed and the claim stayed."""
+    """`test_check_compose_mirror.py :: test_a_row_covering_nothing_is_a_finding`'s argument, over the edge's own declared list."""
     monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
     covered = [(mirror.Difference(FREE.path, (("on",),), mirror.ABSENT), FREE)]
 
@@ -540,7 +540,7 @@ def test_a_file_that_cannot_be_opened_is_refused_rather_than_crashing(tmp_path, 
 
 
 def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent."""
+    """`test_check_compose_mirror.py :: test_the_module_under_test_is_this_repository_own`'s argument, over the edge mirror's import."""
     assert mirror.REPO_ROOT == SCRIPTS.parent
 
 
@@ -551,10 +551,6 @@ def test_the_repository_own_edge_files_are_clean():
 
 
 def test_the_repository_own_edge_pair_is_fully_declared():
-    """The real list against the real files, so a mis-expressed row fails here and not only at the gate.
-
-    Both directions at once: no difference the list misses, and no row the files do not justify.
-    """
     prod = mirror.load(mirror.REPO_ROOT / mirror.PROD)
     local = mirror.load(mirror.REPO_ROOT / mirror.LOCAL)
     covered = judged(prod, local)

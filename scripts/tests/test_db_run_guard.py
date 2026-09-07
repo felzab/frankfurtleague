@@ -26,9 +26,7 @@ REPO_ROOT: Final = SCRIPTS.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason: a machine with no
-# bash cannot run the gate at all, so a contract silently skipped here is the failure this file
-# exists to stop.
+# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
 CLAIM: Final[tuple[str, ...]] = ("pid_alive", "take_db_run", "refuse_to_the_holder", "claim_db_run")

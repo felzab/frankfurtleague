@@ -20,9 +20,13 @@ VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 ONE_LINE: Final = 'one_line() { printf "%s" "$1"; }'
 INDENTED: Final = 'inner() { printf "%s" "$1"; }'
 
+# `scripts/lib/_lib.sh :: image_created`'s shape: the padding sits on both sides of the body, so a
+# reader tolerant of the opening column alone still walks past this one's end.
+ALIGNED: Final = 'aligned()   { printf "%s" "$1";  }'
+
 # The one-liner ahead of the block, which is the arrangement a walk mis-reads: with no closing line
 # of its own the first lift runs on to the second function's.
-MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", "a_block() {", '  printf "not this"', "}", ""))
+MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", ALIGNED, "", "a_block() {", '  printf "not this"', "}", ""))
 
 NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, "  inner x", "}", ""))
 
@@ -35,6 +39,13 @@ def test_a_one_line_function_is_lifted_without_the_block_below_it(tmp_path: Path
     script = write_shell(tmp_path / "mixed.sh", MIXED)
 
     assert lift_function(script, "one_line") == ONE_LINE
+
+
+def test_a_one_line_function_padded_out_to_a_column_is_lifted_whole(tmp_path: Path) -> None:
+    """Alignment on either side is cosmetic to bash, so a reader keyed to one space calls the run below it the body."""
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, "aligned") == ALIGNED
 
 
 def test_a_block_function_is_lifted_from_its_opening_line_to_its_closing_one(tmp_path: Path) -> None:
@@ -66,3 +77,10 @@ def test_the_gates_own_one_line_function_comes_back_as_one_line() -> None:
     script = lift_function(VERIFY, "step_worker")
 
     assert script.startswith("step_worker() {") and "\n" not in script, script
+
+
+def test_a_definition_padded_out_to_a_column_is_found_rather_than_refused() -> None:
+    """`scripts/gate/verify.sh` aligns a block of definitions on their braces, and a reader keyed to one space refuses every one of them."""
+    script = lift_function(VERIFY, "do_prettier")
+
+    assert script.startswith("do_prettier()") and "pnpm format:check" in script, script

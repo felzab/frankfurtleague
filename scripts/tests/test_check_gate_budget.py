@@ -78,7 +78,7 @@ def payload(*jobs: dict[str, Any]) -> dict[str, Any]:
 
 
 def written(path: Path, text: str) -> Path:
-    """One file holding that text, as bytes: a text-mode write would turn every LF into CRLF."""
+    """`test_check_conflict_markers.py :: written`'s argument, over text whose caller has already ended it."""
     path.write_bytes(text.encode("utf-8"))
     return path
 
@@ -97,6 +97,7 @@ def run_main(*argv: str) -> tuple[int, str, str]:
 
 
 def details(findings) -> list[str]:
+    """`scripts/tests/conftest.py :: details`'s reader, apart because a case here asserts against one finding rather than the run."""
     return [finding.detail for finding in findings]
 
 

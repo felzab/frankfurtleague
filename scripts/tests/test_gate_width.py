@@ -23,8 +23,7 @@ from conftest import base_env, lift_function, run_shell, write_shell
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
-# gate at all, so a contract silently skipped here is the failure this file exists to stop.
+# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
 SCRIPTS_SUITE: Final = "the scripts suite"

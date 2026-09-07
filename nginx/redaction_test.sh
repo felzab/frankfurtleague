@@ -13,10 +13,25 @@
 #
 # local.conf rather than prod.conf because prod.conf terminates TLS and needs a certificate to serve
 # a request at all, while the three map blocks and the `log_format` are identical between the pair.
+#
+#   ./nginx/redaction_test.sh --verbose   print the access line every case was graded on
+#   ./nginx/redaction_test.sh --help
 
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/lib/_lib.sh
 source "${_here}/scripts/lib/_lib.sh"
+
+# Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
+# shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `verbose`
+for arg in "$@"; do
+  case "$arg" in
+    --verbose) VERBOSE=1 ;;
+    --help|-h) usage ;;
+    # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on
+    # the edge, which the exit contract spells 2 (`docs/ops/spec.md` §1.7).
+    *) refuse "Unknown option: ${arg}. Try --help." ;;
+  esac
+done
 
 require_docker
 # curl, not the image's own wget: a client that tidies a path before sending it rewrites //api,
@@ -230,6 +245,7 @@ for case_line in "${CASES[@]}"; do
   subject="${rest%%|*}"
   expected="${rest#*|}"
   logged="${LINE_OF["${MARKER}/${_n}"]:-}"
+  _before=$FAILURES
 
   if [[ -z "$logged" ]]; then
     fail "${verb} ${subject}"
@@ -266,6 +282,13 @@ for case_line in "${CASES[@]}"; do
     fail "IDS ${subject}"
     detail "expected span_id to be trace_id's first sixteen hex, nginx wrote: ${logged}"
     FAILURES=$(( FAILURES + 1 ))
+  fi
+
+  # A passing case only: a failing one already carries its line under its own verdict, and the
+  # evidence behind a pass is what the captured run cannot give back afterwards.
+  if verbose && (( FAILURES == _before )); then
+    info "${verb} ${subject}"
+    detail "$logged"
   fi
 done
 

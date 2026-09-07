@@ -24,7 +24,7 @@ import inspect
 import sys
 from pathlib import Path
 
-from conftest import configure, git, new_root, withdraw, write
+from conftest import configure, details, git, new_root, severities, withdraw, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
@@ -83,16 +83,6 @@ def judged(root: Path, files: dict[str, str], monkeypatch) -> list:
     return spelling.judge(found, spelling.declared(root / spelling.HOME))
 
 
-def details(findings: list) -> str:
-    """Every finding's text as one string, for a case asserting on what a run reported."""
-    return "\n".join(finding.detail for finding in findings)
-
-
-def severities(findings: list) -> list:
-    """The severities a run reported, so a case pins how many findings it caused as well as which."""
-    return [finding.severity for finding in findings]
-
-
 def run_main(root: Path, monkeypatch, *, sites: tuple[str, ...] = (SITE,)) -> int:
     """One end-to-end run over a planted repository, where the exit contract is decided."""
     monkeypatch.setattr(spelling, "SITES", sites)
@@ -101,7 +91,7 @@ def run_main(root: Path, monkeypatch, *, sites: tuple[str, ...] = (SITE,)) -> in
 
 
 def test_a_site_spelling_the_command_as_the_backend_declares_it_is_clean(monkeypatch):
-    """The resting state every red case below is measured against."""
+    """`test_check_public_routes.py :: test_a_metered_exact_match_covers_its_handler`'s argument, over a site that spells it right."""
     files = corpus()
 
     assert judged(planted(files), files, monkeypatch) == []
@@ -245,12 +235,12 @@ def test_a_tree_git_cannot_list_refuses():
 
 
 def test_a_clean_tree_exits_zero(monkeypatch):
-    """The contract's passing arm, and what the gate's docs section reads as a green step."""
+    """`test_check_public_routes.py :: test_a_clean_pair_exits_zero`'s argument, over a tree with nothing to report."""
     assert run_main(repository(corpus()), monkeypatch) == 0
 
 
 def test_a_finding_exits_one(monkeypatch):
-    """A finding is a change to make, which the kernel separates from input it could not judge."""
+    """Held over `scripts/checks/check_regenerate_spelling.py :: main`, for `scripts/lib/checker_kernel.py :: EXIT_FINDINGS`'s reason."""
     assert run_main(repository(corpus(naming(spelling.COMMAND_TAIL))), monkeypatch) == 1
 
 
@@ -280,7 +270,7 @@ def test_a_tracked_file_that_is_not_utf_8_exits_two(monkeypatch):
 
 
 def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent."""
+    """`test_check_compose_mirror.py :: test_the_module_under_test_is_this_repository_own`'s argument, over the spelling sweep's import."""
     assert spelling.REPO_ROOT == SCRIPTS.parent
 
 

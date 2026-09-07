@@ -87,7 +87,9 @@ FAKE_HOOKS: Final[tuple[tuple[str, str, bool], ...]] = (
 # is, and it is the one case no fixture body can produce.
 ABSENT_HOOK: Final[tuple[str, bool]] = ("absent.sh", True)
 
-PAYLOAD_FN: Final = 'cmd_payload() { printf \'{"tool_input":{"command":"%s"}}\' "$1"; }'
+# The escaping is the probe's own, so a hand copy here would keep grading a payload the script has
+# stopped writing (`.claude/rules/ops.md`'s miniatures clause).
+PAYLOAD_FNS: Final[tuple[str, ...]] = (_function("json_string", "  "), _function("cmd_payload", "  "))
 
 
 def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
@@ -114,7 +116,7 @@ def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
             "PROBE_WANT=(" + " ".join(["allowed"] * len(names)) + ")",
             "PROBE_KIND=(" + " ".join(["cmd"] * len(names)) + ")",
             "PROBE_SUBJ=(" + " ".join(["x"] * len(names)) + ")",
-            PAYLOAD_FN,
+            *PAYLOAD_FNS,
             _function("unit_probe", "  "),
             f'for (( i = 0; i < {len(names)}; i++ )); do unit_probe "$i" "" "probe-${{i}}"; done',
         ),
@@ -154,7 +156,7 @@ def _blind(hook: str, tmp_path: Path) -> tuple[str, str]:
             f"HOOK_REPO={(tmp_path / 'repo').as_posix()!r}",
             'SELFCHECK_TMP="$(mktemp -d)"',
             "FAILURES=0",
-            PAYLOAD_FN,
+            *PAYLOAD_FNS,
             _function("note_fail"),
             _function("blind_probe", "    "),
             f"blind_probe /nonexistent {hook}",

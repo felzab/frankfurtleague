@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -175,13 +176,15 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     """
     lines = script.read_text(encoding="utf-8").splitlines()
     # Anchored on the opening line's own text rather than on a position, so a function that moves
-    # inside its script is still found.
-    start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
+    # inside its script is still found. The run of spaces is the column `scripts/gate/verify.sh`
+    # aligns a block of definitions on.
+    opens = re.compile(re.escape(indent) + re.escape(name) + r"\(\) +\{")
+    start = next((i for i, line in enumerate(lines) if opens.match(line)), -1)
     assert start >= 0, f"{_cited(script)} no longer defines {name}"
     # bash terminates a brace group's list before its `}`, so a body on the opening line ends the
     # function there. Read off the terminator, not a bare `}`, which a parameter expansion ends a
     # line with too.
-    if lines[start].rstrip().endswith("; }"):
+    if re.search(r";\s*\}$", lines[start].rstrip()):
         return lines[start].removeprefix(indent)
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
     assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
@@ -198,6 +201,16 @@ def declared(source: Path, name: str) -> Any:
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
             return ast.literal_eval(node.value)
     raise AssertionError(f"{_cited(source)} no longer declares {name}")
+
+
+def details(findings: list) -> str:
+    """Every finding's text as one string, for a case asserting on what a run reported."""
+    return "\n".join(finding.detail for finding in findings)
+
+
+def severities(findings: list) -> list:
+    """The severities a run reported, so a case pins how many findings it caused as well as which."""
+    return [finding.severity for finding in findings]
 
 
 def _cited(path: Path) -> str:

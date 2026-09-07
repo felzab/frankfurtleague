@@ -23,8 +23,7 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
-# gate at all, so a contract silently skipped here is the failure this file exists to stop.
+# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
 # The step-level pair, which most cases below want. `adopt_finished` and `pool_wait` are asked for
