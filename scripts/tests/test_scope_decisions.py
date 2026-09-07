@@ -361,6 +361,9 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (".gitignore", ("docs",)),
     # The documentation gate resolves the asset paths NOTICE names, and nothing else reads the file.
     ("NOTICE", ("docs",)),
+    # `scripts/gate/selfcheck.sh` compares this file's uv tag against the manifest's pin, and runs
+    # in the scripts scope alone; a bot's base-image bump touches this file and nothing else.
+    ("fl_backend/Dockerfile", ("images", "docs", "scripts")),
 )
 
 

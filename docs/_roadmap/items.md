@@ -102,7 +102,6 @@ deliverable.
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
 | `aee2-vxqc` | Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes                       | BE, ci, tests, versions                                                     | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
-| `b3c5-avuj` | One uv version is pinned at two sites, a bot moves one of them on a schedule, and nothing compares the pair                                                       | BE, Ops, gate, ci, versions                                                 | Open     |
 | `b732-rpvp` | Most of the database tier runs against collections production would not accept                                                                                    | BE, DB, tests                                                               | Open     |
 | `bfs4-ax6a` | The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there                                               | BE, DB, tests                                                               | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
@@ -1007,37 +1006,6 @@ permitted because nobody looked still read identically until one of them is writ
 Both are cheap, and choosing is the work — which is why they are one entry rather than one apiece.
 The precedent is set: the duplicate squad number in one team and season was answered by declaring
 it, because the live data already holds the state and refusing it would make those rows uneditable.
-
-### `b3c5-avuj` · One uv version is pinned at two sites, a bot moves one of them on a schedule, and nothing compares the pair
-
-| Tags                        | Status | Depends on |
-| --------------------------- | ------ | ---------- |
-| BE, Ops, gate, ci, versions | Open   | —          |
-
-**`fl_backend/pyproject.toml :: required-version` pins uv exactly, and `fl_backend/Dockerfile`'s
-first stage pins the same version again in its `FROM ghcr.io/astral-sh/uv` line.** The comment at the
-key says the pair moves together and that nothing compares it, which is the whole of the guard.
-**Only one of the two sites is on a schedule**: `.github/dependabot.yml` puts the `docker` ecosystem
-on `/fl_backend` monthly and a `FROM` line is exactly what that ecosystem rewrites, while the `uv`
-ecosystem beside it reads `fl_backend/uv.lock` and reaches no `[tool.uv]` key at all.
-
-**What a mismatch does is refuse rather than resolve.** The builder stage copies the image's uv and
-runs `uv sync --frozen` against the `pyproject.toml` it has just copied, so a bumped image meets a
-`required-version` it does not satisfy and exits 2 at start-up, naming the required version and the
-running one — **and the image build is where that lands**, on a bot pull request whose author has no
-reason to look in a manifest. The same refusal reaches a development machine from the other
-direction: `scripts/gate/verify.sh`'s `--backend` scope runs `uv lock --check`, and a machine whose
-uv is not the pinned one is refused before the lockfile is read, observed 2026-09-02.
-
-**Dropping one site is not the cheap way out.** Every `astral-sh/setup-uv` step in
-`.github/workflows/verify.yml` and `.github/workflows/pr-body.yml` passes
-`version-file: fl_backend/pyproject.toml`, because that action's own default search covers the
-repository root alone, where no manifest lives. So the key is what gives CI its uv, the `FROM` line
-is what gives the image its uv, and both have to say the same thing.
-
-**Done when** one check reads both sites and fails naming them, in a scope a change to either file
-selects — `scripts/gate/scope_map.sh` already turns on `images` for either file, and the manifest
-turns on `backend` and `scripts` beside it, so the check's home is the decision the work starts from.
 
 ### `b732-rpvp` · Most of the database tier runs against collections production would not accept
 
