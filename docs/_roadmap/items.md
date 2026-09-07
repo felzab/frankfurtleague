@@ -135,7 +135,6 @@ deliverable.
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                                                     | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                                                       | FE, Docs                                                                    | Open     |
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                                                           | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
-| `jcpc-dee5` | Two routes sharing a path and a method collapse to one before the guard sweep reads them                                                                          | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                                                       | BE, tests, saisons                                                          | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                                                   | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                                                    | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
@@ -2472,37 +2471,6 @@ tier** — `fl_backend/openapi.json` describes one `HTTPBearer` scheme and marks
 needing a bearer token or not, where which key it wants is a router-level dependency the document
 does not carry — so a check would have to derive the backend half from the routers themselves and the
 frontend half from the call sites, and **that derivation, not the comparison, is the work**.
-
-### `jcpc-dee5` · Two routes sharing a path and a method collapse to one before the guard sweep reads them
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| BE, tests | Open   | —          |
-
-**`fl_backend/tests/api/test_admin_guard.py :: ROUTES_BY_OPERATION` maps `(path, method)` to the
-route serving it, walking every mounted `APIRoute` to build it.** A dict keeps the last value
-written, so where two mounted routes share that pair the later one replaces the earlier and every
-case built on the mapping — the mutation sweep and the one-guard sweep alike — inspects whichever
-route won. **The route that lost is never checked for a guard at all.** The key is the path with its
-convertor stripped (`:: strip_convertors`), so two routes differing only in a parameter's convertor
-collapse together as well.
-
-**Nothing else in that file reports the collapse.**
-`:: test_the_published_surface_and_the_mounted_routes_are_the_same_set` compares the published
-operations against the mapping's keys as sets, and a collapsed pair satisfies that comparison exactly
-as a single route does, the published document keying on the same pair.
-
-**Done when** an assertion beside the mapping holds that no two mounted routes share the pair. It
-needs no change to how the routers mount, no testing-only API, and it names the colliding pair at
-collection time; `fl_backend/app/main.py` is untouched by it.
-
-**The bound has to be stated rather than left to be assumed (COR-9): the nearest candidate for such a
-pair is not one.** The admin single-fixture read and the public one do not collide —
-`fl_backend/app/core/routing.py :: by_id` constrains the id parameter to an ObjectId so a static
-segment cannot be read as an id, the admin route carries a static `/admin` after that parameter, and
-`fl_backend/tests/api/test_spiele_admin_read.py :: GUARD_CASES` already proves which router answers
-each of the two paths by the guard that refuses the wrong key. This entry is about the sweep's blind
-spot in general, not about that route.
 
 ### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
 

@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from collections import Counter
 from typing import Iterator
 
 import pytest
@@ -220,7 +221,17 @@ def api_routes() -> Iterator[APIRoute]:
                 yield route
 
 
-ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes() for method in (route.methods or ())}
+MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes() for method in (route.methods or ())]
+
+ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
+
+OPERATION_COUNTS = Counter(operation for operation, _ in MOUNTED_OPERATIONS)
+
+# A dict keeps the last route written, so a pair served twice drops the route that lost from
+# `MUTATIONS` and from every sweep under it. Module level, so collection refuses every case at once.
+assert len(ROUTES_BY_OPERATION) == len(MOUNTED_OPERATIONS), (
+    f"more than one mounted route serves {sorted(operation for operation, count in OPERATION_COUNTS.items() if count > 1)}"
+)
 
 # The writes NO administrator makes, which therefore bind no `X-FL-Actor`. Enumerated for
 # `tests/api/test_admin_guard.py :: PUBLIC_WRITES`' reason, and derived from neither it nor a rule.
