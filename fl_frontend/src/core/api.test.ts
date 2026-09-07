@@ -4,6 +4,8 @@ import { afterEach, describe, it } from "node:test";
 
 import { z } from "zod";
 
+import { documentsWrittenByAsync } from "./stdoutCapture.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -45,27 +47,6 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
 }) as typeof fetch;
 
-/**
- * The documents `run` wrote to stdout while it ran. The runner's own reporter shares the stream, so
- * a chunk that is not a document passes through untouched.
- */
-async function documentsWrittenBy(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
-  const documents: Record<string, unknown>[] = [];
-  const original = process.stdout.write;
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const text = String(chunk);
-    if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    documents.push(JSON.parse(text) as Record<string, unknown>);
-    return true;
-  }) as typeof process.stdout.write;
-  try {
-    await run();
-  } finally {
-    process.stdout.write = original;
-  }
-  return documents;
-}
-
 function sentTraceparent(): { traceId: string; spanId: string } {
   const ids = readTraceparent(new Headers(sends.at(-1)?.init.headers).get(TRACEPARENT_HEADER));
   assert.ok(ids, "the call carried no well-formed traceparent");
@@ -80,7 +61,7 @@ describe("the cache-fill line", () => {
   /* The key list is the contract, pinned the way `logFormat.test.ts` pins a plain line: the fill's
      trace joins nothing but this line, so a reader has to know its shape without a sample. */
   it("is one INFO document under the fill's own trace, its keys in the envelope's order", async () => {
-    const written = await documentsWrittenBy(() =>
+    const written = await documentsWrittenByAsync(() =>
       apiClient("/saisons", z.array(z.unknown()), { cacheFill: { name: "getSaisons", args: { saison_id: "2026" } } }),
     );
 
@@ -93,7 +74,7 @@ describe("the cache-fill line", () => {
   });
 
   it("carries the very ids the backend receives on the header", async () => {
-    const [document] = await documentsWrittenBy(() =>
+    const [document] = await documentsWrittenByAsync(() =>
       apiClient("/saisons", z.array(z.unknown()), { cacheFill: { name: "getSaisons", args: {} } }),
     );
 
@@ -106,7 +87,7 @@ describe("the cache-fill line", () => {
   // Seeded means a page request's trace, which the call already joins; the line exists for the
   // fill that has none.
   it("is not written inside a request scope, whose ids the header carries instead", async () => {
-    const written = await documentsWrittenBy(() =>
+    const written = await documentsWrittenByAsync(() =>
       runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () =>
         apiClient("/saisons", z.array(z.unknown()), { cacheFill: { name: "getSaisons", args: {} } }),
       ),
@@ -117,7 +98,7 @@ describe("the cache-fill line", () => {
   });
 
   it("is not written for a call that declares no fill", async () => {
-    const written = await documentsWrittenBy(() => apiClient("/saisons", z.array(z.unknown())));
+    const written = await documentsWrittenByAsync(() => apiClient("/saisons", z.array(z.unknown())));
 
     assert.deepEqual(written, []);
   });

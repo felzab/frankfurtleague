@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import re
@@ -13,10 +14,12 @@ from app.core.logging import (
     ForwardedFailureFilter,
     JSONFormatter,
     LevelAwareFormatter,
+    fl_logger,
     span_id_var,
     trace_id_var,
 )
 from app.core.middlewares import mint_span_id, resolve_trace_id
+from tests.core.app_source import APP_ROOT, parsed
 
 TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
 
@@ -133,6 +136,34 @@ class TestForwardedFailureFilter:
 
     def test_the_record_still_reaches_the_handler(self):
         assert ForwardedFailureFilter().filter(make_record(level=logging.ERROR, logger_name="uvicorn.error")) is True
+
+
+def _get_logger_call(node: ast.AST) -> ast.Call | None:
+    """A `logging.getLogger(...)` or a bare `getLogger(...)`, whichever way the module imported it."""
+    if not isinstance(node, ast.Call):
+        return None
+    named = (isinstance(node.func, ast.Attribute) and node.func.attr == "getLogger") or (
+        isinstance(node.func, ast.Name) and node.func.id == "getLogger"
+    )
+    return node if named else None
+
+
+class TestTheApplicationsOneLogger:
+    def test_the_application_creates_exactly_one_logger(self):
+        """`ForwardedFailureFilter` decides by a record's logger NAME, so a second logger under `app/` would be coded as a library's."""
+        calls = [
+            (path.relative_to(APP_ROOT.parent).as_posix(), call)
+            for path in sorted(APP_ROOT.rglob("*.py"))
+            for node in ast.walk(parsed(path))
+            if (call := _get_logger_call(node)) is not None
+        ]
+
+        assert [where for where, _ in calls] == ["app/core/logging.py"]
+        [(_, call)] = calls
+        assert [ast.unparse(argument) for argument in call.args] == ["FL_LOGGER_NAME"]
+
+    def test_that_logger_is_the_one_the_filter_treats_as_ours(self):
+        assert fl_logger.name == FL_LOGGER_NAME
 
 
 class TestConsoleFormatter:

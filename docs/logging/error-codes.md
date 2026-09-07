@@ -1,6 +1,7 @@
 # Logging — error codes
 
-**Scope:** every `error_code` value either service emits, and the response body that carries it.
+**Scope:** every `error_code` value either service emits, live and retired, and which of them a
+response body carries.
 
 **A failure answers `{error_code, trace_id}` and nothing else** ([`spec.md`](spec.md#2-invariants) L4):
 the message, the validation detail and the stack trace reach the log and never the wire, so a code seen on a
@@ -225,8 +226,8 @@ table.** The backend gate fails while the settings the logger is configured from
 built, so it leaves the process as a Python traceback on stderr rather than a log line at all
 ([`spec.md`](spec.md#12-the-stream-contract) §1.2), and what identifies it is the variable names
 `fl_backend/app/core/config.py :: get_config` prints. The frontend gate reaches its formatter
-directly, so its refusal is a document in the envelope and carries a code like any other failure
-line.
+directly, so its refusal carries the envelope's fields and a code in whichever format `LOG_FORMAT`
+selected, like any other failure line.
 
 | Code           | Meaning                                                                                      |
 | -------------- | -------------------------------------------------------------------------------------------- |

@@ -180,8 +180,8 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
 /** The season and the error's name, never a person: this line is written for a season nobody swept. */
 function logSweepFailure(error: unknown, saisonId: string | undefined): void {
   logger.error("bewerbung.sweep_failed", undefined, {
-    name: error instanceof Error ? error.name : undefined,
     error_code: "FE-SWEEP-001",
+    name: error instanceof Error ? error.name : undefined,
     saison_id: saisonId,
   });
 }

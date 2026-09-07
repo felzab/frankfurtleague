@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
+// Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
+// transitive dependency, and pnpm puts none of those on this module's resolution path.
+type ValidationIssues = Parameters<NonNullable<Parameters<typeof createEnv>[0]["onValidationError"]>>[0];
+
 // Printable ASCII with no space, the class `fl_backend/app/core/config.py :: InternalAPIKey` pins:
 // `secrets.compare_digest` there raises for a non-ASCII key, and `length` counts UTF-16 units here
 // against that side's code points, so only ASCII makes the two agree (`docs/ops/spec.md :: I11`).
@@ -17,14 +21,19 @@ export function refuseInvalidEnvironment(names: readonly string[]): never {
   // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
   // to the console shape.
   const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
-  // A code of its own, in the class the backend's boot refusals take: this line answers no request,
-  // so the code is the whole join key (`docs/logging/error-codes.md`).
+  // The class the backend's boot refusals take (`docs/logging/error-codes.md` §3).
   const meta = { error_code: "FE-BOOT-001", variables: names.join(", ") };
   // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
   // would close the cycle.
   process.stdout.write(formatLogLine(format, "CRITICAL", "Invalid environment variables", meta) + "\n");
 
   throw new Error(`Invalid environment variables: ${names.join(", ")}`);
+}
+
+// Names only: the default handler prints the whole issue array, one schema change away from
+// echoing a rejected value into a container log (`docs/ops/spec.md :: I179`).
+export function failingVariableNames(issues: ValidationIssues): string[] {
+  return [...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort();
 }
 
 export const frontend_config = createEnv({
@@ -88,9 +97,7 @@ export const frontend_config = createEnv({
 
   skipValidation: process.env.SKIP_ENV_VALIDATION === "true",
 
-  // Names only: the default handler prints the whole issue array, one schema change away from
-  // echoing a rejected value into a container log.
-  onValidationError: (issues) => refuseInvalidEnvironment([...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort()),
+  onValidationError: (issues) => refuseInvalidEnvironment(failingVariableNames(issues)),
 
   runtimeEnv: {
     API_URL: process.env.API_URL,

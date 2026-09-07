@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { documentsWrittenByAsync } from "@/core/stdoutCapture.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -34,33 +36,12 @@ function report(headers: Record<string, string>): InstanceType<typeof NextReques
   });
 }
 
-/**
- * The documents `run` wrote to stdout while it ran. The runner's own reporter shares the stream, so
- * a chunk that is not a document passes through untouched.
- */
-async function documentsWrittenBy(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
-  const documents: Record<string, unknown>[] = [];
-  const original = process.stdout.write;
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const text = String(chunk);
-    if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    documents.push(JSON.parse(text) as Record<string, unknown>);
-    return true;
-  }) as typeof process.stdout.write;
-  try {
-    await run();
-  } finally {
-    process.stdout.write = original;
-  }
-  return documents;
-}
-
 describe("POST /api/client-error", () => {
   // The route runs under no request scope, so the line's ids come from the header it reads itself;
   // a real trace beside the sentinel span would file the ingest under no hop (L12).
   it("logs the ingest request's trace under a span of this hop's own", async () => {
     let status = 0;
-    const written = await documentsWrittenBy(async () => {
+    const written = await documentsWrittenByAsync(async () => {
       status = (await POST(report({ traceparent: `00-${TRACE}-${SPAN}-01` }))).status;
     });
 
@@ -75,7 +56,7 @@ describe("POST /api/client-error", () => {
   });
 
   it("carries the sentinel on both ids where the header is malformed", async () => {
-    const [document] = await documentsWrittenBy(() => POST(report({ traceparent: "PROBE-AAA" })));
+    const [document] = await documentsWrittenByAsync(() => POST(report({ traceparent: "PROBE-AAA" })));
 
     assert.equal(document?.trace_id, "SYSTEM");
     assert.equal(document?.span_id, "SYSTEM");
@@ -83,7 +64,7 @@ describe("POST /api/client-error", () => {
 
   it("logs nothing for a cross-site caller", async () => {
     let status = 0;
-    const written = await documentsWrittenBy(async () => {
+    const written = await documentsWrittenByAsync(async () => {
       status = (await POST(report({ "sec-fetch-site": "cross-site" }))).status;
     });
 

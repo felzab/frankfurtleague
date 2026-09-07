@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { documentsWrittenBy } from "./stdoutCapture.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -34,28 +36,6 @@ const { LOG_THRESHOLDS } = await import("./logFormat.ts");
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
 const CONSOLE_OPENING = /^\x1b\[\d+m(DEBUG|INFO|WARNING|ERROR)\x1b\[0m {1,5}\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} fl_frontend - /;
-
-/**
- * The documents `run` wrote to stdout. The runner's own reporter shares the stream, so a chunk that
- * is not a document passes through untouched.
- */
-function documentsWrittenBy(run: () => void): Record<string, unknown>[] {
-  const documents: Record<string, unknown>[] = [];
-  const original = process.stdout.write;
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const text = String(chunk);
-    if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    assert.ok(text.endsWith("\n") && !text.slice(0, -1).includes("\n"), `one document per line, got ${text}`);
-    documents.push(JSON.parse(text) as Record<string, unknown>);
-    return true;
-  }) as typeof process.stdout.write;
-  try {
-    run();
-  } finally {
-    process.stdout.write = original;
-  }
-  return documents;
-}
 
 afterEach(() => {
   settings.__flLogFormat = "json";

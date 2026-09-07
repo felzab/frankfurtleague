@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { writtenBy } from "./stdoutCapture.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -35,30 +37,6 @@ const ORIGINAL_CONSOLE = { ...console };
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
-
-/**
- * Every chunk `run` wrote to stdout, parsed where it is a document. The runner's own reporter shares
- * the stream, so a chunk that is not a document passes through untouched.
- */
-function writtenBy(run: () => void): { raw: string[]; documents: Record<string, unknown>[] } {
-  const raw: string[] = [];
-  const documents: Record<string, unknown>[] = [];
-  const original = process.stdout.write;
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const text = String(chunk);
-    if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    raw.push(text);
-    assert.ok(text.endsWith("\n") && !text.slice(0, -1).includes("\n"), `one document per line, got ${text}`);
-    documents.push(JSON.parse(text) as Record<string, unknown>);
-    return true;
-  }) as typeof process.stdout.write;
-  try {
-    run();
-  } finally {
-    process.stdout.write = original;
-  }
-  return { raw, documents };
-}
 
 afterEach(() => {
   Object.assign(console, ORIGINAL_CONSOLE);
@@ -112,6 +90,8 @@ describe("installConsoleShim", () => {
   it("turns each method's output into one document per call, coded where the level is a failure", () => {
     installConsoleShim();
 
+    // The code column is empty below WARNING: a forwarded code names the route a failure arrived
+    // by, and an informational line has none to look up (`docs/logging/error-codes.md` §4).
     const cases: [string, () => void, string | undefined, RegExp | undefined, string | undefined][] = [
       ["log", () => console.log("a %s", "b"), "INFO", /^a b$/, undefined],
       ["info", () => console.info("i"), "INFO", /^i$/, undefined],
