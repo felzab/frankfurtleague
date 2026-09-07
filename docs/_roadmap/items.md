@@ -96,7 +96,6 @@ deliverable.
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                                                    | FE, Docs, versions                                                          | Standing |
 | `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                                                       | FE, Docs, bewerbungen                                                       | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states                                                   | FE, Docs, tests                                                             | Open     |
-| `79y5-vdpq` | Two gate functions are rewritten in miniature inside the test that drives them                                                                                    | Ops, gate, tests                                                            | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                                                        | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                                                     | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                                                   | FE, BE, DB, Docs, spieler                                                   | Blocked  |
@@ -817,29 +816,6 @@ first.
 compiles a `.tsx` and renders it synchronously, which reaches a Client Component and no async Server
 Component ([`docs/frontend/spec.md`](../frontend/spec.md) §1.9), so what that harness buys leaves
 this entry where it stands.
-
-### `79y5-vdpq` · Two gate functions are rewritten in miniature inside the test that drives them
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/tests/test_worker_handoff.py :: PARENT_SCRIPT` and `:: _worker_script` are hand-written
-miniatures of `scripts/gate/verify.sh :: replay_scope` and `:: gate_exit`**, each saying so where it
-stands, and nothing compares either against the function it is standing in for. What every case in
-that module is graded against is the copy, so the gate's own replay can lose a row, mis-rank a scope
-or stop emitting a ledger at all and the module still passes — the false green its own header says
-it exists to catch.
-
-**The repair is already written twice in the same directory.**
-`scripts/tests/test_unit_replay.py` builds its parent by lifting functions out of
-`scripts/gate/verify.sh` and laying down the pool state they read, and
-`scripts/tests/test_selfcheck_guards.py` lifts the same way — both for the reason the estate records
-where it lifts: a copy passes while the gate's own regresses.
-
-**Done when** both are driven by the functions themselves. `replay_scope` is nested and reads the
-pool directory and the status map — the state `test_unit_replay.py`'s parent already writes before
-it lifts anything, which is what makes the lift the smaller change rather than the larger one.
 
 ### `7wne-u6hm` · Three test modules each open a cache scope through the same React internal
 
