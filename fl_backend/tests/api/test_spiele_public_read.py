@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from httpx import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient, Response
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient, MongoClient
 

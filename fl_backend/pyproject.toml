@@ -45,9 +45,10 @@ dev = [
     # Dockerfile's `uv sync --no-dev` leaves this group -- and the typer/rich console stack under
     # it -- out of the image.
     "fastapi-cli>=0.0.27",
-    # `fastapi.testclient.TestClient` is a thin wrapper over httpx and imports it eagerly, so the
-    # tests fail at collection without it. No module in app/ touches it.
-    "httpx>=0.28.1",
+    # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
+    # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
+    # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.
+    "httpx2>=2.12.0",
     # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
     # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
     "pyright[nodejs]>=1.1.406",

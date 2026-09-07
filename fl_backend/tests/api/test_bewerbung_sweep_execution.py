@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 

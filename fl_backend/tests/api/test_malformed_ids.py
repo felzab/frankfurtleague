@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from httpx import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
 
 from app.main import create_app

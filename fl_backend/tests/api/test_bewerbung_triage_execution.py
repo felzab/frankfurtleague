@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase

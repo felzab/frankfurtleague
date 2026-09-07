@@ -97,7 +97,6 @@ deliverable.
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                                                     | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                                                   | FE, BE, DB, Docs, spieler                                                   | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
-| `aee2-vxqc` | Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes                       | BE, ci, tests, versions                                                     | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
@@ -814,34 +813,6 @@ block's declared token count, which `scripts/checks/docs_gate/scheme.py` already
 gate — so that the two blocks are compared with each other rather than with a literal.
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
-
-### `aee2-vxqc` · Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes
-
-| Tags                    | Status | Depends on |
-| ----------------------- | ------ | ---------- |
-| BE, ci, tests, versions | Open   | —          |
-
-**Every backend pytest run already prints the warning, and it is raised at import rather than in a
-test.** Starlette's test client module imports `httpx2` under its own name, falls back to `httpx`
-with a `StarletteDeprecationWarning`, and raises `RuntimeError` naming `httpx2` when neither is
-installed. Read 2026-09-02 from a `pytest --collect-only` over `fl_backend/`, against the starlette
-`fl_backend/uv.lock` resolves. **The fallback is what the dev group rests on**:
-`fl_backend/pyproject.toml`'s dev group declares `httpx`, and the comment there records that
-`fastapi.testclient.TestClient` imports it eagerly so the tests fail at collection without it. Four
-modules import that client — `fl_backend/tests/api/test_actor_binding.py`,
-`fl_backend/tests/api/test_admin_guard.py`, `fl_backend/tests/api/test_bewerbungen_read.py` and
-`fl_backend/tests/api/test_error_responses.py` — so what a removal costs is four collection errors in
-the default tier, not a failing assertion anyone can read as a product defect.
-
-**The clock is a scheduled bump nobody watches.** `fl_backend/pyproject.toml` declares starlette by a
-floor rather than a pin, and `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend`
-monthly with minor and patch grouped — so the version moves on its own, and the release that drops
-the fallback arrives as a bot pull request whose whole diff is a version bump.
-
-**Done when** the dev group takes `httpx2` in place of `httpx`, which is the remedy starlette's own
-message names. **Not verified:** whether `httpx2` is a drop-in for what those four modules ask of
-`TestClient`, and whether pyright needs it installed to keep starlette's own `TYPE_CHECKING` import
-of it resolving.
 
 ### `anh6-etwn` · States the domain declaration reaches from neither of its two lists
 
