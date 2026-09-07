@@ -39,9 +39,7 @@ SPIEL_NOTIZ_MAX_LENGTH: Final = 4096
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 
-# How old a contact person on a PUBLIC application may be, in whole years against the German day it
-# arrives on. The ceiling refuses a mistyped century rather than a real age. Named so the input
-# control and the Zod mirror refuse at the same two numbers.
+# The ceiling refuses a mistyped century rather than a real age (`docs/backend/spec.md :: I180`).
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 

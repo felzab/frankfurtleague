@@ -4,10 +4,7 @@ description: Audit and fix the branch's documentation slice before its pull requ
 
 Audit the documentation this branch touches — and only that — against `docs/_standard/standard.md`, and fix what
 fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
-is the scope.
-
-This is the pre-merge slice, and it inverts `/docs:audit`'s split: the sweep reports and this command
-repairs in place. On `main`, or with nothing changed since the fork point, say there is no slice and
+is the scope. On `main`, or with nothing changed since the fork point, say there is no slice and
 stop.
 
 **Every rule binding `/docs:audit`'s modes binds this one**:

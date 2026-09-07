@@ -80,14 +80,10 @@ async def patch_one_in_db(
     session: AsyncClientSession | None = None,
     return_document: bool = ReturnDocument.AFTER,
 ) -> Mapping[str, Any]:
-    """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced.
+    """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced."""
 
-    The driver yields ONE image, and the log takes the atomic one (`docs/backend/spec.md :: I39`).
-    """
-
-    # The update itself carries the pre-image, so nothing can land between reading it and replacing
-    # it. The echo is re-read after, where a racing write costs a stale response rather than a log
-    # row naming a document this write never touched.
+    # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
+    # update's own is taken with the write (`docs/backend/spec.md :: I39`).
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)

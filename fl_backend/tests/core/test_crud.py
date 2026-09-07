@@ -158,7 +158,6 @@ class TestPatchOneInDb:
         assert returned == STORED
 
     def test_the_log_is_given_the_image_the_update_itself_replaced(self):
-        """The atomic one. A pre-image read separately could name a document another writer had already replaced."""
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
         asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
