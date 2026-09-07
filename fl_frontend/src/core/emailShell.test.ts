@@ -23,7 +23,6 @@ const GIFT_VERANTWORTLICH_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&
 const MARKE_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
   [
     `export const KONTAKT_EMAIL = "kontakt@beispiel.de";`,
-    `export const SITE_URL = "https://beispiel.de";`,
     `export const VEREIN_NAME = ${JSON.stringify(GIFT_VEREIN)};`,
     `export const VEREIN_ANSCHRIFT = ${JSON.stringify(GIFT_ANSCHRIFT)};`,
   ].join("\n"),
@@ -51,7 +50,10 @@ const {
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
-const { SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 /** The shell as text, for the claims about its own shape that no return value carries. */
 const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.ts"), "utf8");
@@ -102,67 +104,75 @@ const GEBAUTE_NACHRICHTEN = [...Object.keys(await import("./bewerbungEmail.ts"))
   .sort();
 
 /** One fixture per builder, keyed by the name the walk finds, carrying the least its signature needs. */
-const FIXTUREN: Record<string, () => { html: string; text: string }> = {
-  buildBewerbungZusageEmail: () =>
+const FIXTUREN: Record<string, (origin: string) => { html: string; text: string }> = {
+  buildBewerbungZusageEmail: (origin) =>
     buildBewerbungZusageEmail({
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
+      origin: origin,
       rollenText: "Ansprechperson",
       gruppe: "B",
       trikotFarbeLabel: "Hellgrün",
     }),
-  buildBewerbungAbsageEmail: () =>
+  buildBewerbungAbsageEmail: (origin) =>
     buildBewerbungAbsageEmail({
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
+      origin: origin,
       rollenText: "Stellvertretung",
       grund: "Die Saison ist voll.",
     }),
-  buildBewerbungBestaetigungEmail: () =>
+  buildBewerbungBestaetigungEmail: (origin) =>
     buildBewerbungBestaetigungEmail({
       saisonId: "2627",
+      origin: origin,
       schule: "Ernst-Reuter-Schule",
-      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${SITE_URL}/bestaetigung?token=beispiel-eins` }],
+      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-eins` }],
       fristText: "18.09.2026",
     }),
-  buildBewerbungErinnerungEmail: () =>
+  buildBewerbungErinnerungEmail: (origin) =>
     buildBewerbungErinnerungEmail({
       saisonId: "2627",
+      origin: origin,
       schule: "Ernst-Reuter-Schule",
       // Two seats on one address, which is the shape the single-seat fixture above cannot reach.
       seats: [
-        { vorname: "Erika", rolleText: "Ansprechperson", link: `${SITE_URL}/bestaetigung?token=beispiel-zwei` },
-        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${SITE_URL}/bestaetigung?token=beispiel-drei` },
+        { vorname: "Erika", rolleText: "Ansprechperson", link: `${ORIGIN}/bestaetigung?token=beispiel-zwei` },
+        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${ORIGIN}/bestaetigung?token=beispiel-drei` },
       ],
       fristText: "18.09.2026",
     }),
-  buildBewerbungEingangOffenEmail: () =>
+  buildBewerbungEingangOffenEmail: (origin) =>
     buildBewerbungEingangOffenEmail({
       saisonId: "2627",
+      origin: origin,
       rollenText: "Ansprechperson",
       ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
       fristText: "18.09.2026",
-      link: `${SITE_URL}/bestaetigung?token=beispiel-vier`,
+      link: `${ORIGIN}/bestaetigung?token=beispiel-vier`,
     }),
-  buildBewerbungVollstaendigEmail: () => buildBewerbungVollstaendigEmail({ saisonId: "2627", rollenText: "Ansprechperson" }),
-  buildBewerbungGeloeschtEmail: () =>
+  buildBewerbungVollstaendigEmail: (origin) =>
+    buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: origin, rollenText: "Ansprechperson" }),
+  buildBewerbungGeloeschtEmail: (origin) =>
     buildBewerbungGeloeschtEmail({
       saisonId: "2627",
+      origin: origin,
       rollenText: "Ansprechperson",
       ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
     }),
-  buildBewerbungAblehnungEmail: () =>
+  buildBewerbungAblehnungEmail: (origin) =>
     buildBewerbungAblehnungEmail({
       saisonId: "2627",
+      origin: origin,
       rollenText: "Ansprechperson",
       abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
       fristText: "18.09.2026",
     }),
-  buildMagicLinkEmail: () => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de"),
+  buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
 };
 
 /** Every message the two mail modules build, so a design claim is checked against all of them rather than against one. */
-const NACHRICHTEN = Object.entries(FIXTUREN).map(([name, bauen]) => ({ name, mail: bauen() }));
+const NACHRICHTEN = Object.entries(FIXTUREN).map(([name, bauen]) => ({ name, mail: bauen(ORIGIN) }));
 
 describe("the shared email shell", () => {
   /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
@@ -172,6 +182,30 @@ describe("the shared email shell", () => {
     // has stopped reading the modules, and every sweep below then runs over nothing.
     assert.ok(GEBAUTE_NACHRICHTEN.length >= 9, `expected at least 9 message builders, found ${String(GEBAUTE_NACHRICHTEN.length)}`);
     assert.deepEqual(GEBAUTE_NACHRICHTEN, Object.keys(FIXTUREN).sort(), "a message builder has no fixture, or a fixture names no builder");
+  });
+
+  /* The one origin every close is built on. Read over the walked register rather than per builder:
+     a tenth message added tomorrow reaches this on the edit that adds it. */
+  it("builds every message's close on the origin the builder was handed", () => {
+    const fremd = "https://beispiel.test";
+
+    for (const [name, bauen] of Object.entries(FIXTUREN)) {
+      const mail = bauen(fremd);
+
+      for (const seite of ["datenschutz", "impressum"]) {
+        assert.ok(mail.html.includes(`href="${fremd}/${seite}"`), `${name}'s close links ${seite} on some other origin`);
+        assert.ok(mail.text.includes(`: ${fremd}/${seite}`), `${name}'s text branch closes on ${seite} at some other origin`);
+      }
+    }
+  });
+
+  /* `SKIP_ENV_VALIDATION` lets the builder stage and this test run past `config.ts`'s gate, so a
+     builder composing around an absent `AUTH_URL` would mail a close no reader can follow. */
+  it("refuses to build a message at all where the origin is not an absolute URL", () => {
+    for (const [name, bauen] of Object.entries(FIXTUREN)) {
+      assert.throws(() => bauen(""), /absolute origin/, `${name} composed a message on an origin that is not a URL`);
+      assert.throws(() => bauen("/bestaetigung"), /absolute origin/, `${name} composed a message on a bare path`);
+    }
   });
 
   it("draws every message as a complete standalone document with no external stylesheet or image", () => {
@@ -419,6 +453,7 @@ describe("the shared email shell", () => {
         { href: `https://frankfurtleague.de/f?g='h'&i=<j>`, label: `Laufende <i>'Saison'</i>`, ton: "outline" },
       ],
       fuss: "Antworten liest niemand.",
+      origin: ORIGIN,
     });
 
     assert.ok(karte.includes(`href="https://frankfurtleague.de/a?b=&quot;c&quot;&amp;d=&lt;e&gt;"`), "the filled control's destination is raw");
@@ -440,8 +475,8 @@ describe("the shared email shell", () => {
   it("closes every message on both legal pages and the controller, in both branches", () => {
     const verantwortlich = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
     const seiten = [
-      { label: "Datenschutzerklärung", href: `${SITE_URL}/datenschutz` },
-      { label: "Impressum", href: `${SITE_URL}/impressum` },
+      { label: "Datenschutzerklärung", href: `${ORIGIN}/datenschutz` },
+      { label: "Impressum", href: `${ORIGIN}/impressum` },
     ];
     const textSchluss = [...seiten.map(({ label, href }) => `${label}: ${href}`), verantwortlich].join("\n");
 
@@ -480,6 +515,7 @@ describe("the shared email shell", () => {
       bloecke: [],
       aktionen: [],
       fuss: "Antworten liest niemand.",
+      origin: ORIGIN,
     });
     const schluss = karte.slice(karte.lastIndexOf("<hr"));
 
@@ -487,11 +523,11 @@ describe("the shared email shell", () => {
     assert.ok(!schluss.includes(GIFT_ANSCHRIFT), "the card carries the address raw, which a „<“ in it makes markup");
     // The text branch takes the address as typed: no client parses it, and an escaped „&“ there
     // reaches the reader as five characters.
-    assert.deepEqual(shell.textFooter([]), [
+    assert.deepEqual(shell.textFooter(ORIGIN, []), [
       "",
       "-- ",
-      `Datenschutzerklärung: https://beispiel.de/datenschutz`,
-      `Impressum: https://beispiel.de/impressum`,
+      `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
+      `Impressum: ${ORIGIN}/impressum`,
       GIFT_VERANTWORTLICH,
     ]);
   });

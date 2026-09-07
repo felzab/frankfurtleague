@@ -1,4 +1,5 @@
 import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
@@ -40,14 +41,19 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
     return;
   }
 
+  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  const origin = frontend_config.AUTH_URL;
+
   await sendBewerbungMail({
     operation: "postEinwilligung",
     recipients: [{ address: antwort.ansprechperson_email, rollenText: rollenText(antwort.ansprechperson_rollen) }],
     buildMail: (rollen) =>
       vollstaendig
-        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, rollenText: rollen })
+        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, origin: origin, rollenText: rollen })
         : buildBewerbungAblehnungEmail({
             saisonId: antwort.saison_id,
+            origin: origin,
             rollenText: rollen,
             // Named off the answer rather than a second read: the decline emptied the slot this
             // came from, and nothing left in the record can say whose entry was refused.

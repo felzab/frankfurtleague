@@ -1,6 +1,7 @@
 import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -124,10 +125,13 @@ async function sweepSaison(saisonId: string): Promise<void> {
 
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */
 async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<void> {
+  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  const origin = frontend_config.AUTH_URL;
   const [erster, ...weitere] = erinnerung.seats.map((seat) => ({
     vorname: seat.vorname,
     rolleText: rollenText(seat.rollen),
-    link: bestaetigungsLink(seat.token),
+    link: bestaetigungsLink(origin, seat.token),
   }));
 
   // The wire can carry an empty list where the recipient type cannot, and a message offering no link
@@ -142,6 +146,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
     buildMail: (seats) =>
       buildBewerbungErinnerungEmail({
         saisonId: erinnerung.saison_id,
+        origin: origin,
         schule: erinnerung.schule,
         seats: seats,
         // The deadline the first message gave; a reminder does not move it (`docs/backend/spec.md :: I152`).
@@ -171,7 +176,13 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
   const { delivered } = await sendBewerbungMail({
     operation: SWEEP_OPERATION,
     recipients: [empfaenger],
-    buildMail: (rollen) => buildBewerbungGeloeschtEmail({ saisonId: loeschung.saison_id, rollenText: rollen, ausstehend: ausstehend }),
+    buildMail: (rollen) =>
+      buildBewerbungGeloeschtEmail({
+        saisonId: loeschung.saison_id,
+        origin: frontend_config.AUTH_URL,
+        rollenText: rollen,
+        ausstehend: ausstehend,
+      }),
   });
 
   return delivered.length > 0;

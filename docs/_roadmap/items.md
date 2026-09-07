@@ -112,7 +112,6 @@ deliverable.
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `gm9c-2du4` | Every link the local stack mails points at production                                                                        | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                | BE, Docs, spiele, teams                                                     | Open     |
@@ -152,8 +151,6 @@ deliverable.
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
 | `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                  | FE, admin, spiele                                                           | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
-| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                          | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                           | FE, tests, bewerbungen, teams                                               | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                   | FE, BE, Docs, bewerbungen                                                   | Open     |
@@ -1671,37 +1668,6 @@ wrong state. A complete, type-correct literal can still represent something the 
 produce, and no type-level mechanism reaches that — not a cast's removal, not a factory, not
 `satisfies`. What catches it is a reader, or a predicate that eventually disagrees with it. The two
 failures share a file and nothing else.
-
-### `gm9c-2du4` · Every link the local stack mails points at production
-
-| Tags                             | Status | Depends on |
-| -------------------------------- | ------ | ---------- |
-| FE, Ops, Docs, edge, bewerbungen | Open   | —          |
-
-**`fl_frontend/src/core/brand.ts :: SITE_URL` is a module constant, and every absolute link is built
-from it.** `fl_frontend/src/app/api/bewerbung/route.ts` and
-`fl_frontend/src/features/bewerbungen/sweep.ts` each spell a confirmation link from it, and
-`fl_frontend/src/app/layout.tsx`, `fl_frontend/src/app/robots.ts` and
-`fl_frontend/src/app/sitemap.ts` build the site's own absolute URLs the same way. The origin that
-does move is `AUTH_URL`, which `fl_frontend/src/core/config.ts` validates at startup and
-`docker-compose.local.yml` points at loopback — so the local stack answers on one origin and mails
-links on another.
-
-**What it costs is the browser pass.** Every confirmation, reminder and deletion notice the local
-stack sends carries a link to the live site, so exercising the flow end to end means lifting each
-token out of a message and putting it on localhost by hand, once per seat and again per re-send.
-That is the one part of this flow nobody can walk through as its reader would.
-
-**The two origins are not one setting, which is what makes this a decision rather than an edit.**
-`AUTH_URL` is validated as the public origin and refused unless it is https or loopback, while
-`SITE_URL` is also what `metadataBase`, the crawl policy and the sitemap publish — and a published
-origin read from the environment is one a misconfigured deploy can put in front of a crawler. Making
-the mail links follow the serving origin while the published metadata stays fixed, and making both
-follow one variable, are different changes with different blast radii.
-
-**Done when** a link a message carries points at the stack that sent it, with whatever holds the
-published metadata to the real origin written where a deploy would otherwise break it
-(`docs/frontend/spec.md :: 1.7 Environment`).
 
 ### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
 
@@ -3229,131 +3195,6 @@ enumeration moves in the same commit.
 **Done is the two lists agreeing** — every shape the write path refuses either reported by the read
 path or written down as one it deliberately does not report — with `gruppe_too_small`'s misnaming
 corrected at the same time.
-
-### `x7pk-g4bh` · Three entry refusals are rendered twice, and nothing holds either half to the other
-
-| Tags                                    | Status | Depends on |
-| --------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, teams | Open   | —          |
-
-**`REQ-ENTER-001`, `-002` and `-003` each reach an administrator through two mappers, and the German
-differs in every pair.** `fl_backend/app/core/domain.py` declares all three against
-`POST /teams/{team_id}/saisons` and against `POST /bewerbungen/{bewerbung_id}/annehmen`, acceptance
-reusing the season's own entry services rather than restating them. So each code has two frontends:
-`fl_frontend/src/features/bewerbungen/actions.ts :: mapTriageRefusal`, which answers for the
-application being triaged, and `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal`, which
-answers for the three club-editor write paths that create a club into a season, enter an existing
-one, or move one between groups — `postTeamAction`, `postSaisonTeamAction` and
-`patchSaisonTeamAction`, measured 2026-08-28.
-
-| Code            | `mapTriageRefusal` renders                                                                                                       | `mapEntryRefusal` renders                                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `REQ-ENTER-001` | A `buildRefusal` pair: the application's season has left planning, entry being into a planned one, then „Lehne die Bewerbung ab" | A written-out pair: „Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." |
-| `REQ-ENTER-002` | A `gruppe` field message naming „die Saison der Bewerbung"                                                                       | The same field message naming „die gewählte Saison"                                                               |
-| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist schon voll."                                                                                    |
-
-**Two of the three are a surface addressing its own reader**, which is what makes this a ruling
-rather than a correction. `-002` says which season is meant, and the two readers stand on different
-ones. `-001` is the sharper pair: the triage states the rule, the club editor enumerates the two
-statuses that failed it. [`docs/frontend/spec.md`](../frontend/spec.md) §1.12 asks for the rule
-rather than the situation that met it — and the club editor's own neighbours, the
-`team.not-in-saison-*` bodies in
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts :: buildTeamBanners`,
-enumerate the same two statuses in nearly the same words. So either that enumeration is the
-surface's settled house style, or three sentences move together.
-
-**`-003` is the one that can leave an administrator with nothing named to do.** §1.12 holds that a refusal
-names the repair wherever one exists, and that one shortened past its second sentence has become a dead end;
-the club editor's stops at the state. The rule pulling the other way is in the same section: the FIELD
-register declared at `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` keeps a field
-message to one sentence about the value, and both of these render under the `gruppe` picker, which is itself
-the way out. §1.12's own precedence line — the worked example outranks the generalisation drawn from it, and
-the rule is what gets amended — is why this is a ruling to take rather than a defect to fix.
-
-**One half is composed and the other is written out.** The triage builds its FORM message through
-`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal`, which is what guarantees the two-sentence
-shape and frames the panel name inside the helper. `mapEntryRefusal` returns its FORM strings as
-literals, so nothing holds their shape, and an assertion spanning a pair has to read two
-constructions.
-
-**What nothing does today is hold a pair together.**
-`fl_frontend/src/features/bewerbungen/actions.test.ts :: renderingsOf` is built for exactly this: it
-cuts every branch answering one code out of the sources it is handed and grades them as one set —
-the state word, the neuter agreement „Team" forces, and the imperative a repair is written in. It is
-called once, on `REQ-ENTER-005` (measured 2026-08-28).
-`fl_frontend/src/features/teams/actions.test.ts` asserts that `mapEntryRefusal` answers every code
-the entry endpoint declares and then grades the replacement mapper's German in detail; it reads none
-of the entry mapper's own sentences. **So an edit can move either half of any of these three pairs
-and leave the other standing, and the gate stays green.**
-
-**Three routes, and this entry picks none.** Rule each pair to one sentence and assert the halves
-equal, which is the cheapest thing to check and the likeliest to be wrong about `-002`. Or keep each
-surface's wording and widen `renderingsOf`'s call to these three codes, asserting only what must
-agree across a pair — the state word, the agreement, the imperative, and that a repair stands
-wherever one exists — which is the shape the helper was written for and the harder set of assertions
-to word. Or record at each branch, as a comment, why its wording is its own, and leave the pairing
-to a reader.
-
-### `xe5b-v4nu` · A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| FE, tests, bewerbungen, teams | Open   | —          |
-
-**`REQ-ENTER-005` is rendered in four places and graded as three.**
-`fl_frontend/src/features/bewerbungen/actions.test.ts :: renderingsOf` collects every branch
-answering one refusal code and holds them to one vocabulary and one grammar — „stillgelegt" rather
-than an austritt's words, „Team" as the noun, the neuter determiner and pronoun that noun forces,
-and an imperative wherever a repair is written. It is handed the triage's mapper and
-`fl_frontend/src/features/teams/actions.ts`, whose two mappers answer this code about different
-clubs, and it asserts that it found three branches before judging any of them. The fourth is the
-`team.not-in-saison-retired` banner in
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts :: buildTeamBanners`,
-which renders the same stored `teams.inactive_since` state as one body per season status: the
-reactivation and the entry for a `future` season, and for the other two a sentence saying the
-reactivation alone would not open one.
-
-**The code is at that branch, and in the one form the helper cannot see.** The banner names
-`REQ-ENTER-005` in a `//` comment, and `renderingsOf` splits on the double-quoted literal; its
-comment-stripping step would drop that comment before any assertion read it, so **a comment can
-never be the anchor.** The cut is shaped for a mapper besides — it runs from the literal to the next
-`case`, the next `serverErrorCode ===`, a `default:`, or a `}` at column zero, and `banners.ts`
-carries none of the first three, so a slice taken there would run from the anchor to the end of the
-function and sweep the austritt banners' German in with it.
-
-**The four say the same thing today, so this is a coverage hole rather than a defect** (read
-2026-08-28). The banner calls the club „das stillgelegte Team", stands „es" in for it a clause
-later, and writes its repair as an imperative, so it holds the vocabulary and the agreement the
-three graded branches are held to.
-
-**One rule inside that battery would refuse it even so.** `renderingsOf`'s callers require the
-object of „Reaktiviere" to be exactly „es", and the `future` body writes „Reaktiviere das
-stillgelegte Team" — correct German, and the sentence `mapEntryRefusal` names as the source of its
-own words. That rule was drawn from three sentences that had each named the club already, so
-pointing it at a fourth which names the club inside the imperative means widening it to a neuter
-phrase rather than the bare pronoun. **The reach is therefore not the whole of what is missing.**
-
-**The banner's own module carries part of the vocabulary.**
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.test.ts` pins
-„stillgelegte" as the state word, pins that neither „Austritt" nor „ausgeschieden" appears, and pins
-that only the `future` body promises the entry control. Of the agreement and imperative battery it
-carries nothing, and it compares the banner against no other rendering.
-
-**The coupling is already written down, at the branch that depends on it.** `mapEntryRefusal`'s
-`REQ-ENTER-005` arm says in a comment that its words are `buildTeamBanners`'s, because the mapper
-fires only while the page still believes the club is active and the banner is what the same panel
-shows once the page catches up. So the two are meant to read alike, one of them is graded, and which
-one that is was settled by where a string literal happens to sit.
-
-**Two fixes, and each costs something.** A `"REQ-ENTER-005"` literal at the banner would put the
-code where the helper's split already looks — but `buildTeamBanners` renders state and never a
-server code, so a literal there asserts a coupling the runtime does not have, and the cut would
-still have to learn where a branch ends inside an object literal. Or `renderingsOf` takes the banner
-as a source of its own, with an extraction that reads a built banner's `body` and `title` rather
-than a slice of text — the honest shape, costing the helper a second mode, and the only one that
-reaches the title at all, a template literal being invisible to a match written for quoted
-sentences. **Either route pays for the „Reaktiviere" rule's widening**, and neither may skip it: a
-battery pointed at this banner unchanged fails on a sentence that is right.
 
 ### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
 

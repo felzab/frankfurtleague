@@ -277,8 +277,10 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("mira@schule.de", "Mira"),
       trainer_ist_zugleich: "stellvertretung" as const,
     };
-    const eigener = bestaetigungsLink("erste");
-    const gespiegelter = bestaetigungsLink("zweite");
+    // The local stack's own origin, as every minter now hands the helper (`docs/frontend/spec.md :: I186`).
+    const origin = "http://localhost:3000";
+    const eigener = bestaetigungsLink(origin, "erste");
+    const gespiegelter = bestaetigungsLink(origin, "zweite");
 
     const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: eigener, trainer: gespiegelter });
     const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");
@@ -287,6 +289,7 @@ describe("which mailbox is sent which link", () => {
 
     const mail = buildBewerbungBestaetigungEmail({
       saisonId: "2627",
+      origin: origin,
       schule: "Lessing-Kolleg",
       seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: eigener }],
       fristText: "30.09.2026",

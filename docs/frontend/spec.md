@@ -477,6 +477,12 @@ stops that half-alive shape reaching a page. `AUTH_TRUST_HOST` is deliberately *
 `@auth/core` reads `AUTH_URL` first in the same chain, and `AUTH_URL` is mandatory, so the variable
 can never be reached.
 
+**`AUTH_URL` is also the origin every message's links are built on** (I186): repointing it moves the
+sign-in link, the confirmation links and each close's legal links together, which is what lets a
+stack mail links back into itself. The published origin is the module constant
+`fl_frontend/src/core/brand.ts :: SITE_URL` and no variable moves it, so a deploy that repoints
+`AUTH_URL` leaves the canonical, the crawl policy and the sitemap where they are.
+
 ### 1.8 Lint rules that encode a decision
 
 | Rule                                                | Why it exists                                                                                                                                                        |
@@ -798,6 +804,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: a FIELD message stays one
   sentence about the value, a FORM message is two with the action second, and field messages are
   the one place "Bitte" stays — a field nudges toward input, a banner refuses it.
+- **A message under the control that is itself the way out needs no repair sentence** (my rule,
+  2026-09-06). Naming a picker the reader is already looking at repairs nothing, so the second
+  sentence would restate the control rather than route to one.
 - **The FORM shape is built rather than written**:
   `fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` composes the two sentences from a
   reason and a repair, and every `actions.ts` with a write path reaches it. The panel a repair
@@ -886,7 +895,8 @@ state each answer a question the reader has already been made to ask. What binds
 
 - **A refusal names the repair wherever one exists.** The FORM shape above is its floor, not its
   ceiling, and diagnostic 8 does not reach it: naming the panel that holds the repair IS the
-  repair. **Where the closure is a boundary with no route back**, the refusal says so and stops.
+  repair. **Where the closure is a boundary with no route back**, the refusal says so and stops,
+  and the field register above carries the second exception.
 - **A banner names the one thing the reader would otherwise get wrong about the act in front of
   them**, and the register rule binds its body — a conditional chain is a specification wherever it
   is written.
@@ -977,6 +987,9 @@ The consequences worth knowing before editing metadata:
   title and description.
 - **No route ships a `keywords` array, and none is added for a new route** — the engines ignore it
   or read it as a spam signal; ranking terms belong in the title and description.
+- **`metadataBase`, the crawl policy and the sitemap keep `fl_frontend/src/core/brand.ts :: SITE_URL`
+  and never read an origin from the environment** — one a misconfigured deploy can put in front of a
+  crawler — which is why a message's links follow a setting of their own (I186).
 
 ### 1.14 The shared editor surface
 
@@ -1345,6 +1358,7 @@ holds whether a conditional block renders or not
 | I172 | **The block's left edge is the halfway line and its right edge the goal line, so neither is drawn**                                                                                                                                        | Review, against `fl_frontend/src/shared/components/ui/BrandHero.tsx :: PitchTrace`, at the narrowest viewport                                                                                                                                                                                   |
 | I173 | **Every tab stop shows focus**: where the border-based indicator is suppressed, an outline replaces it (WCAG 2.4.7)                                                                                                                        | Review, against `fl_frontend/src/app/globals.css :: A frozen field and a closed picker`, at every suppressed border                                                                                                                                                                             |
 | I175 | **The privacy notice is linked from every public page's footer and from the public application form; the imprint from that footer**                                                                                                        | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
+| I186 | **A message's links stand on `AUTH_URL`'s origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`**: one variable behind both puts an environment-read origin before a crawler                                                           | `fl_frontend/src/core/emailShell.ts :: mailOrigin`; `fl_frontend/src/core/emailShell.test.ts` sweeps every builder's close and `fl_frontend/src/features/bewerbungen/bestaetigungLink.test.ts` every minter's origin                                                                            |
 
 ## 3. Violation → remedy
 

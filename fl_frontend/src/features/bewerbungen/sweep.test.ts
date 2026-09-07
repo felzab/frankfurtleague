@@ -41,6 +41,7 @@ const LOGGING_DOUBLE = `export const logger = { info: () => {}, warn: () => {}, 
 // switch could only ever prove one side of it.
 const CONFIG_DOUBLE = `export const frontend_config = {
   LOG_FORMAT: "console",
+  AUTH_URL: "http://localhost:3000",
   get BEWERBUNG_SWEEP() { return globalThis.__flSweepSwitch; },
 };`;
 

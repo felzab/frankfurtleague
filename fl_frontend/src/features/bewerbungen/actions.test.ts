@@ -7,8 +7,11 @@ import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
+import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
+
+import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -311,31 +314,73 @@ describe("how each endpoint is addressed", () => {
 /** One branch with its comments dropped: only a rendered string is German a reader ever sees. */
 const withoutComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
 
+/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
+const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
+
 /**
- * Every branch answering one refusal code, cut from the code's own literal to the next branch. Read
- * across the mappers rather than out of one: what a code means is the backend's, and two surfaces
- * naming that meaning differently is what this looks for.
+ * Where one surface's German comes from. A mapper hands over its own text and the cut below finds the
+ * branch; a builder hands over what it returned, its title being a template literal no cut can read.
  */
-function renderingsOf(code: string, sources: readonly { where: string; source: string }[]): { where: string; german: string }[] {
-  return sources.flatMap(({ where, source }) =>
-    source
-      .split(`"${code}"`)
-      .slice(1)
-      // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
-      .map((tail, index) => ({
-        where: `${where} #${String(index + 1)}`,
-        german: withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? ""),
-      })),
+type RenderingSource = { where: string; source: string } | { where: string; rendered: readonly string[] };
+
+/**
+ * Every rendering of one refusal code. Read across the surfaces rather than out of one: what a code
+ * means is the backend's, and two surfaces naming that meaning differently is what this looks for.
+ */
+function renderingsOf(code: string, sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
+  return sources.flatMap((source) =>
+    "rendered" in source
+      ? [{ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }]
+      : source.source
+          .split(`"${code}"`)
+          .slice(1)
+          // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
+          .map((tail, index) => {
+            const german = withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? "");
+
+            return { where: `${source.where} #${String(index + 1)}`, german: german, sentences: sentencesOf(german) };
+          }),
   );
 }
+
+/**
+ * The season panel's own answer to the same stored state, built rather than read: which of its three
+ * bodies stands is picked from `saisonStatus`, and no branch of it names the server's code.
+ */
+const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): RenderingSource[] => {
+  const banner = buildTeamBanners({
+    isRetired: true,
+    saisonId: "2026",
+    saisonStatus: saisonStatus,
+    isMember: false,
+    storedAustritt: null,
+    hasAustritt: false,
+    draftGrund: "",
+    isGruppeLocked: false,
+    isGruppeChanged: false,
+  }).find(({ id }) => id === "team.not-in-saison-retired");
+
+  // Dropped rather than rendered empty: a banner the panel stopped raising is what the count above
+  // catches, and an empty string would satisfy every case below without carrying a word.
+  if (banner === undefined) return [];
+
+  // Both halves: the title carries the season and the noun, the body the state word and the repair.
+  const rendered = [banner.title, banner.body ?? ""].filter((line) => line !== "");
+
+  return [{ where: `the banner on a ${saisonStatus} season`, rendered: rendered }];
+};
+
+/**
+ * Named against the union, so a status renamed out of it fails here rather than quietly dropping a
+ * rendering. A status ADDED to it is caught by neither this nor the count, and stays review's.
+ */
+const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
 const RETIRED_RENDERINGS = renderingsOf("REQ-ENTER-005", [
   { where: "the triage", source: MAPPER },
   { where: "the club editor", source: TEAMS_ACTIONS },
+  ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
-
-/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
-const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
 
 /** Every determiner a neuter noun takes. One in front of „Team“ that is not here is the disagreement. */
 const NEUTER_DETERMINERS = ["Das", "das", "Dieses", "dieses", "Ein", "ein", "Kein", "kein", "Sein", "sein", "Jedes", "jedes"];
@@ -350,19 +395,56 @@ const NOT_A_TEAM = /(?<!\p{L})(ihn|ihm|er)(?!\p{L})/gu;
  * The words ending in `-st` that address nobody. Every other one is a second-person indicative, and a
  * repair is written as an imperative (`docs/frontend/spec.md` §1.12).
  */
-const NOT_AN_INDICATIVE = ["ist", "erst", "selbst", "sonst", "zunächst", "fast", "meist", "Frist", "Rest"];
+const NOT_AN_INDICATIVE = ["ist", "lässt", "erst", "selbst", "sonst", "zunächst", "fast", "meist", "Frist", "Rest"];
+
+/**
+ * What „Reaktiviere“ takes as its object: the neuter pronoun, or „Team“ under the determiner and any
+ * adjective agreeing with it. A sentence naming the club inside the imperative reaches no pronoun.
+ */
+const REACTIVATED_OBJECT = new RegExp(`^(?:es|(?:${NEUTER_DETERMINERS.join("|")})(?:\\s+\\p{L}+)?\\s+Team)\\b`, "u");
+
+/**
+ * The agreement „Team“ forces and the imperative a repair is written in, over one rendering. Neither
+ * is greppable: the word that has to agree sits a clause after the noun, or in the next sentence.
+ */
+function assertTheGermanAgrees(where: string, sentences: readonly string[]): void {
+  for (const sentence of sentences) {
+    // Both words before the noun, and one of them carrying the agreement: which of the two is the
+    // determiner and which the adjective is not decidable by position — „nimm das Team“ reads alike.
+    for (const [, ...before] of sentence.matchAll(/(?:(\p{L}+)\s+)?(\p{L}+)\s+Team(?![-\p{L}])/gu)) {
+      const words = before.filter((word) => word !== undefined);
+
+      assert.ok(
+        words.some((word) => NEUTER_DETERMINERS.includes(word)),
+        `${where} puts „${words.join(" ")}“ in front of the neuter „Team“`,
+      );
+    }
+
+    for (const [, object] of sentence.matchAll(/Reaktiviere\s+([^.,;]+)/gu)) {
+      assert.match(object!, REACTIVATED_OBJECT, `${where} reactivates „${object!}“, which does not agree with the neuter „Team“`);
+    }
+
+    for (const [pronoun] of sentence.matchAll(NOT_A_TEAM)) {
+      assert.fail(`${where} stands „${pronoun}“ in for a „Team“, which is neuter`);
+    }
+
+    for (const [word] of sentence.matchAll(/(?<!\p{L})(\p{L}+st)(?!\p{L})/gu)) {
+      assert.ok(NOT_AN_INDICATIVE.includes(word), `${where} says „${word}“ where a repair addresses the reader as an imperative`);
+    }
+  }
+}
 
 describe("the German one refusal code is given", () => {
-  /* First: a cut that stopped matching leaves every string below empty, and an empty string carries
-     no banned word, so the case below would pass over nothing at all. */
+  /* First: a cut that stopped matching, or a banner that stopped being raised, leaves nothing for the
+     cases below to read, and no sentence carries a banned word, so each would pass over nothing. */
   it("finds every rendering of the retired-club refusal before judging one", () => {
     assert.equal(
       RETIRED_RENDERINGS.length,
-      3,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} branches, not the three this case reads`,
+      6,
+      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
     );
-    for (const { where, german } of RETIRED_RENDERINGS) {
-      assert.match(german, /reason:|return\s+"|\n\s+"/, `${where} was cut to something holding no message`);
+    for (const { where, sentences } of RETIRED_RENDERINGS) {
+      assert.notEqual(sentences.length, 0, `${where} holds no rendered sentence`);
     }
   });
 
@@ -384,28 +466,46 @@ describe("the German one refusal code is given", () => {
      is a pronoun a clause later, which no grep for the noun finds. „Reaktiviere ihn“ and the
      indicative „nimmst“ pass every case above. */
   it("keeps the agreement a neuter Team forces, and the imperative a repair is written in", () => {
-    for (const { where, german } of RETIRED_RENDERINGS) {
-      const sentences = sentencesOf(german);
-      assert.notEqual(sentences.length, 0, `${where} was cut to something holding no rendered sentence`);
+    for (const { where, sentences } of RETIRED_RENDERINGS) assertTheGermanAgrees(where, sentences);
+  });
+});
 
-      for (const sentence of sentences) {
-        for (const [, determiner] of sentence.matchAll(/(\p{L}+)\s+(?:\p{L}+\s+)?Team(?![-\p{L}])/gu)) {
-          assert.ok(NEUTER_DETERMINERS.includes(determiner!), `${where} puts „${determiner!}“ in front of the neuter „Team“`);
-        }
+/**
+ * The entry rules an acceptance and the club editor both answer. `REQ-ENTER-004` is not among them:
+ * it guards a group MOVE, which no acceptance performs.
+ */
+const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 
-        // The club is what a repair reactivates, so the pronoun standing for it is the neuter „es“.
-        for (const [, object] of sentence.matchAll(/Reaktiviere\s+(\p{L}+)/gu)) {
-          assert.equal(object, "es", `${where} reactivates „${object!}“, and a „Team“ is reactivated as „es“`);
-        }
+const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
+  code: code,
+  renderings: renderingsOf(code, [
+    { where: "the triage", source: MAPPER },
+    { where: "the club editor", source: TEAMS_ACTIONS },
+  ]),
+}));
 
-        for (const [pronoun] of sentence.matchAll(NOT_A_TEAM)) {
-          assert.fail(`${where} stands „${pronoun}“ in for a „Team“, which is neuter`);
-        }
-
-        for (const [word] of sentence.matchAll(/(?<!\p{L})(\p{L}+st)(?!\p{L})/gu)) {
-          assert.ok(NOT_AN_INDICATIVE.includes(word), `${where} says „${word}“ where a repair addresses the reader as an imperative`);
-        }
+describe("the sentence both entry surfaces render for one code", () => {
+  for (const { code, renderings } of ENTRY_RENDERINGS) {
+    /* The opening sentence and not the whole message: a repair names a control, and the two surfaces
+       have different ones — the triage declines an application, the club editor picks a season. */
+    it(`opens ${code} with one sentence, spelled the same on both`, () => {
+      // Before the comparison: a cut that stopped matching leaves one side empty, and two empty
+      // sides are equal.
+      assert.equal(renderings.length, 2, `${code} is rendered in ${String(renderings.length)} places, not the two this case reads`);
+      for (const { where, sentences } of renderings) {
+        assert.notEqual(sentences.length, 0, `${where} was cut to something holding no rendered sentence for ${code}`);
       }
+
+      const [first, second] = renderings;
+
+      assert.equal(second?.sentences[0], first?.sentences[0], `the two surfaces open ${code} with different sentences`);
+    });
+  }
+
+  /* Equality above leaves the repair unread, and a repair is the half each surface writes alone. */
+  it("keeps the agreement and the imperative in every entry refusal, repair included", () => {
+    for (const { renderings } of ENTRY_RENDERINGS) {
+      for (const { where, sentences } of renderings) assertTheGermanAgrees(where, sentences);
     }
   });
 });
@@ -804,7 +904,7 @@ describe("the re-sent confirmation link", () => {
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", () => {
-    const link = "bestaetigungsLink(token)";
+    const link = "bestaetigungsLink(origin, token)";
 
     assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
     assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");

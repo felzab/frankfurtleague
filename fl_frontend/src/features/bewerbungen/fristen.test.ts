@@ -25,17 +25,25 @@ const {
   buildBewerbungVollstaendigEmail,
 } = await import("@/core/bewerbungEmail.ts");
 const { LIGA_EINWILLIGUNGEN } = await import("@/core/einwilligung.ts");
-const { SITE_URL } = await import("@/core/brand.ts");
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
-const LINK = `${SITE_URL}/bestaetigung?token=beispiel-eins`;
+const LINK = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK };
 const JONAS = { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: LINK };
 const AUSSTEHEND = [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }];
 
-const EIN_SITZ = { saisonId: "2627", schule: "Ernst-Reuter-Schule", seats: [ERIKA], fristText: FRIST } satisfies BewerbungBestaetigungData;
+const EIN_SITZ = {
+  saisonId: "2627",
+  origin: ORIGIN,
+  schule: "Ernst-Reuter-Schule",
+  seats: [ERIKA],
+  fristText: FRIST,
+} satisfies BewerbungBestaetigungData;
 /* Both arms of every builder that has two: the plural wording is a second copy of each sentence, and
    only a render of it reads the clock it states. */
 const ZWEI_SITZE = { ...EIN_SITZ, seats: [ERIKA, JONAS] } satisfies BewerbungBestaetigungData;
@@ -47,14 +55,25 @@ const NACHRICHTEN = [
   ["the reminder to a shared inbox", buildBewerbungErinnerungEmail(ZWEI_SITZE)],
   [
     "the receipt",
-    buildBewerbungEingangOffenEmail({ saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND, fristText: FRIST, link: LINK }),
+    buildBewerbungEingangOffenEmail({
+      saisonId: "2627",
+      origin: ORIGIN,
+      rollenText: "Ansprechperson",
+      ausstehend: AUSSTEHEND,
+      fristText: FRIST,
+      link: LINK,
+    }),
   ],
-  ["the completeness notice", buildBewerbungVollstaendigEmail({ saisonId: "2627", rollenText: "Ansprechperson" })],
-  ["the deletion notice", buildBewerbungGeloeschtEmail({ saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND })],
+  ["the completeness notice", buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson" })],
+  [
+    "the deletion notice",
+    buildBewerbungGeloeschtEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson", ausstehend: AUSSTEHEND }),
+  ],
   [
     "the seat's decline notice",
     buildBewerbungAblehnungEmail({
       saisonId: "2627",
+      origin: ORIGIN,
       rollenText: "Ansprechperson",
       abgelehnt: { vorname: "Mira", rolleText: "Stellvertretung" },
       fristText: FRIST,

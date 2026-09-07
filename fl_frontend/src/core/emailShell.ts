@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
+import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 
 /** The league's name as every message spells it, in one place so no two messages can spell it apart. */
 export const BRAND_NAME = "Frankfurt League";
@@ -162,8 +162,29 @@ const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand; unsere Adre
 export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;
 export const ANTWORT_SATZ_HTML = `${ANTWORT_VOR}${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
 
-const DATENSCHUTZ = { label: "Datenschutzerklärung", href: `${SITE_URL}/datenschutz` } as const;
-const IMPRESSUM = { label: "Impressum", href: `${SITE_URL}/impressum` } as const;
+/**
+ * The serving origin (`docs/frontend/spec.md :: I186`), refused rather than defaulted:
+ * `SKIP_ENV_VALIDATION` lets a build past `config.ts`'s gate, and a message composed there would
+ * carry a bare path.
+ */
+export function mailOrigin(raw: string): string {
+  try {
+    // Through `URL` rather than used as typed: a configured trailing slash or path would otherwise
+    // reach every href in the close.
+    return new URL(raw).origin;
+  } catch {
+    throw new Error("a message's links need an absolute origin, and the one handed to the shell is not a URL");
+  }
+}
+
+/** Both legal pages, in the order every close names them. */
+function rechtsSeiten(origin: string): readonly { readonly label: string; readonly href: string }[] {
+  return [
+    { label: "Datenschutzerklärung", href: `${origin}/datenschutz` },
+    { label: "Impressum", href: `${origin}/impressum` },
+  ];
+}
+
 const VERANTWORTLICH = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
 /* The one value the card interpolates that reaches it from neither a caller nor an escaping helper:
    the address is replaced by hand, and an `&` in a c/o line would invalidate the document silently. */
@@ -174,11 +195,9 @@ const VERANTWORTLICH_HTML = escapeHtml(VERANTWORTLICH);
  * visiting the site has no footer to reach them from. In the shell, so no message can ship without
  * them.
  */
-const RECHTSZEILEN_TEXT: readonly string[] = [
-  `${DATENSCHUTZ.label}: ${DATENSCHUTZ.href}`,
-  `${IMPRESSUM.label}: ${IMPRESSUM.href}`,
-  VERANTWORTLICH,
-];
+function rechtszeilen(origin: string): readonly string[] {
+  return [...rechtsSeiten(origin).map(({ label, href }) => `${label}: ${href}`), VERANTWORTLICH];
+}
 
 /** One control. `ton` picks the pair's two grades, which are the landing page's own primary and outline. */
 export interface Aktion {
@@ -227,6 +246,8 @@ interface Karte {
   readonly bloecke: readonly string[];
   readonly aktionen: readonly Aktion[];
   readonly fuss: string;
+  /** Already through `mailOrigin`, which every builder calls once for its own links as well as this close. */
+  readonly origin: string;
 }
 
 /**
@@ -234,7 +255,7 @@ interface Karte {
  * markup: everything reaching this has passed `escapeHtml`, so the shell interpolates without escaping
  * and no value gets escaped twice.
  */
-export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss }: Karte): string {
+export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, origin }: Karte): string {
   return `<!doctype html>
 <html lang="de">
   <head>
@@ -265,7 +286,9 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss }: Ka
                   ${fuss}
                 </p>
                 <p class="${TEXT_CLASS}" style="margin:8px 0 0;${FOOTER_TEXT}">
-                  ${link(DATENSCHUTZ.href, DATENSCHUTZ.label)} · ${link(IMPRESSUM.href, IMPRESSUM.label)}
+                  ${rechtsSeiten(origin)
+                    .map(({ label, href }) => link(href, label))
+                    .join(" · ")}
                 </p>
                 <p class="${TEXT_CLASS}" style="margin:4px 0 0;${FOOTER_TEXT}">
                   ${VERANTWORTLICH_HTML}
@@ -294,6 +317,6 @@ export function stuffSignatureDelimiter(value: string): string {
 }
 
 /** The plain-text close, matching the card's rule and note. RFC 3676 §4.3: without the trailing space no client folds it. */
-export function textFooter(saetze: readonly string[]): readonly string[] {
-  return ["", "-- ", ...saetze, ...RECHTSZEILEN_TEXT];
+export function textFooter(origin: string, saetze: readonly string[]): readonly string[] {
+  return ["", "-- ", ...saetze, ...rechtszeilen(origin)];
 }

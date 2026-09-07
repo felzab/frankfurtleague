@@ -4,6 +4,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
@@ -82,18 +83,22 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
           repair: "Lade die Seite neu",
         }),
       };
+    // `REQ-ENTER-001` to `-003` open with the sentence
+    // `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` renders too, so only the repair
+    // below is this one's own; `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
     case "REQ-ENTER-001":
       return {
         error: buildRefusal({
-          reason: "Die Saison dieser Bewerbung ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
+          reason: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
           repair: "Lehne die Bewerbung ab",
         }),
       };
-    // On the picker, which is the field at fault and the one the admin can move.
+    // On the picker: the field at fault is the one the admin can move, and a message under the
+    // control that is itself the way out carries no repair sentence (`docs/frontend/spec.md` §1.12).
     case "REQ-ENTER-002":
-      return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der Saison der Bewerbung nicht." } };
+      return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
     case "REQ-ENTER-003":
-      return { fieldErrors: { gruppe: "Diese Gruppe ist voll. Wähle eine andere." } };
+      return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
     // A new school's club is created with the Kürzel the school typed, and a club's only unique key
     // is that Kürzel, so this 409 IS the collision. The generic conflict message names no way out,
     // and an application cannot be edited.
@@ -237,6 +242,9 @@ export async function annehmenBewerbungAction(
         buildBewerbungZusageEmail({
           teamName: teamName,
           saisonId: annahmeOperation.saison_id,
+          // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
+          // not production must not mail production links (`docs/frontend/spec.md :: I186`).
+          origin: frontend_config.AUTH_URL,
           rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
           // Rendered here: the label lives in
@@ -310,6 +318,7 @@ export async function ablehnenBewerbungAction(
         buildBewerbungAbsageEmail({
           teamName: teamName,
           saisonId: absageOperation.updated_document.saison_id,
+          origin: frontend_config.AUTH_URL,
           rollenText: rollenText,
           // The administrator's own wording, carried verbatim into the message.
           grund: validated.data.grund,
@@ -416,6 +425,7 @@ async function sendeBestaetigungErneut({
   if (frist === null) throw new Error("the re-send answered no Bestätigungsfrist for the application it had just written");
 
   const fristText = formatSpielDatum(frist);
+  const origin = frontend_config.AUTH_URL;
 
   const outcome = await sendBewerbungMail({
     operation: "einwilligungErneutSendenAction",
@@ -423,10 +433,11 @@ async function sendeBestaetigungErneut({
     buildMail: () =>
       buildBewerbungBestaetigungEmail({
         saisonId: saisonId,
+        origin: origin,
         schule: benanntesTeam,
         // One link whatever it answers for: a person holding two seats reads one control, and the
         // role text beside it is what tells them the answer covers both.
-        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(token) }],
+        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(origin, token) }],
         fristText: fristText,
       }),
   });

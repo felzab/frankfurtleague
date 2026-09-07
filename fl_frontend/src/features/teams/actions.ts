@@ -47,10 +47,20 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
   if (error.serverErrorCode === "REQ-ENTER-001") {
-    return { error: "Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." };
+    // `REQ-ENTER-001` to `-003` open with the sentence
+    // `fl_frontend/src/features/bewerbungen/actions.ts :: mapTriageRefusal` renders too, so only the
+    // repair below is this one's own; `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
+    return {
+      error: buildRefusal({
+        reason: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
+        repair: "Nimm das Team in eine geplante Saison auf",
+      }),
+    };
   }
+  // Both land under the `gruppe` picker, which is itself the way out, so neither carries a repair
+  // sentence (`docs/frontend/spec.md` §1.12).
   if (error.serverErrorCode === "REQ-ENTER-002") {
-    return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der gewählten Saison nicht." } };
+    return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-003") {
     return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };

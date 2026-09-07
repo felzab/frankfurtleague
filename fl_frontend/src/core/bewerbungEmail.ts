@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, SITE_URL } from "./brand";
+import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
@@ -15,6 +15,7 @@ import {
   HEADING_COLOR,
   LABEL_TEXT,
   link,
+  mailOrigin,
   PANEL_CLASS,
   paragraph,
   renderKarte,
@@ -89,26 +90,36 @@ type Empfaengerkreis = keyof typeof EMPFAENGER_SATZ;
  * The one page every reader who is waiting on the league can use, named as
  * `BewerbungView.tsx :: KOPF_LINKS` names it.
  */
-const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` } as const;
+function ligaAktion(origin: string): { readonly label: string; readonly href: string } {
+  return { label: "Laufende Saison", href: `${origin}/dashboard` };
+}
 
 /** The way to a person, offered wherever the message leaves the reader with a question. */
 const FRAGE_AKTION = { label: "Frage stellen", href: `mailto:${KONTAKT_EMAIL}` } as const;
 
 /** The pair the two decisions and the completion notice carry, in the landing page's own order: the offered action first, the way on beside it. */
-const AKTIONEN: readonly Aktion[] = [
-  { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "primary" },
-  { href: LIGA_AKTION.href, label: LIGA_AKTION.label, ton: "outline" },
-];
+function aktionenPaar(origin: string): readonly Aktion[] {
+  const liga = ligaAktion(origin);
 
-/** `AKTIONEN` as lines. The contact address is the close's already, so only the page is listed. */
-const TEXT_AKTIONEN: readonly string[] = [`${LIGA_AKTION.label}: ${LIGA_AKTION.href}`];
+  return [
+    { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "primary" },
+    { href: liga.href, label: liga.label, ton: "outline" },
+  ];
+}
+
+/** That pair as lines. The contact address is the close's already, so only the page is listed. */
+function textAktionenPaar(origin: string): readonly string[] {
+  const liga = ligaAktion(origin);
+
+  return [`${liga.label}: ${liga.href}`];
+}
 
 /**
  * Where a school starts again. The id is percent-encoded rather than interpolated raw: it lands in
  * an href, and `escapeHtml` guards an HTML context rather than a URL's own syntax.
  */
-function neuBewerbenAktion(saisonId: string): Aktion {
-  return { href: `${SITE_URL}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
+function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
+  return { href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
 }
 
 // Spelled here as well as in `fl_frontend/src/core/authEmail.ts :: FALLBACK_SATZ`: one situation
@@ -138,6 +149,7 @@ export type BewerbungEmail = { subject: string; html: string; text: string };
 export interface BewerbungZusageData {
   teamName: string;
   saisonId: string;
+  origin: string;
   /** The seats THIS reader holds, already one German phrase: one person can hold two, and gets one message naming both. */
   rollenText: string;
   gruppe: string;
@@ -151,6 +163,7 @@ export interface BewerbungZusageData {
 export interface BewerbungAbsageData {
   teamName: string;
   saisonId: string;
+  origin: string;
   /** As on the acceptance, and for the same reason: a reader has to be able to place a message before reading it. */
   rollenText: string;
   grund: string;
@@ -194,6 +207,8 @@ interface Nachricht {
   /** The heading up to the season, which every heading ends on and which `saisonPhrase` colours. */
   readonly headingVor: string;
   readonly saisonId: string;
+  /** Already through `emailShell.ts :: mailOrigin`, which each builder calls once for its own links and this one's close. */
+  readonly origin: string;
   readonly empfaenger: Empfaengerkreis;
   readonly fakten: readonly Fakt[];
   /* Stated per message and never defaulted: a message inheriting another's controls sends its
@@ -259,7 +274,7 @@ function renderFakten(fakten: readonly Fakt[]): string {
 
 /** The shell's card, filled with this message: the panel, its prose, and the note every reader may need. */
 function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
-  const { headingVor, saisonId, empfaenger, fakten, aktionen, ignorierSatz } = nachricht;
+  const { headingVor, saisonId, origin, empfaenger, fakten, aktionen, ignorierSatz } = nachricht;
 
   return renderKarte({
     titel: ueberschrift(nachricht),
@@ -267,6 +282,7 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
     bloecke: [renderFakten(fakten), ...bloecke, paragraph(escapeHtml(ignorierSatz), "0", ASIDE_TEXT)],
     aktionen: aktionen,
     fuss: `${EMPFAENGER_SATZ[empfaenger]} ${ANTWORT_SATZ_HTML}`,
+    origin: origin,
   });
 }
 
@@ -290,7 +306,7 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
   // The note closes the body here as it closes the card there, and a message whose links all stand
   // in its prose lists nothing under it rather than closing on a blank line.
   const unten = [nachricht.ignorierSatz, ...(nachricht.textAktionen.length === 0 ? [] : ["", ...nachricht.textAktionen])];
-  const fuss = textFooter([EMPFAENGER_SATZ[nachricht.empfaenger], ANTWORT_SATZ_TEXT]);
+  const fuss = textFooter(nachricht.origin, [EMPFAENGER_SATZ[nachricht.empfaenger], ANTWORT_SATZ_TEXT]);
 
   return [stuffSignatureDelimiter(oben.join("\n")), "", ...unten, ...fuss].join("\n");
 }
@@ -302,11 +318,13 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
 export function buildBewerbungZusageEmail({
   teamName,
   saisonId,
+  origin,
   rollenText,
   gruppe,
   trikotFarbeLabel,
   wunschgegner,
 }: BewerbungZusageData): BewerbungEmail {
+  const site = mailOrigin(origin);
   // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
   // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: renderText` folds the
   // facts it prints and nothing else.
@@ -318,6 +336,7 @@ export function buildBewerbungZusageEmail({
   const nachricht: Nachricht = {
     headingVor: "Zusage für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "kontaktpersonen",
     fakten: [
       { label: "Entscheidung", value: "Zusage" },
@@ -331,8 +350,8 @@ export function buildBewerbungZusageEmail({
       // they were entered for.
       { label: "Eingetragen als", value: rollenText },
     ],
-    aktionen: AKTIONEN,
-    textAktionen: TEXT_AKTIONEN,
+    aktionen: aktionenPaar(site),
+    textAktionen: textAktionenPaar(site),
     ignorierSatz: IGNORIER_SATZ,
   };
 
@@ -343,7 +362,7 @@ export function buildBewerbungZusageEmail({
     // Unemphasised, unlike the name above it: a school skims the bold, and a club set in it would read
     // as the fixture the draw has not drawn.
     ...(gegner === "" ? [] : [paragraph(wunschgegnerSatz(escapeHtml(gegner)))]),
-    paragraph(`${WEBSITE_SATZ.vor}${link(SITE_URL, SITE_URL)}${WEBSITE_SATZ.nach}`),
+    paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
   ]);
 
   const text = renderText(nachricht, [
@@ -352,7 +371,7 @@ export function buildBewerbungZusageEmail({
     // The separating blank line rides WITH the sentence, so an unnamed opponent leaves no gap behind.
     ...(gegner === "" ? [] : ["", wunschgegnerSatz(gegner)]),
     "",
-    `${WEBSITE_SATZ.vor}${SITE_URL}${WEBSITE_SATZ.nach}`,
+    `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
   ]);
 
   return { subject: `Zusage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
@@ -362,13 +381,15 @@ export function buildBewerbungZusageEmail({
  * **The two parts state the same facts**, as in the acceptance above. The message states the decision
  * and the reason it was given, and says that it covers this application rather than the school.
  */
-export function buildBewerbungAbsageEmail({ teamName, saisonId, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
+export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
+  const site = mailOrigin(origin);
   // Folded once, as on the acceptance and for the same reason.
   const team = einzeilig(teamName);
 
   const nachricht: Nachricht = {
     headingVor: "Absage für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "kontaktpersonen",
     fakten: [
       { label: "Entscheidung", value: "Absage" },
@@ -381,8 +402,8 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, rollenText, grun
       // message exists to hand over, and a reader who skims the rest still has to arrive at it.
       { label: "Angegebener Grund", value: grund, gestapelt: true },
     ],
-    aktionen: AKTIONEN,
-    textAktionen: TEXT_AKTIONEN,
+    aktionen: aktionenPaar(site),
+    textAktionen: textAktionenPaar(site),
     ignorierSatz: IGNORIER_SATZ,
   };
 
@@ -428,6 +449,7 @@ export interface BewerbungLinkSeat extends BewerbungSeat {
  */
 export interface BewerbungBestaetigungData {
   saisonId: string;
+  origin: string;
   schule: string;
   /* At least one, in the type: an empty list renders an empty fact row, a control row with no
      control in it, and the sentence offering an address over nothing. */
@@ -499,7 +521,8 @@ function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean):
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+  const site = mailOrigin(origin);
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const frist = einzeilig(fristText);
@@ -509,6 +532,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
   const nachricht: Nachricht = {
     headingVor: mehrere ? "Eure Einträge für die" : "Dein Eintrag für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: mehrere ? "postfach" : "eintrag",
     fakten: [
       // Named here and in no message to the submitter: a contact who never heard of the application
@@ -573,7 +597,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+  const site = mailOrigin(origin);
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const frist = einzeilig(fristText);
@@ -583,6 +608,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
   const nachricht: Nachricht = {
     headingVor: mehrere ? "Erinnerung: Eure Einträge für die" : "Erinnerung: Dein Eintrag für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: mehrere ? "postfach" : "eintrag",
     fakten: [
       { label: "Schule", value: schuleText },
@@ -644,6 +670,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
  */
 export interface BewerbungEingangOffenData {
   saisonId: string;
+  origin: string;
   rollenText: string;
   ausstehend: readonly BewerbungSeat[];
   fristText: string;
@@ -657,13 +684,13 @@ function offeneListe(ausstehend: readonly BewerbungSeat[]): string {
 }
 
 /** The pair a message offers when the reader may want to start over: the way forward, then the way to a person. */
-function neuBewerbenAktionen(saisonId: string): readonly Aktion[] {
-  return [neuBewerbenAktion(saisonId), { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "outline" }];
+function neuBewerbenAktionen(origin: string, saisonId: string): readonly Aktion[] {
+  return [neuBewerbenAktion(origin, saisonId), { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "outline" }];
 }
 
 /** Those two as lines. The address is spelled bare rather than as a `mailto:`, which is markup a text branch has no reader for. */
-function neuBewerbenZeilen(saisonId: string): readonly string[] {
-  const neu = neuBewerbenAktion(saisonId);
+function neuBewerbenZeilen(origin: string, saisonId: string): readonly string[] {
+  const neu = neuBewerbenAktion(origin, saisonId);
 
   return [`${neu.label}: ${neu.href}`, `${FRAGE_AKTION.label}: ${KONTAKT_EMAIL}`];
 }
@@ -671,11 +698,13 @@ function neuBewerbenZeilen(saisonId: string): readonly string[] {
 /** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungEingangOffenEmail({
   saisonId,
+  origin,
   rollenText,
   ausstehend,
   fristText,
   link: bestaetigungsLink,
 }: BewerbungEingangOffenData): BewerbungEmail {
+  const site = mailOrigin(origin);
   const frist = einzeilig(fristText);
   const url = einzeilig(bestaetigungsLink);
   const offen = offeneListe(ausstehend);
@@ -683,6 +712,7 @@ export function buildBewerbungEingangOffenEmail({
   const nachricht: Nachricht = {
     headingVor: "Bewerbung für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "einreichende",
     // The other contacts by first name and role, and no school: a mistyped submitter address then
     // hands a stranger two first names and two roles with nothing to attach them to.
@@ -736,14 +766,18 @@ export function buildBewerbungEingangOffenEmail({
 /** What the submitter is told the moment the last open seat confirms. */
 export interface BewerbungVollstaendigData {
   saisonId: string;
+  origin: string;
   rollenText: string;
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: BewerbungVollstaendigData): BewerbungEmail {
+export function buildBewerbungVollstaendigEmail({ saisonId, origin, rollenText }: BewerbungVollstaendigData): BewerbungEmail {
+  const site = mailOrigin(origin);
+
   const nachricht: Nachricht = {
     headingVor: "Vollständig: Bewerbung für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "einreichende",
     fakten: [
       { label: "Status", value: "Vollständig, in Prüfung" },
@@ -752,8 +786,8 @@ export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: Bewerb
     ],
     // Nothing is asked of this reader, so the decisions' pair rather than a control of its own: a
     // press here would answer nothing the workflow is waiting for.
-    aktionen: AKTIONEN,
-    textAktionen: TEXT_AKTIONEN,
+    aktionen: aktionenPaar(site),
+    textAktionen: textAktionenPaar(site),
     ignorierSatz: IGNORIER_SATZ,
   };
 
@@ -762,7 +796,7 @@ export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: Bewerb
       `${strong("Alle Kontaktpersonen haben ihren Eintrag bestätigt.")} Deine Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} ist damit vollständig, und wir schauen sie uns an.`,
     ),
     paragraph(`Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben. ${strong("Du musst nichts weiter tun.")}`),
-    paragraph(`${WEBSITE_SATZ.vor}${link(SITE_URL, SITE_URL)}${WEBSITE_SATZ.nach}`),
+    paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
   ]);
 
   const text = renderText(nachricht, [
@@ -772,7 +806,7 @@ export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: Bewerb
     "Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben.",
     "Du musst nichts weiter tun.",
     "",
-    `${WEBSITE_SATZ.vor}${SITE_URL}${WEBSITE_SATZ.nach}`,
+    `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
   ]);
 
   return { subject: `Bewerbung vollständig: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
@@ -784,17 +818,20 @@ export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: Bewerb
  */
 export interface BewerbungGeloeschtData {
   saisonId: string;
+  origin: string;
   rollenText: string;
   ausstehend: readonly BewerbungSeat[];
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend }: BewerbungGeloeschtData): BewerbungEmail {
+export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, ausstehend }: BewerbungGeloeschtData): BewerbungEmail {
+  const site = mailOrigin(origin);
   const offen = offeneListe(ausstehend);
 
   const nachricht: Nachricht = {
     headingVor: "Wir löschen die Bewerbung für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "einreichende",
     fakten: [
       { label: "Status", value: "Wird gelöscht, nicht vollständig geworden" },
@@ -804,8 +841,8 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
       // they collect the same people and land here a second time.
       { label: "Nicht bestätigt", value: offen, gestapelt: true },
     ],
-    aktionen: neuBewerbenAktionen(saisonId),
-    textAktionen: neuBewerbenZeilen(saisonId),
+    aktionen: neuBewerbenAktionen(site, saisonId),
+    textAktionen: neuBewerbenZeilen(site, saisonId),
     ignorierSatz: IGNORIER_SATZ_GELOESCHT,
   };
 
@@ -835,19 +872,22 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
  */
 export interface BewerbungAblehnungData {
   saisonId: string;
+  origin: string;
   rollenText: string;
   abgelehnt: BewerbungSeat;
   fristText: string;
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, fristText }: BewerbungAblehnungData): BewerbungEmail {
+export function buildBewerbungAblehnungEmail({ saisonId, origin, rollenText, abgelehnt, fristText }: BewerbungAblehnungData): BewerbungEmail {
+  const site = mailOrigin(origin);
   const frist = einzeilig(fristText);
   const wer = seatName(abgelehnt);
 
   const nachricht: Nachricht = {
     headingVor: "Widerspruch: Eintrag für die",
     saisonId: saisonId,
+    origin: site,
     empfaenger: "einreichende",
     fakten: [
       { label: "Status", value: "Nicht vollständig, eine Bestätigung fehlt" },
@@ -855,8 +895,8 @@ export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, 
       { label: "Eingetragen als", value: rollenText },
       { label: "Widerspruch von", value: wer },
     ],
-    aktionen: neuBewerbenAktionen(saisonId),
-    textAktionen: neuBewerbenZeilen(saisonId),
+    aktionen: neuBewerbenAktionen(site, saisonId),
+    textAktionen: neuBewerbenZeilen(site, saisonId),
     ignorierSatz: ignorierSatzAbgelehnt(frist),
   };
 

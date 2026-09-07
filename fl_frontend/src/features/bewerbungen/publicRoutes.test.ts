@@ -600,7 +600,7 @@ describe("who the submission's receipt is addressed to", () => {
       2,
       "the link map and the outstanding list no longer read the same withheld set",
     );
-    assert.match(POST_ROUTE, /link: bestaetigungsLink\(seats\.ansprechperson\)/, "the receipt carries no link of its own");
+    assert.match(POST_ROUTE, /link: bestaetigungsLink\(origin, seats\.ansprechperson\)/, "the receipt carries no link of its own");
   });
 
   /* A handler answers a request rather than rendering, so this is read: one person holding two seats
@@ -614,7 +614,7 @@ describe("who the submission's receipt is addressed to", () => {
   /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
      One module spells it, so a rename cannot leave a second spelling the maps do not cover. */
   it("spells every link the one way the edge redacts", () => {
-    const parameter = /\?(\w+)=/.exec(bestaetigungsLink("kein-echtes-token"))?.[1];
+    const parameter = /\?(\w+)=/.exec(bestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
 
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
 
