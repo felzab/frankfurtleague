@@ -112,7 +112,6 @@ deliverable.
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                       | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                      | Ops, gate, tests                                                            | Open     |
-| `f99h-bnyc` | The plaintext redirect server answers a port nothing outside the compose network can dial                                     | Ops, Docs, gate, edge                                                       | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                 | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                        | BE, tests, saisons                                                          | Open     |
 | `g489-8ptk` | The frontend job's median has risen in two steps, and neither lands on a merge that names a cause                             | FE, Ops, gate, ci, versions                                                 | Open     |
@@ -1647,48 +1646,6 @@ pattern's reader rather than in either caller.
 **Done when** a fence inside a fenced block closes only its own opener, the marker's length and character
 carried as CommonMark decides a close, and a case in `scripts/tests/test_check_docs.py` plants a mermaid
 fence inside a markdown one and proves the prose after the outer block is still read.
-
-### `f99h-bnyc` · The plaintext redirect server answers a port nothing outside the compose network can dial
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| Ops, Docs, gate, edge | Open   | —          |
-
-**`nginx/prod.conf`'s first server block listens on 80 over both address families, logs in
-`fl_json` and answers every request with a 301 to the apex over HTTPS.** It is the only block in the
-file listening on that port, so it is that port's default server and answers whatever `Host` arrives
-there, its own `server_name` notwithstanding.
-
-**Who can reach it is a short list, and nothing on the internet is on it.** The `nginx` service in
-`docker-compose.yml` publishes no port, which that file's own header states as an invariant and
-[`docs/ops/spec.md`](../ops/spec.md) carries as I1; the one route to the origin is the tunnel, and
-that sheet's §1.8 records that each public hostname routes to nginx over `frankfurtleague-net`
-**with TLS kept**. So a request reaches the HTTPS blocks and never this one. What is left is a container on that
-network dialling `http://nginx/` — the frontend, the backend or the connector — and none of them
-does.
-
-**The block is already documented as unreachable from the other direction**, in the comment above the
-www-to-apex block: HSTS's `includeSubDomains` means a browser that has once seen the header never
-issues the plaintext request at all. Two independent reasons for the same emptiness, and neither is
-an argument for removing it — which is why this is a question rather than a cleanup.
-
-**What each answer costs.** Keeping it costs a plaintext listener inside the compose network that
-answers every `Host` on that port, and a block whose 301 cannot be exercised by anything a test or a
-runbook can reach. Removing it costs a hedge: it is what a plaintext origin would meet if the
-tunnel's own configuration — dashboard state no file here can read — were ever pointed at
-port 80, where the answer today would be a redirect rather than a connection refused. It also costs a
-paired edit: `scripts/checks/check_nginx_mirror.py :: DECLARED_DELTAS` carries a row for that
-redirect block, and `:: uncovered` fails a declared delta that covers nothing, so the row leaves in
-the same commit.
-
-**Done when the block is either removed with its declared delta, or kept with the reason it is kept
-written at it** — the reason being what a reader deleting it as dead code would otherwise undo. The
-comment above it today explains why no browser reaches it, which is not the same claim as why it
-stays.
-
-**Not verified.** Nothing was dialled: the reachability is read off `docker-compose.yml`,
-`nginx/prod.conf` and the sheet's §1.8 as they stand on this branch, searched 2026-09-07, and the
-tunnel's own origin setting is dashboard state the sheet describes and no file records.
 
 ### `fau5-jtph` · The action log's page narrows one capped read, and a toast promises more than search can show
 

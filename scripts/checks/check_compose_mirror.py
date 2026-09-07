@@ -2,6 +2,12 @@
 
 Both files parse either way, so nothing else holds the invariant. A construct outside the parsed
 subset refuses rather than answering, and a declared delta matching no difference is a finding.
+
+`scripts/checks/check_nginx_mirror.py` holds a copy of the seven comparison symbols below rather
+than a shared form: `scripts/lib/checker_kernel.py` is the one place a checker shares anything, and
+neither mirror checker may reach into the other. Sharing them would mean passing the declared rows
+in, since `scripts/checks/check_compose_mirror.py :: declaring` and `:: uncovered` read
+`:: DECLARED_DELTAS` as a module global. The two copies must stay recognisable as one mechanism.
 """
 
 from __future__ import annotations

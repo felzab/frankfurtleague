@@ -5,10 +5,9 @@ gains and local does not is a difference the local stack can never catch — whi
 of verifying against it. A construct outside the parsed subset refuses rather than answering, and a
 declared delta matching no difference is a finding.
 
-`scripts/checks/check_compose_mirror.py` is where `:: Marker`, `:: Delta`, `:: side_matches`,
-`:: declaring` and `:: uncovered` come from, copied because `scripts/lib/checker_kernel.py` is the
-one place a checker shares anything and neither of these two may reach into the other. They must
-stay recognisable as the same mechanism; the compose file is where the argument for it lives.
+`scripts/checks/check_compose_mirror.py` is where `:: Marker`, `:: Delta`, `:: Difference`,
+`:: diff`, `:: side_matches`, `:: declaring` and `:: uncovered` come from, copied rather than shared
+for the reason that file's header gives. They must stay recognisable as the same mechanism.
 
 Invariants:
 Every difference is declared or it is a finding, and every declaration covers a difference.
