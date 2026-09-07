@@ -144,6 +144,18 @@
 # what the run competes for rather than splitting the unit or removing work from it. The section
 # itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a row.
 #
+# `docs` gained a check: `check_log_quoting_class.py` costs 97-141 ms end to end, of which about
+# 60 ms is the comparison rather than this interpreter's own start, over two spreads of ten
+# interleaved rounds after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a
+# sixteen-core machine carrying the agent fleet this branch is built by, so both ends are upper
+# bounds reading that contention as much as the check; `check_regenerate_spelling.py`, interleaved
+# with it, read 197-236 ms against the 201-243 ms its own paragraph records, which is what places
+# this machine beside that measurement. It opens two files and expands two character classes, so
+# its span follows neither the size of the tree nor that of the branch. It is pooled with the docs
+# scope's other six units, so the job pays that span only where the pool cannot start all seven at
+# once, and either way it sits inside the floor the docs row carries, so neither reference nor
+# budget moves and neither takes a new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

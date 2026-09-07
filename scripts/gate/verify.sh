@@ -218,6 +218,7 @@ do_docs_gate() {
 do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
 do_regenerate_spelling() { "$PY" scripts/checks/check_regenerate_spelling.py; }
+do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
 do_openapi() { env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check; }
@@ -342,7 +343,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(conflict_markers docs_gate commit_messages public_routes regenerate_spelling openapi)
+DOCS_POOL=(conflict_markers docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -924,6 +925,19 @@ declaration, a registered site that has stopped naming it, or a tracked file nam
 register does not cover." \
     unit_replay regenerate_spelling; then
     ok "every site spells the regenerate command the declared way"
+  else
+    DOCS_OK=0
+  fi
+
+  # This scope because the two literals sit one per package: their own edits select
+  # `backend db docs` and `frontend docs`, and `docs` is the only one both reach.
+
+  step "docs · one quoting class behind the console format's two spellings"
+  unit_join log_quoting_class
+  if run_checker collect "scripts/checks/check_log_quoting_class.py" "The console format's quoting class has drifted. Above are both spellings and the
+characters only one package quotes. Edit the two literals together." \
+    unit_replay log_quoting_class; then
+    ok "both packages spell one quoting class"
   else
     DOCS_OK=0
   fi

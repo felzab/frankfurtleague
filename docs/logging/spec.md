@@ -147,8 +147,11 @@ How each surface keeps its stream to one format:
   The **error log is the one deliberate exception**: its format is not configurable, so it stays
   plain text at its default level. A parser skips non-`{` lines. **Nothing compares the
   `log_format`'s field names with this table**: a renamed field there is a hand-checked mirror, and
-  so are the console format's quoting class, the console line's regex and L2's key order, each
-  spelled once per surface with the other cited at it.
+  so are the console line's regex and L2's key order, each spelled once per surface with the other
+  cited at it. The console format's quoting class is the pair a checker holds instead
+  (`scripts/checks/check_log_quoting_class.py`, in the gate's docs scope), being the only one of
+  the three that is a plain character class on both sides rather than an assertion inside a test
+  body.
   **The access line is written to `/var/log/frankfurtleague/nginx/access.log`, a bind-mounted host
   file** ([`docs/ops/spec.md`](../ops/spec.md) §1.2), so `docker compose logs nginx` shows the error
   log alone and the host can bound the access log's age without touching the container.
