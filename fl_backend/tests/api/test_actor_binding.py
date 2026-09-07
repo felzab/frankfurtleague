@@ -23,6 +23,8 @@ from app.core.security import (
 from app.main import create_app
 from tests.config import ADMIN_AUTH, build_test_config
 
+from .conftest import MINIMUM_EXPECTED_MUTATIONS
+
 # Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
 # collection, before a fixture could run.
 APP = create_app(build_test_config())
@@ -256,14 +258,6 @@ MUTATIONS = sorted(
     for operation in ROUTES_BY_OPERATION
     if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES and operation not in SYSTEM_WRITES
 )
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation without
-# editing this file, so pinning the number would ask for a bump and prove nothing.
-
-# Set under the inventory by less than the largest router holds, so that router dropping out of the
-# mount lands below the floor. `tests/api/test_admin_guard.py` floors the same operations reached
-# through the published document, and the two move together.
-MINIMUM_EXPECTED_MUTATIONS = 30
 
 
 def binds_an_actor(route: APIRoute) -> bool:

@@ -10,6 +10,8 @@ from app.core.security import verify_access_admin, verify_access_base, verify_ac
 from app.main import create_app
 from tests.config import build_test_config
 
+from .conftest import MINIMUM_EXPECTED_MUTATIONS
+
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = create_app(build_test_config())
 
@@ -92,14 +94,6 @@ MUTATIONS = [
     for path, method in PUBLISHED_OPERATIONS
     if method != "get" and (path, method) not in PUBLIC_WRITES and (path, method) not in SYSTEM_WRITES
 ]
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation below
-# without editing this file, so pinning the number would ask for a bump and prove nothing.
-
-# Set under the inventory by less than the largest router holds, so that router dropping out of the
-# mount lands below the floor. `tests/api/test_actor_binding.py` floors the same operations reached
-# through the mounted routes, and the two move together.
-MINIMUM_EXPECTED_MUTATIONS = 30
 
 # Admin reads this inventory PINS, not every admin read the application serves -- nothing about a GET
 # tells the inventory which tier it belongs to, so each is enumerated and parametrised below.

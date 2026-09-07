@@ -11,6 +11,17 @@ from pymongo.database import Database
 from app.core.config import BackendConfig
 from tests.config import build_test_config
 
+# A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
+# module without editing anything, so pinning the number would ask for a bump and prove nothing.
+
+# One constant rather than one per module: `test_admin_guard.py` walks the published surface and
+# `test_actor_binding.py` the mounted routes, and a floor raised for one leaves the other standing
+# under a tree it has outgrown.
+
+# Set under the inventory by less than the largest router holds, so that router dropping out of the
+# mount lands below the floor.
+MINIMUM_EXPECTED_MUTATIONS = 30
+
 SAISON = "2026"
 PRIOR_SAISON = "2025"
 
@@ -31,6 +42,27 @@ TEAM_OIDS = {
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
     # The abandonment, which counts as played and never as an absage, so the two figures part company here.
     "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
+}
+
+# The spelling a season row and a fixture side both copy in at entry. Helmholtz's differs from its
+# club document's, which is what makes the copy provable; Fremd holds no season row, so its fixtures
+# carry the club's.
+SAISON_SHORTHANDS = {
+    "Helmholtz": "HE",
+    "Bock": "BO",
+    "Lessing": "LE",
+    "Ohne": "OH",
+    "Fremd": "FR",
+    "Komplett": "KO",
+}
+
+# One matchday per season and phase. No `spieltage` row is seeded, and `spiele.spieltag_id` is not
+# nullable, so a fixture generated under no matchday at all is a shape the collection would refuse.
+SPIELTAG_OIDS = {
+    (SAISON, "gruppenphase"): ObjectId("6890a1b2c3d4e5f60719b001"),
+    (SAISON, "viertelfinale"): ObjectId("6890a1b2c3d4e5f60719b002"),
+    (SAISON, "halbfinale"): ObjectId("6890a1b2c3d4e5f60719b003"),
+    (PRIOR_SAISON, "gruppenphase"): ObjectId("6890a1b2c3d4e5f60719b004"),
 }
 
 # A dict rather than a model: Pydantic could not express a row the validator rejects.
@@ -120,7 +152,7 @@ def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
     }
 
 
-def _junction(key: str, shorthand: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
+def _junction(key: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
     """The row `post_saison_team` writes: the club's identity COPIED in at entry, never joined on read."""
 
     return {
@@ -129,9 +161,18 @@ def _junction(key: str, shorthand: str, gruppe: str, **overrides: Any) -> dict[s
         "gruppe": gruppe,
         "austritt": None,
         "name": key,
-        "shorthand": shorthand,
+        "shorthand": SAISON_SHORTHANDS[key],
         **overrides,
     }
+
+
+def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
+    """The name and shorthand a fixture side carries are COMPOSED from the season row and ride on no payload (`docs/backend/spec.md :: I3`)."""
+
+    if key is None:
+        return None
+
+    return {"team_id": TEAM_OIDS[key], "name": key, "tore": tore, "shorthand": SAISON_SHORTHANDS[key]}
 
 
 def _spiel(
@@ -151,11 +192,84 @@ def _spiel(
         "spiel_nr": nr,
         "saison_id": saison_id,
         "saison_phase": phase,
+        "spieltag_id": SPIELTAG_OIDS[(saison_id, phase)],
+        # Written null rather than left out: each is a nullable key the collection still REQUIRES,
+        # and a `quelle` is its side's independent sibling rather than a value the side implies
+        # (`docs/backend/spec.md :: I22`).
+        "datum": None,
+        "uhrzeit": None,
+        "ort": None,
+        "schiedsrichter": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "elfmeterschiessen": None,
         "sonderereignis": sonderereignis,
         "ergebnis": ergebnis,
-        "team1": None if team1 is None else {"team_id": TEAM_OIDS[team1], "name": team1, "tore": tore1},
-        "team2": None if team2 is None else {"team_id": TEAM_OIDS[team2], "name": team2, "tore": tore2},
+        "team1": _side(team1, tore1),
+        "team2": _side(team2, tore2),
     }
+
+
+# Module level, so `test_corpus_shape.py` can hold the rows to the shipped validator without a
+# database: the collections these are written into carry none (`tests/conftest.py :: mongo_database`).
+TEAMS = [
+    _team("Helmholtz", "HG", name="Helmholtz-Gymnasium"),
+    _team("Bock", "BO"),
+    _team("Lessing", "LE"),
+    _team("Ohne", "OH"),
+    _team("Fremd", "FR"),
+    _team("Komplett", "KO"),
+]
+
+SAISON_TEAMS = [
+    # Figures matching nothing the matches below produce, so any read of a stored copy fails.
+    _junction(
+        "Helmholtz",
+        "A",
+        statistik={
+            "anzahl_gespielte_spiele": 99,
+            "siege": 99,
+            "niederlagen": 99,
+            "unentschieden": 99,
+            "tore_geschossen": 99,
+            "tore_kassiert": 99,
+            "punkte": 99,
+        },
+    ),
+    _junction("Bock", "A"),
+    _junction("Lessing", "A", austritt=dict(AUSTRITT)),
+    _junction("Ohne", "B"),
+    _junction("Komplett", "B"),
+    # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
+]
+
+SPIELE = [
+    _spiel(1, "gruppenphase", "Helmholtz", "Bock", 3, 1, ergebnis="3:1"),
+    _spiel(2, "gruppenphase", "Lessing", "Helmholtz", 2, 2, ergebnis="2:2"),
+    _spiel(3, "gruppenphase", "Helmholtz", "Lessing", 0, 4, ergebnis="0:4"),
+    # A forfeit: Lessing stayed away, so the awarded result counts as played and as an absage both.
+    _spiel(4, "gruppenphase", "Bock", "Lessing", 1, 0, ergebnis="1:0", sonderereignis="nichtantreten_team2"),
+    # Not yet played.
+    _spiel(5, "gruppenphase", "Bock", "Helmholtz", None, None, ergebnis=None),
+    # The playoff match, and the whole difference between the two scopes.
+    _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
+    # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
+    _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
+    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up.
+    _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
+    # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
+    _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
+    # Called off and never played: one row proves the count on both sides of the `$group`/fallback split.
+    _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
+    # The same, one phase later, so the absage count can be shown to obey the scope.
+    _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
+    # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
+    _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
+    # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
+    _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),
+    # Abandoned with the score that stood: Komplett's second counting match, and still no absage.
+    _spiel(14, "gruppenphase", "Komplett", "Fremd", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
+]
 
 
 @pytest.fixture(scope="session")
@@ -169,70 +283,10 @@ def league(mongo_database: Database) -> SeededLeague:
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 
-    mongo_database.teams.insert_many(
-        [
-            _team("Helmholtz", "HG", name="Helmholtz-Gymnasium"),
-            _team("Bock", "BO"),
-            _team("Lessing", "LE"),
-            _team("Ohne", "OH"),
-            _team("Fremd", "FR"),
-            _team("Komplett", "KO"),
-        ]
-    )
-
-    mongo_database.saison_teams.insert_many(
-        [
-            # Figures matching nothing the matches below produce, so any read of a stored copy fails.
-            _junction(
-                "Helmholtz",
-                "HE",
-                "A",
-                statistik={
-                    "anzahl_gespielte_spiele": 99,
-                    "siege": 99,
-                    "niederlagen": 99,
-                    "unentschieden": 99,
-                    "tore_geschossen": 99,
-                    "tore_kassiert": 99,
-                    "punkte": 99,
-                },
-            ),
-            _junction("Bock", "BO", "A"),
-            _junction("Lessing", "LE", "A", austritt=dict(AUSTRITT)),
-            _junction("Ohne", "OH", "B"),
-            _junction("Komplett", "KO", "B"),
-            # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
-        ]
-    )
-
-    mongo_database.spiele.insert_many(
-        [
-            _spiel(1, "gruppenphase", "Helmholtz", "Bock", 3, 1, ergebnis="3:1"),
-            _spiel(2, "gruppenphase", "Lessing", "Helmholtz", 2, 2, ergebnis="2:2"),
-            _spiel(3, "gruppenphase", "Helmholtz", "Lessing", 0, 4, ergebnis="0:4"),
-            # A forfeit: Lessing stayed away, so the awarded result counts as played and as an absage both.
-            _spiel(4, "gruppenphase", "Bock", "Lessing", 1, 0, ergebnis="1:0", sonderereignis="nichtantreten_team2"),
-            # Not yet played.
-            _spiel(5, "gruppenphase", "Bock", "Helmholtz", None, None, ergebnis=None),
-            # The playoff match, and the whole difference between the two scopes.
-            _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
-            # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
-            _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
-            # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up.
-            _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
-            # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
-            _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
-            # Called off and never played: one row proves the count on both sides of the `$group`/fallback split.
-            _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-            # The same, one phase later, so the absage count can be shown to obey the scope.
-            _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-            # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
-            _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
-            # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
-            _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),
-            # Abandoned with the score that stood: Komplett's second counting match, and still no absage.
-            _spiel(14, "gruppenphase", "Komplett", "Fremd", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
-        ]
-    )
+    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows
+    # are read by `test_corpus_shape.py` as the fixture declares them.
+    mongo_database.teams.insert_many([dict(row) for row in TEAMS])
+    mongo_database.saison_teams.insert_many([dict(row) for row in SAISON_TEAMS])
+    mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
 
     return SeededLeague(database=mongo_database, team_oids=dict(TEAM_OIDS))
