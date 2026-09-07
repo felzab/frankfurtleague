@@ -4,6 +4,7 @@ Two questions over `.github/gate-wall-clock.tsv`, one per mode. `--jobs` holds e
 run in hand to the budget its row gives it and refuses the run that breaks one, naming the job and
 both figures. `--base` holds the file itself: a budget or a reference that rose against the base
 carries a new measurement stamp, so a ceiling is never lifted by editing a number alone.
+`--reference` names the file either mode reads, so a copy is judged before it is committed.
 """
 
 from __future__ import annotations
@@ -302,7 +303,12 @@ def main() -> int:
     mode.add_argument(
         "--base", nargs="?", const=DEFAULT_BASE, metavar="REF", help=f"hold the reference file against this base (default: {DEFAULT_BASE})"
     )
-    parser.add_argument("--reference", default=str(REPO_ROOT / REFERENCE), help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--reference",
+        default=str(REPO_ROOT / REFERENCE),
+        metavar="PATH",
+        help=f"the reference file either mode reads (default: {REFERENCE.as_posix()}), so a copy can be judged before it is committed",
+    )
     args = parser.parse_args()
 
     opened = Path(args.reference)

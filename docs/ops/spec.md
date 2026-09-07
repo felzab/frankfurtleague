@@ -696,7 +696,8 @@ pull-request runs and carry `-` where the report, cut from main runs, would read
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
+runs. Either mode reads the table through `--reference`, so a copy is judged before it is committed
+and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report
 and the clause are one mechanism's three parts, and `scripts/tests/test_check_gate_budget.py`
