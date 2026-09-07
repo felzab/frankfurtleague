@@ -41,6 +41,13 @@ DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 
+ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
+
+# The reference's OWN figure, which no fixture here agrees: a booking carries the rent it was made
+# at, so a leak of either default would show up as this number on a fixture.
+DEFAULT_MIETPREIS = 65
+DEFAULT_PAYMENT = 15
+
 # Fixed rather than generated, so a failure names the same club every run.
 ALPHA = ObjectId("6890a1b2c3d4e5f607220001")
 BETA = ObjectId("6890a1b2c3d4e5f607220002")
@@ -123,10 +130,13 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 
 
 def saison_document() -> dict[str, Any]:
-    """`rules` alone, because that is all this path reads a season for; the document is never validated here."""
+    """`rules` is all this path reads a season for; the span and the status are what the shipped validator requires of any season."""
 
     return {
         "_id": SAISON_ID,
+        "start_date": "2026-01-01",
+        "end_date": "2026-06-30",
+        "status": "active",
         "rules": {
             "win_points": 3,
             "draw_points": 1,
@@ -142,11 +152,14 @@ def saison_document() -> dict[str, Any]:
 
 
 def spieltag_documents() -> list[dict[str, Any]]:
+    # Position 1 in each: the three sit in three different phases, where the positions restart, so
+    # one number for all of them still satisfies `uniq_saison_id_saison_phase_position`.
     return [
         {
             "_id": spieltag_id,
             "beginn": beginn,
             "ende": ende,
+            "position": 1,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
         }
@@ -346,17 +359,34 @@ REFEREES = {SCHIEDSRICHTER: ("A. Referee", None), SCHIEDSRICHTER_RETIRED: ("B. W
 
 
 def venue_documents() -> list[dict[str, Any]]:
-    """One live ground and one retired, so a refusal about RETIREMENT cannot pass because the id resolved to nothing."""
+    """One live ground and one retired, so a refusal about RETIREMENT cannot pass because the id resolved to nothing.
+
+    The default rent is the ground's own and never the rent a fixture agreed, which `booking` sets.
+    """
 
     return [
-        {"_id": spielort_id, "name": name, "maps_link": f"{name}, Frankfurt", "inactive_since": inactive_since}
+        {
+            "_id": spielort_id,
+            "name": name,
+            "address": dict(ADDRESS),
+            "maps_link": f"{name}, Frankfurt",
+            "default_mietpreis": DEFAULT_MIETPREIS,
+            "inactive_since": inactive_since,
+        }
         for spielort_id, (name, inactive_since) in VENUES.items()
     ]
 
 
 def referee_documents() -> list[dict[str, Any]]:
     return [
-        {"_id": schiedsrichter_id, "name": name, "inactive_since": inactive_since}
+        {
+            "_id": schiedsrichter_id,
+            "name": name,
+            "schule": None,
+            "default_payment": DEFAULT_PAYMENT,
+            "kontakt": {"telefon": None, "email": None},
+            "inactive_since": inactive_since,
+        }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]
 

@@ -532,6 +532,13 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def mongo_database(mongo_url: str) -> Iterator[Database]:
+    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
+
+    `tests/api/test_spieler_memberships_read.py :: squads` seeds a squad row predating
+    `is_nachgetragen`, which the shipped validator requires; and both it and
+    `tests/api/conftest.py :: league` drop their collections, taking any validator with them.
+    """
+
     client = MongoClient(mongo_url)
     try:
         yield client[worker_database("fl_test")]

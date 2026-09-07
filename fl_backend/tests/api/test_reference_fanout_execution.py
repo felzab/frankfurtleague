@@ -106,6 +106,23 @@ SIDES: dict[int, tuple[ObjectId, int, ObjectId, int]] = {
 SAISON_ID = "2026"
 PAST_SAISON_ID = "2025"
 
+# One matchday for every fixture: no rule here reads a Spieltag, and the reference is required.
+SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072200f1")
+
+# Read by nothing here: the fan-out asks a season for its status alone, and the shipped validator
+# requires the block whatever a path consults.
+RULES = {
+    "win_points": 3,
+    "draw_points": 1,
+    "qualifiers_per_group": 2,
+    "number_of_groups": 4,
+    "teams_per_group": 4,
+    "tiebreak_order": "tordifferenz",
+    "max_kadergroesse": 18,
+    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+}
+
 # spiel_nr -> the season it was played in. Only the club rename reads this: a venue and a referee are
 # league-wide, while a club's name is the season's own and a closed season keeps what it was played under.
 SEASONS: dict[int, str] = {1: SAISON_ID, 2: SAISON_ID, 3: PAST_SAISON_ID, 4: SAISON_ID, 5: SAISON_ID, 6: PAST_SAISON_ID}
@@ -177,9 +194,15 @@ def club_document(team_id: ObjectId) -> dict[str, Any]:
 
 
 def saison_document(saison_id: str) -> dict[str, Any]:
-    """Only what `patch_team` reads: this database installs no validator, and rules nothing here consults would be decoration."""
+    """`status` is the only field `patch_team` reads; the span and the rules are what the shipped validator requires of any season."""
 
-    return {"_id": saison_id, "status": "past" if saison_id == PAST_SAISON_ID else "active"}
+    return {
+        "_id": saison_id,
+        "start_date": f"{saison_id}-01-01",
+        "end_date": f"{saison_id}-06-30",
+        "status": "past" if saison_id == PAST_SAISON_ID else "active",
+        "rules": dict(RULES),
+    }
 
 
 def junction_document(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
@@ -199,14 +222,27 @@ def side(team_id: ObjectId, tore: int) -> dict[str, Any]:
 
 
 def fixture_document(spiel_nr: int) -> dict[str, Any]:
-    """Only the embedded copies and the number naming the row: no other field takes part in a fan-out."""
+    """The embedded copies and the number naming the row are what a fan-out reaches.
+
+    Every other field is null, so nothing else can appear to move under a rename.
+    """
 
     spielort_id, mietpreis, schiedsrichter_id, payment = FIXTURES[spiel_nr]
     home, home_tore, away, away_tore = SIDES[spiel_nr]
 
     return {
+        "_id": ObjectId(),
         "spiel_nr": spiel_nr,
         "saison_id": SEASONS[spiel_nr],
+        "saison_phase": "gruppenphase",
+        "spieltag_id": SPIELTAG_OID,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": None,
+        "uhrzeit": None,
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
         "team1": side(home, home_tore),
         "team2": side(away, away_tore),
         "ort": {

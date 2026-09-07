@@ -93,9 +93,22 @@ _DRIFT_SYNC = (
 
 
 def _data(infos: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """Views and `system.*` are listed beside real collections and answer neither a validator nor `delete_many`."""
+    """Views and `system.*` are listed beside real collections and answer neither a validator nor `delete_many`.
+
+    The exclusion is not coverage: `_foreign` reports what it drops but MongoDB's own, so a body that leaves one is refused.
+    """
 
     return [info for info in infos if info.get("type") == "collection" and not str(info["name"]).startswith("system.")]
+
+
+def _foreign(infos: Iterable[Mapping[str, Any]]) -> list[str]:
+    """What `_data` drops that a session can still have built: `listCollections` types a view `view`, a time-series collection `timeseries`.
+
+    `system.*` stays dropped: `system.views` and a time-series' `system.buckets.*` both type as
+    `collection`, so MongoDB's own bookkeeping is not a second finding.
+    """
+
+    return [str(info["name"]) for info in infos if info.get("type") != "collection" and not str(info["name"]).startswith("system.")]
 
 
 def _indexes(specs: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
@@ -125,16 +138,21 @@ async def _index_specs(database: AsyncDatabase, name: str) -> Sequence[Mapping[s
     return await (await database[name].list_indexes()).to_list(length=None)
 
 
-async def _schema(database: AsyncDatabase) -> Schema:
-    infos = _data(await (await database.list_collections()).to_list(length=None))
+async def _schema(database: AsyncDatabase) -> tuple[Schema, list[str]]:
+    """One `listCollections` answers both halves: what a baseline compares against, and what `_foreign` counts beside it."""
+
+    listed = await (await database.list_collections()).to_list(length=None)
+    infos = _data(listed)
     # Concurrently: one `listIndexes` per collection is the whole added cost of naming the culprit.
     specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
 
-    return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}
+    return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}, _foreign(listed)
 
 
-def _schema_sync(database: Database) -> Schema:
-    return {info["name"]: _enforcement(info, database[info["name"]].list_indexes()) for info in _data(database.list_collections())}
+def _schema_sync(database: Database) -> tuple[Schema, list[str]]:
+    listed = list(database.list_collections())
+
+    return {info["name"]: _enforcement(info, database[info["name"]].list_indexes()) for info in _data(listed)}, _foreign(listed)
 
 
 def _enforces(enforcement: Enforcement) -> bool:
@@ -143,22 +161,21 @@ def _enforces(enforcement: Enforcement) -> bool:
     return enforcement["validator"] is not None or bool(enforcement["indexes"].keys() - {"_id_"})
 
 
-def _moved(baseline: Schema, present: Schema) -> list[str]:
-    """Every collection whose enforcement differs from what the last call left.
-
-    An addition counts too: a `constraints=False` database starts empty, so a validator a body
-    builds onto a collection it seeded is compared against nothing at all.
-    """
+def _moved(baseline: Schema, present: Schema, foreign: Iterable[str]) -> list[str]:
+    """Every collection whose enforcement differs from what the last call left, and every namespace that is not a collection at all."""
 
     gone = baseline.keys() - present.keys()
     changed = {name for name, found in present.items() if name in baseline and found != baseline[name]}
+    # An addition counts too: a `constraints=False` database starts empty, so a validator a body
+    # builds onto a collection it seeded is compared against nothing at all.
     added = {name for name, found in present.items() if name not in baseline and _enforces(found)}
+    # A view counts whatever the baseline holds: `_data` drops it, so no comparison can reach one and
+    # the body that left it was never asked for `mutates_schema=True`.
+    return sorted(gone | changed | added | set(foreign))
 
-    return sorted(gone | changed | added)
 
-
-def _guard(message: str, name: str, baseline: Schema, present: Schema) -> None:
-    if moved := _moved(baseline, present):
+def _guard(message: str, name: str, baseline: Schema, present: Schema, foreign: Iterable[str]) -> None:
+    if moved := _moved(baseline, present, foreign):
         raise AssertionError(message.format(database=name, moved=", ".join(moved)))
 
 
@@ -180,10 +197,17 @@ async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints:
     await client.drop_database(database.name)
     if constraints:
         await apply_constraints(database)
+    # What a caller asks of `collections` is that they EXIST -- a transaction cannot create one --
+    # and a constrained build has already made every validated collection, which `create_collection`
+    # would then refuse by name.
+    made = set(await database.list_collection_names())
     for collection in collections:
-        await database.create_collection(collection)
+        if collection not in made:
+            await database.create_collection(collection)
 
-    return await _schema(database)
+    built, _ = await _schema(database)
+
+    return built
 
 
 async def _clear(database: AsyncDatabase, baseline: Schema) -> None:
@@ -201,7 +225,7 @@ async def a_clean_database(
     url: str,
     name: str,
     *,
-    constraints: bool = False,
+    constraints: bool = True,
     collections: Iterable[str] = (),
     mutates_schema: bool = False,
 ) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
@@ -232,12 +256,12 @@ async def a_clean_database(
     # After the body rather than before the next one, so the test pytest names is the one that
     # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.
     if not mutates_schema:
-        present = await _schema(database)
-        _guard(_DRIFT, name, baseline, present)
+        present, foreign = await _schema(database)
+        _guard(_DRIFT, name, baseline, present, foreign)
         _BUILT[key] = (constraints, present)
 
 
-def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:
+def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constraints: bool = True) -> Database:
     """`a_clean_database` for a fixture holding a pymongo client, which returns before its test body runs.
 
     Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
@@ -248,16 +272,22 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:
     built = _BUILT.get(key)
     _BUILT.pop(key, None)
 
-    if built is None or built[0]:
+    if built is None or built[0] != constraints:
         client.drop_database(name)
-        _BUILT[key] = (False, _schema_sync(database))
+        if constraints:
+            # Through the tier's own loop and its async client rather than a synchronous rebuild of
+            # the same work: `apply_constraints` is the one declaration of what a constrained
+            # database carries, and a second copy of it here could disagree with production.
+            on_the_seed_loop(apply_constraints(shared_client(url)[name]))
+        rebuilt, _ = _schema_sync(database)
+        _BUILT[key] = (constraints, rebuilt)
 
         return database
 
-    present = _schema_sync(database)
-    _guard(_DRIFT_SYNC, name, built[1], present)
+    present, foreign = _schema_sync(database)
+    _guard(_DRIFT_SYNC, name, built[1], present, foreign)
     for collection in present:
         database[collection].delete_many({})
-    _BUILT[key] = (False, present)
+    _BUILT[key] = (constraints, present)
 
     return database

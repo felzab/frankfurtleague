@@ -95,7 +95,7 @@ opens — rather than a narrower shape of the reads below.
 | GET    | `/schiedsrichter/{schiedsrichter_id}` | `schiedsrichter/router.py`  | Unused by the frontend, for `/spielorte/{spielort_id}`'s reason                                                                                                                                          |
 | GET    | `/bewerbungen`                        | `bewerbungen/router.py`     | Admin-tier whole — contact records, and which schools were turned down (`READ-CONTACT-001`). Newest first, narrowed by `saison_id` or `status`; a decided application stays listed                       |
 | GET    | `/bewerbungen/{bewerbung_id}`         | `bewerbungen/router.py`     | `getBewerbungById(id)` — the triage page's read, which is what one decision is taken against                                                                                                             |
-| GET    | `/aktionen`                           | `aktionen/admin_router.py`  | The action log — every recorded write, newest first, narrowed by collection, operation, correlation id or document id. It spans every collection (I40, I48)                                              |
+| GET    | `/aktionen`                           | `aktionen/admin_router.py`  | The action log — every recorded write, newest first, narrowed by collection, operation, trace id or document id. It spans every collection (I40, I48)                                                    |
 | GET    | `/aktionen/{aktion_id}`               | `aktionen/admin_router.py`  | One log row WITH the document its write replaced — the only read serving a pre-image (I43); the list reports `stand_gesichert` instead                                                                   |
 
 **Every ENTITY resource carries a `GET /{id}` whether or not something calls it** — the callerless
@@ -260,8 +260,8 @@ cache tags in the same action — the data it caches changed even though no team
 
 ### 1.4 Error codes and failure responses
 
-**Every failure response body is `{error_code, correlation_id}`** — the full code table and the body's
-field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the correlation-id
+**Every failure response body is `{error_code, trace_id}`** — the full code table and the body's
+field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the trace-id
 design in [`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must
 follow them.
 The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
@@ -296,7 +296,7 @@ one of these, where the season has not moved at all.
 | `REQ-BOOKING-001`     | A venue or referee NEWLY assigned that the league holds no row for, or holds as retired; a stored reference is left alone                                                              |
 | `REQ-CLASH-001`       | A venue or referee already serving another fixture less than four hours away                                                                                                           |
 
-**One code per rule, never one per side.** The failure body is `{error_code, correlation_id}` and
+**One code per rule, never one per side.** The failure body is `{error_code, trace_id}` and
 nothing else (L4), so the code is the only channel — and "team1 has left the season" and "team2 has
 left the season" are one failure mode, which is what the code table's own rule keys on.
 
@@ -455,8 +455,15 @@ and cannot suffer same-basename collisions.
   hand-built rather than produced by a factory.
 - **A `db` test that takes a clean database from a helper has it built once and emptied per test**,
   and a body that moves what a collection enforces — narrowing a validator, adding or dropping an
-  index — says so where it seeds, `mutates_schema=True`. Forgetting is caught rather than
-  remembered, by `fl_backend/tests/database.py :: a_clean_database`.
+  index, creating a view or a time-series collection — says so where it seeds, `mutates_schema=True`.
+  Forgetting is caught rather than remembered, by `fl_backend/tests/database.py :: a_clean_database`.
+- **That database carries the shipped validators and indexes**, both from
+  `fl_backend/tests/database.py :: a_clean_database` and from `:: a_clean_database_sync`, so a seed
+  the product could not hold fails on the insert. `constraints=False` is the opt-out and takes a
+  reason at the body: what it is for is a case whose subject IS a document
+  `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` refuses — a row stored before the
+  validator that now forbids it. A seed that merely fails is repaired, never accommodated by
+  widening a validator (`.claude/rules/backend.md`).
 - **The suite that manipulates a schema takes a database no other test shares**, a half-applied
   schema being a state nothing records
   (`fl_backend/tests/core/test_constraints_execution.py :: on_a_database`).

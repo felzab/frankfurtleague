@@ -200,7 +200,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     yield from seed_the_public_corpus(mongo_url)
 
 
-def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
+def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: bool = True) -> str:
     """A corpus of exactly the seasons handed in, in `WINDOW_DATABASE`, for a case that decides which one `/fenster` picks.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
@@ -209,7 +209,9 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
 
     client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, WINDOW_DATABASE)
+        # `constrained=False` is for a season whose window the shipped validator refuses -- one
+        # stored before that validator arrived.
+        database = a_clean_database_sync(client, mongo_url, WINDOW_DATABASE, constraints=constrained)
         database[Collection.SAISONS].insert_many(saisons)
 
         return mongo_url
@@ -414,7 +416,9 @@ class TestAStoredWindowThatIsNotAnObject:
     def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
         """Non-vacuous: the season EXISTS, so a 404 here is the stored shape being refused rather than the id."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        # UNCONSTRAINED: `_SAISON_BEWERBUNG` is what refuses these windows, so the rows this case is
+        # about are rows only a database predating the validator can hold.
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
         assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
 
@@ -430,7 +434,8 @@ class TestAStoredWindowShortOfAFieldTheReadNeeds:
     def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
         """Non-vacuous: the season exists and its window IS an object, so the 404 is the missing key rather than the id or the shape."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        # UNCONSTRAINED for the class above's reason: `_SAISON_BEWERBUNG` requires every key.
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
         assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
 

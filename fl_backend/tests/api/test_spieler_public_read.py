@@ -436,7 +436,10 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     """
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        # UNCONSTRAINED: `_legacy_squad_row` omits `is_nachgetragen`, which the shipped validator
+        # requires, so the row this corpus exists to serve is one a constrained database refuses --
+        # it models a row already stored when the validator arrived.
+        async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows

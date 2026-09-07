@@ -102,8 +102,6 @@ deliverable.
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
 | `aee2-vxqc` | Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes                       | BE, ci, tests, versions                                                     | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
-| `b732-rpvp` | Most of the database tier runs against collections production would not accept                                                                                    | BE, DB, tests                                                               | Open     |
-| `bfs4-ax6a` | The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there                                               | BE, DB, tests                                                               | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
 | `cu59-4gqt` | Nothing announces that a season rollover is due                                                                                                                   | Ops, Docs, ci                                                               | Standing |
@@ -124,7 +122,6 @@ deliverable.
 | `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                                                                        | Ops, Docs, gate                                                             | Open     |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                                                              | BE, DB, Docs, bewerbungen                                                   | Open     |
-| `gkp4-q3q9` | A unique index and the case proving it are paired by position, and only a count holds them                                                                        | BE, DB, tests                                                               | Open     |
 | `gm9c-2du4` | Every link the local stack mails points at production                                                                                                             | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                                                                   | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                                                            | FE, tests                                                                   | Open     |
@@ -1006,79 +1003,6 @@ permitted because nobody looked still read identically until one of them is writ
 Both are cheap, and choosing is the work — which is why they are one entry rather than one apiece.
 The precedent is set: the duplicate squad number in one team and season was answered by declaring
 it, because the live data already holds the state and refusing it would make those rows uneditable.
-
-### `b732-rpvp` · Most of the database tier runs against collections production would not accept
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| BE, DB, tests | Open   | —          |
-
-Lands with: `bfs4-ax6a`, `gkp4-q3q9`
-
-**Every shared database fixture yields a bare database, so unconstrained is the default rather than a
-decision.** `fl_backend/tests/database.py :: a_clean_database` defaults `constraints` to `False` and
-`fl_backend/tests/conftest.py :: mongo_database` applies nothing at all, so
-`fl_backend/app/core/constraints.py :: apply_constraints` is opt-in per suite — and most of the db
-tier declines it, inserting into collections that in production carry a `$jsonSchema` validator and,
-for some, a unique index. **A document MongoDB would refuse on the server therefore passes in the
-tier meant to prove the server's behaviour.**
-
-**Some of those suites hold seeds the shipped validators would refuse outright**, found by comparing literal
-seed dictionaries against the `required` tuples in
-`fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` rather than by running them:
-`fl_backend/tests/api/test_spieler_write_execution.py` seeds a `saison_teams` row and a `saison_spieler` row
-each missing required keys, and `fl_backend/tests/api/test_spieltage_write_execution.py` seeds a `spiele`
-document missing more. **That is a floor rather than a total** — the comparison sees only dictionary literals
-passed straight to an insert, and most suites seed through factory helpers it cannot follow.
-
-**Unconstrained is sometimes right, and the fix is not "constrain everything".**
-`fl_backend/tests/core/test_constraints_execution.py` already models the shape the answer wants:
-`:: on_the_shipped_schema` is the constrained default and `:: on_an_unconstrained_database` a helper
-a call has to name, with a stated reason at each unconstrained body.
-
-**Done when** constrained is what the shared fixture gives and unconstrained is an argument somebody
-has to write down. The flip itself is one line — `a_clean_database`'s `constraints` default — so the
-work is the seeds it exposes: turning one suite constrained costs more lines than it removes, because
-a seed written against no validator omits fields the shipped one requires, and **every seed it
-corrects is a seed that was quietly describing a document the product cannot hold**. What it buys is
-that the database tier stops being able to prove behaviour over impossible data, which is the one
-thing that tier exists for.
-
-### `bfs4-ax6a` · The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| BE, DB, tests | Open   | —          |
-
-Lands with: `b732-rpvp`, `gkp4-q3q9`
-
-**`fl_backend/tests/database.py :: a_clean_database` builds a database's schema once and holds every
-later caller to it.** `:: _moved` compares what the database now carries against the baseline the
-build left, and `:: _clear` empties the collections in that baseline; a body that narrows a validator
-or moves an index is required to say so by passing `mutates_schema=True`, and the refusal
-`:: _DRIFT_SYNC` spells out why — what left the database ran EARLIER, and the test the failure names
-only inherited it.
-
-**Both halves read `:: _data`, which keeps only the entries `listCollections` types as a
-collection**, and a MongoDB view is typed `view`, so it enters neither the baseline nor the
-comparison. **The exclusion is right for the reason its docstring gives** — a view answers neither a
-validator nor a `delete_many` — and the consequence is the part nothing states: the guard cannot
-report a view, so a body that creates one is neither refused nor asked for `mutates_schema=True`.
-
-**One body creates a view today and is safe by its own choice rather than by the guard.**
-`fl_backend/tests/core/test_constraints_execution.py` proves that the startup apply fails on an
-unattached validator by creating `teams` as a view, and it runs through `:: on_a_database`, which
-passes `mutates_schema=True` and therefore rebuilds on every call. The same body written against
-`:: on_the_shipped_schema` or `:: on_an_unconstrained_database` — the two helpers whose databases are
-built once and reused — leaves a view the clear never empties and the comparison never reports, and
-where the view takes the name of a collection the baseline holds, the next caller's `delete_many` is
-run against a view and fails: **the test that fails is the one after the one that moved the schema**,
-with nothing in the output pointing back.
-
-**Done when** `fl_backend/tests/database.py :: _moved` counts a namespace that is not a collection as
-enforcement the session did not build and reports it under the message that already exists, and
-`fl_backend/tests/database.py :: _data` states that its filter answers what carries a validator and
-never what the database holds — so the next reader does not take the exclusion for coverage.
 
 ### `buut-5cyw` · An undo restores a whole stored fixture from a list read before the save
 
@@ -2058,45 +1982,6 @@ answer with is a short closed list, and everything else on the document is what 
 
 **Done when** each anonymous read names the fields it needs, and a case fails where a field outside
 that list reaches the handler.
-
-### `gkp4-q3q9` · A unique index and the case proving it are paired by position, and only a count holds them
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| BE, DB, tests | Open   | —          |
-
-Lands with: `b732-rpvp`, `bfs4-ax6a`
-
-**`fl_backend/tests/core/test_constraints_execution.py :: test_each_unique_index_refuses_the_second_document`
-is parametrized over a hand-written list of document pairs, labelled with `ids` taken from the names in
-`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`.** That labelling is the only coupling between the
-declaration and the cases meant to prove it: the ids are labels no assertion reads, and the pairing between
-the n-th index and the n-th document pair is positional.
-
-**What the coupling catches, it catches by accident.** Removing an index leaves fewer ids than
-parameter sets and pytest fails at collection with a message naming counts and no index — one that
-prevents the tests from running at all rather than reporting which rule went unproven. Adding one
-fails the same way. Verified on the installed pytest on 2026-08-25 by running both shapes over probe
-files outside the tree.
-
-**One correction to how this is first read.** An emptied `UNIQUE_INDEXES` does defeat the labelling
-check, because pytest carves out an empty id list, and the same probe confirms the parameter sets
-collect and pass under it. **It does not slip past the test**: `:: apply_constraints` would then
-build no unique index, the second insert in each case would land, and every assertion would fail on
-the document being accepted rather than rejected. So the loud failure is there; it comes from a
-different mechanism than the one meant to hold the pairing.
-
-**The mutations nothing catches are the reason for the entry.** Reordering `UNIQUE_INDEXES` re-labels
-every case without changing any outcome, so a case reported under one index's name is exercising
-another and every one still passes. And an index whose keys change keeps its name and its
-hand-written pair, so whether that pair still proves the narrowed or widened rule is checked by
-nobody — two sibling tests happening to cover two of those cases are not a general answer.
-
-**Done when** the document pairs are keyed by index name and the parametrize list is built by walking
-`UNIQUE_INDEXES` and looking each name up: a missing key is then a `KeyError` naming the index, a
-reorder is inert, and the id is derived from the same value the case is. The precedent is one file
-away — `fl_backend/tests/api/test_rules_refusal.py` asserts its own case list against the imported
-field tuple at module level, so an unpaired field fails at import.
 
 ### `gm9c-2du4` · Every link the local stack mails points at production
 

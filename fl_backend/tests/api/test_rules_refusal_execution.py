@@ -126,18 +126,38 @@ def squad_rows() -> list[dict[str, Any]]:
     return rows
 
 
+def spiel_document(**overrides: Any) -> dict[str, Any]:
+    """Every key the shipped validator requires, null where this suite has no opinion.
+
+    A null side and a null booking are what a drawn fixture holds until somebody fills them in.
+    """
+
+    return {
+        "_id": ObjectId(SPIEL_ID.format(1)),
+        "team1": None,
+        "team2": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": None,
+        "uhrzeit": None,
+        "ort": None,
+        "schiedsrichter": None,
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "spieltag_id": SPIELTAG_OID,
+        "spiel_nr": 1,
+        "sonderereignis": None,
+        "saison_phase": "gruppenphase",
+        "saison_id": SAISON_ID,
+        **overrides,
+    }
+
+
 def drawn_spiele() -> list[dict[str, Any]]:
-    """One matchday's fixtures. No `quelle` on either side, so nothing here can be read as a wired placing."""
+    """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
     return [
-        {
-            "_id": ObjectId(SPIEL_ID.format(nr)),
-            "spiel_nr": nr,
-            "saison_id": SAISON_ID,
-            "saison_phase": "gruppenphase",
-            "spieltag_id": SPIELTAG_OID,
-            "datum": "2026-03-15",
-        }
+        spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum="2026-03-15")
         for nr in range(1, DRAWN_FIXTURES + 1)
     ]
 
@@ -158,20 +178,19 @@ def knockout_spieltag_document() -> dict[str, Any]:
 def knockout_spiele(*, played: int = 0) -> list[dict[str, Any]]:
     """The bracket's first round, `played` of them carrying a result.
 
-    A RESULT and nothing else, so what closes the window is the fact `has_taken_place` reads rather
-    than a side, a date or a booking any of the other rules could answer for.
+    A RESULT and every other field null, so what closes the window is what `has_taken_place` reads
+    rather than a side or a booking another rule answers for.
     """
 
     return [
-        {
-            "_id": ObjectId(SPIEL_ID.format(100 + nr)),
-            "spiel_nr": DRAWN_FIXTURES + nr,
-            "saison_id": SAISON_ID,
-            "saison_phase": "viertelfinale",
-            "spieltag_id": KNOCKOUT_SPIELTAG_OID,
-            "datum": "2026-04-15",
-            **({"ergebnis": "3:1"} if nr <= played else {}),
-        }
+        spiel_document(
+            _id=ObjectId(SPIEL_ID.format(100 + nr)),
+            spiel_nr=DRAWN_FIXTURES + nr,
+            saison_phase="viertelfinale",
+            spieltag_id=KNOCKOUT_SPIELTAG_OID,
+            datum="2026-04-15",
+            ergebnis="3:1" if nr <= played else None,
+        )
         for nr in range(1, KNOCKOUT_FIXTURES + 1)
     ]
 

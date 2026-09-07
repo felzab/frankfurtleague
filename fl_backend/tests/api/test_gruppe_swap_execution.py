@@ -46,11 +46,32 @@ NAMES = {
     BETA_RIVAL: ("Beta-Rival", "BR"),
 }
 
+ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
+
+# Read by nothing here: the swap asks a season for its status alone, and the block is required.
+RULES = {
+    "win_points": 3,
+    "draw_points": 1,
+    "qualifiers_per_group": 2,
+    "number_of_groups": 2,
+    "teams_per_group": 2,
+    "tiebreak_order": "tordifferenz",
+    "max_kadergroesse": 18,
+    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+    "erlaubte_stufen": ["E1", "Q1"],
+}
+
 
 def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
+    """A dict rather than a model: `saison_teams` has no model of the row.
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None}
+    The season's own name and shorthand are required on it and read by nothing here -- the rewrite
+    composes a side's copies from `teams`.
+    """
+
+    name, shorthand = NAMES[team_id]
+
+    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": shorthand}
 
 
 # Only `datum` decides `REQ-SWAP-006`; the type and the reason are what a surface reports.
@@ -64,11 +85,23 @@ async def record_an_austritt(database: AsyncDatabase, team_id: ObjectId) -> None
 
 
 def club(team_id: ObjectId) -> dict[str, Any]:
-    """Only what the rewrite projects: it composes a side's `name` and `shorthand` from `teams`, not from the season's junction row."""
+    """`name` and `shorthand` are what the rewrite projects, from `teams` and never from the season's junction row.
+
+    The rest of the document is the shipped validator's, and no case here reads it.
+    """
 
     name, shorthand = NAMES[team_id]
 
-    return {"_id": team_id, "name": name, "shorthand": shorthand}
+    return {
+        "_id": team_id,
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule",
+        "website_url": "https://example.com",
+        "address": dict(ADDRESS),
+        "inactive_since": None,
+    }
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -80,6 +113,11 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
 # Sharing one matchday is what makes a `REQ-SWAP-005` clash reachable; the second is for cases needing two.
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100ff")
 OTHER_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fe")
+# The bracket's own, so a knockout fixture shares a matchday with nothing unless a case says so.
+KNOCKOUT_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fd")
+
+# Past the round robin's, `uniq_saison_id_spiel_nr` holding one number to one fixture per season.
+KNOCKOUT_SPIEL_NR = 9
 
 
 def gruppen_fixture(
@@ -94,25 +132,53 @@ def gruppen_fixture(
     datum: str | None = None,
 ) -> dict[str, Any]:
     return {
+        "_id": ObjectId(),
         "saison_id": SAISON_ID,
         "saison_phase": "gruppenphase",
         "spiel_nr": spiel_nr,
         "spieltag_id": spieltag_id,
         # Null rather than absent, which is what a drawn fixture stores until somebody schedules it.
         "datum": datum,
+        "uhrzeit": None,
         "team1": side(home, tore[0]),
         "team2": side(away, tore[1]),
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "ort": None,
+        "schiedsrichter": None,
         "ergebnis": ergebnis,
+        "elfmeterschiessen": None,
         "sonderereignis": sonderereignis,
     }
 
 
-def knockout_fixture(*, ergebnis: str | None, sonderereignis: str | None = None, spieltag_id: ObjectId | None = None) -> dict[str, Any]:
-    """`spieltag_id` is absent rather than null when none is given — the state `_spieltag_clashes` skips."""
+def knockout_fixture(
+    *,
+    ergebnis: str | None,
+    sonderereignis: str | None = None,
+    spieltag_id: ObjectId = KNOCKOUT_SPIELTAG,
+    spiel_nr: int = KNOCKOUT_SPIEL_NR,
+) -> dict[str, Any]:
+    """Its own matchday by default, which `_spieltag_clashes` finds no group fixture on: the clash cases name `SPIELTAG` themselves."""
 
-    fixture = {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "sonderereignis": sonderereignis}
-
-    return fixture if spieltag_id is None else {**fixture, "spieltag_id": spieltag_id}
+    return {
+        "_id": ObjectId(),
+        "saison_id": SAISON_ID,
+        "saison_phase": "viertelfinale",
+        "spiel_nr": spiel_nr,
+        "spieltag_id": spieltag_id,
+        "datum": None,
+        "uhrzeit": None,
+        "team1": None,
+        "team2": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "ort": None,
+        "schiedsrichter": None,
+        "ergebnis": ergebnis,
+        "elfmeterschiessen": None,
+        "sonderereignis": sonderereignis,
+    }
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -133,7 +199,10 @@ def on_a_seeded_season(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,), mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status})
+            await database[Collection.SAISONS].insert_one(
+                # The span and the rules are the shipped validator's; the swap reads the status alone.
+                {"_id": SAISON_ID, "start_date": "2026-01-01", "end_date": "2026-06-30", "status": saison_status, "rules": dict(RULES)}
+            )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction(ALPHA, "A"), junction(ALPHA_RIVAL, "A"), junction(BETA, "B"), junction(BETA_RIVAL, "B")]
             )
@@ -395,7 +464,7 @@ class TestTheRefusalsReadTheRealDocuments:
         code, message, stored = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis="2:1"), knockout_fixture(ergebnis=None)],
+            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis="2:1"), knockout_fixture(ergebnis=None, spiel_nr=KNOCKOUT_SPIEL_NR + 1)],
         )
 
         assert code == SWAP_KNOCKOUT_STARTED

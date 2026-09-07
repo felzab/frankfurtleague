@@ -99,6 +99,8 @@ class TestWhetherTheClubIsStillInTheLeague:
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
+SAISON_START = "2026-01-01"
+SAISON_END = "2026-06-30"
 
 # Fixed rather than generated, so a failure names the same club every run.
 LIVE_OID = ObjectId("6890a1b2c3d4e5f607230001")
@@ -132,8 +134,15 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISON_TEAMS,)) as (_, database):
             await database[Collection.SAISONS].insert_one(
-                # Only what the endpoint reads: this database installs no validator, and the rest would be decoration.
-                {"_id": SAISON_ID, "status": saison_status, "rules": RULES.model_dump(mode="json")}
+                # The span is the shipped validator's, not this suite's: no body here reads a date,
+                # and a row without one is a season the product cannot hold.
+                {
+                    "_id": SAISON_ID,
+                    "start_date": SAISON_START,
+                    "end_date": SAISON_END,
+                    "status": saison_status,
+                    "rules": RULES.model_dump(mode="json"),
+                }
             )
             await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
 
