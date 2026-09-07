@@ -360,7 +360,13 @@ own replay, but only after every later scope that finished with a verdict has it
 adopted — rows alone, never the captured output — so the closing table tells a passing scope from
 one that never ran, and a session fixing the failure knows what it need not pay for again.
 Byte-identity with the serial run is a green run's property, a failing serial run having stopped
-where the parallel one did not, and `--serial` is what that comparison is measured against.
+where the parallel one did not, and `--serial` is what that comparison is measured against — **on
+everything but the run's own timing**, which `scripts/lib/_lib.sh :: fmt_ms` writes into each step's
+suffix, into the closing table's duration cell and into the ending's elapsed, and which no two runs
+of the same work share. The pair is held to that by
+`scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`,
+which drives two stub-tooled scopes once each way, masks those three sites and compares the rest per
+stream.
 **No scope waits on another**, so every scope starts at once and the run's floor is its longest.
 
 **A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
