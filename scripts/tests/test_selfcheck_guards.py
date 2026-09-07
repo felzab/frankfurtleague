@@ -130,6 +130,56 @@ def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
         assert crashed is crashes, f"{name}: {line!r} {err!r}"
 
 
+# The clean refusal `FAKE_HOOKS` holds none of: the probe below has to tell it apart from the row
+# printing that same verdict on its way out.
+REFUSES_CLEANLY: Final[tuple[str, str]] = ("refuses.sh", "#!/usr/bin/env bash\nprintf '" + REFUSAL + "'\n")
+
+
+def _blind(hook: str, tmp_path: Path) -> tuple[str, str]:
+    """The git-blind probe over one fake hook, its verdict read off the two streams apart.
+
+    `note_fail` is lifted beside it because the probe grades through it, and a stub here would be
+    green over a `fail` that had stopped counting.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir(exist_ok=True)
+    for name, body in [(name, body) for name, body, _ in FAKE_HOOKS] + [REFUSES_CLEANLY]:
+        (hooks / name).write_text(body, encoding="utf-8", newline="\n")
+    (tmp_path / "repo").mkdir(exist_ok=True)
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            f"HOOKS_DIR={hooks.as_posix()!r}",
+            f"HOOK_REPO={(tmp_path / 'repo').as_posix()!r}",
+            'SELFCHECK_TMP="$(mktemp -d)"',
+            "FAILURES=0",
+            PAYLOAD_FN,
+            _function("note_fail"),
+            _function("blind_probe", "    "),
+            f"blind_probe /nonexistent {hook}",
+        ),
+        tmp_path,
+    )
+    return out, err
+
+
+def test_the_git_blind_probe_grades_a_refusal_that_then_dies_as_a_crash(tmp_path: Path) -> None:
+    """This is the only case standing behind the branch guard's refusal where git cannot be reached.
+
+    Read for the status, which a hook printing a correct deny on its way out is otherwise credited with.
+    """
+    out, err = _blind("refuses_then_dies.sh", tmp_path)
+
+    assert "crashed (exit 3)" in err, f"{out!r} {err!r}"
+
+
+def test_the_git_blind_probe_reads_a_refusal_that_exits_cleanly_as_the_refusal(tmp_path: Path) -> None:
+    out, err = _blind(REFUSES_CLEANLY[0], tmp_path)
+
+    assert "denied" in out and "crashed" not in err, f"{out!r} {err!r}"
+
+
 def _build_hook_fixture(repo: Path, tmp_path: Path) -> tuple[str, str]:
     """The builder run from the script's own calling position, an `if !`.
 

@@ -491,11 +491,7 @@ def test_a_difference_neither_side_is_alone_in_is_shown_whole():
 
 
 def test_a_rate_planted_in_one_fixture_file_alone_is_a_finding(tmp_path, monkeypatch):
-    """The failure the checker exists to report, over a pair that differs exactly once.
-
-    Asserted on the exit code, not the text: `checker_kernel.py :: report_findings` binds its
-    stream as a default argument, so no capture fixture sees it.
-    """
+    """The failure the checker exists to report, over a pair that differs exactly once."""
     monkeypatch.setattr(mirror, "DECLARED_DELTAS", ())
     prod, local = pair(tmp_path, PROD_FIXTURE, PROD_FIXTURE.replace("rate=2r/m", "rate=9r/m"))
 

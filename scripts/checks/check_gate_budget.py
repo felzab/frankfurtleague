@@ -334,8 +334,7 @@ def main() -> int:
         for line in lines:
             print(f"      {line}")
         annotate(findings)
-        # The stream named at the call: the kernel binds its default at import, ahead of any redirect.
-        code = report_findings(findings, stream=sys.stdout)
+        code = report_findings(findings)
         if code == EXIT_OK:
             print(f"      every measured job sits inside its budget ({reference})")
         return code
@@ -353,7 +352,7 @@ def main() -> int:
         before = None
     findings = check_raise(before, rows, datetime.now(timezone.utc).date())
     annotate(findings)
-    code = report_findings(findings, stream=sys.stdout)
+    code = report_findings(findings)
     if code == EXIT_OK:
         print(f"      no figure in {reference} rose against {base[:7]} without its measurement")
     return code

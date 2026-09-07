@@ -169,7 +169,7 @@ def run_shell(
 
 
 def lift_function(script: Path, name: str, indent: str = "") -> str:
-    """One shell function's source, by its opening and closing lines, dedented to the margin.
+    """One shell function's source, dedented to the margin: a one-line one whole, a block by its closing line.
 
     Read rather than reimplemented: a copy in a test passes while the gate's own copy regresses.
     """
@@ -178,8 +178,13 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     # inside its script is still found.
     start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
     assert start >= 0, f"{_cited(script)} no longer defines {name}"
+    # bash terminates a brace group's list before its `}`, so a body on the opening line ends the
+    # function there. Read off the terminator, not a bare `}`, which a parameter expansion ends a
+    # line with too.
+    if lines[start].rstrip().endswith("; }"):
+        return lines[start].removeprefix(indent)
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"{_cited(script)}'s {name} has no closing line"
+    assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
 
 

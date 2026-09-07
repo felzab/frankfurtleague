@@ -1584,12 +1584,25 @@ else
     # environment. bash by absolute path, the stripped PATH being what hides git.
     nogit="${HOOKFX}/nogit"
     mkdir -p "$nogit"
-    blind="$( cd "$HOOK_REPO" && cmd_payload 'printf x > scripts/gate/verify.sh' |
-      PATH="$nogit" "$BASH" "${HOOKS_DIR}/${hb}" 2>/dev/null )" || true
-    case "$blind" in
-      *'"permissionDecision":"deny"'*) info 'bash guard: git absent from PATH — denied' ;;
-      *) note_fail "bash guard: git absent from PATH: expected denied, got '${blind:-allowed}'" ;;
-    esac
+    blind_probe() { # $1 the PATH the hook is given · $2 the hook
+      local fed="${SELFCHECK_TMP}/blind.json" err="${SELFCHECK_TMP}/blind.err" blind rc=0
+      cmd_payload 'printf x > scripts/gate/verify.sh' > "$fed"
+      # From a file and graded on the status first, for the two reasons
+      # `scripts/gate/selfcheck.sh :: unit_probe` states: a pipe grades the writer's SIGPIPE, and a
+      # dropped status reads a crash as the refusal it printed.
+      blind="$( cd "$HOOK_REPO" && PATH="$1" "$BASH" "${HOOKS_DIR}/$2" < "$fed" 2>"$err" )" || rc=$?
+      if (( rc != 0 )); then
+        note_fail "bash guard: git absent from PATH: crashed (exit ${rc})"
+        if [[ -s "$err" ]]; then excerpt 10 < "$err"; fi
+      elif [[ "$blind" == *'"permissionDecision":"deny"'* ]]; then
+        info 'bash guard: git absent from PATH — denied'
+      else
+        note_fail "bash guard: git absent from PATH: expected denied, got '${blind:-allowed}'"
+        if [[ -s "$err" ]]; then excerpt 10 < "$err"; fi
+      fi
+      rm -f "$fed" "$err"
+    }
+    blind_probe "$nogit" "$hb"
 
     # Off main: a detached HEAD allows too, a rebase or a bisect not losing every write.
     ( cd "$HOOK_REPO" && git checkout -q topic )

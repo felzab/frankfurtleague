@@ -109,9 +109,7 @@ def _run(body: str, marker: Path, *, lifted: tuple[str, ...] = CLAIM, trap: bool
             "POOL_DIRS=()",
             'STEP_UNIT=""',
             "cleanup() { :; }",
-            # `scripts/gate/verify.sh :: step_worker` is one line and `lift_function` reads a
-            # function by its closing line, so this one is written out rather than lifted.
-            'step_worker() { [[ -n "$STEP_UNIT" ]]; }',
+            lift_function(VERIFY, "step_worker"),
             *(lift_function(VERIFY, name) for name in lifted),
         ]
         if trap:

@@ -165,18 +165,22 @@ def exit_code(findings: Iterable[Finding]) -> int:
     return EXIT_FINDINGS if any(finding.severity == "fail" for finding in findings) else EXIT_OK
 
 
-def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: TextIO = sys.stdout) -> int:
+def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: TextIO | None = None) -> int:
     """Print the failures, then the advisories, into one stream, and answer the run's exit code.
 
     One stream: `scripts/gate/verify.sh` prints output straight through, so splitting the severities
     would interleave them under the wrong heading.
     """
     collected = list(findings)
+    # None rather than `sys.stdout` in the signature, which binds the object this module was
+    # imported under: a caller redirecting the stream afterwards, which is what a test's capture
+    # does, would be reading one nothing writes to.
+    into = sys.stdout if stream is None else stream
     pad = " " * indent
     for finding in failures(collected):
-        print(f"{pad}FAIL    {finding.detail}", file=stream)
+        print(f"{pad}FAIL    {finding.detail}", file=into)
     for finding in reports(collected):
-        print(f"{pad}report  {finding.detail}", file=stream)
+        print(f"{pad}report  {finding.detail}", file=into)
     return exit_code(collected)
 
 
