@@ -55,7 +55,7 @@ async function AdminKontakteEditContent({
   const saison: TeamSaisonMembership = resolveTeamSaisonMembership(team.memberships, selectedSaison);
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminKontakteEditView
       key={JSON.stringify({ team, saison })}
       team={{ id: team.id, name: team.name, shorthand: team.shorthand, inactive_since: team.inactive_since }}

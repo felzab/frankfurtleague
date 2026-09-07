@@ -109,7 +109,7 @@ indent-style = "space"
 # and this suite is fast enough that verbosity costs nothing.
 #
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
-# (`docs/backend/spec.md :: deselects the marker`).
+# (`docs/backend/spec.md :: 1.6`).
 addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
 testpaths = ["tests"]
 pythonpath = ["."]

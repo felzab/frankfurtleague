@@ -3054,7 +3054,7 @@ learn of it: whoever typed the id is long gone, the failure repeats every pass u
 log, and the two clocks that season owes stand still meanwhile.
 
 **The refusal that suggests itself first is already refused.**
-`.claude/rules/backend.md :: widen one past types and enums` bars taking a `$jsonSchema` validator
+`.claude/rules/backend.md :: db` bars taking a `$jsonSchema` validator
 past types and enums, so a pattern on `saisons._id` is not available and naming it as the fix sends
 the next reader at a ratified clause. The write path is where a shape rule can live: the create
 payload already strips the value and measures it, and a season id is read as a year everywhere it is

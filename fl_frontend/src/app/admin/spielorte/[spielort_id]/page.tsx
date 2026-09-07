@@ -33,7 +33,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   }
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSpielortEditView
       key={JSON.stringify(spielort)}
       spielort={{

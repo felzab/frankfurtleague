@@ -74,7 +74,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   };
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSpieltagEditView
       key={JSON.stringify(row)}
       spieltag={row}

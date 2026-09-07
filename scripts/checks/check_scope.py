@@ -376,8 +376,8 @@ def scope_map(files: list[str]) -> dict[str, bool] | None:
 # Bisecting the list until each culprit is isolated is more machinery than a failure path deserves.
 
 
-# Re-deriving the mapping's rules in python is the second copy
-# `docs/ops/spec.md :: the one copy of the path-to-scope mapping` refuses.
+# Re-deriving the mapping's rules in python is the second copy of the path-to-scope mapping that
+# `docs/ops/spec.md :: 1.5 The scripts` refuses: `scripts/gate/scope_map.sh` is the one copy.
 def images_culprits(files: list[str]) -> list[str]:
     """Which of these files is the reason the images scope is required. The failure path only.
 
