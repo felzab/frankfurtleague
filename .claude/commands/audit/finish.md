@@ -52,4 +52,5 @@ documents.
    under `docs/audit/` belongs to no programme's lifecycle and stays.
 7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final
    report and any doc updates, push, open the draft pull request, print its link, and name the
-   conclusion of the branch's `verify` run.
+   conclusion of every check that pull request started — `gh pr checks <n>` lists them, `verify`'s
+   run being one of several (`.claude/CLAUDE.md` §2).

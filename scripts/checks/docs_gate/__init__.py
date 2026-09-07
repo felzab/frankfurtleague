@@ -1,4 +1,4 @@
-"""SCRIPTS · the documentation gate: the kernel's readers, the corpus checks, the branch checks, and the copy rules.
+"""SCRIPTS · the documentation gate: every check `kernel.py :: CHECKS` registers, and the readers they share.
 
 The kernel is imported here so its floor guard runs before a sibling is compiled, a SyntaxError
 raised while compiling one exiting 1 -- a finding's code. This file's own syntax is the one thing

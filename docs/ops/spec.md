@@ -2,19 +2,19 @@
 
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
-| Section                                                       | Answers                                                              |
-| ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [1.1 Service inventory](#11-service-inventory)                | What runs in production, with which limits and health checks         |
-| [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                              |
-| [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                     |
-| [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                      |
-| [1.5 The scripts](#15-the-scripts)                            | Which script to reach for, and which environment it belongs to       |
-| [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and what each needs              |
-| [1.7 Script conventions](#17-script-conventions)              | What every script shares, and what every line of output goes through |
-| [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it         |
-| [2. Invariants](#2-invariants)                                | The rules that must hold                                             |
-| [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                        |
-| [4. Known-open](#4-known-open)                                | The accepted gaps                                                    |
+| Section                                                       | Answers                                                                      |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [1.1 Service inventory](#11-service-inventory)                | What runs in production, with which limits and health checks                 |
+| [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                                      |
+| [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                             |
+| [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                              |
+| [1.5 The scripts](#15-the-scripts)                            | Which script to reach for, and which environment it belongs to               |
+| [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and what each needs                      |
+| [1.7 Script conventions](#17-script-conventions)              | What a path says, what every script shares, and what its output goes through |
+| [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it                 |
+| [2. Invariants](#2-invariants)                                | The rules that must hold                                                     |
+| [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                                |
+| [4. Known-open](#4-known-open)                                | The accepted gaps                                                            |
 
 The recurring procedures — the constraints checker, an admin revocation, a flooded queue — are in
 [`runbooks.md`](runbooks.md). This page covers the contracts and constraints those procedures depend
@@ -446,7 +446,13 @@ and which no two runs of the same work share. The pair is held to that by
 `scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
 and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
-per stream.
+per stream. **The second exception is a machine below the checkers' floor**
+(`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`): the pooled form probes for an interpreter that can
+import the kernel and, finding none, prints a line naming the floor before falling back to the serial
+path, while `--serial` sets both pool switches off ahead of that probe and can never print it
+(`scripts/gate/verify.sh :: POOL_FALLBACK`). The pair of cases above cannot see that machine —
+`scripts/tests/test_gate_forms.py` puts an interpreter on the fixture's `PATH` as `python3` — so the
+two forms differ there by exactly that one line.
 **No scope depends on another's result**, so a concurrent run's floor is its longest scope and a
 sequenced one's is their sum.
 
@@ -780,6 +786,22 @@ interrupt traps, and which carries the guards, `wait_healthy` and the output ver
 things a caller may rely on across every one of them: a script resolves the repository root itself,
 so it behaves the same from any working directory, and arguments are parsed before any
 environmental check, so a typo fails instantly rather than after a Docker probe.
+
+**A path answers what a file is before the file is opened**: the directory names the category, the
+prefix names the class, the stem names the subject, and the extension names the harness. A new
+script goes into that scheme rather than beside it.
+
+| Part        | Reads as                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract |
+| `_`         | Sourced by another script and never run on its own                                       |
+| no prefix   | Run directly — by a person, by CI, or by another script as a subprocess                  |
+| `.sh` `.py` | bash, and the python in the backend virtualenv                                           |
+| `.mjs`      | node, taken only where the subject needs a parser bash and python do not have            |
+
+`scripts/lib/checker_kernel.py` is the one name the scheme does not classify, and it keeps that
+name: it is imported rather than run, so the `_` marking a sourced script would say the wrong thing
+about it.
 
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
