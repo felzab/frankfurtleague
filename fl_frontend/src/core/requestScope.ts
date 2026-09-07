@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 interface RequestScope {
-  correlationId: string;
+  traceId: string;
+  // This service's own span, minted per request: each hop mints one locally and only the trace id
+  // travels end to end (`docs/logging/spec.md :: L12`).
+  spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: string;
 }
@@ -12,8 +15,12 @@ export function runWithRequestScope<T>(scope: RequestScope, fn: () => Promise<T>
   return storage.run(scope, fn);
 }
 
-export function getRequestCorrelationId(): string | undefined {
-  return storage.getStore()?.correlationId;
+export function getRequestTraceId(): string | undefined {
+  return storage.getStore()?.traceId;
+}
+
+export function getRequestSpanId(): string | undefined {
+  return storage.getStore()?.spanId;
 }
 
 export function getRequestActor(): string | undefined {

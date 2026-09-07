@@ -4,7 +4,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import { logger } from "@/core/logging";
 
 import { toActionErrorResult } from "./actionError";
-import { runWithIncomingCorrelationId } from "./correlationScope";
+import { runWithIncomingTrace } from "./traceScope";
 
 import type { FormState } from "@/shared/types/types";
 import type { NextRequest } from "next/server";
@@ -40,7 +40,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
-  const result = await runWithIncomingCorrelationId(async (): Promise<T | NonNullable<FormState>> => {
+  const result = await runWithIncomingTrace(async (): Promise<T | NonNullable<FormState>> => {
     try {
       return await run();
     } catch (error) {

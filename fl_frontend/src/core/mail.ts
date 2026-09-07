@@ -1,10 +1,10 @@
 import "server-only";
 
 import { frontend_config } from "./config";
-import { mintCorrelationId } from "./correlation";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
-import { getRequestCorrelationId } from "./requestScope";
+import { getRequestTraceId } from "./requestScope";
+import { mintTraceId } from "./trace";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
@@ -30,7 +30,7 @@ export interface OutboundMail {
  * stable `name` field instead.
  */
 export async function sendMail({ to, subject, html, text }: OutboundMail): Promise<void> {
-  const correlationId = getRequestCorrelationId() ?? mintCorrelationId();
+  const traceId = getRequestTraceId() ?? mintTraceId();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
@@ -43,14 +43,14 @@ export async function sendMail({ to, subject, html, text }: OutboundMail): Promi
       message: "Mail request failed.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: MAIL_ENDPOINT,
-      correlationId: correlationId,
+      traceId: traceId,
       originalError: error,
     });
 
     logger.error("mail.send_failed", undefined, {
       error_code: failure.code,
       is_timeout: failure.isTimeout,
-      correlation_id: correlationId,
+      trace_id: traceId,
     });
 
     return failure;
@@ -93,14 +93,14 @@ export async function sendMail({ to, subject, html, text }: OutboundMail): Promi
       url: MAIL_ENDPOINT,
       statusCode: res.status,
       providerErrorName: providerErrorName,
-      correlationId: correlationId,
+      traceId: traceId,
     });
 
     logger.error("mail.send_failed", undefined, {
       error_code: failure.code,
       status_code: failure.statusCode,
       provider_error_name: failure.providerErrorName,
-      correlation_id: correlationId,
+      trace_id: traceId,
     });
 
     throw failure;

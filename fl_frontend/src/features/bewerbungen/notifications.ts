@@ -255,8 +255,8 @@ async function settleFanOut<T extends { address: string }>(
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
     // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
-      name: result.reason instanceof Error ? result.reason.name : undefined,
       error_code: "FE-MAIL-002",
+      name: result.reason instanceof Error ? result.reason.name : undefined,
       operation: operation,
     });
   });

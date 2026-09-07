@@ -68,8 +68,6 @@ def run_main(*argv: str) -> tuple[int, str, str]:
     argv_before = markers.sys.argv
     markers.sys.argv = ["check_conflict_markers.py", *argv]
     try:
-        # `checker_kernel :: report_findings` binds its stream at import, so its FAIL lines reach
-        # pytest's own capture rather than the strings returned here.
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = markers.main()
     finally:

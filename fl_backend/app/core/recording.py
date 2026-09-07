@@ -5,8 +5,8 @@ Every write in the application funnels through `app/core/crud.py`, so recording 
 the log complete by construction rather than by discipline -- a page listing some of the writes is a
 page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
 
-This module deliberately stores submitted VALUES, which `docs/logging/spec.md` forbids the log
-stream: a restore replays what a write replaced, so the prior document is the point. That is what
+This module deliberately stores the values a write REPLACED, which `docs/logging/spec.md` forbids the
+log stream: a restore replays what a write replaced, so the prior document is the point. That is what
 makes retention and redaction this module's problem rather than the stream's.
 """
 
@@ -19,7 +19,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.logging import correlation_id_var
+from app.core.logging import trace_id_var
 
 Operation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
@@ -110,9 +110,9 @@ async def record_write(
         # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
         "at_date": moment,
         "actor": actor.as_document(),
-        # The request's own id, so a fan-out's rows and the write that caused them are one action on
-        # the page instead of forty.
-        "correlation_id": correlation_id_var.get(),
+        # The request's trace id and never this hop's span: a fan-out's rows and the write that
+        # caused them are one action on the page instead of forty only because they share it.
+        "trace_id": trace_id_var.get(),
         "request": {"method": request[0], "path": request[1]} if request is not None else None,
         "collection": str(collection.name),
         "operation": operation,
@@ -174,7 +174,7 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
 
 
 def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the values a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
+    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
 
     `document_id` stays: it names what the row was about, and dropping it would leave a row
     nothing can attribute to the write that redacted it.

@@ -26,6 +26,9 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spieler_write_test")
+# Its own name: `a_clean_database` records one schema per name, so alternating constrained and
+# unconstrained callers on one would rebuild at every switch.
+UNCONSTRAINED_DATABASE_NAME = worker_database("fl_spieler_write_unconstrained_test")
 
 SAISON_ID = "2026"
 # Two, so a squad reaches its cap in two inserts and the third write is the refusal under test.
@@ -82,9 +85,12 @@ def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since:
     return row
 
 
-def on_a_database(url: str, body: Body) -> Any:
+def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
+    """The SHIPPED validators by default; `constrained=False` is for a body whose subject is a row they refuse."""
+
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
+        async with a_clean_database(url, database_name, constraints=constrained) as (_, database):
             await database.saisons.insert_one(
                 {
                     "_id": SAISON_ID,
@@ -94,11 +100,12 @@ def on_a_database(url: str, body: Body) -> Any:
                     "rules": dict(RULES),
                 }
             )
-            # Both clubs entered, so `REQ-SQUAD-001` passes and every refusal below is the cap.
+            # Both clubs entered, so `REQ-SQUAD-001` passes and every refusal below is the cap. The
+            # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "gruppe": "A"},
-                    {"saison_id": SAISON_ID, "team_id": AWAY_TEAM_OID, "gruppe": "B"},
+                    {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "gruppe": "A", "austritt": None, "name": "Adler", "shorthand": "AD"},
+                    {"saison_id": SAISON_ID, "team_id": AWAY_TEAM_OID, "gruppe": "B", "austritt": None, "name": "Bieber", "shorthand": "BI"},
                 ]
             )
             return await body(database)
@@ -487,7 +494,10 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
                 today=TODAY,
             )
 
-        response = on_a_database(mongo_url, body)
+        # UNCONSTRAINED, here and in the case below: the shipped validator requires
+        # `is_nachgetragen`, so the legacy row this class exists for models one already stored when
+        # that validator arrived.
+        response = on_a_database(mongo_url, body, constrained=False)
 
         assert (response.is_nachgetragen, response.rolle) == (False, None)
         assert response.inactive_since == TODAY
@@ -502,7 +512,7 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
 
             return await revive(database, spieler_id_for(90))
 
-        response = on_a_database(mongo_url, body)
+        response = on_a_database(mongo_url, body, constrained=False)
 
         assert (response.is_nachgetragen, response.rolle) == (False, None)
         assert response.inactive_since is None

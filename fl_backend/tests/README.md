@@ -6,18 +6,18 @@ them.
 
 ## Folder overview
 
-| Read                                                       | For                                                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`../../docs/backend/spec.md`](../../docs/backend/spec.md) | The contract: the two tiers, the `db` marker, the conventions                        |
-| `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url |
-| `config.py`                                                | The settings an application under test is built with                                 |
-| `database.py`                                              | The database a db test opens for itself: built once, emptied per call                |
-| `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it            |
-| `payloads.py`                                              | The request bodies a test submits, built from a stored document                      |
-| `shared/`                                                  | The custom types and shared schemas under `app/shared/`                              |
-| `core/`                                                    | The declared domain model, the database constraints, logging                         |
-| `api/`                                                     | One module per entity: models, filters, refusals, pipelines, guards                  |
-| `openapi_document.py`                                      | Not a test — builds and writes `openapi.json` (`--write` / `--check`)                |
+| Read                                                       | For                                                                                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [`../../docs/backend/spec.md`](../../docs/backend/spec.md) | The contract: the two tiers, the `db` marker, the conventions                                                           |
+| `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url                                    |
+| `config.py`                                                | The settings an application under test is built with                                                                    |
+| `database.py`                                              | The database a db test opens for itself: built once, emptied per call                                                   |
+| `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it                                               |
+| `payloads.py`                                              | The request bodies a test submits, built from a stored document                                                         |
+| `shared/`                                                  | The custom types and shared schemas under `app/shared/`                                                                 |
+| `core/`                                                    | What `app/core/` declares, and what a real `mongod` does with it                                                        |
+| `api/`                                                     | The endpoint suites, split by concern rather than by entity ([spec §1.6](../../docs/backend/spec.md#16-the-test-suite)) |
+| `openapi_document.py`                                      | Not a test — builds and writes `openapi.json` (`--write` / `--check`)                                                   |
 
 ## Two tiers, and one of them needs Docker
 
@@ -26,7 +26,8 @@ them.
 belong to which tier, why the split exists, and every convention the suite is written to are in the
 backend spec sheet.
 
-The tree mirrors `app/`, so the test for a module is where you would look for it.
+The tree mirrors `app/`'s folders, so a module's tests are in the folder you would look in, `api/`
+being flat.
 
 ## Read next
 

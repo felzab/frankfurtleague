@@ -103,7 +103,7 @@ async function AdminTeamEditContent({
   });
 
   return (
-    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminTeamEditView
       key={JSON.stringify({ team, saison, gruppeLocked })}
       team={team}

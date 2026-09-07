@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 
 import { z } from "zod";
 
-import { CORRELATION_HEADER, isWellFormedCorrelationId } from "@/core/correlation";
 import { logger } from "@/core/logging";
+import { readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 import type { NextRequest } from "next/server";
 
+// `fl_frontend/src/app/error.tsx` posts a crash only where the boundary got no digest, a
+// digest-bearing failure being `fl_frontend/src/core/instrumentation.ts`'s line already, so the
+// report is these three fields and no fourth.
 const ClientErrorReportSchema = z.object({
   message: z.string().min(1).max(500),
-  // A client crash has no digest; a server error rendered by the boundary carries one, and it is
-  // what joins this line to its onRequestError line.
-  digest: z.string().max(64).optional(),
   // Pathname only, so a caller cannot smuggle search text or tokens into the log.
   path: z
     .string()
@@ -37,14 +37,12 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 422 });
   }
 
-  // The ingest request's own id, not the crashed request's -- the browser cannot read that one.
-  const incoming = request.headers.get(CORRELATION_HEADER);
-  const correlationId = isWellFormedCorrelationId(incoming) ? incoming : undefined;
+  // The ingest request's own trace, not the crashed request's -- the browser cannot read that one.
+  const incoming = readTraceparent(request.headers.get(TRACEPARENT_HEADER));
 
   logger.error("Client-side crash reported", undefined, {
     error_code: "FE-CLIENT-001",
-    correlation_id: correlationId,
-    digest: report.data.digest,
+    trace_id: incoming?.traceId,
     route: report.data.path,
     client_message: report.data.message,
     client_stack: report.data.stack,

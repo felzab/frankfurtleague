@@ -49,17 +49,18 @@ ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 # Submission order under `--width`, which no caller passes: insurance for a bounded run, never a
 # saving. An unlisted unit sorts last.
 
-# MEASURED 2026-09-02, each scope alone as a worker on one contended 16-core Windows machine.
-# Contention only inflates, so each figure is an upper bound; the ranking is what the table is for.
+# MEASURED 2026-09-07, two full-form runs on one idle 16-core Windows machine, each scope's longer
+# span of the two; a section's span inside a run is an upper bound on its work, and the ranking
+# is what the table is for.
 TYPICAL_MS: Final[dict[str, int]] = {
-    "scripts": 122_000,
-    "ops": 67_000,
-    "frontend": 50_000,
-    "db": 41_000,
-    "backend": 28_000,
-    "docs": 17_000,
-    "images": 14_000,
-    "format": 8_000,
+    "frontend": 134_000,
+    "scripts": 126_000,
+    "images": 95_000,
+    "format": 91_000,
+    "backend": 45_000,
+    "db": 45_000,
+    "ops": 36_000,
+    "docs": 27_000,
 }
 
 

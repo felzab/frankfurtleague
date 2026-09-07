@@ -28,8 +28,8 @@ async def get_aktionen(
 ) -> FLAktionenListResponse:
     """List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
 
-    Admin-tier twice over: a row carries the document a write replaced, so this read answers
-    with data from every collection at once, public or not.
+    Admin-tier twice over: every recorded write across every collection is here, public or not,
+    and each row names the administrator behind it.
     """
 
     # One row past what is served, `get_bewerbungen`'s shape (`docs/backend/spec.md :: I45`): the
@@ -39,7 +39,7 @@ async def get_aktionen(
         collection=aktionen_collection,
         db_filter=build_query(
             filters,
-            terms={"collection", "operation", "correlation_id"},
+            terms={"collection", "operation", "trace_id"},
             compiled=document_id_term(filters.document_id),
         ),
         limit=filters.limit + 1,
@@ -62,7 +62,7 @@ async def get_aktion_by_id(
 ) -> FLAktionSingleResponse:
     """One row with the document its write replaced, which the list withholds.
 
-    The read a restore of one write needs; nothing in the product calls it yet.
+    The read a restore of one write would start from.
     """
 
     aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})

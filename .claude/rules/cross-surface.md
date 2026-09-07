@@ -13,14 +13,15 @@ paths:
 # Ratified decisions — the seams between surfaces
 
 `.claude/CLAUDE.md` §7's never-clauses, on §7's terms. Each names a contract two surfaces hold
-together, so a session on either side can break it and the paths above reach both whole.
+together, so a session on either side can break it and the paths above reach both packages,
+`nginx/` and `scripts/` whole.
 
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
 - **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
-- **csp** — Disable `react/no-danger`; add a second CSP
-- **logging** — Let nginx pass a client's correlation id; log outside the envelope
+- **csp** — Disable `react/no-danger`; add a second enforcing CSP
+- **logging** — Let nginx honour a client's traceparent; log outside the envelope
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
 - **table** — Move the league table's default scope off `gruppenphase`
 - **saisons** — Offer in the form wiring the write path refuses

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.exceptions import BaseAPIException
-from app.core.logging import correlation_id_var, fl_logger
+from app.core.logging import fl_logger, trace_id_var
 
 NO_DATA_TEXT = "//- No Data -//"
 
@@ -18,7 +18,7 @@ def error_response(status_code: int, error_code: str, headers: Mapping[str, str]
     """The one failure body shape every handler returns: the code, and the id to quote."""
     return JSONResponse(
         status_code=status_code,
-        content={"error_code": error_code, "correlation_id": correlation_id_var.get()},
+        content={"error_code": error_code, "trace_id": trace_id_var.get()},
         headers=headers,
     )
 

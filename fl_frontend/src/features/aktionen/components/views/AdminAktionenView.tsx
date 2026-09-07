@@ -15,7 +15,7 @@ import type { AdminAktionRow } from "@/features/aktionen/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
-const SEARCH_KEYS = ["actor.email", "document_id", "correlation_id", "request.path"] as const;
+const SEARCH_KEYS = ["actor.email", "document_id", "trace_id", "request.path"] as const;
 
 /**
  * **No `renderDeleteModal`**: the log is written by every other admin page and never from here, so a row is read and

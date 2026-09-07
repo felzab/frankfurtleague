@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SCRIPTS · shared helpers — sourced, never run directly.
-# Sourcing applies strict mode and installs the ERR and INT traps.
+# Sourcing applies strict mode and installs the ERR, INT and TERM traps.
 
 # `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
 # one never reaches `on_error`. It exits with its own status — 1, which the exit contract spells
@@ -547,9 +547,9 @@ _ADOPTED_FINDINGS=0
 _ADOPTED_WORST=0
 _ADOPTED_UNPROVEN=0
 
-# Prints nothing: bytes and ledger travel apart, so a line here appears twice or out of order. An
-# adopted row must stay indistinguishable from one run in-process, or a parallel run's table
-# stops matching the serial one byte for byte.
+# Prints nothing: bytes and ledger travel apart, so a line appears twice or out of order. An
+# adopted row must stay indistinguishable from an in-process one, or a parallel run's table stops
+# matching the serial one but for its durations.
 adopt_section() {
   local name="$1" rank="$2" ms="$3" findings="$4" advisories="${5:-0}" value
   # A worker reports these through a file, so they are input, not literals: an unchecked one indexes

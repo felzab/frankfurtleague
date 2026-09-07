@@ -361,6 +361,15 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (".gitignore", ("docs",)),
     # The documentation gate resolves the asset paths NOTICE names, and nothing else reads the file.
     ("NOTICE", ("docs",)),
+    # `scripts/gate/selfcheck.sh` compares this file's uv tag against the manifest's pin, and runs
+    # in the scripts scope alone; a bot's base-image bump touches this file and nothing else.
+    ("fl_backend/Dockerfile", ("images", "docs", "scripts")),
+    # `COPY . .` is what reads this file, so the image and the comments in it are all an edit here
+    # can reach; the `scripts` scope the Dockerfile beside it takes is the uv comparison's.
+    ("fl_backend/.dockerignore", ("images", "docs")),
+    # `scripts/tests/test_check_gate_budget.py` parses this table itself and drives every budgeted
+    # row red and green, so an edit to it is proved in the scripts scope and nowhere else.
+    (".github/gate-wall-clock.tsv", ("scripts", "docs")),
 )
 
 
@@ -385,6 +394,51 @@ def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> N
     answered = scope.scope_map(["NOTICE"])
     assert answered is not None, "scripts/gate/scope_map.sh could not be run"
     assert {name for name, selected in answered.items() if selected} == {"docs"}, repr(answered)
+
+
+def test_a_hook_registration_selects_the_scripts_scope() -> None:
+    """A registration's timeout is read by the self-check, so the file selects the scripts scope.
+
+    A set comparison holds both halves of the arm; `format` rides along, both files being prettier's.
+    """
+    scope = _fixture().scope
+    for path in (".claude/settings.json", ".claude/agents/cold-auditor.md"):
+        answered = scope.scope_map([path])
+        assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+        assert {name for name, selected in answered.items() if selected} == {"scripts", "docs", "format"}, (path, answered)
+
+
+def test_the_backend_dockerfile_stops_short_of_the_backend_scope() -> None:
+    """`SELECTED` reads its scopes as a subset, so its row here passes with `backend` and `db` left true.
+
+    The image builds the backend and runs none of its tests, and only a set comparison says so.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map(["fl_backend/Dockerfile"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"images", "docs", "scripts"}, repr(answered)
+
+
+def test_the_wall_clock_table_selects_the_scripts_scope_and_stops_there() -> None:
+    """`SELECTED` reads its scopes as a subset, so its row here passes with every scope left true.
+
+    Only a set comparison catches the arm widening to the conservative default the fallback gives.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map([".github/gate-wall-clock.tsv"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"scripts", "docs"}, repr(answered)
+
+
+def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
+    """`SELECTED` reads its scopes as a subset, so the row above passes with `scripts` left true.
+
+    Only a set comparison holds the two halves of that arm apart.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map(["fl_backend/.dockerignore"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"images", "docs"}, repr(answered)
 
 
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:

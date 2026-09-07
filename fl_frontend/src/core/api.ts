@@ -4,9 +4,10 @@ import z from "zod";
 
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
-import { ACTOR_HEADER, CORRELATION_HEADER, mintCorrelationId } from "./correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
-import { getRequestActor, getRequestCorrelationId } from "./requestScope";
+import { logger } from "./logging";
+import { getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
@@ -16,6 +17,11 @@ export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>;
+  /**
+   * Read on the minting branch alone: a fill has no page request to join to, so this is the only
+   * record of which function asked for it.
+   */
+  cacheFill?: { name: string; args: unknown };
 }
 
 const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
@@ -41,15 +47,7 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
-const handleFetchResponse = async ({
-  res,
-  correlationId,
-  endpoint,
-}: {
-  res: Response;
-  correlationId: string;
-  endpoint: string;
-}): Promise<unknown> => {
+const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<unknown> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return null;
     return res.json();
@@ -63,7 +61,7 @@ const handleFetchResponse = async ({
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
-      correlationId: correlationId,
+      traceId: traceId,
     });
   }
 
@@ -80,27 +78,47 @@ const handleFetchResponse = async ({
     statusCode: res.status,
     serverErrorCode: serverErrorCode,
     endpoint: endpoint,
-    correlationId: correlationId,
+    traceId: traceId,
   });
 };
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
-  // the id reaches the header and the errors, never the returned value.
-  const correlationId = getRequestCorrelationId() ?? mintCorrelationId();
+  // the ids reach the header and the errors, never the returned value.
+  const scopedTraceId = getRequestTraceId();
+  const traceId = scopedTraceId ?? mintTraceId();
+  const spanId = getRequestSpanId() ?? mintSpanId();
 
-  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
+  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, ...customOptions } = options;
+
+  // INFO rather than DEBUG: a fill is rare beside requests, and the default `LOG_LEVEL` must show
+  // the join between a fill and what asked for it. The arguments are cache-key filters, never a
+  // submitted value (`docs/logging/spec.md :: L9`).
+  if (cacheFill && scopedTraceId === undefined) {
+    logger.info("cache fill", {
+      cache_fill: { name: cacheFill.name, args: JSON.stringify(cacheFill.args) },
+      trace_id: traceId,
+      span_id: spanId,
+    });
+  }
 
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
   const headers = new Headers(getFetchHeaders(authType));
-  headers.set(CORRELATION_HEADER, correlationId);
+  // Before the two set below and never after: a caller's own `traceparent` would file this hop's
+  // work under a trace the edge never issued, and a caller's actor would name a person who did not
+  // make the call.
+  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
+
+  // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
+  // of its own (`docs/logging/spec.md :: L12`).
+  headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.
   const actor = authType === "admin" ? getRequestActor() : undefined;
   if (actor) headers.set(ACTOR_HEADER, actor);
-  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
+  else headers.delete(ACTOR_HEADER);
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
@@ -131,7 +149,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       message: "Network request failed. Please check your connection.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: urlObj.toString(),
-      correlationId: correlationId,
+      traceId: traceId,
       originalError: error,
     });
 
@@ -147,7 +165,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     }
 
     try {
-      rawData = await handleFetchResponse({ res: res, correlationId: correlationId, endpoint: endpoint });
+      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
     } catch (error) {
       // Already the right error, and re-wrapping it would lose the status code.
       if (error instanceof APIBadStatusError) throw error;
@@ -159,7 +177,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
         url: res.url,
         statusCode: res.status,
         endpoint: endpoint,
-        correlationId: correlationId,
+        traceId: traceId,
       });
     }
   } finally {
@@ -175,7 +193,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
-      correlationId: correlationId,
+      traceId: traceId,
       zodIssues: z.treeifyError(validated.error),
     });
   }

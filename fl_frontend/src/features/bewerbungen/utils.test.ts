@@ -336,7 +336,7 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
     endpoint: "/bewerbungen",
-    correlationId: "0123456789abcdef",
+    traceId: "0123456789abcdef",
   });
 
 const refusalFor = (code: string) => badStatus(409, code);

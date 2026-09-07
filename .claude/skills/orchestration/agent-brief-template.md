@@ -178,8 +178,8 @@ did the reasonable thing in their absence.
                   trigger are there. Three parts of it are mine rather than yours, and each would
                   otherwise send you into a file you do not own: §2's branch-cutting, push and
                   pull-request clauses, which are section 5 above; §3's "a finding outside the task
-                  becomes a roadmap entry at once", which is section 14(f) for you and mine to
-                  route, since every agent's out-of-scope findings land on the one roadmap page;
+                  is fixed on the branch that found it", which is section 14(f) for you and mine to
+                  route — to a fixer in this wave or to the owner, never to the roadmap by an agent;
                   and §8's "update every claim a change invalidates in the same commit", which is
                   section 11 for you -- write the hunk, and I apply it in that commit.
                 - <plus the traps specific to this work>
@@ -274,7 +274,7 @@ own proof — run the backend suite, expect it to pass — against a suite that 
 
 ## The auditor variant
 
-Two forms, and the agent type decides which (`SKILL.md` §3.5).
+Two forms, and the agent type decides which (`SKILL.md` §3).
 
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 

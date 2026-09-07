@@ -6,14 +6,16 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
 [`../_git/spec.md`](../_git/spec.md) §1.1.
 
-| Section                                                                                                                       | Answers                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                | What a deploy does, and what a failed one leaves running      |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)       | The one check to run before a constraint reaches production   |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                  | Who can sign in, and what revoking actually ends              |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows     |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish     |
+| Section                                                                                                                        | Answers                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
+| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
+| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
+| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
 
 ---
 
@@ -25,8 +27,33 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf` and `./certs/` must all exist beside the
-  compose file — preflight checks each before anything is pulled.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./secrets/tunnel_token` and `./certs/`
+  must all exist beside the compose file — preflight checks each before anything is pulled.
+- **Compose is asked whether it can parse its own configuration before anything is pulled**
+  (`scripts/ops/deploy.sh :: check_compose_config`), a file it cannot read failing the recreate, the
+  health read and the rollback in turn, none of which stopped a container. **It refuses at exit 2
+  with nothing pulled or recreated**, and names the compose file and both environment files without
+  printing what compose said, a parse error quoting the line it could not read
+  ([`spec.md`](spec.md) §1.5). To see that message, run the same check on the server, where its
+  answer is not being captured: `docker compose -f docker-compose.yml config --quiet`.
+- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
+  (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
+  and the settings class looks up none but its own, so a typo there reads as an omission and the
+  shipped default serves production. **A name the backend does not declare, or a value it will not
+  accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names the
+  variables and never a value — so the remedy is read off the names: **delete an undeclared line,
+  correct a rejected value, or declare the name in the settings class**. A check that could not be made at all is an advisory the deploy goes on
+  past. Two things it does not catch: a misspelling whose value is EMPTY, which the settings reader
+  drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
+  form the two parsers read differently ([`spec.md`](spec.md) §1.5).
+- **The pulled frontend image is asked the same of `fl_frontend/.env`**
+  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
+  carries the schema's key set rather than the schema, so **a name the frontend does not declare
+  refuses the deploy at exit 2 with nothing recreated** and the remedy is one of three — delete the
+  line, correct its spelling, or declare the name in the schema, nothing in that schema reading an
+  undeclared one. A value it holds is judged at boot and nowhere else. It does catch the misspelling
+  whose value is EMPTY that the backend's reader drops, and a line its reader cannot take at all is
+  an advisory rather than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -36,7 +63,10 @@ the machine is outside the repository. What it does tell you:
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
   pair is healthy and nginx has been reloaded again, up to about eleven minutes where both health waits run
-  to their timeouts and the rollback's do the same. Nothing is put back where preflight recorded no target,
+  to their timeouts and the rollback's do the same. **The failed build's own two streams are copied off
+  first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
+  `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
+  being down by then. Nothing is put back where preflight recorded no target,
   because nothing was running, because only half the pair was, or because compose could not be asked; nor
   where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
   rollback undoes a build and nothing there reached a verdict on the new one.
@@ -75,15 +105,20 @@ own:
 ```bash
 docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
   -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=x \
-  -e INTERNAL_API_KEY_BASE=x -e INTERNAL_API_KEY_SYSTEM=x -e INTERNAL_API_KEY_ADMIN=x \
+  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=http://x \
+  -e INTERNAL_API_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e INTERNAL_API_KEY_SYSTEM=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e INTERNAL_API_KEY_ADMIN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   <backend-image> python -m app.core.constraints --check
 ```
 
 **Seven variables are required and two carry real values.** `BackendConfig` declares seven fields with no
-default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the
-internal keys rather than anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
-the three keys may be any non-empty string — **do not go looking for the production ones.**
+default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming all
+seven — an empty value being no URI, and `DB_BASE_NAME` being as much about the database as the URI
+is. `--check` reads the database and nothing else, so the hosts,
+the origins and the three keys need only take the shape the gate requires — **do not go looking for
+the production ones**, and keep the origin's `http://`, which is the one placeholder above that a
+constraint reads.
 
 Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
 `app/` must be readable by that uid, and an SELinux host needs `:z` on the mount.
@@ -118,6 +153,50 @@ The order does not change either way: `--check` from the new checkout while the 
 then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
 serves), then `--check` again.
+
+**A field that is RENAMED is the one case where the backfill cannot precede the validator, and the
+`aktionen` column `trace_id` is that case.** The validator is attached strict
+(`fl_backend/app/core/constraints.py :: _apply_validator`), and the previous one listed the old name
+under `required`, so a `$rename` run under it produces a document missing a required field and is
+refused for every row; the same strictness refuses an erasure's `$set` over a row the NEW validator
+finds invalid ([`../backend/spec.md`](../backend/spec.md) I42), which is why the rename cannot wait
+either. There is no migration runner in this repository; the steps are run by hand, from the same
+container recipe as `--check` above, in this order:
+
+1. `--check` from the new checkout while the old image still serves — every `aktionen` row is
+   reported as missing `trace_id`, which is the confirmation that the rename is owed rather than a
+   finding to fix.
+2. Deploy. The boot attaches the new validator before the image serves.
+3. **At once**, the rename — between this step and the previous one the log page's read fails on
+   every old row and an erasure over one is refused, so type it as the deploy reports healthy:
+
+   ```bash
+   docker run --rm --network <compose-network> \
+     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+     <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; print(db.aktionen.update_many({"correlation_id": {"$exists": True}}, {"$rename": {"correlation_id": "trace_id"}}).modified_count, "rows renamed")'
+   ```
+
+   The image carries pymongo and no `mongosh`, which is why this is a Python one-liner, and it builds
+   no `BackendConfig`, which is why only the two real values are passed; `$rename` is atomic per
+   document, so no row is ever seen holding both names or neither. A count below the rows step 1
+   reported means the update stopped at a row the new validator refuses for a reason of its own —
+   `update_many` is ordered — so repair the row the raised error names and run the same command
+   again, whose filter skips every row already renamed.
+
+4. `--check` again: clean.
+5. Drop the index the previous name held, by hand — `create_index` refuses a name held at different
+   options and creates nothing under a name it does not declare, so the boot leaves it standing
+   forever:
+
+   ```bash
+   docker run --rm --network <compose-network> \
+     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+     <backend-image> python -c 'import os; from pymongo import MongoClient; MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]].aktionen.drop_index("aktionen_correlation_id")'
+   ```
+
+The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
+window for reads and erasures and opens a worse one: every recorded write of the still-serving old
+image is refused until the new image is up, because it writes the old name.
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
@@ -352,7 +431,7 @@ docker compose logs --no-color --timestamps frontend > frontend-$(date +%F).log
 ```
 
 **What those logs can and cannot answer.** Retention is the container runtime's size rotation
-(`docs/logging/spec.md :: Retention is Docker's`), so a busy period rotates its own oldest lines away
+(`docs/logging/spec.md :: 1.2`), so a busy period rotates its own oldest lines away
 and the window is set by traffic rather than chosen. The edge's access line carries the visitor's
 address, user agent and referer with the credential arms redacted
 (`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
@@ -371,4 +450,200 @@ it held.
 the two records above; report inside the 72 hours with what is established and what is not — a report
 may be completed later, and a late one may not; and tell the people affected wherever the risk to
 them is high. Write down what you established and when you established it: the authority asks, and
-the container logs will not be there to reconstruct it from.
+the container logs outlive a deploy only as the copies [section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)
+bounds to thirty days.
+
+## 7. The logs' age bounds, and the copies a deploy leaves behind
+
+**Every deploy copies both application streams to `/var/log/frankfurtleague/` before it recreates a
+container** (`scripts/ops/deploy.sh :: copy_streams`), one file per service stamped to the second, and
+refuses at exit 2 with nothing stopped where it cannot write there. **A deploy that rolls back
+recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
+`-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
+`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts as the edge's access log —
+the one application-visible stream that is a host file rather than a container's. Both are created
+by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
+
+```bash
+sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfurtleague/nginx
+```
+
+**The age bounds are four host files no file in this repository can install** — written on the
+server in the same deployment that ships the published texts stating them
+([`../datenschutz.md`](../datenschutz.md) §6): eight days for the access log, thirty for the copied
+application logs. **They are two mechanisms because they are two kinds of file.** The access log is
+open and growing, so its bound is a rotation the edge has to be told about; a deploy's copy is
+written once and never appended, so its bound is a deletion, and a rotation of it renames a file
+nothing will ever add a line to.
+
+**The access log, at `/etc/frankfurtleague/access-log.conf`.** Substitute the server's own checkout
+path for `<checkout>` — `docker compose` takes its project name from the directory holding the file
+`-f` names, so a path pointing anywhere else finds no `nginx` service and the rotation goes on
+without the reopen. Spell `docker` with the path `command -v docker` prints if it is not on
+systemd's own PATH, which is what this runs under rather than a login shell's.
+
+```text
+# nginx writes this file through a bind mount, so it outlives the container and can be rotated by
+# rename: the master reopens on USR1 and the renamed file stops growing, the lines written in
+# between having gone to the renamed file rather than nowhere.
+/var/log/frankfurtleague/nginx/access.log {
+    daily
+    # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
+    # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
+    rotate 7
+    maxage 7
+    # The disk stays bounded whatever the traffic: a day that outgrows this rotates early, so the
+    # eight days above are the most an entry lives, never a period a spike can stretch.
+    maxsize 100M
+    dateext
+    # Seconds in the name, because a day can hold more than one rotation: under a bare `-%Y%m%d`
+    # the second one lands on the name the first took, and logrotate skips it and exits 1.
+    dateformat -%Y%m%d-%H%M%S
+    create 0640 root root
+    missingok
+    # No `notifempty`: after a failed reopen the live file is empty, and skipping empty files would
+    # skip every rotation after this one, so nothing would ever send USR1 again.
+    compress
+    delaycompress
+    postrotate
+        docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
+    endscript
+}
+```
+
+**Read once with `logrotate -d -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf`**,
+which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
+stays unproven until the first real rotation.
+
+**A failed reopen leaves an empty `access.log` beside a dated file that keeps growing**: the rename
+has happened and nginx still writes through its open descriptor, and nothing on the host says so —
+the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, the live file at
+zero bytes under a dated file with a newer mtime. The next rotation sends USR1 again and recovers,
+losing only the lines written to the orphaned file between its compression and the signal.
+
+**That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
+cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
+between two of them is unbounded. One config file read by one scheduler against one state file of
+its own is what keeps the two from rotating the same log twice with two ideas of when it last
+happened.
+
+```text
+# /etc/systemd/system/frankfurtleague-logrotate.service
+[Unit]
+Description=Rotate the Frankfurt League access log
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf
+```
+
+```text
+# /etc/systemd/system/frankfurtleague-logrotate.timer
+[Unit]
+Description=Hourly size check on the Frankfurt League access log
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`
+is what runs it — systemd ships that timer enabled, through its own `timers.target.wants`, a quarter
+of an hour after boot and daily after that — so the thirty days need no scheduler of their own. **The
+line ages the directory rather than a name**, so every copy a deploy writes into it is reached
+whatever it is called — the `-failed` pair a rollback leaves included, and any suffix a later change
+adds. The command below is what confirms it is running on this host.
+
+```text
+# Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
+# chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
+e /var/log/frankfurtleague - - - m:30d
+# The line above reaches every level below it, and the live access.log is one of them: on a quiet
+# month the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
+x /var/log/frankfurtleague/nginx
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now frankfurtleague-logrotate.timer
+systemctl list-timers frankfurtleague-logrotate.timer systemd-tmpfiles-clean.timer
+sudo systemd-tmpfiles --clean --prefix=/var/log/frankfurtleague
+```
+
+**The last of those is also how this host answers whether it reads the age qualifier at all**: one it
+cannot parse is an error naming the file and the line, an exit of 65, and nothing deleted — never a
+line skipped in silence.
+
+**What each shape refuses, and why the obvious one is not here:**
+
+- **A second `logrotate` stanza over `/var/log/frankfurtleague/*.log`** reaches a copy once. The
+  first run renames it out of the glob, and `maxage` prunes what logrotate still finds a source for,
+  so nothing looks at the file again. `olddir`, a `postrotate` or `dateext` off each move the name
+  around and leave that unchanged.
+- **`find -mtime +30 -delete` from cron** deletes the same files, and costs a second scheduler and a
+  file stating an age that `tmpfiles.d` already states declaratively.
+- **Numbered rotation instead of `dateext`** never collides, because every rotation renames every
+  older file. It also takes the date off the names, so a file's age is readable only from its mtime
+  and never from the listing an operator is already looking at.
+- **`dateformat -%Y%m%d-%s`** sorts identically and reads as a number nobody can date by eye.
+- **Leaving the stanza in `/etc/logrotate.d/` and making the host's `logrotate.timer` hourly** is one
+  file fewer and changes the cadence for every other package on the machine.
+
+**Two rotations inside one second still collide**, the name carrying seconds and no more: an hourly
+timer cannot reach that, and two runs by hand can.
+
+**Nothing here rotates the containers' own `json-file` logs**, whose whole bound is the compose size
+cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runtime holds open is
+`copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
+document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
+above runs. The copies are what carry an application log past a deploy, and their thirty days is the
+only age bound over one.
+
+**The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
+reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
+is what the rotation leaves, and the first line written after the reopen changes that ownership;
+reading the file needs the host's root either way.
+
+## 8. Putting the tunnel in front of the origin
+
+**The deploy that first runs `cloudflared` is the only one with steps of its own**, and every one of
+them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later deploy has none.
+
+1. **Issue the tunnel's token in the dashboard and put the value on the server** at
+   `./secrets/tunnel_token`, beside the compose file and readable by root alone. `.gitignore` covers
+   `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
+   the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
+2. **Read the two env files against the documented shapes before anything comes down.**
+   `fl_backend/.env` against [`../backend/spec.md`](../backend/spec.md) §1.5 and `fl_frontend/.env`
+   against [`../frontend/spec.md`](../frontend/spec.md) §1.7 — the key lengths and the origin lists
+   especially, since both are pinned exactly and preflight reads the backend's names and values but
+   only the frontend's names (`docs/ops/spec.md :: I181`, `:: I183`). A value the frontend's startup
+   gate refuses surfaces after step 3 has removed the containers that were serving, inside the dark
+   window step 5 is about.
+3. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
+   host was created before any subnet was declared and before Compose began recording a
+   configuration hash on the networks it creates; a network carrying no such record is reused by
+   `up` as it stands, whatever the file now declares (Compose reconciles only a network whose
+   recorded hash diverged), so the connector's static address would be refused at container-create
+   time — after nginx had already given up its published ports. `down` removes the network with the
+   containers, and the next `up` creates it carrying the declared subnet. The old network is left
+   behind only where something outside this compose file still holds it.
+4. **Deploy, add the two public hostnames in the dashboard, then read
+   `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
+   route, because DNS still names an origin that now publishes nothing. Each hostname's origin
+   settings are [`spec.md`](spec.md) §1.8's; an ingress pointed at the plain port meets the
+   redirect block and loops on its 301 rather than failing.
+5. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
+   probe both run after the health check and both fail into that dark window, while
+   `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`
+   naming `/api/v0/system/is_live` there is the window being observed rather than a reason to
+   intervene.
+
+**This one deploy's rollback is `git revert` of the change and a redeploy, not `deploy.sh`'s own.**
+That path restores IMAGES, and what would be wrong here is the topology: only the reverted commit
+puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
+applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
+for it to restore in any case (§1).

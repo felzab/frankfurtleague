@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSchiedsrichterListResponseSchema } from "./schemas";
 
@@ -14,7 +14,7 @@ import type { FLSchiedsrichterFilterParams } from "./types";
  */
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
       authType: "admin",
       params: filters,

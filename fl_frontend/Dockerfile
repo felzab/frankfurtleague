@@ -46,6 +46,10 @@ ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 
 COPY . .
 
+# Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
+# to keep current, and this one cannot disagree with the schema the same image was built from.
+RUN pnpm run environment-names environment-names.json
+
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
 
@@ -67,6 +71,13 @@ RUN mkdir .next && chown nextjs:nodejs .next
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Root-owned, as public/ is: the deploy's preflight is the only thing that reads these
+# (`scripts/ops/deploy.sh :: check_frontend_env_names`), and the running app has no business rewriting them.
+
+# The mode is spelled rather than left to the builder's umask: the preflight reads them as the host's
+# own user, so a 0600 pair would answer the advisory on every deploy and never the refusal.
+COPY --from=builder --chmod=644 /app/environment-names.json /app/check-environment-names.mjs ./
 
 USER nextjs
 EXPOSE 3000

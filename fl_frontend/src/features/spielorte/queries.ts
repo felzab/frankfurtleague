@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSpielorteListResponseSchema } from "./schemas";
 
@@ -14,7 +14,7 @@ import type { FLSpielorteFilterParams } from "./types";
  */
 export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {
       authType: "admin",
       params: filters,

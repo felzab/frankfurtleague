@@ -516,6 +516,18 @@ class TestASpieltagAlreadyHoldingAClubTwice:
             == 1
         )
 
+    def test_a_fixture_naming_no_spieltag_is_left_out_of_the_count(self):
+        """Non-vacuous: counted, these two rows would share the null key and read as one Spieltag the exchange breaks."""
+
+        assert (
+            _spieltag_clashes(
+                team_ids=[ADLER, BIEBER],
+                gruppenphase_spiele=[{"spieltag_id": None, "team1": {"team_id": BIEBER}, "team2": None}],
+                knockout_spiele=[{"spieltag_id": None, "team1": {"team_id": ADLER}, "team2": None}],
+            )
+            == 0
+        )
+
     def test_a_swap_breaking_nothing_new_is_permitted(self):
         assert _swap(clashing_spieltage=0) is None
 

@@ -1,30 +1,48 @@
 # Logging — error codes
 
-**Scope:** every `error_code` value either service emits, and the response body that carries it.
+**Scope:** every `error_code` value either service emits, live and retired, and which of them a
+response body carries.
 
-**A failure answers `{error_code, correlation_id}` and nothing else** ([`spec.md`](spec.md#2-invariants) L4):
+**A failure answers `{error_code, trace_id}` and nothing else** ([`spec.md`](spec.md#2-invariants) L4):
 the message, the validation detail and the stack trace reach the log and never the wire, so a code seen on a
-response is followed by finding the log line carrying that same code under that correlation id.
+response is followed by finding the log line carrying that same code under that trace id.
 
-The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the request was
-wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a frontend-side
-failure class. A new failure mode gets a new code, never a reused one.
+**A code is `<AREA>-<SUBJECT>-<NNN>`, and each segment is allocated under a rule of its own:**
+
+- **AREA is the closed set `REQ`, `DB`, `SRV` and `FE`, and names what raised the failure** — a rule
+  the request broke, the database driver, the server itself outside any request's contract, and the
+  Next surface. That is also who acts on one, with `DB-COMMON-*` the exception: an ordinary read or
+  write outcome a caller acts on.
+- **SUBJECT is closed per AREA** — the rule family under `REQ-*`, the component under the other three
+  — and is named by the sections below rather than declared in either tree. One subject word under
+  two areas is two families rather than a collision, which is what puts `REQ-VAL-001` beside
+  `SRV-VAL-001` and `DB-FAIL-001` beside `SRV-FAIL-001`: the area carries the whole difference
+  between a caller's bug and the server's, so a subject is free to repeat under another one.
+- **NNN is three digits, one past the highest its own `<AREA>-<SUBJECT>` holds, and never reused.** A
+  gap in a run is a spent number rather than a free one ([section 5](#5-retired-codes)).
+- **A code reaches a response body only where it was raised inside a request** — [section
+  1](#1-backend-codes) and no other section, which is why that one table carries a status. Everywhere
+  else the code reaches a log line and nothing on the wire.
 
 **What holds this page to the code is `scripts/checks/docs_gate/error_codes.py`**: every row is
 required to be spelled in the tree its area names — `FE-*` under `fl_frontend/src/`, every other
 area under `fl_backend/app/` — and every code a tree spells under a prefix it answers for is
 required to have a row, so the backend codes the frontend words for a reader are not read as the
-frontend's own.
+frontend's own. **It reads the shape rather than the four areas** (`:: CODE_SHAPE`), so a fifth area
+would owe a row like any other rather than dropping out of both populations unseen.
 
 **`READ-*` shares that shape and is not an error code.** A read rule refuses nothing, so it reaches no
 response body, no log line and no row on this page, and the `RULES` correspondence below is scanned over
 `REQ-` alone. What a read rule governs is which tier a field is served
 ([`docs/backend/spec.md`](../backend/spec.md#17-read-rules) §1.7).
 
-| Section                             | Answers                                                             |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| [Backend codes](#1-backend-codes)   | Every code FastAPI raises, and its status                           |
-| [Frontend codes](#2-frontend-codes) | Every code the Next surface raises, and why none reaches a 500 page |
+| Section                               | Answers                                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Backend codes](#1-backend-codes)     | Every code FastAPI raises, and its status                                                 |
+| [Frontend codes](#2-frontend-codes)   | Every code the Next surface raises, and why an admin write's never reaches the error page |
+| [Startup codes](#3-startup-codes)     | Every code a boot refusal carries, none of which answers a request                        |
+| [Forwarded codes](#4-forwarded-codes) | The code a line neither service raised carries, on both surfaces                          |
+| [Retired codes](#5-retired-codes)     | What each gap in a run once refused, and why the number stays spent                       |
 
 ## 1. Backend codes
 
@@ -47,7 +65,8 @@ would have succeeded against a different state of the database
 too and a shut window is not a 403.** The endpoint is open to everyone
 ([`docs/backend/spec.md`](../backend/spec.md) §1.1) and what refuses is the season's own state: the
 same submission would have been stored a week earlier, or before another school took the Kürzel.
-`REQ-*` still names the side that must act, and on this form that side is a member of the public.
+`REQ-*` still names a rule the request broke, and on this form the one who acts on it is a member of
+the public.
 
 **`DB-COMMON-001` is also what a season the base tier may not read answers**, deliberately the same code
 and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md) I47), so a 404 carrying
@@ -164,6 +183,10 @@ freeze is absolute on the patch and is not a dead end, and which route leads bac
 Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named. Unlike section 1's, this set has no
 declaration a test holds it against, so a code added at a call site reaches this table only by hand.
 
+**Two frontend codes sit outside this table**, each grouped with the backend code of its own class: the
+environment gate's in [section 3](#3-startup-codes), and the console shim's in
+[section 4](#4-forwarded-codes).
+
 **None of them reaches the error page from an admin write.** `runAdminMutation` wraps both entry points — the
 admin server actions and the page-owned editors' undo route handlers — logging the failure with its codes and
 returning the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
@@ -175,11 +198,85 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 | `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes); the mail transport raises it for a stalled send                                                                                                                                                                                                                                                                                                                                                                          |
 | `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `FE-ACT-001`    | An admin mutation or a public route handler threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`, `fl_frontend/src/shared/utils/publicRoute.ts`)                                                                                                                                                                                                                                                                                                                            |
 | `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`)                                                                                                                                                                                                                                                                                                                                                                               |
 | `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same correlation id                                                                                                                                                                                                                                                                  |
+| `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same trace id                                                                                                                                                                                                                                                                        |
 | `FE-MAIL-002`   | A message about an application did not reach the people it names — one recipient refused (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`, the rest still sent), or the club's name could not be read and nobody was reached at all (`fl_frontend/src/features/bewerbungen/actions.ts :: notifyBewerbung`). What the message reports has already happened, a triage decision and a confirmation alike, so an address reaches the administrator rather than the line                      |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `FE-SWEEP-001`  | A retention pass did not finish, for one season or for the whole run (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). The remaining seasons still run, and the next hourly pass retries; the line carries the season and the error's name, never a person. A season whose id is not a four-digit year fails this way every hour until the id is corrected, the clocks reading the season after it being unable to fire at all (`fl_backend/app/api/bewerbungen/services.py :: next_saison_id`) |
+
+## 3. Startup codes
+
+Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
+the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`. Each reaches a log line
+and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
+code is the whole join key, which is why a boot failure gets one at all
+([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).
+
+`SRV-*` rather than `DB-*`: the side that must act is whoever runs the service, and on
+`SRV-BOOT-002` the database is not at fault at all. The container exits and the engine starts it
+again on a growing backoff (`docker-compose.yml :: restart`), so `docker ps` shows the backend
+restarting rather than stopped and `docker compose logs backend` carries the code once per attempt;
+a code seen here is followed by reading those lines rather than by a trace.
+
+**The refusal an operator hits first is the environment gate's, and only the frontend's reaches this
+table.** The backend gate fails while the settings the logger is configured from are still being
+built, so it leaves the process as a Python traceback on stderr rather than a log line at all
+([`spec.md`](spec.md#12-the-stream-contract) §1.2), and what identifies it is the variable names
+`fl_backend/app/core/config.py :: get_config` prints. The frontend gate reaches its formatter
+directly, so its refusal carries the envelope's fields and a code in whichever format `LOG_FORMAT`
+selected, like any other failure line.
+
+| Code           | Meaning                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                      |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                          |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value |
+
+The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
+cause's sentence with its code — so a fourth cause added there takes a fourth row here.
+
+## 4. Forwarded codes
+
+A line neither service raised: output a dependency wrote, put into the envelope by
+`fl_frontend/src/core/consoleShim.ts :: installConsoleShim` or propagated to the root handler
+`fl_backend/app/core/logging.py :: setup_custom_logger` configures. The writer has no call site of
+ours to take a code from, and borrowing the nearest one would file a library's warning under an
+application failure, so each route gives what it forwards a code of its own.
+
+**A forwarded code names the route rather than the failure**, so a line carrying one is followed by
+reading its `message` and the writer beside it — `source` on the frontend, `module` on the backend —
+and never by looking the code up for a cause. A failure worth its own code gets a call site of ours
+and a row above.
+
+| Code             | Meaning                                                                                                    |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `FE-CONSOLE-001` | A warning or error reaching `console.*` under the json format, Next's own `⨯ Error` dumps included         |
+| `SRV-LOG-001`    | A warning or error from a logger that is not the application's — uvicorn's, PyMongo's, the file reloader's |
+
+## 5. Retired codes
+
+**A spent number stays spent**, so a family with a gap in its run still takes one past its highest.
+Each tree holds exactly the codes it raises, while a copied-off log stream
+([`spec.md`](spec.md#12-the-stream-contract) §1.2) can carry one of these, so this is the only list
+that says what a gap once refused and the only thing telling a spent number from an unallocated one.
+The commit that retired one is reached with `git log -S` on the code.
+
+**Each entry is a bullet and never a table row**: the register's reader takes a backticked code in a
+row's first cell as a live row (`scripts/checks/docs_gate/error_codes.py :: CODE_ROW_RE`) and would
+demand a tree spell every code below.
+
+- **`REQ-DATE-006`** — reserved and raised by nothing. What the reservation covered is unrecorded, no
+  revision spelling the code at all; the commit that shipped `REQ-DATE-008` is where the run skipping
+  two rather than one is argued.
+- **`REQ-DATE-007`** — reserved beside `REQ-DATE-006`, on the same terms.
+- **`REQ-RETIRE-002`** — a matchday holding a played match was asked to retire, which would unpublish
+  that result.
+- **`REQ-SQUAD-002`** — a squad row took a `nummer` another live row of the same team and season
+  already held.
+- **`REQ-STATE-001`** — what it refused is unrecorded: no revision this history holds spells it, and
+  the family's rows open at `REQ-STATE-002`.

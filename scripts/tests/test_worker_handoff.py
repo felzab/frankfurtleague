@@ -2,8 +2,8 @@
 
 A parent replays rows it never watched being produced, so a ledger that misreports a rank or a
 count is replayed as truth and closes the run green over a real finding. Every case below runs a
-real worker, reads the ledger it wrote, and hands both to a parent shaped like
-`scripts/gate/verify.sh :: replay_scope`.
+real worker under `scripts/gate/verify.sh :: gate_exit` and `:: wrap_up`, and replays the ledger it
+wrote through `:: replay_scope` and `:: adopt_rows`, all four lifted rather than written again here.
 
 Invariants:
 A worker's exit status and the rows it sent home are two accounts of one run and must agree.
@@ -18,13 +18,29 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, run_shell, write_shell
+from conftest import base_env, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
+
+
+def _lifted(name: str, indent: str = "") -> str:
+    return lift_function(VERIFY, name, indent)
+
+
+def _env() -> dict[str, str]:
+    """`scripts/tests/conftest.py :: base_env`, minus the self-check ledger a gate run exports.
+
+    The lifted `gate_exit` reclaims that file when the pid matches, and no fixture here owns one.
+    """
+    env = base_env()
+    for name in ("FL_SELFCHECK_LEDGER", "FL_SELFCHECK_LEDGER_OWNER"):
+        env.pop(name, None)
+    return env
 
 
 @dataclass(frozen=True)
@@ -126,50 +142,53 @@ HANDOFFS: Final[tuple[Handoff, ...]] = (
 
 
 def _worker_script(body: tuple[str, ...]) -> str:
-    """`scripts/gate/verify.sh :: gate_exit` and `:: wrap_up` in miniature.
-
-    The `worker` calls are the point: a fixture writing the ledger unconditionally proves the trap
-    rather than the branch that decides whether a run owes one at all.
-    """
     return "\n".join(
         (
             "#!/usr/bin/env bash",
             'source "' + LIB.as_posix() + '"',
-            'gate_exit() { if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi; }',
+            # This run is no step worker, owns no pool and holds no db claim: `gate_exit`'s
+            # reclaims are false by construction rather than by a copy of the gate's own tests,
+            # and `set -u` refuses a missing array or marker.
+            "POOL_DIRS=()",
+            'DB_RUN_MARKER=""',
+            "step_worker() { false; }",
+            "cleanup() { :; }",
+            _lifted("gate_exit"),
+            _lifted("wrap_up"),
             "trap gate_exit EXIT",
             *body,
-            "if worker; then end_worker; fi",
-            "finish",
+            "wrap_up",
             "",
         )
     )
 
 
-# `scripts/gate/verify.sh :: replay_scope` and the loop that drives it, minus the captured bytes it
-# replays: rows, then status, then ending, one scope per three arguments.
-
-# Rank 0 is the parent's own stand-in for a scope that sent no ledger home, which `finish` refuses
-# to call green. Read as a disagreement instead, it would grade an honest worker 3.
-PARENT_SCRIPT: Final = "\n".join(
-    (
-        "#!/usr/bin/env bash",
-        'source "' + LIB.as_posix() + '"',
-        "while (( $# )); do",
-        '  label="$1"; ledger="$2"; status="$3"; shift 3',
-        '  if [[ -s "$ledger" ]]; then',
-        "    while IFS=$'\\t' read -r rank ms findings advisories name; do",
-        '      adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"',
-        '    done < "$ledger"',
-        "  else",
-        '    adopt_section "$label" 0 0 0 0',
-        "  fi",
-        '  adopt_ending "$status" "the ${label} scope"',
-        "  if (( status )); then finish; fi",
-        "done",
-        "finish",
-        "",
+def _parent_script(pool: Path, statuses: dict[str, str]) -> str:
+    """A parent over one pool directory, minus the capture files `replay_scope` also cats."""
+    rows = " ".join(f'[{scope}]="{status}"' for scope, status in statuses.items())
+    return "\n".join(
+        (
+            "#!/usr/bin/env bash",
+            'source "' + LIB.as_posix() + '"',
+            f'POOL_DIR="{pool.as_posix()}"',
+            f"declare -A UNIT_STATUS=({rows})",
+            # Every scope this fixture opens is replayed, so the closing statement is a whole run's.
+            'NOT_RUN=""',
+            _lifted("adopt_rows", "  "),
+            _lifted("replay_scope", "  "),
+            _lifted("wrap_up"),
+            "ENDING=0",
+            "REPLAY_STATUS=0",
+            'for scope in "$@"; do',
+            # The gate's `adopt_finished` arm past the first failure is
+            # `scripts/tests/test_unit_replay.py`'s subject, and no case here replays behind one.
+            '  if (( ! ENDING )); then replay_scope "$scope"; ENDING="$REPLAY_STATUS"; fi',
+            "done",
+            "if (( ENDING )); then finish; fi",
+            "wrap_up",
+            "",
+        )
     )
-)
 
 
 @dataclass(frozen=True)
@@ -190,10 +209,13 @@ def _bash(path: Path, args: tuple[str, ...], env: dict[str, str]) -> tuple[int, 
 
 
 def _run_worker(
-    scratch: Path, tag: str, body: tuple[str, ...], env: dict[str, str]
-) -> tuple[int, str, Path, tuple[tuple[int, int, int, str], ...]]:
-    """Run one worker under its own ledger, and read that ledger back as rows."""
-    ledger = scratch / f"{tag}.ledger"
+    scratch: Path, pool: Path, tag: str, body: tuple[str, ...], env: dict[str, str]
+) -> tuple[int, str, tuple[tuple[int, int, int, str], ...]]:
+    """Run one worker under its own ledger, and read that ledger back as rows.
+
+    The ledger is written where the pool would have left it, which is where `adopt_rows` looks.
+    """
+    ledger = pool / f"{tag}.ledger"
     script = scratch / f"{tag}.sh"
     write_shell(script, _worker_script(body))
     code, output = _bash(script, (), {**env, "FL_GATE_WORKER": "1", "FL_GATE_LEDGER": ledger.as_posix()})
@@ -203,18 +225,24 @@ def _run_worker(
             rank, ms, findings, advisories, name = line.split("\t")
             assert ms.isdigit(), f"{tag}: the duration column reads {ms!r}"
             rows.append((int(rank), int(findings), int(advisories), name))
-    return code, output, ledger, tuple(rows)
+    return code, output, tuple(rows)
+
+
+def _pool(scratch: str) -> Path:
+    pool = Path(scratch) / "pool"
+    pool.mkdir()
+    return pool
 
 
 def _replay(case: Handoff) -> Replay:
     """Run the worker, read the ledger it wrote, and hand both to a parent."""
-    env = base_env()
+    env = _env()
     with tempfile.TemporaryDirectory() as scratch:
-        parent = Path(scratch) / "parent.sh"
-        write_shell(parent, PARENT_SCRIPT)
-        worker_code, worker_output, ledger, rows = _run_worker(Path(scratch), "demo", case.body, env)
+        pool = _pool(scratch)
+        worker_code, worker_output, rows = _run_worker(Path(scratch), pool, "demo", case.body, env)
         status = case.worker_code if case.replay_as is None else case.replay_as
-        parent_code, parent_output = _bash(parent, ("demo", ledger.as_posix(), str(status)), env)
+        parent = write_shell(Path(scratch) / "parent.sh", _parent_script(pool, {"demo": str(status)}))
+        parent_code, parent_output = _bash(parent, ("demo",), env)
     return Replay(worker_code, worker_output, rows, parent_code, parent_output)
 
 
@@ -251,19 +279,15 @@ def test_a_scope_whose_status_its_rows_contradict_is_caught_behind_a_scope_that_
     The first scope's finding would stand in for the second scope's silence. Its status is replayed
     as 0 only so the replay reaches the second at all.
     """
-    env = base_env()
+    env = _env()
     with tempfile.TemporaryDirectory() as scratch:
-        parent = Path(scratch) / "parent.sh"
-        write_shell(parent, PARENT_SCRIPT)
+        pool = _pool(scratch)
         found = ("section one", "step work", 'fail "a real finding"')
-        first_code, _, first, first_rows = _run_worker(Path(scratch), "one", found, env)
-        second_code, _, second, second_rows = _run_worker(Path(scratch), "two", ("section two", 'ok "checked"'), env)
+        first_code, _, first_rows = _run_worker(Path(scratch), pool, "one", found, env)
+        second_code, _, second_rows = _run_worker(Path(scratch), pool, "two", ("section two", 'ok "checked"'), env)
         assert (first_code, first_rows) == (1, ((5, 1, 0, "one"),))
         assert (second_code, second_rows) == (0, ((2, 0, 0, "two"),))
-        code, output = _bash(
-            parent,
-            ("one", first.as_posix(), "0", "two", second.as_posix(), "1"),
-            env,
-        )
+        parent = write_shell(Path(scratch) / "parent.sh", _parent_script(pool, {"one": "0", "two": "1"}))
+        code, output = _bash(parent, ("one", "two"), env)
     assert code == 3, f"the second scope's disagreement exited {code}"
     assert "the two scope exited 1" in output, output

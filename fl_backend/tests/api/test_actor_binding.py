@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from collections import Counter
 from typing import Iterator
 
 import pytest
@@ -20,13 +21,13 @@ from app.core.security import (
     bind_system_actor,
 )
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import ADMIN_AUTH, build_test_config
+
+from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
 # collection, before a fixture could run.
 APP = create_app(build_test_config())
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -220,7 +221,17 @@ def api_routes() -> Iterator[APIRoute]:
                 yield route
 
 
-ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes() for method in (route.methods or ())}
+MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes() for method in (route.methods or ())]
+
+ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
+
+OPERATION_COUNTS = Counter(operation for operation, _ in MOUNTED_OPERATIONS)
+
+# A dict keeps the last route written, so a pair served twice drops the route that lost from
+# `MUTATIONS` and from every sweep under it. Module level, so collection refuses every case at once.
+assert len(ROUTES_BY_OPERATION) == len(MOUNTED_OPERATIONS), (
+    f"more than one mounted route serves {sorted(operation for operation, count in OPERATION_COUNTS.items() if count > 1)}"
+)
 
 # The writes NO administrator makes, which therefore bind no `X-FL-Actor`. Enumerated for
 # `tests/api/test_admin_guard.py :: PUBLIC_WRITES`' reason, and derived from neither it nor a rule.
@@ -247,14 +258,6 @@ MUTATIONS = sorted(
     for operation in ROUTES_BY_OPERATION
     if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES and operation not in SYSTEM_WRITES
 )
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation without
-# editing this file, so pinning the number would ask for a bump and prove nothing.
-
-# Seven under the inventory: fewer than either of the two largest routers holds, so one dropping out
-# of it lands below the floor. `tests/api/test_admin_guard.py` floors the same operations reached
-# through the published document, and the two move together.
-MINIMUM_EXPECTED_MUTATIONS = 30
 
 
 def binds_an_actor(route: APIRoute) -> bool:

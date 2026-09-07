@@ -4,21 +4,18 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from httpx import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
-BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 # The one write this file makes rides under an actor; the reads it covers carry none.
 ACTOR = "admin@example.com"

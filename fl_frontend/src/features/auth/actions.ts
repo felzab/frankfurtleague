@@ -6,7 +6,7 @@ import { AuthError } from "next-auth";
 
 import { signIn, signOut } from "@/core/auth";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
@@ -36,7 +36,7 @@ async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
 // `_prevState` is required by `useActionState`'s calling convention -- the action receives the
 // previous state first -- and read by nothing: the form re-renders from the returned state alone.
 export async function handleSignIn(_prevState: FormState | undefined, formData: FormData): Promise<FormState> {
-  return runWithIncomingCorrelationId(async () => {
+  return runWithIncomingTrace(async () => {
     const startedAt = Date.now();
 
     // The only server action reachable without a session, so its input is parsed and never cast.
@@ -81,7 +81,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
  * reports a failure for a sign-out that succeeded.
  */
 export async function signOutAction(): Promise<FormState> {
-  return runWithIncomingCorrelationId(async () => {
+  return runWithIncomingTrace(async () => {
     try {
       await signOut({ redirect: false });
 

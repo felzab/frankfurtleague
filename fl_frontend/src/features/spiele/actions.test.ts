@@ -44,7 +44,7 @@ function sharedAnswer(serverErrorCode: string): string {
     message: "conflict",
     url: "http://backend:8000/api/v0/spiele/x",
     endpoint: "/spiele/{spiel_id}",
-    correlationId: "ab".repeat(16),
+    traceId: "ab".repeat(16),
     statusCode: 409,
     serverErrorCode,
   });

@@ -190,7 +190,10 @@ These bind every written artifact. A comment is documentation and carries every 
   and can be again, so a commit is reached by its content (COR-14) rather than by its name. Never a
   line number, in any form — nothing tells a correct one from a stale one — except a finding in a
   gitignored audit report, read once against the tree it came from. _Enforced by_ gate checks
-  `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check `wrapped-path`,
+  `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check
+  `section-reference`, for a `§<number>` naming a section the page beside it does not define — the
+  page a link or a backticked path names, and otherwise the one the reference is written on;
+  gate check `wrapped-path`,
   for a backticked path a line wrap parts, which renders with a space inside it, whether or not the
   join still names a file; gate check `sha`, which fails
   a backticked run of seven or eight hex characters carrying both a digit and a letter whether or not
@@ -261,7 +264,8 @@ Scope: every tracked file of a kind `scripts/checks/docs_gate/kernel.py :: SCANN
 `:: OPS_FILENAMES` selects, and, for the rules here that read prose rather than comments, every file
 `:: PROSE_FILENAMES` names, wherever it sits — the source trees `fl_frontend/src`,
 `fl_backend/app`, `fl_backend/tests` and `scripts/`, the hook folders `.claude/hooks/` and
-`.githooks/`, and the Dockerfile, workflow, manifest and notice outside all of them. **A tree is in scope
+`.githooks/`, and the Dockerfile, workflow, manifest, notice and wall-clock record outside all of
+them. **A tree is in scope
 for those kinds and never whole**, because `scripts/checks/docs_gate/kernel.py :: comment_style`
 answers every kind rather than refusing one, handing an unrecognised suffix to the shell-comment
 reader; the kind register is the only thing keeping an image under `fl_frontend/src` out of it.

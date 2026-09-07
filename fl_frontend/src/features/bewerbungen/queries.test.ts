@@ -188,7 +188,7 @@ describe("the four base-tier public reads", () => {
       url: "http://backend/api/v0/bewerbungen/fenster",
       statusCode: 404,
       endpoint: "/bewerbungen/fenster",
-      correlationId: "0123456789abcdef",
+      traceId: "0123456789abcdef",
     });
 
     assert.equal(await failing(notFound, () => getOffenesBewerbungFenster()), null);

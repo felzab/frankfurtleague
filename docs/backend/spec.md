@@ -95,7 +95,7 @@ opens — rather than a narrower shape of the reads below.
 | GET    | `/schiedsrichter/{schiedsrichter_id}` | `schiedsrichter/router.py`  | Unused by the frontend, for `/spielorte/{spielort_id}`'s reason                                                                                                                                          |
 | GET    | `/bewerbungen`                        | `bewerbungen/router.py`     | Admin-tier whole — contact records, and which schools were turned down (`READ-CONTACT-001`). Newest first, narrowed by `saison_id` or `status`; a decided application stays listed                       |
 | GET    | `/bewerbungen/{bewerbung_id}`         | `bewerbungen/router.py`     | `getBewerbungById(id)` — the triage page's read, which is what one decision is taken against                                                                                                             |
-| GET    | `/aktionen`                           | `aktionen/admin_router.py`  | The action log — every recorded write, newest first, narrowed by collection, operation, correlation id or document id. It spans every collection (I40, I48)                                              |
+| GET    | `/aktionen`                           | `aktionen/admin_router.py`  | The action log — every recorded write, newest first, narrowed by collection, operation, trace id or document id. It spans every collection (I40, I48)                                                    |
 | GET    | `/aktionen/{aktion_id}`               | `aktionen/admin_router.py`  | One log row WITH the document its write replaced — the only read serving a pre-image (I43); the list reports `stand_gesichert` instead                                                                   |
 
 **Every ENTITY resource carries a `GET /{id}` whether or not something calls it** — the callerless
@@ -260,8 +260,8 @@ cache tags in the same action — the data it caches changed even though no team
 
 ### 1.4 Error codes and failure responses
 
-**Every failure response body is `{error_code, correlation_id}`** — the full code table and the body's
-field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the correlation-id
+**Every failure response body is `{error_code, trace_id}`** — the full code table and the body's
+field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the trace-id
 design in [`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must
 follow them.
 The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
@@ -296,7 +296,7 @@ one of these, where the season has not moved at all.
 | `REQ-BOOKING-001`     | A venue or referee NEWLY assigned that the league holds no row for, or holds as retired; a stored reference is left alone                                                              |
 | `REQ-CLASH-001`       | A venue or referee already serving another fixture less than four hours away                                                                                                           |
 
-**One code per rule, never one per side.** The failure body is `{error_code, correlation_id}` and
+**One code per rule, never one per side.** The failure body is `{error_code, trace_id}` and
 nothing else (L4), so the code is the only channel — and "team1 has left the season" and "team2 has
 left the season" are one failure mode, which is what the code table's own rule keys on.
 
@@ -313,23 +313,49 @@ unreachable.
 Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
 fields without a default are required at boot and the process refuses to start without them.
 
-| Variable                      | Constraint                                      | Default    |
-| ----------------------------- | ----------------------------------------------- | ---------- |
-| `API_TRUSTED_HOSTS`           | comma-separated host list                       | — required |
-| `API_CORS_ALLOWED_ORIGINS`    | comma-separated origin list                     | — required |
-| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`     | — required |
-| `DB_BASE_NAME`                | string                                          | — required |
-| `DB_SERVER_SELECTION_TIMEOUT` | int, ms                                         | `15000`    |
-| `DB_MIN_CONNECTIONS`          | int                                             | `5`        |
-| `DB_MAX_CONNECTIONS`          | int                                             | `100`      |
-| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` | — required |
-| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised             | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                    | `WARNING`  |
-| `LOG_FORMAT`                  | `json` \| `console`, case-normalised            | **`json`** |
+| Variable                      | Constraint                                                                                                     | Default    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                                             | — required |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                                                     | — required |
+| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                                                                    | — required |
+| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                                              | — required |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                                          | `15000`    |
+| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                                           | `5`        |
+| `DB_MAX_CONNECTIONS`          | int, at least one                                                                                              | `100`      |
+| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 printable ASCII characters, none of them a space | — required |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                                            | `INFO`     |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                                                   | `WARNING`  |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                                           | **`json`** |
+
+`API_CORS_ALLOWED_ORIGINS` refuses the bare `*` that `API_TRUSTED_HOSTS` accepts, and the refusal is
+deliberate: this API is reached server-side from the frontend's own origin, never from a browser at
+an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
+request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
+
+**The internal keys' character class is what `secrets.compare_digest` can read.**
+`fl_backend/app/core/security.py :: verify_api_key` compares a bearer token against a key with it,
+and it raises rather than answering false for a `str` holding anything outside ASCII — so a key the
+length bound alone admits boots and then answers every internal request 500. The class is printable
+ASCII with no space, pinned identically on the frontend (`docs/ops/spec.md :: I11`), which is also
+what holds the two length checks to one answer: this side counts code points and zod counts UTF-16
+units, and only ASCII makes those the same number.
+
+**`DB_MIN_CONNECTIONS` and `DB_MAX_CONNECTIONS` are judged against each other only once every field
+has parsed**, that pair being a model validator rather than a field one: an operator holding a
+malformed origin as well as an inverted pool is refused for the origin alone, and refused a second
+time for the pool after fixing it.
 
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
 colourise the container stream ([`docs/logging/spec.md`](../logging/spec.md)). `API_VERSION` is deliberately
-not here — it is a constant of the code (`fl_backend/app/core/config.py :: API_VERSION`).
+not here — it is a constant of the code (`fl_backend/app/core/config.py :: API_VERSION`). A refusal
+names the failing variables and never their values (`docs/ops/spec.md :: I179`), so the value to
+look at is the one the log does not print.
+
+**A name this table does not list fails the boot when the `.env` file carries it and is never read
+at all from the process environment** (`fl_backend/app/core/config.py :: model_config`): only the
+dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
+omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
+before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence.
 
 ### 1.6 The test suite
 
@@ -387,11 +413,11 @@ about a dict can describe carries the executing module alone, with no sibling to
 #### What the suite reads, and what it does not
 
 Every field the application under test needs is passed explicitly to
-`fl_backend/tests/config.py :: build_test_config`, and init arguments outrank every other source in
-pydantic-settings, so a checkout with no `.env` runs the whole suite — which is what CI is — and a
-failure means the code rather than the machine. **A field that is not passed still falls back to
-`.env`**, which the settings model declares (`fl_backend/app/core/config.py :: model_config`), which is
-why a test about a default asserts on the model's field rather than on a constructed instance.
+`fl_backend/tests/config.py :: build_test_config`, which builds
+`fl_backend/tests/config.py :: ConfigReadingNoDotenvFile` — a settings class reading no dotenv file
+at all, so a machine carrying one runs the same suite CI does and a failure means the code rather
+than the machine. **The process environment is still a source**, which is why a test about a default
+asserts on the model's field rather than on a constructed instance.
 
 **The server fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
 `api/` and `core/` want a database; each is session-scoped, so one `mongod` serves every suite that
@@ -401,8 +427,9 @@ asks for it. Which of the two a test takes — `fl_backend/tests/conftest.py :: 
 #### The tier distributed
 
 **The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile --maxprocesses`,
-the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`. **A bare `pytest -m db` still runs it
-serially and is the first thing to try against a failure that only appears distributed.**
+the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and the floor
+`:: GATE_WIDTH_DB_PYTEST_FLOOR`. **A bare `pytest -m db` still runs it serially and is the first
+thing to try against a failure that only appears distributed.**
 **`loadfile` is a cost choice and not a correctness one**: it keeps a module-scoped corpus built once
 rather than once per worker holding a slice of it, and the per-worker naming below is what would hold
 a run correct under `--dist load`, which splits a file, as well.
@@ -437,6 +464,10 @@ and cannot suffer same-basename collisions.
 
 #### Conventions
 
+- **`tests/api/` is split by concern, never one module per entity**, each module named for its
+  subject and its concern — a read, a refusal, an execution, a pipeline — because an entity's
+  refusals and its pipelines are proved by different fixtures, and one module per entity grows past
+  what a reader can hold.
 - **Fixtures are factories, not constants.** Every fixture returns a callable producing a fresh valid
   payload; a test calls it with the one field it wants to break, so each case states exactly what makes
   it invalid and no two cases can leak state through a shared mutable dict
@@ -455,8 +486,15 @@ and cannot suffer same-basename collisions.
   hand-built rather than produced by a factory.
 - **A `db` test that takes a clean database from a helper has it built once and emptied per test**,
   and a body that moves what a collection enforces — narrowing a validator, adding or dropping an
-  index — says so where it seeds, `mutates_schema=True`. Forgetting is caught rather than
-  remembered, by `fl_backend/tests/database.py :: a_clean_database`.
+  index, creating a view or a time-series collection — says so where it seeds, `mutates_schema=True`.
+  Forgetting is caught rather than remembered, by `fl_backend/tests/database.py :: a_clean_database`.
+- **That database carries the shipped validators and indexes**, both from
+  `fl_backend/tests/database.py :: a_clean_database` and from `:: a_clean_database_sync`, so a seed
+  the product could not hold fails on the insert. `constraints=False` is the opt-out and takes a
+  reason at the body: what it is for is a case whose subject IS a document
+  `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` refuses — a row stored before the
+  validator that now forbids it. A seed that merely fails is repaired, never accommodated by
+  widening a validator (`.claude/rules/backend.md`).
 - **The suite that manipulates a schema takes a database no other test shares**, a half-applied
   schema being a state nothing records
   (`fl_backend/tests/core/test_constraints_execution.py :: on_a_database`).
@@ -571,7 +609,7 @@ rather than by the handler remembering to conceal one.
 | I157 | A reminder sends one mailbox one link per person: a mirrored Trainer rides the link of the seat it mirrors, and both seats are stamped                                                             | `fl_backend/app/api/bewerbungen/services.py :: reminder_link_groups`, folded as `fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox` folds the first mail; `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheReminderClock`; `fl_frontend/src/features/bewerbungen/sweep.test.ts`                                                                                                                        |
 | I158 | `rules.erlaubte_stufen` is the net a short squad may be topped up from, never the Jahrgang a team comes from; narrowing it removes that headroom                                                   | Unenforced — a product rule, no check bounding a squad below; `fl_backend/tests/api/test_rules_refusal.py :: test_permits_narrowing_erlaubte_stufen_on_a_past_season` pins the narrowing as permitted, including on a `past` season                                                                                                                                                                                                           |
 | I22  | A fixture side is `null` while its occupant is unknown, and `teamN_quelle` is an INDEPENDENT sibling saying where it comes from                                                                    | `FLSpiel` and the `spiele` validator, both of which type the four fields and pair none of them                                                                                                                                                                                                                                                                                                                                                |
-| I21  | `fl_backend/openapi.json` is committed and equals what the service publishes; regenerate it with `python -m tests.openapi_document --write`                                                        | `fl_backend/tests/api/test_openapi_document.py :: test_the_committed_document_is_the_one_the_service_publishes`                                                                                                                                                                                                                                                                                                                               |
+| I21  | `fl_backend/openapi.json` is committed and equals what the service publishes; regenerate it with `cd fl_backend && uv run python -m tests.openapi_document --write`                                | `fl_backend/tests/api/test_openapi_document.py :: test_the_committed_document_is_the_one_the_service_publishes`                                                                                                                                                                                                                                                                                                                               |
 | I23  | A bracket slot's occupant IS the winner of the match its `Quelle` references, recomputed on every write; a `null` `Quelle` makes the slot the admin's                                              | `fl_backend/app/api/spiele/services.py :: resolve_bracket`, called by `patch_spiel_data` inside its transaction; both `spiel` and `gruppe` references resolve (I24)                                                                                                                                                                                                                                                                           |
 | I24  | A group is ranked by ONE chain — points, then the goal keys and the head-to-head table among whoever is level, ordered by `tiebreak_order`                                                         | `fl_backend/app/api/teams/services.py :: build_gruppen` orders the response and `:: build_decided_standings` seeds from the same `:: _tiers`; `:: _break_tie` decides which criterion leads. Nothing re-sorts a group                                                                                                                                                                                                                         |
 | I24a | A placing reaches a bracket slot only when no combination of outstanding results could change it, and only final goals break a tie below points                                                    | The walk over outcomes in `_decide_one_gruppe`, capped at `CERTAINTY_FIXTURE_LIMIT` outstanding fixtures per group; `_still_to_play` and the walk's open set both exclude `SONDEREREIGNIS_WITHOUT_A_RESULT`                                                                                                                                                                                                                                   |
@@ -639,6 +677,7 @@ rather than by the handler remembering to conceal one.
 | I132 | Reaching past `fl_backend/app/core/crud.py` is CLOSED to four reasons: a cursor, a sorted single-document read, a count, and absence answering rather than a 404                                   | unenforced — `fl_backend/tests/api/test_write_transactions.py` sweeps the WRITE sites alone, and nothing sweeps the reads; review judgment                                                                                                                                                                                                                                                                                                    |
 | I137 | A replacement carries over the row's identity and its fixtures alone: the `austritt`, kit colour and contacts are cleared and the outgoing squad retired                                           | `fl_backend/app/api/teams/admin_router.py :: replace_saison_team`, one `$set` clearing the three; `fl_backend/tests/api/test_saison_team_replacement_execution.py :: TestAllFourLayersMoveTogether` and `:: TestTheOutgoingClubsSquadIsRetired`                                                                                                                                                                                               |
 | I138 | The draw writes no date or kickoff time: an undraw destroys hand-assigned ones without refusing (I109), and only the log's images hold them (I48)                                                  | `fl_backend/app/api/saisons/spielplan.py :: _spiel` writes both null, pinned by `fl_backend/tests/api/test_spielplan.py :: test_nothing_is_scheduled_and_nothing_has_happened`; `fl_backend/tests/api/test_undraw_execution.py :: TestTheRemovalKeepsEveryImage`                                                                                                                                                                              |
+| I180 | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on                                                           | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestTheAgeAtConfirmation` and compared to the frontend copy by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number`                                                                                                                     |
 
 ## 3. Violation → remedy
 

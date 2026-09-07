@@ -39,6 +39,15 @@ CR_BYTE: Final = chr(13)
 # Built like the markers above: spelled out, this line would open a fence in every reader that
 # scans this file, and the corpus below would be read as one block of prose.
 FENCE: Final = "`" * 3
+# The outer marker of a nested block, built the same way. Longer than the inner one, which is what
+# CommonMark reads a close by and what a reader flipping one boolean cannot see.
+LONG_FENCE: Final = "`" * 4
+# A dead path inside the nested block, where a reader taking the inner opener for the outer's close
+# reads code as prose and reports it.
+NESTED_FENCE_PATH: Final = "docs/gone-inside-a-nested-fence.md"
+# A dead path after the outer close, where that same reader is inside a block it never left and
+# reads nothing at all.
+PAST_FENCE_PATH: Final = "docs/gone-past-a-nested-fence.md"
 
 NOTES: Final = "docs/notes.md"
 # A second page of the same basename, so a bare-name citation can be made to resolve twice; and a
@@ -71,6 +80,14 @@ LENGTHENING_LINE: Final = "a clause that carries the block past the word bound "
 # The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
 # that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
 TSX_SAMPLE: Final = "fl_frontend/src/sample.tsx"
+# The three shapes a reader that does not track quoting keeps: a marker inside a double-quoted
+# string, one inside a template literal, and an unclosed block marker that opens a run to the
+# file's end.
+LITERAL_MARKER_PATH: Final = "docs/gone-in-a-tsx-literal.md"
+TEMPLATE_MARKER_PATH: Final = "docs/gone-in-a-template-literal.md"
+RUNAWAY_BLOCK_PATH: Final = "docs/gone-after-a-runaway-block.md"
+# The comment beside them, so the case cannot pass on a reader that blanks the file whole.
+REAL_COMMENT_PATH: Final = "docs/gone-in-a-real-comment.md"
 # One slice per arm the tag checks take: derived, stale and frontend-only. A slice exists only
 # while a file holds its folder open, and `git clean` takes an empty one with it.
 SPIELE_ROUTER: Final = "fl_backend/app/api/spiele/router.py"
@@ -161,8 +178,19 @@ DOCKERFILE: Final = "fl_backend/Dockerfile"
 # A root-level file a citation names, beside the attributes file: every other cited path sits under a
 # prefix the resolver lists, so the root-level arm is driven by those two and nothing else.
 COMPOSE_FILE: Final = "docker-compose.yml"
-# The one file read whole as prose by name: no suffix, and the paths in it written bare.
+# A root-level directory arbitrary enough that no hand-written prefix list would carry it, planted
+# rather than committed: the corpus every other case is measured against holds no such folder.
+ROOT_FOLDER_FILE: Final = "editor/settings.json"
+# Under that folder and nowhere on disk, which is the half a resolver blind to the folder passes.
+DEAD_ROOT_FOLDER_PATH: Final = "editor/gone.json"
+# The suffixless file read whole as prose by name, its paths written bare.
 NOTICE_FILE: Final = "NOTICE"
+# The other one, and the one carrying a suffix: read for its comments instead, this record's
+# opening run is a module header INC-2 fails on the title line alone.
+WALL_CLOCK: Final = ".github/gate-wall-clock.tsv"
+WALL_CLOCK_LIVE_PATH: Final = SAMPLE
+WALL_CLOCK_DEAD_PATH: Final = "docs/gone-from-the-wall-clock.md"
+TAB: Final = chr(9)
 # A live file and a directory, the two shapes the file names that must stay silent.
 NOTICE_LIVE_PATH: Final = SAMPLE
 NOTICE_DIRECTORY: Final = "fl_frontend/src/"
@@ -252,6 +280,10 @@ STATUS_COLUMN_ROW: Final = "| # | When | Status |"
 OPS_SPEC: Final = "docs/ops/spec.md"
 OUTPUT_LEAD_IN: Final = "**The output standard.** One vocabulary, one verb per meaning."
 OUTPUT_VERB_ROW: Final = "| `step` | Opens a step and starts its timer |"
+# The second lead-in on that sheet and one row under it: the same reader arms on both, and the
+# checker resolves both, so a corpus carrying one is a corpus one arm fails against.
+HELPER_LEAD_IN: Final = "**The helpers a script leans on.** Not output verbs."
+HELPER_ROW: Final = "| `quietly` | Runs a command with both streams captured |"
 # The refusal register, one row per tree, and the two spellings that answer for them. Each code is
 # written twice on purpose: the page states it and the tree its area names raises it.
 ERROR_CODES: Final = "docs/logging/error-codes.md"
@@ -342,14 +374,25 @@ ECHOED_PASSAGE: Final = (
     "A passage long enough that repeating it is a second home rather than a turn of phrase, "
     "so the reader who finds both has no way to tell which of the two is the one being maintained."
 )
-# The glossary heading the notes page cites by bare name, which is what the untracked twin copies.
-GLOSSARY_ANCHOR: Final = "the competition year"
-# A run the glossary carries and the notes page does not, so a case can put every spelling of it on
-# the notes page itself.
-GLOSSARY_DEFINITION: Final = "the year a competition runs in"
+# A heading a citation names and a plant then renames, its wording left standing in prose: the
+# shape a presence test goes on reading as alive.
+CITED_HEADING: Final = "The rollover the season page runs"
+RENAMED_HEADING: Final = "The rollover the season page starts"
+# Inside the notes page's fenced sample, so an anchor a renderer shows nobody resolves nothing.
+FENCED_ANCHOR: Final = "docs/gone-inside-a-fence.md"
+# The glossary heading the notes page cites by bare name, spelled in both the form the page
+# writes and the form a citation may carry: a citation admits no backtick of its own.
+GLOSSARY_TERM: Final = "saison"
+GLOSSARY_GLOSS: Final = "the competition year"
+GLOSSARY_HEADING: Final = _tick(GLOSSARY_TERM) + " — " + GLOSSARY_GLOSS
+GLOSSARY_ANCHOR: Final = GLOSSARY_TERM + " — " + GLOSSARY_GLOSS
 # What the fixture is BUILT out of rather than checked. Naming what must SURVIVE the reset keeps this
 # from growing with the corpus, which is the list nobody remembers to extend.
 PRESERVED: Final[tuple[str, ...]] = (SCRIPTS_COPY, HOOKS_STUB, UNTRACKED_DIR)
+
+# A section both spec sheets define, and one no page in the corpus does.
+SPEC_SUBSECTION: Final = "1.1"
+ABSENT_SECTION: Final = "9"
 
 
 def _heading(level: int, text: str) -> str:
@@ -430,14 +473,20 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "A plain page, which is where a planted violation is written.",
             "",
-            "A bare name resolves to the tracked file alone: `glossary.md :: the competition year`.",
+            "A bare name resolves to the tracked file alone: " + _tick("glossary.md :: " + GLOSSARY_ANCHOR) + ".",
+            "",
+            # One reference by each route the resolver takes, each naming a section the sheet does
+            # define: only a number that resolves parts resolution from a silent skip.
+            "A link to [§" + SPEC_SUBSECTION + "](backend/spec.md) resolves.",
+            "",
+            "So do the path `docs/backend/spec.md` §" + SPEC_SUBSECTION + " and [the sheet](backend/spec.md) §" + SPEC_SUBSECTION + ".",
             "",
             # The continuation form, resolving. A resolver that stopped placing one would fail every
             # case in the loop here, which is what parts a real placement from a silent skip.
             "`fl_backend/app/sample.py :: VALUE` and `:: S` are both defined there.",
             "",
             "A citation that wraps is still one citation: `docs/glossary.md ::",
-            "the competition year` resolves across the break.",
+            GLOSSARY_ANCHOR + "` resolves across the break.",
             "",
             # A schemeless host and port has the shape of a line citation once the scheme is off the
             # line. Both spellings, because the backticked pattern was narrowed alongside the bare one.
@@ -484,7 +533,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             _heading(2, "Terms"),
             "",
-            _heading(3, "`saison` — the competition year"),
+            _heading(3, GLOSSARY_HEADING),
             "",
             "**Is:** the year a competition runs in.",
             "",
@@ -659,6 +708,12 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "| Verb | Means |",
             "| --- | --- |",
             OUTPUT_VERB_ROW,
+            "",
+            HELPER_LEAD_IN,
+            "",
+            "| Helper | Answers |",
+            "| --- | --- |",
+            HELPER_ROW,
             "",
             _heading(2, "2. Invariants"),
             "",
@@ -872,6 +927,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "  " + NOTICE_LIVE_PATH,
             "  " + NOTICE_DIRECTORY,
+        ),
+        WALL_CLOCK: _page(
+            HASH + " The gate's wall clock, one row per job: what it costs, and the most it may cost.",
+            HASH,
+            HASH + " Its paths are written bare, as " + WALL_CLOCK_LIVE_PATH + " is here.",
+            HASH,
+            HASH + " job" + TAB + "seconds",
+            "docs" + TAB + "39",
         ),
         JSON_CONFIG: _page(
             "{",
@@ -1093,6 +1156,11 @@ def _run() -> tuple[int, Counter[Reported]]:
     return code, _reported(output)
 
 
+def _about(check: str, reported: Counter[Reported]) -> list[Reported]:
+    """Every finding one check reported, whatever the file."""
+    return [key for key in reported if key[1] == check]
+
+
 def _assert_corpus_restored() -> None:
     """No case left the index carrying something the reset cannot reach.
 
@@ -1155,10 +1223,31 @@ def _plant_rule_shapes() -> None:
     _replace(STANDARD, " _Enforced by_ review judgment.", "")
 
 
+def _plant_section_references() -> None:
+    """Each route to the page a numbered reference names, against a number none defines.
+
+    Three on the notes page, which numbers no heading, and one on the sheet that does, resolving
+    against the page it sits on.
+    """
+    _append(
+        NOTES,
+        "The sheet's [§" + ABSENT_SECTION + "](backend/spec.md) is linked whole.",
+        "",
+        "`docs/backend/spec.md` §" + ABSENT_SECTION + " is named by the path beside it.",
+        "",
+        "[The sheet](backend/spec.md) §" + ABSENT_SECTION + " is named by the link beside it.",
+    )
+    _append(BACKEND_SPEC, "This sheet's own §" + ABSENT_SECTION + " is named by nothing else.")
+
+
 def _plant_glossary() -> None:
-    """Fields that are not OUT-6's, and a heading that is not either."""
+    """Fields that are not OUT-6's, and a heading that is not either.
+
+    The heading arm drops the ticks and nothing else: reworded, it stops answering the notes
+    page's citation, and this case reports two checks.
+    """
     _replace(GLOSSARY, "**Trap:**", "**Pitfall:**")
-    _replace(GLOSSARY, _heading(3, "`saison` — the competition year"), _heading(3, "saison, the competition year"))
+    _replace(GLOSSARY, _heading(3, GLOSSARY_HEADING), _heading(3, GLOSSARY_ANCHOR))
 
 
 def _plant_invariant_rows() -> None:
@@ -1808,6 +1897,11 @@ CASES: Final[tuple[Case, ...]] = (
     # Ten on the season: the dark brand darkened for the ordering arm fails five floored pairs on
     # the way, and a plant dodging that would be one no scheme file could ever carry.
     Case("scheme-token", _fails("scheme-token", *[SCHEME] * 10, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
+    Case(
+        "section-reference",
+        _fails("section-reference", NOTES, NOTES, NOTES, BACKEND_SPEC),
+        _plant_section_references,
+    ),
     Case("segment-map", _fails("segment-map", SWEEP, SWEEP), _plant_segment_map),
     Case("sha", _fails("sha", NOTES), lambda: _append(NOTES, "The commit `abc1234` is gone.")),
     Case("spec-spine", _fails("spec-spine", BACKEND_SPEC, FRONTEND_SPEC), _plant_spec_spines),
@@ -2060,13 +2154,32 @@ def test_a_reworded_lead_in_leaves_the_verb_reader_with_nothing_to_arm_on() -> N
     This arm returns before that case's plant is reached, so a shared run would count one finding
     for two plants and leave whichever spoke second unproven.
     """
+    for lead_in, reworded in ((OUTPUT_LEAD_IN, "The verbs."), (HELPER_LEAD_IN, "The helpers.")):
+        _reset()
+        _replace(OPS_SPEC, lead_in, lead_in.replace(lead_in.split("**")[1], reworded))
+        try:
+            _, reported = _run()
+        finally:
+            _reset()
+        assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_third_lead_in_constant_is_one_this_check_resolves() -> None:
+    """A lead-in spelled in a constant the check walks past is a table nothing keeps a verdict on.
+
+    Set on the module rather than in the corpus: the pairing under test is between the constants and
+    the loop beside them.
+    """
+    names = vars(_module("docs_gate.checks"))
     _reset()
-    _replace(OPS_SPEC, OUTPUT_LEAD_IN, OUTPUT_LEAD_IN.replace("The output standard.", "The verbs."))
+    names["THIRD_LEAD_IN"] = r"^\*\*A third table\."
     try:
         _, reported = _run()
     finally:
+        del names["THIRD_LEAD_IN"]
         _reset()
-    assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
+    assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a lead-in no arm resolved passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -2197,7 +2310,7 @@ def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first(
     _reset()
     root = _gate().root
     twin = (root / UNTRACKED_TWIN).read_bytes()
-    write(root, UNTRACKED_TWIN, _read(GLOSSARY).replace(GLOSSARY_ANCHOR, "a heading the corpus does not cite"))
+    write(root, UNTRACKED_TWIN, _read(GLOSSARY).replace(GLOSSARY_HEADING, "a heading the corpus does not cite"))
     write(root, UNSTAGED_MODULE, _module_named("a module cited by name before it was staged."))
     _append(SAMPLE, HASH + " see `unstaged.py :: VALUE = 1`", HASH + " and `unstaged.py :: a symbol nobody wrote`")
     try:
@@ -2272,50 +2385,50 @@ def test_a_self_citation_a_wrap_parts_is_read_as_one_citation_over_both_its_line
     _assert_corpus_restored()
 
 
-def test_a_self_citation_is_proved_by_the_page_s_own_text_and_never_by_a_second_citation() -> None:
-    """Spec sheets here name their sections alike, so one page's citation of an anchor would certify another's.
+def test_a_self_citation_is_proved_by_the_file_s_own_text_and_never_by_a_second_citation() -> None:
+    """Modules here name their symbols alike, so one file's citation of an anchor would certify another's.
 
-    The second run is the evidence the arm still reads the other lines: a heading spelling the
+    The second run is the evidence the arm still reads the other lines: a comment spelling the
     anchor keeps it silent.
     """
     _reset()
-    spelled = "an anchor a heading of this page spells"
+    spelled = "an anchor a comment of this module spells"
     try:
         _append(
-            NOTES,
-            "The entry `" + GLOSSARY + " :: " + GLOSSARY_DEFINITION + "` is written beside this page.",
-            "A second `" + NOTES + " :: " + GLOSSARY_DEFINITION + "` has that citation for its only proof.",
+            SAMPLE,
+            HASH + " The entry `" + GLOSSARY + " :: " + GLOSSARY_ANCHOR + "` is written beside this module.",
+            HASH + " A second `" + SAMPLE + " :: " + GLOSSARY_ANCHOR + "` has that citation for its only proof.",
         )
         _, cited = _run()
         _reset()
-        _append(NOTES, "", _heading(2, spelled), "", "See `" + NOTES + " :: " + spelled + "`.")
-        _, headed = _run()
+        _append(SAMPLE, HASH + " " + spelled, HASH + " See `" + SAMPLE + " :: " + spelled + "`.")
+        _, seen = _run()
     finally:
         _reset()
-    assert cited[("fail", "citation", NOTES)] == 1, "an anchor only another citation spells passed: " + _shape(cited)
-    assert headed[("fail", "citation", NOTES)] == 0, "an anchor the page's own heading spells was failed: " + _shape(headed)
+    assert cited[("fail", "citation", SAMPLE)] == 1, "an anchor only another citation spells passed: " + _shape(cited)
+    assert seen[("fail", "citation", SAMPLE)] == 0, "an anchor the module's own comment spells was failed: " + _shape(seen)
     _assert_corpus_restored()
 
 
 def test_the_tail_line_of_a_wrapped_citation_proves_no_self_citation_of_its_anchor() -> None:
-    """A wrap parts the other page's citation, so its tail carries the anchor and no whole span.
+    """A wrap parts the other file's citation, so its tail carries the anchor and no whole span.
 
     The second run is the evidence the arm reads other lines: the same pair with the anchor
     spelled outside both citations passes.
     """
     _reset()
-    wrapped = ("The entry `" + GLOSSARY + " ::", GLOSSARY_DEFINITION + "` is written beside this page.")
-    second = "A second `" + NOTES + " :: " + GLOSSARY_DEFINITION + "` has that tail line for its only proof."
+    wrapped = (HASH + " The entry `" + GLOSSARY + " ::", HASH + " " + GLOSSARY_ANCHOR + "` is written beside this module.")
+    second = HASH + " A second `" + SAMPLE + " :: " + GLOSSARY_ANCHOR + "` has that tail line for its only proof."
     try:
-        _append(NOTES, *wrapped, "", second)
+        _append(SAMPLE, *wrapped, "", second)
         _, tailed = _run()
         _reset()
-        _append(NOTES, *wrapped, "", "The page itself spells " + GLOSSARY_DEFINITION + ".", "", second)
+        _append(SAMPLE, *wrapped, "", HASH + " The module itself spells " + GLOSSARY_ANCHOR + ".", "", second)
         _, spelled = _run()
     finally:
         _reset()
-    assert tailed[("fail", "citation", NOTES)] == 1, "an anchor only a wrapped citation's tail spells passed: " + _shape(tailed)
-    assert spelled[("fail", "citation", NOTES)] == 0, "an anchor the page's own sentence spells was failed: " + _shape(spelled)
+    assert tailed[("fail", "citation", SAMPLE)] == 1, "an anchor only a wrapped citation's tail spells passed: " + _shape(tailed)
+    assert spelled[("fail", "citation", SAMPLE)] == 0, "an anchor the module's own sentence spells was failed: " + _shape(spelled)
     _assert_corpus_restored()
 
 
@@ -2368,6 +2481,23 @@ def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
     assert kernel.repo_path("docs") is None
 
 
+def test_a_root_level_directory_the_tree_holds_is_a_prefix_the_resolver_reaches() -> None:
+    """The live path is planted beside the dead one because silence is what a typed tuple produces.
+
+    Without it the case passes on a resolver that reports everything under the new prefix.
+    """
+    _reset()
+    root = _gate().root
+    write(root, ROOT_FOLDER_FILE, _page("{", QUOTE + "note" + QUOTE + ": " + QUOTE + "a file holding a root-level folder open" + QUOTE, "}"))
+    _append(NOTES, "A live " + _tick(ROOT_FOLDER_FILE) + ", and a dead " + _tick(DEAD_ROOT_FOLDER_PATH) + ".")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported == Counter({("fail", "path", NOTES): 1}), "a root-level folder outside the typed tuple: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_one_file_s_four_spellings_each_draw_their_own_verdict() -> None:
     """The three spellings the resolver admits, and the fourth, from inside the package's source root, which it refuses on purpose."""
     _reset()
@@ -2399,6 +2529,24 @@ def test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_to
     _assert_corpus_restored()
 
 
+def test_a_mis_cased_suffix_fails_a_citation_rather_than_dropping_it_out_of_the_population() -> None:
+    """The register is folded and the path lookup is not, which parts this case from the one above it.
+
+    Only the suffix is mis-cased, so the finding is the register's and not a second reading of the path.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    shouted = "docs/gone-in-a-shouted-suffix.MD"
+    found = [finding.detail for finding in checks._check_citation(shouted + " :: an anchor", NOTES, {})]
+    assert found == ["cited path names no file in the repository, under any spelling: " + shouted], repr(found)
+    # The other half of the boundary: a suffix folded in the register leaves the LISTING exact, so a
+    # tracked page named in another case still resolves to nothing.
+    dead = [finding.check for finding in checks._check_citation("docs/Notes.md :: an anchor", NOTES, {})]
+    assert dead == ["citation"], "a mis-cased tracked page resolved: " + repr(dead)
+    _assert_corpus_restored()
+
+
 def test_a_dead_citation_is_told_apart_from_a_present_file_in_a_refused_spelling() -> None:
     """Both fail, and the reader is sent two ways: after a rename or a deletion, or after the spelling the gate admits.
 
@@ -2412,6 +2560,55 @@ def test_a_dead_citation_is_told_apart_from_a_present_file_in_a_refused_spelling
     inside = SPIELER_PANEL.partition("src/")[2]
     spelled = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES, {})]
     assert spelled == ["cited path is neither repository-relative nor package-relative: " + inside], repr(spelled)
+    _assert_corpus_restored()
+
+
+def test_a_renamed_heading_kills_the_citation_naming_it_however_its_wording_survives() -> None:
+    """The old wording is left in prose: on a presence test it keeps the citation alive.
+
+    The rename is the one edit a section citation exists to catch, and the edit that scatters the
+    old words over the page.
+    """
+    _reset()
+    _append(NOTES, _heading(2, CITED_HEADING), "", "A section the page beside this one names.")
+    _append(TWIN_NOTES, "The section is " + _tick(NOTES + " :: " + CITED_HEADING) + ".")
+    try:
+        _, before = _run()
+        _replace(NOTES, _heading(2, CITED_HEADING), _heading(2, RENAMED_HEADING))
+        _replace(NOTES, "A section the page beside this one names.", CITED_HEADING + " is a phrase the prose still carries.")
+        _, after = _run()
+    finally:
+        _reset()
+    assert not before, "the citation did not resolve before the rename: " + _shape(before)
+    assert after == Counter({("fail", "citation", TWIN_NOTES): 1}), "a renamed heading: " + _shape(after)
+    _assert_corpus_restored()
+
+
+def test_a_quoted_fragment_of_a_page_is_proved_by_the_sentence_carrying_it() -> None:
+    """COR-6's other anchor form, which the landmark reader would refuse: a fragment names no heading.
+
+    Both halves, because a reader that admitted every quoted run would pass the second as readily
+    as the first.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    carried = QUOTE + "A plain page, which is where a planted violation is written." + QUOTE
+    assert not checks._check_citation(NOTES + " :: " + carried, TWIN_NOTES, {}), "a quoted sentence the page carries was refused"
+    gone = QUOTE + "a sentence the page never carried" + QUOTE
+    found = [finding.check for finding in checks._check_citation(NOTES + " :: " + gone, TWIN_NOTES, {})]
+    assert found == ["citation"], "a quoted fragment the page lacks resolved: " + repr(found)
+    _assert_corpus_restored()
+
+
+def test_an_anchor_a_fenced_block_alone_carries_resolves_nowhere() -> None:
+    """A fenced sample is code a renderer shows and no reader navigates to, so an anchor found only there names nothing."""
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    found = [finding.detail for finding in checks._check_citation(NOTES + " :: " + FENCED_ANCHOR, TWIN_NOTES, {})]
+    wanted = "anchor '" + FENCED_ANCHOR + "' names no heading, table row or bold key in " + NOTES
+    assert found and found[0].startswith(wanted), repr(found)
     _assert_corpus_restored()
 
 
@@ -2692,6 +2889,113 @@ def test_a_dead_path_in_the_notice_file_is_reported_and_a_live_one_or_a_director
         _reset()
     about = {key: count for key, count in reported.items() if key[2] == NOTICE_FILE}
     assert about == {("fail", "bare-path", NOTICE_FILE): 1}, "the notice file was read by nothing, or by the wrong reader: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_section_reference_parted_from_its_citation_by_a_wrap_is_left_alone() -> None:
+    """The citation ends the line above, so the page the reference sits on must not answer in its place."""
+    _reset()
+    _append(BACKEND_SPEC, "The rule is stated in `docs/frontend/spec.md`", "§" + ABSENT_SECTION + ", which is not this sheet's.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not _about("section-reference", reported), "a wrapped citation was answered for by the page below it: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_page_named_in_plain_text_leaves_the_containing_page_out_of_it() -> None:
+    """A page named without backticks or a link resolves to nothing, and nothing else stands in for it."""
+    _reset()
+    _append(BACKEND_SPEC, "The rule is spec.md §" + ABSENT_SECTION + ", named in plain text.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not _about("section-reference", reported), "a plain-text page name was answered for: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_section_reference_on_a_page_that_numbers_no_heading_is_silent() -> None:
+    """A page with no numbered heading resolves nothing, rather than failing every reference written on it."""
+    _reset()
+    _append(NOTES, "This page's own §" + ABSENT_SECTION + " resolves against nothing.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not _about("section-reference", reported), "a page numbering nothing answered a reference: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_the_wall_clock_record_is_read_whole_as_prose_rather_than_for_its_comments() -> None:
+    """Its suffix reaches the corpus by name alone, and the bare path proves the file was read.
+
+    Read as code, its opening run is a module header INC-2 fails, so the one finding here says
+    which reader answered.
+    """
+    _reset()
+    _append(WALL_CLOCK, HASH + " " + WALL_CLOCK_DEAD_PATH + " is named here.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    about = {key: count for key, count in reported.items() if key[2] == WALL_CLOCK}
+    assert about == {("fail", "bare-path", WALL_CLOCK): 1}, "the record was read by nothing, or by the wrong reader: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_fence_inside_a_fenced_block_closes_only_its_own_opener() -> None:
+    """A reader flipping one boolean reads the nested sample as prose and the text past the outer close as a block it never left.
+
+    One finding either way, so the detail parts the two readings.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _append(
+        NOTES,
+        LONG_FENCE + "markdown",
+        FENCE + "mermaid",
+        "flowchart TD",
+        "  A[" + _tick(NESTED_FENCE_PATH) + "] --> B",
+        LONG_FENCE,
+        "",
+        "Past the outer close, " + _tick(PAST_FENCE_PATH) + " is the page's own claim.",
+    )
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    try:
+        found = [finding.detail for finding in checks.check_file(_gate().root / NOTES, {}, {})]
+    finally:
+        _reset()
+    assert found == ["path named but not present: " + PAST_FENCE_PATH], repr(found)
+    _assert_corpus_restored()
+
+
+def test_a_comment_marker_inside_a_string_literal_opens_no_comment() -> None:
+    """Three shapes at once, because each fails alone on a reader tracking one quote and not another.
+
+    The real comment beside them parts a reader that tracks quoting from one that blanks the file
+    whole.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _append(
+        TSX_SAMPLE,
+        'const help = "see // ' + LITERAL_MARKER_PATH + '";',
+        "const note = `a marker // inside a template, " + TEMPLATE_MARKER_PATH + "`;",
+        # A glob whose star-slash pair opens a block comment nothing closes, which is the shape
+        # `fl_frontend/eslint.config.mjs` carries: the file's last lines are read as prose.
+        'const ignored = ".next/**";',
+        'const dead = "' + RUNAWAY_BLOCK_PATH + '";',
+        "// A real comment naming " + REAL_COMMENT_PATH,
+    )
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    try:
+        found = [finding.detail for finding in checks.check_file(_gate().root / TSX_SAMPLE, {}, {})]
+    finally:
+        _reset()
+    kept = "path named but not present: " + REAL_COMMENT_PATH + " -- and unbackticked, so `path` never saw it"
+    assert found == [kept], repr(found)
     _assert_corpus_restored()
 
 

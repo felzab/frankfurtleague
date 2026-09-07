@@ -2,7 +2,7 @@ import { cache } from "react";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postEinwilligungAnsicht } from "./mutations";
 import {
@@ -33,7 +33,7 @@ import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
  */
 export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): Promise<FLBewerbungenListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLBewerbungenListResponse>("/bewerbungen", FLBewerbungenListResponseSchema, {
       authType: "admin",
       params: filters,
@@ -47,7 +47,7 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
-  runWithIncomingCorrelationId(() =>
+  runWithIncomingTrace(() =>
     apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
       authType: "admin",
     }).catch((error: unknown) => {
@@ -64,7 +64,7 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
  * on inviting applications after the window shut.
  */
 export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterResponse | null> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     // `base`, spelled out beside the admin reads above: this endpoint is the public tier's, and an
     // over-declared tier succeeds silently.
     apiClient<FLBewerbungFensterResponse>("/bewerbungen/fenster", FLBewerbungFensterResponseSchema, { authType: "base" }).catch(
@@ -82,7 +82,7 @@ export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterRe
  * the public page may read about its own season: `docs/backend/spec.md :: I47` withholds the rest.
  */
 export async function getBewerbungFenster(saisonId: string): Promise<FLBewerbungFensterResponse | null> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLBewerbungFensterResponse>(`/bewerbungen/fenster/${encodeURIComponent(saisonId)}`, FLBewerbungFensterResponseSchema, {
       authType: "base",
     }).catch((error: unknown) => {
@@ -94,7 +94,7 @@ export async function getBewerbungFenster(saisonId: string): Promise<FLBewerbung
 
 /** The clubs a school picks itself out of, name and id alone, in the order the picker offers them. */
 export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLBewerbungSchulenResponse>("/bewerbungen/schulen", FLBewerbungSchulenResponseSchema, { authType: "base" }),
   );
 }
@@ -105,7 +105,7 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
  * free" outlives that.
  */
 export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLBewerbungTrikotFarbenResponse>(
       `/bewerbungen/trikotfarben/${encodeURIComponent(saisonId)}`,
       FLBewerbungTrikotFarbenResponseSchema,
@@ -119,7 +119,7 @@ export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewe
  * visit, because mail scanners fetch every link in a message.
  */
 export async function getEinwilligungAnsicht(token: string): Promise<EinwilligungAnsicht> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     postEinwilligungAnsicht({ token: token }).then(
       // Narrowed here and never at the page, which would carry the name in its payload regardless:
       // a dead link's panel names nobody, and an open link with no name left has nobody to name.
@@ -142,7 +142,7 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
 
 /** Whether a two-letter code already belongs to a club, in one neutral answer that names none. */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLBewerbungKuerzelResponse>(`/bewerbungen/kuerzel/${encodeURIComponent(shorthand)}`, FLBewerbungKuerzelResponseSchema, {
       authType: "base",
     }),

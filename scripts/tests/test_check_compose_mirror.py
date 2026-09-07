@@ -6,7 +6,9 @@ holds `docs/ops/spec.md :: I1` for a service the mirror waves through.
 
 It drives the comparison too: `diff` finding the disagreements, `declaring` deciding which are
 allowed, and `uncovered` failing a declared delta that covers nothing. Those run against documents
-the test writes, so they pin the mechanism rather than either compose file's current wording.
+the test writes, so they pin the mechanism rather than either compose file's current wording. The
+reader is driven the same way over the sequence-of-mappings shape, which `networks.<name>.ipam.config`
+is the one place either file writes.
 
 Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
 as a script everywhere else, which is what seeds that directory onto the path for it.
@@ -14,8 +16,10 @@ as a script everywhere else, which is what seeds that directory onto the path fo
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +31,9 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     mirror = importlib.import_module("check_compose_mirror")
+    # Out of the cache the line above filled, so the case comparing the two reads one object under
+    # one name rather than a second kernel loaded beside it.
+    kernel = importlib.import_module("checker_kernel")
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_compose_mirror", None)
@@ -83,12 +90,74 @@ def test_a_ports_value_this_reader_cannot_judge_fails_rather_than_passing():
     assert "cannot judge" in findings[0].detail
 
 
+def parsed(text: str) -> Any:
+    """One compose document as the reader sees it, with no file to put it in."""
+    source = "under-test.yml"
+    tokens = mirror.tokenize(textwrap.dedent(text).strip("\n"), source)
+    node, index = mirror.parse_block(tokens, 0, {}, source)
+
+    assert index == len(tokens)
+    return node
+
+
+def test_a_sequence_of_mappings_parses_as_a_list_of_mappings():
+    """The `ipam.config` shape. A reader that cannot place it refuses the whole comparison."""
+    document = parsed("""
+        networks:
+          frankfurtleague-net:
+            ipam:
+              config:
+                - subnet: 172.30.0.0/24
+        """)
+
+    assert document == {"networks": {"frankfurtleague-net": {"ipam": {"config": [{"subnet": "172.30.0.0/24"}]}}}}
+
+
+def test_a_mapping_entry_keeps_the_keys_written_under_its_dash():
+    """The dash's own width is what puts a second key at its mapping's indent, so a lost one is silent.
+
+    Two entries, because the resumption after the first is where the walk can land inside it.
+    """
+    document = parsed("""
+        config:
+          - subnet: 172.30.0.0/24
+            gateway: 172.30.0.1
+          - subnet: 172.31.0.0/24
+        """)
+
+    assert document == {"config": [{"subnet": "172.30.0.0/24", "gateway": "172.30.0.1"}, {"subnet": "172.31.0.0/24"}]}
+
+
+def test_a_sequence_entry_naming_an_anchor_refuses():
+    """An alias resolves to a node in no listing the reader keeps, so it is not a scalar it may take."""
+    # `suppress` and a raise, not `pytest.raises`, for `scripts/tests/conftest.py`'s pytest invariant.
+    with contextlib.suppress(mirror.ComposeSyntax):
+        parsed("""
+            logging:
+              - *default-logging
+            """)
+        raise AssertionError("an alias parsed as a scalar")
+
+
 def test_the_module_under_test_is_this_repository_own():
     """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
 
     A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
     """
     assert mirror.REPO_ROOT == SCRIPTS.parent
+
+
+# Spelled out rather than read off either module: a list derived from what this checker binds would
+# lose a symbol taken back into a copy instead of failing on it.
+COMPARISON = ("ABSENT", "ANY", "Marker", "Delta", "diff", "declaring", "uncovered")
+
+
+def test_the_comparison_is_the_kernel_own_rather_than_a_copy_here():
+    """`check_nginx_mirror.py` runs these same objects, so a copy in either file drifts silently.
+
+    One definition is what holds the two mirror checkers to each other; nothing else compares them.
+    """
+    assert [getattr(mirror, name) for name in COMPARISON] == [getattr(kernel, name) for name in COMPARISON]
 
 
 def test_the_repository_own_compose_files_are_clean():
@@ -147,82 +216,73 @@ def test_several_disagreements_are_all_reported():
 
 def test_any_accepts_whatever_that_file_writes():
     """Most rows pin one side and leave the other free, because only one side is the claim."""
-    assert mirror.side_matches(mirror.ANY, ["3000:80"]) is True
-    assert mirror.side_matches(mirror.ANY, "") is True
+    assert kernel.side_matches(mirror.ANY, ["3000:80"]) is True
+    assert kernel.side_matches(mirror.ANY, "") is True
 
 
 def test_any_does_not_accept_a_missing_key():
     """`ANY` says "whatever that file writes there", and a file that writes nothing wrote nothing."""
-    assert mirror.side_matches(mirror.ANY, mirror.ABSENT) is False
+    assert kernel.side_matches(mirror.ANY, mirror.ABSENT) is False
 
 
 def test_a_pinned_side_is_matched_by_equality_alone():
     """A pinned row is the one that fails when a port or a mount is added beside the declared one."""
-    assert mirror.side_matches(["80:80"], ["80:80"]) is True
-    assert mirror.side_matches(["80:80"], ["80:80", "8080:8080"]) is False
+    assert kernel.side_matches(["80:80"], ["80:80"]) is True
+    assert kernel.side_matches(["80:80"], ["80:80", "8080:8080"]) is False
 
 
 PINNED = mirror.Delta("services.nginx.ports", ["80:80"], ["3000:80"], "the edge is published differently")
 FREE = mirror.Delta("services.a.build", mirror.ABSENT, mirror.ANY, "the local stack builds from source")
 
 
-def test_a_difference_both_sides_of_a_row_describe_is_declared(monkeypatch):
+def test_a_difference_both_sides_of_a_row_describe_is_declared():
     """The ordinary case, and the one every row on the real list is meant to be in."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-    difference = mirror.Difference("services.nginx.ports", ["80:80"], ["3000:80"])
+    difference = kernel.Difference("services.nginx.ports", ["80:80"], ["3000:80"])
 
-    assert mirror.declaring(difference) is PINNED
+    assert mirror.declaring(difference, (PINNED, FREE)) is PINNED
 
 
-def test_a_row_whose_path_matches_but_whose_pinned_value_no_longer_does_declares_nothing(monkeypatch):
+def test_a_row_whose_path_matches_but_whose_pinned_value_no_longer_does_declares_nothing():
     """A port added beside the declared one has to fail, or the pin buys nothing over `ANY`."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED,))
-    difference = mirror.Difference("services.nginx.ports", ["80:80", "8080:8080"], ["3000:80"])
+    difference = kernel.Difference("services.nginx.ports", ["80:80", "8080:8080"], ["3000:80"])
 
-    assert mirror.declaring(difference) is None
+    assert mirror.declaring(difference, (PINNED,)) is None
 
 
-def test_a_difference_at_a_path_no_row_names_declares_nothing(monkeypatch):
+def test_a_difference_at_a_path_no_row_names_declares_nothing():
     """The undeclared-difference finding, which is the checker's primary claim."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-
-    assert mirror.declaring(mirror.Difference("services.a.restart", "always", "no")) is None
+    assert mirror.declaring(kernel.Difference("services.a.restart", "always", "no"), (PINNED, FREE)) is None
 
 
-def test_a_row_matching_a_difference_is_returned(monkeypatch):
+def test_a_row_matching_a_difference_is_returned():
     """Named rather than merely counted, because `--verbose` prints the reason it carries."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-    difference = mirror.Difference("services.a.build", mirror.ABSENT, {"context": "."})
+    difference = kernel.Difference("services.a.build", mirror.ABSENT, {"context": "."})
 
-    assert mirror.declaring(difference) is FREE
+    assert mirror.declaring(difference, (PINNED, FREE)) is FREE
 
 
-def test_a_row_covering_nothing_is_a_finding(monkeypatch):
+def test_a_row_covering_nothing_is_a_finding():
     """Allowlist rot pointed the way nothing usually catches: the files agreed and the claim stayed."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-    judged = [(mirror.Difference("services.a.build", mirror.ABSENT, {"context": "."}), FREE)]
+    judged = [(kernel.Difference("services.a.build", mirror.ABSENT, {"context": "."}), FREE)]
 
-    findings = mirror.uncovered(judged)
+    findings = mirror.uncovered(judged, (PINNED, FREE))
 
     assert [finding.severity for finding in findings] == ["fail"]
     assert "services.nginx.ports" in findings[0].detail
     assert PINNED.why in findings[0].detail
 
 
-def test_every_row_covering_nothing_is_reported(monkeypatch):
+def test_every_row_covering_nothing_is_reported():
     """A run naming one row at a time would take a gate run per stale claim to clear the list."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-
-    assert len(mirror.uncovered([])) == 2
+    assert len(mirror.uncovered([], (PINNED, FREE))) == 2
 
 
-def test_two_rows_sharing_a_path_do_not_mark_each_other_covered(monkeypatch):
+def test_two_rows_sharing_a_path_do_not_mark_each_other_covered():
     """Why `uncovered` compares identity: equality would let one row answer for the other."""
     twin = mirror.Delta(PINNED.path, PINNED.prod, PINNED.local, PINNED.why)
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, twin))
-    judged = [(mirror.Difference(PINNED.path, PINNED.prod, PINNED.local), PINNED)]
+    judged = [(kernel.Difference(PINNED.path, PINNED.prod, PINNED.local), PINNED)]
 
-    assert len(mirror.uncovered(judged)) == 1
+    assert len(mirror.uncovered(judged, (PINNED, twin))) == 1
 
 
 def test_the_repository_own_compose_pair_is_fully_declared():
@@ -232,8 +292,9 @@ def test_the_repository_own_compose_pair_is_fully_declared():
     """
     prod = mirror.load(mirror.REPO_ROOT / mirror.PROD)
     local = mirror.load(mirror.REPO_ROOT / mirror.LOCAL)
-    judged = [(difference, mirror.declaring(difference)) for difference in mirror.diff(prod, local)]
+    rows = mirror.DECLARED_DELTAS
+    judged = [(difference, mirror.declaring(difference, rows)) for difference in mirror.diff(prod, local)]
 
     assert [difference.path for difference, delta in judged if delta is None] == []
-    assert mirror.uncovered(judged) == []
-    assert len(judged) == len(mirror.DECLARED_DELTAS)
+    assert mirror.uncovered(judged, rows) == []
+    assert len(judged) == len(rows)

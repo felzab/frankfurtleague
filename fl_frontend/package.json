@@ -17,6 +17,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --turbo",
     "build": "next build",
+    "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs emit-environment-names.mjs",
     "start": "next start",
     "lint": "eslint . --cache --cache-strategy content",
     "format": "prettier --write .. --ignore-path ../.prettierignore",

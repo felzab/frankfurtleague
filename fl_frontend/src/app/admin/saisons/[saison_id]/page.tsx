@@ -126,7 +126,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const spieltagBound = buildSpieltagBound(spieltageRes.spieltage);
 
   return (
-    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSaisonEditView
       key={JSON.stringify(saison)}
       saison={{

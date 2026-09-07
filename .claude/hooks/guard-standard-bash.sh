@@ -9,6 +9,31 @@ ask() {
   exit 0
 }
 
+# A hook running at the harness timeout is killed, and a killed hook prints nothing, which the
+# harness reads as permission. The decision runs in a child under a budget of its own, and anything
+# but its answer asks.
+if [ "${1:-}" != "--decide" ] && command -v timeout >/dev/null 2>&1; then
+  # 15s, under this hook's 30s in `.claude/settings.json`. A budget at or above the harness's lets
+  # the harness kill this process first, whose silence is the write going through unasked.
+
+  # Never lowered towards the decision's own cost: the child reached 6.8s at full core occupancy on
+  # 2026-09-07 (n=250, median 4.8s), and a budget near that asks on a command this guard has no
+  # opinion about.
+
+  # `ask` rather than the deny `.claude/hooks/guard-branch-bash.sh` answers with: asking is this
+  # guard's whole verdict, and a child that answered nothing has said nothing about the command.
+
+  # Dispatched above every early exit, so the scan below runs in the child whatever it decides;
+  # stdin is untouched, so the child reads the payload this invocation has not.
+  answer="$(timeout -s KILL 15 bash "$0" --decide)"
+  status=$?
+  [ "$status" -eq 0 ] || ask
+  printf '%s' "$answer"
+  exit 0
+fi
+# With timeout absent there is no watchdog: asking on every command instead would put a question in
+# front of every shell command in the session.
+
 # The command string, out of the tool payload. An unreadable payload asks rather than exits, because
 # nothing downstream can answer a question this one could not.
 cmd="$(node -e '
@@ -25,7 +50,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 });
 ' 2>/dev/null)" || ask
 
-# Write shapes, copied from guard-branch-bash.sh — the header says why the copy is deliberate.
+# Write shapes, copied from guard-branch-bash.sh — `.claude/CLAUDE.md` §7's **hooks** clause is what
+# makes the copy deliberate.
 
 # >>> SHARED WRITE SHAPES — byte-identical in the two bash guards; edit both or neither >>>
 

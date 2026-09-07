@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -31,7 +31,7 @@ from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -526,7 +526,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
                     return await http.post(
                         f"/api/v{API_VERSION}/bewerbungen",
                         json=dict(body),
-                        headers={"Authorization": "Bearer test-key-base"} if headers is None else dict(headers),
+                        headers=dict(BASE_AUTH if headers is None else headers),
                     )
             finally:
                 await app.state.db_client.close()
@@ -585,7 +585,7 @@ class TestASubmissionMadeOverTheWire:
         `aktionen.actor`, which is the record an erasure is audited against.
         """
 
-        forged = {"Authorization": "Bearer test-key-base", ACTOR_HEADER: "attacker@example.com"}
+        forged = {**BASE_AUTH, ACTOR_HEADER: "attacker@example.com"}
         submitted = through_the_app(mongo_replica_set_url, payload(), headers=forged)
 
         assert submitted.response.status_code == 200

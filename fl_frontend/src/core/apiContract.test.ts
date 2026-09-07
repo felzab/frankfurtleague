@@ -11,7 +11,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const DOCUMENT_PATH = path.resolve(SRC_DIR, "..", "..", "fl_backend", "openapi.json");
 
-const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
+const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /**
  * Backend component name → the frontend export mirroring it, where the two names differ.
@@ -367,7 +367,7 @@ describe("every shape is paired or recorded", () => {
   });
 
   // Both lists rot the other way too: a component that gains a mirror, or a schema that gains a
-  // component, leaves an exemption nothing reports. One sat here unnoticed until an audit read it.
+  // component, leaves an exemption nothing reports.
   it("carries no exemption the pairing has since made unnecessary", () => {
     const deadBackend = Object.keys(BACKEND_ONLY)
       .filter((name) => !(name in components) || mirrors.has(NAME_ALIASES[name] ?? name))

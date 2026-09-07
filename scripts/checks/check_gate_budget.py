@@ -4,6 +4,7 @@ Two questions over `.github/gate-wall-clock.tsv`, one per mode. `--jobs` holds e
 run in hand to the budget its row gives it and refuses the run that breaks one, naming the job and
 both figures. `--base` holds the file itself: a budget or a reference that rose against the base
 carries a new measurement stamp, so a ceiling is never lifted by editing a number alone.
+`--reference` names the file either mode reads, so a copy is judged before it is committed.
 """
 
 from __future__ import annotations
@@ -149,7 +150,7 @@ def spans_of(payload: object) -> list[Span]:
     """Every job's span, first step to last, on the report's rules.
 
     `skipped`: the scope was mapped off. `dropped`: the job did not succeed, so its timing is no
-    evidence. `unmeasured`: a success with no step timestamp, refused rather than passed.
+    evidence. `unmeasured`: a success with no step timestamp, failed rather than passed.
     """
     if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
         raise Malformed("the jobs payload carries no `jobs` list")
@@ -176,7 +177,7 @@ def spans_of(payload: object) -> list[Span]:
     return spans
 
 
-def check_run(rows: dict[str, Row], spans: list[Span]) -> tuple[list[Finding], list[str]]:
+def check_run(rows: dict[str, Row], spans: list[Span], reference: str) -> tuple[list[Finding], list[str]]:
     """Each measured job against its budget: the findings, and one line per job for the log.
 
     The lines print on a green run too: a session about to add to a job needs its cost in view,
@@ -203,7 +204,7 @@ def check_run(rows: dict[str, Row], spans: list[Span]) -> tuple[list[Finding], l
             findings.append(
                 Finding(
                     "fail",
-                    f"`{span.job}` ran for {span.seconds} s and has no row in {REFERENCE}, so it has no budget: "
+                    f"`{span.job}` ran for {span.seconds} s and has no row in {reference}, so it has no budget: "
                     "add its row, measured, in the same change that adds the job",
                 )
             )
@@ -273,6 +274,19 @@ def base_text(base_ref: str) -> str | None:
     return git("show", f"{base_ref}:{REFERENCE.as_posix()}")
 
 
+def named(path: Path) -> str:
+    """The reference as the reader can find it again: repo-relative where it sits under the root.
+
+    What `--reference` opened, `REFERENCE` naming only the base's copy that `git show` reads.
+    """
+    try:
+        # Resolved on both sides, or a path reached through a symlink or the other drive-letter
+        # case reads as outside a root it is inside, and the whole absolute path prints instead.
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def annotate(findings: list[Finding]) -> None:
     """One workflow command per failure, so the checks list names the job and both figures."""
     if not os.environ.get("GITHUB_ACTIONS"):
@@ -289,33 +303,40 @@ def main() -> int:
     mode.add_argument(
         "--base", nargs="?", const=DEFAULT_BASE, metavar="REF", help=f"hold the reference file against this base (default: {DEFAULT_BASE})"
     )
-    parser.add_argument("--reference", default=str(REPO_ROOT / REFERENCE), help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--reference",
+        default=str(REPO_ROOT / REFERENCE),
+        metavar="PATH",
+        help=f"the reference file either mode reads (default: {REFERENCE.as_posix()}), so a copy can be judged before it is committed",
+    )
     args = parser.parse_args()
 
+    opened = Path(args.reference)
+    reference = named(opened)
     try:
-        rows = parse_reference(Path(args.reference).read_text(encoding="utf-8"))
+        rows = parse_reference(opened.read_text(encoding="utf-8"))
     except UNREADABLE as exc:
-        print(f"      {REFERENCE} could not be read ({exc}), so nothing was compared.", file=sys.stderr)
+        print(f"      {reference} could not be read ({exc}), so nothing was compared.", file=sys.stderr)
         return EXIT_REFUSED
     except Malformed as exc:
-        print(f"      {REFERENCE} is not a table this check can read: {exc}. Nothing was compared.", file=sys.stderr)
+        print(f"      {reference} is not a table this check can read: {exc}. Nothing was compared.", file=sys.stderr)
         return EXIT_REFUSED
 
     if args.jobs is not None:
+        source = "stdin" if args.jobs == "-" else named(Path(args.jobs))
         try:
             raw = sys.stdin.read() if args.jobs == "-" else Path(args.jobs).read_text(encoding="utf-8")
             spans = spans_of(json.loads(raw))
         except UNREADABLE_PAYLOAD as exc:
-            print(f"      the jobs payload could not be read ({exc}), so no job was held to its budget.", file=sys.stderr)
+            print(f"      the jobs payload from {source} could not be read ({exc}), so no job was held to its budget.", file=sys.stderr)
             return EXIT_REFUSED
-        findings, lines = check_run(rows, spans)
+        findings, lines = check_run(rows, spans, reference)
         for line in lines:
             print(f"      {line}")
         annotate(findings)
-        # The stream named at the call: the kernel binds its default at import, ahead of any redirect.
-        code = report_findings(findings, stream=sys.stdout)
+        code = report_findings(findings)
         if code == EXIT_OK:
-            print(f"      every measured job sits inside its budget ({REFERENCE})")
+            print(f"      every measured job sits inside its budget ({reference})")
         return code
 
     base = resolve_base(args.base)
@@ -331,9 +352,9 @@ def main() -> int:
         before = None
     findings = check_raise(before, rows, datetime.now(timezone.utc).date())
     annotate(findings)
-    code = report_findings(findings, stream=sys.stdout)
+    code = report_findings(findings)
     if code == EXIT_OK:
-        print(f"      no figure in {REFERENCE} rose against {base[:7]} without its measurement")
+        print(f"      no figure in {reference} rose against {base[:7]} without its measurement")
     return code
 
 

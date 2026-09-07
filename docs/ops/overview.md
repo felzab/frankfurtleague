@@ -2,9 +2,9 @@
 
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
-Three containers behind nginx on one host, deployed by pulling published images. There is no
-orchestrator, no CI runner and no build on the server — deliberately, because a server that builds is
-a server that can fail a build.
+Four containers on one host, reached through a tunnel connector rather than a published port and
+deployed by pulling published images. There is no orchestrator, no CI runner and no build on the
+server — deliberately, because a server that builds is a server that can fail a build.
 
 ## How it is organised
 
@@ -14,7 +14,8 @@ graph TB
     cf["Cloudflare<br/>proxy — terminates public TLS"]
 
     subgraph net["Docker network: frankfurtleague-net"]
-        nginx["nginx<br/>:80 :443 — the only published ports"]
+        connector["cloudflared<br/>dials out; the host publishes nothing"]
+        nginx["nginx<br/>:80 and :443 inside the network only"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
         be["backend :8000<br/>FastAPI"]
     end
@@ -22,9 +23,10 @@ graph TB
     mongo[("MongoDB<br/>managed cluster, off this host")]
 
     internet --> cf
-    cf --> nginx
+    cf --> connector
+    connector --> nginx
     nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/admin/ · /signin · /_next/static · /"| fe
+    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/bestaetigung · /api/admin/ · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
     fe -->|"authjs database only"| mongo
     be --> mongo
@@ -33,8 +35,9 @@ graph TB
 **The diagram is production's** — the local stack adds its own database service to the same network
 and points both application services at it ([`spec.md`](spec.md) §1.5).
 
-**Only nginx publishes a port another host can reach** ([`spec.md`](spec.md) I1), so nginx's routing
-table is the whole of what the internet can address on this host.
+**The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
+routing table is the whole of what the internet can address on this host, and there is no address to
+reach it at otherwise.
 
 **The two arrows into the cluster are two different database users**, neither holding a
 `*AnyDatabase` role: the backend on the application database alone, Auth.js on `authjs` alone — read
@@ -48,8 +51,8 @@ Nothing here manages the Cloudflare account, its DNS or its SSL mode, and none o
 visible from a configuration file in this repository.
 
 - **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
-  settings and OCSP stapling in `nginx/prod.conf` govern the Cloudflare-to-origin hop, not what a
-  browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
+  settings and OCSP stapling in `nginx/prod.conf` govern the hop from the tunnel connector to
+  nginx inside the compose network, not what a browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
   ([`spec.md`](spec.md) §1.3).
 - **The headers a visitor receives are whatever survives the proxy.** They matched `prod.conf` when
   verified 2026-08-01, which makes them a property to re-verify rather than assume.

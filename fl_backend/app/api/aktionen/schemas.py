@@ -52,7 +52,7 @@ class FLAktion(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
     actor: FLAktor
-    correlation_id: str
+    trace_id: str
     request: FLAktionRequest | None
     collection: str
     operation: FLAktionOperation
@@ -93,8 +93,7 @@ class FLAktion(BaseModel):
 class FLAktionMitStand(FLAktion):
     """One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
 
-    Its own model so the list cannot carry an image by accident; the restore (the stored images'
-    one consumer-to-be) reads a single row through this.
+    Its own model so the list cannot carry an image by accident.
     """
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
@@ -119,7 +118,7 @@ FLAktionenListAdapter = TypeAdapter(list[FLAktion])
 class FLAktionenFilterParams(BaseModel):
     collection: str | None = None
     operation: FLAktionOperation | None = None
-    correlation_id: str | None = None
+    trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
     document_id: str | None = None

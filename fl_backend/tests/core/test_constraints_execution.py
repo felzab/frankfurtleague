@@ -38,6 +38,9 @@ SHIPPED_DATABASE_NAME = worker_database("fl_constraints_shipped_test")
 # Its own name: `a_clean_database` records one schema per name, and alternating constrained and
 # unconstrained callers on one would rebuild at every switch.
 UNCONSTRAINED_DATABASE_NAME = worker_database("fl_constraints_unconstrained_test")
+# A fourth, reached only by the case that names no `constraints` at all, so what it reads back is the
+# default rather than a schema some other body asked for.
+DEFAULTED_DATABASE_NAME = worker_database("fl_constraints_defaulted_test")
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607200001")
@@ -65,6 +68,11 @@ CONFLICTING_TTL_INDEX = "aktionen_retention"
 # A bound no declaration carries, planted so the apply beside it is asked to MOVE one rather than
 # build one.
 STALE_RETENTION_SECONDS = 60
+
+# A name no collection holds, the case only `tests/database.py :: _foreign` catches: a view over a
+# dropped collection's name is already in `_moved`'s `gone` set, and one over a live name is a
+# namespace MongoDB refuses.
+LEFTOVER_VIEW = "leftover_view"
 
 # Enough junction rows that the unique build over them outlasts the two-document build beside it.
 SLOW_BUILD_DOCUMENTS = 4000
@@ -221,7 +229,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "at": "2026-03-15T09:30:00+00:00",
             "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=timezone.utc),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
-            "correlation_id": secrets.token_hex(16),
+            "trace_id": secrets.token_hex(16),
             "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
             # Any collection but its own: the log records every other one and never itself.
             "collection": "teams",
@@ -279,6 +287,20 @@ def on_the_shipped_schema(url: str, body: Body) -> Any:
             return await body(database)
 
     return on_the_seed_loop(_run())
+
+
+def test_the_shared_fixture_hands_out_the_shipped_schema_by_default(mongo_url: str):
+    """No `constraints` argument here on purpose.
+
+    Most suites in this tier name none either, so a default flipped back would leave all of them
+    proving behaviour over documents the product refuses.
+    """
+
+    async def _run() -> set[str]:
+        async with a_clean_database(mongo_url, DEFAULTED_DATABASE_NAME) as (_, database):
+            return {info["name"] async for info in await database.list_collections() if "validator" in (info.get("options") or {})}
+
+    assert on_the_seed_loop(_run()) == set(COLLECTION_VALIDATORS)
 
 
 def insert_outcome(url: str, collection: str, document: dict[str, Any]) -> str:
@@ -401,16 +423,28 @@ def test_every_shape_the_generator_watermark_takes_is_accepted(mongo_url: str, s
     assert insert_outcome(mongo_url, "saisons", valid_document("saisons", spielplan=spielplan)) == "accepted", f"refused {why}"
 
 
+# Keyed by the index's name, so the pair proves the rule it is filed under rather than the rule that
+# happens to be declared in its position; the collection comes off the declaration for the same reason.
+DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
+    "uniq_saison_id_team_id": (valid_documents()["saison_teams"], valid_document("saison_teams", gruppe="B")),
+    "uniq_spieler_id_saison_id": (valid_documents()["saison_spieler"], valid_document("saison_spieler", nummer="11")),
+    "uniq_saison_id_spiel_nr": (valid_documents()["spiele"], valid_document("spiele", ergebnis="0:0")),
+    "uniq_shorthand": (valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")),
+    "uniq_saison_id_saison_phase_position": (
+        valid_documents()["spieltage"],
+        valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22"),
+    ),
+}
+
+# At import, and set equality rather than the `KeyError` the walk below would raise: that names a
+# declared index with no pair and nothing else, leaving a pair no declared index answers to as a
+# case nothing runs.
+assert DUPLICATE_PAIRS.keys() == {index.name for index in UNIQUE_INDEXES}
+
+
 @pytest.mark.parametrize(
     ("collection", "first", "second"),
-    [
-        ("saison_teams", valid_documents()["saison_teams"], valid_document("saison_teams", gruppe="B")),
-        ("saison_spieler", valid_documents()["saison_spieler"], valid_document("saison_spieler", nummer="11")),
-        ("spiele", valid_documents()["spiele"], valid_document("spiele", ergebnis="0:0")),
-        ("teams", valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")),
-        ("spieltage", valid_documents()["spieltage"], valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22")),
-    ],
-    ids=[index.name for index in UNIQUE_INDEXES],
+    [pytest.param(index.collection, *DUPLICATE_PAIRS[index.name], id=index.name) for index in UNIQUE_INDEXES],
 )
 def test_each_unique_index_refuses_the_second_document(mongo_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]):
     async def body(database: AsyncDatabase) -> str:
@@ -511,6 +545,21 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_u
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
+
+
+def test_a_view_left_behind_is_reported_as_enforcement_the_session_did_not_build(mongo_url: str):
+    """The complement of the body above, on a database built ONCE.
+
+    Nothing asks a view-creating body for `mutates_schema=True`, so the guard is what has to name
+    the namespace.
+    """
+
+    async def body(database: AsyncDatabase) -> None:
+        # Any real collection: what the view selects is nothing this asserts on.
+        await database.command("create", LEFTOVER_VIEW, viewOn=next(iter(COLLECTION_VALIDATORS)), pipeline=[])
+
+    with pytest.raises(AssertionError, match=LEFTOVER_VIEW):
+        on_the_shipped_schema(mongo_url, body)
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_url: str):
@@ -849,7 +898,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
 def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The log holds twelve months of recorded writes, so a read that cannot walk an index scans them all.
 
-    `correlation_id` is left out: it selects one write's fan-out, which the planner sorts in memory
+    `trace_id` is left out: it selects one write's fan-out, which the planner sorts in memory
     over a handful of rows.
     """
 
@@ -860,7 +909,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
                 | {
                     "_id": ObjectId(),
                     "at": f"2026-03-{(row % 28) + 1:02d}T09:30:00+00:00",
-                    "correlation_id": secrets.token_hex(16),
+                    "trace_id": secrets.token_hex(16),
                     "collection": "teams" if row % 2 else "spiele",
                     "operation": "patch_one" if row % 3 else "insert",
                 }

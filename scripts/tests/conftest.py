@@ -1,14 +1,14 @@
 """SCRIPTS · the throwaway repository the gate-facing suites build, and the readers that drive one
 
-Five modules copy scripts/ into a temporary tree and import the gate out of the copy, so the checker
-under test roots at a planted corpus rather than at this repository. Of that tree only the building
-and the removal are shared: each module keeps its own corpus, its own plants and its own reset,
-because a fixture shared where a case mutates it would let a planted violation stop being found. The
-readers below hold no state and are shared whole -- a module spelling one for itself answers a
-question nothing else is held to, which is how two copies of one reader come to disagree.
+The gate-facing modules copy scripts/ into a temporary tree and import the gate out of the copy, so
+the checker under test roots at a planted corpus rather than at this repository. Of that tree only
+the building and the removal are shared: each module keeps its own corpus, its own plants and its
+own reset, because a fixture shared where a case mutates it would let a planted violation stop being
+found. The readers below hold no state and are shared whole -- a module spelling one for itself
+answers a question nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
-  Nothing here imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
+  No module under `scripts/tests/` imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
   Every fixture tree is registered here and removed by `pytest_sessionfinish`, inside the run rather than after it.
 """
 
@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -28,10 +29,6 @@ from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
-# The caches are live while copied -- the scripts scope runs its tools together -- and copytree
-# raises on a path that vanishes mid-walk.
-IGNORED: Final = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-
 # So no case depends on the machine's git config.
 IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.name", "fixture"),
@@ -42,15 +39,34 @@ IDENTITY: Final[tuple[tuple[str, str], ...]] = (
 _OWNED: list[Path] = []
 
 
+def _failure(args: tuple[str, ...], said: str) -> RuntimeError:
+    """The failure both readers below raise, carrying git's own words.
+
+    Without them the next case fails for a reason nothing explains.
+    """
+    return RuntimeError("git " + " ".join(args) + " failed: " + said)
+
+
 def git(root: Path, *args: str) -> str:
-    """One git command inside a fixture repository, answering its stdout."""
+    """One git command answering its stdout as a message, inside a fixture repository or this one."""
     # `errors="replace"`: a non-utf-8 byte in a fixture's path or message would end the run in a
     # decode error rather than in the finding.
     done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if done.returncode != 0:
-        # With git's message, or the next case fails for a reason nothing explains.
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
+        raise _failure(args, done.stderr.strip() or done.stdout.strip())
     return done.stdout.strip()
+
+
+def _listed(root: Path, *args: str) -> list[str]:
+    """One git listing's NUL-separated paths, decoded as a filename.
+
+    `git` above reads a message: it strips a leading space off a path and replaces a byte it cannot
+    decode, either of which rewrites a name a caller opens.
+    """
+    done = subprocess.run(("git", *args), cwd=root, capture_output=True, check=False)
+    if done.returncode != 0:
+        raise _failure(args, done.stderr.decode("utf-8", "replace").strip())
+    return [os.fsdecode(entry) for entry in done.stdout.split(b"\0") if entry]
 
 
 def write(root: Path, rel: str, text: str) -> None:
@@ -61,8 +77,29 @@ def write(root: Path, rel: str, text: str) -> None:
     path.write_bytes(text.encode("utf-8"))
 
 
-def copy_scripts(destination: Path) -> None:
-    shutil.copytree(REPO_ROOT / "scripts", destination, ignore=IGNORED)
+def copy_scripts(destination: Path, *, source: Path = REPO_ROOT / "scripts") -> None:
+    """Every file in one tree that git does not ignore, copied into a fresh directory.
+
+    A walk raises on a path that vanished mid-listing, and the scripts scope has its own tools
+    reading this tree while a fixture copies it.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    # `--others` beside `--cached`: a module a branch has only just written is one the copy must
+    # still hold. The tree's own ignore files and never `--exclude-standard`, whose global half
+    # would leave a fixture holding what one developer's configuration says.
+    for rel in _listed(source, "ls-files", "--cached", "--others", "--exclude-per-directory=.gitignore", "-z"):
+        # The fixture holds the gate's own corpus, and the suite that drives the gate is no part of it.
+        if rel.startswith("tests/"):
+            continue
+        origin = source / rel
+        # A tracked path the working tree has dropped is still in the index, and git reads it as
+        # deleted: copying it would take out every module's fixture at build time, naming no cause.
+        if not origin.is_file():
+            continue
+        target = destination / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # copy2 rather than a read and a write: it copies bytes and carries the executable bit.
+        shutil.copy2(origin, target)
 
 
 def configure(root: Path, hooks: str) -> None:
@@ -133,17 +170,28 @@ def run_shell(
 
 
 def lift_function(script: Path, name: str, indent: str = "") -> str:
-    """One shell function's source, by its opening and closing lines, dedented to the margin.
+    """One shell function's source, dedented to the margin: a one-line one whole, a block by its closing line.
 
     Read rather than reimplemented: a copy in a test passes while the gate's own copy regresses.
     """
     lines = script.read_text(encoding="utf-8").splitlines()
     # Anchored on the opening line's own text rather than on a position, so a function that moves
-    # inside its script is still found.
-    start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
+    # inside its script is still found. The run of spaces is the column `scripts/gate/verify.sh`
+    # aligns a block of definitions on.
+    opens = re.compile(re.escape(indent) + re.escape(name) + r"\(\) +\{")
+    start = next((i for i, line in enumerate(lines) if opens.match(line)), -1)
     assert start >= 0, f"{_cited(script)} no longer defines {name}"
+    # bash terminates a brace group's list before its `}`, so a body on the opening line ends the
+    # function there. Read off the terminator, not a bare `}`, which a parameter expansion ends a
+    # line with too.
+    if re.search(r";\s*\}$", lines[start].rstrip()):
+        return lines[start].removeprefix(indent)
+    # A body the opening line does not close leaves its braces deeper than the group's own
+    # (`scripts/lib/_lib.sh :: require_file`), and the walk below would take the next function's
+    # closing line as this one's -- a lift that still runs.
+    assert lines[start].count("{") - lines[start].count("}") <= 1, f"{_cited(script)}'s {name} opens a body its own line does not close"
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"{_cited(script)}'s {name} has no closing line"
+    assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
 
 
@@ -157,6 +205,16 @@ def declared(source: Path, name: str) -> Any:
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
             return ast.literal_eval(node.value)
     raise AssertionError(f"{_cited(source)} no longer declares {name}")
+
+
+def details(findings: list) -> str:
+    """Every finding's text as one string, for a case asserting on what a run reported."""
+    return "\n".join(finding.detail for finding in findings)
+
+
+def severities(findings: list) -> list:
+    """The severities a run reported, so a case pins how many findings it caused as well as which."""
+    return [finding.severity for finding in findings]
 
 
 def _cited(path: Path) -> str:

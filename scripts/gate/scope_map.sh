@@ -77,6 +77,9 @@ else
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;
+      # selfcheck.sh compares each hook registration's timeout with its child's budget, so the
+      # registrations select the scripts scope, ahead of the markdown arm an agent file would take.
+      .claude/settings.json|.claude/agents/*) scripts=true; docs=true ;;
       # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the docs
       # gate and the formatter check it, and no test tier can say anything about it.
       *.md) docs=true ;;
@@ -84,7 +87,14 @@ else
       # Packaging inputs. `docs` rides along because a comment in any of these is documentation
       # (INC-6), and withholding it means a comment-only edit runs no documentation gate at all.
       fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true; docs=true ;;
-      fl_backend/Dockerfile|fl_backend/.dockerignore) images=true; docs=true ;;
+      # `scripts` too, that being the scope `scripts/gate/selfcheck.sh` runs in: nothing else
+      # compares this file's `FROM ghcr.io/astral-sh/uv:` tag with `fl_backend/pyproject.toml`'s
+      # `required-version`. A bot's bump touches this file alone, and the whole scripts scope is
+      # what that costs.
+      fl_backend/Dockerfile) images=true; docs=true; scripts=true ;;
+      # Its own arm, the uv comparison above reading the Dockerfile alone: joined to it, an edit
+      # here would buy the whole scripts scope for a file nothing outside the build reads.
+      fl_backend/.dockerignore) images=true; docs=true ;;
       fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;
@@ -132,6 +142,10 @@ else
       # excuses (`scripts/checks/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
       # --docs proves while nothing else reads the widening.
       .gitignore) docs=true ;;
+      # `scripts/tests/test_check_gate_budget.py` parses this file itself and drives every budgeted
+      # row red and green, so the scripts scope is what proves an edit here; ahead of the
+      # `.github/*` arm, which would map it to `docs` alone.
+      .github/gate-wall-clock.tsv) scripts=true; docs=true ;;
       # NOTICE is read whole by the documentation gate and by nothing else
       # (`scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES`), so an edit to it selects that
       # scope alone: a dead asset path written there fails on the branch that wrote it.

@@ -13,7 +13,7 @@ const FEATURES_DIR = path.resolve(SRC_DIR, "features");
 const CLIENT_MODULE = path.resolve(SRC_DIR, "core", "api.ts");
 const DOCUMENT_PATH = path.resolve(FRONTEND_DIR, "..", "fl_backend", "openapi.json");
 
-const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
+const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
 
 /** Stands in for an interpolated segment, spelled so no literal segment can collide with it. */
 const PATH_PARAM = "<param>";

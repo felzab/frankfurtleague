@@ -64,7 +64,7 @@ def recorded_row(**overrides: Any) -> dict[str, Any]:
         "at": RECORDED_AT,
         "at_date": RECORDED_AT_DATE,
         "actor": {"kind": "admin_session", "email": ACTOR},
-        "correlation_id": "0123456789abcdef0123456789abcdef",
+        "trace_id": "0123456789abcdef0123456789abcdef",
         "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
         "collection": str(Collection.TEAMS),
         "operation": "patch_one",
@@ -283,7 +283,7 @@ def test_a_malformed_row_is_rejected(mongo_url: str, row: dict[str, Any], why: s
             recorded_row(operation="patch_many", document_id=None, db_filter={"address.stadt": STADT}, before=None, modified_count=40),
             "a fan-out",
         ),
-        (recorded_row(actor={"kind": "system", "email": "SYSTEM"}, request=None, correlation_id="SYSTEM"), "a write made outside any request"),
+        (recorded_row(actor={"kind": "system", "email": "SYSTEM"}, request=None, trace_id="SYSTEM"), "a write made outside any request"),
         (recorded_row(redacted_at="2026-04-01", before=None), "a row whose values an erasure has already overwritten"),
         (
             recorded_row(operation="insert_many", document_id=None, db_filter=None, before=None, modified_count=75),

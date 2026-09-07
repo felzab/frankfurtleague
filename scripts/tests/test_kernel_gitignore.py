@@ -26,16 +26,17 @@ GITIGNORE: Final = ".gitignore"
 HASH: Final = "#"
 TICK: Final = "`"
 
+CORPUS_DIR: Final = "docs"
 # Ruled with a trailing slash, which matches the bare name only while the folder exists: the double
 # probe's case.
-IGNORED_FOLDER: Final = "docs/scratch"
-IGNORED_FILE: Final = "docs/scratch-notes.md"
-UNRULED: Final = "docs/never-written.md"
+IGNORED_FOLDER: Final = CORPUS_DIR + "/scratch"
+IGNORED_FILE: Final = CORPUS_DIR + "/scratch-notes.md"
+UNRULED: Final = CORPUS_DIR + "/never-written.md"
 COMMENT: Final = "planned under " + IGNORED_FOLDER + ", " + IGNORED_FILE + " and " + UNRULED
-COMMENT_HOME: Final = "docs/plan.md"
+COMMENT_HOME: Final = CORPUS_DIR + "/plan.md"
 
 HOOK: Final = ".githooks/pre-push"
-DEAD_PATH: Final = "docs/gone.md"
+DEAD_PATH: Final = CORPUS_DIR + "/gone.md"
 # Titled: the opening block of a hook is a module header held to INC-2's shape, so a title-less one
 # would draw `module-header` beside the `path` finding the scan case counts.
 HOOK_LINES: Final = (
@@ -127,6 +128,9 @@ def _build() -> tuple[Path, Path]:
     write(root, GITIGNORE, _page("/" + SCRIPTS_COPY + "/", IGNORED_FOLDER + "/", IGNORED_FILE))
     write(root, HOOK, _page(*HOOK_LINES))
     (root / HOOKS_STUB).mkdir()
+    # `kernel.py :: repo_prefixes` derives the prefixes from the tree's own top level, so a path
+    # under a folder no repository holds reads as prose. The three under it stay absent.
+    (root / CORPUS_DIR).mkdir()
     configure(root, str(root / HOOKS_STUB))
     git(root, "add", "--", GITIGNORE, HOOK)
     git(root, "commit", "-m", "Corpus: one hook and three rules")

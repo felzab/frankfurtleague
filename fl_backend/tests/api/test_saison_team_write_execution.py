@@ -17,6 +17,10 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_saison_team_write_test")
 
 SAISON_ID = "2026"
+SAISON_START = "2026-01-01"
+SAISON_END = "2026-06-30"
+
+ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 # Fixed rather than generated, so a failure names the same club every run.
 ADLER = ObjectId("6890a1b2c3d4e5f607250001")
@@ -73,19 +77,38 @@ def club_document(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {"_id": team_id, "name": name, "shorthand": shorthand}
+    return {
+        "_id": team_id,
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule",
+        "website_url": "https://example.com",
+        "address": dict(ADDRESS),
+        "inactive_since": None,
+    }
 
 
 def fixture_document(team_id: ObjectId) -> dict[str, Any]:
-    """Only what the move gate counts: it asks how many fixtures this club is drawn into, nothing else."""
+    """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
     return {
+        "_id": ObjectId(),
         "saison_id": SAISON_ID,
         "saison_phase": "gruppenphase",
         "spiel_nr": 1,
         "spieltag_id": SPIELTAG_OID,
         "team1": {"team_id": team_id, "name": "Adler-Schule", "shorthand": "AS", "tore": None},
         "team2": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": None,
+        "uhrzeit": None,
+        "ort": None,
+        "schiedsrichter": None,
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
     }
 
 
@@ -107,9 +130,10 @@ def on_a_season(
     """
 
     async def _run() -> Any:
-        # `spiele` by hand: the group move reads it, and nothing here seeds it in every case.
-        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
-            await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status, "rules": dict(RULES)})
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+            await database[Collection.SAISONS].insert_one(
+                {"_id": SAISON_ID, "start_date": SAISON_START, "end_date": SAISON_END, "status": saison_status, "rules": dict(RULES)}
+            )
             await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]

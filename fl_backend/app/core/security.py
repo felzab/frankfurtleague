@@ -111,7 +111,7 @@ async def bind_actor(request: Request) -> AsyncIterator[None]:
         yield
     finally:
         # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
-        # `CorrelationIdMiddleware` resets its own id for.
+        # `TraceContextMiddleware` resets its own ids for.
         actor_var.reset(actor_token)
         request_var.reset(request_token)
 

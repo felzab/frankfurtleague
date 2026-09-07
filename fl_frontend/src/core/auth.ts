@@ -71,14 +71,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // On the type only: a `message.includes(...)` test would swallow any wrapped error quoting the
       // string, and this stream is the main signal that authorization is misbehaving.
       if (error?.name === "AccessDenied") {
-        logger.warn("auth.access_denied", { name: error.name, error_code: "FE-AUTH-001" });
+        logger.warn("auth.access_denied", { error_code: "FE-AUTH-001", name: error.name });
         return;
       }
 
       // Name only: an Auth.js error on the Resend path routinely carries the submitted email
       // address, and `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's
       // message and stack in full.
-      logger.error("auth.error", undefined, { name: error?.name, error_code: "FE-AUTH-002" });
+      logger.error("auth.error", undefined, { error_code: "FE-AUTH-002", name: error?.name });
     },
   },
 });

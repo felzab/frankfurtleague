@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from typing import Any, Callable, Iterator
 
 import pytest
@@ -8,6 +9,8 @@ from fastapi.testclient import TestClient
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
 from tests.config import build_test_config
+
+from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = create_app(build_test_config())
@@ -45,12 +48,23 @@ def api_routes() -> Iterator[APIRoute]:
 
 # `route.methods or ()` because Starlette types it optional: the fallback is unreachable, and
 # writing it is cheaper than asserting a framework's internals.
-ROUTES_BY_OPERATION = {
-    (strip_convertors(route.path), method.lower()): route
+MOUNTED_OPERATIONS = [
+    ((strip_convertors(route.path), method.lower()), route)
     for route in api_routes()
     for method in (route.methods or ())
     if method.lower() in HTTP_METHODS
-}
+]
+
+ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
+
+OPERATION_COUNTS = Counter(operation for operation, _ in MOUNTED_OPERATIONS)
+
+# A dict keeps the last route written, so a shared pair drops the route that lost from every sweep
+# below while `test_the_published_surface_and_the_mounted_routes_are_the_same_set` still passes.
+# Module level, so collection refuses every case built on it.
+assert len(ROUTES_BY_OPERATION) == len(MOUNTED_OPERATIONS), (
+    f"more than one mounted route serves {sorted(operation for operation, count in OPERATION_COUNTS.items() if count > 1)}"
+)
 
 PUBLISHED_OPERATIONS = sorted(
     (path, method) for path, operations in APP.openapi()["paths"].items() for method in operations if method in HTTP_METHODS
@@ -80,14 +94,6 @@ MUTATIONS = [
     for path, method in PUBLISHED_OPERATIONS
     if method != "get" and (path, method) not in PUBLIC_WRITES and (path, method) not in SYSTEM_WRITES
 ]
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation below
-# without editing this file, so pinning the number would ask for a bump and prove nothing.
-
-# Seven under the inventory: fewer than either of the two largest routers holds, so one dropping out
-# of it lands below the floor. `tests/api/test_actor_binding.py` floors the same operations reached
-# through the mounted routes, and the two move together.
-MINIMUM_EXPECTED_MUTATIONS = 30
 
 # Admin reads this inventory PINS, not every admin read the application serves -- nothing about a GET
 # tells the inventory which tier it belongs to, so each is enumerated and parametrised below.

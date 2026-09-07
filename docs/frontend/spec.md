@@ -47,7 +47,7 @@
 | `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                      |
 | `admin`          |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
 | `kontakte`       |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                            |
-| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
+| `auth`           |    —    |     —     |   ✅    |   ✅    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
 | `dashboard`      |    —    |     —     |    —    |    —    | —                                                                                                                                              |
 | `meta`           |    —    |     —     |    —    |    —    | —                                                                                                                                              |
 
@@ -79,8 +79,15 @@ keys on the arguments rather than on caller identity, so one shared entry would 
 admin-authorized data any caller could reach.** **An admin-tier read several components on one page
 make is wrapped in React's `cache`, never in `"use cache"`** — that wrapper dedupes within one
 render pass, so it costs the confinement nothing. None carries a cache tag either: a tag only means
-something inside a cache scope. Each seeds the request's correlation scope, which a `"use cache"`
-read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
+something inside a cache scope. Each seeds the request's trace scope, which a `"use cache"`
+read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-trace-id)).
+
+**Every cached read above declares itself to `apiClient` through `cacheFill`, and the option is the
+table's other half.** A fill runs outside the page request's trace, so the only record of which
+function asked for it is the `INFO` line `apiClient` writes on the minting branch, carrying the
+name and the arguments the fill was keyed on. A cached read added without the option joins nothing,
+which no check can see. Whether a page request's scope propagates into a fill it triggers is
+unmeasured; on that path the fill's call would carry the request's trace and write no line.
 
 **The application form's reads are base-tier and uncached, and the tier is not what settles it.**
 Each answers a question judged against the present moment rather than a property of the season —
@@ -102,8 +109,8 @@ present, so React's `cache` supplies the dedupe instead: it holds the in-flight 
 length of ONE request and shares it across that request's boundaries alone, so no later request can
 reach it and the confinement above stands intact. **A memo over a FILTERED read keys on the filters
 serialized**, in a `cache()`-scoped `Map` —
-`fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele`, `getAdminTeams` and
-`getAdminSpieltage` each hold one — because React's `cache` compares an argument by identity, so an
+`getAdminSpiele`, `getAdminTeams` and `getAdminSpieltage`, one per slice's `queries.ts`, each hold
+one — because React's `cache` compares an argument by identity, so an
 object literal written at a call site would miss every time and memoize nothing.
 
 **What the admin tier adds is withheld by a response model per endpoint, never by a projection per
@@ -202,7 +209,7 @@ rows into, and the action log's images (backend I48) are a record for a person t
 restore. **This side judges the replace window itself, from a hand-written mirror**:
 `fl_frontend/src/features/saisons/utils.ts :: holdsARecordedFact` answers it per fixture against
 `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`, RECORDED being defined once, in
-[`docs/backend/spec.md`](../backend/spec.md) I46, so no surface spells the window twice. Both
+[`docs/backend/spec.md`](../backend/spec.md) I109, so no surface spells the window twice. Both
 writes confirm in place behind the two-press escalation, **which sends the `replace` where the
 season already holds a draw**, the flag decided from the same input as the
 sentence beside it; they are **one panel and one armed state**, and what counts as drawn is one
@@ -433,7 +440,7 @@ and a card showing `4:3` where `2:2` belongs would contradict the table about th
 ### 1.7 Environment
 
 Validated at startup by `@t3-oss/env-nextjs` (`fl_frontend/src/core/config.ts`). Failure prints **names only**, never
-values.
+values, as one `CRITICAL` line in the stream's own format before it throws.
 
 | Variable                                       | Constraint                                                                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -442,13 +449,22 @@ values.
 | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                          |
 | `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                 |
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
-| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 characters                                                                                                                |
+| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
+| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused              |
 | `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build |
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real
 environment.
+
+**`LOG_LEVEL` stops one level below the backend's `LOG_LEVEL_APP`**
+([`../backend/spec.md`](../backend/spec.md) §1.5), which admits `CRITICAL` and has writers there.
+The level vocabulary on the line is the same five on both surfaces
+([`../logging/spec.md`](../logging/spec.md) §1.2), and `fl_frontend/src/core/logging.ts :: logger`
+writes four of them, so a `CRITICAL` threshold would admit nothing but the env gate's own failure
+line and leave a silenced stream reading as a quiet one. Refusing the value is what makes that
+misconfiguration a boot failure naming `LOG_LEVEL` instead.
 
 The `AUTH_URL` https rule exists because `@auth/core` derives the session cookie's `Secure` flag
 from that URL's protocol, so a stray `http://` value would ship an admin session cookie in

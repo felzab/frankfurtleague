@@ -2,43 +2,80 @@
 #
 # Five tab-separated columns. `seconds` and `floor` are the reference the verify job's advisory
 # report compares a median of main runs against; `budget` is the ceiling a single run of the job is
-# held to, and the run that breaks it is red; `measured` is the runs both were taken over, as
-# `<runs>@<date of the newest>`. `-` is a column that does not apply to the row, never a zero.
+# held to, and the run that breaks it is red; `measured` is that row's population -- the runs its
+# own figures were taken over, as `<runs>@<date of the newest>`. `-` is a column that does not apply
+# to the row, never a zero.
 #
 # Updated by hand, never by the workflow. A report that recomputed its reference from its own
 # recent past would let a slowdown become the new normal one window at a time, and the accumulated
 # growth would never appear in any single report.
 #
-# Seconds: the median first-step-to-last-step span over the 24 completed main runs to 2026-09-01.
-# Floor: the p95 movement of a 12-run median resampled from that same population, rounded up --
-# whole runs resampled rather than single jobs, because a slow runner slows every job on it. A job
-# with no row here is reported as unreferenced rather than measured. p95 rather than p90 because
-# a report holding no verdict is worth only what it is worth reading, and a floor speaking on
-# half of the quiet pushes spends exactly that.
+# Seconds: the median first-step-to-last-step span over the completed main push runs the row's own
+# stamp counts, which is the one place the population is written.
+# Floor: how far a 12-run median moves at p95, in percent of the reference beside it rather than in
+# seconds -- that same population reshuffled and re-cut into two windows of twelve, rounded up to a
+# whole percent, and whole runs resampled rather than single jobs, because a slow runner slows every
+# job on it. A job with no row here is reported as unreferenced rather than measured. p95 rather
+# than p90 because a report holding no verdict is worth only what it is worth reading, and a floor
+# speaking on half of the quiet pushes spends exactly that.
 #
 # Budget: the highest single-run span in the stamped population, plus a quarter of it or ten
 # seconds, whichever is more, rounded up to the next five. A single run swings far wider than a
-# median does -- `backend-db` reached 1.6 times its median inside 24 runs, `ops` 2.3 times -- so a
-# ceiling that never cries wolf on a quiet runner sits well above the reference, and a run over it
-# is a re-run or a regression, in that order. Raising one costs the runs that justify it: a budget
-# or a reference that rises against main carries a new stamp, refused otherwise by
-# scripts/checks/check_gate_budget.py in the pull request's `commits` job. Lowering one is free.
+# median does -- `backend-db` reached twice its median inside its stamped runs, `ops` 1.9 times --
+# so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
+# over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
+# budget or a reference that rises against main carries a new stamp, refused otherwise by
+# `scripts/checks/check_gate_budget.py` in the pull request's `commits` job. Lowering one is free.
 #
-# `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, a
-# cold cache costing five times the median, and the Dockerfile change most worth catching is the
-# one that empties that cache. Its guard is the median report alone.
+# A check joining the gate records its measured cost here, the **gate** clause in
+# `.claude/rules/ops.md` being what asks for it. A cost that sits inside its job's floor moves
+# neither the reference nor the budget and takes no stamp of its own.
+#
+# `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, and
+# inside one stamped population its widest run costs seven times its narrowest, so the number a
+# ceiling would be set from says more about which layers were warm than about the tree. The
+# Dockerfile change most worth catching is the one that empties that cache, and the median report
+# is its only guard.
 #
 # `commits` and `format` run on pull requests alone -- `format` only where `frontend` does not, and
 # a push to main turns every scope on -- so their population is pull-request runs, and their
-# reference columns are `-`: the report is cut from main runs, where neither ever appears.
+# reference columns are `-`: the report is cut from main runs, where neither ever appears. Their
+# stamps move on their own runs and never with the rows above them.
 #
-# The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
-# move the total with it, or the next report says the total has drifted.
+# `ops` answers to a shorter population than every other row cut from main runs, counted in its own
+# stamp -- `commits` and `format`, carved out just above, are shorter still and are pull-request
+# runs. `nginx/redaction_test.sh` joined that scope partway through those rows' window, and a run
+# from before that merge measures a gate this one is not. A population that short cannot be cut
+# into two windows of twelve, so its floor is the p95 movement between two 12-run medians drawn
+# with replacement from it. On the three rows computable both ways that draw lands within a point
+# of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
+# method a short population leaves rather than a systematically looser one.
+#
+# `backend-db`'s floor is wide because its window straddles the database tier's move to PyMongo and
+# its distribution over workers: a reshuffle drawing runs from both sides of that merge moves the
+# median about as far as the merge itself did. It narrows once the window clears the merge, and
+# until then only a large change reaches the report on that row.
+#
+# `frontend`'s reference stands where it does because the gate step grew, and not the setup around
+# it. Medians over the completed main push runs of `.github/workflows/verify.yml`, 66 successful
+# frontend jobs from 2026-08-12 to 2026-09-07, each span taken first step to last: 98 s through
+# 2026-08-21, 110 s over the pushes to 2026-08-31, 118 s from 2026-09-01 -- windows cut by date
+# rather than by the row's own stamped population, so that last figure is not the reference beside
+# it. The `Run the frontend scope` step reads 69 s, 83 s and 86.5 s over those same three windows,
+# tracking the job almost exactly, while the toolchain action got faster across them, 23 s to 18 s,
+# and the steps the last window added cost 0-4 s each: neither a runner change nor pool width is
+# needed to explain the move. Inside the step, two runs -- run 32450493617 job 96678012838 on
+# 2026-08-21 against run 34085018333 job 101627272597 on 2026-09-07 -- put the growth in the unit
+# tests above all, 7.0 s against 35 s, with eslint 18 s against 28 s and tsc 9.9 s against 17 s on a
+# larger source tree, offset by a build that fell from 30 s to 8.4 s once `next typegen` was split
+# out ahead of it. Those two are runs and not medians, the first above its window's median and the
+# second below its own, so they say which units grew and not how far the reference moved. Neither
+# the reference nor the budget moves on any of it and neither takes a new stamp: an attribution is
+# not a measurement of the row.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
-# checks' own rather than the walk's. Their 1.06 s sits inside the 8% floor the docs row already
-# carries, so neither reference nor budget moves and neither takes a new stamp.
+# checks' own rather than the walk's. Their 1.06 s sits inside the floor the `docs` row carries.
 #
 # `docs` gained a third check: `scheme-token` costs 0.034-0.057 s over nine interleaved rounds with
 # the file listing warmed, measured locally on 2026-09-05 on a sixteen-core machine carrying
@@ -46,16 +83,20 @@
 # as the check. The second
 # method resolves nothing and says so: the delta between a whole run carrying the check and one
 # without falls inside that run's own 0.2 s spread, which is what a check this small looks like
-# against a job this size. It sits inside the 8% floor the docs row carries -- 2.8 s against a 35 s
-# reference -- so neither reference nor budget moves and neither takes a new stamp. The ceiling it
-# answers to is the docs row's 60 s budget, the total row carrying none behind it.
+# against a job this size. It sits inside the floor the `docs` row carries, and the ceiling it
+# answers to is that row's budget, the total row carrying none behind it.
 #
 # `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
 # workloads, so both ends are upper bounds reading that contention as much as the check. It is
 # pooled with the scope's other three units, so the job pays that span only where the pool cannot
-# start all four at once, and either way it sits inside the 14% floor the backend row carries, so
-# neither reference nor budget moves and neither takes a new stamp.
+# start all four at once, and either way it sits inside the floor the `backend` row carries.
+#
+# `ops` gained a check: `check_csp_identity.py` costs 101-114 ms over two runs of seven rounds
+# interleaved with `check_compose_mirror.py`, each returning exit 0, measured locally on 2026-09-07
+# on a sixteen-core machine carrying a fleet of agent sessions and an editor, so both ends read
+# that contention as much as the check. The span is the whole process, which is what the ops step
+# pays. It sits inside the floor the `ops` row carries.
 #
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
@@ -63,25 +104,97 @@
 # comment ceiling and the fork's standard behind the rule families. Measured whole rather than per
 # check: the docs checker over the fork's tree and the branch's tree, interleaved, five rounds after
 # one warm run each, on 2026-09-07 with nothing else running -- 7988 ms at the fork's median against
-# 9267 ms at the branch's, spreads 16 ms and 59 ms, a difference of 1.3 s. That sits inside the 8%
-# floor the docs row carries, 2.8 s against a 35 s reference, so neither reference nor budget moves
-# and neither takes a new stamp; the figures are one machine's upper bound, and the runner's own
+# 9267 ms at the branch's, spreads 16 ms and 59 ms, a difference of 1.3 s. That sits inside the
+# floor the `docs` row carries; the figures are one machine's upper bound, and the runner's own
 # median is what the report compares.
 #
-# `ops` is the one seconds figure below that is a projection rather than a measurement: the 12 s
-# that scope took in CI before `nginx/redaction_test.sh` joined it, plus the 14 s the new check
-# costs, measured locally rather than on a runner. Replace it with a real median once twelve main
-# pushes carrying that check are on record -- until then a report naming `ops` is a statement
-# about this estimate rather than about the gate. Its budget is a measurement: the 24 runs stamped.
+# `docs` gained a check: `check_public_routes.py` costs 110-129 ms end to end, of which 73 ms is the
+# check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
+# each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet
+# of concurrent agent sessions, so both ends are upper bounds reading that contention as much as
+# the check. It is pooled with the docs scope's other six units, so the job pays that span only
+# where the pool cannot start all seven at once, and either way it sits inside the floor the docs
+# row carries, so neither reference nor budget moves and neither takes a new stamp.
+#
+# `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in
+# `.claude/settings.json` and in `.claude/agents/`, on every event rather than `PreToolUse` alone,
+# against the kill budget the hook it registers gives its own child. Eleven registrations cost
+# 0.73-0.80 s, taken as the difference against six interleaved rounds of the same harness with the
+# comparison left out, whose own span was 0.140-0.157 s. The node start over the settings file is
+# 0.053-0.082 s of that and the per-registration process starts are the rest -- an awk over every
+# registered hook, and a grep besides for each that decides in its own process. Measured locally on
+# 2026-09-07 on a sixteen-core machine carrying fifteen agent sessions and an editor, so both ends
+# are upper bounds reading that contention as much as the check, and a Linux runner starts a process
+# faster than this one does. It sits inside the floor the `scripts` row carries, so neither the
+# reference nor the budget moves and neither takes a new stamp.
+#
+# `ops` gained a check: `check_nginx_mirror.py` costs 0.141-0.167 s over eight interleaved runs in
+# two spreads, each returning exit 0, measured locally on 2026-09-07 on a sixteen-core machine
+# carrying twelve agent sessions on one tree, so both ends are upper bounds reading that contention
+# as much as the check. It sits far inside the floor the `ops` row carries, and the ceiling it
+# answers to is that row's budget.
+#
+# `backend-db` gained a guard in front of the tier: a claim that refuses a second gate run rather
+# than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
+# of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
+# take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
+# much as the guard, and each paid once per run. Their 0.05 s is a thousandth of the row's 49 s
+# reference, against a floor of 40 percent of it, so neither the reference nor the 125 s budget
+# moves and neither takes a new stamp. The figure is a development machine's, which is what the
+# guard's own cost can be measured on: it runs before the tier rather than in it.
+#
+# `docs` gained a check: `check_regenerate_spelling.py` costs 201-243 ms end to end, of which
+# 98-104 ms is the sweep rather than this interpreter's own start, over seven interleaved rounds
+# after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core
+# machine carrying a fleet of concurrent agent sessions, so both ends are upper bounds reading
+# that contention as much as the check; `check_public_routes.py`, interleaved with it, read 117-120
+# ms against the 110-129 ms its own paragraph records, which is what places this machine beside that
+# measurement. The sweep reads every tracked file's bytes, so its span follows the size of the tree
+# rather than of the branch. It is pooled with the docs scope's other six units, so the job pays
+# that span only where the pool cannot start all seven at once, and either way it sits inside the
+# floor the docs row carries, so neither reference nor budget moves and neither takes a new stamp.
+#
+# `scripts`' binding unit measured three ways on 2026-09-07 on the sixteen-core machine: alone and
+# idle, `selfcheck.sh` took 45.2-45.9 s over five runs; inside one full-form run it took 97 s beside
+# the section's pytest, ruff and pyright; under a process spinning every core it took 236 s. The
+# gap between alone and in-run is contention, the unit waiting on the machine rather than working,
+# so the row's reference is the run's figure and not the unit's, and what would pay is reducing
+# what the run competes for rather than splitting the unit or removing work from it. The section
+# itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a row.
+#
+# `docs` gained a check: `check_log_quoting_class.py` costs 97-141 ms end to end, of which about
+# 60 ms is the comparison rather than this interpreter's own start, over two spreads of ten
+# interleaved rounds after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a
+# sixteen-core machine carrying a fleet of concurrent agent sessions, so both ends are upper
+# bounds reading that contention as much as the check; `check_regenerate_spelling.py`, interleaved
+# with it, read 197-236 ms against the 201-243 ms its own paragraph records, which is what places
+# this machine beside that measurement. It opens two files and expands two character classes, so
+# its span follows neither the size of the tree nor that of the branch. It is pooled with the docs
+# scope's other six units, so the job pays that span only where the pool cannot start all seven at
+# once, and either way it sits inside the floor the docs row carries, so neither reference nor
+# budget moves and neither takes a new stamp.
+#
+# `docs` gained a check: `section-reference` costs 95-103 ms over the whole corpus of 1045 files,
+# the upper end taken with the page cache cleared beside the check's own, over nine rounds
+# interleaved with `wrapped-path`, which read 12 ms against the same corpus. Measured locally on
+# 2026-09-07 on a sixteen-core machine carrying a fleet of agent sessions, so both ends are upper
+# bounds reading that contention as much as the check, and the pages it resolves against are read
+# once a run by the checks beside it either way. The same run widened the prose corpus by this file,
+# 74 documents to 75. It sits inside the floor the `docs` row carries, so neither the reference nor
+# the budget moves and neither takes a new stamp.
+#
+# The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
+# move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
+# file at parse, in either of its modes, and compares nothing at all.
 #
 # job	seconds	floor	budget	measured
-backend	37	14	60	24@2026-09-02
-backend-db	67	22	135	24@2026-09-02
-commits	-	-	25	7@2026-09-02
-docs	35	8	60	24@2026-09-02
+backend	35	14	60	24@2026-09-07
+backend-db	49	40	125	24@2026-09-07
+commits	-	-	25	24@2026-09-07
+docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31
-frontend	110	10	170	24@2026-09-02
-images	97	10	-	24@2026-09-02
-ops	26	17	40	24@2026-09-02
-scripts	47	8	80	24@2026-09-02
-total	419	5	-	-
+frontend	122	10	180	24@2026-09-07
+images	101	29	-	24@2026-09-07
+ops	17	29	45	13@2026-09-07
+scripts	52	16	80	24@2026-09-07
+total	415	10	-	-

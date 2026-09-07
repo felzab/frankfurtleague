@@ -4,7 +4,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import { logger } from "@/core/logging";
 
 import { toActionErrorResult } from "./actionError";
-import { runWithIncomingCorrelationId } from "./correlationScope";
+import { runWithIncomingTrace } from "./traceScope";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -21,14 +21,14 @@ export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /**
- * Seeds the request scope with the edge-minted correlation id, and converts a thrown API error into the caller's result
+ * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
  * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
  */
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
   fn: () => Promise<T>,
 ): Promise<T | NonNullable<FormState>> {
-  return runWithIncomingCorrelationId(async () => {
+  return runWithIncomingTrace(async () => {
     try {
       return await fn();
     } catch (error) {

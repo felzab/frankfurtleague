@@ -1,5 +1,5 @@
-import { CORRELATION_HEADER, isWellFormedCorrelationId } from "./correlation";
 import { logger } from "./logging";
+import { readTraceparent, TRACEPARENT_HEADER } from "./trace";
 
 interface NextRequestContext {
   routePath: string;
@@ -15,37 +15,37 @@ interface NextRequestInfo {
 }
 
 interface WebError extends Error {
-  correlationId?: string;
+  traceId?: string;
   code?: string;
   cause?: {
-    correlationId?: string;
+    traceId?: string;
     statusCode?: number;
     [key: string]: unknown;
   };
 }
 
-function correlationIdOf(request: NextRequestInfo): string | undefined {
+function traceIdOf(request: NextRequestInfo): string | undefined {
   const headers = request.headers;
   if (!headers) return undefined;
 
-  const raw = headers instanceof Headers ? headers.get(CORRELATION_HEADER) : headers[CORRELATION_HEADER.toLowerCase()];
+  const raw = headers instanceof Headers ? headers.get(TRACEPARENT_HEADER) : headers[TRACEPARENT_HEADER];
   const value = Array.isArray(raw) ? raw[0] : (raw ?? undefined);
-  return isWellFormedCorrelationId(value) ? value : undefined;
+  return readTraceparent(value)?.traceId;
 }
 
 export async function onRequestError(err: Error, request: unknown, context: NextRequestContext) {
   const webErr = err as WebError;
   const cause = webErr.cause || {};
 
-  // Two different jobs: `correlation_id` names the page request that failed, `fetch_correlation_id`
-  // the outbound call -- distinct whenever the fetch ran as a cache fill (docs/logging/spec.md).
-  const requestId = correlationIdOf((request ?? {}) as NextRequestInfo);
-  const fetchId = cause.correlationId || webErr.correlationId;
+  // Two different jobs: `trace_id` names the page request that failed, `fetch_trace_id` the
+  // outbound call -- distinct whenever the fetch ran as a cache fill (docs/logging/spec.md).
+  const requestId = traceIdOf((request ?? {}) as NextRequestInfo);
+  const fetchId = cause.traceId || webErr.traceId;
 
   logger.error("Next.js Server Component Crash", err, {
     error_code: "FE-RSC-001",
-    correlation_id: requestId,
-    fetch_correlation_id: fetchId !== requestId ? fetchId : undefined,
+    trace_id: requestId,
+    fetch_trace_id: fetchId !== requestId ? fetchId : undefined,
     digest: context.digest,
     route: context.routePath,
     status: cause.statusCode || 500,

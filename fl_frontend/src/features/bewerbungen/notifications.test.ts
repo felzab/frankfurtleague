@@ -429,7 +429,7 @@ describe("a fan-out that cannot reach everyone", () => {
   });
 
   /* Every frontend failure line carries one (`docs/logging/spec.md`), and this one is not
-     `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same correlation id. */
+     `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same trace id. */
   it("carries its own error code and the error's name, and no error object", async () => {
     reset();
     refused.add("erste@schule.de");

@@ -149,8 +149,12 @@ scope is the expensive one and the only hard refusal. [`docs/ops/spec.md`](../do
   proves a request, a green suite on a configured machine never proves a clean checkout — and name
   what was exercised and what was not.
 - Where you are unsure whether a fix is yours — scope, a §7 decision, a product call — ask at the
-  moment you hit it, never in the wrap-up. A finding outside the task becomes a roadmap entry at
-  once, on [`docs/_roadmap/items.md`](../docs/_roadmap/items.md), whose
+  moment you hit it, never in the wrap-up. **A finding outside the task is fixed on the branch that
+  found it, never filed in silence**: an entry costs its writing, its audit and a later session's
+  closing, so filing is deferral rather than routing. Where it is a fix, fix it; where you are unsure
+  the fix belongs in this session, ask the owner. Only a question the owner has not answered, a
+  standing condition outside the repository, or a study the owner ordered becomes an entry on
+  [`docs/_roadmap/items.md`](../docs/_roadmap/items.md), whose
   [What every entry carries](../docs/_roadmap/items.md#what-every-entry-carries) fixes the token and
   the three tag axes.
 

@@ -27,6 +27,8 @@ from .kernel import (
     _skipped,
     comment_runs,
     comment_style,
+    has_name,
+    has_suffix,
     invariant_rows,
     roadmap_ids,
     strip_fences,
@@ -348,7 +350,7 @@ def _locates(before: str) -> bool:
     `re` takes no variable-width one.
     """
     run = RUN_BREAK_RE.split(before)[-1]
-    return "://" in run or run.endswith(LOCATION_SUFFIXES)
+    return "://" in run or has_suffix(run, LOCATION_SUFFIXES)
 
 
 # Taken off before `SPOKEN_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
@@ -368,7 +370,7 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
     """
     found: list[Finding] = []
     for rel in sorted(additions):
-        if not rel.endswith(SOURCE_SUFFIXES):
+        if not has_suffix(rel, SOURCE_SUFFIXES):
             continue
         body = "\n".join(additions[rel])
         for match in REVIEW_REF_RE.finditer(body):
@@ -382,7 +384,7 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
         # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
         # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
         mentions = SPOKEN_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
-        pattern = STYLESHEET_ISSUE_REF_RE if rel.endswith(".css") else ISSUE_REF_RE
+        pattern = STYLESHEET_ISSUE_REF_RE if has_suffix(rel, (".css",)) else ISSUE_REF_RE
         issues = {hit.group(0) for hit in pattern.finditer(mentions) if not _locates(mentions[: hit.start()])}
         for issue in sorted(issues):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
@@ -675,7 +677,7 @@ def branch_additions(branch: Branch) -> dict[str, list[str]]:
         # The corpus `kernel.py :: _of_kind` lists, by whole name as it selects: an `endswith`
         # admits a page whose name merely ENDS in one, `docs/<page>-pre-commit`. A file read whole
         # is here for `history`, which reads a sentence rather than a comment.
-        if not (rel.endswith((*SCANNED_SUFFIXES, ".md")) or rel.rsplit("/", 1)[-1] in (*OPS_FILENAMES, *PROSE_FILENAMES)):
+        if not (has_suffix(rel, (*SCANNED_SUFFIXES, ".md")) or has_name(rel, (*OPS_FILENAMES, *PROSE_FILENAMES))):
             continue
         scanned = _scan_body(REPO_ROOT / rel).split("\n")
         for number, _ in lines:
@@ -726,7 +728,7 @@ def _bounded(rel: str) -> bool:
     """
     # Never the prose register: `comment_runs` would skip a prose file's `#`-opening run as a header
     # that no header check measures, so its lines would be held to neither bound.
-    return rel.endswith(SCANNED_SUFFIXES) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES
+    return has_suffix(rel, SCANNED_SUFFIXES) or has_name(rel, OPS_FILENAMES)
 
 
 def check_comment_bounds(branch: Branch) -> list[Finding]:

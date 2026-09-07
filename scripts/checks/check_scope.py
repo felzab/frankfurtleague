@@ -28,6 +28,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
     DEFAULT_BASE,
     EXIT_OK,
     EXIT_REFUSED,
@@ -365,6 +366,19 @@ def scope_map(files: list[str]) -> dict[str, bool] | None:
     return scopes
 
 
+# Per file because the mapping answers for a list: nothing it prints says which member turned the
+# images scope on, and the count the refusal ends with is exact only while every path is asked about.
+
+# A per-file mode in `scripts/gate/scope_map.sh` would put a second output shape in a file five
+# callers read: `.githooks/pre-push`, `.github/workflows/verify.yml`, `scripts/gate/selfcheck.sh`,
+# `scripts/tests/test_scope_decisions.py :: _mapping_for_base`, and this one.
+
+
+# Bisecting the list until each culprit is isolated is more machinery than a failure path deserves.
+
+
+# Re-deriving the mapping's rules in python is the second copy of the path-to-scope mapping that
+# `docs/ops/spec.md :: 1.5 The scripts` refuses: `scripts/gate/scope_map.sh` is the one copy.
 def images_culprits(files: list[str]) -> list[str]:
     """Which of these files is the reason the images scope is required. The failure path only.
 
@@ -427,9 +441,9 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
                 Finding(
                     "fail",
                     "the image build did not run, and these files ask for it with a change\n"
-                    "              that is more than comments:\n"
-                    f"                {named_list(images_culprits(material))}\n"
-                    f"              Re-run with:  ./scripts/gate/verify.sh --{scope}",
+                    f"{CONTINUATION}that is more than comments:\n"
+                    f"{CONTINUATION}  {named_list(images_culprits(material))}\n"
+                    f"{CONTINUATION}Re-run with:  ./scripts/gate/verify.sh --{scope}",
                 )
             )
         else:

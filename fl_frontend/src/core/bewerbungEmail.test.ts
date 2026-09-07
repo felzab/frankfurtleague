@@ -935,7 +935,8 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Du kannst dem Eintrag auch widersprechen.",
       `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
-      "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
       LINK_EINS,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
@@ -1001,7 +1002,11 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen.",
       `Jeder Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;",
-      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links",
+      // The two the singular block also asserts: the arms are separate literals („dieser Links“
+      // against „dieses Links“), so a wording moved on one arm alone drifts exactly here.
+      "ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      `Für Euch ist nichts zu tun: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links`,
       EMPFAENGER_SATZ.postfach,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
@@ -1091,7 +1096,7 @@ describe("buildBewerbungErinnerungEmail", () => {
       `sind mit dieser E-Mail-Adresse ${beide} eingetragen.`,
       "Bis jetzt fehlt Eure Antwort.",
       `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben.`,
-      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links",
+      `Für Euch ist nichts zu tun: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links`,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
       assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
@@ -1226,7 +1231,7 @@ describe("buildBewerbungGeloeschtEmail", () => {
 
     for (const satz of [
       `Wir löschen die Bewerbung für die Saison ${GELOESCHT.saisonId}`,
-      "14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt.",
+      "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
       `Deshalb löschen wir Deine Bewerbung für die Saison ${GELOESCHT.saisonId} jetzt mit allen Angaben, wie angekündigt.`,
       "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
       "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
@@ -1306,17 +1311,19 @@ describe("the confirmation workflow's messages", () => {
       "Du weißt nichts von einer Bewerbung bei der Frankfurt League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun";
     const auftaktMehrere =
       "Weiß hier niemand von einer Bewerbung bei der Frankfurt League? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun";
-    const eintrag = `${auftakt}: Deine Angaben werden nach 14 Tagen gelöscht. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
-    const eintragMehrere = `${auftaktMehrere}: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
+    const eintrag = `${auftakt}: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Deine Angaben zusammen mit der Bewerbung. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
+    const eintragMehrere = `${auftaktMehrere}: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
     const NOTIZ: Record<string, string> = {
       Bestätigung: eintrag,
       "Bestätigung (Postfach)": eintragMehrere,
       Erinnerung: eintrag,
       "Erinnerung (Postfach)": eintragMehrere,
-      "Eingang offen": `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
+      "Eingang offen": `${auftakt}: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie.`,
       Vollständig: `${auftakt}.`,
       Gelöscht: `${auftakt}: Die Bewerbung wird jetzt gelöscht.`,
-      Ablehnung: `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
+      // The one note stating the deletion outright: a Widerspruch empties a seat, so the condition
+      // every other note carries is settled for this reader.
+      Ablehnung: `${auftakt}: Am ${FRIST} löschen wir die Bewerbung.`,
     };
 
     for (const { name, mail } of alleWorkflow()) {
@@ -1393,8 +1400,10 @@ describe("the confirmation workflow's messages", () => {
         mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, vorname: gift }, JONAS] }),
       },
       { field: "Erinnerung.schule", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, schule: gift }) },
+      { field: "Erinnerung.fristText", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, fristText: gift }) },
       { field: "Erinnerung.seats.rolleText", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, rolleText: gift }] }) },
       { field: "Eingang offen.rollenText", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, rollenText: gift }) },
+      { field: "Eingang offen.fristText", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, fristText: gift }) },
       {
         field: "Eingang offen.ausstehend.vorname",
         mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, ausstehend: [{ vorname: gift, rolleText: "Stellvertretung" }] }),

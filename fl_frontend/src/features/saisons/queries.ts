@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
 
@@ -19,6 +19,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
 
   return apiClient<FLSaisonsListResponse>("/saisons", FLSaisonsListResponseSchema, {
     params: filters,
+    cacheFill: { name: "getSaisons", args: filters },
   });
 }
 
@@ -28,9 +29,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
-  runWithIncomingCorrelationId(() =>
-    apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" }),
-  ),
+  runWithIncomingTrace(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );
 
 export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
@@ -39,7 +38,9 @@ export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
   cacheTag("saisons");
   cacheLife("days");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema);
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
+    cacheFill: { name: "getCurrentSaison", args: {} },
+  });
 }
 
 /**
@@ -53,7 +54,9 @@ export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse 
   cacheTag("saisons");
   cacheLife("days");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema).catch((error: unknown) => {
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
+    cacheFill: { name: "getCurrentSaisonOrNull", args: {} },
+  }).catch((error: unknown) => {
     // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
     // so a catch at the call site cannot recognise it
     // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).

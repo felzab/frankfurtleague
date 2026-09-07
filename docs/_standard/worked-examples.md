@@ -490,9 +490,9 @@ stop.
 - **"On `main`, or with nothing changed since the fork point, say there is no slice and stop."** It
   reads like an edge case, which is why a pass cutting for length takes it early, and it is the
   caveat that changes what the reader does.
-- **"A defect that predates this branch and sits outside the subset goes to `/roadmap:add`"**, further
-  down the same file. A carve-out is what a reader who cannot ask walks past, and COR-15 protects one
-  harder here than anywhere else.
+- **"A defect that predates this branch and sits outside the subset is fixed on this branch or raised
+  as a question, never filed in silence"**, further down the same file. A carve-out is what a reader who
+  cannot ask walks past, and COR-15 protects one harder here than anywhere else.
 
 **Nothing here is a length rule.** A model-only file has no cap and takes COR-5's test instead
 (COR-15) — which is why the cut above is one sentence and not a paragraph, and why nothing beside it

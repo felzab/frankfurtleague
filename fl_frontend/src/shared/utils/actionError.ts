@@ -6,8 +6,8 @@ import type { ActionFailure } from "@/shared/types/types";
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT and ride their code back for the form to place on the side at fault; the
- * two REQ-STATE codes name none and land as a toast.
+ * Three name an OCCUPANT, which the form places at fault; the two REQ-STATE codes name none, so
+ * their code rides back unused and the message lands as a toast.
  */
 const OCCUPANT_REFUSALS: Record<string, string> = {
   // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its

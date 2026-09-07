@@ -13,7 +13,7 @@ from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
-from app.core.logging import correlation_id_var
+from app.core.logging import trace_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, log_stamp, record_write, request_var
 
 # Fixed rather than generated, so a failing test names the same document every run.
@@ -40,7 +40,7 @@ ADMIN_ACTOR = Actor(kind="admin_session", email="admin@example.com")
 
 # The route TEMPLATE, which is the half of this pair the binder stores.
 ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
-CORRELATION_ID = "0123456789abcdef0123456789abcdef"
+TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 # A stand-in for a transaction handle: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, object())
@@ -117,7 +117,7 @@ def record_inside_a_request(**arguments: Any) -> None:
     async def _run() -> None:
         actor_var.set(ADMIN_ACTOR)
         request_var.set(ROUTE)
-        correlation_id_var.set(CORRELATION_ID)
+        trace_id_var.set(TRACE_ID)
         await record_write(**arguments)
 
     asyncio.run(_run())
@@ -280,13 +280,14 @@ class TestWhoAndWhenARowIsAttributedTo:
         assert log.inserted[0]["actor"] == {"kind": "admin_session", "email": "admin@example.com"}
         assert log.inserted[0]["request"] == {"method": "PATCH", "path": "/api/v0/teams/{team_id}"}
 
-    def test_the_row_carries_the_correlation_id_of_the_request_that_caused_it(self):
-        """A fan-out's rows and the write behind them are one action on the page only because they share this id."""
+    def test_the_row_carries_the_trace_id_of_the_request_that_caused_it(self):
+        """A fan-out's rows and the write behind them are one action on the page only because they share the TRACE's id, never a hop's span."""
         target, log = build()
 
         record_inside_a_request(collection=as_collection(target), operation="patch_many", modified_count=MATCHED)
 
-        assert log.inserted[0]["correlation_id"] == CORRELATION_ID
+        assert log.inserted[0]["trace_id"] == TRACE_ID
+        assert "span_id" not in log.inserted[0]
 
     def test_the_timestamp_is_utc_and_carries_its_offset(self):
         """The log is ordered and ranged by this field, and a local-time string sorts October's two identical clock hours the wrong way."""

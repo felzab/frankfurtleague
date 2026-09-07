@@ -29,6 +29,13 @@ ENGINE_MIN=25
 # is optional so an older image's label still names a rollback target.
 PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
 
+# The host directory the log copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
+# their age, and it bounds the DIRECTORY rather than a name — so a suffix below cannot escape it.
+LOG_DIR="/var/log/frankfurtleague"
+# One stamp for the whole run, so the rollback's copies sit beside the ones taken before it. It
+# carries the time of day: two deploys on one day would otherwise overwrite each other's.
+LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
+
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -86,6 +93,109 @@ running_image() {
 # and reading the first as the second prints "not running" about a stack this never asked.
 service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
+}
+
+# Asked before the pull rather than at the recreate: an `up` that cannot parse this touches no
+# container, so the recreate, the health read and the rollback behind it all fail on one unread file.
+check_compose_config() {
+  local rc=0
+  # Both streams discarded, `--verbose` included: without `--quiet` this prints every resolved
+  # value, and with it the parse error still quotes the line it could not read.
+  docker compose -f "$COMPOSE" config --quiet >/dev/null 2>&1 || rc=$?
+  if (( rc )); then
+    refuse "compose could not read its configuration (exit ${rc}), so this deploy stopped here rather than
+at the recreate, where the same failure reads as a build that broke.
+NOTHING has been pulled or recreated, and the site is untouched.
+The three files it reads are ${COMPOSE}, fl_frontend/.env and fl_backend/.env.
+Its own message is not printed here: a parse error quotes the line it could not read, and in an
+environment file that line is a value. Ask it yourself, where the answer is not being captured:
+  docker compose -f ${COMPOSE} config --quiet"
+  fi
+  ok "compose parses ${COMPOSE} and the two environment files it names"
+}
+
+# `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
+# and everything below reaches this script's output. The names alone are what an operator needs.
+ENV_NAME_CHECK='
+import sys
+
+try:
+    from app.core.config import EnvironmentValidationError, get_config
+except Exception as unavailable:
+    # Guarded apart, and never inside the block below: an except clause naming a class the import
+    # never bound raises a NameError of its own, which is the traceback this arm exists to prevent.
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+try:
+    get_config()
+except EnvironmentValidationError as refusal:
+    print(refusal, file=sys.stderr)
+    raise SystemExit(3)
+except Exception as unexpected:
+    # The TYPE alone rather than a re-raise: a settings source quotes the value it could not read
+    # into its own message.
+    print(type(unexpected).__name__, file=sys.stderr)
+    raise SystemExit(4)
+'
+
+# One mount, one user and one filter for either package's reader: the two judge different things and
+# each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
+read_env_names() {
+  local package="$1" image="$2"; shift 2
+  local rc=0 said=""
+  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
+  # readable by whoever runs this script. `--network none` because a reader reaching one would reach
+  # it holding the file.
+  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
+    -v "${PWD}/${package}/.env:/app/.env:ro" "$image" "$@" 2>&1)" || rc=$?
+  # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  return "$rc"
+}
+
+# The one place the environment file is read AS A FILE, and so the only place a name nothing declares
+# can be seen: compose hands the container its keys as variables instead
+# (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
+check_env_names() {
+  local rc=0
+  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" || rc=$?
+  if (( rc == 3 )); then
+    refuse "the backend refuses this host's environment file, and the line above is its own answer: the
+variables it could not accept, or the type of a read that failed before it reached one. No value is
+printed either way, and which remedy the line asks for is read off the names it carries. A name the
+backend declares is a value to correct; any other name is a line to delete or a field to add to the
+settings class, nothing in that class reading such a name -- so it reads as omitted and the shipped
+default serves production.
+NOTHING has been recreated, and the site is untouched."
+  elif (( rc )); then
+    # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
+    # that could not be made leaves the deploy exactly where it stood before it was added.
+    warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
+here says whether the backend accepts what it holds. Its own answer is above."
+  else
+    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses it"
+  fi
+}
+
+# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
+# set (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`) rather than the schema itself.
+check_frontend_env_names() {
+  local rc=0
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs || rc=$?
+  if (( rc == 3 )); then
+    refuse "the frontend refuses this host's environment file, and the line above names the variables
+its schema does not declare. Nothing in that schema reads such a name, so the line reads as omitted
+and the shipped default serves production -- delete it, correct its spelling, or declare it in the
+schema.
+NOTHING has been recreated, and the site is untouched."
+  elif (( rc )); then
+    # An advisory rather than a refusal, for the reason `check_env_names` carries.
+    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
+here says whether every name in it is one the frontend declares. Its own answer is above."
+  else
+    ok "every name in fl_frontend/.env is one the frontend's schema declares"
+  fi
 }
 
 # Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
@@ -165,10 +275,79 @@ deploy replaced and every request through it answers 502."
   return 0
 }
 
+# How many streams the last call wrote, because the callers' sentence about NONE of them differs:
+# before the recreate that is a first deploy, and inside the rollback it is compose not answering.
+COPIED_STREAMS=0
+# Counted beside it, because zero copies has two causes and only one of them has already been
+# printed: no container answered at all, or every container's copy failed with its own warning.
+ATTEMPTED_STREAMS=0
+
+# One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
+# every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
+# deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
+copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
+  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc
+  COPIED_STREAMS=0
+  ATTEMPTED_STREAMS=0
+  for svc in frontend backend; do
+    # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
+    # an empty file would read as a build that logged nothing.
+    cid="$(service_cid "$svc")" || cid=""
+    [[ -n "$cid" ]] || continue
+    ATTEMPTED_STREAMS=$(( ATTEMPTED_STREAMS + 1 ))
+    target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
+    # Written beside the target and moved in once the copy succeeded: a copy failing midway would
+    # otherwise leave a short `.log` reading as the build's whole stream.
+    partial="${target}.partial"
+    copy_rc=0
+    # Bounded, as every `curl` here is: the rollback runs this with the site down, and a daemon that
+    # stopped mid-stream would hold that outage open. 120s is the `docker-compose.yml :: x-logging`
+    # cap at a 256 KB/s floor.
+    timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
+    if (( copy_rc )); then
+      rm -f "$partial" 2>/dev/null || true
+      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}), so that stream goes
+with the recreate below and nothing keeps a record of it. ${consequence}
+Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+      # Reached under `warn` alone -- `refuse` has ended the run by here -- and the other service's
+      # stream is worth copying whatever this one did.
+      continue
+    fi
+    mv_rc=0
+    mv "$partial" "$target" 2>/dev/null || mv_rc=$?
+    if (( mv_rc )); then
+      rm -f "$partial" 2>/dev/null || true
+      "$on_failure" "the ${svc} log was copied but could not be moved into place at ${target} (exit ${mv_rc}).
+${consequence}
+Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+      continue
+    fi
+    detail "${svc}: ${target}"
+    COPIED_STREAMS=$(( COPIED_STREAMS + 1 ))
+  done
+}
+
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
   local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
+  step "Copying the failed build's logs off before it is replaced"
+  # `warn` where the copy before the recreate `refuse`s, and this is the only difference between the
+  # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
+  copy_streams "-failed" warn "The rollback goes on without it."
+  if (( COPIED_STREAMS )); then
+    ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
+  elif (( ATTEMPTED_STREAMS )); then
+    # Told apart from the branch below, because the two ask for different things: a copy that failed
+    # has already printed its own reason, and no container answering has printed nothing at all.
+    warn "${ATTEMPTED_STREAMS} container(s) answered and not one copy was made -- the warnings above say
+why -- so the failed build's own streams go with the recreate below and the excerpt printed above is
+all there is of why it failed."
+  else
+    warn "no container answered, so the failed build's own streams go with the recreate below and the
+excerpt printed above is all there is of why it failed."
+  fi
+
   step "Rolling back to ${name}"
   quietly docker tag "$PREV_FE_IMG" "$IMAGE_FRONTEND" || tag_rc=1
   quietly docker tag "$PREV_BE_IMG" "$IMAGE_BACKEND"  || tag_rc=1
@@ -350,6 +529,7 @@ step "Files and directories the stack mounts, before anything is stopped or pull
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
 require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
+require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 
@@ -381,6 +561,11 @@ NOTHING has been stopped or pulled: the site is still serving what it was servin
 Upgrade the engine, or drop the start_interval lines from both compose files."
 fi
 ok "engine ${ENGINE}, which is ${ENGINE_MIN} or newer"
+
+# Above the read below rather than at the end of preflight: that read asks compose what is running,
+# fails for this reason too, and warns of nothing to roll back to — about a run this one ends.
+step "The configuration compose reads, before anything is pulled or recreated"
+check_compose_config
 
 # --- the build now live, read before anything moves --------------------------------------------------
 
@@ -547,6 +732,38 @@ if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$
   SAME_BUILD=1
 fi
 
+# Asked of the builds about to run rather than of the ones being replaced: the field set is each
+# pulled image's, so a variable this release renamed is a variable only this release can judge.
+step "The environment files, read by the builds about to run"
+check_env_names
+check_frontend_env_names
+
+# --- the streams the recreate destroys, copied off first ---------------------------------------------
+
+section "logs"
+
+step "Copying the application logs off the containers about to be replaced"
+# `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
+# `docker-compose.yml` bind-mounts it as the edge's access log, and one refusal covers the
+# copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
+MKDIR_RC=0
+mkdir -p "$LOG_DIR" "${LOG_DIR}/nginx" 2>/dev/null || MKDIR_RC=$?
+if (( MKDIR_RC )); then
+  refuse "${LOG_DIR} could not be created (exit ${MKDIR_RC}), so the application logs could not be
+copied off before the recreate destroys them, and nginx has nowhere to write its access log.
+NOTHING has been recreated.
+Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
+  sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
+fi
+# `refuse` here, and `warn` at the rollback's copy: nothing is stopped or recreated yet, so the
+# deploy can simply be re-run once this path can be written.
+copy_streams "" refuse "NOTHING has been recreated, and the site is untouched."
+if (( COPIED_STREAMS )); then
+  ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
+else
+  info "nothing is running here yet, so there is no stream to copy"
+fi
+
 # --- recreate ---------------------------------------------------------------------------------------
 
 section "deploy"
@@ -678,8 +895,15 @@ else
   fail "THE NEW VERSION IS NOT HEALTHY."
   detail "This deploy did not tear nginx down, so where it was running the site is answering 502" \
          "rather than refusing the connection." \
-         "If a log above says 'Invalid environment variables: <NAMES>', that is the startup gate" \
-         "doing its job: fix those names in the .env file and run this script again."
+         "If a log above says 'Invalid environment variables: <NAMES>', a startup gate is doing its" \
+         "job -- the frontend and the backend word it identically, so the container that printed it" \
+         "names the env file to fix." \
+         "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
+         "could not parse at all, naming the failure's type where it has no variable to name." \
+         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "which of three: the value yielded no server to connect to, the server refused to" \
+         "authenticate it, or the server could not be reached." \
+         "Neither gate prints a value, so the .env file is what to read and the log is not."
   if (( SAME_BUILD )); then
     detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
               "back: a rollback would restore the build that just failed and cost a second outage" \

@@ -3,13 +3,11 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from httpx import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
 
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
-
-AUTH = {"Authorization": "Bearer test-key-base"}
+from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
@@ -40,7 +38,7 @@ def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
         try:
             transport = ASGITransport(app=app, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, params=params, headers=AUTH)
+                return await http.get(path, params=params, headers=BASE_AUTH)
         finally:
             await app.state.db_client.close()
 

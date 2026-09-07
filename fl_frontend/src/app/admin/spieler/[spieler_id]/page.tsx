@@ -88,7 +88,7 @@ async function AdminSpielerEditContent({
     }));
 
   return (
-    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSpielerEditView
       key={JSON.stringify({ spieler, saison })}
       spieler={{

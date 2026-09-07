@@ -42,8 +42,8 @@ if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND ||
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# The frontend scope reads exactly the files the formatter governs, so naming it names the
-# formatter too, or `check_scope.py` calls format unproven on a run that proved it. Never in a
+# A frontend file of a prettier kind selects the formatter too (`scripts/gate/scope_map.sh`), so
+# this scope carries it rather than leaving `check_scope.py` to call format unproven. Never in a
 # worker, where it would run prettier twice.
 if (( RUN_FRONTEND )) && ! worker; then RUN_FORMAT=1; fi
 
@@ -57,6 +57,11 @@ fi
 # Declared up here because the EXIT trap below reclaims them, and `set -u` refuses an array that
 # does not exist.
 POOL_DIRS=()
+
+# The db run's own claim, empty until `claim_db_run` takes it, so a run refused for another's claim
+# reclaims nothing. Declared here for POOL_DIRS' reason, and never exported: a worker inheriting it
+# would give back a claim the parent holds.
+DB_RUN_MARKER=""
 
 # A step worker is one check body, run as its own process. It creates none of the resources below
 # and inherits every one, so its trap must reclaim nothing: they are the parent's, still running.
@@ -76,12 +81,13 @@ gate_exit() {
   # Every reclaim below is best-effort: unguarded, one failing `rm` ends the trap where it stands,
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
+  if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
   fi
-  # Only the opener, for the arrays' reason above: `set -E` hands this trap to every subshell, and
-  # one reclaiming the ledger deletes it mid-write. The next `>>` recreates it holding what came
-  # after, which reads as records lost, not a file removed.
+  # Only the opener: the path is exported, so a re-entry exiting above the scripts scope's own
+  # `mktemp` would reclaim the parent's file mid-write, and the `>>` after it recreates a file
+  # reading as records lost rather than one removed.
   if [[ -n "${FL_SELFCHECK_LEDGER:-}" && "${FL_SELFCHECK_LEDGER_OWNER:-}" == "$BASHPID" ]]; then
     rm -f "$FL_SELFCHECK_LEDGER" || true
   fi
@@ -139,20 +145,43 @@ fi
 # interleaved readings each of `scripts/tests` -- `-n 16` gave 94.7/47.1/80.6s, `-n 8` gave
 # 99.2/88.3/66.6s, overlapping outright, and `-n 4` gave 177.1s.
 GATE_WIDTH_SCRIPTS_PYTEST=8
+# MEASURED 2026-09-07 on the same machine idle, one run at a time: 8, 12 and 16 landed within 2.2s
+# of one another (53.9-56.1s), 6 cost 12.7s more and 4 cost 33s more, twice.
+
+# Below this a worker costs more than it collects: it pays its own process start, its own
+# interpreter and this suite's fixture repository before it takes a case -- the reason `do_pytest`
+# distributes over `--dist loadfile`.
+GATE_WIDTH_SCRIPTS_PYTEST_FLOOR=8
 
 # MEASURED 2026-09-02, two interleaved pairs of the db tier: `--maxprocesses 8` gave 55.9/40.3s and
 # `6` gave 47.2/28.5s, six faster in both. A cap on `auto`, never a floor: a two-core runner
 # resolves `auto` below it and takes nothing up.
 GATE_WIDTH_DB_PYTEST=6
+# MEASURED 2026-09-07 idle, each width a converged pair: 4 gave 21.0/20.9s against 18.5/18.5s at
+# 6 and 19.2/19.4s at 8, while 3, 2 and 1 gave 24.0, 30.1 and 48-49s -- flat above, steep below.
 
-gate_width() { # $1 the tool's own measured optimum
-  local want="$1" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
+# Below this the tier's workers stop paying for themselves against the two shared mongods they
+# already queue on, so a narrower share buys nothing back.
+GATE_WIDTH_DB_PYTEST_FLOOR=4
+
+gate_width() { # $1 the tool's own measured optimum · $2 the floor declared beside it
+  local want="$1" floor="$2" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
   if (( budget <= 0 || demand <= 0 || budget >= demand )); then printf '%s' "$want"; return 0; fi
   # In proportion, never in equal shares: an equal split takes the most from the tool asking for the
   # most, which is the section already setting the run's wall clock.
   share=$(( want * budget / demand ))
-  if (( share < 1 )); then share=1; fi
+  # The consumer's own floor rather than one worker: under it a runner is slower than at the floor
+  # rather than merely narrower, and `gate_widths_fit` has already refused the pool where the
+  # floors do not fit together.
+  if (( share < floor )); then share="$floor"; fi
   printf '%s' "$share"
+}
+
+gate_widths_fit() { # every enabled consumer's floor against the budget, before a pool is opened
+  local budget="${FL_GATE_BUDGET:-0}" floors="${FL_GATE_FLOOR_DEMAND:-0}"
+  # A section narrowed under its floor runs slower for the whole run, while one that waits its turn
+  # runs at a width that works. So a budget too small to hold every floor sequences the scopes.
+  (( budget <= 0 || floors <= 0 || budget >= floors ))
 }
 
 # --- what a unit runs --------------------------------------------------------------------------------
@@ -174,7 +203,7 @@ do_pyright() { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST")"
+    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST" "$GATE_WIDTH_SCRIPTS_PYTEST_FLOOR")"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -187,6 +216,9 @@ do_docs_gate() {
   else "$PY" scripts/checks/check_docs.py; fi
 }
 do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
+do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
+do_regenerate_spelling() { "$PY" scripts/checks/check_regenerate_spelling.py; }
+do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
 do_openapi() { env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check; }
@@ -283,7 +315,7 @@ do_next_build() {
       NEXT_TELEMETRY_DISABLED=1 pnpm build )
 }
 
-# The two phases: every pooled unit reads `fl_frontend/tsconfig.json`, and each writer rewrites it
+# The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
 # through Next's `writeConfigurationDefaults`, so a unit in both lists would read it mid-write.
 FRONTEND_POOL=(typecheck eslint audit)
 FRONTEND_WRITERS=(typegen next_build)
@@ -311,7 +343,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(conflict_markers docs_gate commit_messages openapi)
+DOCS_POOL=(conflict_markers docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -624,6 +656,36 @@ fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
+# Ahead of the block below, because what it answers is whether there is a pool at all. A run this
+# clears reaches the same serial sections a CI job takes, each section alone with the machine.
+if (( PARALLEL )); then
+  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
+  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
+  # The self-check's 16 workers stay out of this sum: MEASURED 2026-09-02, counted in they made
+  # demand 30 against 16 cores, cutting these two to 4 and 3; under the floors that would
+  # sequence the run.
+  FL_GATE_DEMAND=0
+  FL_GATE_FLOOR_DEMAND=0
+  if (( RUN_SCRIPTS )); then
+    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST ))
+    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST_FLOOR ))
+  fi
+  if (( RUN_DB )); then
+    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST ))
+    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_DB_PYTEST_FLOOR ))
+  fi
+  if ! gate_widths_fit; then
+    # Reported rather than taken quietly, as the pool's own fallback is: a run whose scopes
+    # never overlapped is one whose wall clock nobody can account for.
+    info "a budget of ${FL_GATE_BUDGET} cannot hold the ${FL_GATE_FLOOR_DEMAND} workers the enabled scopes floor at, so the scopes run in sequence, each alone with the machine at its own measured width"
+    # Unset rather than left standing: a scope's call site is a command substitution, which
+    # reads these as shell variables whether or not they were ever exported, so a budget
+    # surviving the decision would divide a pool that never opened.
+    unset FL_GATE_BUDGET FL_GATE_DEMAND FL_GATE_FLOOR_DEMAND
+    PARALLEL=0
+  fi
+fi
+
 if (( PARALLEL )); then
   # Closed before the pool, or the scope section's row reports the whole run's wall clock.
   end_section
@@ -635,14 +697,6 @@ if (( PARALLEL )); then
 
   # Exported here alone: the scopes compete only in a pool, and elsewhere -- serial, verbose, a
   # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
-  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
-  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
-  # The self-check's 16 workers stay out of this sum. MEASURED 2026-09-02: counting them makes
-  # demand 30 against 16 cores, cutting these two to 4 and 3, under the width each was measured
-  # at, while the self-check still sets the scripts section.
-  FL_GATE_DEMAND=0
-  if (( RUN_SCRIPTS )); then FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST )); fi
-  if (( RUN_DB )); then FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST )); fi
   export FL_GATE_BUDGET FL_GATE_DEMAND
 
   pool_open
@@ -680,12 +734,31 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # Past the first failure, rows alone: the table still tells a pass from a scope that never ran,
-  # while the ending stays the failure's. A crash's rank-5 row would read as findings.
+  # A later scope's own text, which rows count but never quote. A branch whose diff asks for every
+  # scope cannot re-run one alone (`scripts/checks/check_scope.py`), so text left unread here costs a
+  # second full run.
+
+  # Findings and a refusal both reach it, and the exit contract keeps those two apart
+  # (`docs/ops/spec.md` §1.7), so the heading names neither.
+  LATER_VERDICT_HEADING="also ended with a verdict of its own, and the run ended at the failure above rather than at this one — its own output follows"
+
+  # Past the first failure the ending stays that failure's, and the table still tells a pass from a
+  # scope that never ran. A crash's rank-5 row would read as findings, so it takes the arm below.
   adopt_finished() { # $1 scope
     local scope="$1" status="${UNIT_STATUS[$1]:-}"
     case "$status" in
-      0|1|2) adopt_rows "$scope" ;;
+      0|1|2)
+        adopt_rows "$scope"
+        # Only where there is text to show: the heading promises output, and a scope that failed
+        # having written none would get a heading over nothing.
+        if (( status )) && [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
+          info "the ${scope} scope ${LATER_VERDICT_HEADING}"
+          # Split as `replay_scope` splits it: `docs/ops/spec.md` §1.6 states what a terminal
+          # merging the two sees, and sending both to stdout here would change that.
+          if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+          if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+        fi
+        ;;
       # Rank 0, for `adopt_rows`' reason: no row at all drops the scope out of the table.
       *)     adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0 ;;
     esac
@@ -831,6 +904,49 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
     DOCS_OK=0
   fi
 
+  # This scope rather than `ops`: the check reads the App Router tree and `nginx/prod.conf`, whose
+  # scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching either
+  # selects.
+
+  step "docs · every route handler and metadata convention is metered or accounted for"
+  unit_join public_routes
+  if run_checker collect "scripts/checks/check_public_routes.py" "The route accounting is out. Above is a handler whose exact match meters nothing, one no
+location names, a dynamic subtree no prefix covers, a prefix charged to no recorded reason, a
+reason charging nothing, a declared metadata convention no file serves, or one half of a
+trailing-slash pair standing without the other." \
+    unit_replay public_routes; then
+    ok "every route handler is accounted for at the edge"
+  else
+    DOCS_OK=0
+  fi
+
+  # This scope because it is the one every site selects: their own scopes run
+  # `docs format frontend backend db` between them and share `docs` alone.
+
+  step "docs · one spelling of the command that regenerates openapi.json"
+  unit_join regenerate_spelling
+  if run_checker collect "scripts/checks/check_regenerate_spelling.py" "The regenerate command has drifted. Above is a site spelling it differently from the
+declaration, a registered site that has stopped naming it, or a tracked file naming it that the
+register does not cover." \
+    unit_replay regenerate_spelling; then
+    ok "every site spells the regenerate command the declared way"
+  else
+    DOCS_OK=0
+  fi
+
+  # This scope because the two literals sit one per package: their own edits select
+  # `backend db docs` and `format frontend docs`, and `docs` is the only one both reach.
+
+  step "docs · one quoting class behind the console format's two spellings"
+  unit_join log_quoting_class
+  if run_checker collect "scripts/checks/check_log_quoting_class.py" "The console format's quoting class has drifted. Above are both spellings and the
+characters only one package quotes. Edit the two literals together." \
+    unit_replay log_quoting_class; then
+    ok "both packages spell one quoting class"
+  else
+    DOCS_OK=0
+  fi
+
   # `openapi.json` publishes every endpoint and model docstring as a `description`, so a reword
   # edits it -- and `check_scope.py` reads that edit as comment-only, asking for this scope and
   # not `--backend`, where the pytest case covering it lives.
@@ -841,7 +957,7 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
   step "docs · openapi.json matches the docstrings it publishes"
   unit_join openapi
   if run_checker collect "fl_backend/tests/openapi_document.py" "The published document no longer matches the models and docstrings it
-is built from. Regenerate it with:  cd fl_backend && .venv/Scripts/python -m tests.openapi_document --write" \
+is built from. The checker's own output above names the repair." \
     unit_replay openapi; then
     ok "openapi.json is current"
   else
@@ -1074,12 +1190,41 @@ the service and the key, and the declared deltas are the checker's own list." \
     ok "every delta between the two files is a declared one"
   fi
 
+  # `nginx -t` below reads no location it parses, so nothing else notices one location's copy of the
+  # policy drifting from the server block's. Same interpreter guard as the step above.
+  step "ops · each nginx file's Content-Security-Policy says one thing"
+  if [[ -z "$OPS_PY" ]]; then
+    skip "no python found, so the policy's copies were not compared"
+  elif (( OPS_FLOOR == 3 )); then
+    skip "this python is below the checkers' floor, so the policy's copies were not compared"
+  else
+    run_checker stop "scripts/checks/check_csp_identity.py" "A Content-Security-Policy copy has drifted. Each finding above names
+the site and the site it disagrees with, both inside one file." \
+      "$OPS_PY" scripts/checks/check_csp_identity.py
+    ok "every declaration in a file matches that file's first"
+  fi
+
+  step "ops · the local edge still mirrors production"
+
+  if [[ -z "$OPS_PY" ]]; then
+    skip "no python found, so the edge files were not compared"
+  elif (( OPS_FLOOR == 3 )); then
+    skip "this python is below the checkers' floor, so the edge files were not compared"
+  else
+    run_checker stop "scripts/checks/check_nginx_mirror.py" "The two edge configurations have drifted. The findings above name
+the block and the directive, and the declared deltas are the checker's own list." \
+      "$OPS_PY" scripts/checks/check_nginx_mirror.py
+    ok "every difference between the two edge files is a declared one"
+  fi
+
   step "ops · nginx accepts prod.conf"
   # `nginx -t` loads the certificates and resolves every proxy_pass host, hence the throwaway pair
   # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a
   # POSIX-looking path (`scripts/README.md`).
   rm -rf "${REPO_ROOT}/.tmp-nginx-check"
-  mkdir -p "${REPO_ROOT}/.tmp-nginx-check"
+  # `log/` as well: `nginx -t` opens every log the file declares, and the access log's directory
+  # is a bind mount `docker-compose.yml` supplies rather than a path the image carries.
+  mkdir -p "${REPO_ROOT}/.tmp-nginx-check/log"
   # Relative output paths, because a Windows openssl cannot open an MSYS-style absolute path. The
   # exclusion protects the subject alone from MSYS's rewriting, and is inert on Linux.
   MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
@@ -1091,6 +1236,7 @@ the service and the key, and the declared deltas are the checker's own list." \
     --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
     -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
     -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
+    -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
     nginx:1.31-alpine nginx -t \
     || die "nginx refuses prod.conf — its own explanation is above."
   ok "nginx accepts prod.conf"
@@ -1110,8 +1256,98 @@ fi
 
 # Split from the default tier because it needs the Docker daemon the quick scope exists to avoid.
 # Without it a change breaking the pipeline against a real mongod passes every local gate.
+
+# One machine's claim, never one checkout's: the daemon, the reaper and the fixed addresses two db
+# tiers collide over are the host's. `${TMPDIR:-/tmp}` is writable under Git Bash and on a runner.
+DB_RUN_DIR="${TMPDIR:-/tmp}/fl-gate-db-run"
+
+# Held across the takeover of an abandoned claim and nothing else: two runs reading one dead pid
+# otherwise clear and re-take it in turn, the second renaming the first's live claim aside.
+DB_RUN_LOCK="${DB_RUN_DIR}.takeover"
+
+# `mkdir` rather than a test and a write: it is the one primitive that asks and takes in a single
+# step, so a second run's failure to create IS the detection.
+take_db_run() {
+  mkdir "$DB_RUN_DIR" 2>/dev/null || return 1
+  # Before the write, never after it: the claim exists from the line above, and a marker set only
+  # once the write lands leaves a failed write holding the machine until someone deletes it by hand.
+  DB_RUN_MARKER="$DB_RUN_DIR"
+  # Written immediately, because `claim_db_run` reads a claim with no pid as one still being taken.
+  printf '%s\n' "$$" > "${DB_RUN_DIR}/pid" \
+    || refuse "took ${DB_RUN_DIR} but could not write a pid into it, so no later run could tell this
+claim from one a killed run abandoned. The claim is given back on the way out; check that directory."
+}
+
+# One text for the two sites that read the pid, before the takeover lock and again under it: told
+# the same claim's story two ways, a reader takes it for two claims.
+refuse_to_the_holder() { # $1 the pid the claim records, empty where none could be read
+  refuse "another db-tier run holds ${DB_RUN_DIR} (pid ${1:-none recorded}), and two at once make
+each other's failures unreadable. Wait for it to finish. If no such process is running, a killed run
+left the claim behind and \`rm -rf ${DB_RUN_DIR}\` clears it."
+}
+
+# `kill -0` fails for a live process another account owns exactly as it fails for one that is gone,
+# so a shared host reads a running tier as abandoned. `/proc` answers existence rather than
+# permission.
+pid_alive() { # $1 a pid, alive where the process exists whoever owns it
+  if [[ -d /proc ]]; then [[ -e "/proc/$1" ]]; else kill -0 "$1" 2>/dev/null; fi
+}
+
+# Called by the one process that runs the tier: a pooled run dispatches the db scope to a worker
+# and exits at `wrap_up`, so the parent never reaches this block; every other form runs it in the
+# one process.
+claim_db_run() {
+  local held stale
+  if take_db_run; then return 0; fi
+  held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
+  # An unreadable pid is a run between its own mkdir and its write, never an abandoned claim:
+  # calling that stale would delete a claim seconds old.
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || pid_alive "$held"; then
+    # A refusal and not a wait: a lock over the tier would make the second run queue in silence,
+    # which is the same unexplained result this guard exists to replace.
+    refuse_to_the_holder "$held"
+  fi
+  warn "${DB_RUN_DIR} was left behind by pid ${held}, which is gone, so this run takes it over"
+  # Taken before anything is moved: a run held anywhere above this line while another completes the
+  # same takeover would otherwise rename that run's live claim aside and take the machine beside it.
+  mkdir "$DB_RUN_LOCK" 2>/dev/null \
+    || refuse "another db-tier run is clearing ${DB_RUN_DIR}, which a killed run left behind, and holds
+${DB_RUN_LOCK} until it is done. Wait for it to finish. Clearing spans milliseconds, so a lock still
+standing after that was left by a run killed inside them, and \`rm -rf ${DB_RUN_LOCK} ${DB_RUN_DIR}\`
+clears both."
+  # Read again under the lock, because the verdict above was reached outside it: the pid on disk is
+  # the live one of whichever run finished the same takeover while this one was still deciding.
+  held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || pid_alive "$held"; then
+    rmdir "$DB_RUN_LOCK" || true
+    refuse_to_the_holder "$held"
+  fi
+  stale="${DB_RUN_DIR}.abandoned.$$"
+  if ! mv "$DB_RUN_DIR" "$stale" 2>/dev/null; then
+    rmdir "$DB_RUN_LOCK" || true
+    # Never another run clearing it, which is what the lock this run holds rules out. What is left
+    # is a claim this account may not rename, which on Linux is one another account owns.
+    refuse "could not move ${DB_RUN_DIR} aside to clear it, and this run holds ${DB_RUN_LOCK}, so no
+other run is clearing it. On Linux the claim is the host's rather than one account's, and a temporary
+directory carrying the sticky bit lets only an entry's owner rename it: where the claim is another
+user's, clear it as that user or as root with \`rm -rf ${DB_RUN_DIR}\`."
+  fi
+  rm -rf "$stale" || true
+  if ! take_db_run; then
+    rmdir "$DB_RUN_LOCK" || true
+    refuse "another db-tier run took ${DB_RUN_DIR} while this one was clearing a claim a killed run
+had left behind. Wait for it to finish."
+  fi
+  rmdir "$DB_RUN_LOCK" || true
+}
+
 if (( RUN_DB )); then
   section db
+
+  # Claimed here and not at the parse, for `claim_db_run`'s reason: two db tiers at once report a
+  # wall of validator and unique-index failures naming no cause, and the green verdict is worth as
+  # little as the red (`docs/ops/spec.md` §1.6).
+  claim_db_run
 
   # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
   # isolates, so `--dist load` would hold too.
@@ -1119,7 +1355,7 @@ if (( RUN_DB )); then
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
-  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST")"
+  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST" "$GATE_WIDTH_DB_PYTEST_FLOOR")"
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.

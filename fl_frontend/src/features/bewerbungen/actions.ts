@@ -162,8 +162,8 @@ async function notifyBewerbung({
     // message must not come back as a write that did not happen. Name only, never the error
     // (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
-      name: error instanceof Error ? error.name : undefined,
       error_code: "FE-MAIL-002",
+      name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });
 
@@ -402,8 +402,8 @@ async function sendeBestaetigungErneut({
   } catch (error) {
     // Name only, never the error, and never the token (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
-      name: error instanceof Error ? error.name : undefined,
       error_code: "FE-MAIL-002",
+      name: error instanceof Error ? error.name : undefined,
       operation: "einwilligungErneutSendenAction",
     });
 

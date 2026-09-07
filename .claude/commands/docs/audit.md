@@ -30,6 +30,9 @@ Neither mode runs inside the other's session.
   `scripts/checks/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
+- **Dispatch from a file-ownership map, never from the segment list**
+  (`.claude/skills/orchestration/SKILL.md` §2): a defect whose halves sit in different segments
+  belongs to one worker.
 - **Never restate a rule from `docs/_standard/standard.md` — not here, and not in an agent's prompt.** Cite it;
   the reader opens it.
 
@@ -59,12 +62,12 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 3. **Derive the corpus by subtraction, never by enumeration.** Start from every tracked file —
    `git ls-files` — and remove the excluded set. The report states the residue.
 
-   | Excluded                                            | Why                                                                                                  |
-   | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-   | `LICENSE`                                           | Licence text, not ours to edit                                                                       |
-   | `**/*.png` · `**/*.ico` · `**/*.svg`                | Images: nothing written to read                                                                      |
-   | `fl_frontend/pnpm-lock.yaml` · `fl_backend/uv.lock` | Resolver output, written by a machine for a machine                                                  |
-   | `fl_backend/openapi.json`                           | Emitted by `python -m tests.openapi_document --write`; a finding against it belongs to its generator |
+   | Excluded                                            | Why                                                                                                                          |
+   | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+   | `LICENSE`                                           | Licence text, not ours to edit                                                                                               |
+   | `**/*.png` · `**/*.ico` · `**/*.svg`                | Images: nothing written to read                                                                                              |
+   | `fl_frontend/pnpm-lock.yaml` · `fl_backend/uv.lock` | Resolver output, written by a machine for a machine                                                                          |
+   | `fl_backend/openapi.json`                           | Emitted by `cd fl_backend && uv run python -m tests.openapi_document --write`; a finding against it belongs to its generator |
 
    `node_modules`, `.venv` and `docs/audit/` need no row: they are gitignored, so `git ls-files`
    never names them.
@@ -113,13 +116,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    waiting on when it could not. Neither elapsed time nor a growing transcript separates a blocked
    agent from a working one.
 
-   **What decides the rest of the split:**
-
-   - **A writing pass and the pass that verifies it are never the same agent.** An author reports
-     their own work sound because they cannot see the gap they left.
-   - **Partition by file ownership, one owner per file per phase, and write the map down before
-     dispatching.** Two tasks that sound unrelated share a file more often than not, and two agents
-     in one file corrupt both.
+   **A writing pass and the pass that verifies it are never the same agent.** An author reports
+   their own work sound because they cannot see the gap they left.
 
    ### The check classes
 
@@ -140,15 +138,15 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    ### The finding format, one row each
 
-   | Field         | Holds                                                                                                           |
-   | ------------- | --------------------------------------------------------------------------------------------------------------- |
-   | **Where**     | `<file> :: <symbol or quoted fragment>`. Never a line number, in the report either                              |
-   | **Class**     | The class from the table above                                                                                  |
-   | **Quote**     | The offending text, verbatim and short. **A finding with no quote is deleted, not investigated**                |
-   | **Wrong how** | One sentence. For C4, the code that disproves it, cited                                                         |
-   | **Standing**  | `verified` (read against the code or the cited file) or `inferred` (judged from the text alone)                 |
-   | **Fix**       | What it should say. Never longer than what it replaces                                                          |
-   | **Verdict**   | `Wrong` (untrue today) · `Cold` (a stranger cannot act on it) · `Duplicate` · `Excess` · `Shape`, in that order |
+   | Field         | Holds                                                                                                                                              |
+   | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Where**     | `<file> :: <symbol or quoted fragment>` (COR-6), never a line number: fix mode reads this report in a later session, against a tree that has moved |
+   | **Class**     | The class from the table above                                                                                                                     |
+   | **Quote**     | The offending text, verbatim and short. **A finding with no quote is deleted, not investigated**                                                   |
+   | **Wrong how** | One sentence. For C4, the code that disproves it, cited                                                                                            |
+   | **Standing**  | `verified` (read against the code or the cited file) or `inferred` (judged from the text alone)                                                    |
+   | **Fix**       | What it should say. Never longer than what it replaces                                                                                             |
+   | **Verdict**   | `Wrong` (untrue today) · `Cold` (a stranger cannot act on it) · `Duplicate` · `Excess` · `Shape`, in that order                                    |
 
    ### Ground rules for every agent
    - **Read-only. The one file you may write is your own report.** No edit to any document or source
@@ -194,7 +192,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    it in `docs/audit/documentation-<yyyy-mm-dd>/` — **beside** `docs/audit/programme/` rather than
    inside it (`docs/_auditing/programme.md :: 5. The documentation sweep is not a programme`).
 
-   The report carries, in this order: the commit it was run at · the coverage ledger, with the count
+   The report carries, in this order: the branch it was run on and whether that working tree was
+   clean, which is what a later session re-checks a finding against (COR-6) · the coverage ledger, with the count
    of files actually read against the count in the corpus · what was not read · the ranked findings ·
    the questions for the owner · and the gate gaps, meaning findings whose class a check in
    `scripts/checks/check_docs.py` could have caught mechanically.
@@ -213,14 +212,10 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    anything is written. A finding that no longer holds is struck from the report with a line saying
    why.
 
-3. **Plan parallel work from a file-ownership map, not from the segment list** — one owner per file
-   per phase, stated before anything is dispatched. A defect whose halves sit in different segments
-   belongs to one worker.
-
-4. **Never run a formatter while editing work is in flight.** One run, at the end, by the session
+3. **Never run a formatter while editing work is in flight.** One run, at the end, by the session
    that ships.
 
-5. **Fix in verdict order** — `Wrong` first. `docs/_standard/standard.md` governs how each repair is written
+4. **Fix in verdict order** — `Wrong` first. `docs/_standard/standard.md` governs how each repair is written
    (COR-3, COR-9).
 
    Where a row changes the corpus rather than a sentence:
@@ -233,14 +228,16 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      (PRE-4). Prove it by silence on the repository too, and narrow a check that fires on something
      correct by design before it lands.
 
-6. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/gate/verify.sh --docs --format`, push,
-   open the draft pull request, hand over its link, and name the conclusion of the branch's `verify`
-   run. Report the gate's actual exit code, and report
+5. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/gate/verify.sh --docs --format`, push,
+   open the draft pull request, hand over its link, and name the conclusion of every check that pull
+   request started, `verify`'s run being one of several (`.claude/CLAUDE.md` §2). Report the gate's
+   actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is
    not a reduction, and a diffstat that excludes new untracked files overstates one.
 
    **Split by segment if the diff outgrows one review.**
 
-7. **Anything that is not a documentation fix leaves as a roadmap entry, not a code change.** A
-   finding that the code — rather than the document — is wrong is a defect, and this session does not
-   fix defects. Hand it to the owner, or to `/roadmap:add` if it needs analysis kept.
+6. **Anything that is not a documentation fix leaves as a finding, not a code change.** A finding
+   that the code — rather than the document — is wrong is a defect, and this session does not fix
+   defects. Hand it to whoever invoked the command, to fix on the same branch or put to the owner;
+   `/roadmap:add` only where the owner has ruled it an entry (`.claude/CLAUDE.md` §3).

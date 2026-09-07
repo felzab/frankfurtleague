@@ -100,7 +100,11 @@ const VEROEFFENTLICHT = [
 
 /** What is kept, and for how long. */
 const FRISTEN = [
-  { daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben", frist: "14 Tage nach dem Eingang, dann Löschung" },
+  {
+    daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
+    frist:
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht",
+  },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
     daten: "Angenommene Bewerbung samt den Daten der drei Kontaktpersonen",
@@ -109,7 +113,14 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   { daten: "Änderungsprotokoll der Verwaltung", frist: "12 Monate ab dem Eintrag" },
-  { daten: "Zugriffsprotokoll des Servers", frist: "Begrenzt durch die Größenrotation des Protokolls, nicht durch eine Frist in Tagen" },
+  {
+    daten: "Zugriffsprotokoll des Servers",
+    frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
+  },
+  {
+    daten: "Betriebsprotokoll der Anwendung",
+    frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
+  },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa 8 Tage" },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
@@ -199,17 +210,17 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ}>
             Bei jedem Aufruf entsteht ein Eintrag im Zugriffsprotokoll des Servers. Er enthält Deine IP-Adresse, den Zeitpunkt, die aufgerufene
-            Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Wie lange ein Eintrag
-            bleibt, richtet sich nach dem Umfang des Protokolls: Der Server hält die jüngsten Einträge bis zu einer festen Gesamtgröße und
-            überschreibt die älteren. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und an keinen
-            Auswertungsdienst weitergegeben.
+            Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Der Bestand ist nach dem
+            Alter begrenzt: ein Eintrag bleibt höchstens acht Tage. Gelöscht wird beim Wechsel der Protokolldatei: einmal täglich, und früher,
+            wenn die Datei vorher ihre Größengrenze erreicht. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und
+            an keinen Auswertungsdienst weitergegeben.
           </p>
           <p className={ABSATZ}>
             Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist der sichere und stabile Betrieb der Website und die
             Abwehr von Angriffen; ohne diese Einträge lässt sich ein Angriff weder erkennen noch nachvollziehen. Dem steht Dein Interesse
             gegenüber, nicht ohne Anlass erfasst zu werden. Wir halten Dein Interesse für gewahrt, weil niemand die Einträge zu einem
-            Nutzungsprofil verbindet, sie ausschließlich technischen Zwecken dienen und der Bestand durch die Rotation begrenzt bleibt. Du
-            kannst dieser Verarbeitung nach Art. 21 DSGVO widersprechen; Abschnitt 14 sagt, wie.
+            Nutzungsprofil verbindet, sie ausschließlich technischen Zwecken dienen und kein Eintrag länger als acht Tage bleibt. Du kannst
+            dieser Verarbeitung nach Art. 21 DSGVO widersprechen; Abschnitt 14 sagt, wie.
           </p>
         </LegalSection>
 
@@ -270,8 +281,9 @@ export function DatenschutzView() {
             Person selbst; wir prüfen damit, ob sie mindestens 16 Jahre alt ist. Das ist keine Einwilligung, sondern eine Bestätigung: Sie
             belegt, dass die angegebene E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass sie mindestens 16
             Jahre alt ist und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung
-            bleibt so lange offen, bis alle drei bestätigt haben. Hat nach vierzehn Tagen nicht jede Person bestätigt, löschen wir die Bewerbung
-            mit allen Kontaktdaten.
+            bleibt so lange offen, bis alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt,
+            löschen wir die Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze
+            Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ}>
             Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige

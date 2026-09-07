@@ -225,8 +225,7 @@ jobs:
         with:
           persist-credentials: false
           # Full history: the documentation gate diffs the branch against the merge base for its
-          # branch-scoped checks and resolves commit ids prose names, neither of which a shallow
-          # clone can do.
+          # branch-scoped checks, which a shallow clone cannot do.
           fetch-depth: 0
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
@@ -449,7 +448,7 @@ jobs:
         # this image, and the ops scope degrades "could not run" to a skip — so without this venv
         # the job is green having never compared the compose files.
 
-        # The dev group alone, as at `commits`: the mirror check is standard library.
+        # The dev group alone, as at `commits`: the three python checks are standard library.
         working-directory: fl_backend
         run: uv sync --locked --only-group dev
       - name: Run the ops scope

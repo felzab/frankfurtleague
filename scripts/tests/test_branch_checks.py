@@ -459,6 +459,13 @@ PADDED_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, PADDED_FIRST, PADDED_SECOND
 PADDED_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in PADDED_LINES)
 PADDED_WORDS: Final = len(" ".join(PADDED_LINES).split())
 
+# The same shape padded with a line of its OWN, written twice: a repeat shrinks the denominator,
+# so this block matches the legacy one and misses it under a count of raw lines.
+REPEATED_LINE: Final = "a line the repeating block writes twice, sharing nothing with any block the fork committed"
+REPEATED_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, REPEATED_LINE, REPEATED_LINE)
+REPEATED_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in REPEATED_LINES)
+REPEATED_WORDS: Final = len(" ".join(REPEATED_LINES).split())
+
 
 def _shared_fail(rel: str, words: int, charged: int, ceiling: int) -> tuple[str, str, str, str]:
     detail = (
@@ -1155,6 +1162,22 @@ def test_a_block_padded_with_one_borrowed_line_inherits_no_ceiling() -> None:
     assert PADDED_WORDS < LEGACY_WORDS, "the padded block outgrew the ceiling it must not reach"
     assert _findings(data, "comment-length") == [_bound_fail(SIDE, PADDED_WORDS)]
     assert _lines(data, "comment-length") == [line]
+
+
+def test_a_block_repeating_one_of_its_own_lines_still_matches_the_block_it_came_from() -> None:
+    """Silence is the assertion, which a checker counting raw lines breaks.
+
+    A repeat gains nothing towards the half a match needs and costs nothing either: it shrinks
+    the denominator, so the same overlap carries the block.
+    """
+    _reset()
+    _append(SIDE, *REPEATED_BLOCK)
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert LEGACY_WORDS >= REPEATED_WORDS > 40, "the repeating block sits outside the window the ceiling decides"
+    assert _findings(data, "comment-length") == []
 
 
 def test_a_second_copy_in_another_file_buys_a_new_block_no_ceiling() -> None:

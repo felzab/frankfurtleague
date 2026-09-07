@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema } from "./schemas";
 
@@ -18,6 +18,7 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {
     params: filters,
+    cacheFill: { name: "getSpieler", args: filters },
   });
 }
 
@@ -28,7 +29,7 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 // Never `"use cache"` here, which keys on the arguments rather than the caller
 // (`docs/frontend/spec.md` §1.2).
 export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
-  runWithIncomingCorrelationId(() =>
+  runWithIncomingTrace(() =>
     apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),
   ),
 );
