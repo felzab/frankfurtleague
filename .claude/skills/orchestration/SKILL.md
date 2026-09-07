@@ -151,7 +151,7 @@ Run it for every agent, the fifteenth as much as the first.
   queue nobody examined — which is how this rule keeps failing while the line proving it gets
   written. Name what would have to become true for one more agent to go out, and check whether it
   already is; three classes a busy tree almost never blocks are a cold audit over a captured diff
-  (§6), read-only research, and the next wave's prep agent (§3.4). **The owner asking about
+  (§6), read-only research, and the next wave's prep agent (§3). **The owner asking about
   parallelism is a defect report, never a question.**
 - **Dispatch before you read, and before you reply.** A landed report frees a slot, and the queue's
   next standing action fills it before the report is opened.

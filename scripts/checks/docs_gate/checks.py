@@ -48,7 +48,6 @@ from .kernel import (
     DOCS_DIR,
     ENTRY_TOKEN_ALPHABET,
     ENTRY_TOKEN_PATTERN,
-    FENCE_RE,
     GATE,
     GLOSSARY_PAGE,
     HEADER_SUFFIXES,
@@ -56,10 +55,9 @@ from .kernel import (
     OPS_FILENAMES,
     OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
-    PROSE_FILENAMES,
+    PROSE_PATHS,
     PROTOCOL_PAGE,
     QUOTED_SPAN_RE,
-    REPO_PREFIXES,
     REPO_ROOT,
     ROADMAP_PAGE,
     SCANNED_SUFFIXES,
@@ -83,6 +81,9 @@ from .kernel import (
     comment_runs,
     comment_style,
     defined_symbols,
+    fenced_lines,
+    has_name,
+    has_suffix,
     holds_file,
     holds_path,
     invariant_rows,
@@ -91,8 +92,11 @@ from .kernel import (
     is_placeholder,
     is_prose,
     line_of,
+    navigable_anchors_of,
     repo_path,
+    repo_prefixes,
     scanned_files,
+    section_numbers_of,
     strip_fences,
     tracked_glob,
     tracked_page,
@@ -218,9 +222,9 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     GLOSSARY_PAGE,
     SWEEP_PAGE,
     ERROR_CODES_PAGE,
-    # The register's own name is the path: the notice a distribution reads sits at the root.
-    # Renamed, it drops out of the corpus listing while every check that reads it stays wired.
-    *PROSE_FILENAMES,
+    # The paths rather than the basenames derived from them: renamed or moved, a prose file drops
+    # out of the corpus listing while every check that reads it stays wired.
+    *PROSE_PATHS,
 )
 
 # The file both byte checks answer to, and what each names when the fault is the listing rather
@@ -716,11 +720,11 @@ def _unheld_sources(prefixes: frozenset[str], cell: str) -> list[str]:
     """
     dropped: set[str] = set()
     for token in BACKTICK_RE.findall(cell):
-        if token.startswith(REPO_PREFIXES) or is_placeholder(token):
+        if token.startswith(repo_prefixes()) or is_placeholder(token):
             continue
         # A slash or a scanned suffix is what parts a path from the prose this column carries
         # beside one: a `Dockerfile` and a compose service both derive a tag and name no subtree.
-        if ("/" not in token and not token.endswith(SCANNED_SUFFIXES)) or any(holds_path(prefix + token) for prefix in prefixes):
+        if ("/" not in token and not has_suffix(token, SCANNED_SUFFIXES)) or any(holds_path(prefix + token) for prefix in prefixes):
             continue
         dropped.add(token)
     return sorted(dropped)
@@ -748,7 +752,7 @@ def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
             continue
         tag = cells[columns[0]].strip("*` ")
         if tag in held:
-            written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(REPO_PREFIXES))
+            written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(repo_prefixes()))
             unheld[tag] = _unheld_sources(written[tag], cells[columns[1]])
 
     found: list[Finding] = []
@@ -1380,9 +1384,9 @@ def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str
     return found
 
 
-def _fence_info(line: str) -> str:
-    """The language a fence line names, lower-cased, or the empty string."""
-    return line.strip().lstrip("`~").strip().split(" ")[0].lower()
+def _fence_info(info: str) -> str:
+    """The language a fence's info string names, lower-cased, or the empty string."""
+    return next(iter(info.split()), "").lower()
 
 
 def check_diagrams(rel: str, raw: str) -> list[Finding]:
@@ -1391,19 +1395,12 @@ def check_diagrams(rel: str, raw: str) -> list[Finding]:
     Read off the raw page: the scan body arrives with every fence blanked.
     """
     found: list[Finding] = []
-    language: str | None = None
-    for number, line in enumerate(raw.split("\n"), start=1):
-        # `FENCE_RE`, so this reader and the one blanking fences open and close on the same lines.
-        if FENCE_RE.match(line):
-            if language is not None:
-                language = None
-                continue
-            language = _fence_info(line)
-            if language in DIAGRAM_LANGUAGES:
-                detail = f"a `{language}` fence -- OUT-7 draws a diagram in mermaid, which renders in-repo"
-                found.append(Finding("fail", "diagram", rel, detail, number))
-            continue
-        if language != MERMAID:
+    # `fenced_lines`, so this reader and the one blanking fences open and close on the same lines.
+    for number, (line, state, info) in enumerate(fenced_lines(raw), start=1):
+        if state == "opens" and (language := _fence_info(info)) in DIAGRAM_LANGUAGES:
+            detail = f"a `{language}` fence -- OUT-7 draws a diagram in mermaid, which renders in-repo"
+            found.append(Finding("fail", "diagram", rel, detail, number))
+        if state != "inside" or _fence_info(info) != MERMAID:
             continue
         for label in QUOTED_LABEL_RE.findall(line):
             if any(bracket in label for bracket in BRACKETS):
@@ -1704,9 +1701,17 @@ def check_header_see(rel: str, raw: str, suffix: str) -> list[Finding]:
 
 # --- what a page points at, and whether it is still there ----------------------------------------
 
-# A repository path in a comment with no backticks, which is how a dead one survives a green gate.
-# Anchored on REPO_PREFIXES so prose cannot match, and ended on a word character.
-BARE_PATH_RE: Final = re.compile(r"(?<![\w`/.\-])(?:" + "|".join(re.escape(p) for p in REPO_PREFIXES) + r")[\w./\-]*[\w/]")
+
+# Anchored on the derived prefixes so prose cannot match, and ended on a word character. Compiled on
+# the first call rather than at import, that derivation shelling out to git.
+@cache
+def bare_path_re() -> re.Pattern[str]:
+    """A repository path written with no backticks, which is how a dead one survives a green gate.
+
+    Matches nothing where the listing named no directory: an empty alternation matches everywhere.
+    """
+    prefixes = "|".join(re.escape(prefix) for prefix in repo_prefixes())
+    return re.compile((r"(?<![\w`/.\-])(?:" + prefixes + r")[\w./\-]*[\w/]") if prefixes else r"(?!)")
 
 
 # The fragment is captured rather than discarded: dropping it lets a link to a heading nobody has
@@ -1754,7 +1759,7 @@ def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
 
 def _reads_as_path(token: str) -> bool:
     """Whether `path` would judge this token, asked of one that check cannot see."""
-    return token.startswith(REPO_PREFIXES) and LINE_CITATION_RE.fullmatch(f"`{token}`") is None and not is_gitignored(token)
+    return token.startswith(repo_prefixes()) and LINE_CITATION_RE.fullmatch(f"`{token}`") is None and not is_gitignored(token)
 
 
 def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
@@ -1783,20 +1788,101 @@ def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[F
     return found
 
 
+# `§` and its number unspaced, which is how this repository writes a reference. The spaced form is
+# the German statute convention (`§ 5 DDG`) and names no section here, so reading one would report
+# a legal citation as dead.
+SECTION_REF_RE: Final = re.compile(r"§(\d+(?:\.\d+)*)")
+# What may stand immediately before a reference and name the page it points into. The third names
+# one nothing here can resolve, and is read so that the containing page cannot answer for it.
+ADJACENT_LINK_RE: Final = re.compile(r"\[[^\]\n]*\]\(([^)\s]*)\)\s*$")
+ADJACENT_PATH_RE: Final = re.compile(r"`([^`\n]+)`\s*$")
+ADJACENT_PAGE_NAME_RE: Final = re.compile(r"[\w./-]+\.md\s*$", re.IGNORECASE)
+# A reference inside a link's own text, which is the shape a contents row cites a section with.
+ENCLOSING_LINK_RE: Final = re.compile(r"\[[^\]\n]*\]\(([^)\s]*)\)")
+
+
+def _linked_page(rel: str, raw_target: str) -> Path | None:
+    """The page a link points into, or None where it leaves the repository or names nothing here."""
+    if raw_target.startswith(("http://", "https://", "mailto:")):
+        return None
+    target = raw_target.split("#", 1)[0]
+    # A fragment with no path in front of it points into the page the link is written on.
+    if not target:
+        return REPO_ROOT / rel
+    joined = posixpath.normpath(posixpath.join(posixpath.dirname(rel), target))
+    return REPO_ROOT / joined if holds_path(joined) else None
+
+
+def _names_a_page(line: str) -> bool:
+    """Whether a line ends on something naming a page, which is what a wrap parts from the reference below it."""
+    return any(pattern.search(line) is not None for pattern in (ADJACENT_LINK_RE, ADJACENT_PATH_RE, ADJACENT_PAGE_NAME_RE))
+
+
+def _referenced_page(rel: str, line: str, at: int, above: str) -> Path | None:
+    """The page a `§` reference at this offset names, or None where nothing around it does."""
+    for link in ENCLOSING_LINK_RE.finditer(line):
+        if link.start() <= at < link.end():
+            return _linked_page(rel, link.group(1))
+    before = line[:at]
+    if (linked := ADJACENT_LINK_RE.search(before)) is not None:
+        return _linked_page(rel, linked.group(1))
+    if (ticked := ADJACENT_PATH_RE.search(before)) is not None:
+        matches = _resolve(ticked.group(1).strip())
+        return matches[0] if len(matches) == 1 else None
+    # Neither leaves the containing page free to answer in another's place: a plain-text page name
+    # is one route short of resolving, and a reference opening its line's text may be the tail of a
+    # citation the wrap left above.
+    opens_the_text = not any(char.isalpha() for char in before)
+    if ADJACENT_PAGE_NAME_RE.search(before) or (opens_the_text and _names_a_page(above)):
+        return None
+    return REPO_ROOT / rel
+
+
+def check_section_references(rel: str, body: str) -> list[Finding]:
+    """A numbered `§` reference against the sections the page it names defines (COR-6).
+
+    Read off the reference's own line: a citation the wrap left above it, and a page named in plain
+    text, resolve to nothing and stay silent.
+    """
+    found: list[Finding] = []
+    lines = body.split("\n")
+    for number, line in enumerate(lines, start=1):
+        for match in SECTION_REF_RE.finditer(line):
+            target = _referenced_page(rel, line, match.start(), lines[number - 2] if number > 1 else "")
+            if target is None or not has_suffix(target.name, (".md",)):
+                continue
+            # A page numbering no heading of its own resolves nothing, rather than failing every
+            # reference that reached it.
+            if not (numbers := section_numbers_of(target)) or match.group(1) in numbers:
+                continue
+            where = target.relative_to(REPO_ROOT).as_posix()
+            detail = f"§{match.group(1)} is no numbered section of {where} -- cite one a reader lands on (COR-6)"
+            found.append(Finding("fail", "section-reference", rel, detail, number))
+    return found
+
+
 # Two segments and a short number, so the backend's three-segment refusal codes cannot collide
 # whatever the families: their middle segment is letters (`error_codes.py :: CODE_RE`), which the
 # digits refuse.
 RULE_ID_RE: Final = RulePattern(r"\b(<family>-\d{1,2})\b")
 
 
-INVARIANT_CITE_RE: Final = re.compile(r"(?<![A-Za-z0-9])(I\d{1,3}[a-z]?)(?![A-Za-z0-9])")
+# COR-6's other anchor form. A fragment is verbatim text, so presence is exactly its test: a
+# reworded sentence stops carrying it, which is what a landmark cannot do for a renamed heading.
+QUOTED_ANCHOR_RE: Final = re.compile(r"^(?:\"[^\"]*\"|“[^”]*”)$")
+
+# Both bands, as `kernel.py :: INVARIANT_ID_RE` reads both: an `L` id resolved by presence would
+# pass against a sheet that merely mentions it.
+INVARIANT_CITE_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-Za-z0-9])")
 SURFACE_WORDS: Final = re.compile(r"\b(backend|frontend|ops|logging|_git)\b|spec\.md", re.IGNORECASE)
 
 # Closed to the TEXT suffixes this repository holds, so `example.com:443` stays prose; one added to
 # the tree and not here escapes both patterns silently.
 CITABLE_SUFFIXES: Final[tuple[str, ...]] = (".md", ".css", ".svg", ".lock", *SCANNED_SUFFIXES)
 # Longest first, so the alternation cannot stop at `.ts` inside `.tsx` and leave the colon unmatched.
-_CITABLE_SUFFIX_RE: Final = "|".join(re.escape(suffix) for suffix in sorted(set(CITABLE_SUFFIXES), key=len, reverse=True))
+# Case-insensitive for `kernel.py :: has_suffix`' reason: an exact alternation reads a capitalised
+# suffix as prose, drawing no finding.
+_CITABLE_SUFFIX_RE: Final = "(?i:" + "|".join(re.escape(suffix) for suffix in sorted(set(CITABLE_SUFFIXES), key=len, reverse=True)) + ")"
 LINE_CITATION_RE: Final = re.compile(rf"`([^`\n]*(?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)`")
 # The same citation with no backticks, which is how a comment usually carries one. The directory
 # run sits inside the capture, the guard rejecting a start after `/` or `.` holding a URL out.
@@ -1811,8 +1897,9 @@ AUDIT_ID_RE: Final = re.compile(r"\b(?:audit\s+)?R\d+[a-z]?\s*§\s*S\d+(?:\.\d+)
 LEDGER_ROW_RE: Final = re.compile(r"\bledger\s+\S*\d")
 
 
-# OUT-3's bound, counted as that rule spells it.
+# OUT-3's bound, counted as that rule spells it, over the page it names.
 README_WORD_CAP: Final = 600
+README_PAGE: Final = "README.md"
 
 
 def _readme_words(raw: str) -> int:
@@ -1893,7 +1980,7 @@ def names_a_file(file_part: str) -> bool:
     A left half that resolves is a file however it is spelled, so this asks only of the rest, and
     asks by suffix: COR-6's form names a file, and quoted prose does not.
     """
-    return file_part.endswith(CITABLE_SUFFIXES) or file_part.rsplit("/", 1)[-1] in OPS_FILENAMES
+    return has_suffix(file_part, CITABLE_SUFFIXES) or has_name(file_part, OPS_FILENAMES)
 
 
 def _anchor_names(anchor: str) -> tuple[str, ...] | None:
@@ -1989,8 +2076,20 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
             return []
         elsewhere = f"{' and '.join(homes)} defines it" if homes else "no tracked spec sheet's table defines it"
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' is no invariant row of {where} -- {elsewhere}")]
+    # A page's runs are listed exactly, as a module's definitions are: presence resolves an anchor
+    # against a renamed heading's wording surviving in a contents row, the edit a section citation
+    # exists to catch.
+    quoted = QUOTED_ANCHOR_RE.match(anchor) is not None
+    if has_suffix(where, (".md",)) and not quoted:
+        # The self-citation arm below is presence's, and no listing is faked by the citing line.
+        if anchor in navigable_anchors_of(target):
+            return []
+        detail = f"anchor '{anchor}' names no heading, table row or bold key in {where} -- cite a run a reader lands on (COR-6)"
+        return [Finding("fail", "citation", rel, detail)]
+    # The quotes mark a fragment rather than belonging to it, so the page carries the run inside them.
+    sought = anchor[1:-1] if quoted else anchor
     lines = content.split("\n")
-    spellings = {number for number, line in enumerate(lines, start=1) if anchor in line}
+    spellings = {number for number, line in enumerate(lines, start=1) if sought in line}
     if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
@@ -2001,7 +2100,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
         uncited = _uncited_lines(target)
-        if not any(anchor in uncited[number - 1] for number in spellings - on):
+        if not any(sought in uncited[number - 1] for number in spellings - on):
             detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
             return [Finding("fail", "citation", rel, detail)]
     return []
@@ -2047,7 +2146,7 @@ def _continuations(joined: str, rel: str, invariants: dict[str, list[str]], sour
         # against can be named paragraphs above, where the anchor has nothing to prove.
         pairs.setdefault((antecedent, anchor), set()).update(range(source_line(at), source_line(ends - 1) + 1))
     for (antecedent, anchor), lines in sorted(pairs.items()):
-        if anchor.endswith(CITABLE_SUFFIXES):
+        if has_suffix(anchor, CITABLE_SUFFIXES):
             sibling = (PurePosixPath(antecedent).parent / anchor).as_posix()
             if not holds_file(sibling) and not is_gitignored(sibling):
                 found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
@@ -2063,7 +2162,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     source file having no headings of its own for one to resolve against.
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
-    is_markdown = path.suffix == ".md"
+    is_markdown = has_suffix(path.name, (".md",))
     # Prose is wider than markdown by the files read whole by name: those take a page's readers
     # for what is written bare in them, and markdown's alone for what its syntax carries.
     prose = is_prose(path)
@@ -2083,12 +2182,13 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         found.extend(check_module_header(rel, raw, style))
         found.extend(check_header_see(rel, raw, style))
 
-    if is_markdown and path.name == "README.md" and (words := _readme_words(raw)) > README_WORD_CAP:
+    if is_markdown and has_name(path.name, (README_PAGE,)) and (words := _readme_words(raw)) > README_WORD_CAP:
         detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
     found.extend(check_wrapped_paths(rel, body, () if prose else continuation_markers(style)))
+    found.extend(check_section_references(rel, body))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
         found.extend(check_diagrams(rel, raw))
@@ -2163,13 +2263,13 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
                 continue
         # The file resolves and the heading it names does not, so the link opens the right page at
         # the top and looks correct.
-        if anchor and target.suffix == ".md" and (reachable := anchors_of(target)) is not None and anchor not in reachable:
+        if anchor and has_suffix(target.name, (".md",)) and (reachable := anchors_of(target)) is not None and anchor not in reachable:
             found.append(Finding("fail", "anchor", rel, f"no heading in {raw_target} yields #{anchor}"))
 
     for token in sorted(set(BACKTICK_RE.findall(body))):
         # Already reported above, and letting the path check fire too would give one defect two
         # findings.
-        if " :: " in token or is_placeholder(token) or not token.startswith(REPO_PREFIXES):
+        if " :: " in token or is_placeholder(token) or not token.startswith(repo_prefixes()):
             continue
         if LINE_CITATION_RE.fullmatch(f"`{token}`"):
             continue
@@ -2193,7 +2293,7 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     # span holds no newline, so removing one moves an offset along its line and never off it.
     scrubbed = BACKTICK_SPAN_RE.sub("", body)
     first_seen: dict[str, int] = {}
-    for match in BARE_PATH_RE.finditer(scrubbed):
+    for match in bare_path_re().finditer(scrubbed):
         first_seen.setdefault(match.group(0), match.start())
     for token in sorted(first_seen):
         # `is_gitignored` shells out, so it stays behind the tests that answer without one.

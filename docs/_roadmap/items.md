@@ -83,7 +83,6 @@ deliverable.
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                      | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Open     |
-| `3ffa-s9dg` | A root-level directory outside the repository prefixes is a path the resolver cannot see                                     | Ops, gate, tests                                                            | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                         | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                   | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                              | FE, Ops, Docs, gate                                                         | Open     |
@@ -109,7 +108,6 @@ deliverable.
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                      | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                     | Ops, gate, tests                                                            | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
@@ -143,12 +141,10 @@ deliverable.
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                       | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                             | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                   | FE, BE, Docs, tests, saisons                                                | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject              | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                              | FE, tests                                                                   | Open     |
-| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                              | Ops, gate, tests                                                            | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                | FE, Ops, gate                                                               | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                               | FE, BE, spiele                                                              | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                             | FE, Ops, Docs, edge                                                         | Standing |
@@ -163,14 +159,12 @@ deliverable.
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                          | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                           | FE, tests, bewerbungen, teams                                               | Open     |
-| `yhbx-v974` | A markdown anchor resolves against any run of characters in the file                                                         | Ops, gate, tests                                                            | Open     |
 | `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                 | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                   | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                        | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                   | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
-| `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                      | Ops, gate, tests                                                            | Open     |
 
 ## The items
 
@@ -338,28 +332,6 @@ work inside it.
 **How far the log page can reach past its one read is not this entry's** — the filters it sends, the
 client-side search and facets over the loaded rows, and the copy toast that promises more than
 either can give are `fau5-jtph`.
-
-### `3ffa-s9dg` · A root-level directory outside the repository prefixes is a path the resolver cannot see
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: repo_path` answers for a token under one of the repository
-prefixes, under a package root, or for a tracked file at the root, and for nothing else**, so a token
-carrying a slash that starts with a root-level directory outside `scripts/checks/docs_gate/kernel.py ::
-REPO_PREFIXES` falls through to the package arm and resolves to nothing. A file under such a directory
-still fails loudly through the spelling arm; the directory itself, written with its trailing slash, is
-silent on both routes, `scripts/checks/docs_gate/checks.py :: BARE_PATH_RE` being anchored on the same
-prefix tuple.
-
-**The bare-name half is a decision, not this entry.** A name with no slash is resolved by existence and a
-folder's name alone stays prose, which the comment at the resolver's bare-name arm records. What is not
-recorded anywhere is the slashed half above.
-
-**Done when** a slashed token naming a tracked root-level directory resolves as any other directory does,
-the prefix tuple derived from the tree's top level or the resolver asking git rather than a list, and a
-case in `scripts/tests/test_check_docs.py` plants a dead one and drives it red.
 
 ### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
 
@@ -1530,32 +1502,6 @@ and [`docs/frontend/spec.md`](../frontend/spec.md) §1.9 is right that a sweep i
 held. **The line to draw is the authority, not the mechanism** — a sweep that compares the tree
 against something outside itself is sound, and one that compares it against a literal in the same
 commit is a note about intent wearing a test's clothes.
-
-### `f86w-7nsp` · A markdown fence inside a fenced block flips both fence readers together
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: strip_fences` and `scripts/checks/docs_gate/checks.py ::
-check_diagrams` each track whether they are inside a fence with one boolean flipped by
-`scripts/checks/docs_gate/kernel.py :: FENCE_RE`**, and the comment at the second says the coupling is
-deliberate: the two open and close on the same lines. A page that fences a markdown sample containing a
-fence of its own has its inner opening read as the outer's close, so everything from there to the next
-fence line is read as prose that is really code, and everything after the outer close as code that is
-really prose.
-
-**Both halves fail in the direction that passes.** Prose read as fenced is blanked, so no rule reaches it
-and the page is green over text nobody checked; code read as prose is scanned for citations and paths, so a
-sample can draw a finding against a file it never claimed to name. Neither says which of the two happened.
-
-**The coupling is the property to keep.** Two readers disagreeing about where a block ends is worse than
-both being wrong the same way, which is why the fence test lives in one place; a repair belongs in that
-pattern's reader rather than in either caller.
-
-**Done when** a fence inside a fenced block closes only its own opener, the marker's length and character
-carried as CommonMark decides a close, and a case in `scripts/tests/test_check_docs.py` plants a mermaid
-fence inside a markdown one and proves the prose after the outer block is still read.
 
 ### `fau5-jtph` · The action log's page narrows one capped read, and a toast promises more than search can show
 
@@ -2926,24 +2872,6 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
 
-### `scxn-9dcd` · The fork match's distinct-line ratio is stated on the page and pinned by no case
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a comment block to its earlier self
-over a set of its non-blank lines**, so a block padded with a line it already carries gains nothing
-towards the half it needs, and `docs/_standard/worked-examples.md` states that ratio twice as one over
-distinct lines. No case drives the distinctness: every scenario in
-`scripts/tests/test_branch_checks.py` builds blocks whose lines already differ, so replacing the set
-with a list would leave the suite green and both statements on the page wrong, which is the shape a
-claim no case can fail takes.
-
-**Done when** a scenario's fresh block reaches half the fork block's line count only by repeating one
-of its own lines and fails to inherit the ceiling, driven red first against a checker counting lines
-rather than distinct lines.
-
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
 | Tags                         | Status | Depends on |
@@ -3078,33 +3006,6 @@ on every phone, which is louder and agrees with the installed app. Next takes bo
 **Done when** the head carries the colour, whichever answer is taken, and it is pinned to the scheme
 by the same route `fl_frontend/src/app/brandAssets.test.ts` pins the manifest — parsed from the
 stylesheet rather than restated.
-
-### `tfyy-hg3y` · A mis-cased suffix drops a citation out of the population instead of failing it
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/checks.py :: names_a_file` decides whether a run that resolved to
-nothing reads as a citation at all, and it asks the file part to end in one of `:: CITABLE_SUFFIXES`,
-a tuple of lower-case suffixes.** A citation whose suffix is upper-cased resolves to nothing, fails
-that test, and draws no finding: the run is read as prose that happens to carry the separator. A
-mis-cased directory or basename whose suffix still matches is dead on both platforms, and
-`scripts/tests/test_check_docs.py :: test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_too`
-holds it there; the suffix is the half that half-passes.
-
-**The class is wider than one tuple.** The gate's shape registers — `scripts/checks/docs_gate/checks.py :: CITABLE_SUFFIXES`,
-`scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` — are each compared
-exactly while the filesystem the corpus is written on is not, so a file or a citation spelled in
-another case falls out of a population rather than failing it, and nothing reports the fall.
-
-**Folding the suffix test to one case is a corpus change, not a resolver change.** A quoted fragment
-or an error string ending in a capitalised suffix would newly read as a dead file, so the widening
-is classified over the real corpus before it is wired, with each newly read run dispositioned.
-
-**Done when** a citation or a scanned file whose case differs from its register's spelling is a
-finding rather than an absence, the widening having been classified over the corpus first, and a
-case in `scripts/tests/test_check_docs.py` drives an upper-cased suffix red.
 
 ### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
 
@@ -3664,31 +3565,6 @@ reaches the title at all, a template literal being invisible to a match written 
 sentences. **Either route pays for the „Reaktiviere" rule's widening**, and neither may skip it: a
 battery pointed at this banner unchanged fails on a sentence that is right.
 
-### `yhbx-v974` · A markdown anchor resolves against any run of characters in the file
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/checks.py :: _check_citation` proves a Python anchor by the module's
-definitions and an invariant id by the table that defines it, and proves everything else by whether the
-anchor's characters appear anywhere in the target's raw text.** For a markdown target that admits an anchor
-naming no heading: a phrase in a table cell, a sentence in body prose, a run inside a fenced block the read
-does not strip.
-
-**A renamed heading keeps its citation alive.** The old wording usually survives somewhere on the page — a
-contents row, a cross-reference, a paragraph — so the one edit a section citation exists to catch is the
-one it does not catch, and COR-6's promise that a section is cited by anchor rather than described holds
-only while nobody renames one.
-
-**Tightening it is a corpus change before it is a resolver change.** A markdown anchor held to headings
-alone would newly fail every citation naming a bold key, a table row or an invariant-style phrase, several
-of which are correct and deliberate, so the widening is classified over the real corpus and each newly
-failing citation dispositioned before the rule is wired.
-
-**Done when** a markdown anchor is held to something a reader can navigate to, the classification over the
-corpus having run first, and a case in `scripts/tests/test_check_docs.py` drives a renamed heading red.
-
 ### `yjsf-uc2y` · Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
 | Tags                                 | Status  | Depends on |
@@ -3911,33 +3787,3 @@ neither.
 season resolution and the shape ceiling were read off `UNIQUE_INDEXES`, `pull_current_saison_id` and
 `TeamsPerGroup` rather than executed. **The explain was not re-run for this entry**, so the two rows
 stand on that measurement rather than on anything the gate repeats.
-
-### `zurr-kde5` · A source line carrying a comment marker inside a string is kept whole and read as prose
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: comments_only` reads a c-style file a line at a time, keeping any
-line on which `//` or `/*` appears anywhere**, so a line assigning a URL string survives the blanking whole
-and every reader downstream takes it for a comment. That is the case the function's own docstring names as
-the reason it exists — a path inside executable code is a string the program uses, not a claim to a reader
-— so the reader defeats its own purpose on exactly the lines that carry a marker. What holds it up is the
-same docstring's second sentence: reading TypeScript exactly costs a node launch per file, a cost weighed and
-refused.
-
-**What the kept line then reaches** is everything armed on the scan body: the citation and path readers,
-`scripts/checks/docs_gate/checks.py :: BARE_PATH_RE`, the SHA finding, and the word bound
-`scripts/checks/docs_gate/kernel.py :: comment_runs` feeds. A URL in a string can draw a path finding
-against a file that names no path, and a code line beside a real comment joins that comment's run and is
-counted against INC-9's bound.
-
-**The other three readers do not have this shape.** `scripts/checks/docs_gate/kernel.py :: _jsonc_comments`
-walks character by character and tracks whether it is inside a string; the Python reader tokenizes; the
-shell reader is line-grain over a language whose marker no literal at the margin can carry. The c-style
-reader is the one place where the population is decided by a substring test.
-
-**Done when** a line whose only marker sits inside a string literal reaches no reader as a comment, at a
-cost this repository has weighed against the exact read — a narrower same-line test that tracks quoting,
-or the node launch measured rather than assumed — with a case in `scripts/tests/test_check_docs.py` that
-plants such a line and drives the difference red.

@@ -14,7 +14,8 @@ import io
 import os
 import re
 import tokenize
-from collections.abc import Iterable
+from bisect import bisect_right
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path, PurePosixPath
@@ -30,10 +31,17 @@ SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
 
 # The comment-bearing source suffixes the gate scans (INC-6).
 SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh", ".css")
-# JSON is NOT here: it is scanned rather than read a line at a time, for `_jsonc_comments`' reason.
+# JSON is NOT here: it shares the scanner and not the quote register below.
 # `.css` is here because `/* */` is its only comment form, and the `#` reader measured its id
 # selectors as prose.
 CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".css")
+
+# What opens a string in each kind the scanner reads. Quoting alone: telling a regex literal's `/`
+# from a division needs a parser, and a node launch per file is the cost this reader exists to
+# refuse.
+TEMPLATE_QUOTE: Final = "`"
+CSTYLE_QUOTES: Final = "\"'" + TEMPLATE_QUOTE
+JSON_QUOTES: Final = '"'
 
 # COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
 # Scope names subtrees rather than these kinds.
@@ -41,22 +49,36 @@ OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".jso
 # A dotfile and a hook have no suffix for `Path.suffix` to dispatch on, so INC-6 reaches them by
 # whole name here or the In-code section's Scope would name files no check reads.
 OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg", "pre-push")
-# Read whole as prose by name, as a page is: no suffix, no comment marker, and the asset paths it
-# names written bare, so the `#` reader keeps nothing of it and `bare-path` has to see the text.
-PROSE_FILENAMES: Final[tuple[str, ...]] = ("NOTICE",)
+# Read whole as prose, as a page is: each carries a record rather than code, and writes its paths
+# bare, so a comment reader would keep nothing of the file and `bare-path` would never see the text.
+PROSE_PATHS: Final[tuple[str, ...]] = ("NOTICE", ".github/gate-wall-clock.tsv")
+# The same register as a basename each, which is what a kind test compares: `check_inputs` reads the
+# paths above, and every other reader asks only what a file is called.
+PROSE_FILENAMES: Final[tuple[str, ...]] = tuple(path.rsplit("/", 1)[-1] for path in PROSE_PATHS)
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
-# Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
-REPO_PREFIXES: Final[tuple[str, ...]] = (
-    "fl_frontend/",
-    "fl_backend/",
-    "docs/",
-    "scripts/",
-    "nginx/",
-    ".claude/",
-    ".github/",
-    ".githooks/",
-)
+
+@cache
+def _folded(register: tuple[str, ...]) -> tuple[str, ...]:
+    """One kind register in one case, for the comparisons below.
+
+    A register is lower-case and a filesystem is not, so an exact test drops a mis-cased file out
+    of a population rather than failing it.
+    """
+    # Folded here rather than at the register itself, which would leave each new caller free to
+    # compare exactly again.
+    return tuple(sorted({entry.lower() for entry in register}))
+
+
+def has_suffix(path: str, suffixes: tuple[str, ...]) -> bool:
+    """Whether a path ends in one of a register's suffixes. Never a path lookup, which `holds_file` keeps exact."""
+    return path.lower().endswith(_folded(suffixes))
+
+
+def has_name(path: str, names: tuple[str, ...]) -> bool:
+    """Whether a path's last segment is one of a register's names, folded as a suffix is."""
+    return path.rsplit("/", 1)[-1].lower() in _folded(names)
+
 
 # The roots an unprefixed path is written against, so `src/app/admin/admin.css` resolves.
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
@@ -77,7 +99,10 @@ INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.
 SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 
 
-FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
+# The marker run and the info string apart: CommonMark decides a close on both. The indent is wider
+# than its three spaces because a fence inside a list item is indented past them, and a page here
+# writes one.
+FENCE_RE: Final = re.compile(r"^\s*(`{3,}|~{3,})[ \t]*(.*?)[ \t]*$")
 # The closing run of hashes is dropped as a renderer drops it. Read through `atx_heading`, so one
 # definition decides what counts as a heading.
 ATX_HEADING_RE: Final = re.compile(r"^ {0,3}(#{1,6}) +(.*?)(?:[ \t]+#+)?[ \t]*$")
@@ -185,6 +210,7 @@ CHECKS: Final[dict[str, Check]] = {
     "rule-id": Check(FAIL, claimed("PRE-4", "COR-6", "INC-6", "OUT-4")),
     "rule-shape": Check(FAIL, claimed("PRE-4", "COR-12")),
     "scheme-token": Check(FAIL, claimed("docs/frontend/spec.md :: 1.17 Colour roles and the brand budget")),
+    "section-reference": Check(FAIL, claimed("COR-6")),
     "segment-map": Check(FAIL, claimed(".claude/commands/docs/audit.md :: Partition it into segments")),
     "sha": Check(FAIL, claimed("COR-6")),
     "spec-spine": Check(FAIL, claimed("COR-12", "OUT-4")),
@@ -255,17 +281,36 @@ def is_placeholder(text: str) -> bool:
     return bool(set("<>{}*?") & set(text)) or "NNNN" in text or "…" in text
 
 
+# Where a line sits in a page's fenced blocks. Every reader that cares takes it from `fenced_lines`:
+# two of them disagreeing about where a block ends is worse than both being wrong the same way.
+FenceState = Literal["outside", "opens", "inside", "closes"]
+
+
+def fenced_lines(text: str) -> Iterator[tuple[str, FenceState, str]]:
+    """Each line beside the fenced block it sits in, one yield per line, `line_of` resting on the count."""
+    opener = ""
+    info = ""
+    for line in text.split("\n"):
+        match = FENCE_RE.match(line)
+        if match is None:
+            yield line, ("inside" if opener else "outside"), info
+            continue
+        marker, stated = match.group(1), match.group(2)
+        if not opener:
+            opener, info = marker, stated
+            yield line, "opens", info
+        # CommonMark's close: the opener's character, at least its length, and no info string. A
+        # mermaid fence nested inside a longer markdown one therefore closes nothing.
+        elif marker[0] == opener[0] and len(marker) >= len(opener) and not stated:
+            closed, opener, info = info, "", ""
+            yield line, "closes", closed
+        else:
+            yield line, "inside", info
+
+
 def strip_fences(text: str) -> str:
     """Blank out fenced blocks, preserving line count so reported context stays meaningful."""
-    out: list[str] = []
-    in_fence = False
-    for raw in text.split("\n"):
-        if FENCE_RE.match(raw):
-            in_fence = not in_fence
-            out.append("")
-            continue
-        out.append("" if in_fence else raw)
-    return "\n".join(out)
+    return "\n".join("" if state != "outside" else line for line, state, _ in fenced_lines(text))
 
 
 def word_count(text: str) -> int:
@@ -276,7 +321,10 @@ def word_count(text: str) -> int:
     return len(text.split())
 
 
-LIST_MARKER_RE: Final = re.compile(r"^(?:[-*+•]|\d+[.)])\s+")
+# Spelled apart from the anchored pattern because `BOLD_KEY_RE` needs the marker without the
+# anchor, and two spellings of what opens a list item would drift.
+LIST_MARKER: Final = r"(?:[-*+•]|\d+[.)])\s+"
+LIST_MARKER_RE: Final = re.compile("^" + LIST_MARKER)
 
 
 def unlisted(lines: Iterable[str]) -> str:
@@ -558,66 +606,68 @@ def _python_prose(text: str) -> tuple[dict[int, int], set[int]] | None:
     return spans, comments
 
 
-def _jsonc_comments(text: str) -> str:
-    """JSONC comments only, line count and column preserved.
+@cache
+def _marker_re(quotes: str) -> re.Pattern[str]:
+    """A comment marker, or a whole string literal of one kind, whichever comes first.
 
-    Character by character: a marker inside a string value would open a block comment running to
-    the next `*/` if read by line.
+    One alternation for both, so the scan needs no second pattern to find where a string it
+    opened ends.
     """
-    keep = [""] * len(text.split("\n"))
-    row, column, index = 1, 0, 0
-    in_string = False
-    while index < len(text):
-        char = text[index]
-        if char == "\n":
-            row, column, index = row + 1, 0, index + 1
-        elif in_string:
-            # A backslash consumes what follows it, so an escaped quote never closes the string.
-            step = 2 if char == "\\" else 1
-            in_string = char != '"'
-            column, index = column + step, index + step
-        elif char == '"':
-            in_string, column, index = True, column + 1, index + 1
-        elif text.startswith(("//", "/*"), index):
-            block = text[index + 1] == "*"
-            end = text.find("*/" if block else "\n", index + 2)
-            end = len(text) if end == -1 else end + (2 if block else 0)
-            comment = text[index:end]
-            _place(keep, (row, column), comment)
-            row += comment.count("\n")
-            column = len(comment) - comment.rfind("\n") - 1 if "\n" in comment else column + len(comment)
-            index = end
-        else:
-            column, index = column + 1, index + 1
+    arms = ["//", r"/\*"]
+    for quote in quotes:
+        # An apostrophe closes at the line's end: unbounded, one in JSX prose would blank every
+        # comment up to the next. Unambiguous on its first character, so the star cannot backtrack.
+        closed = "" if quote == TEMPLATE_QUOTE else r"\n"
+        arms.append(quote + r"(?:\\[\s\S]|[^" + quote + r"\\" + closed + r"])*" + quote + "?")
+    return re.compile("|".join(arms))
+
+
+def _line_starts(text: str) -> list[int]:
+    """The offset each line opens at, for the one lookup a comment needs."""
+    starts, at = [0], 0
+    while (at := text.find("\n", at) + 1) > 0:
+        starts.append(at)
+    return starts
+
+
+def _cstyle_comments(text: str, quotes: str) -> str:
+    """Comments only, line count and column preserved.
+
+    Read by line, a marker inside a string value opens a block running to the next `*/`, and the
+    code after it reaches every check as prose.
+    """
+    starts = _line_starts(text)
+    keep = [""] * len(starts)
+    pattern = _marker_re(quotes)
+    index = 0
+    while (found := pattern.search(text, index)) is not None:
+        index, marker = found.start(), found.group(0)
+        if marker[0] in quotes:
+            index = found.end()
+            continue
+        block = marker == "/*"
+        end = text.find("*/" if block else "\n", index + 2)
+        end = len(text) if end == -1 else end + (2 if block else 0)
+        # Placed off the offset rather than carried along the scan, which spends the whole file
+        # again counting the newlines the jumps stepped over.
+        row = bisect_right(starts, index)
+        _place(keep, (row, index - starts[row - 1]), text[index:end])
+        index = end
     return "\n".join(keep)
 
 
 def comments_only(text: str, suffix: str) -> str:
     """Everything outside a comment blanked, line count preserved.
 
-    A path inside executable code is a string the program uses, not a claim to a reader. TypeScript
-    stays line-grain: reading it exactly costs a node launch per file.
+    A path inside executable code is a string the program uses, not a claim to a reader.
     """
     if suffix == ".sh":
         return _shell_comments(text)
     if suffix == ".json":
-        return _jsonc_comments(text)
-    if suffix not in CSTYLE_SUFFIXES:
-        return _python_comments(text)
-
-    keep: list[str] = []
-    in_block = False
-    for line in text.split("\n"):
-        if in_block:
-            keep.append(line)
-            if "*/" in line:
-                in_block = False
-        elif "/*" in line and "*/" not in line:
-            in_block = True
-            keep.append(line)
-        else:
-            keep.append(line if ("/*" in line or "//" in line) else "")
-    return "\n".join(keep)
+        return _cstyle_comments(text, JSON_QUOTES)
+    if suffix in CSTYLE_SUFFIXES:
+        return _cstyle_comments(text, CSTYLE_QUOTES)
+    return _python_comments(text)
 
 
 def comment_style(path: Path) -> str:
@@ -626,7 +676,8 @@ def comment_style(path: Path) -> str:
     The `#` reader is the default rather than a case because a Dockerfile carries no suffix at all
     for `path.suffix` to dispatch on.
     """
-    return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
+    suffix = path.suffix.lower()
+    return suffix if suffix in SOURCE_SUFFIXES or suffix == ".json" else ".sh"
 
 
 def is_prose(path: Path) -> bool:
@@ -635,7 +686,7 @@ def is_prose(path: Path) -> bool:
     By name as well as by kind: handed to `comment_style`, a prose file is read for `#` lines and
     passes every check in silence.
     """
-    return path.suffix == ".md" or path.name in PROSE_FILENAMES
+    return has_suffix(path.name, (".md",)) or has_name(path.name, PROSE_FILENAMES)
 
 
 # A directive stays above the header (INC-7), so the header scan steps over it.
@@ -838,16 +889,21 @@ def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
 
     `is_file` drops a path the index holds and the tree does not, which a branch mid-rename carries.
     """
-    suffixes = {".md", *SCANNED_SUFFIXES}
-    names = {*OPS_FILENAMES, *PROSE_FILENAMES}
-    return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in names)}))
+    suffixes = (".md", *SCANNED_SUFFIXES)
+    names = (*OPS_FILENAMES, *PROSE_FILENAMES)
+    return tuple(
+        sorted({p for p in candidates if p.is_file() and not _skipped(p) and (has_suffix(p.name, suffixes) or has_name(p.name, names))})
+    )
 
 
 @cache
 def _kind_patterns() -> tuple[str, ...]:
     """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
-    # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the widening.
-    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in (*OPS_FILENAMES, *PROSE_FILENAMES)))
+    # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the
+    # widening. `:(icase)` for `has_suffix`' reason: a prefilter comparing exactly drops a
+    # mis-cased file before `_of_kind` is asked about it.
+    kinds = (".md", *SCANNED_SUFFIXES, *OPS_FILENAMES, *PROSE_FILENAMES)
+    return tuple(f":(icase)*{kind}" for kind in kinds)
 
 
 @cache
@@ -988,13 +1044,10 @@ def heading_anchors(body: str) -> set[str]:
     """
     anchors: set[str] = set()
     occurrences: dict[str, int] = {}
-    fenced = False
-    for line in body.split("\n"):
-        # `FENCE_RE` rather than a second definition of what opens a block.
-        if FENCE_RE.match(line):
-            fenced = not fenced
-            continue
-        if fenced or (text := atx_heading(line)) is None:
+    # `fenced_lines` rather than a second definition of what opens a block: a heading a renderer
+    # shows and this reader hides is a link target the `anchor` check calls dead.
+    for line, state, _ in fenced_lines(body):
+        if state != "outside" or (text := atx_heading(line)) is None:
             continue
         slug = SLUG_DROP_RE.sub("", INLINE_LINK_RE.sub(r"\1", text).lower()).replace(" ", "-")
         if not slug:
@@ -1008,6 +1061,72 @@ def heading_anchors(body: str) -> set[str]:
         occurrences[slug] = 0
         anchors.add(slug)
     return anchors
+
+
+# A heading's label: the backticked span or the numbered run it opens with. A label and never an
+# arbitrary prefix, which would readmit the truncated citation this reader exists to fail.
+LEADING_LABEL_RE: Final = re.compile(r"^(?:`([^`\n]+)`|(\d+(?:\.\d+)*))")
+TABLE_FIRST_CELL_RE: Final = re.compile(r"^[ \t]*\|([^|\n]*)\|", re.MULTILINE)
+# A bold key opening a line or a list item, which is the shape `.claude/CLAUDE.md` and this
+# standard's own rules give a clause worth citing.
+BOLD_KEY_RE: Final = re.compile(r"^(?:" + LIST_MARKER + r")?\*\*([^*\n]+)\*\*", re.MULTILINE)
+
+
+def _spellings(run: str) -> set[str]:
+    """One heading, cell or key in each form a citation may spell it: as written, unmarked, unlabelled."""
+    written = {run.strip(), run.replace("**", "").replace("`", "").strip()}
+    # The punctuation that makes a run a label is no part of its name, and a reader citing one
+    # drops it.
+    return written | {form.rstrip(":.") for form in written}
+
+
+def navigable_anchors(body: str) -> frozenset[str]:
+    """Every run a reader can navigate to on one page.
+
+    Presence anywhere keeps a renamed heading's citation alive, the old wording surviving in a
+    contents row -- the one edit a section citation exists to catch.
+    """
+    found: set[str] = set(heading_anchors(body))
+    for line, state, _ in fenced_lines(body):
+        if state != "outside":
+            continue
+        if (heading := atx_heading(line)) is not None:
+            found |= _spellings(heading)
+            if (label := LEADING_LABEL_RE.match(heading.strip())) is not None:
+                found |= _spellings(label.group(1) or label.group(2))
+        for pattern in (TABLE_FIRST_CELL_RE, BOLD_KEY_RE):
+            for run in pattern.findall(line):
+                found |= _spellings(run)
+    return frozenset(found - {""})
+
+
+@cache
+def navigable_anchors_of(target: Path) -> frozenset[str]:
+    """Another page's navigable runs, read once per run; empty where it cannot be read."""
+    body = _readable(target)
+    return frozenset() if body is None else navigable_anchors(body)
+
+
+def section_numbers(body: str) -> frozenset[str]:
+    """Every section number this page's headings open with: `## 3.` and `### 1.6` alike.
+
+    The leading label `navigable_anchors` already reads, kept apart from it because a `§` reference
+    resolves against a number and never against a term.
+    """
+    found: set[str] = set()
+    for line, state, _ in fenced_lines(body):
+        if state != "outside" or (heading := atx_heading(line)) is None:
+            continue
+        if (label := LEADING_LABEL_RE.match(heading.strip())) is not None and label.group(2):
+            found.add(label.group(2))
+    return frozenset(found)
+
+
+@cache
+def section_numbers_of(target: Path) -> frozenset[str]:
+    """Another page's section numbers, read once per run; empty where it numbers nothing or cannot be read."""
+    body = _readable(target)
+    return frozenset() if body is None else section_numbers(body)
 
 
 @cache
@@ -1056,6 +1175,18 @@ def is_gitignored(token: str) -> bool:
     return token in gitignored((token,))
 
 
+@cache
+def repo_prefixes() -> tuple[str, ...]:
+    """Every directory at the tree's top level, trailing slash included.
+
+    Derived rather than typed: a typed list reaches a new root-level directory only after somebody
+    notices, and until then the resolver and `bare-path` are silent under it.
+    """
+    # The disk rather than a git listing, which drops a gitignored top-level folder a document still
+    # names -- and existence is asked separately, by `holds_path`.
+    return tuple(sorted(f"{entry.name}/" for entry in os.scandir(REPO_ROOT) if entry.is_dir() and entry.name != ".git"))
+
+
 def repo_path(token: str) -> str | None:
     """The repository path a backticked token names, or None, spelled as a git listing spells it.
 
@@ -1067,7 +1198,7 @@ def repo_path(token: str) -> str | None:
     # route segment a substring test refuses.
     if token.startswith("/") or any(set(part) == {"."} for part in token.split("/")):
         return None
-    if token.startswith(REPO_PREFIXES) and holds_path(token):
+    if token.startswith(repo_prefixes()) and holds_path(token):
         return token
     # A root arm rather than a prefix list, which names the next root-level file only after
     # something has cited it: COR-6 admits a bare backticked path wherever the file sits.
@@ -1114,7 +1245,7 @@ def defined_symbols(path: Path) -> frozenset[str] | None:
     Python alone, and by `ast`: a hand-written grammar answers a FAILING finding when it misses,
     and a stale citation costs less than a red gate on a correct one.
     """
-    if path.suffix != ".py" or (text := _read_text(path)[0]) is None:
+    if not has_suffix(path.name, (".py",)) or (text := _read_text(path)[0]) is None:
         return None
     return _python_names(text)
 

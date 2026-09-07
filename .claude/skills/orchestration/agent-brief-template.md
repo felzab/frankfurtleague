@@ -274,7 +274,7 @@ own proof — run the backend suite, expect it to pass — against a suite that 
 
 ## The auditor variant
 
-Two forms, and the agent type decides which (`SKILL.md` §3.5).
+Two forms, and the agent type decides which (`SKILL.md` §3).
 
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 
