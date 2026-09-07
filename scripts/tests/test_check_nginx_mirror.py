@@ -111,12 +111,20 @@ def test_an_empty_quoted_argument_is_still_an_argument(tmp_path):
     assert node["proxy_set_header"] == (("X-FL-Actor", ""),)
 
 
-def test_a_directive_written_twice_compares_as_its_arguments_sorted(tmp_path):
+def test_an_order_free_directive_compares_as_its_arguments_sorted(tmp_path):
     """Two files listing one header set in different orders configure the same edge."""
     first = read(tmp_path, "add_header A 1;\nadd_header B 2;\n", "first.conf")
     second = read(tmp_path, "add_header B 2;\nadd_header A 1;\n", "second.conf")
 
     assert mirror.diff(first, second) == []
+
+
+def test_a_rewrite_pair_written_in_opposite_orders_is_a_difference(tmp_path):
+    """nginx runs a rewrite in source order, so the file testing `^/a` first sends `/ab` elsewhere."""
+    first = read(tmp_path, "rewrite ^/a /x permanent;\nrewrite ^/ab /y permanent;\n", "first.conf")
+    second = read(tmp_path, "rewrite ^/ab /y permanent;\nrewrite ^/a /x permanent;\n", "second.conf")
+
+    assert [one.path for one in mirror.diff(first, second)] == ["rewrite"]
 
 
 def test_a_map_body_keeps_the_order_its_arms_are_written_in(tmp_path):
@@ -132,9 +140,9 @@ def test_a_map_body_keeps_the_order_its_arms_are_written_in(tmp_path):
 def test_an_include_is_refused(tmp_path):
     """It names a file this reader does not open, so the pair it compared was not the whole pair."""
     try:
-        read(tmp_path, "include /etc/nginx/extra.conf;\n")
+        read(tmp_path, "server_tokens off;\ninclude /etc/nginx/extra.conf;\n")
     except mirror.NginxSyntax as refusal:
-        assert re.search("names a file this reader does not open", str(refusal)), refusal
+        assert re.search(r"one\.conf:2: `include` names a file this reader does not open", str(refusal)), refusal
     else:
         raise AssertionError("an include parsed")
 

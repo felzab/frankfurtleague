@@ -104,6 +104,15 @@ def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     assert "/api/mail/zustellung" in details(findings)
 
 
+def test_a_handler_filed_under_another_spelling_of_route_ts_is_not_accounted_for():
+    """Next resolves `route.ts` and no other spelling of it, so a `Route.ts` answers no URL.
+
+    Vacuous on Linux, where the walk cannot see the file at all; on Windows, which resolves a
+    name case-blind, it is the whole trap.
+    """
+    assert routes.handlers(tree("/api/sweep", file="Route.ts")) == ()
+
+
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():
     """The gap the check exists for: a location naming the handler and metering nothing."""
     findings, _ = judged(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
@@ -142,29 +151,6 @@ def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypat
 
     assert findings == []
     assert used == {reason}
-
-
-def test_an_unmetered_exact_match_with_a_recorded_reason_is_accounted_for(monkeypatch):
-    """A webhook whose sender retries on a 429: a zone there costs delivery, so the rate is declined."""
-    reason = routes.Reason("/api/mail/zustellung", "the provider retries a 429 rather than dropping it", exact=True)
-    monkeypatch.setattr(routes, "REASONS", (reason,))
-    where = served(exact("/api/mail/zustellung", metered=False), CATCH_ALL)
-
-    findings, used = judged(tree("/api/mail/zustellung"), where)
-
-    assert findings == []
-    assert used == {reason}
-    assert routes.unused(used, where) == []
-
-
-def test_an_exact_reason_naming_a_path_no_location_holds_is_a_finding(monkeypatch):
-    """A recorded decision outliving the location it decided, which is the accounting rotting."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/mail/zustellung", "the provider retries a 429", exact=True),))
-
-    findings = routes.unused(set(), served(METERED, CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "no location declares that path" in details(findings)
 
 
 def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
@@ -208,7 +194,7 @@ def test_a_recorded_reason_naming_no_prefix_location_says_which_half_went(monkey
 
     findings = routes.unused(set(), served(CATCH_ALL))
 
-    assert "no location declares that path" in details(findings)
+    assert "no prefix location declares that path" in details(findings)
 
 
 def test_a_metered_exact_match_missing_its_twin_is_a_finding():
@@ -296,6 +282,19 @@ def test_a_location_inside_a_location_refuses():
         assert re.search("nested inside a location", str(refusal)), refusal
     else:
         raise AssertionError("a nested location was placed")
+
+
+def test_a_path_two_exact_matches_declare_refuses():
+    """nginx refuses the pair outright, and a reader keying on the path alone keeps one of them.
+
+    The unmetered block first, which is the order that reports the handler behind it metered.
+    """
+    try:
+        served(exact("/api/bewerbung", metered=False) + exact("/api/bewerbung"), CATCH_ALL)
+    except routes.NginxSyntax as refusal:
+        assert re.search(r"fixture\.conf:8: .* is declared again, first at fixture\.conf:4", str(refusal)), refusal
+    else:
+        raise AssertionError("one path declared by two exact matches was read")
 
 
 def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():

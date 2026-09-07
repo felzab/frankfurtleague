@@ -98,8 +98,8 @@ CLOUDFLARE_RANGES: Final[tuple[str, ...]] = (
     "2c0f:f248::/32",
 )
 
-# Sorted, because `scripts/checks/check_nginx_mirror.py :: directives` sorts a repeated directive's
-# argument lists and a pin is compared against what that produced.
+# Sorted, `set_real_ip_from` being one of `scripts/checks/check_nginx_mirror.py :: ORDER_FREE` and
+# a pin being compared against what that produced.
 LOCAL_TRUSTED: Final = tuple(sorted((one,) for one in CLOUDFLARE_RANGES))
 
 # In source order instead, `scripts/checks/check_nginx_mirror.py :: arms` keeping a `geo` body as
@@ -186,6 +186,11 @@ ESCAPES: Final = {"t": "\t", "r": "\r", "n": "\n"}
 # The blocks these two files use. Anything else opening a brace is refused rather than skipped: an
 # `if` or an `upstream` decides routing, and a reader that walks past one may not call the pair equal.
 BLOCKS: Final = ("server", "location", "map", "geo")
+
+# nginx applies these as a set rather than in sequence: it emits every `add_header`, tests
+# membership of the `set_real_ip_from` addresses, binds every `listen`, and applies every
+# `limit_req` on the level. Everything else compares in source order, where a `rewrite` runs.
+ORDER_FREE: Final = frozenset({"add_header", "listen", "limit_req", "set_real_ip_from"})
 
 LOCATION_PREFIX: Final = "location["
 
@@ -277,15 +282,19 @@ class Block:
 
 @dataclass(frozen=True)
 class Section:
-    """One nesting level, its directives kept in source order because a `map` body's arms are."""
+    """One nesting level, its directives in source order with the line each began on.
 
-    directives: tuple[tuple[str, tuple[str, ...]], ...]
+    The order because a `map` body's arms are ordered and rewrites run in it; the line because a
+    refusal has to name where it stands.
+    """
+
+    directives: tuple[tuple[str, tuple[str, ...], int], ...]
     blocks: tuple[Block, ...]
 
 
 def parse_section(tokens: list[Token], index: int, source: str, *, top: bool) -> tuple[Section, int]:
     """One level's directives and blocks, and the index of the first token after it."""
-    directives: list[tuple[str, tuple[str, ...]]] = []
+    directives: list[tuple[str, tuple[str, ...], int]] = []
     blocks: list[Block] = []
     words: list[Token] = []
     while index < len(tokens):
@@ -303,7 +312,7 @@ def parse_section(tokens: list[Token], index: int, source: str, *, top: bool) ->
         if not words:
             raise NginxSyntax(f"{source}:{token.line}: a bare {token.text!r} naming no directive")
         if token.text == ";":
-            directives.append((words[0].text, tuple(one.text for one in words[1:])))
+            directives.append((words[0].text, tuple(one.text for one in words[1:]), words[0].line))
         else:
             body, index = parse_section(tokens, index, source, top=False)
             blocks.append(Block(words[0].text, tuple(one.text for one in words[1:]), body, words[0].line))
@@ -316,17 +325,17 @@ def parse_section(tokens: list[Token], index: int, source: str, *, top: bool) ->
 
 
 def directives(section: Section, source: str) -> dict[str, tuple[tuple[str, ...], ...]]:
-    """Each directive name against its argument lists, sorted.
+    """Each directive name against its argument lists, in source order unless `ORDER_FREE` frees it.
 
-    nginx applies every `add_header` and `set_real_ip_from` in a block whatever their order, so a
-    reported order would be layout dressed as a difference.
+    nginx runs a `rewrite` in the order it is written, so a pair reordered between the two files
+    routes differently while still comparing equal.
     """
     collected: dict[str, list[tuple[str, ...]]] = {}
-    for name, args in section.directives:
+    for name, args, line in section.directives:
         if name == "include":
-            raise NginxSyntax(f"{source}: `include` names a file this reader does not open")
+            raise NginxSyntax(f"{source}:{line}: `include` names a file this reader does not open")
         collected.setdefault(name, []).append(args)
-    return {name: tuple(sorted(args)) for name, args in collected.items()}
+    return {name: tuple(sorted(args)) if name in ORDER_FREE else tuple(args) for name, args in collected.items()}
 
 
 def arms(block: Block, source: str) -> tuple[tuple[str, str], ...]:
@@ -334,7 +343,7 @@ def arms(block: Block, source: str) -> tuple[tuple[str, str], ...]:
     if block.body.blocks:
         raise NginxSyntax(f"{source}:{block.line}: a block inside `{block.name}`, which holds arms alone")
     entries: list[tuple[str, str]] = []
-    for name, args in block.body.directives:
+    for name, args, _ in block.body.directives:
         # `hostnames;` and `volatile;` change what the block means and carry no value to compare.
         if len(args) != 1:
             raise NginxSyntax(f"{source}:{block.line}: `{name}` in `{block.name}` is not a pattern and a value")

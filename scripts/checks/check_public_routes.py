@@ -53,13 +53,10 @@ NAMED: Final = "@"
 
 @dataclass(frozen=True)
 class Reason:
-    """One location this accounting takes in place of a metered exact match, and why."""
+    """One prefix location this accounting takes in place of a metered exact match, and why."""
 
     path: str
     why: str
-    # An exact match left unmetered on purpose -- a webhook whose sender retries on a 429, where a
-    # zone costs delivery. Recorded, because nothing tells that apart from a rate nobody wrote.
-    exact: bool = False
 
 
 # Every handler a prefix covers, named by that prefix rather than by itself: an allowlist of
@@ -263,7 +260,24 @@ def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
             f"{source}: {len(serving)} server blocks declare a location, and this reader cannot say which one answers a route handler"
         )
     block = serving[0].block or ()
-    return tuple(read_location(child, source) for child in block if child.name == "location")
+    found = tuple(read_location(child, source) for child in block if child.name == "location")
+    _declared_once(found, source)
+    return found
+
+
+def _declared_once(found: tuple[Location, ...], source: str) -> None:
+    """Refuse a path two exact matches declare, which nginx refuses outright and this reader keys on.
+
+    The meter is what a second one costs: an unmetered block first leaves the handler behind it
+    reading as metered.
+    """
+    first: dict[str, int] = {}
+    for one in found:
+        if not one.exact:
+            continue
+        if one.path in first:
+            raise NginxSyntax(f"{source}:{one.line}: the exact match {one.path!r} is declared again, first at {source}:{first[one.path]}")
+        first[one.path] = one.line
 
 
 def url_of(parts: tuple[str, ...], route: Path) -> tuple[str, str, bool]:
@@ -293,7 +307,9 @@ def handlers(app_dir: Path) -> tuple[Handler, ...]:
     if not app_dir.is_dir():
         raise RouteShape(f"{app_dir}: no App Router tree here, so no handler was accounted for")
     found: list[Handler] = []
-    for route in sorted(one for name in ROUTE_FILES for one in app_dir.rglob(name)):
+    # `route.*` rather than each name in turn: a literal pattern is answered from the pattern, and
+    # a case-blind filesystem hands back `route.ts` for a `Route.ts` Next does not resolve at all.
+    for route in sorted(one for one in app_dir.rglob("route.*") if one.name in ROUTE_FILES):
         url, head, dynamic = url_of(route.parent.relative_to(app_dir).parts, route)
         found.append(Handler(route, url, head, dynamic))
     return tuple(found)
@@ -305,10 +321,10 @@ def covering_prefix(head: str, found: tuple[Location, ...]) -> Location | None:
     return max(candidates, key=lambda one: len(one.path)) if candidates else None
 
 
-def declaring(path: str, *, exact: bool) -> Reason | None:
-    """The recorded reason for a location, or None where none is written."""
+def declaring(path: str) -> Reason | None:
+    """The recorded reason for a prefix location, or None where none is written."""
     for reason in REASONS:
-        if reason.path == path and reason.exact == exact:
+        if reason.path == path:
             return reason
     return None
 
@@ -323,6 +339,7 @@ def shown(path: Path, root: Path) -> str:
 
 def account(found: tuple[Handler, ...], where: tuple[Location, ...], root: Path, conf: str) -> tuple[list[Finding], set[Reason]]:
     """Every handler judged against the locations, and the reasons a handler was actually charged to."""
+    # One entry per path, `locations` having refused a second exact match on one.
     exact = {one.path: one for one in where if one.exact}
     findings: list[Finding] = []
     used: set[Reason] = set()
@@ -331,23 +348,19 @@ def account(found: tuple[Handler, ...], where: tuple[Location, ...], root: Path,
         match = None if handler.dynamic else exact.get(handler.url)
         if match is not None:
             if not match.metered:
-                reason = declaring(handler.url, exact=True)
-                if reason is None:
-                    findings.append(
-                        Finding(
-                            "fail",
-                            f"{name} answers {handler.url}, whose exact-match location carries no limit_req\n"
-                            f"{CONTINUATION}an exact match is where a rate is declared, and {conf} declares none there",
-                        )
+                findings.append(
+                    Finding(
+                        "fail",
+                        f"{name} answers {handler.url}, whose exact-match location carries no limit_req\n"
+                        f"{CONTINUATION}an exact match is where a rate is declared, and {conf} declares none there",
                     )
-                else:
-                    used.add(reason)
+                )
             continue
         prefix = covering_prefix(handler.head, where)
         if prefix is None:
             findings.append(_unreached(handler, name, conf))
             continue
-        reason = declaring(prefix.path, exact=False)
+        reason = declaring(prefix.path)
         if reason is None:
             findings.append(
                 Finding(
@@ -379,7 +392,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 def unused(used: set[Reason], where: tuple[Location, ...]) -> list[Finding]:
     """Every recorded reason that charged no handler -- the accounting rotting the other way."""
-    declared = {(one.path, one.exact) for one in where}
+    declared = {one.path for one in where if not one.exact}
     return [
         Finding(
             "fail",
@@ -387,8 +400,8 @@ def unused(used: set[Reason], where: tuple[Location, ...]) -> list[Finding]:
             f"{CONTINUATION}"
             + (
                 "no handler is charged to that location any more"
-                if (reason.path, reason.exact) in declared
-                else "no location declares that path any more"
+                if reason.path in declared
+                else "no prefix location declares that path any more"
             ),
         )
         for reason in REASONS

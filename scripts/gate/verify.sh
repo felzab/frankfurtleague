@@ -844,8 +844,8 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
   step "docs · every route handler is metered or accounted for"
   unit_join public_routes
   if run_checker collect "scripts/checks/check_public_routes.py" "The route accounting is out. Above is a handler whose exact match meters nothing, one no
-location names, a dynamic subtree no prefix covers, a prefix or an exact path charged to no
-recorded reason, a reason charging nothing, or a metered path with no trailing-slash twin." \
+location names, a dynamic subtree no prefix covers, a prefix charged to no recorded reason, a
+reason charging nothing, or a metered path with no trailing-slash twin." \
     unit_replay public_routes; then
     ok "every route handler is accounted for at the edge"
   else

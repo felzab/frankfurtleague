@@ -126,7 +126,8 @@ selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and doe
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`, which three handlers use. A
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
-as coverage.
+as coverage — a path two exact matches declare included, which nginx refuses outright and which
+would otherwise leave one of the two standing for both.
 
 **Exact-match binds the path nginx matched, not the URI FastAPI is handed**: nginx merges slashes
 and resolves dot segments before choosing a location, then `proxy_pass` with no URI part forwards
@@ -162,7 +163,12 @@ pattern and address class: no prefix split across two keys, no two prefixes shar
 reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
 2026-08-30). Both files carry the same map arms in the same order, held there by
 `scripts/checks/check_nginx_mirror.py` (§1.6), which compares arms rather than bytes: a body
-respaced on one side passes.
+respaced on one side passes. **Source order is the grain throughout**: a `map` or `geo` body's arms
+and every repeated directive compare in the order they are written, because nginx tests an arm and
+runs a `rewrite` that way. The four whose repetitions nginx applies as a set instead —
+`add_header`, `listen`, `limit_req` and `set_real_ip_from` — compare sorted, so one of those blocks
+rewritten in another order is layout rather than a difference
+(`scripts/checks/check_nginx_mirror.py :: ORDER_FREE`).
 
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the

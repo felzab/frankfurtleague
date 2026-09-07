@@ -8,7 +8,7 @@ found. The readers below hold no state and are shared whole -- a module spelling
 answers a question nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
-  Nothing here imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
+  No module under `scripts/tests/` imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
   Every fixture tree is registered here and removed by `pytest_sessionfinish`, inside the run rather than after it.
 """
 
