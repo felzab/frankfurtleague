@@ -138,15 +138,15 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    ### The finding format, one row each
 
-   | Field         | Holds                                                                                                           |
-   | ------------- | --------------------------------------------------------------------------------------------------------------- |
-   | **Where**     | `<file> :: <symbol or quoted fragment>`, cited as COR-6 asks                                                    |
-   | **Class**     | The class from the table above                                                                                  |
-   | **Quote**     | The offending text, verbatim and short. **A finding with no quote is deleted, not investigated**                |
-   | **Wrong how** | One sentence. For C4, the code that disproves it, cited                                                         |
-   | **Standing**  | `verified` (read against the code or the cited file) or `inferred` (judged from the text alone)                 |
-   | **Fix**       | What it should say. Never longer than what it replaces                                                          |
-   | **Verdict**   | `Wrong` (untrue today) · `Cold` (a stranger cannot act on it) · `Duplicate` · `Excess` · `Shape`, in that order |
+   | Field         | Holds                                                                                                                                              |
+   | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Where**     | `<file> :: <symbol or quoted fragment>` (COR-6), never a line number: fix mode reads this report in a later session, against a tree that has moved |
+   | **Class**     | The class from the table above                                                                                                                     |
+   | **Quote**     | The offending text, verbatim and short. **A finding with no quote is deleted, not investigated**                                                   |
+   | **Wrong how** | One sentence. For C4, the code that disproves it, cited                                                                                            |
+   | **Standing**  | `verified` (read against the code or the cited file) or `inferred` (judged from the text alone)                                                    |
+   | **Fix**       | What it should say. Never longer than what it replaces                                                                                             |
+   | **Verdict**   | `Wrong` (untrue today) · `Cold` (a stranger cannot act on it) · `Duplicate` · `Excess` · `Shape`, in that order                                    |
 
    ### Ground rules for every agent
    - **Read-only. The one file you may write is your own report.** No edit to any document or source
@@ -230,8 +230,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
 5. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/gate/verify.sh --docs --format`, push,
    open the draft pull request, hand over its link, and name the conclusion of every check that pull
-   request started — `gh pr checks <n>` lists them, `verify`'s run being one of several
-   (`.claude/CLAUDE.md` §2). Report the gate's actual exit code, and report
+   request started, `verify`'s run being one of several (`.claude/CLAUDE.md` §2). Report the gate's
+   actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is
    not a reduction, and a diffstat that excludes new untracked files overstates one.
 

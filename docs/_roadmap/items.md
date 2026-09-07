@@ -91,7 +91,6 @@ deliverable.
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                          | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
-| `4hvr-d9xa` | A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them               | Ops, gate, tests                                                            | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
 | `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                   | FE, Docs, bewerbungen                                                       | Open     |
@@ -99,17 +98,13 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                               | FE, BE, DB, Docs, spieler                                                   | Blocked  |
-| `9rcr-jd89` | The league table is proved over fixture documents the shipped validator would refuse                                          | BE, DB, Docs, tests, spiele, teams                                          | Open     |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
-| `9yx3-7yy4` | One self-check probe feeds its guard down a pipe and drops the status its neighbours read                                     | Ops, Docs, gate                                                             | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                           | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                      | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `c2fn-9rfe` | The gate's two run forms are documented as one output, and one interpreter short they are not                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
 | `cmth-3z5x` | A misspelled environment variable is dropped in silence, and the source that would refuse it is not the one a container reads | BE, Ops, edge                                                               | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
-| `dqek-fhjx` | `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it                                   | FE, BE, Docs, tests, admin, aktionen                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`   | FE, BE, Docs, bewerbungen, teams                                            | Standing |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                         | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range          | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -130,7 +125,6 @@ deliverable.
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                 | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                   | FE, Docs                                                                    | Open     |
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                       | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
-| `jbzy-d5g4` | Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them                               | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                   | BE, tests, saisons                                                          | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                               | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
@@ -138,7 +132,6 @@ deliverable.
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                            | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                  | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
-| `mgsh-v9c9` | The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing                              | Ops, Docs, gate, tests                                                      | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                | FE, BE, tests                                                               | Open     |
@@ -156,7 +149,6 @@ deliverable.
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                        | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                              | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                    | FE, BE, Docs, tests, saisons                                                | Open     |
-| `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                          | BE, DB, Docs, tests                                                         | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                               | FE, tests                                                                   | Open     |
@@ -643,51 +635,6 @@ actually changed.
 reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
 rather than on the shape of the update.
 
-### `4hvr-d9xa` · A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/lib/checker_kernel.py :: report_findings` takes its stream as a default argument**, so the
-object it prints into is whatever `sys.stdout` was when the kernel was first imported. A test that
-swaps `sys.stdout` afterwards — which is the whole of what pytest's `capsys` does — swaps something
-`report_findings` does not look at, and the findings land in the stream the import captured.
-
-**One call site already pays for this and says so.**
-`scripts/checks/check_gate_budget.py` names `stream=sys.stdout` at both of its calls, with the
-reason written at the line: the kernel binds its default at import, ahead of any redirect.
-`scripts/checks/check_pr_body.py` names `stream=sys.stderr` for its own reason, the workflow log
-being its only reader. Every other caller writes `report_findings(findings)` bare, which is the form
-that cannot be captured in process; `scripts/checks/check_docs.py` and
-`scripts/checks/check_commits.py` are not among either set, calling the kernel's reporter not at all.
-
-**The sharp failure is the assertion that passes for the wrong reason.** A test asserting that a
-checker printed a finding fails loudly on an empty capture, so it gets fixed; a test asserting that
-a checker printed **no** finding — the green case, which is the commonest thing to assert — passes
-over a capture that was always going to be empty, whatever the checker found. Nothing under
-`scripts/tests/` reads a finding's text today: every case that needs one drives the checker as a
-subprocess and reads its exit code, and `scripts/tests/test_check_nginx_mirror.py` reads a green
-run's summary line through `capsys` only because that line is printed by the checker's own `main`
-rather than through the kernel.
-
-**Why it matters.** A finding's text is a contract with whoever reads a red gate — it names the
-subject and the repair, and each checker's own `CONTINUATION` padding exists so a finding's second
-line lands under its first. That
-text is asserted by nothing, and the one route a test would reach for is closed in a way that gives
-no error.
-
-**Done when a checker's findings can be read by the test that ran it**, without each caller
-remembering to name a stream. Resolving the stream inside the function rather than in its signature
-is the smallest change and reaches every call site at once; the two call sites that name a stream
-deliberately keep naming it, and the reason at `check_gate_budget.py`'s line moves or goes with the
-change that makes it untrue (CUR-2).
-
-**Not verified.** No test was written to demonstrate the empty capture; the binding is read off the
-signature and the workaround off the comment at `check_gate_budget.py`'s call. Whether pytest's
-file-descriptor capture would show the output anyway on a given platform was not established, and
-the claim above is about `capsys` alone.
-
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
 | Tags               | Status   | Depends on |
@@ -973,63 +920,6 @@ the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
 `fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
 It is not a migration.
 
-### `9rcr-jd89` · The league table is proved over fixture documents the shipped validator would refuse
-
-| Tags                               | Status | Depends on |
-| ---------------------------------- | ------ | ---------- |
-| BE, DB, Docs, tests, spiele, teams | Open   | —          |
-
-**`fl_backend/tests/api/conftest.py :: _spiel` writes a `spiele` document that
-`fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` would not accept.** It carries the
-season, the phase, the number, the `ergebnis`, the `sonderereignis` and the two embedded sides, and
-leaves out most of what that collection's `required` list names; each embedded side is written
-without the `shorthand` the team field requires. The rows go in because
-`fl_backend/tests/conftest.py :: mongo_database` is unconstrained and because
-`fl_backend/tests/api/conftest.py :: league` drops each collection before seeding it, which takes any
-validator with it.
-
-**Being unconstrained is deliberate, and the recorded reason covers the other corpus rather than this
-one.** `mongo_database`'s own docstring gives it: `fl_backend/tests/api/test_spieler_memberships_read.py :: squads`
-seeds a squad row predating `is_nachgetragen`, which the validator requires, so a constrained
-database could not hold the legacy shape those cases exist to read. That argument is about one absent
-key on `saison_spieler`. The `spiele` corpus diverges far more widely, and no line says so.
-
-**A second divergence on the same fixture is deliberate, and it is the one that shows what a stated
-one looks like.** `fl_backend/tests/api/conftest.py :: league` writes a `statistik` sub-document onto
-a `saison_teams` row, carrying figures no match in the corpus produces, so that any read of a stored
-copy fails rather than merely disagreeing — the decoy behind `.claude/CLAUDE.md` §7's **table**
-clause, which is why production stores no such key at all. That collection's validator declares no
-`statistik` property and, carrying no `additionalProperties` bar, refuses it no more than it declares
-it. What separates the two cases is not the validator but the comment: the decoy is written at its
-own line with the reason, and the `spiele` rows are not.
-
-**What is proved over it is the part that matters.**
-`fl_backend/app/api/teams/services.py :: build_team_pipeline` — the whole of `Statistik`, which is
-derived on every read and stored nowhere — is exercised against these rows by
-`fl_backend/tests/api/test_teams_pipeline_execution.py`, and
-`fl_backend/app/api/spiele/services.py :: build_spiele_pipeline` against them by
-`fl_backend/tests/api/test_spiele_pipeline_execution.py`. Both walk documents whose absent keys the
-product guarantees are present, so a stage added on a key the fixture omits is proved by nothing, and
-a stage that only works because a key is absent passes here and fails on a real season.
-
-**Why the divergence is invisible rather than merely present.** Nothing compares the fixture's shape
-to the validator's, and nothing has to: the fixture writes into a database with no validator on it,
-so the corpus can drift from the stored shape indefinitely without a single case going red. The
-squad row's one missing key was noticed because a case was written **about** it; these were not.
-
-**Done when the fixture's rows are a shape production could store, or the divergence is stated at the
-fixture in the terms `mongo_database`'s docstring already uses for the squad row.** The first is
-cheap and is the one to weigh: the validator's `required` list is the specification, and a nullable
-key written null satisfies it. One divergence has to survive either way, and it is recorded at
-`fl_backend/tests/api/conftest.py :: _spiel` already — goals and `ergebnis` are supplied separately,
-where production derives one from the other, which is what the hand-edited shape is for. The
-validator permits that pair, so meeting it costs the corpus nothing it is there to hold.
-
-**Not verified.** No document was put through the validator; the refusal is read off the `spiele`
-entry in `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` against what
-`fl_backend/tests/api/conftest.py :: _spiel` writes, and no attempt was made to
-establish which pipeline stage would behave differently on a complete document.
-
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
 | Tags                 | Status | Depends on |
@@ -1053,45 +943,6 @@ block's declared token count, which `scripts/checks/docs_gate/scheme.py` already
 gate — so that the two blocks are compared with each other rather than with a literal.
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
-
-### `9yx3-7yy4` · One self-check probe feeds its guard down a pipe and drops the status its neighbours read
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/gate/selfcheck.sh` runs `.claude/hooks/guard-branch-bash.sh` with git hidden from `PATH`
-by piping the payload into it**, discarding its standard error and swallowing its exit status, then
-grading the hook by looking for a deny in what it printed. Its two neighbours do the opposite and say
-why: `scripts/gate/selfcheck.sh :: unit_probe` and `:: prepush_drive` each write the payload to a
-file and feed the hook from it, because under `pipefail` a hook that decides before it reads standard
-input is graded by the writer's SIGPIPE rather than by its own answer.
-
-**The status is the half that matters here**, and `unit_probe` states the rule at its own line: every
-hook path that decides anything exits 0 with JSON on stdout, so the status is read ahead of the
-verdict — a guard that prints a refusal and then dies is a crash rather than the refusal it printed.
-This probe reads the verdict alone. A guard-branch-bash that denied correctly and then failed on its
-way out would be reported as a pass, and its standard error, which is where such a failure says
-anything, goes to `/dev/null`.
-
-**Sitting outside the probe table is right and is not the defect.** The case needs a stripped `PATH`,
-and the table runs every hook in the runner's own environment; the comment above it says exactly
-that. What travelled with the case out of the table is the payload feed and the grading, neither of
-which has anything to do with `PATH`.
-
-**Why it matters.** This is the one case standing behind the claim that the branch guard refuses when
-it cannot know which branch it is on — the arm that protects `main` on a machine where git is missing
-from the hook's environment. A probe that cannot tell a working refusal from a crashing one is worth
-what it can distinguish.
-
-**Done when the case is fed from a file and graded on its status before its output, with standard
-error kept** — the shape `unit_probe` already carries, applied where it stands rather than by moving
-it into the table it is deliberately outside. No new probe is owed: this is the same refusal, read
-properly.
-
-**Not verified.** The hook was not driven with git hidden; the grading is read off the case as it
-stands and the rule off the two comments beside it, and no crash-after-refusal was staged to show the
-pass.
 
 ### `anh6-etwn` · States the domain declaration reaches from neither of its two lists
 
@@ -1202,45 +1053,6 @@ outside a page-owned editor — so what moves is the payloads rather than where 
 today, so the window is a single administrator's page visit; a second writer arrives in the season
 plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
 meet inside.
-
-### `c2fn-9rfe` · The gate's two run forms are documented as one output, and one interpreter short they are not
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**[`docs/ops/spec.md`](../ops/spec.md) §1.6 states byte-identity between a pooled run and a
-`--serial` one as a green run's property, on everything but the run's own timing.** That is one
-exception, and the code has a second. `scripts/gate/verify.sh` probes for an interpreter that can
-import `scripts/lib/checker_kernel.py` only where the pooled form is in play; with none, it takes the
-serial path and prints a line naming the floor and what a run one at a time costs. `--serial` sets
-both pool switches off before that probe, so the line exists in one form's output and can never
-appear in the other's.
-
-**So on a machine below the floor the forms differ by exactly that line**, and every other line
-agrees — the fallback runs the same bodies in the same order, which is what makes the sentence nearly
-true and the exception easy to miss.
-
-**The case that measures the identity cannot cover it, and does not pretend to.**
-`scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
-asserts that a worker actually started before it compares anything, so on such a machine it reddens
-with "no pool ran" rather than passing over two identical serial runs — the guard works, and its
-failure names the fixture rather than the claim. The module keeps that machine out of reach by
-putting an interpreter on the fixture's `PATH` as `python3`, so the case never meets the arm the
-sheet is silent about.
-
-**Why the missing sentence costs something.** A machine with no interpreter at the floor does not
-merely print one extra line: several scopes skip their checkers there, so the run proves less as well
-as reading differently. A reader holding §1.6's claim and finding the two outputs unequal has nothing
-to check it against and will look for a defect in the gate.
-
-**Done when the second exception is written where the first one is** — a clause in §1.6 beside the
-timing carve-out, or a row in that sheet's §4 Known-open, whichever the sentence's shape takes. The
-line itself is not the thing to change: it is printed where the scopes are named rather than where
-the pool would have started, deliberately, so that a run nobody can account for does not happen.
-
-**Not verified.** No run was driven on a machine below the floor; the divergence is read off the
-switch order in `scripts/gate/verify.sh` and off the arm that prints the fallback line.
 
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 
@@ -1380,59 +1192,6 @@ figures predate this scheme, which moved them toward the floor without reaching 
 
 **Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
 rule stops being prose.
-
-### `dqek-fhjx` · `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it
-
-| Tags                                 | Status | Depends on |
-| ------------------------------------ | ------ | ---------- |
-| FE, BE, Docs, tests, admin, aktionen | Open   | —          |
-
-**The action log shows `Vorgangsnummer` at four sites and the glossary defines it at none.**
-`fl_frontend/src/features/aktionen/components/collections/AdminAktionenTable.tsx` labels the row's
-copy action with it and raises a toast confirming the copy;
-`fl_frontend/src/features/aktionen/constants.ts` offers it in the search placeholder beside an email
-address; `fl_frontend/src/features/admin/constants.ts` explains it in the page's hint list; and
-`fl_frontend/src/core/toastTitles.test.ts` holds the toast title in the register it asserts the
-product against. OUT-6 puts the domain vocabulary in `docs/glossary.md`, and
-[`.claude/CLAUDE.md`](../../.claude/CLAUDE.md) tells a session to open a term's entry before first
-writing that term — so this is the case where there is nothing to open.
-
-**What the word names is not what its parts say.** The copy action copies `aktion.trace_id`, declared
-on `fl_backend/app/api/aktionen/schemas.py :: FLAktion`, and that value is the W3C trace id nginx
-mints per request and discards a client's own version of
-([`docs/logging/spec.md`](../logging/spec.md) §1.1). It is therefore thirty-two lowercase hex
-characters and not a number in any sense a reader of `-nummer` would expect: nothing about it sorts,
-increments, or survives being retyped from a screenshot with a `0`/`O` confusion, and anything built
-around it — a search hint, an input mask, a validation — is built against a hex string.
-
-**The spelling is the second half of the trap.** Code spells the field `trace_id` and the word
-`Vorgangsnummer` appears in German copy alone, so a search for the term finds four strings and never
-the field, and a search for the field finds no German. OUT-6 already fixes the shape for this — where
-the code and the domain spell one thing differently, the spellings share an entry — which is what
-makes the missing entry cost more here than a missing definition usually does.
-
-**What the entry has to carry beyond the gloss.** That the id gathers a save's rows because a fan-out
-shares the trace of the write that caused it, which the `Aktion` entry states and this one cites
-rather than repeats. That the same id has a second life outside the page: in the log stream it names
-every line of that request across all three surfaces, so "search for it" means one thing to an
-administrator on the action log and another to whoever reads the container logs, and the page's own
-promise is narrower still (`fau5-jtph`). And that the log rows an id names are expired twelve months
-after the write they recorded, so a `Vorgangsnummer` quoted in a support request has a shelf life —
-[`docs/backend/spec.md`](../backend/spec.md) I119, which reaches every stamped row rather than a
-redacted one.
-
-**Where it goes.** `Attributes and values`, as a two-spelling heading of the form
-`mietpreis` · `default_mietpreis` already uses. The alternative is the
-`Terms that are not domain vocabulary` table, on the argument that the word describes a request rather
-than anything the league does — but that table carries no `Trap` field, and the trap is the whole
-reason the term costs anything, so it is the shape that would lose what the entry is for.
-
-**Done when** `docs/glossary.md` carries the entry and it passes gate check `glossary-entry`.
-
-**Not verified.** No administrator was asked what they take the word to mean, so the reading that
-`-nummer` misleads is an argument from the shape of the value rather than an observed mistake. That
-no other tracked file defines the term is a repository-wide search for it in the working tree, which
-several agents were editing when it was taken.
 
 ### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
 
@@ -2439,43 +2198,6 @@ needing a bearer token or not, where which key it wants is a router-level depend
 does not carry — so a check would have to derive the backend half from the routers themselves and the
 frontend half from the call sites, and **that derivation, not the comparison, is the work**.
 
-### `jbzy-d5g4` · Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| BE, tests | Open   | —          |
-
-**`fl_backend/tests/api/test_admin_guard.py :: MINIMUM_EXPECTED_MUTATIONS` and
-`fl_backend/tests/api/test_actor_binding.py :: MINIMUM_EXPECTED_MUTATIONS` are one number written
-twice**, each carrying a comment that names the other module and says the two move together. Nothing
-reads both: each module asserts its own floor against its own inventory, and no third file mentions
-the name at all.
-
-**The two inventories are reached by different routes, which is why the pair exists and also what
-makes the claim hard to keep.** `test_admin_guard.py :: MUTATIONS` is cut from
-`:: PUBLISHED_OPERATIONS`, the operations `APP.openapi()` carries, with the path stripped of its
-convertors and the method lower-cased; `test_actor_binding.py :: MUTATIONS` is cut from
-`:: ROUTES_BY_OPERATION`, the routes Starlette has mounted, spelled as the router wrote them and
-split on `fl_backend/app/core/security.py :: SAFE_METHODS`. A published surface and a mounted one
-are different questions, so two floors are worth having; what no code holds is that they are the
-same floor.
-
-**Why it matters.** Each floor is a margin under the inventory the module can see rather than a
-count of it, and each comment states that margin as a fact about the current tree. Raise one as
-endpoints arrive and the other keeps standing at a number the tree has outgrown — the module still
-passes, its floor now proving less than the comment says it proves, and the sentence claiming the
-pair moves together becomes the thing that stops the next reader checking.
-
-**Done when the pairing is held by something other than two sentences** — one constant both modules
-read, or a case that fails where the two differ. A shared constant belongs beside the fixtures in
-`fl_backend/tests/api/conftest.py` rather than imported by one module out of the other, which would
-make the second module's collection depend on the first. Neither inventory may be derived from the
-other in the same change: each floor is worth exactly what its own independent walk is worth.
-
-**Not verified.** Neither module was run; the claim that nothing else reads the name is a
-repository-wide search for it, and the claim that the two `MUTATIONS` sets hold the same operations
-today is read off the two derivations rather than measured.
-
 ### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
 
 | Tags               | Status | Depends on |
@@ -2755,46 +2477,6 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### `mgsh-v9c9` · The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/tests/conftest.py :: lift_function` finds a function's opening line by its own text and
-its closing line by the first line below that is a brace alone at the same indent.** A shell function
-whose body sits on its opening line has no closing line of its own, so the search walks past the
-end of the function and stops at the next function's closing brace. The lift then returns the
-one-line function plus every line down to that brace, and the assertion beside it — which fires only
-where no closing line is found at all — passes.
-
-**Both scripts it is pointed at are full of the shape.** `scripts/gate/verify.sh` writes
-`step_worker`, `cleanup` and many of its `do_*` units on one line, and `scripts/gate/selfcheck.sh`
-does the same at the margin and indented inside a step. Every call site names the function it wants,
-so today's cases lift multi-line functions and the defect is latent — until somebody asks for a name
-that happens to be a one-liner, and is handed a fixture shell carrying whatever stood between.
-
-**One call site has already met it and worked around it by hand.**
-`scripts/tests/test_db_run_guard.py` writes `step_worker`'s body into its fixture literally, with a
-comment naming the reason: the function is one line and the helper reads a function by its closing
-line. That hand copy is the thing `lift_function`'s own docstring exists to prevent — a copy in a
-test passes while the gate's own copy regresses — and nothing holds it to
-`scripts/gate/verify.sh :: step_worker`. It is not a clause broken: `.claude/rules/ops.md`'s
-**miniatures** clause refuses reimplementing a gate function the test **could** lift, and this helper
-is what decides whether it could.
-
-**Done when a one-line function is either lifted whole or refused by name.** Refusing is the cheaper
-half and the one that cannot go wrong quietly: an assertion that says which function it could not
-read sends the caller to the hand copy deliberately rather than by discovery. Lifting it as well is
-worth more, because it takes the hand copy out of the tree. **No self-check step is owed here** —
-`.claude/CLAUDE.md` §7's **probes** clause refuses a probe no failure needs alone, and this failure is
-not in a guard's refusals. A case under `scripts/tests/` is a different thing and is warranted by the
-silent over-lift itself, which is a failure a case can drive: lift a one-liner from a fixture script
-and compare what comes back.
-
-**Not verified.** The over-lift is read off the helper rather than driven; no case was written, and
-no existing call site was shown to be taking a wrong lift today.
-
 ### `nadg-bnjb` · Every admin write states its success twice, and the second sentence cannot render
 
 | Tags                               | Status | Depends on |
@@ -3054,7 +2736,7 @@ learn of it: whoever typed the id is long gone, the failure repeats every pass u
 log, and the two clocks that season owes stand still meanwhile.
 
 **The refusal that suggests itself first is already refused.**
-`.claude/rules/backend.md :: db` bars taking a `$jsonSchema` validator
+`.claude/rules/backend.md :: db`, the clause `widen one past types and enums`, bars taking a `$jsonSchema` validator
 past types and enums, so a pattern on `saisons._id` is not available and naming it as the fix sends
 the next reader at a ratified clause. The write path is where a shape rule can live: the create
 payload already strips the value and measures it, and a season id is read as a year everywhere it is
@@ -3491,28 +3173,6 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
-
-### `sspn-uje4` · The worked examples' before passages still stand in the code they illustrate cutting
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| BE, DB, Docs, tests | Open   | —          |
-
-**Four passages `docs/_standard/worked-examples.md` shows as the before of a cut are still the tree's
-text.** `fl_backend/app/core/crud.py :: patch_one_in_db` keeps the second docstring paragraph the COR-2
-example removes and the call-site comment the example rewrites;
-`fl_backend/tests/core/test_crud.py :: test_the_log_is_given_the_image_the_update_itself_replaced` keeps
-the docstring the example deletes; `.claude/commands/docs/audit-pr.md` keeps the orientation sentence
-the COR-15 example cuts; `fl_backend/app/shared/schemas/bounds.py` keeps the three-sentence block the
-INC-9 example moves.
-
-**The examples are exempt from the currency rule by their subject**, a before passage being a quotation
-of a defect, so nothing on the page is wrong. What is wrong is that the page promises real passages and
-the repairs it walks a reader through were never made, so a reader who checks the tree finds the defect
-standing beside the lesson.
-
-**Done when** each of the four sites carries the example's after, or a deliberate stay is recorded at the
-site with its reason, and the example that shows it says which.
 
 ### `suuz-dged` · Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
 

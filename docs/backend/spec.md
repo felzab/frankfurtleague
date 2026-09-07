@@ -458,6 +458,10 @@ and cannot suffer same-basename collisions.
 
 #### Conventions
 
+- **`tests/api/` is split by concern, never one module per entity**, each module named for its
+  subject and its concern — a read, a refusal, an execution, a pipeline — because an entity's
+  refusals and its pipelines are proved by different fixtures, and one module per entity grows past
+  what a reader can hold.
 - **Fixtures are factories, not constants.** Every fixture returns a callable producing a fresh valid
   payload; a test calls it with the one field it wants to break, so each case states exactly what makes
   it invalid and no two cases can leak state through a shared mutable dict

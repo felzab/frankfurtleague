@@ -451,10 +451,11 @@ and which no two runs of the same work share. The pair is held to that by
 `scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
 and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
-per stream. **The second exception is a machine below the checkers' floor**
+per stream. **The other exception is a machine below the checkers' floor**
 (`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`): the pooled form probes for an interpreter that can
-import the kernel and, finding none, prints a line naming the floor before falling back to the serial
-path, while `--serial` sets both pool switches off ahead of that probe and can never print it
+import the kernel and, finding none, falls back to the serial path and prints a line naming the floor
+where the scopes are announced, while `--serial` sets both pool switches off ahead of that probe and
+can never print it
 (`scripts/gate/verify.sh :: POOL_FALLBACK`). The pair of cases above cannot see that machine —
 `scripts/tests/test_gate_forms.py` puts an interpreter on the fixture's `PATH` as `python3` — so the
 two forms differ there by exactly that one line.

@@ -37,8 +37,9 @@ stop.
 6. **Fix in place, on this branch**, under [`audit.md`](audit.md#fix-mode) and the ground rules it
    carries for resolving a duplicate. Each fix is no longer than what it replaces. The slice adds:
 
-   - **A defect that predates this branch and sits outside the subset goes to `/roadmap:add`**, not
-     into the slice.
+   - **A defect that predates this branch and sits outside the subset is fixed on this branch or
+     raised as a question, never filed in silence** (`.claude/CLAUDE.md` §3), and not folded into
+     the slice.
 
 7. **Close with the gate**, reporting its actual exit code:
 
