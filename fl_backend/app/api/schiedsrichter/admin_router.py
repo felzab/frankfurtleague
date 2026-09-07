@@ -240,10 +240,10 @@ async def anonymise_schiedsrichter(
             session=session,
         )
 
-        # A `$set` rewriting nothing joins no write set, so a `PATCH` re-entering the details raises
-        # no conflict to retry on. Re-read OUTSIDE the session, where that PATCH is visible and this
-        # write is not (I53) -- hence only on the no-op path.
+        # Only on the no-op path: a `$set` rewriting nothing joins no write set, so a re-entry
+        # outside the API raises no conflict to retry on.
         if rewrites_nothing:
+            # Read OUTSIDE the session, where that re-entry is visible and this write is not (I53).
             refuse(find_anonymisation_refusal(re_entered=await an_anonymisable_value_stands(None)))
 
         return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))

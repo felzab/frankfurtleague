@@ -34,10 +34,10 @@ function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldEr
   if (error.serverErrorCode === "REQ-ANONYMISE-002") {
     return {
       error: buildRefusal({
-        reason: "Bei diesem Schiedsrichter wurden Name und Kontaktdaten gelöscht, und dieses Speichern würde sie wieder eintragen",
-        repair:
-          "Lade die Seite neu, damit wieder „anonym“ und leere Kontaktfelder im Formular stehen; eine versehentlich gelöschte Angabe " +
-          "lässt sich nur aus einer Sicherung der letzten Tage zurückholen",
+        reason: "Name und Kontaktdaten dieser Person wurden gelöscht, und dieses Speichern würde sie wieder eintragen",
+        // No route back is named here: the deletion panel on this same page already refuses one
+        // (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx`).
+        repair: "Lade die Seite neu",
       }),
     };
   }

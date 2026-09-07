@@ -261,7 +261,11 @@ A_NAMED_ROW: dict[str, Any] = {"kontakt": dict(KONTAKT[SCHIEDSRICHTER_OID]), "na
 
 
 class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
-    """The payload alone refuses the ordinary rename this endpoint exists for, and the row alone freezes an anonymised referee whose fee still has to be editable while they take fixtures."""
+    """Each half alone gets a case wrong.
+
+    The payload alone refuses the ordinary rename this endpoint exists for, and the row alone freezes
+    an anonymised referee whose fee must stay editable while they take fixtures.
+    """
 
     def test_a_name_put_back_onto_an_anonymised_row_is_refused(self):
         refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(name=REFEREE_NAMES[SCHIEDSRICHTER_OID]))
@@ -719,7 +723,7 @@ async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hoo
 class TestAReEntryLandingMidAnonymisationIsRefused:
     """The referee is CLEARED already, so the second run's `$set` rewrites nothing.
 
-    A rewrite of nothing joins no write set, so a re-entry raises no conflict and no retry judges it.
+    A rewrite of nothing joins no write set, so nothing inside the transaction judges a re-entry.
     Only the read outside the session refuses this.
     """
 
@@ -803,7 +807,10 @@ class TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused:
 
     @pytest.mark.db
     def test_the_closed_seasons_fixture_keeps_the_label_too(self, mongo_replica_set_url: str):
-        """A referee's fan-out carries no `past` bound where a club's stops (`docs/backend/spec.md :: I13`), so the archive is what an unrefused edit re-names."""
+        """The archive is what an unrefused edit re-names.
+
+        A referee's fan-out carries no `past` bound where a club's stops (`docs/backend/spec.md :: I13`).
+        """
 
         _, _, archived = after_editing_the_details_back_in(mongo_replica_set_url)
 
