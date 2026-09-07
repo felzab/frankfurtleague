@@ -98,6 +98,12 @@
 # start over eight registrations is most of the figure, and a Linux runner starts node faster than
 # this one does. It sits inside the floor the `scripts` row carries.
 #
+# `ops` gained a check: `check_nginx_mirror.py` costs 0.141-0.167 s over eight interleaved runs in
+# two spreads, each returning exit 0, measured locally on 2026-09-07 on a sixteen-core machine
+# carrying twelve agent sessions on one tree, so both ends are upper bounds reading that contention
+# as much as the check. It sits far inside the floor the `ops` row carries, and the ceiling it
+# answers to is that row's budget.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

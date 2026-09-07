@@ -131,7 +131,8 @@ published ranges could never be, being every customer's egress rather than this 
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address per file, held to the first by nothing (§4, db2a-9qu3).
+address per file, held to the first by nothing: the mirror compares the two files, never a file
+against itself (§1.6).
 
 **Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
 `limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
@@ -147,8 +148,9 @@ these strings at all, nginx stripping a group's leading zeros.
 `nginx:1.31-alpine` answering with what it rendered, driven across every zero/non-zero group
 pattern and address class: no prefix split across two keys, no two prefixes shared one, no address
 reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
-2026-08-30). Both files carry byte-identical map bodies, though nothing enforces that (§4,
-db2a-9qu3).
+2026-08-30). Both files carry the same map arms in the same order, held there by
+`scripts/checks/check_nginx_mirror.py` (§1.6), which compares arms rather than bytes: a body
+respaced on one side passes.
 
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the
@@ -171,8 +173,8 @@ What decides that number, and what it risks, is at the zone in `nginx/prod.conf`
 **`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
 narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
 makes one directive count differently in the two files**: `nginx/local.conf` serves HTTP/1.1, so
-the byte-identical line bounds whole connections locally, and nothing compares the pair (§4,
-db2a-9qu3).
+the identical line bounds whole connections locally. The mirror holds the two lines equal (§1.6)
+and cannot see that they mean different things.
 
 **Two public writes cap their bodies against the server block's `20M`** — the application form's at
 `64k`, the confirmation link's at `8k`. The `64k` cap alone is measured, 2026-08-30: a
@@ -242,7 +244,8 @@ would render unstyled. Every route this application declares carries none.
 files.** Each of the two nginx files declares it at server level, in the liveness location and in
 `location /_next/static/`, because `add_header` in a location replaces the inherited set (I2);
 `scripts/checks/check_csp_identity.py` holds each file's three to each other and fails any further
-block that sets a header without restating the policy, while the across-file pair is §4's open item.
+block that sets a header without restating the policy, while the pair across the two files is
+`scripts/checks/check_nginx_mirror.py`'s (§1.6).
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
@@ -511,7 +514,7 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                  | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                          | pnpm install                                                                                                                                 |
 | `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                            | pnpm install                                                                                                                                 |
-| `--ops`      | both compose files parse; the local stack mirrors production; each nginx policy agrees with itself; nginx accepts `prod.conf`; its access line carries no credential                                                      | Docker, and an interpreter at the checkers' floor for the two python checks                                                                  |
+| `--ops`      | both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; its access line carries no credential                 | Docker, and an interpreter at the checkers' floor for the three python checks                                                                |
 | `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, against the two real `mongod`s the xdist controller starts (`docs/backend/spec.md` §1.6)                              | venv + Docker                                                                                                                                |
 | `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                    | Docker                                                                                                                                       |
 
@@ -829,7 +832,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                               |
 | I11  | The three API keys are 64 characters and match on both sides                                                                                                                  | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                                                       |
 | I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                                                |
-| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | unenforced — `nginx -t` reads no location it parses (§1.6), nothing compares `nginx/local.conf` against production's (§4, db2a-9qu3), and no test requests a backend path                                                       |
+| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — `scripts/checks/check_nginx_mirror.py` holds the two files' `location` sets equal (§1.6); `nginx -t` reads no location and no test requests a backend path                                                             |
 | I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                                                         |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                   |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                 |
@@ -889,7 +892,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
 | The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume and the `.local-db/` copy                                                            |
-| No gate scope COMPARES `nginx/local.conf` against production's    | Open — its header claims production's routing and headers, and nothing compares the pair. The parse half is closed: `nginx/redaction_test.sh` serves `local.conf` itself (§1.6)                    |
 | A guard the database tier stays green without                     | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | A call site's key tier is held to its route by nothing            | Open — omitting `fl_frontend/src/core/api.ts :: apiClient`'s tier is loud, but over-declaring one succeeds identically, and `fl_backend/openapi.json` flattens every tier to one scheme            |

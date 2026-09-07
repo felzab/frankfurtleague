@@ -102,7 +102,6 @@ deliverable.
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
-| `db2a-9qu3` | The local edge claims to mirror production, and nothing reads either half of the claim                                                                            | Ops, Docs, gate, edge                                                       | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                                                | FE, Ops, gate, admin                                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`                                       | FE, BE, Docs, bewerbungen, teams                                            | Standing |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                                                         | BE, Ops, gate, ci, tests                                                    | Open     |
@@ -1014,45 +1013,6 @@ becomes wrong on the day the register entry lands.
 **Done when** who holds the source copyright is decided, `NOTICE` says so, and, if the answer
 changes at registration, the condition is written where whoever files the registration meets it.
 
-### `db2a-9qu3` · The local edge claims to mirror production, and nothing reads either half of the claim
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| Ops, Docs, gate, edge | Open   | —          |
-
-**`nginx/local.conf` opens by claiming the same routing, rate limits and security headers as
-`nginx/prod.conf`, and its `/api/admin/` block says it must stay identical to production's or the
-local stack cannot catch a routing mistake — and nothing reads either sentence.**
-`scripts/gate/verify.sh` runs `nginx -t` in its ops scope against `nginx/prod.conf` alone. The local
-file is parsed — `nginx/redaction_test.sh` serves it in the pinned image in that same scope, so a
-typo in it fails the gate — but what stands unread is the comparison.
-`scripts/checks/check_compose_mirror.py` compares `docker-compose.yml` against
-`docker-compose.local.yml` and stops there, the two nginx files appearing in it only as the mount
-paths `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS` names as an allowed difference: the checker knows both files exist, knows
-they deliberately differ, and reads neither. **The argument for the check that exists is the argument
-for the missing one, word for word** — the compose comparison reasons at the line that both files
-parse whatever they say, so nothing else holds the local stack to production's shape and a setting
-production gains and local does not is a difference local can never catch.
-
-**What the gap costs is the value of every local verification.** `.claude/CLAUDE.md` §5 requires a
-browser check against the local stack rather than a dev server, on the grounds that `next dev`
-exercises neither the standalone build nor nginx — which holds only while the nginx the local stack
-mounts is the nginx production runs. The two directions fail differently: a block present in
-production and missing locally shows up at the desk as a route that works on the server, and a block
-present locally and missing in production shows up in production. **The two files agree today**,
-which is what makes this a guard rather than a repair.
-
-**A byte comparison is the wrong answer, and the deliberate differences are why**:
-`nginx/local.conf`'s own header names them — no TLS, no `www` redirect, a 421 catch-all where
-production rejects the handshake. What `scripts/checks/check_compose_mirror.py` does instead is parse
-both files, compare at a declared grain and carry the allowed differences as a list with a reason on
-each; nginx has no parser in this toolchain, so the equivalent is a directive-level reader for the
-subset the two files actually use — `location` paths, `limit_req_zone` names and rates, `proxy_pass`
-targets, the `add_header` set — built against the same kernel the other checkers share. **A second
-`nginx -t` over `local.conf` is a different question and a much cheaper one**: it proves the file
-parses and proves nothing about the pair. Both are worth having, and that one is the half that could
-ship on its own.
-
 ### `dq3b-mgpq` · Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there
 
 | Tags                 | Status | Depends on |
@@ -1613,7 +1573,7 @@ fence inside a markdown one and proves the prose after the outer block is still 
 so what arrives is `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` rows of the newest history
 and nothing else. The endpoint is not the constraint:
 `fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` already takes `collection`, `operation` and
-`correlation_id` and composes each into its query. Nothing sends them.
+`trace_id` and composes each into its query. Nothing sends them.
 
 **Search and the facets then run over the rows that arrived.**
 `fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS` reads every option's members off

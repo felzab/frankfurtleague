@@ -1088,6 +1088,19 @@ the site and the site it disagrees with, both inside one file." \
     ok "every declaration in a file matches that file's first"
   fi
 
+  step "ops · the local edge still mirrors production"
+
+  if [[ -z "$OPS_PY" ]]; then
+    skip "no python found, so the edge files were not compared"
+  elif (( OPS_FLOOR == 3 )); then
+    skip "this python is below the checkers' floor, so the edge files were not compared"
+  else
+    run_checker stop "scripts/checks/check_nginx_mirror.py" "The two edge configurations have drifted. The findings above name
+the block and the directive, and the declared deltas are the checker's own list." \
+      "$OPS_PY" scripts/checks/check_nginx_mirror.py
+    ok "every difference between the two edge files is a declared one"
+  fi
+
   step "ops · nginx accepts prod.conf"
   # `nginx -t` loads the certificates and resolves every proxy_pass host, hence the throwaway pair
   # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a
