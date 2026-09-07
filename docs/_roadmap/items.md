@@ -79,6 +79,7 @@ deliverable.
 
 | Token       | Item                                                                                                                                                              | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `2cff-xeqr` | Three metadata routes serve public URLs the route accounting cannot see                                                                                           | FE, Ops, Docs, gate, tests, edge                                            | Open     |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                                                         | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                                                           | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                                                            | FE                                                                          | Open     |
@@ -89,19 +90,27 @@ deliverable.
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                                                        | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                                                   | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | The gate saturates the machine, then spends its whole tail unable to use it                                                                                       | BE, Ops, gate, tests                                                        | Open     |
+| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package                                                  | BE, ci, tests, versions                                                     | Standing |
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                                                              | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
+| `4hvr-d9xa` | A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them                                                   | Ops, gate, tests                                                            | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                                                    | FE, Docs, versions                                                          | Standing |
+| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite                                          | FE, Docs, versions                                                          | Open     |
 | `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                                                       | FE, Docs, bewerbungen                                                       | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states                                                   | FE, Docs, tests                                                             | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                                                        | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                                                     | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                                                   | FE, BE, DB, Docs, spieler                                                   | Blocked  |
+| `9rcr-jd89` | The league table is proved over fixture documents the shipped validator would refuse                                                                              | BE, DB, Docs, tests, spiele, teams                                          | Open     |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
+| `9yx3-7yy4` | One self-check probe feeds its guard down a pipe and drops the status its neighbours read                                                                         | Ops, Docs, gate                                                             | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `c2fn-9rfe` | The gate's two run forms are documented as one output, and one interpreter short they are not                                                                     | Ops, Docs, gate, tests                                                      | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
+| `cmth-3z5x` | A misspelled environment variable is dropped in silence, and the source that would refuse it is not the one a container reads                                     | BE, Ops, edge                                                               | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                                                | FE, Ops, gate, admin                                                        | Open     |
+| `dqek-fhjx` | `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it                                                                       | FE, BE, Docs, tests, admin, aktionen                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`                                       | FE, BE, Docs, bewerbungen, teams                                            | Standing |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                                                             | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range                                              | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -109,8 +118,10 @@ deliverable.
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                                                   | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                                                          | Ops, gate, tests                                                            | Open     |
+| `f99h-bnyc` | The plaintext redirect server answers a port nothing outside the compose network can dial                                                                         | Ops, Docs, gate, edge                                                       | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                                                     | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                                                            | BE, tests, saisons                                                          | Open     |
+| `g489-8ptk` | The frontend job's median has risen in two steps, and neither lands on a merge that names a cause                                                                 | FE, Ops, gate, ci, versions                                                 | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                                                                  | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                                                              | BE, DB, Docs, bewerbungen                                                   | Open     |
@@ -120,6 +131,7 @@ deliverable.
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                                                     | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                                                       | FE, Docs                                                                    | Open     |
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                                                           | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
+| `jbzy-d5g4` | Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them                                                                   | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                                                       | BE, tests, saisons                                                          | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                                                   | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                                                    | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
@@ -127,6 +139,7 @@ deliverable.
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                                                                | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                                                      | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                                                              | FE, Docs                                                                    | Open     |
+| `mgsh-v9c9` | The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing                                                                  | Ops, Docs, gate, tests                                                      | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                                                                 | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                                                                  | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                                                    | FE, BE, tests                                                               | Open     |
@@ -134,12 +147,13 @@ deliverable.
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                                                                | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                                                      | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                                                 | FE, BE, spiele                                                              | Open     |
+| `pndk-uquh` | Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it                                                             | Ops, Docs, gate, tests                                                      | Open     |
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                                                         | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                                                       | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                                                        | BE, DB, tests, saisons                                                      | Standing |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                                                         | FE, Docs, tests                                                             | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `qw6j-scru` | The style directive concedes more than the reason recorded for it needs                                                                                           | FE, Ops, Docs, edge                                                         | Open     |
+| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                                                      | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                                                                  | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
@@ -173,6 +187,45 @@ deliverable.
 | `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                                                           | Ops, gate, tests                                                            | Open     |
 
 ## The items
+
+### `2cff-xeqr` · Three metadata routes serve public URLs the route accounting cannot see
+
+| Tags                             | Status | Depends on |
+| -------------------------------- | ------ | ---------- |
+| FE, Ops, Docs, gate, tests, edge | Open   | —          |
+
+**`scripts/checks/check_public_routes.py` accounts for every file whose name is one of
+`:: ROUTE_FILES` and for nothing else**, so `fl_frontend/src/app/sitemap.ts`,
+`fl_frontend/src/app/robots.ts` and `fl_frontend/src/app/manifest.ts` are outside its population.
+Each answers a public URL — `/robots.txt` names `/sitemap.xml` as the crawl's entry point — and each
+is served by `nginx/prod.conf :: location /`, the prefix that carries no `limit_req`. The checker's
+own header states the rule these three fall outside of: a handler is a public URL from the moment
+the file exists.
+
+**Whether they warrant naming at the edge is the open question, and the cheap answer looks wrong from
+both sides.** All three export a function that reads no request and no live value —
+`fl_frontend/src/app/sitemap.ts` pins its own `CONTENT_LAST_MODIFIED` rather than calling
+`new Date()`, for the reason written at that line — so Next prerenders them and a flood costs the
+origin a static response rather than a render or a backend call. That argues for leaving them
+unmetered. What it does not answer is the accounting: the check is total on purpose, because no
+predicate picks out the handlers that need a location, and a population that silently omits a file
+kind is one nobody can read a green run off.
+
+**Why it matters more than the three URLs do.** The gap is in the reader rather than in the edge, so
+it is not these three files that are at risk: it is the next metadata route added under
+`fl_frontend/src/app/`, which will serve a URL and pass the accounting without anyone deciding
+anything. A route file gets a decision; a metadata file gets silence.
+
+**Done when the accounting reaches every file kind that answers a URL, or records in its own words
+which kinds it does not read and why that is safe.** The second is the smaller change and the one to
+weigh first, `scripts/checks/check_public_routes.py :: REASONS` being where a covering location is
+already recorded rather than inferred. Either way the edge's own inventory in
+[`docs/ops/spec.md`](../ops/spec.md) §1.3 lists the locations and their meters, and whichever answer
+lands is what that section then says about these three.
+
+**Not verified.** No request was made against the running stack: the URLs are read off the route
+files and off `fl_frontend/src/app/robots.test.ts`, and the absence of a matching location is a read
+of every `location` in `nginx/prod.conf` as it stands on this branch.
 
 ### `2qae-xcut` · A rule declared multi-document reads only the row its own endpoint writes
 
@@ -547,6 +600,54 @@ going and record when each worker's process first appears, which separates a sco
 one that started late — a per-scope duration cannot, a section reported at two seconds being two
 seconds of work at the end of a wait the closing table never names.
 
+### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
+
+| Tags                    | Status   | Depends on |
+| ----------------------- | -------- | ---------- |
+| BE, ci, tests, versions | Standing | —          |
+
+**Importing starlette's test client emits one `DeprecationWarning` naming `anyio.abc.BlockingPortal`,
+and the import is what emits it rather than any test.** That module binds its portal-factory type at
+module level from the alias, and the installed anyio serves the name through a deprecation hook that
+warns and redirects to `anyio.from_thread.BlockingPortal`. `from __future__ import annotations` at the
+top of the starlette module does not defer the access — it defers annotations, and this is a plain
+assignment — which is the reading most likely to talk somebody out of checking. Verified 2026-09-07 by
+importing the module in this backend's virtualenv with warnings recorded: one warning, raised from
+that assignment. Both packages move without us.
+
+**What the removal of that alias costs is four collection errors.**
+`fl_backend/tests/api/test_actor_binding.py`, `fl_backend/tests/api/test_admin_guard.py`,
+`fl_backend/tests/api/test_bewerbungen_read.py` and `fl_backend/tests/api/test_error_responses.py`
+each import `TestClient` from `fastapi.testclient`, which is the same starlette module. The failure
+would land where a module is collected rather than in an assertion anybody can read as a product
+defect — the default backend tier turning red at once, naming a package this repository never asked
+for.
+
+**Neither package is named where a version bump would be noticed.** `fl_backend/pyproject.toml`
+declares starlette by a floor rather than a pin, and anyio not at all: it arrives as a transitive
+dependency in `fl_backend/uv.lock`. `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend`
+monthly, minor and patch grouped and a major on its own, and only one of the two halves is a
+dependency it can name. The starlette release that stops touching the alias would be proposed by
+name; the anyio release that removes it is proposed by nothing, and reaches the tree inside another
+bump's lockfile resolution.
+
+**The line at fault is starlette's, which is why this stands rather than being planned.** Nothing here
+can move the access, and filtering the warning would put a suppression in front of the one signal
+saying the alias is still being touched.
+
+**Watch for** an anyio major arriving transitively — inside a grouped starlette bump's lockfile
+resolution — while the resolved starlette still binds that name. A major is its own pull request
+where the ecosystem can name the package, which is exactly what makes this one silent: the diff a
+reader opens says starlette, and the line that breaks the tier is anyio's.
+The repair at that moment is the starlette floor, raised to a release whose test client
+reads `anyio.from_thread`, and a lock refresh — never a pin holding anyio back, which would hold every
+other consumer of it back too.
+
+**Not verified.** No anyio release notes were read, so nothing here says when the alias is scheduled
+to go, or whether it is. The warning was counted over a single import in a fresh interpreter rather
+than over a full suite run, where what keeps it to one is the warning filter's own per-location
+deduplication.
+
 ### `4enu-5xx9` · The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied
 
 | Tags                                       | Status | Depends on |
@@ -578,6 +679,51 @@ actually changed.
 **Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
 reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
 rather than on the shape of the update.
+
+### `4hvr-d9xa` · A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/lib/checker_kernel.py :: report_findings` takes its stream as a default argument**, so the
+object it prints into is whatever `sys.stdout` was when the kernel was first imported. A test that
+swaps `sys.stdout` afterwards — which is the whole of what pytest's `capsys` does — swaps something
+`report_findings` does not look at, and the findings land in the stream the import captured.
+
+**One call site already pays for this and says so.**
+`scripts/checks/check_gate_budget.py` names `stream=sys.stdout` at both of its calls, with the
+reason written at the line: the kernel binds its default at import, ahead of any redirect.
+`scripts/checks/check_pr_body.py` names `stream=sys.stderr` for its own reason, the workflow log
+being its only reader. Every other caller writes `report_findings(findings)` bare, which is the form
+that cannot be captured in process; `scripts/checks/check_docs.py` and
+`scripts/checks/check_commits.py` are not among either set, calling the kernel's reporter not at all.
+
+**The sharp failure is the assertion that passes for the wrong reason.** A test asserting that a
+checker printed a finding fails loudly on an empty capture, so it gets fixed; a test asserting that
+a checker printed **no** finding — the green case, which is the commonest thing to assert — passes
+over a capture that was always going to be empty, whatever the checker found. Nothing under
+`scripts/tests/` reads a finding's text today: every case that needs one drives the checker as a
+subprocess and reads its exit code, and `scripts/tests/test_check_nginx_mirror.py` reads a green
+run's summary line through `capsys` only because that line is printed by the checker's own `main`
+rather than through the kernel.
+
+**Why it matters.** A finding's text is a contract with whoever reads a red gate — it names the
+subject and the repair, and each checker's own `CONTINUATION` padding exists so a finding's second
+line lands under its first. That
+text is asserted by nothing, and the one route a test would reach for is closed in a way that gives
+no error.
+
+**Done when a checker's findings can be read by the test that ran it**, without each caller
+remembering to name a stream. Resolving the stream inside the function rather than in its signature
+is the smallest change and reaches every call site at once; the two call sites that name a stream
+deliberately keep naming it, and the reason at `check_gate_budget.py`'s line moves or goes with the
+change that makes it untrue (CUR-2).
+
+**Not verified.** No test was written to demonstrate the empty capture; the binding is read off the
+signature and the workaround off the comment at `check_gate_budget.py`'s call. Whether pytest's
+file-descriptor capture would show the output anyway on a given platform was not established, and
+the claim above is about `capsys` alone.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
@@ -624,6 +770,83 @@ against the configuration, no move shipping while the walk holds it, and a plugi
 carry a changed rule default under it, which [`docs/frontend/spec.md`](../frontend/spec.md) is where
 it lands. The move also re-answers the cache key and threading decision
 [`docs/ops/spec.md`](../ops/spec.md) §1.6 records.
+
+### `6m3r-xpcu` · Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite
+
+| Tags               | Status | Depends on |
+| ------------------ | ------ | ---------- |
+| FE, Docs, versions | Open   | —          |
+
+**The criteria are mine, and they are five.** Free, open source preferred. Performant, with CSS load
+time and JavaScript bundle size above everything else. Easy to work with, with no odd behaviours. At
+least as good-looking as HeroUI. The same KINDS of components — not a drop-in, and a different
+foundation is welcome. **A narrower Content-Security-Policy is not among them:** a strict `style-src`
+refuses a served `style` attribute and a served `<style>` element alike, and every candidate
+positions its overlays through the CSSOM, which that directive does not govern, exactly as HeroUI
+does — so a switch buys nothing there, and one of them costs something (`qw6j-scru`).
+
+**"At least as good-looking" is mostly this repository's own work, which is what makes a candidate's
+demo a poor predictor.** `fl_frontend/src/app/globals.css` imports HeroUI's per-component stylesheets
+one at a time — its own comment gives the reason, that HeroUI's single entry pulls in everything and
+Tailwind does not tree-shake a dependency's CSS — then remaps HeroUI's colour tokens onto the site's,
+sets a fluid type scale outside Tailwind's own namespace, and writes rules against HeroUI's class
+names, the toast block [`docs/frontend/spec.md`](../frontend/spec.md) I23 governs among them. A
+candidate inherits the tokens and replaces the structure, so the look lands where this repository puts
+it rather than where the candidate's demo does.
+
+**The inventory is what no ranking may skip, and every HeroUI component here is a styled
+`react-aria-components` component.** The pieces with no counterpart in a packaged candidate are a
+short list: the segmented `DateField` and `TimeField`, the `Calendar` behind `DatePicker`, the
+collection `Table`, `ScrollShadow`, `useOverlayState`, the `toast` queue, `InputGroup`, `CloseButton`
+and `Chip`. `Button`, `FieldError`, `Label` and `TextField` carry the most call sites by a wide
+margin, so the migration's bulk is the plainest part of it.
+
+**The figures that predict anything are this build's, and no published package size is one of them.**
+Measured 2026-09-07 over `fl_frontend/.next`: the main stylesheet is 39,655 B gzipped, the JavaScript
+every route loads is 131,315 B gzipped, and the whole chunk set is 1,054,553 B gzipped. HeroUI,
+`react-aria-components` and Mantine all tree-shake per import and a copy-in kit ships only the files
+copied, so a registry's number describes a package nobody installs whole. **A candidate's figure
+exists only once a branch has built this site with it.**
+
+**Ranked as the reading supports, with what each costs.** Read 2026-09-07 from the npm registry, from
+each project's repository and from each project's own documentation; all of that moves without us.
+
+1. **Keep `react-aria-components` and replace the styled layer** — Intent UI first, with Untitled UI
+   React's free tier or shadcn/ui's `--base aria` as the alternatives. All MIT, all copy-in, all on
+   Tailwind v4 and React 19. Accessibility and internationalisation stay react-aria's, and every call
+   site keeps its component vocabulary. The bill is import re-pointing across every file importing
+   `@heroui/react`, the HeroUI-only pieces above re-homed, the HeroUI half of `globals.css` moved into
+   owned component files, and [`docs/frontend/spec.md`](../frontend/spec.md) §1.11 and I23 rewritten.
+2. **Mantine 9.6** (MIT, 9.6.0 published 2026-08-31, the lowest open-issue count of any candidate).
+   The widest packaged coverage there is, dates and notifications included. Its styling engine is its
+   own and sits beside Tailwind rather than on it, and its provider emits theme variables as a runtime
+   `<style>` element, which `style-src 'self'` refuses exactly as it refuses a served attribute — so
+   this one candidate makes `qw6j-scru` harder rather than neutral. Every call site changes shape: the
+   form model, the collection APIs, `@internationalized/date` values, and the router and locale
+   providers. A rewrite.
+3. **shadcn/ui on Base UI** (MIT, the largest ecosystem by far, eight house styles at init). Base UI
+   ships no date picker, no calendar, no time field and no collection table; shadcn fills the first
+   three with react-day-picker and a native time input, and the fourth with plain markup. The same
+   rewrite as Mantine, with weaker stand-ins for four inventory items.
+
+**Set aside, each against the criterion it fails.** Chakra UI v3 and PrimeReact's styled mode both
+build their stylesheet at runtime, which is the CSS-load-time criterion. Radix Themes has no date,
+toast, accordion, number or combobox component, and its own documentation warns about mixing with
+Tailwind. Flowbite React and Headless UI each leave four or more inventory items to a second source.
+daisyUI is a stylesheet rather than a component set, so every keyboard and ARIA behaviour would be
+written here, and its script-free dropdown rests on CSS anchor positioning, which
+`fl_frontend/package.json`'s browserslist floor does not reach. Ark UI's styled layer is Panda CSS, a
+second styling engine beside Tailwind. Catalyst is paid.
+
+**Done when** a branch has built this site on the leading candidate and its stylesheet and chunk
+figures stand beside the ones above, and I have judged the look over the local stack. Nothing here
+decides that: the ranking is what the reading supports, and the build is what settles it.
+
+**Not verified.** No candidate has been built into this site, so every figure above describes what
+ships today and nothing about what would. Per-component coverage was confirmed on the leading kit's
+pickers, table and overlays and taken from index pages for the rest; whether Mantine can emit its
+theme variables without the runtime `<style>` element was not established, and it is the one open
+question that could move Mantine's rank.
 
 ### `6mch-qx2c` · A retention sweep that never runs looks exactly like one that found nothing
 
@@ -787,6 +1010,63 @@ the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
 `fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
 It is not a migration.
 
+### `9rcr-jd89` · The league table is proved over fixture documents the shipped validator would refuse
+
+| Tags                               | Status | Depends on |
+| ---------------------------------- | ------ | ---------- |
+| BE, DB, Docs, tests, spiele, teams | Open   | —          |
+
+**`fl_backend/tests/api/conftest.py :: _spiel` writes a `spiele` document that
+`fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` would not accept.** It carries the
+season, the phase, the number, the `ergebnis`, the `sonderereignis` and the two embedded sides, and
+leaves out most of what that collection's `required` list names; each embedded side is written
+without the `shorthand` the team field requires. The rows go in because
+`fl_backend/tests/conftest.py :: mongo_database` is unconstrained and because
+`fl_backend/tests/api/conftest.py :: league` drops each collection before seeding it, which takes any
+validator with it.
+
+**Being unconstrained is deliberate, and the recorded reason covers the other corpus rather than this
+one.** `mongo_database`'s own docstring gives it: `fl_backend/tests/api/test_spieler_memberships_read.py :: squads`
+seeds a squad row predating `is_nachgetragen`, which the validator requires, so a constrained
+database could not hold the legacy shape those cases exist to read. That argument is about one absent
+key on `saison_spieler`. The `spiele` corpus diverges far more widely, and no line says so.
+
+**A second divergence on the same fixture is deliberate, and it is the one that shows what a stated
+one looks like.** `fl_backend/tests/api/conftest.py :: league` writes a `statistik` sub-document onto
+a `saison_teams` row, carrying figures no match in the corpus produces, so that any read of a stored
+copy fails rather than merely disagreeing — the decoy behind `.claude/CLAUDE.md` §7's **table**
+clause, which is why production stores no such key at all. That collection's validator declares no
+`statistik` property and, carrying no `additionalProperties` bar, refuses it no more than it declares
+it. What separates the two cases is not the validator but the comment: the decoy is written at its
+own line with the reason, and the `spiele` rows are not.
+
+**What is proved over it is the part that matters.**
+`fl_backend/app/api/teams/services.py :: build_team_pipeline` — the whole of `Statistik`, which is
+derived on every read and stored nowhere — is exercised against these rows by
+`fl_backend/tests/api/test_teams_pipeline_execution.py`, and
+`fl_backend/app/api/spiele/services.py :: build_spiele_pipeline` against them by
+`fl_backend/tests/api/test_spiele_pipeline_execution.py`. Both walk documents whose absent keys the
+product guarantees are present, so a stage added on a key the fixture omits is proved by nothing, and
+a stage that only works because a key is absent passes here and fails on a real season.
+
+**Why the divergence is invisible rather than merely present.** Nothing compares the fixture's shape
+to the validator's, and nothing has to: the fixture writes into a database with no validator on it,
+so the corpus can drift from the stored shape indefinitely without a single case going red. The
+squad row's one missing key was noticed because a case was written **about** it; these were not.
+
+**Done when the fixture's rows are a shape production could store, or the divergence is stated at the
+fixture in the terms `mongo_database`'s docstring already uses for the squad row.** The first is
+cheap and is the one to weigh: the validator's `required` list is the specification, and a nullable
+key written null satisfies it. One divergence has to survive either way, and it is recorded at
+`fl_backend/tests/api/conftest.py :: _spiel` already — goals and `ergebnis` are supplied separately,
+where production derives one from the other, which is what the hand-edited shape is for. The
+validator permits that pair, so meeting it costs the corpus nothing it is there to hold.
+
+**Not verified.** No document was put through the validator; the refusal is read off the `spiele`
+entry in `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` against what
+`fl_backend/tests/api/conftest.py :: _spiel` writes, and no attempt was made to
+establish which pipeline stage would behave differently on a complete document.
+
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
 | Tags                 | Status | Depends on |
@@ -810,6 +1090,45 @@ block's declared token count, which `scripts/checks/docs_gate/scheme.py` already
 gate — so that the two blocks are compared with each other rather than with a literal.
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
+
+### `9yx3-7yy4` · One self-check probe feeds its guard down a pipe and drops the status its neighbours read
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+**`scripts/gate/selfcheck.sh` runs `.claude/hooks/guard-branch-bash.sh` with git hidden from `PATH`
+by piping the payload into it**, discarding its standard error and swallowing its exit status, then
+grading the hook by looking for a deny in what it printed. Its two neighbours do the opposite and say
+why: `scripts/gate/selfcheck.sh :: unit_probe` and `:: prepush_drive` each write the payload to a
+file and feed the hook from it, because under `pipefail` a hook that decides before it reads standard
+input is graded by the writer's SIGPIPE rather than by its own answer.
+
+**The status is the half that matters here**, and `unit_probe` states the rule at its own line: every
+hook path that decides anything exits 0 with JSON on stdout, so the status is read ahead of the
+verdict — a guard that prints a refusal and then dies is a crash rather than the refusal it printed.
+This probe reads the verdict alone. A guard-branch-bash that denied correctly and then failed on its
+way out would be reported as a pass, and its standard error, which is where such a failure says
+anything, goes to `/dev/null`.
+
+**Sitting outside the probe table is right and is not the defect.** The case needs a stripped `PATH`,
+and the table runs every hook in the runner's own environment; the comment above it says exactly
+that. What travelled with the case out of the table is the payload feed and the grading, neither of
+which has anything to do with `PATH`.
+
+**Why it matters.** This is the one case standing behind the claim that the branch guard refuses when
+it cannot know which branch it is on — the arm that protects `main` on a machine where git is missing
+from the hook's environment. A probe that cannot tell a working refusal from a crashing one is worth
+what it can distinguish.
+
+**Done when the case is fed from a file and graded on its status before its output, with standard
+error kept** — the shape `unit_probe` already carries, applied where it stands rather than by moving
+it into the table it is deliberately outside. No new probe is owed: this is the same refusal, read
+properly.
+
+**Not verified.** The hook was not driven with git hidden; the grading is read off the case as it
+stands and the rule off the two comments beside it, and no crash-after-refusal was staged to show the
+pass.
 
 ### `anh6-etwn` · States the domain declaration reaches from neither of its two lists
 
@@ -921,6 +1240,45 @@ today, so the window is a single administrator's page visit; a second writer arr
 plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
 meet inside.
 
+### `c2fn-9rfe` · The gate's two run forms are documented as one output, and one interpreter short they are not
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**[`docs/ops/spec.md`](../ops/spec.md) §1.6 states byte-identity between a pooled run and a
+`--serial` one as a green run's property, on everything but the run's own timing.** That is one
+exception, and the code has a second. `scripts/gate/verify.sh` probes for an interpreter that can
+import `scripts/lib/checker_kernel.py` only where the pooled form is in play; with none, it takes the
+serial path and prints a line naming the floor and what a run one at a time costs. `--serial` sets
+both pool switches off before that probe, so the line exists in one form's output and can never
+appear in the other's.
+
+**So on a machine below the floor the forms differ by exactly that line**, and every other line
+agrees — the fallback runs the same bodies in the same order, which is what makes the sentence nearly
+true and the exception easy to miss.
+
+**The case that measures the identity cannot cover it, and does not pretend to.**
+`scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
+asserts that a worker actually started before it compares anything, so on such a machine it reddens
+with "no pool ran" rather than passing over two identical serial runs — the guard works, and its
+failure names the fixture rather than the claim. The module keeps that machine out of reach by
+putting an interpreter on the fixture's `PATH` as `python3`, so the case never meets the arm the
+sheet is silent about.
+
+**Why the missing sentence costs something.** A machine with no interpreter at the floor does not
+merely print one extra line: several scopes skip their checkers there, so the run proves less as well
+as reading differently. A reader holding §1.6's claim and finding the two outputs unequal has nothing
+to check it against and will look for a defect in the gate.
+
+**Done when the second exception is written where the first one is** — a clause in §1.6 beside the
+timing carve-out, or a row in that sheet's §4 Known-open, whichever the sentence's shape takes. The
+line itself is not the thing to change: it is printed where the scopes are named rather than where
+the pool would have started, deliberately, so that a run nobody can account for does not happen.
+
+**Not verified.** No run was driven on a machine below the floor; the divergence is read off the
+switch order in `scripts/gate/verify.sh` and off the arm that prints the fallback line.
+
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 
 | Tags            | Status | Depends on |
@@ -956,6 +1314,55 @@ against it.
 shown at, and a check refuses one that does — extending the roster's existing sums rather than
 adding a second reader of the same markup, with the bound recorded where a session adding a column
 meets it (`docs/frontend/spec.md`).
+
+### `cmth-3z5x` · A misspelled environment variable is dropped in silence, and the source that would refuse it is not the one a container reads
+
+| Tags          | Status | Depends on |
+| ------------- | ------ | ---------- |
+| BE, Ops, edge | Open   | —          |
+
+**`fl_backend/app/core/config.py :: BackendConfig` sets `extra="ignore"`, so a name the model does
+not declare is dropped and the field's default applies.** `DB_MAX_CONNECTION` written for
+`db_max_connections` leaves the pool at its default and produces no message anywhere. The startup
+gate beside it, `:: get_config`, refuses a malformed VALUE and names the variables it refused, and
+`scripts/ops/deploy.sh` closes on a hint telling whoever deployed that the container which printed
+that refusal names the file to fix — which is the one repair a misspelling never asks for. For a file
+restored by hand a typed name is as likely to go wrong as a typed value, and only one of the two is
+caught.
+
+**The objection to `extra="forbid"` does not hold, and it is the objection anyone reaching for the
+flag will raise.** The worry is that the process environment carries hundreds of unrelated names and
+that forbidding extras would refuse the boot over any of them. It would not: pydantic-settings builds
+a source's data by walking the settings class's own fields, so `EnvSettingsSource` offers the model
+nothing but declared names. `DotEnvSettingsSource` is the only source that adds a file's unmatched
+keys, which it does whether extras are allowed or not, leaving pydantic to refuse them. Read
+2026-09-07 from the installed pydantic-settings; that package moves without us.
+
+**What stops `forbid` being the whole fix is that no container reads that file as a file.**
+`docker-compose.yml` and `docker-compose.local.yml` both hand it to the backend service through
+`env_file:`, which puts its contents in the process environment, and `fl_backend/.dockerignore` keeps
+it out of the image altogether — so at the working directory `fl_backend/Dockerfile` sets there is
+nothing for the dotenv source to read, and `forbid` would refuse nothing on a deploy. Where it does
+bite is a run from `fl_backend/` on a developer's machine, which is a different population from the
+restore this is about.
+
+**Best practice is both, each named for the population it covers, and the reason they are not one
+mechanism twice.** `extra="forbid"` is right on its own terms — a settings class that silently drops
+a key it was handed cannot tell a typo from an omission — and it costs nothing, because no source
+offers it an undeclared name that was not written in a file. It reaches the developer's run and no
+deploy. What reaches the deploy is a comparison of the environment file's names against
+`BackendConfig`'s declared fields, run on the server before the stack comes up, the server being the
+only place that file is read as a file. Deciding to catch neither is also an answer, and it is the one
+standing today by default rather than by argument.
+
+**Done when** `extra` carries the setting it should with the reason at the line, and a name check runs
+where the file lives — or when a line records why one of the two is not worth its cost.
+
+**Not verified.** No container was inspected: the split between the two sources is read from the
+installed package's own code, and the claim that no environment file reaches the image is read from
+`fl_backend/Dockerfile` and `fl_backend/.dockerignore` rather than from a built image. Whether any
+name in the file today is already being dropped was not measured, because reading that file is
+refused here.
 
 ### `cvub-qx5s` · `NOTICE` asserts the source copyright of a natural person while an association publishes the site
 
@@ -1010,6 +1417,59 @@ figures predate this scheme, which moved them toward the floor without reaching 
 
 **Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
 rule stops being prose.
+
+### `dqek-fhjx` · `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it
+
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| FE, BE, Docs, tests, admin, aktionen | Open   | —          |
+
+**The action log shows `Vorgangsnummer` at four sites and the glossary defines it at none.**
+`fl_frontend/src/features/aktionen/components/collections/AdminAktionenTable.tsx` labels the row's
+copy action with it and raises a toast confirming the copy;
+`fl_frontend/src/features/aktionen/constants.ts` offers it in the search placeholder beside an email
+address; `fl_frontend/src/features/admin/constants.ts` explains it in the page's hint list; and
+`fl_frontend/src/core/toastTitles.test.ts` holds the toast title in the register it asserts the
+product against. OUT-6 puts the domain vocabulary in `docs/glossary.md`, and
+[`.claude/CLAUDE.md`](../../.claude/CLAUDE.md) tells a session to open a term's entry before first
+writing that term — so this is the case where there is nothing to open.
+
+**What the word names is not what its parts say.** The copy action copies `aktion.trace_id`, declared
+on `fl_backend/app/api/aktionen/schemas.py :: FLAktion`, and that value is the W3C trace id nginx
+mints per request and discards a client's own version of
+([`docs/logging/spec.md`](../logging/spec.md) §1.1). It is therefore thirty-two lowercase hex
+characters and not a number in any sense a reader of `-nummer` would expect: nothing about it sorts,
+increments, or survives being retyped from a screenshot with a `0`/`O` confusion, and anything built
+around it — a search hint, an input mask, a validation — is built against a hex string.
+
+**The spelling is the second half of the trap.** Code spells the field `trace_id` and the word
+`Vorgangsnummer` appears in German copy alone, so a search for the term finds four strings and never
+the field, and a search for the field finds no German. OUT-6 already fixes the shape for this — where
+the code and the domain spell one thing differently, the spellings share an entry — which is what
+makes the missing entry cost more here than a missing definition usually does.
+
+**What the entry has to carry beyond the gloss.** That the id gathers a save's rows because a fan-out
+shares the trace of the write that caused it, which the `Aktion` entry states and this one cites
+rather than repeats. That the same id has a second life outside the page: in the log stream it names
+every line of that request across all three surfaces, so "search for it" means one thing to an
+administrator on the action log and another to whoever reads the container logs, and the page's own
+promise is narrower still (`fau5-jtph`). And that the log rows an id names are expired twelve months
+after the write they recorded, so a `Vorgangsnummer` quoted in a support request has a shelf life —
+[`docs/backend/spec.md`](../backend/spec.md) I119, which reaches every stamped row rather than a
+redacted one.
+
+**Where it goes.** `Attributes and values`, as a two-spelling heading of the form
+`mietpreis` · `default_mietpreis` already uses. The alternative is the
+`Terms that are not domain vocabulary` table, on the argument that the word describes a request rather
+than anything the league does — but that table carries no `Trap` field, and the trap is the whole
+reason the term costs anything, so it is the shape that would lose what the entry is for.
+
+**Done when** `docs/glossary.md` carries the entry and it passes gate check `glossary-entry`.
+
+**Not verified.** No administrator was asked what they take the word to mean, so the reading that
+`-nummer` misleads is an argument from the shape of the value rather than an observed mistake. That
+no other tracked file defines the term is a repository-wide search for it in the working tree, which
+several agents were editing when it was taken.
 
 ### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
 
@@ -1466,6 +1926,48 @@ pattern's reader rather than in either caller.
 carried as CommonMark decides a close, and a case in `scripts/tests/test_check_docs.py` plants a mermaid
 fence inside a markdown one and proves the prose after the outer block is still read.
 
+### `f99h-bnyc` · The plaintext redirect server answers a port nothing outside the compose network can dial
+
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| Ops, Docs, gate, edge | Open   | —          |
+
+**`nginx/prod.conf`'s first server block listens on 80 over both address families, logs in
+`fl_json` and answers every request with a 301 to the apex over HTTPS.** It is the only block in the
+file listening on that port, so it is that port's default server and answers whatever `Host` arrives
+there, its own `server_name` notwithstanding.
+
+**Who can reach it is a short list, and nothing on the internet is on it.** The `nginx` service in
+`docker-compose.yml` publishes no port, which that file's own header states as an invariant and
+[`docs/ops/spec.md`](../ops/spec.md) carries as I1; the one route to the origin is the tunnel, and
+that sheet's §1.8 records that each public hostname routes to nginx over `frankfurtleague-net`
+**with TLS kept**. So a request reaches the HTTPS blocks and never this one. What is left is a container on that
+network dialling `http://nginx/` — the frontend, the backend or the connector — and none of them
+does.
+
+**The block is already documented as unreachable from the other direction**, in the comment above the
+www-to-apex block: HSTS's `includeSubDomains` means a browser that has once seen the header never
+issues the plaintext request at all. Two independent reasons for the same emptiness, and neither is
+an argument for removing it — which is why this is a question rather than a cleanup.
+
+**What each answer costs.** Keeping it costs a plaintext listener inside the compose network that
+answers every `Host` on that port, and a block whose 301 cannot be exercised by anything a test or a
+runbook can reach. Removing it costs a hedge: it is what a plaintext origin would meet if the
+tunnel's own configuration — dashboard state no file here can read — were ever pointed at
+port 80, where the answer today would be a redirect rather than a connection refused. It also costs a
+paired edit: `scripts/checks/check_nginx_mirror.py :: DECLARED_DELTAS` carries a row for that
+redirect block, and `:: uncovered` fails a declared delta that covers nothing, so the row leaves in
+the same commit.
+
+**Done when the block is either removed with its declared delta, or kept with the reason it is kept
+written at it** — the reason being what a reader deleting it as dead code would otherwise undo. The
+comment above it today explains why no browser reaches it, which is not the same claim as why it
+stays.
+
+**Not verified.** Nothing was dialled: the reachability is read off `docker-compose.yml`,
+`nginx/prod.conf` and the sheet's §1.8 as they stand on this branch, searched 2026-09-07, and the
+tunnel's own origin setting is dashboard state the sheet describes and no file records.
+
 ### `fau5-jtph` · The action log's page narrows one capped read, and a toast promises more than search can show
 
 | Tags                          | Status | Depends on |
@@ -1555,6 +2057,57 @@ from the guards around it.
 covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` and
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
+
+### `g489-8ptk` · The frontend job's median has risen in two steps, and neither lands on a merge that names a cause
+
+| Tags                        | Status | Depends on |
+| --------------------------- | ------ | ---------- |
+| FE, Ops, gate, ci, versions | Open   | —          |
+
+**The `frontend` row in `.github/gate-wall-clock.tsv` carries the reference it now carries because
+the job got slower, and nothing says why.** Measured 2026-09-07 over the completed `main` push runs
+of `.github/workflows/verify.yml`, a job's span taken from its first step's start to its last step's
+end, that row's median sat near 99 s over the pushes of 2026-08-20 and 21 and near 108 s over the
+stretch after them before reaching the 122 s the row now states. The first of those steps is 9 s and
+sits under the 10 percent floor the same row declares, whichever of the two levels it is taken
+against; the second is 14 s, which is 11.5 percent of the reference — over the floor, and not far
+over it. Neither falls on a merge this repository can point at, where the `backend-db` row's own move
+in the same measurement sits exactly on the merge that redistributed the database tier.
+
+**Why an unattributed rise costs more than the seconds.** The row's floor is what makes the advisory
+report worth reading: a movement under it is noise and a movement over it is a change somebody made.
+A move over the floor with no cause attached teaches the next reader that the report moves on its
+own, which is the whole of what the floor exists to refuse — and the step under the floor is the same
+rise arriving in a size the report is built to ignore, so the 23 s between the two ends is accounted
+for at neither. The budget beside it stands at 180 s, derived from the widest single run in the same
+stamped population, so the ceiling this row is held to already sits above a level nobody has named a
+cause for.
+
+**What the span covers is wider than the gate, which is where a search for the cause goes wrong.**
+The figure is first-step-to-last-step, so the job's virtualenv creation, its toolchain install and
+its Next build-cache restore are all inside it, as is the last step, which is the `git diff` over
+`fl_frontend/tsconfig.json` that fails the job where the scope rewrote it. The gate is the step
+before that one, the gate's frontend scope, whose units are scripts in
+`fl_frontend/package.json`, some started together by `scripts/gate/verify.sh :: FRONTEND_POOL`
+and the rest run alone. Four
+candidates, not one: more work in
+those scripts, less concurrency among them, a setup step that got slower, and the build cache, whose
+key in `.github/workflows/verify.yml` carries a hash of `fl_frontend/src`, so an exact hit is
+whatever the source tree did that week.
+
+**The window that would answer it is expiring.** The runs API serves a bounded recent history, so
+the per-step spans on either side of each step are readable now and will not be later; a
+re-measurement six weeks from now can say the level and cannot say when it moved.
+
+**Done when the rise is attributed to a change, to the runner, or to neither with that stated** —
+per-step spans across the two boundaries are the cheapest read that separates the candidates, since
+a step that grew names itself. Attribution alone closes this: the reference is already measured and
+already stamped, and no figure moves on the strength of an explanation.
+
+**Not verified.** No per-step timing was read; the two levels above are medians read from the runs
+API for this entry and recorded nowhere in the repository, whose table carries the 122 s reference
+alone, and nothing here establishes that the runner image or the pool width was constant
+across them.
 
 ### `g7hr-c8bn` · The replace and the undraw judge their window from a capped read
 
@@ -1923,6 +2476,43 @@ needing a bearer token or not, where which key it wants is a router-level depend
 does not carry — so a check would have to derive the backend half from the routers themselves and the
 frontend half from the call sites, and **that derivation, not the comparison, is the work**.
 
+### `jbzy-d5g4` · Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them
+
+| Tags      | Status | Depends on |
+| --------- | ------ | ---------- |
+| BE, tests | Open   | —          |
+
+**`fl_backend/tests/api/test_admin_guard.py :: MINIMUM_EXPECTED_MUTATIONS` and
+`fl_backend/tests/api/test_actor_binding.py :: MINIMUM_EXPECTED_MUTATIONS` are one number written
+twice**, each carrying a comment that names the other module and says the two move together. Nothing
+reads both: each module asserts its own floor against its own inventory, and no third file mentions
+the name at all.
+
+**The two inventories are reached by different routes, which is why the pair exists and also what
+makes the claim hard to keep.** `test_admin_guard.py :: MUTATIONS` is cut from
+`:: PUBLISHED_OPERATIONS`, the operations `APP.openapi()` carries, with the path stripped of its
+convertors and the method lower-cased; `test_actor_binding.py :: MUTATIONS` is cut from
+`:: ROUTES_BY_OPERATION`, the routes Starlette has mounted, spelled as the router wrote them and
+split on `fl_backend/app/core/security.py :: SAFE_METHODS`. A published surface and a mounted one
+are different questions, so two floors are worth having; what no code holds is that they are the
+same floor.
+
+**Why it matters.** Each floor is a margin under the inventory the module can see rather than a
+count of it, and each comment states that margin as a fact about the current tree. Raise one as
+endpoints arrive and the other keeps standing at a number the tree has outgrown — the module still
+passes, its floor now proving less than the comment says it proves, and the sentence claiming the
+pair moves together becomes the thing that stops the next reader checking.
+
+**Done when the pairing is held by something other than two sentences** — one constant both modules
+read, or a case that fails where the two differ. A shared constant belongs beside the fixtures in
+`fl_backend/tests/api/conftest.py` rather than imported by one module out of the other, which would
+make the second module's collection depend on the first. Neither inventory may be derived from the
+other in the same change: each floor is worth exactly what its own independent walk is worth.
+
+**Not verified.** Neither module was run; the claim that nothing else reads the name is a
+repository-wide search for it, and the claim that the two `MUTATIONS` sets hold the same operations
+today is read off the two derivations rather than measured.
+
 ### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
 
 | Tags               | Status | Depends on |
@@ -2201,6 +2791,46 @@ sign-in, and the sidemenu takes its share of the viewport before the shell sees 
 breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
+
+### `mgsh-v9c9` · The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/tests/conftest.py :: lift_function` finds a function's opening line by its own text and
+its closing line by the first line below that is a brace alone at the same indent.** A shell function
+whose body sits on its opening line has no closing line of its own, so the search walks past the
+end of the function and stops at the next function's closing brace. The lift then returns the
+one-line function plus every line down to that brace, and the assertion beside it — which fires only
+where no closing line is found at all — passes.
+
+**Both scripts it is pointed at are full of the shape.** `scripts/gate/verify.sh` writes
+`step_worker`, `cleanup` and many of its `do_*` units on one line, and `scripts/gate/selfcheck.sh`
+does the same at the margin and indented inside a step. Every call site names the function it wants,
+so today's cases lift multi-line functions and the defect is latent — until somebody asks for a name
+that happens to be a one-liner, and is handed a fixture shell carrying whatever stood between.
+
+**One call site has already met it and worked around it by hand.**
+`scripts/tests/test_db_run_guard.py` writes `step_worker`'s body into its fixture literally, with a
+comment naming the reason: the function is one line and the helper reads a function by its closing
+line. That hand copy is the thing `lift_function`'s own docstring exists to prevent — a copy in a
+test passes while the gate's own copy regresses — and nothing holds it to
+`scripts/gate/verify.sh :: step_worker`. It is not a clause broken: `.claude/rules/ops.md`'s
+**miniatures** clause refuses reimplementing a gate function the test **could** lift, and this helper
+is what decides whether it could.
+
+**Done when a one-line function is either lifted whole or refused by name.** Refusing is the cheaper
+half and the one that cannot go wrong quietly: an assertion that says which function it could not
+read sends the caller to the hand copy deliberately rather than by discovery. Lifting it as well is
+worth more, because it takes the hand copy out of the tree. **No self-check step is owed here** —
+`.claude/CLAUDE.md` §7's **probes** clause refuses a probe no failure needs alone, and this failure is
+not in a guard's refusals. A case under `scripts/tests/` is a different thing and is warranted by the
+silent over-lift itself, which is a failure a case can drive: lift a one-liner from a fixture script
+and compare what comes back.
+
+**Not verified.** The over-lift is read off the helper rather than driven; no case was written, and
+no existing call site was shown to be taking a wrong lift today.
 
 ### `nadg-bnjb` · Every admin write states its success twice, and the second sentence cannot render
 
@@ -2496,6 +3126,49 @@ range makes the ausstehend/heute/vergangen ternary genuinely harder, and the int
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
+### `pndk-uquh` · Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/checks/check_nginx_mirror.py` and `scripts/checks/check_compose_mirror.py` hold
+`Marker`, `Delta`, `Difference`, `diff`, `side_matches`, `declaring` and `uncovered` twice**, five
+of the seven character for character and the other two differing in their docstring alone. The nginx
+checker's module
+header records the copying and its reason — `scripts/lib/checker_kernel.py` is the one place a
+checker shares anything, and neither of these two may reach into the other — and names five of the
+seven. `Difference` and `diff` are copied on the same terms and are not in that list, so a reader
+following it copies five symbols and reinvents two.
+
+**The header sends a reader to a file that does not hold the argument.** It closes by saying the
+compose checker is where the argument for the copying lives;
+`scripts/checks/check_compose_mirror.py`'s own header states the mirror invariant and the refusal
+contract and says nothing about being copied from. The argument is therefore written at the copy
+alone, which is the one place a reader deleting the copy would not look.
+
+**Nothing holds the two copies to each other.** They are compared by no check and read by no shared
+test, so a repair to `declaring` or `uncovered` in one file leaves the other on the old behaviour and
+both gates stay green — the pair's whole claim being that they are recognisably one mechanism.
+
+**What a third copy would earn.** `.claude/rules/ops.md`'s **helpers** clause is the nearest
+ratified statement of the convention: it refuses a copy of a shared test helper where an import would
+serve, and refuses a copy that must differ unless the original is cited at it. Its subject is
+`scripts/tests/`, so it does not reach these two checkers, and what it fixes is the shape rather than
+the case — a copy is admissible when it must differ, and only with the original named at it. A third
+mirror checker is the point at which that shape stops being enough: three copies of one comparison
+is the mechanism living nowhere, and `scripts/lib/checker_kernel.py` is already named as the place a
+checker shares anything.
+
+**Done when the copying is stated once, in full, at the file its citation names, and the two copies
+are held to each other by something a change can trip.** Moving the comparison into the kernel is the
+alternative and is not obviously wrong; what it costs is that `declaring` and `uncovered` read
+`DECLARED_DELTAS` as a module global today, so a shared form takes the row list as an argument and
+both checkers change at once. Decide it before the third mirror rather than during it.
+
+**Not verified.** The identity of the copies is a read of the two files rather than a diff of the
+two spans, and neither checker was run.
+
 ### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
 
 | Tags                                 | Status | Depends on |
@@ -2664,45 +3337,101 @@ entity — and which of those it is decides whether this is a page change or a c
 already says what it needs through its required fields and the rail's Hinweise. What it waits on is
 a product ruling per entity, and that cost does not grow while it waits.
 
-### `qw6j-scru` · The style directive concedes more than the reason recorded for it needs
+### `qw6j-scru` · Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship
 
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| FE, Ops, Docs, edge | Open   | —          |
+| Tags                                                                  | Status | Depends on |
+| --------------------------------------------------------------------- | ------ | ---------- |
+| FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams | Open   | —          |
 
-**`nginx/prod.conf` sends `style-src 'self' 'unsafe-inline'`, and the narrower pair that serves the
-same purpose is `style-src 'self'` with `style-src-attr 'unsafe-inline'`.**
-[`docs/ops/spec.md`](../ops/spec.md) §1.4 records why the directive keeps the concession — a
-runtime-computed inline `style` attribute, for which CSP offers neither a nonce nor a hash — and
-records the narrowing as an nginx change rather than a documentation one. **What it buys** is
-dropping the element half: `'unsafe-inline'` on `style-src` also admits an injected `<style>`
-element, which is a real capability — exfiltration by attribute selector, and interface redress — on
-a policy whose `script-src` half is already conceded and compensated by `react/no-danger`
-([`docs/frontend/spec.md`](../frontend/spec.md) §1.8).
+**`nginx/prod.conf` and `nginx/local.conf` both send `style-src 'self' 'unsafe-inline'`, and my
+ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
+`style-src-attr`, and no component-library switch. Each file declares the whole policy three times,
+because `add_header` in a location replaces the inherited set
+([`docs/ops/spec.md`](../ops/spec.md) §1.4).
 
-**The premise needs re-measuring before a line is written.** That section states that nothing else in
-the application sets an inline style attribute.
-`fl_frontend/src/shared/components/ui/FilterPanel.tsx` sets one, carrying the custom properties its
-overlay's width is computed from, and the component library sets one on every portalled overlay,
-react-aria's popover writing its resolved position and its trigger width as an inline style. PRE-1
-puts the code above the spec sheet, so that sentence is the loser and moves in the same change
-(CUR-2). **None of it changes the candidate**, because `style-src-attr 'unsafe-inline'` covers a
-style attribute wherever it comes from. What it changes is the residual risk, the population under
-that directive being far larger than the page implies.
+**The population that directive governs is narrower than the application.** CSP judges a `style`
+attribute in served HTML and a `<style>` element; a property written on an element's `style` object
+is a CSSOM write and is governed by neither (MDN's `style-src` page, read 2026-09-07 — that source
+moves without us). React emits a `style="…"` attribute only from its server renderer and applies the
+same prop through the CSSOM on the client, so
+`fl_frontend/src/shared/components/ui/FilterPanel.tsx`'s `--filter-*` properties,
+`fl_frontend/src/core/providers/AppToaster.tsx`'s timer duration, and every overlay position
+react-aria resolves are outside the policy once hydration has run.
 
-**The residual risk, stated rather than hidden, and unverified here (COR-9).** The narrowing rests on
-a client applying `style-src-attr` in place of `style-src` to a style attribute; where a client does
-not implement the attribute directive, the fallback leaves `style-src 'self'` governing attributes as
-well — and on that client every overlay loses its computed position and the toast's timer bar loses
-its duration. Neither the fallback rule nor the client population has been checked at a source here,
-so confirming both is the work's opening step rather than an assumption inside it. That the
-prerendered HTML carries no inline `<style>` block is the spec sheet's claim rather than this entry's
-measurement, and it is worth re-checking beside the one above it.
+**Inside it are two attributes this repository writes and one the library writes.** Both swatches
+render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
+`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` for the wish and
+`fl_frontend/src/features/teams/components/forms/TrikotFarbeSelect.tsx` for the assignment — and
+`fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` closes the colour set with its
+hex, so a class per colour or a data attribute the stylesheet keys on carries the fill with no
+attribute at all. The library's is `--scroll-shadow-size`, which
+`@heroui/react`'s `ScrollShadow` sets through a style prop.
 
-**Done when** the pair ships and the deploy is watched. An nginx change runs the gate in its full
-form with the images built ([`docs/ops/spec.md`](../ops/spec.md) §1.6), and the config is mounted
-read-only with nginx waiting on both upstreams being healthy — so a bad block takes the site down
-rather than turning something red.
+**`ScrollShadow` is reached two ways, and the second is why the prerender's count understates the
+work.** `fl_frontend/src/shared/components/ui/FilterLeiste.tsx` renders it directly, and HeroUI's
+`Tabs` renders one internally, which puts it under
+`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`,
+`fl_frontend/src/features/spieltage/components/views/SpielplanView.tsx` and
+`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` besides. A
+2026-09-07 build's forty prerendered pages carry exactly one inline style attribute outside
+`_global-error`, and it is the sign-in page's — but a prerender is not the population: every page
+that streams one of those five components server-renders the attribute too, and a `"use client"`
+directive does not keep a component off the server render. So this is a restyle of one component
+rather than of one page, and the count to trust is the source's rather than the build's.
+
+**Two residues stay, and each is accepted rather than covered.** Next's own `_global-error` carries
+both an attribute and a `<style>` element, and renders unstyled under the strict policy — on a page
+that is already the failure of everything above it. react-aria's `usePreventScroll` prepends a
+`<style>` element carrying `overscroll-behavior: contain` behind a modal on iOS, which the policy
+refuses while the `touchmove` guard beside it still runs; `style-src-elem` and `style-src-attr` are
+the directives that would speak to that element alone, and neither is in the ruling.
+
+**A component-library switch was studied for this and declined.** Every candidate positions its
+overlays by writing to an element's `style` object — Floating UI under Base UI, Radix and Mantine,
+Zag's positioner under Ark and Chakra, react-aria's own `useOverlayPosition` under HeroUI — so the
+route CSP does not govern is the route all of them take, while what a strict policy refuses is two
+attributes written here and one library attribute a restyle removes anyway. A switch moves none of
+the three, and one candidate moves the policy backwards. `6m3r-xpcu` holds the switch on its own
+criteria, and the one CSP fact it carries is Mantine's, stated there. (Read 2026-09-07 from MDN,
+from react-dom's `setValueForStyle` and from each project's own documentation; all of that moves
+without us.)
+
+**Done when** the swatches and the `ScrollShadow` attribute are gone;
+`Content-Security-Policy-Report-Only: style-src 'self'` has been served from `nginx/prod.conf`
+beside the enforcing header for a week, its `report-to` naming an ingest route of this application
+that writes each violation report as one line under the envelope, and the reports read; and the
+enforcing policy has then been switched with `scripts/checks/check_csp_identity.py` green.
+
+**The Report-Only phase is the rollout a tightened policy gets everywhere, and my ruling of
+2026-09-07 clears its two obstacles here.**
+[`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md)'s `csp` clause forbids a
+second _enforcing_ policy, so a Report-Only header may stand beside the one that enforces; and
+`scripts/checks/check_csp_identity.py` reads `Content-Security-Policy-Report-Only` as a declaration
+of the header it watches, its `:: DECLARING_RE` matching up to the hyphen while `:: POLICY_RE`
+cannot take a quoted policy out of that line, so the check learns to hold the enforcing copies to
+each other and to accept one Report-Only header per file, reporting its policy beside them.
+`:: blocks` is the second site it has to learn, and the sharper one: it counts every line
+`:: DECLARING_RE` matches toward a block's `policies`, and `:: dropped` fails a block that sets a
+header while that count is zero — so a block restating the Report-Only header alone would pass as
+having put a policy back while serving none. The ingest route takes the shape of
+`fl_frontend/src/app/api/client-error/route.ts`: public and unauthenticated, since a browser posts a
+report with no session, and metered at the edge by an exact-match location of its own, which
+`scripts/checks/check_public_routes.py` fails until that location exists.
+
+**What the change makes untrue.** [`docs/ops/spec.md`](../ops/spec.md) §1.4 states that several
+components set a runtime-computed inline `style` attribute, and offers the `style-src-attr` pair as
+the narrowing with `_global-error` as its whole cost. The same section states that
+`scripts/checks/check_csp_identity.py` holds each file's three declarations to each other and fails
+any further block that sets a header without restating the policy — an accounting the Report-Only
+phase changes at both ends, since the file then carries a fourth declaring line that restates
+neither header. The policy row, that paragraph and that sentence move in the same commit (CUR-2),
+the code being the higher source (PRE-1).
+
+**Not verified.** No Report-Only header has been served and no page opened in a browser, so nothing
+here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, or that
+every overlay still positions under the strict policy; both are read off the react-dom and react-aria
+sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
+each page actually streams.
 
 ### `rt37-sv33` · A sort option nothing sends scans the archive it sorts
 
