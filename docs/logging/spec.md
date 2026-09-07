@@ -178,9 +178,10 @@ nothing rotates a file the runtime holds open. The access log is a host file ins
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container
 discards it, including `docker compose down` and the `up -d --force-recreate frontend backend` that
 `scripts/ops/deploy.sh` runs on every deploy. nginx is not in that set, and its access log is on the
-host rather than in the container, so a recreate of the edge would not reach it either. **The deploy copies both application streams off first** (`scripts/ops/deploy.sh :: LOG_DIR`),
-and that copy is the only record of the replaced build that survives a deploy whose rollback recreates
-the pair a second time; a deploy made by hand owes the same copy before the recreate.
+host rather than in the container, so a recreate of the edge would not reach it either. **The deploy copies both application streams off before each of its recreates** (`scripts/ops/deploy.sh :: copy_streams`),
+so a deploy whose rollback recreates the pair a second time leaves four files rather than two — the
+replaced build's under the stamp, the failed build's under the same stamp and a `-failed` suffix; a
+deploy made by hand owes the same copies.
 
 ### 1.3 Client-side crashes
 

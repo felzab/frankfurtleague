@@ -339,7 +339,11 @@ source carries a different one.
 
 **`deploy.sh` reads the server's Docker Engine version in preflight, before it stops or pulls
 anything**, the compose files' `start_interval` being what needs it
-(`scripts/ops/deploy.sh :: ENGINE_MIN`).
+(`scripts/ops/deploy.sh :: ENGINE_MIN`). **It then asks the pulled backend image to read
+`fl_backend/.env`**, which is the only place that file is read as a file rather than handed to a
+container as variables (`scripts/ops/deploy.sh :: check_env_names`): a name the settings class does
+not declare refuses the deploy at exit 2 with nothing recreated, and a check that could not be made
+is an advisory ([`runbooks.md`](runbooks.md) §1).
 
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other

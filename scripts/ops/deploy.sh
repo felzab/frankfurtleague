@@ -29,6 +29,13 @@ ENGINE_MIN=25
 # is optional so an older image's label still names a rollback target.
 PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
 
+# The host directory the log copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
+# their age, and it bounds the DIRECTORY rather than a name — so a suffix below cannot escape it.
+LOG_DIR="/var/log/frankfurtleague"
+# One stamp for the whole run, so the rollback's copies sit beside the ones taken before it. It
+# carries the time of day: two deploys on one day would otherwise overwrite each other's.
+LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
+
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -86,6 +93,51 @@ running_image() {
 # and reading the first as the second prints "not running" about a stack this never asked.
 service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
+}
+
+# `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
+# and everything below reaches this script's output. The names alone are what an operator needs.
+ENV_NAME_CHECK='
+import sys
+from app.core.config import EnvironmentValidationError, get_config
+
+try:
+    get_config()
+except EnvironmentValidationError as refusal:
+    print(refusal, file=sys.stderr)
+    raise SystemExit(3)
+except Exception as unexpected:
+    # The TYPE alone rather than a re-raise: a settings source quotes the value it could not read
+    # into its own message.
+    print(type(unexpected).__name__, file=sys.stderr)
+    raise SystemExit(4)
+'
+
+# The one place the environment file is read AS A FILE, and so the only place a name nothing
+# declares can be seen: compose hands the container its keys as variables instead
+# (`fl_backend/app/core/config.py :: model_config`).
+check_env_names() {
+  local rc=0 said=""
+  # Neither the image's own user, whose uid this host does not have, nor root: the file belongs to
+  # whoever runs this script. `--network none` because a settings class reaching one would reach it
+  # holding the file.
+  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
+    -v "${PWD}/fl_backend/.env:/app/.env:ro" "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" 2>&1)" || rc=$?
+  # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the backend refuses this host's environment file, and the line above names the variables it
+could not accept. A name it does not declare is usually a typo, and nothing in a container ever looks
+one up -- so the variable reads as omitted and the shipped default serves production.
+NOTHING has been recreated, and the site is untouched."
+  elif (( rc )); then
+    # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
+    # that could not be made leaves the deploy exactly where it stood before it was added.
+    warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
+here says whether every name in it is one the backend declares. Its own answer is above."
+  else
+    ok "every name in fl_backend/.env is one the backend declares"
+  fi
 }
 
 # Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
@@ -165,10 +217,65 @@ deploy replaced and every request through it answers 502."
   return 0
 }
 
+# How many streams the last call wrote, because the callers' sentence about NONE of them differs:
+# before the recreate that is a first deploy, and inside the rollback it is compose not answering.
+COPIED_STREAMS=0
+
+# One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
+# every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
+# deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
+copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
+  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc
+  COPIED_STREAMS=0
+  for svc in frontend backend; do
+    # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
+    # an empty file would read as a build that logged nothing.
+    cid="$(service_cid "$svc")" || cid=""
+    [[ -n "$cid" ]] || continue
+    target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
+    # Written beside the target and moved in once the copy succeeded: a copy failing midway would
+    # otherwise leave a short `.log` reading as the build's whole stream.
+    partial="${target}.partial"
+    copy_rc=0
+    docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
+    if (( copy_rc )); then
+      rm -f "$partial" 2>/dev/null || true
+      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}), so that stream goes
+with the recreate below and nothing keeps a record of it. ${consequence}
+Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+      # Reached under `warn` alone -- `refuse` has ended the run by here -- and the other service's
+      # stream is worth copying whatever this one did.
+      continue
+    fi
+    mv_rc=0
+    mv "$partial" "$target" 2>/dev/null || mv_rc=$?
+    if (( mv_rc )); then
+      rm -f "$partial" 2>/dev/null || true
+      "$on_failure" "the ${svc} log was copied but could not be moved into place at ${target} (exit ${mv_rc}).
+${consequence}
+Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+      continue
+    fi
+    detail "${svc}: ${target}"
+    COPIED_STREAMS=$(( COPIED_STREAMS + 1 ))
+  done
+}
+
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
   local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
+  step "Copying the failed build's logs off before it is replaced"
+  # `warn` where the copy before the recreate `refuse`s, and this is the only difference between the
+  # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
+  copy_streams "-failed" warn "The rollback goes on without it."
+  if (( COPIED_STREAMS )); then
+    ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
+  else
+    warn "no container answered, so the failed build's own streams go with the recreate below and the
+excerpt printed above is all there is of why it failed."
+  fi
+
   step "Rolling back to ${name}"
   quietly docker tag "$PREV_FE_IMG" "$IMAGE_FRONTEND" || tag_rc=1
   quietly docker tag "$PREV_BE_IMG" "$IMAGE_BACKEND"  || tag_rc=1
@@ -548,20 +655,16 @@ if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$
   SAME_BUILD=1
 fi
 
+# Asked of the build about to run rather than of the one being replaced: the field set is the pulled
+# image's, so a variable this release renamed is a variable only this release can judge.
+step "The environment file, read by the build about to run"
+check_env_names
+
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
 section "logs"
 
 step "Copying the application logs off the containers about to be replaced"
-# The host directory the copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
-# their age. The stamp carries the time of day: a rollback and a re-deploy on one day would
-# otherwise overwrite the copy that explains the failure.
-LOG_DIR="/var/log/frankfurtleague"
-LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
-# `refuse`, never `warn`: nothing is stopped or recreated yet, and going on would destroy the only
-# record of the replaced build. `--force-recreate` replaces both containers' `json-file` logs,
-# and a failed deploy's rollback recreates the pair again (docs/logging/spec.md §1.2).
-
 # `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
 # `docker-compose.yml` bind-mounts it as the edge's access log, and one refusal covers the
 # copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
@@ -574,36 +677,11 @@ NOTHING has been recreated.
 Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
   sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
 fi
-COPIED=0
-for svc in frontend backend; do
-  # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
-  # an empty file would read as a build that logged nothing.
-  cid="$(service_cid "$svc")" || cid=""
-  [[ -n "$cid" ]] || continue
-  target="${LOG_DIR}/${LOG_STAMP}-${svc}.log"
-  # Written beside the target and moved in once the copy succeeded: a copy failing midway would
-  # otherwise leave a short `.log` reading as the build's whole stream.
-  partial="${target}.partial"
-  COPY_RC=0
-  docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || COPY_RC=$?
-  if (( COPY_RC )); then
-    rm -f "$partial" 2>/dev/null || true
-    refuse "the ${svc} log could not be copied to ${target} (exit ${COPY_RC}), so the recreate would
-destroy the only record of the build it replaces. NOTHING has been recreated.
-Copy it by hand, then re-run:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-  fi
-  MV_RC=0
-  mv "$partial" "$target" 2>/dev/null || MV_RC=$?
-  if (( MV_RC )); then
-    rm -f "$partial" 2>/dev/null || true
-    refuse "the ${svc} log was copied but could not be moved into place at ${target} (exit ${MV_RC}).
-NOTHING has been recreated. Copy it by hand, then re-run:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-  fi
-  detail "${svc}: ${target}"
-  COPIED=$(( COPIED + 1 ))
-done
-if (( COPIED )); then
-  ok "${COPIED} stream(s) copied to ${LOG_DIR}"
+# `refuse` here, and `warn` at the rollback's copy: nothing is stopped or recreated yet, so the
+# deploy can simply be re-run once this path can be written.
+copy_streams "" refuse "NOTHING has been recreated, and the site is untouched."
+if (( COPIED_STREAMS )); then
+  ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
 else
   info "nothing is running here yet, so there is no stream to copy"
 fi

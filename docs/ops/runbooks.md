@@ -29,6 +29,12 @@ the machine is outside the repository. What it does tell you:
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
 - `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./secrets/tunnel_token` and `./certs/`
   must all exist beside the compose file — preflight checks each before anything is pulled.
+- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
+  (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
+  where a name no field declares is never looked up, so a typo there reads as an omission and the
+  shipped default serves production. A name the backend does not declare refuses the deploy at exit 2
+  with nothing recreated, and the remedy is to **delete that line from the file on the server**; a
+  check that could not be made at all is an advisory the deploy goes on past.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -38,7 +44,10 @@ the machine is outside the repository. What it does tell you:
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
   pair is healthy and nginx has been reloaded again, up to about eleven minutes where both health waits run
-  to their timeouts and the rollback's do the same. Nothing is put back where preflight recorded no target,
+  to their timeouts and the rollback's do the same. **The failed build's own two streams are copied off
+  first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
+  `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
+  being down by then. Nothing is put back where preflight recorded no target,
   because nothing was running, because only half the pair was, or because compose could not be asked; nor
   where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
   rollback undoes a build and nothing there reached a verdict on the new one.
@@ -403,7 +412,7 @@ docker compose logs --no-color --timestamps frontend > frontend-$(date +%F).log
 ```
 
 **What those logs can and cannot answer.** Retention is the container runtime's size rotation
-(`docs/logging/spec.md :: Retention is Docker's`), so a busy period rotates its own oldest lines away
+(`docs/logging/spec.md :: 1.2`), so a busy period rotates its own oldest lines away
 and the window is set by traffic rather than chosen. The edge's access line carries the visitor's
 address, user agent and referer with the credential arms redacted
 (`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
@@ -428,8 +437,10 @@ bounds to thirty days.
 ## 7. The logs' age bounds, and the copies a deploy leaves behind
 
 **Every deploy copies both application streams to `/var/log/frankfurtleague/` before it recreates a
-container** (`scripts/ops/deploy.sh :: LOG_DIR`), one file per service stamped to the second, and
-refuses at exit 2 with nothing stopped where it cannot write there. The same step creates
+container** (`scripts/ops/deploy.sh :: copy_streams`), one file per service stamped to the second, and
+refuses at exit 2 with nothing stopped where it cannot write there. **A deploy that rolls back
+recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
+`-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
 `/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts as the edge's access log —
 the one application-visible stream that is a host file rather than a container's. Both are created
 by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
@@ -522,8 +533,10 @@ WantedBy=timers.target
 
 **The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`
 is what runs it — systemd ships that timer enabled, through its own `timers.target.wants`, a quarter
-of an hour after boot and daily after that — so the thirty days need no scheduler of their own. The
-command below is what confirms it is running on this host.
+of an hour after boot and daily after that — so the thirty days need no scheduler of their own. **The
+line ages the directory rather than a name**, so every copy a deploy writes into it is reached
+whatever it is called — the `-failed` pair a rollback leaves included, and any suffix a later change
+adds. The command below is what confirms it is running on this host.
 
 ```text
 # Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a

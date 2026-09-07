@@ -407,11 +407,11 @@ about a dict can describe carries the executing module alone, with no sibling to
 #### What the suite reads, and what it does not
 
 Every field the application under test needs is passed explicitly to
-`fl_backend/tests/config.py :: build_test_config`, and init arguments outrank every other source in
-pydantic-settings, so a checkout with no `.env` runs the whole suite — which is what CI is — and a
-failure means the code rather than the machine. **A field that is not passed still falls back to
-`.env`**, which the settings model declares (`fl_backend/app/core/config.py :: model_config`), which is
-why a test about a default asserts on the model's field rather than on a constructed instance.
+`fl_backend/tests/config.py :: build_test_config`, which builds
+`fl_backend/tests/config.py :: ConfigReadingNoDotenvFile` — a settings class reading no dotenv file
+at all, so a machine carrying one runs the same suite CI does and a failure means the code rather
+than the machine. **The process environment is still a source**, which is why a test about a default
+asserts on the model's field rather than on a constructed instance.
 
 **The server fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
 `api/` and `core/` want a database; each is session-scoped, so one `mongod` serves every suite that

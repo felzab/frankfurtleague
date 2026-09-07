@@ -10,6 +10,7 @@ from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, Ser
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig, EnvironmentValidationError, get_config
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
+from tests.config import ConfigReadingNoDotenvFile
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
 # for the one reason these cases are about wherever they run.
@@ -53,12 +54,12 @@ WELL_FORMED: dict[str, Any] = {
 
 
 def build(**overrides: Any) -> BackendConfig:
-    """Every required field passed, as `tests/config.py :: build_test_config` passes them: init arguments outrank every settings source."""
-    return BackendConfig(**{**WELL_FORMED, **overrides})
+    """Every required field passed, as `tests/config.py :: build_test_config` passes them."""
+    return ConfigReadingNoDotenvFile(**{**WELL_FORMED, **overrides})
 
 
 def an_environment(monkeypatch: pytest.MonkeyPatch, working_directory: Path, **overrides: str) -> None:
-    """The variables in the process environment and a working directory holding no `.env`.
+    """The variables in the process environment, and a working directory holding only what a case put there.
 
     `get_config` reads both sources, so a case leaving either standing would be answered by
     whatever the machine running it happens to carry.
@@ -234,6 +235,34 @@ class TestTheNamesOnlyErrorPath:
         an_environment(monkeypatch, tmp_path)
 
         assert get_config().db_base_name == REQUIRED["DB_BASE_NAME"]
+
+
+class TestANameTheClassDoesNotDeclare:
+    def test_a_misspelling_in_the_environment_file_fails_the_boot_naming_it(self, monkeypatch, tmp_path):
+        """The typo `extra="ignore"` dropped: a misspelled `LOG_FORMAT` reads as an omission, and the shipped default then serves production."""
+        # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
+        # refusal to naming the variable.
+        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
+        an_environment(monkeypatch, tmp_path)
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
+        assert "console-but-misspelled" not in str(raised.value)
+
+    def test_a_variable_the_host_carries_for_something_else_still_boots(self, monkeypatch, tmp_path):
+        """The population `forbid` must not reach: every host's environment carries names no settings class declares."""
+        an_environment(monkeypatch, tmp_path, PATH_TO_NOTHING="a value nothing here declares")
+
+        assert get_config().log_format == "json"
+
+    def test_the_class_the_suite_builds_reads_no_environment_file_at_all(self, monkeypatch, tmp_path):
+        """A subclass that stopped turning the dotenv source off is green on CI and red on a developer's machine alone."""
+        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
+        monkeypatch.chdir(tmp_path)
+
+        assert ConfigReadingNoDotenvFile(**WELL_FORMED).log_format == "json"
 
 
 class TestTheStartupPing:

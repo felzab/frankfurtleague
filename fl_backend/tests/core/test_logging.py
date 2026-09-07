@@ -19,6 +19,7 @@ from app.core.logging import (
     trace_id_var,
 )
 from app.core.middlewares import mint_span_id, resolve_trace_id
+from tests.config import ConfigReadingNoDotenvFile
 from tests.core.app_source import APP_ROOT, parsed
 
 TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
@@ -291,7 +292,7 @@ def test_a_span_is_sixteen_hex_and_fresh_each_time():
 
 class TestLoggingSettings:
     def make(self, **overrides) -> BackendConfig:
-        return BackendConfig(
+        return ConfigReadingNoDotenvFile(
             api_trusted_hosts="testserver",
             api_cors_allowed_origins="http://localhost:3000",
             mongodb_uri=SecretStr("mongodb://localhost:27017/t"),

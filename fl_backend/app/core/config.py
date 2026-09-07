@@ -124,7 +124,10 @@ class BackendConfig(BaseSettings):
     # output into the container's json-file stream.
     log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # `forbid`, because a class that drops a key it was handed cannot tell a typo from an omission,
+    # and the shipped default then serves production. Only the dotenv source can hand this class a
+    # name no field declares.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
 
     @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
     def normalize_logging_case(cls, value: object) -> object:
