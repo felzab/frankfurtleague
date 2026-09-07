@@ -29,6 +29,13 @@ the machine is outside the repository. What it does tell you:
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
 - `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./secrets/tunnel_token` and `./certs/`
   must all exist beside the compose file — preflight checks each before anything is pulled.
+- **Compose is asked whether it can parse its own configuration before anything is pulled**
+  (`scripts/ops/deploy.sh :: check_compose_config`), a file it cannot read failing the recreate, the
+  health read and the rollback in turn, none of which stopped a container. **It refuses at exit 2
+  with nothing pulled or recreated**, and names the compose file and both environment files without
+  printing what compose said, a parse error quoting the line it could not read
+  ([`spec.md`](spec.md) §1.5). To see that message, run the same check on the server, where its
+  answer is not being captured: `docker compose -f docker-compose.yml config --quiet`.
 - **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the

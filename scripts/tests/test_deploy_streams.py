@@ -6,7 +6,7 @@ recreated yet, and warning inside `:: roll_back`, where the site is already down
 not worth leaving it there. `:: check_env_names` is the backend's environment read before the
 recreate: the environment file is a file to the settings class only there, and everything it prints
 is names.
-Both are lifted out of the script and driven behind a stand-in `docker`, so no daemon and no compose
+Each is lifted out of the script and driven behind a stand-in `docker`, so no daemon and no compose
 file of this machine; the snippet that reader hands the image is run for real instead, because a stub
 records an argv and answers nothing about what the image does.
 
@@ -51,6 +51,16 @@ if [[ "${1:-}" == "compose" ]]; then
     *" logs "*)
       case ":${FL_DEPLOY_LOGS_FAIL:-}:" in *":${last}:"*) exit "${FL_DEPLOY_LOGS_RC:-1}" ;; esac
       printf '%s line one\\n%s line two\\n' "$last" "$last"; exit 0 ;;
+    *" config "*)
+      printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
+      # On BOTH streams: without --quiet this subcommand prints the resolved configuration, every
+      # value in both environment files with it, so a case proving none of it reaches the operator
+      # covers stdout too.
+      if [[ -n "${FL_DEPLOY_CONFIG_SAYS:-}" ]]; then
+        printf '%s\\n' "${FL_DEPLOY_CONFIG_SAYS}"
+        printf '%s\\n' "${FL_DEPLOY_CONFIG_SAYS}" >&2
+      fi
+      exit "${FL_DEPLOY_CONFIG_RC:-0}" ;;
   esac
   exit 0
 fi
@@ -121,6 +131,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         "ATTEMPTED_STREAMS=0",
         _assignment("ENV_NAME_CHECK"),
         _lifted("service_cid"),
+        _lifted("check_compose_config"),
         _lifted("copy_streams"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
@@ -327,6 +338,14 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     code, output, _ = _run(SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
+    # The CI job running this scope installs the backend's dev group alone
+    # (`.github/workflows/verify.yml`), so the import guard answers there: a real ending of the
+    # deploy, pinned rather than passed over.
+    if "ModuleNotFoundError" in output:
+        assert "snippet=4" in output, output
+        assert "Traceback" not in output, output
+        return
+
     assert "snippet=3" in output, output
     assert "A_NAME_NOTHING_DECLARES" in output, output
     assert "a value no case reads" not in output, output
@@ -347,3 +366,57 @@ def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() 
     assert "snippet=4" in output, output
     assert "ModuleNotFoundError" in output, output
     assert "Traceback" not in output, output
+
+
+# --- the configuration compose reads, before anything is pulled ---------------------------------------
+
+CONFIG: Final = "check_compose_config"
+
+
+def test_a_configuration_compose_cannot_read_refuses_with_nothing_pulled_or_recreated() -> None:
+    """Compose stops before it touches a container, so a refusal is the only ending true of the site."""
+    code, output, _ = _run(
+        CONFIG,
+        FL_DEPLOY_CONFIG_RC="15",
+        FL_DEPLOY_CONFIG_SAYS="env_file: unterminated quoted string A_VALUE_NO_CASE_READS",
+    )
+
+    assert code == 2, output
+    assert "(exit 15)" in output, output
+    assert "NOTHING has been pulled or recreated, and the site is untouched" in output, output
+    # The three files, because the refusal cannot say which of them the message named.
+    assert "docker-compose.yml" in output, output
+    assert "fl_backend/.env" in output, output
+    assert "fl_frontend/.env" in output, output
+    # `redact_uri_credentials` is for a container's log and reaches none of this, and a parse error
+    # quotes the line it could not read -- which in an environment file is a value.
+    assert "A_VALUE_NO_CASE_READS" not in output, output
+    assert "unterminated" not in output, output
+
+
+def test_a_configuration_compose_reads_passes_the_preflight() -> None:
+    code, output, _ = _run(CONFIG)
+
+    assert code == 0, output
+    assert "compose parses docker-compose.yml" in output, output
+
+
+def test_the_validation_asks_compose_to_parse_and_to_print_nothing() -> None:
+    """`--quiet` is the whole of what keeps the resolved configuration, every value in it, off the terminal."""
+    code, output, fixture = _run(CONFIG)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 0, output
+    assert argv[0] == "compose", argv
+    assert "config" in argv, argv
+    assert "--quiet" in argv, argv
+    assert argv[argv.index("-f") + 1] == "docker-compose.yml", argv
+
+
+def test_the_configuration_is_read_before_anything_is_pulled_or_recreated() -> None:
+    text = DEPLOY.read_text(encoding="utf-8")
+    validated = text.index("\ncheck_compose_config\n")
+    pulled = text.index('section "pull"')
+    recreated = text.index('step "Recreating the application containers"')
+
+    assert validated < pulled < recreated, "scripts/ops/deploy.sh validates the configuration after it has already pulled or recreated"

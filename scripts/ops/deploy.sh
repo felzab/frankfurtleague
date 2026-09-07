@@ -95,6 +95,25 @@ service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
 }
 
+# Asked before the pull rather than at the recreate: an `up` that cannot parse this touches no
+# container, so the recreate, the health read and the rollback behind it all fail on one unread file.
+check_compose_config() {
+  local rc=0
+  # Both streams discarded, `--verbose` included: without `--quiet` this prints every resolved
+  # value, and with it the parse error still quotes the line it could not read.
+  docker compose -f "$COMPOSE" config --quiet >/dev/null 2>&1 || rc=$?
+  if (( rc )); then
+    refuse "compose could not read its configuration (exit ${rc}), so this deploy stopped here rather than
+at the recreate, where the same failure reads as a build that broke.
+NOTHING has been pulled or recreated, and the site is untouched.
+The three files it reads are ${COMPOSE}, fl_frontend/.env and fl_backend/.env.
+Its own message is not printed here: a parse error quotes the line it could not read, and in an
+environment file that line is a value. Ask it yourself, where the answer is not being captured:
+  docker compose -f ${COMPOSE} config --quiet"
+  fi
+  ok "compose parses ${COMPOSE} and the two environment files it names"
+}
+
 # `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
 # and everything below reaches this script's output. The names alone are what an operator needs.
 ENV_NAME_CHECK='
@@ -542,6 +561,11 @@ NOTHING has been stopped or pulled: the site is still serving what it was servin
 Upgrade the engine, or drop the start_interval lines from both compose files."
 fi
 ok "engine ${ENGINE}, which is ${ENGINE_MIN} or newer"
+
+# Above the read below rather than at the end of preflight: that read asks compose what is running,
+# fails for this reason too, and warns of nothing to roll back to — about a run this one ends.
+step "The configuration compose reads, before anything is pulled or recreated"
+check_compose_config
 
 # --- the build now live, read before anything moves --------------------------------------------------
 

@@ -376,6 +376,14 @@ and the running container gets it parsed as Compose does; the two agree on which
 declares and not on every quoting form, so a value the preflight accepted is not proven identical to
 the one the container will see.
 
+**Before either of those reads, and before the pull, compose is asked whether it can parse its own
+configuration** (`scripts/ops/deploy.sh :: check_compose_config`): a configuration it cannot read —
+an unterminated quote in one of the two environment files is the reachable case — stops the recreate
+before a container is touched, so the health read and the rollback behind it fail on that same file
+and report a build that broke over a stack nothing stopped. The refusal names the three files and
+prints nothing compose itself said: the filter in §1.7 reaches a container's log alone, and a parse
+error quotes the line it could not read.
+
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other
 statement of which paths select which scope — the packaging list included — cites that file rather
@@ -917,7 +925,10 @@ although nothing on the line was secret. That last one is the fail-safe half of 
 the match to spare it is what lets a real credential through.
 
 **Every script a person reads accepts `--verbose`**, which streams each tool's own output instead of
-capturing it — the one thing a captured run cannot give back afterwards.
+capturing it — the one thing a captured run cannot give back afterwards. **One command discards both
+its streams whatever the flag says**: the configuration validation in
+`scripts/ops/deploy.sh :: check_compose_config`, whose parse error quotes a line of an environment
+file (§1.5).
 
 **A script whose output only a machine reads is exempt, and the interface is what decides, never the
 folder.** `scripts/gate/scope_map.sh` writes `$GITHUB_OUTPUT`'s `key=value` lines and the assistant hooks
@@ -992,6 +1003,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The tunnel is up and Cloudflare answers 502 or 1033                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |
 | `failed to connect to the docker API at npipe:...`                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
 | Deploy stops in preflight naming the Docker Engine version                        | The host's engine is below what the compose files' `start_interval` needs                                                                       | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)                                                                                                           |
+| Deploy refuses in preflight saying compose could not read its configuration       | The compose file or an environment file will not parse — an unterminated quote is the reachable case                                            | Nothing was pulled or recreated. Read the message by hand: `docker compose -f docker-compose.yml config --quiet`, whose output can carry a value (§1.5)                                                              |
 | `./scripts/ops/deploy.sh --status` exits 1 naming two different builds            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
 | `./scripts/ops/deploy.sh --status` exits 1 over a pair it has just called healthy | The edge is not serving them — nginx resolved its upstreams as it loaded, and nothing has re-resolved them since those containers were replaced | Reload the edge, then re-run `--status`; the report's own detail line names the command (`scripts/ops/deploy.sh :: serve_through_nginx`)                                                                             |
 | `./scripts/ops/publish.sh` refuses, naming a remote it could not ask              | The remote did not answer `git ls-remote --heads`, so nothing establishes that this commit is fetchable                                         | Nothing was built or pushed. Restore the network or the credentials and re-run (I12)                                                                                                                                 |
