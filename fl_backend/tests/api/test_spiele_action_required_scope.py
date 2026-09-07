@@ -10,14 +10,12 @@ from pymongo import AsyncMongoClient, MongoClient
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
 
 pytestmark = pytest.mark.db
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 
 CONTAINER_SELECTION_MS = 10_000
 

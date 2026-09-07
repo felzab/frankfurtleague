@@ -8,12 +8,18 @@ from fastapi import FastAPI
 from pydantic import SecretStr, ValidationError
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
 
-from app.core.config import BackendConfig, EnvironmentValidationError, get_config
+from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig, EnvironmentValidationError, get_config
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
 # for the one reason these cases are about wherever they run.
 UNROUTABLE_URI = "mongodb://192.0.2.1:27018"
+
+
+def a_key_the_boot_accepts(prefix: str) -> str:
+    """Padded rather than spelled, so the three stay readable in a failure and the length is written once."""
+    return prefix.ljust(INTERNAL_API_KEY_LENGTH, "0")
+
 
 # Spelled as the environment spells them, because the gate under test is what reads the environment.
 REQUIRED = {
@@ -21,9 +27,9 @@ REQUIRED = {
     "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
     "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
     "DB_BASE_NAME": "frankfurtleague_test",
-    "INTERNAL_API_KEY_BASE": "base",
-    "INTERNAL_API_KEY_SYSTEM": "system",
-    "INTERNAL_API_KEY_ADMIN": "admin",
+    "INTERNAL_API_KEY_BASE": a_key_the_boot_accepts("base"),
+    "INTERNAL_API_KEY_SYSTEM": a_key_the_boot_accepts("system"),
+    "INTERNAL_API_KEY_ADMIN": a_key_the_boot_accepts("admin"),
 }
 
 
@@ -40,9 +46,9 @@ WELL_FORMED: dict[str, Any] = {
     "api_cors_allowed_origins": "http://localhost:3000",
     "mongodb_uri": SecretStr("mongodb://localhost:27017/frankfurtleague_test"),
     "db_base_name": "frankfurtleague_test",
-    "internal_api_key_base": SecretStr("base"),
-    "internal_api_key_system": SecretStr("system"),
-    "internal_api_key_admin": SecretStr("admin"),
+    "internal_api_key_base": SecretStr(a_key_the_boot_accepts("base")),
+    "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
+    "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
 }
 
 
@@ -99,6 +105,15 @@ class TestCorsAllowedOrigins:
         with pytest.raises(ValidationError):
             build(api_cors_allowed_origins=value)
 
+    def test_the_bare_wildcard_the_hosts_variable_allows_fails_the_boot(self, monkeypatch, tmp_path):
+        """Refused on purpose, unlike `API_TRUSTED_HOSTS`: this API is fetched server-side, and a wildcard with credentials is invalid CORS."""
+        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="*")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS"
+
 
 class TestDatabaseBaseName:
     @pytest.mark.parametrize("value", ["frankfurtleague", "frankfurtleague_test_gw0", "frankfurt-league"])
@@ -138,6 +153,23 @@ class TestThePoolAndTheTimeout:
         with pytest.raises(ValidationError):
             build(**{field: value})
 
+    def test_a_minimum_above_the_maximum_fails_the_boot_naming_both_variables(self, monkeypatch, tmp_path):
+        """The pair each bound alone admits: pymongo refuses it while CONSTRUCTING the client, whose refusal blames `MONGODB_URI` instead."""
+        an_environment(monkeypatch, tmp_path, DB_MIN_CONNECTIONS="200", DB_MAX_CONNECTIONS="100")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        # Equality rather than two membership checks: it is also what proves the rejected numbers and
+        # the locationless issue's `<unknown>` are both absent.
+        assert str(raised.value) == "Invalid environment variables: DB_MAX_CONNECTIONS, DB_MIN_CONNECTIONS"
+
+    def test_a_minimum_equal_to_the_maximum_boots(self, monkeypatch, tmp_path):
+        """The boundary the driver allows -- `minPoolSize must be smaller or equal to maxPoolSize` -- so the gate must not refuse it."""
+        an_environment(monkeypatch, tmp_path, DB_MIN_CONNECTIONS="100", DB_MAX_CONNECTIONS="100")
+
+        assert get_config().db_min_connections == 100
+
     def test_the_bounds_leave_the_shipped_defaults_alone(self):
         """Read off the fields rather than an instance: constructing the settings reads the developer's own environment."""
         defaults = BackendConfig.model_fields
@@ -145,6 +177,15 @@ class TestThePoolAndTheTimeout:
         assert defaults["db_server_selection_timeout"].default == 15000
         assert defaults["db_min_connections"].default == 5
         assert defaults["db_max_connections"].default == 100
+
+
+class TestTheInternalKeys:
+    @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
+    @pytest.mark.parametrize("length", [INTERNAL_API_KEY_LENGTH - 1, INTERNAL_API_KEY_LENGTH + 1])
+    def test_a_key_of_any_other_length_fails_the_boot(self, field, length):
+        """Both bounds: a truncated key answers every internal request 401, and a longer one boots here while the frontend refuses it."""
+        with pytest.raises(ValidationError):
+            build(**{field: SecretStr("k" * length)})
 
 
 class TestTheNamesOnlyErrorPath:
@@ -186,7 +227,7 @@ class TestTheStartupPing:
             with pytest.raises(DatabaseUnreachableError) as raised:
                 boot()
 
-        assert str(raised.value) == UNREACHABLE
+        assert str(raised.value) == UNREACHABLE.sentence
         assert "192.0.2.1" not in caplog.text
         assert "MONGODB_URI" in caplog.text
 
@@ -198,8 +239,11 @@ class TestTheStartupPing:
             with pytest.raises(DatabaseUnreachableError) as raised:
                 boot()
 
-        assert str(raised.value) == NO_SERVER
+        assert str(raised.value) == NO_SERVER.sentence
         assert "MONGODB_URI" in caplog.text
+        # The `extra=` reaching the record is what puts `error_code` in the envelope
+        # (`docs/logging/spec.md` §1.2), which is the field an operator greps a boot failure by.
+        assert caplog.records[-1].error_code == NO_SERVER.error_code
 
 
 class TestWhichRefusalACauseEarns:
@@ -220,4 +264,10 @@ class TestWhichRefusalACauseEarns:
 
     def test_every_refusal_opens_with_the_variable(self):
         """One opening for the three, so an operator who greps the variable name is handed whichever of them the boot raised."""
-        assert all(refusal.startswith("MONGODB_URI: ") for refusal in (UNREACHABLE, NO_SERVER, REJECTED))
+        assert all(refusal.sentence.startswith("MONGODB_URI: ") for refusal in (UNREACHABLE, NO_SERVER, REJECTED))
+
+    def test_no_two_refusals_share_a_code(self):
+        """A code copied onto a second sentence answers a grep with the other incident, which is worse than no code at all."""
+        codes = [refusal.error_code for refusal in (UNREACHABLE, NO_SERVER, REJECTED)]
+
+        assert len(set(codes)) == len(codes)

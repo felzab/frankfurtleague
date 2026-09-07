@@ -13,13 +13,11 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.dependencies import get_germany_now
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
-
-BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 CONTAINER_SELECTION_MS = 30_000
 

@@ -77,7 +77,9 @@ own:
 docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
   -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
   -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=http://x \
-  -e INTERNAL_API_KEY_BASE=x -e INTERNAL_API_KEY_SYSTEM=x -e INTERNAL_API_KEY_ADMIN=x \
+  -e INTERNAL_API_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e INTERNAL_API_KEY_SYSTEM=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e INTERNAL_API_KEY_ADMIN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   <backend-image> python -m app.core.constraints --check
 ```
 
@@ -385,7 +387,13 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    `./secrets/tunnel_token`, beside the compose file and readable by root alone. `.gitignore` covers
    `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
    the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
-2. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
+2. **Read the two env files against the documented shapes before anything comes down.**
+   `fl_backend/.env` against [`../backend/spec.md`](../backend/spec.md) §1.5 and `fl_frontend/.env`
+   against [`../frontend/spec.md`](../frontend/spec.md) §1.7 — the key lengths and the origin lists
+   especially, since both are pinned exactly and neither is checked by `deploy.sh`
+   ([`spec.md`](spec.md) §1.2). A value either startup gate refuses surfaces after step 3 has
+   removed the containers that were serving, inside the dark window step 5 is about.
+3. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
    host was created before any subnet was declared and before Compose began recording a
    configuration hash on the networks it creates; a network carrying no such record is reused by
    `up` as it stands, whatever the file now declares (Compose reconciles only a network whose
@@ -393,10 +401,10 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    time — after nginx had already given up its published ports. `down` removes the network with the
    containers, and the next `up` creates it carrying the declared subnet. The old network is left
    behind only where something outside this compose file still holds it.
-3. **Deploy, add the two public hostnames in the dashboard, then read
+4. **Deploy, add the two public hostnames in the dashboard, then read
    `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
    route, because DNS still names an origin that now publishes nothing.
-4. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
+5. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
    probe both run after the health check and both fail into that dark window, while
    `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`
    naming `/api/v0/system/is_live` there is the window being observed rather than a reason to
@@ -405,5 +413,5 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
 **This one deploy's rollback is `git revert` of the change and a redeploy, not `deploy.sh`'s own.**
 That path restores IMAGES, and what would be wrong here is the topology: only the reverted commit
 puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
-applies them. Step 2 leaves preflight no running pair to record besides, so there would be nothing
+applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
 for it to restore in any case (§1).

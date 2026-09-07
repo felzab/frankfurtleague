@@ -5,7 +5,7 @@ import re
 import pytest
 from pydantic import SecretStr
 
-from app.core.config import BackendConfig
+from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig
 from app.core.logging import JSONFormatter, LevelAwareFormatter, correlation_id_var
 from app.core.middlewares import resolve_correlation_id
 
@@ -100,9 +100,9 @@ class TestLoggingSettings:
             api_cors_allowed_origins="http://localhost:3000",
             mongodb_uri=SecretStr("mongodb://localhost:27017/t"),
             db_base_name="t",
-            internal_api_key_base=SecretStr("b"),
-            internal_api_key_system=SecretStr("s"),
-            internal_api_key_admin=SecretStr("a"),
+            internal_api_key_base=SecretStr("b" * INTERNAL_API_KEY_LENGTH),
+            internal_api_key_system=SecretStr("s" * INTERNAL_API_KEY_LENGTH),
+            internal_api_key_admin=SecretStr("a" * INTERNAL_API_KEY_LENGTH),
             **overrides,
         )
 

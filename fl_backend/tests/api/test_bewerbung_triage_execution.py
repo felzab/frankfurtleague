@@ -34,7 +34,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -284,8 +284,6 @@ SEEDED_CLUBS = 2
 # Module level, as `tests/api/test_actor_binding.py` builds it: one app, and the overrides below are
 # installed per call so no test inherits another's database handle.
 APP = create_app(build_test_config())
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 
 
 async def through_the_app(

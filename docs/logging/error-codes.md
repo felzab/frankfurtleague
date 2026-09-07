@@ -25,6 +25,7 @@ response body, no log line and no row on this page, and the `RULES` corresponden
 | ----------------------------------- | ------------------------------------------------------------------- |
 | [Backend codes](#1-backend-codes)   | Every code FastAPI raises, and its status                           |
 | [Frontend codes](#2-frontend-codes) | Every code the Next surface raises, and why none reaches a 500 page |
+| [Startup codes](#3-startup-codes)   | Every code a boot refusal carries, none of which answers a request  |
 
 ## 1. Backend codes
 
@@ -183,3 +184,24 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 | `FE-MAIL-002`   | A message about an application did not reach the people it names — one recipient refused (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`, the rest still sent), or the club's name could not be read and nobody was reached at all (`fl_frontend/src/features/bewerbungen/actions.ts :: notifyBewerbung`). What the message reports has already happened, a triage decision and a confirmation alike, so an address reaches the administrator rather than the line                      |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `FE-SWEEP-001`  | A retention pass did not finish, for one season or for the whole run (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). The remaining seasons still run, and the next hourly pass retries; the line carries the season and the error's name, never a person. A season whose id is not a four-digit year fails this way every hour until the id is corrected, the clocks reading the season after it being unable to fire at all (`fl_backend/app/api/bewerbungen/services.py :: next_saison_id`) |
+
+## 3. Startup codes
+
+Raised before the application serves anything, by `fl_backend/app/core/db.py :: lifespan`. Each
+reaches a log line and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
+code is the whole join key, which is why a boot failure gets one at all
+([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).
+
+`SRV-*` rather than `DB-*`: the side that must act is whoever runs the service, and on
+`SRV-BOOT-002` the database is not at fault at all. The container exits, so a code seen here is
+followed by reading the same container's remaining lines rather than by a trace.
+
+| Code           | Meaning                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                             |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                       |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI` |
+| `SRV-BOOT-004` | The database constraints could not be applied                       |
+
+The first three are one decision — `db.py :: _refusal_for`, which pairs each cause's sentence with
+its code — so a fourth cause added there takes a fourth row here.

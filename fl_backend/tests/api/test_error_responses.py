@@ -21,13 +21,11 @@ from app.core.logging import JSONFormatter
 from app.core.middlewares import CorrelationIdMiddleware
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
-from tests.config import build_test_config
+from tests.config import BASE_AUTH, build_test_config
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
 # handler caplog attaches at setup.
 APP = create_app(build_test_config())
-
-BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 
 def client() -> TestClient:

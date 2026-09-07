@@ -30,13 +30,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
-BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 # The two figures `READ-MONEY-001` keeps off the base tier, spelled as a DOCUMENT spells them: the
 # assertions below search decoded bodies by key, where a model's field name would not match.

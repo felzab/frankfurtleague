@@ -25,7 +25,7 @@ from app.core.dependencies import get_germany_now
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -651,7 +651,7 @@ class TestASeasonNobodyHas:
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
 
 
-def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, key: str) -> tuple[int, list[Mapping[str, Any]]]:
+def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
     """One call over the wire, so the guard, the system binder and the route template all run."""
 
     database_name = build_test_config().db_base_name
@@ -672,7 +672,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, key:
             try:
                 transport = ASGITransport(app=app, raise_app_exceptions=False)
                 async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers={"Authorization": f"Bearer {key}"})
+                    response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
                     return response.status_code
             finally:
                 await app.state.db_client.close()
@@ -691,7 +691,7 @@ class TestTheSystemTierOverTheWire:
         """What `bind_system_actor` buys: the row names the machine and the endpoint, not an invented person or a raw path."""
 
         status, rows = through_the_app(
-            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, key="test-key-system"
+            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, auth=SYSTEM_AUTH
         )
 
         assert status == 200
@@ -699,12 +699,12 @@ class TestTheSystemTierOverTheWire:
         assert rows[0]["actor"] == {"kind": "system", "email": SYSTEM_ACTOR_EMAIL}
         assert rows[0]["request"] == {"method": "POST", "path": f"/api/v{API_VERSION}/bewerbungen/sweep/{{saison_id}}/loeschen"}
 
-    @pytest.mark.parametrize("key", ["test-key-base", "test-key-admin"])
-    def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, key: str):
+    @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
+    def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
         status, rows = through_the_app(
-            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, key=key
+            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, auth=auth
         )
 
         assert status == 401

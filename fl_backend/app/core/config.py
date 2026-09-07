@@ -1,8 +1,9 @@
 import re
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Final, Literal, Self
 
-from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -19,6 +20,13 @@ HOSTNAME = re.compile(r"\*|(?:\*\.)?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\
 # `Origin` header, which carries no path, so a trailing slash matches no browser's request.
 ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1,5})?")
 
+# The length `fl_frontend/src/core/config.ts` pins each internal key to (`length(64)`). An equality
+# rather than a floor: the pair only works when the two values are identical, so a key one side
+# alone would refuse is a deployment already broken.
+INTERNAL_API_KEY_LENGTH: Final = 64
+
+InternalAPIKey = Annotated[SecretStr, Field(min_length=INTERNAL_API_KEY_LENGTH, max_length=INTERNAL_API_KEY_LENGTH)]
+
 
 class EnvironmentValidationError(Exception):
     """The environment refused, naming the variables and nothing else.
@@ -33,14 +41,28 @@ def _entries(value: str) -> list[str]:
     return [entry.strip() for entry in value.split(",")]
 
 
+# A model validator judges a PAIR, and pydantic gives its issue an empty `loc`, so the fields it
+# read are recovered from the error type it raised rather than from the issue's own location.
+POOL_BOUNDS_ERROR: Final = "db_pool_bounds"
+MODEL_ERROR_FIELDS: Final = {POOL_BOUNDS_ERROR: ("db_min_connections", "db_max_connections")}
+
+
 def _failing_names(error: ValidationError) -> str:
     """The failing variables in their environment spelling, and nothing else.
 
     An issue's own message and its `input_value` each quote what was rejected, so neither is read.
+    A model-level issue's `input_value` is the WHOLE settings mapping, so this path never widens.
     """
     # `model_config` sets no alias and no `env_prefix`, so a field's environment spelling is its
     # name upper-cased. `<unknown>` mirrors the frontend gate's answer for a locationless issue.
-    names = {str(issue["loc"][0]).upper() if issue["loc"] else "<unknown>" for issue in error.errors()}
+    names: set[str] = set()
+    for issue in error.errors():
+        if issue["loc"]:
+            names.add(str(issue["loc"][0]).upper())
+        elif fields := MODEL_ERROR_FIELDS.get(issue["type"]):
+            names.update(field.upper() for field in fields)
+        else:
+            names.add("<unknown>")
     return ", ".join(sorted(names))
 
 
@@ -69,9 +91,9 @@ class BackendConfig(BaseSettings):
     # the lifespan rather than a named variable at the gate.
     db_max_connections: int = Field(default=100, ge=1, description="Max pool size")
 
-    internal_api_key_base: SecretStr = Field(description="Base internal API-key")
-    internal_api_key_system: SecretStr = Field(description="Internal API-key for the system router")
-    internal_api_key_admin: SecretStr = Field(description="Internal API-key for the admin router")
+    internal_api_key_base: InternalAPIKey = Field(description="Base internal API-key")
+    internal_api_key_system: InternalAPIKey = Field(description="Internal API-key for the system router")
+    internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the admin router")
 
     log_level_app: LogLevel = Field(
         default="INFO",
@@ -117,6 +139,17 @@ class BackendConfig(BaseSettings):
             if ORIGIN.fullmatch(entry) is None:
                 raise ValueError("every entry must be an http:// or https:// origin carrying no path")
         return value
+
+    @model_validator(mode="after")
+    def validate_the_pool_bounds_against_each_other(self) -> Self:
+        # Each bound alone admits a minimum above the maximum. pymongo refuses that pair while
+        # CONSTRUCTING the client, and `db.py :: _refusal_for` reads its `ValueError` as an
+        # unopenable URI -- blaming `MONGODB_URI` for these two.
+        if self.db_min_connections > self.db_max_connections:
+            # `PydanticCustomError` rather than a `ValueError`, whose issue type `value_error` every
+            # field validator here shares: the token is what `_failing_names` recovers the pair from.
+            raise PydanticCustomError(POOL_BOUNDS_ERROR, "the pool minimum must not exceed the maximum")
+        return self
 
 
 @lru_cache

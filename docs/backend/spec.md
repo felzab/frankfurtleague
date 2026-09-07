@@ -313,19 +313,24 @@ unreachable.
 Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
 fields without a default are required at boot and the process refuses to start without them.
 
-| Variable                      | Constraint                                         | Default    |
-| ----------------------------- | -------------------------------------------------- | ---------- |
-| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard | — required |
-| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only | — required |
-| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`        | — required |
-| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name  | — required |
-| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000              | `15000`    |
-| `DB_MIN_CONNECTIONS`          | int, not negative                                  | `5`        |
-| `DB_MAX_CONNECTIONS`          | int, at least one                                  | `100`      |
-| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr`    | — required |
-| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                       | `WARNING`  |
-| `LOG_FORMAT`                  | `json` \| `console`, case-normalised               | **`json`** |
+| Variable                      | Constraint                                                               | Default    |
+| ----------------------------- | ------------------------------------------------------------------------ | ---------- |
+| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                       | — required |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`               | — required |
+| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                              | — required |
+| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                        | — required |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                    | `15000`    |
+| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                     | `5`        |
+| `DB_MAX_CONNECTIONS`          | int, at least one                                                        | `100`      |
+| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 characters | — required |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                      | `INFO`     |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                             | `WARNING`  |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                     | **`json`** |
+
+`API_CORS_ALLOWED_ORIGINS` refuses the bare `*` that `API_TRUSTED_HOSTS` accepts, and the refusal is
+deliberate: this API is reached server-side from the frontend's own origin, never from a browser at
+an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
+request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
 
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
 colourise the container stream ([`docs/logging/spec.md`](../logging/spec.md)). `API_VERSION` is deliberately

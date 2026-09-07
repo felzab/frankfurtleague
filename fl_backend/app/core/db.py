@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import NamedTuple
 
 from fastapi import Depends, FastAPI, Request
 from pymongo import AsyncMongoClient
@@ -12,11 +13,22 @@ from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
 
+
+class Refusal(NamedTuple):
+    """A boot refusal's sentence and the code its log line carries (`docs/logging/spec.md` §1.2).
+
+    One object rather than two constants, so a cause cannot be given a sentence and left without a code.
+    """
+
+    sentence: str
+    error_code: str
+
+
 # The variable's NAME and the fact, in one sentence each, used by the log line and the error alike.
 # The three share their opening, so an operator who found one of them reads which by its continuation.
-UNREACHABLE = "MONGODB_URI: the MongoDB server could not be reached, so the application will not start."
-NO_SERVER = "MONGODB_URI: the value did not yield a server to connect to, so the application will not start."
-REJECTED = "MONGODB_URI: the server refused to authenticate this value, so the application will not start."
+UNREACHABLE = Refusal("MONGODB_URI: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
+NO_SERVER = Refusal("MONGODB_URI: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
+REJECTED = Refusal("MONGODB_URI: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
 
 
 class DatabaseUnreachableError(Exception):
@@ -27,8 +39,8 @@ class DatabaseUnreachableError(Exception):
     """
 
 
-def _refusal_for(error: BaseException) -> str:
-    """Which of the three sentences an operator is handed, taken from the driver's exception class.
+def _refusal_for(error: BaseException) -> Refusal:
+    """Which of the three refusals an operator is handed, taken from the driver's exception class.
 
     `str(error)` quotes what the driver parsed or resolved, so nothing derived from it is read here.
     """
@@ -66,10 +78,10 @@ async def lifespan(app: FastAPI):
             await client.admin.command("ping")
         except Exception as error:
             refusal = _refusal_for(error)
-            fl_logger.critical(refusal)
+            fl_logger.critical(refusal.sentence, extra={"error_code": refusal.error_code})
             # No `exc_info`, and a new error `from None`: the driver's own message carries the host
             # it resolved out of the value, which is the half an operator must not be handed.
-            raise DatabaseUnreachableError(refusal) from None
+            raise DatabaseUnreachableError(refusal.sentence) from None
 
         # Reapplied on every boot, and a failure refuses the start (`docs/backend/spec.md :: I15`).
         try:
@@ -79,6 +91,7 @@ async def lifespan(app: FastAPI):
                 "Database constraints could not be applied, so the application will not start. Run "
                 "`python -m app.core.constraints --check` for the offending documents and the collMod privilege.",
                 exc_info=True,
+                extra={"error_code": "SRV-BOOT-004"},
             )
             raise
         fl_logger.info(

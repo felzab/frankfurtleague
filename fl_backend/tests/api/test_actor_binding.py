@@ -21,13 +21,11 @@ from app.core.security import (
     bind_system_actor,
 )
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import ADMIN_AUTH, build_test_config
 
 # Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
 # collection, before a fixture could run.
 APP = create_app(build_test_config())
-
-ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
