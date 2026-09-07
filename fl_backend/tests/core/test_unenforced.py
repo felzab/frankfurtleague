@@ -48,6 +48,7 @@ from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
 from tests.core.app_source import (
+    APP_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
     WRITE_HELPERS,
     app_calls,
@@ -294,6 +295,21 @@ def _calls_of(function: Callable[..., Any]) -> set[str]:
     name = function.__name__
 
     return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
+
+
+def _packages_importing(name: str) -> set[str]:
+    """Which packages under `app/` import one name, by the folder holding the module.
+
+    The import rather than the text: a name a comment merely mentions is not a module that can read
+    the value.
+    """
+
+    return {
+        path.parent.name
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for node in ast.walk(parsed(path))
+        if isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names)
+    }
 
 
 class TestExactlyOneActiveSeason:
@@ -556,6 +572,34 @@ class TestAPersonWithNoSquadRow:
             "patch_saison_spieler",
             "reactivate_saison_spieler",
         }
+
+
+class TestAPupilStoredWithNoBirthdate:
+    """That the person create takes a null date, that a stored person needs no key, and that the league's age reaches no squad module."""
+
+    def test_the_person_create_takes_a_null_date(self):
+        assert FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None).geburtsdatum is None
+
+    def test_a_stored_person_carrying_no_key_still_validates(self):
+        schema = COLLECTION_VALIDATORS[Collection.SPIELER]["$jsonSchema"]
+
+        # The floor: this collection DOES require keys, so the absence below is the field going
+        # unrequired rather than a validator that asks nothing of anybody.
+        assert schema["required"]
+
+        assert "geburtsdatum" in schema["properties"]
+        assert "geburtsdatum" not in schema["required"]
+
+    def test_the_leagues_age_reaches_no_squad_module(self):
+        """The threshold is one constant, so where it is imported is where an age can be judged."""
+
+        importing = _packages_importing("BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
+
+        # The floor: the application DOES judge a contact person's age against it, so the absence
+        # below is the squad package asking nothing rather than a sweep that found no importer.
+        assert "bewerbungen" in importing
+
+        assert "spieler" not in importing
 
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.

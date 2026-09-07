@@ -3,6 +3,7 @@ from typing import Any, Awaitable, Callable
 import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
@@ -41,6 +42,12 @@ INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 
 # Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 TODAY = "2026-04-01"
+
+# A pupil old enough to play, so the stored date cannot be read as one the league would turn away.
+GEBURTSDATUM = "2008-05-17"
+
+# MongoDB's own code for a document its `$jsonSchema` refused.
+DOCUMENT_VALIDATION_FAILED = 121
 
 RULES = {
     "win_points": 3,
@@ -168,7 +175,7 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
 
         async def body(database: AsyncDatabase) -> Any:
             response = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann"),
+                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
                 spieler_collection=database.spieler,
                 today=TODAY,
             )
@@ -188,7 +195,7 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
 
         async def body(database: AsyncDatabase) -> Any:
             created = await post_spieler(
-                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann"),
+                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
                 spieler_collection=database.spieler,
                 today=TODAY,
             )
@@ -204,6 +211,79 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
         assert stored["vorname"] == "Maximilian"
         assert stored["einwilligung"]["erteilt_von"] == "erziehungsberechtigt"
         assert stored["einwilligung"]["bestaetigt_am"] == TODAY
+
+
+class TestThePersonsBirthdate:
+    """Both answers a create can give, and the two things a stored one has to survive: a later name write, and the shipped validator."""
+
+    def test_creating_a_player_stores_the_date_that_was_given(self, mongo_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            response = await post_spieler(
+                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
+                spieler_collection=database.spieler,
+                today=TODAY,
+            )
+            return await database.spieler.find_one({"_id": ObjectId(response.spieler_id)})
+
+        assert on_a_database(mongo_url, body)["geburtsdatum"] == GEBURTSDATUM
+
+    def test_creating_a_player_who_gave_none_stores_the_key_holding_null(self, mongo_url: str):
+        """The KEY, not its absence: a create that omitted it would leave the person indistinguishable from one stored before the field."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            response = await post_spieler(
+                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None),
+                spieler_collection=database.spieler,
+                today=TODAY,
+            )
+            return await database.spieler.find_one({"_id": ObjectId(response.spieler_id)})
+
+        stored = on_a_database(mongo_url, body)
+
+        assert "geburtsdatum" in stored
+        assert stored["geburtsdatum"] is None
+
+    def test_correcting_a_name_leaves_the_date_standing(self, mongo_url: str):
+        """`$set` names only the payload's keys, so a write that carries no date cannot clear one -- against a real update."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            created = await post_spieler(
+                spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
+                spieler_collection=database.spieler,
+                today=TODAY,
+            )
+            await patch_spieler(
+                spieler_id=ObjectId(created.spieler_id),
+                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann"),
+                spieler_collection=database.spieler,
+            )
+            return await database.spieler.find_one({"_id": ObjectId(created.spieler_id)})
+
+        stored = on_a_database(mongo_url, body)
+
+        assert stored["vorname"] == "Maximilian"
+        assert stored["geburtsdatum"] == GEBURTSDATUM
+
+    def test_the_database_refuses_a_date_that_is_no_string(self, mongo_url: str):
+        """The half no model can prove: without the `$jsonSchema` property this field could hold any BSON type with the suite still green."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            document = {
+                "_id": spieler_id_for(90),
+                "vorname": "Max",
+                "nachname": "Mustermann",
+                "einwilligung": {"umfang": "kader_oeffentlich", "erteilt_von": "bestandsuebernahme", "datum": None, "bestaetigt_am": None},
+                "inactive_since": None,
+                # A year as an int is what a hand-edit or an unvalidated import writes.
+                "geburtsdatum": 2008,
+            }
+            try:
+                await database.spieler.insert_one(document)
+            except OperationFailure as failure:
+                return failure.code
+            return None
+
+        assert on_a_database(mongo_url, body) == DOCUMENT_VALIDATION_FAILED
 
 
 class TestTheSquadCapOnEveryWritePath:

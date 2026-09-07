@@ -393,12 +393,15 @@ describe("the squad edit's refusals when the undo replays it", () => {
     assert.deepEqual(declaredCodes("PATCH /spieler/{spieler_id}"), [], "the person patch now declares a rule the replay does not answer");
   });
 
-  /* Two outcomes and not one: the name goes back before the squad row is replayed, so a refusal after
-     it may not tell the admin the change stands whole. */
+  /* Two outcomes and not one: the person half goes back before the squad row is replayed, so a
+     refusal after it may not tell the admin the change stands whole. */
   it("carries both outcome sentences, outside the rows", () => {
     assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(UNDO_ROUTE.includes('const NAME_HALF_RESTORED = "Nur der Name wurde zurückgesetzt.";'), "the half-restore outcome is gone");
-    assert.ok(UNDO_ROUTE.includes("person === undefined ? CHANGE_STANDS : NAME_HALF_RESTORED"), "one outcome now answers both halves");
+    assert.ok(
+      UNDO_ROUTE.includes('const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";'),
+      "the half-restore outcome is gone",
+    );
+    assert.ok(UNDO_ROUTE.includes("person === undefined ? CHANGE_STANDS : PERSON_HALF_RESTORED"), "one outcome now answers both halves");
   });
 
   for (const code of declaredCodes(PATCH_OPERATION)) {

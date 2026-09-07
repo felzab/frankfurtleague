@@ -1707,6 +1707,22 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/admin/spieler",
     ),
     Unenforced(
+        subject="a person carrying no birthdate, whose age nothing judges",
+        reason=(
+            "No flow exists through which a pupil supplies their own date, so requiring one would refuse every "
+            "squad entry an administrator makes today. `POST /spieler` takes the field nullable and the "
+            "`spieler` validator leaves it out of `required`, so a person stored before it still writes. The "
+            "league's threshold is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`, judged for a "
+            "contact person alone (`REQ-BEWERBUNG-012`), and `FLEinwilligung.erteilt_von`'s `volljaehrig` names "
+            "who spoke rather than an age. THE TRIGGER IS THE NEXT SEASON'S REGISTRATION: every pupil row standing "
+            "today is dropped once at the end of this season (`docs/datenschutz.md`), and from that registration "
+            "on the field is required and the refusal below the threshold is built with it."
+        ),
+        near=("REQ-BEWERBUNG-012", "REQ-SQUAD-001"),
+        proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
+        surfaced_by="/admin/spieler",
+    ),
+    Unenforced(
         subject="a departed club holding drawn fixtures",
         reason=(
             "A departed club keeps its group place, and its opponents need a fixture to record the walkover on, "

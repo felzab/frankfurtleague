@@ -95,7 +95,6 @@ deliverable.
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states              | FE, Docs, tests                                                             | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                   | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                              | FE, BE, DB, Docs, spieler                                                   | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                              | FE, Ops, gate, tests                                                        | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                          | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
@@ -121,7 +120,6 @@ deliverable.
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
-| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                 | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                         | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                            | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                             | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
@@ -774,8 +772,6 @@ and a module already resolved by then gets the real cache rather than the harnes
 | --------------------------- | ------- | ----------- |
 | FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
 
-Lands with: `8y7c-rstr`
-
 **`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
 `fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
 `erteilt_von` as `erziehungsberechtigt` and `bestaetigt_am` as the same day; its one caller,
@@ -805,41 +801,6 @@ caller gone with it, the vocabulary narrowed to what stays expressible, the publ
 what the flow stores, and the notice's squad and referee publication rows
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
 interest they rest on to the consent the flow collects.
-
-### `8y7c-rstr` · No birthdate is stored, and every age rule guesses from `stufe`
-
-| Tags                      | Status  | Depends on  |
-| ------------------------- | ------- | ----------- |
-| FE, BE, DB, Docs, spieler | Blocked | `f3ar-m4qf` |
-
-Lands with: `8wd7-ff49`
-
-**No `spieler` document carries a birthdate, so nothing can judge a pupil's age.** `stufe` is the
-only signal and it is a proxy: it says which Halbjahr a pupil is in, not how old they are.
-
-**Ruled: the birthdate is required at sign-up and stored** (`docs/datenschutz.md` §2). The minimum
-age is 16 for everyone — the age at which a person consents for themselves under Art. 8 GDPR in
-Germany — a sign-up below it is refused, and the check cannot run without the date.
-
-**Optional is the rejected shape, and the reason it was rejected is the reason to keep it rejected.**
-An optional field would leave the age check unrunnable for every row that declined it, which is a
-rule that judges some people and not others. The tension the option was reaching for does not vanish
-— a birthdate is more identifying than a `stufe`, which is the argument against storing one at all —
-and what answers it is that the date is collected at sign-up and never backfilled: the pupil rows
-standing today are deleted once at the end of this season (`docs/datenschutz.md` §3), so no existing
-document is reached.
-
-**The `volljaehrig` trap.** The consent vocabulary's `volljaehrig`
-(`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, mirrored in
-`fl_backend/app/core/constraints.py`) pins no age in code and reads as 18. The threshold is 16, the
-one number the tree already commits to for a contact person
-(`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`), so reading the enum
-as the rule gets it wrong by two years.
-
-**Done** is the field on the `spieler` model with its hand-written copies moved in the same commit —
-the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
-`fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
-It is not a migration.
 
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
@@ -2054,38 +2015,6 @@ otherwise a flat read, and keeping that count fresh across the writes the same p
 **Low severity, and the entry should not inflate it.** The endpoint refuses correctly, the message
 is actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
 already full.
-
-### `kyc4-75k5` · A pupil's consent is stored and served, and shown by nothing
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, BE, Docs, spieler | Open   | —          |
-
-**`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` records what a pupil agreed may be
-published — its `umfang`, who gave it in `erteilt_von`, and the dates beside them — and no surface
-in the product renders it.** `POST /spieler` composes one through
-`fl_backend/app/api/spieler/services.py :: registration_einwilligung`;
-`fl_backend/app/core/domain.py` declares the field `IMMUTABLE`, no payload carrying it, so a manual
-database edit is the only other writer; `GET /spieler/memberships` serves it on
-`fl_backend/app/api/spieler/schemas.py :: FLSpielerWithMemberships`; and
-`fl_frontend/src/features/spieler/schemas.ts :: FLEinwilligungSchema` mirrors the shape. No
-component under `fl_frontend/src` reads the field.
-
-**Ruled: the player editor shows the stored consent, read-only, and it never gates publication**
-(`docs/datenschutz.md` §10, 2026-09-02). An immutable record shown beside editable fields owes the
-reader a word saying which it is, which is the whole of the remaining design.
-
-**What it must not quietly become.** Rendering the field is not gating publication on it, not making
-it writable, and not marking a backfilled consent as distinguishable from a collected one. The
-publication gate is `8wd7-ff49`'s, and it is ruled to read what a sign-up flow stores rather than
-what stands today.
-
-**What it would show is uniform, measured against the live database on 2026-08-22:** each of the 362
-stored pupils carries a consent, every one `umfang: kader_oeffentlich` and `erteilt_von:
-bestandsuebernahme`, each with a confirmation date. That is a backfill rather than a collected
-consent, and it is what makes the display worth something: a record nobody can see is a record
-nobody can check. Those rows are deleted once at the end of this season (`docs/datenschutz.md` §3),
-so what this shows is a population with an end date on it.
 
 ### `m4m3-hxmj` · The shared editor shell's widest layout step has never been rendered
 

@@ -17,7 +17,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "4. September 2026";
+const STAND = "8. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -371,8 +371,8 @@ export function DatenschutzView() {
           </dl>
           <p className={ABSATZ}>
             Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten und die
-            Schule einer Schiedsrichterin oder eines Schiedsrichters und die Stufe einer Spielerin oder eines Spielers, also das Halbjahr der
-            Oberstufe von E1 bis Q4.
+            Schule einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin oder eines Spielers.
+            Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
           </p>
           <p className={ABSATZ}>
             Die beiden vollständigen Namen im Impressum stehen nicht auf der Grundlage aus dieser Aufstellung, sondern weil § 5 DDG und § 18
@@ -395,6 +395,11 @@ export function DatenschutzView() {
             Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Veröffentlicht werden dann
             Vorname und erster Buchstabe des Nachnamens, bei einer Spielerin und einem Spieler dazu das Team, die Rückennummer und die Position,
             soweit sie angegeben sind.
+          </p>
+          <p className={ABSATZ}>
+            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und bleibt
+            bei den meisten Einträgen leer. Sie wird nicht veröffentlicht; sie ist dafür da, dass sich die Altersgrenze von 16 Jahren nachprüfen
+            lässt, die für alle gilt.
           </p>
           <p className={ABSATZ}>
             Für Schiedsrichterinnen und Schiedsrichter gilt dieselbe Form: An einem Spiel stehen Vorname und erster Buchstabe des Nachnamens.

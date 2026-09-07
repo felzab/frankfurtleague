@@ -13,6 +13,7 @@ const TEAMS: SpielerTeamOption[] = [HELMHOLTZ, LESSING];
 const stored: FLSpielerDraftFields = {
   vorname: "Max",
   nachname: "Mustermann",
+  geburtsdatum: "2008-05-14",
   membership: {
     team_id: HELMHOLTZ.teamId,
     nummer: "10",
@@ -33,8 +34,8 @@ describe("deriveSpielerDraftStatus", () => {
   it("carries a row for every person field and every squad row", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {}, teams: TEAMS });
 
-    // Two person fields plus the five squad rows; `is_nachgetragen` is a note, never a field.
-    assert.equal(status.fields.length, 7);
+    // Three person fields plus the five squad rows; `is_nachgetragen` is a note, never a field.
+    assert.equal(status.fields.length, 8);
   });
 
   it("reports a renamed player as one change carrying both texts", () => {
@@ -43,6 +44,23 @@ describe("deriveSpielerDraftStatus", () => {
     assert.deepEqual(
       status.changed.map((field) => [field.path, field.storedText, field.draftText]),
       [["vorname", "Max", "Moritz"]],
+    );
+  });
+
+  it("reports a birthdate entered for the first time as a change carrying no previous value", () => {
+    const status = deriveSpielerDraftStatus({
+      stored: draftFrom({ geburtsdatum: null }),
+      draft: draftFrom({ geburtsdatum: "2008-05-14" }),
+      fieldErrors: {},
+      teams: TEAMS,
+    });
+
+    // `isDirty` is what the save button reads, and a person field missing from the descriptor table
+    // leaves it false: the input takes the date, the payload carries it, and nothing offers to save.
+    assert.ok(status.isDirty);
+    assert.deepEqual(
+      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
+      [["geburtsdatum", null, "2008-05-14"]],
     );
   });
 
@@ -56,7 +74,7 @@ describe("deriveSpielerDraftStatus", () => {
 
     assert.deepEqual(
       status.fields.map((field) => field.path),
-      ["vorname", "nachname"],
+      ["vorname", "nachname", "geburtsdatum"],
     );
   });
 

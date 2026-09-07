@@ -465,6 +465,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": _STRING_OR_NULL},
+                # Out of `required` for `saisons.spielplan`'s reason.
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": _EINWILLIGUNG,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,

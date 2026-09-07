@@ -50,8 +50,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `8wd7-ff49` holds the question this answers.
 - **The minimum age is 16, for everyone, and a sign-up below it is refused.** Sixteen is the age
   at which a person consents for themselves under Art. 8 GDPR in Germany, and one rule for every
-  role replaces three. The birthdate is **required** at sign-up and stored, never optional —
-  `8y7c-rstr` holds the optional field as the rejected shape and the reason it stays rejected. A
+  role replaces three. **A pupil's birthdate is optional until the sign-up flow exists, and
+  required from it.** The alternative weighed and refused was requiring it now: that means
+  inventing data in the one field whose purpose is the age floor, a validator that invalidates
+  every standing pupil row until a backfill is run by hand, and an administrator making a date up
+  at every squad entry until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED`
+  carries the standing state and names what ends it — the next season's registration, at which
+  the pupil rows standing today are dropped
+  ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-08. A
   contact person is the one role the rule reaches today, and it reaches them without a sign-up flow:
   that person types their own date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
@@ -276,13 +282,13 @@ Where an entry is still open, what is left to do is its own `Status` in
 [`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives, and
 the `Entry` column carries a token only where one still resolves in that file.
 
-| Entry       | Decision                                                                                                                                                                |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                               |
-| `kyc4-75k5` | The player editor shows the stored consent, read-only; it never gates publication                                                                                       |
-| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                    |
-| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                        |
-| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)) |
+| Entry       | Decision                                                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
+| —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
+| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                                                                |
+| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
+| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 
 ## 11. Open, and owed a decision
 

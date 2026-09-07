@@ -1,4 +1,4 @@
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
+import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 
 type RolleOption = { value: FLSpielerRolle; label: string; kuerzel: string };
 
@@ -41,6 +41,22 @@ export const STUFE_OPTIONS: readonly FLSpielerStufe[] = ["E1", "E2", "Q1", "Q2",
 export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[] {
   return STUFE_OPTIONS.filter((stufe) => erlaubt.includes(stufe));
 }
+
+/**
+ * What a pupil agreed may be PUBLISHED, never what a contact seat's identically named block records:
+ * the two share every field name and no value (`docs/glossary.md :: Einwilligung`).
+ */
+export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string> = {
+  kader_oeffentlich: "Name im öffentlichen Kader",
+  intern: "Nur innerhalb der Liga",
+};
+
+/** `bestandsuebernahme` is named plainly rather than softened: a record nobody was asked for must not read like consent somebody gave. */
+export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"], string> = {
+  erziehungsberechtigt: "Von einem Erziehungsberechtigten",
+  volljaehrig: "Vom Spieler selbst",
+  bestandsuebernahme: "Aus dem Bestand übernommen",
+};
 
 /**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value

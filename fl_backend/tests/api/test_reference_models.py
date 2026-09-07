@@ -589,7 +589,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"vorname": "Max", "nachname": "Mustermann"}
+        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
         club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.

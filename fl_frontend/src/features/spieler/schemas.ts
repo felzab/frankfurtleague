@@ -82,6 +82,8 @@ export const FLSpielerWithMembershipsSchema = z.object({
   nachname: z.string().nullable(),
   // The day the PERSON left the league; a squad row's own retirement is on the membership.
   inactive_since: CustomDateStringSchema.nullable(),
+  // Nullable for `einwilligung`'s reason below, over a person stored before the field existed.
+  geburtsdatum: CustomDateStringSchema.nullable(),
   // Nullable rather than optional, mirroring the backend default: a person stored before consent
   // was collected has no record, and this tier is the only one that may read one.
   einwilligung: FLEinwilligungSchema.nullable(),
@@ -103,6 +105,9 @@ const spielerPayloadFields = {
   vorname: PersonNameSchema,
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
   nachname: PersonNameSchema.nullable(),
+  // Nullable, and the form states the null rather than omitting: no flow collects a pupil's own
+  // date yet (`fl_backend/app/core/domain.py :: UNENFORCED`).
+  geburtsdatum: CustomDateStringSchema.nullable(),
 };
 
 // OPTIONAL on the create and required on the patch, mirroring the backend: a create has nothing to
