@@ -152,7 +152,6 @@ deliverable.
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                            | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                | FE, Docs, ci, tests, saisons                                                | Standing |
-| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                  | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                         | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
 | `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                  | FE, admin, spiele                                                           | Open     |
@@ -3254,61 +3253,6 @@ outstanding repair**, and the window in which the fix was cheap closed at the pu
 
 **Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
 the argument for a per-commit resolution check, and the sweep above is what it would be built from.
-
-### `vyr6-uk2p` · The open-window read filters into arrays and subscripts whatever comes back
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| FE, BE, tests, bewerbungen | Open   | —          |
-
-**`fl_backend/app/api/bewerbungen/public_router.py :: get_offenes_fenster` selects the season with a
-dotted query — `bewerbung.offen`, `bewerbung.von`, `bewerbung.bis` — and hands
-`open_seasons[0]["bewerbung"]` straight to `:: _fenster`, which subscripts all three by name.** A
-dotted path in a MongoDB filter matches into an array of embedded documents, so a season storing
-`bewerbung: [{offen, von, bis}]` — the window wrapped in a list — satisfies every term of the query
-and reaches `_fenster` as a list. `bewerbung["offen"]` on a list raises `TypeError`, and
-`GET /bewerbungen/fenster` answers **500 on the public tier**. It is the one malformed shape the
-query lets through: a string or a number has no `bewerbung.offen` to match, and an object short of a
-field fails the term that names it, so neither reaches the subscript on this route.
-
-**The sibling route is guarded and this one is not.** `:: _pull_window`, behind
-`GET /bewerbungen/fenster/{saison_id}` and the colour read, passes the stored value through
-`fl_backend/app/api/bewerbungen/services.py :: recorded_window` and answers 404 where it is not a
-mapping carrying all three fields; the comment at that call says why — `_fenster` subscripts, so a
-shape check alone would 500. `get_offenes_fenster` takes the shape from a query that already asserts
-the three fields exist, and **array matching is exactly what breaks that inference.**
-`:: window_is_running` inside `_fenster` carries the same guard, and `_fenster` subscripts before it
-gets there.
-
-**Why nothing produces it today.** `fl_backend/app/core/constraints.py :: _SAISON_BEWERBUNG` types
-the field as a nullable object with the three keys required, and the collection runs under
-`validationLevel: strict` with `validationAction: error`, so no write through the driver stores a
-list there. The field and its validator landed in one commit
-on 2026-08-28, so no season carried the key before the rule existed. What remains is a write past the validator — a
-`bypassDocumentValidation` write, a dump restored from elsewhere, the validator dropped and
-re-applied — the class of document `wszt-rpmy` files against, and the one
-`fl_backend/tests/api/test_bewerbung_public_read.py :: MALFORMED_WINDOWS` already names for the
-per-season reads, its list-wrapped case included.
-
-**What it costs when one does arrive.** The read is made by
-`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx` on the public start page and the
-contact page, and `fl_frontend/src/features/bewerbungen/queries.ts :: getOffenesBewerbungFenster` turns a 404
-into "no window" and rethrows everything else — so the 500 is thrown inside a server component rather than
-rendered as the band's absence.
-
-**Done is the guard on this path and the case that pins it.** `get_offenes_fenster` passes
-`open_seasons[0]["bewerbung"]` through `recorded_window` and answers the 404 an empty result already answers:
-a season whose stored window cannot be read is one taking no applications, which is what the route's docstring
-promises for "none". And
-`fl_backend/tests/api/test_bewerbung_public_read.py :: TestAStoredWindowThatIsNotAnObject` drives the
-list-wrapped case against `GET /bewerbungen/fenster` beside the two per-season paths in `:: WINDOW_READS`. On
-this route that case is the only non-vacuous member of `MALFORMED_WINDOWS`, the other two never passing the
-query, and the test's own comment already claims the class it belongs to.
-
-**Established by reading, not driven** (COR-9). The array matching, the `TypeError` and the band's
-rethrow were read off the query, `_fenster`, the filter semantics and the two frontend files; no
-list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
-renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
 
 ### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
 

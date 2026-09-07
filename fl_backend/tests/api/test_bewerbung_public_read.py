@@ -383,12 +383,16 @@ class TestTheAssignedColoursRead:
         assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
 
 
+# Named because two classes seed it: the open-window query traverses a list, so this is the one
+# malformed window that reaches a read rather than failing a term.
+LIST_WRAPPED_WINDOW = [dict(RUNNING_WINDOW)]
+
 # Present and not an object: what `app/core/constraints.py :: _SAISON_BEWERBUNG` refuses, and what
 # a season stored before that validator can still carry.
 MALFORMED_WINDOWS = [
     pytest.param("2026-03-01/2026-04-30", id="a window flattened to a string"),
     pytest.param(2026, id="a window stored as a number"),
-    pytest.param([dict(RUNNING_WINDOW)], id="a window wrapped in a list"),
+    pytest.param(LIST_WRAPPED_WINDOW, id="a window wrapped in a list"),
 ]
 
 # An object short of a key: `app/core/constraints.py :: _SAISON_BEWERBUNG` requires every one, and a
@@ -442,6 +446,22 @@ class TestAStoredWindowShortOfAFieldTheReadNeeds:
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
         assert answered(mongo_url, path, database_name=database).status_code == 404
+
+
+class TestTheOpenWindowReadIsGivenAWindowItCannotRead:
+    """The open-window read's own case rather than a path in `WINDOW_READS`.
+
+    Every other window in the two lists above fails a query term, so a case parametrised over one of
+    them passes here without reaching the read.
+    """
+
+    def test_it_answers_as_a_season_taking_no_applications_does(self, mongo_url: str):
+        """Non-vacuous: a dotted query term traverses a list, so this season IS selected and its window reaches `_fenster`'s subscript."""
+
+        # UNCONSTRAINED for the classes above's reason: `_SAISON_BEWERBUNG` refuses a window in a list.
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=LIST_WRAPPED_WINDOW)], constrained=False)
+
+        assert answered(mongo_url, f"{PREFIX}/fenster", database_name=database).status_code == 404
 
 
 # Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.

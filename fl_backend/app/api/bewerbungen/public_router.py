@@ -113,10 +113,14 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
         collection=saisons_collection, db_filter=db_filter, limit=1, sort_by=[("_id", -1)], projection=WINDOW_PROJECTION
     )
 
-    if not open_seasons:
+    # `recorded_window` for `_pull_window`'s reason, and reachable past the query: a dotted term
+    # traverses a LIST, so a window stored inside one matches every term and 500s in `_fenster`.
+    bewerbung = recorded_window(bewerbung=open_seasons[0]["bewerbung"]) if open_seasons else None
+
+    if bewerbung is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
-    return _fenster(saison_id=str(open_seasons[0]["_id"]), bewerbung=open_seasons[0]["bewerbung"], today=today)
+    return _fenster(saison_id=str(open_seasons[0]["_id"]), bewerbung=bewerbung, today=today)
 
 
 @router.get("/fenster/{saison_id}", response_model=FLBewerbungFensterResponse, summary="One Saison's application window")
