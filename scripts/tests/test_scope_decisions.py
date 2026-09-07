@@ -364,6 +364,9 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # `scripts/gate/selfcheck.sh` compares this file's uv tag against the manifest's pin, and runs
     # in the scripts scope alone; a bot's base-image bump touches this file and nothing else.
     ("fl_backend/Dockerfile", ("images", "docs", "scripts")),
+    # `COPY . .` is what reads this file, so the image and the comments in it are all an edit here
+    # can reach; the `scripts` scope the Dockerfile beside it takes is the uv comparison's.
+    ("fl_backend/.dockerignore", ("images", "docs")),
 )
 
 
@@ -388,6 +391,17 @@ def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> N
     answered = scope.scope_map(["NOTICE"])
     assert answered is not None, "scripts/gate/scope_map.sh could not be run"
     assert {name for name, selected in answered.items() if selected} == {"docs"}, repr(answered)
+
+
+def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
+    """`SELECTED` reads its scopes as a subset, so the row above passes with `scripts` left true.
+
+    Only a set comparison holds the two halves of that arm apart.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map(["fl_backend/.dockerignore"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"images", "docs"}, repr(answered)
 
 
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:

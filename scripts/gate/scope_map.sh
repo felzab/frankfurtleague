@@ -88,7 +88,10 @@ else
       # compares this file's `FROM ghcr.io/astral-sh/uv:` tag with `fl_backend/pyproject.toml`'s
       # `required-version`. A bot's bump touches this file alone, and the whole scripts scope is
       # what that costs.
-      fl_backend/Dockerfile|fl_backend/.dockerignore) images=true; docs=true; scripts=true ;;
+      fl_backend/Dockerfile) images=true; docs=true; scripts=true ;;
+      # Its own arm, the uv comparison above reading the Dockerfile alone: joined to it, an edit
+      # here would buy the whole scripts scope for a file nothing outside the build reads.
+      fl_backend/.dockerignore) images=true; docs=true ;;
       fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;

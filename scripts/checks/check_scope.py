@@ -368,14 +368,16 @@ def scope_map(files: list[str]) -> dict[str, bool] | None:
 # Per file because the mapping answers for a list: nothing it prints says which member turned the
 # images scope on, and the count the refusal ends with is exact only while every path is asked about.
 
-# A per-file mode in `scripts/gate/scope_map.sh` would put a second output shape in a file four
-# callers read: `.githooks/pre-push`, `.github/workflows/verify.yml`, `scripts/gate/selfcheck.sh`
-# and this one.
+# A per-file mode in `scripts/gate/scope_map.sh` would put a second output shape in a file five
+# callers read: `.githooks/pre-push`, `.github/workflows/verify.yml`, `scripts/gate/selfcheck.sh`,
+# `scripts/tests/test_scope_decisions.py :: _mapping_for_base`, and this one.
 
 
-# Neither cheaper answer stays here either. Bisecting the list until each culprit is isolated is more
-# machinery than a failure path deserves, and re-deriving the mapping's rules in python is the second
-# copy the **miniatures** clause in `.claude/rules/ops.md` refuses.
+# Bisecting the list until each culprit is isolated is more machinery than a failure path deserves.
+
+
+# Re-deriving the mapping's rules in python is the second copy
+# `docs/ops/spec.md :: the one copy of the path-to-scope mapping` refuses.
 def images_culprits(files: list[str]) -> list[str]:
     """Which of these files is the reason the images scope is required. The failure path only.
 
