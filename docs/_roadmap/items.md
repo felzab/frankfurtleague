@@ -125,6 +125,7 @@ deliverable.
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                              | FE, BE, DB, Docs, kontakte                                                  | Open     |
+| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                               | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
@@ -155,6 +156,7 @@ deliverable.
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                               | FE, BE, spiele                                                              | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                             | FE, Ops, Docs, edge                                                         | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                   | FE, Docs                                                                    | Open     |
+| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                            | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                | FE, Docs, ci, tests, saisons                                                | Standing |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                  | FE, BE, tests, bewerbungen                                                  | Open     |
@@ -2175,6 +2177,45 @@ does.
 each seat sits in, before the write — read from a route added for it rather than inferred on the
 client, with a case pinning that a second matched person appears in the reveal.
 
+### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
+
+| Tags                           | Status | Depends on |
+| ------------------------------ | ------ | ---------- |
+| FE, BE, Ops, Docs, gate, tests | Open   | —          |
+
+**A code today fuses two facts, what went wrong and what kind of thing that is, and only the first
+is machine-readable.** `docs/logging/error-codes.md` fixes the grammar `<AREA>-<SUBJECT>-<NNN>`,
+`scripts/checks/docs_gate/error_codes.py` holds every row to the two source trees in both
+directions, and a refusal answered to a caller carries its code in the body and on its log line.
+What no consumer can read is the class: whether a caller's precondition failed, an argument was
+invalid, the caller was unauthenticated, nothing was found, the service was unavailable or the
+server broke. The frontend therefore words every backend code by hand at three sites per refusal
+(`.claude/rules/cross-surface.md`'s trap), and a code either site forgets falls through to
+`fl_frontend/src/shared/utils/actionError.ts`'s 409 fallback, which tells the admin an equivalent
+entry already exists whatever happened. Mature registers carry both: Google's API error model pairs
+a canonical status from a closed list with an open `reason`, Stripe pairs a `type` from five with
+an open `code`, and RFC 9457 carries `status` beside a `type` that resolves to documentation.
+
+**The register's kinds are a convention no check reads.** A `REQ` row carries an HTTP status and
+reaches a response body; `DB`, `SRV`, `SRV-BOOT` and `FE` rows are log events an operator acts on;
+the page says so in prose since the grammar was written, and `error_codes.py` reads the shape
+alone, so a `REQ` row with no status or an `FE` row claiming one is a page defect the gate cannot
+see. Ordered on 2026-09-07 as the mature end state, with the grammar and the retired-codes list
+landed first.
+
+**Done when** a closed class of at most eight values travels beside `error_code` in the response
+body and on every failure line, declared once per surface and compared by the logging suites the
+way L2's key order is; the register carries a kind column the docs gate enforces (a response row
+owes a status, a log-only row a severity and the operator's action); the frontend's refusal
+registers fall back by class rather than to one 409 message, the hand-written sentences staying
+for the codes that deserve one; and `docs/logging/spec.md` L2 records the envelope's new key,
+which is an order change on both surfaces and lands in one commit with both suites.
+
+**The trap:** the envelope's key order is asserted as a literal list in `fl_backend/tests/core/test_logging.py`
+and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
+clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
+per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
+
 ### `kajk-z7nu` · A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it
 
 | Tags                                    | Status | Depends on |
@@ -3315,6 +3356,56 @@ conventions underived.
 **Done when** a page a session meets before it designs anything carries the type scale, the weight
 rule, the spacing and radius ladders, the colour roles and the component grammar, and the conventions
 above are stated there rather than kept by imitation.
+
+### `v9tn-3hce` · The log answers what broke and hardly what happened
+
+| Tags         | Status | Depends on |
+| ------------ | ------ | ---------- |
+| FE, BE, Docs | Open   | —          |
+
+**The plumbing is complete and the coverage is of failures alone.** One envelope with an asserted
+field set on three surfaces, a trace id minted at the edge and re-spanned at every hop, an access
+line at two of the three hops, a code on every failure line and an `aktionen` row for every write:
+where a line exists it is a good line. A survey on 2026-09-07 found eleven backend call sites in
+three modules and twenty frontend calls in thirteen files, and against what a service is expected to
+log, these gaps:
+
+- **No request line on the frontend hop.** nginx and the backend each write one per request; a page
+  render, a server action and a route handler write none, so a page view is one edge line and one
+  backend line with the middle silent. `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`
+  is the one seam every dynamic path passes and both ids are in hand there.
+- **A refusal the frontend maps is never logged.** Every feature action catches inside
+  `runAdminMutation`'s callback and returns a form state, so a 409 the admin sees leaves no line; the
+  three refusals the frontend answers on its own authority (cross-origin, the ingest route's 403 and 422) log nothing either.
+- **A domain transition is an `aktionen` row and an anonymous `POST` in the stream.** A season
+  activated, a Spielplan drawn, a result recorded, an application accepted: no module under the
+  backend's api package writes a line, and the audit row is not in the stream, so a transition cannot
+  be read beside the failures around it without leaving the log; the row's `trace_id` is the join
+  key that makes a line cheap.
+- **External calls log their refusals and never their outcomes.** No line says a mail was sent, a
+  sign-in succeeded or a session was created; Auth.js has no `events` block; the database logs its
+  boot and nothing after.
+- **The retention sweep writes no start, end or counts**, so an hour in which the timer did not fire
+  reads like a pass that mailed nobody; neither service writes a line at readiness or shutdown, and
+  the frontend does not record whether the sweep armed.
+- **Severity means different things on the two hops.** The backend classifies by who acts, every
+  caller-fixable status at WARNING and a 503 among them; the frontend classifies by surprise, an
+  unmapped ordinary 409 at ERROR and a single visitor's browser crash above a backend 503. `LogMeta`
+  extends an open record, so a fourth frontend path inherits no bound where the backend's
+  `STRUCTURED_EXTRAS` bounds every line.
+
+Ordered on 2026-09-07: "proper logging at all spots where it is necessary".
+
+**Done when** `docs/logging/spec.md` states which events each surface logs and at which severity,
+the ladder meaning one thing on both hops; the frontend writes its request line at the trace seam;
+a mapped refusal, a domain transition, a sent mail, a sign-in and a sweep pass each write the line
+the sheet names, with the code the register holds; and the frontend's extras are bounded the way
+the backend's are. Each line is proved by the surface's own suite the way the failure lines are.
+
+**The trap:** `.claude/rules/cross-surface.md`'s **logging** clause forbids a line outside the
+envelope, and the `aktionen` collection deliberately stores the values the stream may never carry
+(`fl_backend/app/core/recording.py`), so a transition line names ids and never the values the row
+holds.
 
 ### `vgk8-btxt` · What decides whether a module belongs in `core` or in `shared` is written nowhere
 
