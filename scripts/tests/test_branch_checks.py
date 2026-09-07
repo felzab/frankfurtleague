@@ -88,6 +88,8 @@ NUMBERED_ANCHOR: Final = BACKEND_SPEC + HASH + "3"
 # A hex colour, whose digits-only spelling is the one shape a stylesheet writes that reads as an
 # issue number. The two closers are what a rule declaration and a colour function put after it.
 HEX: Final = HASH + "000"
+# The same colour as INC-6 has a module write it, the quotes being all that parts it from a tracker.
+QUOTED_HEX: Final = '"' + HEX + '"'
 # The number both fixture sheets define at the fork: the shape of the low band the real sheets
 # share, which OUT-4's allocation rule leaves standing.
 SHARED_ID: Final = "I1"
@@ -569,6 +571,29 @@ def test_a_hex_colour_in_a_stylesheet_comment_names_no_issue() -> None:
         _reset()
     assert STYLES in data["additions"]
     assert _findings(data) == [("fail", "comment-citation", STYLES, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_a_hex_colour_in_a_module_comment_is_an_issue_number_until_it_is_quoted() -> None:
+    """The exemption above is the stylesheet's alone, so the same colour named in a module reports.
+
+    The second run is the spelling INC-6 sends that writer to, and the first is what makes the
+    quotes load-bearing rather than decorative.
+    """
+    _reset()
+    try:
+        _append(MOD, HASH + " the swatch stays " + HEX + " while the theme holds")
+        bare = _run()
+        _reset()
+        _append(MOD, HASH + " the swatch stays " + QUOTED_HEX + " while the theme holds")
+        # The review reference beside it is the evidence the check read the file at all.
+        _append(MOD, HASH + " drawn up in the last session")
+        quoted = _run()
+    finally:
+        _reset()
+    assert MOD in bare["additions"]
+    colour = "issue number " + HEX + " in an added comment -- state the constraint (INC-6)"
+    assert _findings(bare) == [("fail", "comment-citation", MOD, colour)]
+    assert _findings(quoted) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
 
 
 def test_a_hash_shaped_run_that_names_no_issue_stays_silent() -> None:

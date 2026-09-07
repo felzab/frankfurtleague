@@ -188,8 +188,8 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
 def _fork_ancestor(block: list[str], older: list[Ancestor]) -> Ancestor | None:
     """The fork block this one came from, or None where too little of it is the fork's.
 
-    Half its own lines: a moved or edited block shares most of itself; one padded with a borrowed
-    line does not.
+    Half its own distinct lines: a moved or edited block shares most of itself; one padded with a
+    borrowed line does not.
     """
     lines = frozenset(line for line in block if line)
     # Never the opening line as a key: it drops the exemption the moment a writer improves that

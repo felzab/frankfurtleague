@@ -21,17 +21,20 @@ from typing import Final
 
 from conftest import git, write
 from test_check_docs import (
+    BE_DERIVATION_ROW,
     BLOCKED_ENTRY,
     BLOCKED_FIELDS,
     BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
     DROPPED_GATE_ROW,
+    EDGE_DERIVATION_ROW,
     GATE_DERIVATION_ROW,
     HASH,
     NEWLINE,
     NOTES,
     ORPHAN_ENTRY,
+    QUALIFIED_BE_ROW,
     QUOTES,
     ROADMAP,
     ROADMAP_TAIL,
@@ -42,6 +45,8 @@ from test_check_docs import (
     SLICE_STRAY,
     SPIELER_PANEL,
     UNDECODABLE_BYTES,
+    UNHELD_FILE_ROW,
+    UNHELD_SUBTREE_ROW,
     UNTOKENIZABLE_MODULE,
     VOCAB_ENTRY,
     VOCAB_FIELDS,
@@ -205,6 +210,21 @@ def test_the_tag_derivation_table_is_held_to_the_paths_the_gate_derives_tags_fro
     widened = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, WIDENED_GATE_ROW))
     assert dropped[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix dropped from the row passed: " + _shape(dropped)
     assert widened[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix no tag derives from passed: " + _shape(widened)
+    _assert_corpus_restored()
+
+
+def test_a_source_cell_naming_a_path_no_prefix_of_its_row_reaches_is_reported() -> None:
+    """A token carrying no repository prefix is read by neither direction above.
+
+    The third arm keeps that silence from reading as a ban on relative names: a folder under a
+    prefix the cell itself writes qualifies its reach.
+    """
+    subtree = _roadmap_findings(lambda: _replace(ROADMAP, EDGE_DERIVATION_ROW, UNHELD_SUBTREE_ROW))
+    filename = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, UNHELD_FILE_ROW))
+    qualified = _roadmap_findings(lambda: _replace(ROADMAP, BE_DERIVATION_ROW, QUALIFIED_BE_ROW))
+    assert subtree[("fail", "roadmap-shape", ROADMAP)] == 1, "a subtree nothing holds passed: " + _shape(subtree)
+    assert filename[("fail", "roadmap-shape", ROADMAP)] == 1, "a filename no prefix of its row reaches passed: " + _shape(filename)
+    assert qualified[("fail", "roadmap-shape", ROADMAP)] == 0, "a folder under the row's own prefix was reported: " + _shape(qualified)
     _assert_corpus_restored()
 
 

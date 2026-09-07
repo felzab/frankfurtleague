@@ -232,6 +232,17 @@ DERIVATION_ROWS: Final[tuple[str, ...]] = tuple(
 GATE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("gate") in row)
 DROPPED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(", " + _tick(".claude/hooks/"), "")
 WIDENED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("docs/"))
+# A filename none of its own row's prefixes reaches: one they did reach would restate that reach
+# rather than claim a source of its own.
+UNHELD_FILE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("local.conf"))
+# The row a subtree nothing holds is added to, its own cell still naming every prefix `edge` derives
+# from, so the added token is all the comparison leaves.
+EDGE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("edge") in row)
+UNHELD_SUBTREE_ROW: Final = EDGE_DERIVATION_ROW.replace(_tick("nginx/"), _tick("nginx/") + ", " + _tick("edgy/"))
+# The same shape written legibly: a folder under a prefix the cell itself writes, which qualifies
+# that prefix rather than deriving the tag from anywhere new.
+BE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("BE") in row)
+QUALIFIED_BE_ROW: Final = BE_DERIVATION_ROW.replace(_tick("tests/"), _tick("tests/") + " and " + _tick("app/"))
 
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
@@ -2283,6 +2294,28 @@ def test_a_self_citation_is_proved_by_the_page_s_own_text_and_never_by_a_second_
         _reset()
     assert cited[("fail", "citation", NOTES)] == 1, "an anchor only another citation spells passed: " + _shape(cited)
     assert headed[("fail", "citation", NOTES)] == 0, "an anchor the page's own heading spells was failed: " + _shape(headed)
+    _assert_corpus_restored()
+
+
+def test_the_tail_line_of_a_wrapped_citation_proves_no_self_citation_of_its_anchor() -> None:
+    """A wrap parts the other page's citation, so its tail carries the anchor and no whole span.
+
+    The second run is the evidence the arm reads other lines: the same pair with the anchor
+    spelled outside both citations passes.
+    """
+    _reset()
+    wrapped = ("The entry `" + GLOSSARY + " ::", GLOSSARY_DEFINITION + "` is written beside this page.")
+    second = "A second `" + NOTES + " :: " + GLOSSARY_DEFINITION + "` has that tail line for its only proof."
+    try:
+        _append(NOTES, *wrapped, "", second)
+        _, tailed = _run()
+        _reset()
+        _append(NOTES, *wrapped, "", "The page itself spells " + GLOSSARY_DEFINITION + ".", "", second)
+        _, spelled = _run()
+    finally:
+        _reset()
+    assert tailed[("fail", "citation", NOTES)] == 1, "an anchor only a wrapped citation's tail spells passed: " + _shape(tailed)
+    assert spelled[("fail", "citation", NOTES)] == 0, "an anchor the page's own sentence spells was failed: " + _shape(spelled)
     _assert_corpus_restored()
 
 

@@ -327,8 +327,9 @@ every file this Scope names.
   in a Dockerfile, a workflow, an nginx configuration or a manifest. Naming the issue-number shape
   to ban it is a mention rather than a use, and is written in double quotes — straight or curly —
   which that reader spares; backticks spare nothing there, a number marked up as code reading as a
-  citation of it. _Enforced by_ gate checks
-  `citation`, `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and
+  citation of it. A hex colour named in a comment takes those quotes too, the punctuation that makes
+  one a colour rather than a tracker's number being read in a stylesheet alone. _Enforced by_ gate
+  checks `citation`, `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and
   `rule-id`; an unpinned outside link is review judgment.
 - **INC-7:** directive first line · a Python docstring is the first statement, above the imports ·
   summary line, then a blank line, then prose. Docstring enforcement is a formatting subset only: the

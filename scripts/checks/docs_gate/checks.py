@@ -703,6 +703,24 @@ def _derivation_rows(body: str) -> list[list[str]] | None:
     return _table_rows("\n".join(kept))
 
 
+def _unheld_sources(prefixes: frozenset[str], cell: str) -> list[str]:
+    """Every path-shaped token in the source cell the comparison below reads neither way.
+
+    A name resolving under a prefix the cell itself writes qualifies that prefix's reach; one
+    resolving nowhere derives the tag from a path nothing here holds.
+    """
+    dropped: set[str] = set()
+    for token in BACKTICK_RE.findall(cell):
+        if token.startswith(REPO_PREFIXES) or is_placeholder(token):
+            continue
+        # A slash or a scanned suffix is what parts a path from the prose this column carries
+        # beside one: a `Dockerfile` and a compose service both derive a tag and name no subtree.
+        if ("/" not in token and not token.endswith(SCANNED_SUFFIXES)) or any(holds_path(prefix + token) for prefix in prefixes):
+            continue
+        dropped.add(token)
+    return sorted(dropped)
+
+
 def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
     """The page's derivation table against `TAG_PATH_SOURCES`, both directions.
 
@@ -718,6 +736,7 @@ def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
         return [Finding("fail", "roadmap-shape", rel, f"opens no table under {headed}, so no tag's paths were held to the gate's")]
 
     written: dict[str, frozenset[str]] = {}
+    unheld: dict[str, list[str]] = {}
     columns = (rows[0].index(DERIVATION_VOCABULARY_COLUMN), rows[0].index(DERIVATION_SOURCE_COLUMN))
     for cells in rows[1:]:
         if max(columns) >= len(cells):
@@ -725,6 +744,7 @@ def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
         tag = cells[columns[0]].strip("*` ")
         if tag in held:
             written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(REPO_PREFIXES))
+            unheld[tag] = _unheld_sources(written[tag], cells[columns[1]])
 
     found: list[Finding] = []
     for tag, prefixes in sorted(held.items()):
@@ -737,6 +757,9 @@ def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
             found.append(Finding("fail", "roadmap-shape", rel, detail))
         for prefix in sorted(prefixes - written[tag]):
             detail = f"the gate derives `{tag}` from `{prefix}`, and the derivation table's row does not name it"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for token in unheld[tag]:
+            detail = f"the derivation table derives `{tag}` from `{token}`, which names a path the gate derives nothing from"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
@@ -1789,11 +1812,11 @@ def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
     return _wrap_re(markers).sub(" ", body)
 
 
-def _source_line(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
-    """An offset in the joined body read back to its line in the file.
+def _source_offset(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
+    """An offset in the joined body read back to its offset in the file.
 
-    `line_of` answers wrongly here: the join replaces each wrap with a space, so the joined text is
-    short of a line at every one of them.
+    The join replaces each wrap with a space, so the joined text is short of a line at every one of
+    them.
     """
     opens = [(0, 0)]
     shift = 0
@@ -1804,9 +1827,15 @@ def _source_line(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
 
     def at(offset: int) -> int:
         run = bisect_right(starts, offset) - 1
-        return line_of(body, opens[run][1] + offset - starts[run])
+        return opens[run][1] + offset - starts[run]
 
     return at
+
+
+def _source_line(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
+    """An offset in the joined body read back to its line in the file."""
+    at = _source_offset(body, markers)
+    return lambda offset: line_of(body, at(offset))
 
 
 def _resolve(file_part: str) -> list[Path]:
@@ -1859,13 +1888,28 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
     return parts if all(part.isidentifier() for part in parts) else None
 
 
-def _outside_citations(line: str) -> str:
-    """One line with its citation spans out, as `bare-path` scrubs its quoted spans.
+@cache
+def _uncited_lines(path: Path) -> tuple[str, ...]:
+    """One file's lines with their citation spans out, as `bare-path` scrubs its quoted spans.
 
     A second citation of an anchor is another claim about it, never the definition: spec sheets
     share section names, and symbol names repeat across modules.
     """
-    return CONTINUATION_RE.sub("", CITATION_RE.sub("", line))
+    raw = _read_text(path)[0]
+    if raw is None:
+        return ()
+    markers = () if is_prose(path) else continuation_markers(comment_style(path))
+    # Found over the JOINED body and blanked back on the source line: a wrap parts a citation, and
+    # neither of its lines then holds a whole span for a per-line strip to take.
+    at = _source_offset(raw, markers)
+    joined = unwrapped(raw, markers)
+    kept = list(raw)
+    for pattern in (CITATION_RE, CONTINUATION_RE):
+        for match in pattern.finditer(joined):
+            for offset in range(at(match.start()), at(match.end() - 1) + 1):
+                if kept[offset] != "\n":
+                    kept[offset] = " "
+    return tuple("".join(kept).split("\n"))
 
 
 def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
@@ -1938,7 +1982,8 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
-        if not any(anchor in _outside_citations(lines[number - 1]) for number in spellings - on):
+        uncited = _uncited_lines(target)
+        if not any(anchor in uncited[number - 1] for number in spellings - on):
             detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
             return [Finding("fail", "citation", rel, detail)]
     return []

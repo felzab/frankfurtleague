@@ -161,6 +161,7 @@ deliverable.
 | `qw6j-scru` | The style directive concedes more than the reason recorded for it needs                                                                                           | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                                                                    | Ops, Docs, gate                                                             | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
+| `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                                                                  | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
 | `srec-8jxj` | Naming the files that required the image build costs a process per file                                                                                           | Ops, Docs, gate                                                             | Open     |
 | `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                                                              | BE, DB, Docs, tests                                                         | Open     |
@@ -3474,6 +3475,24 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 **What was measured and what was not** (COR-9). The plans were measured, at a row count the
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
+
+### `scxn-9dcd` · The fork match's distinct-line ratio is stated on the page and pinned by no case
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a comment block to its earlier self
+over a set of its non-blank lines**, so a block padded with a line it already carries gains nothing
+towards the half it needs, and `docs/_standard/worked-examples.md` states that ratio twice as one over
+distinct lines. No case drives the distinctness: every scenario in
+`scripts/tests/test_branch_checks.py` builds blocks whose lines already differ, so replacing the set
+with a list would leave the suite green and both statements on the page wrong, which is the shape a
+claim no case can fail takes.
+
+**Done when** a scenario's fresh block reaches half the fork block's line count only by repeating one
+of its own lines and fails to inherit the ceiling, driven red first against a checker counting lines
+rather than distinct lines.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
