@@ -31,7 +31,7 @@ VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 # exists to stop.
 BASH: Final = shutil.which("bash")
 
-CLAIM: Final[tuple[str, ...]] = ("take_db_run", "refuse_to_the_holder", "claim_db_run")
+CLAIM: Final[tuple[str, ...]] = ("pid_alive", "take_db_run", "refuse_to_the_holder", "claim_db_run")
 RECLAIM: Final[tuple[str, ...]] = (*CLAIM, "gate_exit")
 
 # The two a refusal names, printed before the call that may not return to print anything.
@@ -53,6 +53,10 @@ REPORT: Final = "\n".join(
 
 # A claim already standing, taken by a pid this shell knows is alive because it is its own.
 HELD_BY_A_LIVE_PID: Final = 'mkdir -p "$DB_RUN_DIR"\nprintf "%s\\n" "$$" > "${DB_RUN_DIR}/pid"'
+
+# What EPERM looks like to the shell: `kill -0` answers non-zero for a live process another account
+# owns. Stubbed rather than run under a second account, which no suite can arrange for itself.
+KILL_REFUSED: Final = "kill() { return 1; }"
 
 # A claim standing in the name of a pid this shell knows is gone, having started and reaped it.
 ABANDONED: Final = "\n".join(
@@ -149,6 +153,23 @@ def test_a_second_claim_refuses_at_two_while_the_holder_is_alive(tmp_path: Path)
     assert "rm -rf" in out, out
     # Untouched: the refused run must hand the holder back exactly what it found.
     assert (marker / "pid").read_text(encoding="utf-8").strip().isdigit(), out
+
+
+def test_a_holder_this_account_may_not_signal_is_refused_rather_than_called_gone(tmp_path: Path) -> None:
+    """`kill -0` answers EPERM for a live process another account owns exactly as it answers ESRCH for one that is gone.
+
+    Read as gone, the holder's live claim is renamed aside and the db tier starts beside it.
+    """
+    marker = tmp_path / "db-run"
+    body = f"{HELD_BY_A_LIVE_PID}\n{KILL_REFUSED}\n{ANNOUNCE}\nclaim_db_run"
+    rc, out = _run(body, marker, lifted=RECLAIM, trap=True)
+    assert rc == 2, out
+    state = _reported(out)
+    assert f"holds {marker.as_posix()} (pid {state['pid']})" in out, out
+    assert "which is gone" not in out, out
+    # Nothing taken and nothing held: a run refused for a live claim may not touch either path.
+    assert (marker / "pid").read_text(encoding="utf-8").strip() == state["pid"], out
+    assert not Path(state["lock"]).exists(), out
 
 
 def test_a_claim_over_a_directory_holding_no_pid_refuses_rather_than_reclaiming(tmp_path: Path) -> None:

@@ -205,7 +205,8 @@ SCHEDULE: Final[tuple[str, ...]] = (
     "    assert gate_pool.main() == 0",
     "    return seen.pop()",
     "running, order = once('--width', '2')",
-    "assert order == ['ops', 'frontend', 'db'], order",
+    "expected = sorted(('ops', 'db', 'frontend'), key=lambda name: -gate_pool.TYPICAL_MS[name])",
+    "assert order == expected, (order, expected)",
     "assert [running.slots.acquire(blocking=False) for _ in range(3)] == [True, True, False]",
     "running, order = once()",
     "assert [running.slots.acquire(blocking=False) for _ in range(4)] == [True, True, True, False]",
@@ -251,7 +252,7 @@ def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tm
 
 
 def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tmp_path: Path) -> None:
-    """`longest_first` submits `ops` ahead of `db`; the caller replays in written order and compares captures across runs."""
+    """`longest_first` submits whichever of the two the table ranks longer first; the caller replays in written order."""
     result = _pool(tmp_path, [("db", *_exits(0)), ("ops", *_exits(0))])
     assert result.returncode == 0, result.stderr
     assert [row[0] for row in _rows(tmp_path)] == ["db", "ops"]

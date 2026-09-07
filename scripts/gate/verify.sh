@@ -42,8 +42,8 @@ if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND ||
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# The frontend scope reads exactly the files the formatter governs, so naming it names the
-# formatter too, or `check_scope.py` calls format unproven on a run that proved it. Never in a
+# A frontend file of a prettier kind selects the formatter too (`scripts/gate/scope_map.sh`), so
+# this scope carries it rather than leaving `check_scope.py` to call format unproven. Never in a
 # worker, where it would run prettier twice.
 if (( RUN_FRONTEND )) && ! worker; then RUN_FORMAT=1; fi
 
@@ -314,7 +314,7 @@ do_next_build() {
       NEXT_TELEMETRY_DISABLED=1 pnpm build )
 }
 
-# The two phases: every pooled unit reads `fl_frontend/tsconfig.json`, and each writer rewrites it
+# The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
 # through Next's `writeConfigurationDefaults`, so a unit in both lists would read it mid-write.
 FRONTEND_POOL=(typecheck eslint audit)
 FRONTEND_WRITERS=(typegen next_build)
@@ -660,9 +660,9 @@ fi
 if (( PARALLEL )); then
   FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
   if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
-  # The self-check's 16 workers stay out of this sum. MEASURED 2026-09-02: counting them makes
-  # demand 30 against 16 cores, cutting these two to 4 and 3, under the width each was measured
-  # at, while the self-check still sets the scripts section.
+  # The self-check's 16 workers stay out of this sum: MEASURED 2026-09-02, counted in they made
+  # demand 30 against 16 cores, cutting these two to 4 and 3; under the floors that would
+  # sequence the run.
   FL_GATE_DEMAND=0
   FL_GATE_FLOOR_DEMAND=0
   if (( RUN_SCRIPTS )); then
@@ -1251,6 +1251,13 @@ each other's failures unreadable. Wait for it to finish. If no such process is r
 left the claim behind and \`rm -rf ${DB_RUN_DIR}\` clears it."
 }
 
+# `kill -0` fails for a live process another account owns exactly as it fails for one that is gone,
+# so a shared host reads a running tier as abandoned. `/proc` answers existence rather than
+# permission.
+pid_alive() { # $1 a pid, alive where the process exists whoever owns it
+  if [[ -d /proc ]]; then [[ -e "/proc/$1" ]]; else kill -0 "$1" 2>/dev/null; fi
+}
+
 # Called by the one process that runs the tier: a pooled run dispatches the db scope to a worker
 # and exits at `wrap_up`, so the parent never reaches this block; every other form runs it in the
 # one process.
@@ -1260,7 +1267,7 @@ claim_db_run() {
   held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
   # An unreadable pid is a run between its own mkdir and its write, never an abandoned claim:
   # calling that stale would delete a claim seconds old.
-  if [[ ! "$held" =~ ^[0-9]+$ ]] || kill -0 "$held" 2>/dev/null; then
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || pid_alive "$held"; then
     # A refusal and not a wait: a lock over the tier would make the second run queue in silence,
     # which is the same unexplained result this guard exists to replace.
     refuse_to_the_holder "$held"
@@ -1276,7 +1283,7 @@ clears both."
   # Read again under the lock, because the verdict above was reached outside it: the pid on disk is
   # the live one of whichever run finished the same takeover while this one was still deciding.
   held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
-  if [[ ! "$held" =~ ^[0-9]+$ ]] || kill -0 "$held" 2>/dev/null; then
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || pid_alive "$held"; then
     rmdir "$DB_RUN_LOCK" || true
     refuse_to_the_holder "$held"
   fi

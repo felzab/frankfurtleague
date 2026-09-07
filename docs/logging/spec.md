@@ -134,8 +134,9 @@ How each surface keeps its stream to one format:
   (`fl_backend/Dockerfile :: CMD`, `fl_backend/app/core/uvicorn_logging.json`);
   `TraceContextMiddleware` writes the per-request line instead, which is what puts both ids and
   `duration_ms` on it.
-- **Frontend:** the logger writes to stdout directly, and a console shim installed at startup wraps
-  everything else reaching `console.*` — Next's own `⨯ Error` dumps included — into the same
+- **Frontend:** the logger writes to stdout directly, and under the JSON format a console shim
+  installed at startup wraps everything else reaching `console.*` — Next's own `⨯ Error` dumps
+  included, and nothing under the console format, where the logger writes through `console.*` itself — into the same
   envelope with `source: "console"`, through the logger, so a dependency's `console.debug` falls
   under `LOG_LEVEL` like the app's own lines (`fl_frontend/src/core/consoleShim.ts :: installConsoleShim`).
 - **nginx:** the `fl_json` `log_format` with `escape=json`, set on every serving block, its
@@ -145,7 +146,9 @@ How each surface keeps its stream to one format:
   query naming the sign-in token or the address it was mailed to, where a literal stands in (L11).
   The **error log is the one deliberate exception**: its format is not configurable, so it stays
   plain text at its default level. A parser skips non-`{` lines. **Nothing compares the
-  `log_format`'s field names with this table**: a renamed field there is a hand-checked mirror.
+  `log_format`'s field names with this table**: a renamed field there is a hand-checked mirror, and
+  so are the console format's quoting class, the console line's regex and L2's key order, each
+  spelled once per surface with the other cited at it.
   **The access line is written to `/var/log/frankfurtleague/nginx/access.log`, a bind-mounted host
   file** ([`docs/ops/spec.md`](../ops/spec.md) §1.2), so `docker compose logs nginx` shows the error
   log alone and the host can bound the access log's age without touching the container.
@@ -251,7 +254,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | L8  | Every uncached admin-tier read seeds the request's trace scope                                                                                      | review — the class is defined in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                                                                                                                                                                                                                                                                 |
 | L9  | A log line names a REJECTED FIELD, never the value submitted for it                                                                                 | `fl_backend/tests/api/test_error_responses.py :: TestValidationLoggingWithholdsTheValue`; `fl_backend/app/core/logging.py :: STRUCTURED_EXTRAS` bounds what travels as a field; `fl_frontend/src/core/mail.test.ts`, `fl_frontend/src/core/authLogging.test.ts` and `fl_frontend/src/features/bewerbungen/notifications.test.ts` hold the three frontend paths to it |
 | L10 | The `X-FL-Actor` a visitor sends is cleared on every proxied path that reaches a write                                                              | `nginx/prod.conf :: proxy_set_header X-FL-Actor` at server level, which every location declaring no `proxy_set_header` of its own inherits and the liveness location restates (1.1)                                                                                                                                                                                  |
-| L11 | A credential a URL carries never reaches the edge's access line, on the path field or on the referer (section 4)                                    | `nginx/prod.conf :: map $uri $logged_uri`, `:: map $request_uri $credential_free_uri` and `:: map $http_referer $logged_referer`, each byte-identical in `nginx/local.conf` (1.2); driven by `nginx/redaction_test.sh`                                                                                                                                               |
+| L11 | A credential a URL carries never reaches the edge's access line, on the path field or on the referer (section 4)                                    | `nginx/prod.conf :: map $uri $logged_uri`, `:: map $request_uri $credential_free_uri` and `:: map $http_referer $logged_referer`, each byte-identical in `nginx/local.conf`, held so by `scripts/checks/check_nginx_mirror.py`; driven by `nginx/redaction_test.sh`                                                                                                  |
 | L12 | Every hop mints its own span and forwards the trace id unchanged; no hop keeps an incoming span                                                     | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`; `fl_frontend/src/core/trace.test.ts`; nginx's by `nginx/redaction_test.sh`, which reads the edge's `span_id` off every access line                                                                                                                                                                 |
 
 ## 3. Violation → remedy

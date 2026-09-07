@@ -19,7 +19,7 @@ export interface LogMeta extends Record<string, unknown> {
 const SERVICE = "fl_frontend";
 
 // Lifecycle lines run outside any request; the key stays present so a parser can rely on it.
-// Mirrors the backend's `NO_REQUEST_SENTINEL`.
+// Mirrors `fl_backend/app/core/logging.py :: NO_REQUEST_SENTINEL`.
 const NO_REQUEST_SENTINEL = "SYSTEM";
 
 // Foreground only, and on the level word alone: a background block makes a copied line unreadable

@@ -114,7 +114,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `/_next/static/`           | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                  |
+| `/_next/static/`           | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
 | `/`                        | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
 
 **Every `/api/...` path but the liveness probe reaches Next** — some through a block naming it, the
@@ -152,8 +152,7 @@ published ranges could never be, being every customer's egress rather than this 
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address per file, held to the first by nothing: the mirror compares the two files, never a file
-against itself (§1.6).
+address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL` (§1.6).
 
 **Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
 `limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
@@ -250,8 +249,8 @@ extending it** — the mechanism I2 records for `add_header`, and what decides w
 edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream (L7 and L10,
 [`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
-place in `api_trusted_hosts` (I13); `location /_next/static/` restates none of it, nothing under
-that prefix running application code.
+place in `api_trusted_hosts` (I13); `location /_next/static/` restates `Host` alone, dropping the
+other two with it, nothing under that prefix running application code.
 
 ### 1.4 Security headers
 
@@ -278,8 +277,8 @@ carrying an inline `<style>` — a directive on attributes does not reach an ele
 would render unstyled. Every route this application declares carries none.
 `docs/_roadmap/items.md :: qw6j-scru` owns the decision.
 
-**The policy is written six times, and the one pairing nothing holds is the pair across the two
-files.** Each of the two nginx files declares it at server level, in the liveness location and in
+**The policy is written six times, and every pairing is held.** Each of the two nginx files
+declares it at server level, in the liveness location and in
 `location /_next/static/`, because `add_header` in a location replaces the inherited set (I2);
 `scripts/checks/check_csp_identity.py` holds each file's three to each other and fails any further
 block that sets a header without restating the policy, while the pair across the two files is
@@ -369,8 +368,8 @@ It also holds the two decisions that are silent when wrong — `check_scope.py`'
 classifier, and `_lib.sh`'s log redaction (§1.7), whose failure is either a credential on the
 operator's terminal or the host redacted out of the log a failing deploy is read from.
 
-**That classifier's TypeScript half needs the frontend's `typescript`, and the scope does not
-require it**: where `typescript` does not resolve, the classifier is required to answer "code", and
+**That classifier's TypeScript half needs node and the frontend's `typescript`, and the scope
+requires neither**: where either is missing, the classifier is required to answer "code", and
 the self-check asserts that degradation. CI's `scripts` job installs the frontend dependencies for
 exactly this reason — otherwise the parser half would be exercised on no machine but the author's.
 
@@ -576,7 +575,7 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                            | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                    | pnpm install                                                                                                                                 |
 | `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                                                                                      | pnpm install                                                                                                                                 |
-| `--ops`      | both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; its access line carries no credential                                                                           | Docker, and an interpreter at the checkers' floor for the three python checks                                                                |
+| `--ops`      | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
 | `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                           | venv + Docker                                                                                                                                |
 | `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                              | Docker                                                                                                                                       |
 
@@ -590,10 +589,11 @@ Docker is checked before any check runs on a run covering the ops, database or i
 the backend virtualenv on one covering the scripts, documentation, backend or database scopes; the
 frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
 step running a tool out of `node_modules`. Each tool is its own step, tool output is captured and
-shown only when its step fails, and `--verbose` streams everything instead (§1.7). **Two checkers
-are the exception, both because a passing run's output is worth reading**: the self-check, whose
-skips and warnings would otherwise read as passes, and the documentation gate, whose printed
-population is what says the sweep read the tree rather than an empty collection (§1.5).
+shown only when its step fails, and `--verbose` streams everything instead (§1.7). **The
+documentation gate is the one exception, because a passing run's output is worth reading**: its
+printed population is what says the sweep read the tree rather than an empty collection (§1.5). The
+self-check's skips and warnings would otherwise read as passes, so they reach the reader by another
+route — `scripts/gate/selfcheck.sh :: _ledger`, replayed at the end of the run.
 
 **A manifest is compared against its lockfile before anything reads the installed tree** — the
 frontend scope resolves the lockfile against `package.json` and the backend scope runs
@@ -652,10 +652,12 @@ stays honest in both directions. A compose construct outside the reader's parsed
 refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
 with it**, which is why I1 is held by a check of its own over both files rather than by that list.
 
-**One path reaches across the boundary on purpose**: `fl_backend/openapi.json` selects the
-**frontend** scope alongside the backend ones, because the frontend scope holds the Zod-mirror
-comparison — without this arm (in `scripts/gate/scope_map.sh`) a Pydantic model change would never run
-the check that exists to catch it.
+**Two arms reach across the boundary on purpose**, both in `scripts/gate/scope_map.sh`:
+`fl_backend/openapi.json` selects the **frontend** scope alongside the backend ones, because the
+frontend scope holds the Zod-mirror comparison; and the frontend modules that retype a mirrored
+bound by hand select the **backend** scopes, because `fl_backend/tests/shared/test_frontend_mirrors.py`
+is what compares the two sides. Without either arm, a change to one side would never run the check
+that exists to catch it.
 
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the
@@ -857,8 +859,8 @@ capturing it — the one thing a captured run cannot give back afterwards.
 **A script whose output only a machine reads is exempt, and the interface is what decides, never the
 folder.** `scripts/gate/scope_map.sh` writes `$GITHUB_OUTPUT`'s `key=value` lines and the assistant hooks
 answer with a JSON verdict, so a heading, a fold marker or a colour code in either is a corrupt answer
-rather than a nicer log. `scope_map.sh` is accordingly the one script with no `--verbose`, and puts
-its human-readable line on stderr, where it cannot reach the outputs.
+rather than a nicer log. `scope_map.sh` accordingly takes no `--verbose`, and puts its
+human-readable line on stderr, where it cannot reach the outputs.
 
 ### 1.8 The edge's declared state
 
@@ -897,7 +899,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts, and what makes the two length counts agree                                           |
 | I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                                                                     |
 | I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — `scripts/checks/check_nginx_mirror.py` holds the two files' `location` sets equal (§1.6); `nginx -t` reads no location and no test requests a backend path                                                                                  |
-| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                                                                              |
+| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                         |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                        |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                                      |
 | I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                   |
@@ -958,7 +960,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `nginx` drops no capabilities                                     | Open — every other service carries `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                        |
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
-| The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume and the `.local-db/` copy                                                            |
+| The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume, `.local-db/` and `.tmp-nginx-log/`                                                  |
 | A guard the database tier stays green without                     | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | A call site's key tier is held to its route by nothing            | Open — omitting `fl_frontend/src/core/api.ts :: apiClient`'s tier is loud, but over-declaring one succeeds identically, and `fl_backend/openapi.json` flattens every tier to one scheme            |

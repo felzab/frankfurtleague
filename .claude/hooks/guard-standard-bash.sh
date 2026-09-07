@@ -50,7 +50,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 });
 ' 2>/dev/null)" || ask
 
-# Write shapes, copied from guard-branch-bash.sh — the header says why the copy is deliberate.
+# Write shapes, copied from guard-branch-bash.sh — `.claude/CLAUDE.md` §7's **hooks** clause is what
+# makes the copy deliberate.
 
 # >>> SHARED WRITE SHAPES — byte-identical in the two bash guards; edit both or neither >>>
 

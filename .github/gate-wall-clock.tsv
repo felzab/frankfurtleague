@@ -94,8 +94,8 @@
 # check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
 # each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying the agent
 # fleet this branch is built by, so both ends are upper bounds reading that contention as much as
-# the check. It is pooled with the docs scope's other four units, so the job pays that span only
-# where the pool cannot start all five at once, and either way it sits inside the floor the docs
+# the check. It is pooled with the docs scope's other five units, so the job pays that span only
+# where the pool cannot start all six at once, and either way it sits inside the floor the docs
 # row carries, so neither reference nor budget moves and neither takes a new stamp.
 #
 # `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in

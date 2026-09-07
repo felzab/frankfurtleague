@@ -5,8 +5,8 @@ Every write in the application funnels through `app/core/crud.py`, so recording 
 the log complete by construction rather than by discipline -- a page listing some of the writes is a
 page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
 
-This module deliberately stores submitted VALUES, which `docs/logging/spec.md` forbids the log
-stream: a restore replays what a write replaced, so the prior document is the point. That is what
+This module deliberately stores the values a write REPLACED, which `docs/logging/spec.md` forbids the
+log stream: a restore replays what a write replaced, so the prior document is the point. That is what
 makes retention and redaction this module's problem rather than the stream's.
 """
 
@@ -174,7 +174,7 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
 
 
 def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the values a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
+    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
 
     `document_id` stays: it names what the row was about, and dropping it would leave a row
     nothing can attribute to the write that redacted it.

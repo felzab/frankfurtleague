@@ -77,6 +77,9 @@ else
       # The gate's own python and the ruff configuration governing it: the scripts scope lints,
       # types and drives them, and their comments are documentation like any other (INC-6).
       scripts/*.py|scripts/*.toml) scripts=true; docs=true ;;
+      # selfcheck.sh compares each hook registration's timeout with its child's budget, so the
+      # registrations select the scripts scope, ahead of the markdown arm an agent file would take.
+      .claude/settings.json|.claude/agents/*) scripts=true; docs=true ;;
       # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the docs
       # gate and the formatter check it, and no test tier can say anything about it.
       *.md) docs=true ;;

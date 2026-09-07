@@ -30,9 +30,9 @@ from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 
-# Reads in one group, writes in the other: `spielorte`, `schiedsrichter` and the ADMIN `bewerbungen`
-# router read under `verify_access_admin`, the rest under `verify_access_base`. Order carries nothing
-# here (`app/core/routing.py`).
+# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
+# `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
+# carries nothing here (`app/core/routing.py`).
 READ_ROUTERS = (
     spiele_router,
     teams_router,

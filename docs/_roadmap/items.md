@@ -88,7 +88,7 @@ deliverable.
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                    | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                               | FE, Ops, Docs, gate                                                         | Open     |
-| `3s6w-kndn` | The gate's wall clock is the scripts suite, and the one lever left is inside its own scope                                    | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                          | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
 | `4hvr-d9xa` | A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them               | Ops, gate, tests                                                            | Open     |
@@ -497,7 +497,7 @@ must not be made casually.
 **Done when** either the pair exists and `scripts/checks/docs_gate/scheme.py :: PAIRS` measures it,
 or a comment in the scheme file says which surfaces are meant to go without it.
 
-### `3s6w-kndn` · The gate's wall clock is the scripts suite, and the one lever left is inside its own scope
+### `3s6w-kndn` · A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope
 
 | Tags                       | Status | Depends on |
 | -------------------------- | ------ | ---------- |
@@ -505,16 +505,20 @@ or a comment in the scheme file says which surfaces are meant to go without it.
 
 **The profile re-taken on 2026-09-07, two full-form runs on the idle 16-core machine, `ps` sampled
 every two seconds:** every worker was first seen within seven seconds of the start, the runs took
-139 and 131 seconds, and the `scripts` section bound both at 122 and 126, the pytest run over
-`scripts/tests/` (`scripts/gate/verify.sh :: do_pytest`) being the unit still running when every
-other section had closed; `frontend` closed at 134 and 90, `images` at 95 and 45 (a cold and a warm
-layer cache), `format` at 88 and 91, `backend` and `db` at 42 to 45, `docs` at 27, `ops` at 15 and 36. The tail the 2026-08-26 profile described, forty seconds of `db` alone at six to twenty per
-cent, is gone: the tier closes inside the scripts section's span. `scripts/gate/gate_pool.py ::
-TYPICAL_MS` now agrees with the profile on which section binds.
+139 and 131 seconds, and the two sections that bind them trade places within that spread: the
+`frontend` build closed last in the first run at 134 against the `scripts` section's 122, and the
+`scripts` section closed last in the second at 126 against 90, its pytest run over `scripts/tests/`
+(`scripts/gate/verify.sh :: do_pytest`) the unit still running; `images` closed at 95 and 45 (a cold
+and a warm layer cache), `format` at 88 and 91, `backend` and `db` at 42 to 45, `docs` at 27, `ops`
+at 15 and 36. In CI the frontend job binds outright, 122 seconds against the scripts job's 52
+(`.github/gate-wall-clock.tsv`), which is `g489-8ptk`'s subject. The tail the 2026-08-26 profile
+described, forty seconds of `db` alone at six to twenty per cent, is gone: the tier closes inside
+both sections' span. `scripts/gate/gate_pool.py :: TYPICAL_MS` carries the same profile as its
+ranking.
 
 **Lever 1, the distributed database tier, is taken and measured.** On the idle machine, each width a
 pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
-24.0 at three, 21.0 at four, 18.5 at six and 19.3 at eight, against 48 to 49 at one worker over five
+24.0 at three, 21.0 at four, 18.5 at six and 19.2/19.4 at eight, against 48 to 49 at one worker over five
 runs of which no pair converged, so the distribution took thirty seconds off the tier and the cap
 and floor `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and `:: GATE_WIDTH_DB_PYTEST_FLOOR`
 carry sit on those readings. Whether the shared server becomes the

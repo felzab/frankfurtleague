@@ -19,6 +19,9 @@ export const logger = {
 };
 
 function log(level: LogLevel, message: string, meta?: LogMeta) {
+  // Under `SKIP_ENV_VALIDATION` the level is whatever the environment held, so this comparison is
+  // false and nothing is suppressed. Only the builder stage, typegen and the test runner set it;
+  // the runner image never does.
   if (SEVERITY[level] < SEVERITY[frontend_config.LOG_LEVEL]) return;
 
   const traceId = meta?.trace_id ?? getRequestTraceId();

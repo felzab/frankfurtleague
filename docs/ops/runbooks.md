@@ -458,8 +458,10 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
 # between having gone to the renamed file rather than nowhere.
 /var/log/frankfurtleague/nginx/access.log {
     daily
-    rotate 8
-    maxage 8
+    # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
+    # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
+    rotate 7
+    maxage 7
     # The disk stays bounded whatever the traffic: a day that outgrows this rotates early, so the
     # eight days above are the most an entry lives, never a period a spike can stretch.
     maxsize 100M
@@ -469,7 +471,8 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
     dateformat -%Y%m%d-%H%M%S
     create 0640 root root
     missingok
-    notifempty
+    # No `notifempty`: after a failed reopen the live file is empty, and skipping empty files would
+    # skip every rotation after this one, so nothing would ever send USR1 again.
     compress
     delaycompress
     postrotate
@@ -479,7 +482,14 @@ systemd's own PATH, which is what this runs under rather than a login shell's.
 ```
 
 **Read once with `logrotate -d -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf`**,
-which rotates nothing, before the first real run.
+which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
+stays unproven until the first real rotation.
+
+**A failed reopen leaves an empty `access.log` beside a dated file that keeps growing**: the rename
+has happened and nginx still writes through its open descriptor, and nothing on the host says so —
+the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, the live file at
+zero bytes under a dated file with a newer mtime. The next rotation sends USR1 again and recovers,
+losing only the lines written to the orphaned file between its compression and the signal.
 
 **That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
 cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
@@ -544,8 +554,8 @@ line skipped in silence.
 - **`find -mtime +30 -delete` from cron** deletes the same files, and costs a second scheduler and a
   file stating an age that `tmpfiles.d` already states declaratively.
 - **Numbered rotation instead of `dateext`** never collides, because every rotation renames every
-  older file. It also takes the date off the names, and turns `rotate 8` into eight rotations rather
-  than eight days, which is the figure that is published.
+  older file. It also takes the date off the names, so a file's age is readable only from its mtime
+  and never from the listing an operator is already looking at.
 - **`dateformat -%Y%m%d-%s`** sorts identically and reads as a number nobody can date by eye.
 - **Leaving the stanza in `/etc/logrotate.d/` and making the host's `logrotate.timer` hourly** is one
   file fewer and changes the cadence for every other package on the machine.
@@ -590,7 +600,9 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    behind only where something outside this compose file still holds it.
 4. **Deploy, add the two public hostnames in the dashboard, then read
    `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
-   route, because DNS still names an origin that now publishes nothing.
+   route, because DNS still names an origin that now publishes nothing. Each hostname's origin
+   settings are [`spec.md`](spec.md) §1.8's; an ingress pointed at the plain port meets the
+   redirect block and loops on its 301 rather than failing.
 5. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
    probe both run after the health check and both fail into that dark window, while
    `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`

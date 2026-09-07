@@ -367,7 +367,7 @@ describe("every shape is paired or recorded", () => {
   });
 
   // Both lists rot the other way too: a component that gains a mirror, or a schema that gains a
-  // component, leaves an exemption nothing reports. One sat here unnoticed until an audit read it.
+  // component, leaves an exemption nothing reports.
   it("carries no exemption the pairing has since made unnecessary", () => {
     const deadBackend = Object.keys(BACKEND_ONLY)
       .filter((name) => !(name in components) || mirrors.has(NAME_ALIASES[name] ?? name))

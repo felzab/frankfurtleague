@@ -373,24 +373,27 @@ def _registration(seconds: int, event: str = "PreToolUse", hook: str = "guard.sh
     return json.dumps({"hooks": {event: [{"matcher": "Bash", "hooks": [entry]}]}})
 
 
-def _agent_definition(seconds: int, hook: str = "guard.sh") -> str:
-    """One agent's own registration, in the frontmatter shape `.claude/agents/` carries it."""
+def _agent_definition(seconds: int | None, hook: str = "guard.sh") -> str:
+    """One agent's own registration, in the frontmatter shape `.claude/agents/` carries it.
+
+    `None` leaves the timeout line out, which the frontmatter allows and the harness reads as no
+    bound of its own.
+    """
     command = '          command: bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/' + hook + '"'
-    return "\n".join(
-        (
-            "---",
-            "name: fixture",
-            "hooks:",
-            "  PreToolUse:",
-            '    - matcher: "Write"',
-            "      hooks:",
-            "        - type: command",
-            command,
-            f"          timeout: {seconds}",
-            "---",
-            "",
-        )
-    )
+    lines = [
+        "---",
+        "name: fixture",
+        "hooks:",
+        "  PreToolUse:",
+        '    - matcher: "Write"',
+        "      hooks:",
+        "        - type: command",
+        command,
+    ]
+    if seconds is not None:
+        lines.append(f"          timeout: {seconds}")
+    lines += ["---", ""]
+    return "\n".join(lines)
 
 
 def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path, agents: Path | None = None) -> str:
@@ -525,6 +528,25 @@ def test_a_hook_an_agent_definition_registers_is_compared_like_a_settings_one(tm
     )
     assert _said(said) in out, out
     assert _said("INFO plain.sh: decides in the hook process") in out, out
+
+
+def test_an_agent_registration_carrying_no_timeout_is_named_rather_than_dropped(tmp_path: Path) -> None:
+    """The one shape the two readers answered differently: node prints `undefined` and the loop fails it.
+
+    A dropped entry takes its hook out of every finding, so a registration bounding nothing reads
+    like one nobody wrote.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
+    write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
+    write_shell(agents / "fixture.md", _agent_definition(None))
+    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
+    out = _compare_budgets(settings, hooks, tmp_path, agents)
+    said = f"FAIL {agents.as_posix()}/fixture.md gives guard.sh no readable timeout on PreToolUse"
+    assert _said(said) in out, out
 
 
 # What an agent read answers with when it read nothing: no directory at all, a definition renamed off

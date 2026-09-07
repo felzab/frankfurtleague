@@ -69,7 +69,7 @@ describe("formatLogLine json", () => {
     assert.equal(document.level, "WARNING");
   });
 
-  it("carries the two levels the frontend gained with the threshold", () => {
+  it("carries DEBUG and CRITICAL, the two levels no threshold admits", () => {
     assert.equal(JSON.parse(formatLogLine("json", "DEBUG", "fill")).level, "DEBUG");
     assert.equal(JSON.parse(formatLogLine("json", "CRITICAL", "gate")).level, "CRITICAL");
   });

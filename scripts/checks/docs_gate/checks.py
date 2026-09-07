@@ -1804,8 +1804,9 @@ BARE_LINE_CITATION_RE: Final = re.compile(rf"(?<![/`\w.])((?:[\w.-]+/)*[\w.-]*[\
 # What both line-citation patterns need and most files never spell, so the two only run where it is.
 LINE_CITATION_HINT_RE: Final = re.compile(r":\d")
 
-# An audit id and a ledger row fail: both name a document `/audit:finish` deletes. A roadmap id and
-# a review round are only reported -- the id resolves, and the round may be a sentence.
+# An audit id and a ledger row fail everywhere: both name a document `/audit:finish` deletes. A
+# roadmap id and a review round fail on added comments alone -- the id resolves, and the round may
+# be a sentence.
 AUDIT_ID_RE: Final = re.compile(r"\b(?:audit\s+)?R\d+[a-z]?\s*§\s*S\d+(?:\.\d+)?|§\s*S\d+(?:\.\d+)?")
 LEDGER_ROW_RE: Final = re.compile(r"\bledger\s+\S*\d")
 

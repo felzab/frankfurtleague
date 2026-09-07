@@ -558,7 +558,7 @@ step "Copying the application logs off the containers about to be replaced"
 # otherwise overwrite the copy that explains the failure.
 LOG_DIR="/var/log/frankfurtleague"
 LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
-# `refuse`, never `warn`: nothing is stopped or pulled yet, and going on would destroy the only
+# `refuse`, never `warn`: nothing is stopped or recreated yet, and going on would destroy the only
 # record of the replaced build. `--force-recreate` replaces both containers' `json-file` logs,
 # and a failed deploy's rollback recreates the pair again (docs/logging/spec.md §1.2).
 

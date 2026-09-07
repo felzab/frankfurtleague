@@ -225,8 +225,7 @@ jobs:
         with:
           persist-credentials: false
           # Full history: the documentation gate diffs the branch against the merge base for its
-          # branch-scoped checks and resolves commit ids prose names, neither of which a shallow
-          # clone can do.
+          # branch-scoped checks, which a shallow clone cannot do.
           fetch-depth: 0
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:

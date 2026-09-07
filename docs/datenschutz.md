@@ -199,11 +199,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
-  visitor's address, user agent and referer, and it survives a deploy — so `logrotate` deletes what
-  is older than eight days at its next run, and rotates early on a day the file outgrows its size
-  cap, which is what keeps the disk bounded whatever the traffic. That run is hourly rather than
-  daily for exactly that reason: a size cap bites only when the rotation runs, so a spike between two
-  daily runs would sit unbounded ([`ops/runbooks.md`](ops/runbooks.md) §7). The mechanism is
+  visitor's address, user agent and referer, and it survives a deploy — so `logrotate` keeps seven
+  dated files beside the live day and deletes the eighth, rotating once a day and earlier on a day
+  the file outgrows its size cap, which is what keeps the disk bounded whatever the traffic.
+  Deletion happens at a rotation and nowhere else, which is why the timer is hourly rather than
+  daily: a size cap bites only when the rotation runs, so a spike between two daily runs would sit
+  unbounded ([`ops/runbooks.md`](ops/runbooks.md) §7). The mechanism is
   installed by hand in the same deployment that publishes these figures. That is an age bound
   rather than one traffic volume sets, which a size rotation is: under a size bound alone a quiet
   month would keep addresses far longer than a busy one. The application logs keep the container

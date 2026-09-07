@@ -174,10 +174,10 @@ if (( DOWN )); then
   if (( FRESH )); then
     step "Stopping the local stack and removing volumes"
     quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
-    # The copy goes with the volume: it is real people's contact records, and a machine done with a
-    # local database should be left holding neither.
-    rm -rf "${REPO_ROOT:?}/.local-db"
-    ok "stopped — Next's cache rebuilds, and the database and the copy of production are both gone"
+    # The copy and the edge's access log go with the volume: all three are records of real people,
+    # and a machine done with a local stack should be left holding none of them.
+    rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log"
+    ok "stopped — Next's cache rebuilds, and the database, the copy of production and the access log are gone"
   else
     step "Stopping the local stack"
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
@@ -212,7 +212,7 @@ if (( FRESH )); then
   step "Tearing down, including volumes"
   quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be torn down — the output above is compose's own."
   # As on the way down, and for the same reason.
-  rm -rf "${REPO_ROOT:?}/.local-db"
+  rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log"
   ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed fills it again"
 fi
 

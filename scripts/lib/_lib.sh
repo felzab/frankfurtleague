@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SCRIPTS · shared helpers — sourced, never run directly.
-# Sourcing applies strict mode and installs the ERR and INT traps.
+# Sourcing applies strict mode and installs the ERR, INT and TERM traps.
 
 # `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
 # one never reaches `on_error`. It exits with its own status — 1, which the exit contract spells

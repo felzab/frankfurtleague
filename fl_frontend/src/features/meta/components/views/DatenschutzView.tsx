@@ -109,7 +109,10 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   { daten: "Änderungsprotokoll der Verwaltung", frist: "12 Monate ab dem Eintrag" },
-  { daten: "Zugriffsprotokoll des Servers", frist: "Höchstens acht Tage; die stündliche Bereinigung löscht ältere Einträge" },
+  {
+    daten: "Zugriffsprotokoll des Servers",
+    frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
+  },
   {
     daten: "Betriebsprotokoll der Anwendung",
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
@@ -204,8 +207,9 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Bei jedem Aufruf entsteht ein Eintrag im Zugriffsprotokoll des Servers. Er enthält Deine IP-Adresse, den Zeitpunkt, die aufgerufene
             Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Der Bestand ist nach dem
-            Alter begrenzt: ein Eintrag bleibt höchstens acht Tage, und die stündliche Bereinigung löscht ältere. Die Einträge werden nicht
-            ausgewertet, nicht mit anderen Daten zusammengeführt und an keinen Auswertungsdienst weitergegeben.
+            Alter begrenzt: ein Eintrag bleibt höchstens acht Tage. Gelöscht wird beim Wechsel der Protokolldatei: einmal täglich, und früher,
+            wenn die Datei vorher ihre Größengrenze erreicht. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und
+            an keinen Auswertungsdienst weitergegeben.
           </p>
           <p className={ABSATZ}>
             Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist der sichere und stabile Betrieb der Website und die

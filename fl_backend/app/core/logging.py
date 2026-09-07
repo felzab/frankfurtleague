@@ -28,8 +28,8 @@ NO_REQUEST_SENTINEL = "SYSTEM"
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default=NO_REQUEST_SENTINEL)
 span_id_var: ContextVar[str] = ContextVar("span_id", default=NO_REQUEST_SENTINEL)
 
-# Listed once, so both formatters and the frontend logger agree on what travels as a field rather
-# than inside the message text (`docs/logging/spec.md :: L2`).
+# Listed once, so both formatters put the same set beside the message rather than inside it
+# (`docs/logging/spec.md :: L9`).
 STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
 
 

@@ -52,7 +52,7 @@ export const frontend_config = createEnv({
       .transform((value) => value.toLowerCase())
       .pipe(z.enum(["console", "json"])),
 
-    // Defaulted so no server .env is touched to keep today's behaviour, and upper-cased before the
+    // Defaulted so no server .env is touched to keep INFO the floor, and upper-cased before the
     // enum because the level words are the ones that appear on a log line.
     LOG_LEVEL: z
       .string()

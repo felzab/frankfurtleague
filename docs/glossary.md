@@ -89,8 +89,8 @@ where the row carries the stamp the expiry reads (I119).\
 ### `Tore` — goals
 
 **Is:** the goals each side scored, `None` while the match is unplayed.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`; `tore_geschossen` and `tore_kassiert` in the statistics are scored and conceded.\
-**Trap:** —\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`.\
+**Trap:** in the statistics the pair is `tore_geschossen` and `tore_kassiert` — scored and conceded, not two spellings of one count.\
 **See:** backend spec I1.
 
 ### `Ergebnis` — result, final score

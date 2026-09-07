@@ -424,7 +424,8 @@ def server_body(block: Block, source: str) -> dict[str, Any]:
 def role(body: dict[str, Any], source: str, line: int) -> str:
     """Which server block this is.
 
-    The two files agree on no `listen` and no `server_name`, so neither can key one across the pair.
+    The two files' MAIN blocks agree on neither `listen` nor `server_name`, so a location's presence
+    keys that one and the catch-all's own `server_name` keys the other.
     """
     if any(key.startswith(LOCATION_PREFIX) for key in body):
         return "main"

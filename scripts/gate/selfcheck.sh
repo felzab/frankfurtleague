@@ -802,7 +802,8 @@ else
   expect_verdict code       py         code
   expect_verdict comment    toml       comment-only
   expect_verdict code       toml       code
-  # Not a gap: a `#` in a Dockerfile heredoc is not a comment, so it is never classified at all.
+  # Not a gap: a Dockerfile sits outside `scripts/checks/check_scope.py :: PARSEABLE`, so its `#`
+  # lines are never read at all.
   expect_verdict dockerfile Dockerfile code
   par_run unit_compare
 
@@ -1665,25 +1666,30 @@ else
       if [[ -e "${present[0]}" ]]; then return 1; fi
       return 0
     fi
+    # An entry is printed where its list item ends rather than at its `timeout:` line, so one
+    # carrying no timeout reaches the loop that names it rather than being dropped here, as the
+    # settings read reports it.
     awk '
-      FNR == 1 { fence = 0; event = ""; named = ""; budget = "" }
-      /^---[[:space:]]*$/ { fence++; next }
+      function flush() {
+        if (named != "" && event != "") print origin "\t" event "\t" named "\t" budget
+        named = ""; budget = ""
+      }
+      FNR == 1 { flush(); fence = 0; event = "" }
+      /^---[[:space:]]*$/ { fence++; if (fence != 1) flush(); next }
       fence != 1 { next }
       # `hooks` opens both the map of events and each matcher list, so it names no event itself.
       /^[[:space:]]*[A-Za-z][A-Za-z0-9]*:[[:space:]]*$/ {
         key = $0; sub(/:[[:space:]]*$/, "", key); sub(/^[[:space:]]*/, "", key)
-        if (key != "hooks") event = key
+        if (key != "hooks") { flush(); event = key }
         next
       }
-      /^[[:space:]]*-[[:space:]]/ { named = ""; budget = "" }
+      /^[[:space:]]*-[[:space:]]/ { flush() }
       {
-        if ($0 ~ /command:/ && match($0, /[A-Za-z0-9._-]+\.sh/)) named = substr($0, RSTART, RLENGTH)
+        # Carried beside the name, because the flush that prints it can happen under the next file.
+        if ($0 ~ /command:/ && match($0, /[A-Za-z0-9._-]+\.sh/)) { named = substr($0, RSTART, RLENGTH); origin = FILENAME }
         if ($0 ~ /timeout:/ && match($0, /[0-9]+/)) budget = substr($0, RSTART, RLENGTH)
-        if (named != "" && budget != "" && event != "") {
-          print FILENAME "\t" event "\t" named "\t" budget
-          named = ""; budget = ""
-        }
       }
+      END { flush() }
     ' "${definitions[@]}" 2>/dev/null
   }
 

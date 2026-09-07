@@ -123,7 +123,7 @@ describe("the cache-fill line", () => {
   });
 });
 
-describe("the two headers this hop mints", () => {
+describe("the two headers this hop sets", () => {
   const CALLER_HEADERS = { [TRACEPARENT_HEADER]: `00-${"c".repeat(32)}-${"d".repeat(16)}-01`, [ACTOR_HEADER]: "someone@else.example" };
 
   it("carries the scope's trace rather than one the caller passed in the options", async () => {

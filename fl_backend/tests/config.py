@@ -26,10 +26,10 @@ ADMIN_AUTH = {"Authorization": f"Bearer {_KEY_ADMIN}"}
 
 
 def build_test_config() -> BackendConfig:
-    """Init arguments outrank every pydantic-settings source, so no `.env` is read and a bare checkout runs the suite.
+    """Init arguments outrank every pydantic-settings source, so a bare checkout runs the suite.
 
-    Not in `conftest.py`: pytest loads that under its own module name, so importing it would
-    duplicate every fixture.
+    Every variable with no default is supplied here. Not in `conftest.py`: pytest loads that under
+    its own module name, so importing it would duplicate every fixture.
     """
     return BackendConfig(
         api_trusted_hosts="testserver,localhost",

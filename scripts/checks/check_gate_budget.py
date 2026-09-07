@@ -150,7 +150,7 @@ def spans_of(payload: object) -> list[Span]:
     """Every job's span, first step to last, on the report's rules.
 
     `skipped`: the scope was mapped off. `dropped`: the job did not succeed, so its timing is no
-    evidence. `unmeasured`: a success with no step timestamp, refused rather than passed.
+    evidence. `unmeasured`: a success with no step timestamp, failed rather than passed.
     """
     if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
         raise Malformed("the jobs payload carries no `jobs` list")

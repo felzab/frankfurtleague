@@ -75,7 +75,8 @@ until it ran.
 production database to fill the local one — it copies out and never writes back. `--seed` reaches
 production only when there is no copy on disk yet. Everything else leaves production alone.
 
-`--fresh` is still destructive locally: it removes the volumes and the copy under `.local-db` in
+`--fresh` is still destructive locally: it removes the volumes, the copy under `.local-db` and the
+edge's access log under `.tmp-nginx-log` in
 `scripts/ops/local.sh :: section "preflight"`, ahead of `scripts/ops/local.sh :: section "build"`, so
 a build that fails afterwards leaves neither an image nor a database. Nothing brings a local-only
 fixture back — `--fresh` alone leaves the database empty, and `--seed` fills it from production,

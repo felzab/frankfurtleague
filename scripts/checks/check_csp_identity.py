@@ -139,7 +139,7 @@ def unquoted(line: str) -> str:
 
 
 def blocks(text: str, name: str) -> list[Block]:
-    """Every brace block in one file, in the order they close, with its own body's counts alone."""
+    """Every brace block in one file, in the order they open, with its own body's counts alone."""
     found: list[Block] = []
     stack: list[_Frame] = []
     for number, raw in enumerate(text.split("\n"), start=1):

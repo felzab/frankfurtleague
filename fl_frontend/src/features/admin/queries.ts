@@ -11,7 +11,8 @@ import type { FLSpieleActionRequiredResponse } from "../spiele/schemas";
  */
 export const getAdminSpieleActionRequired = async (filters: { saison_id?: string } = {}): Promise<FLSpieleActionRequiredResponse> => {
   return runWithIncomingTrace(() =>
-    // `saison_id` is optional on the wire so no other caller moves, but this page always sends one:
+    // `saison_id` is optional on the wire so no other caller moves, but
+    // `fl_frontend/src/app/admin/action_required/page.tsx` always sends one:
     // an unscoped triage list left the season selector visibly doing nothing.
     apiClient<FLSpieleActionRequiredResponse>("/spiele/action_required", FLSpieleActionRequiredResponseSchema, {
       authType: "admin",

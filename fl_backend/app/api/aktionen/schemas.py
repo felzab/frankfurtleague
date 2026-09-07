@@ -93,8 +93,7 @@ class FLAktion(BaseModel):
 class FLAktionMitStand(FLAktion):
     """One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
 
-    Its own model so the list cannot carry an image by accident; the restore (the stored images'
-    one consumer-to-be) reads a single row through this.
+    Its own model so the list cannot carry an image by accident.
     """
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
