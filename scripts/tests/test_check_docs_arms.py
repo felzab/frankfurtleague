@@ -26,6 +26,8 @@ from test_check_docs import (
     BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
+    DROPPED_GATE_ROW,
+    GATE_DERIVATION_ROW,
     HASH,
     NEWLINE,
     NOTES,
@@ -41,8 +43,10 @@ from test_check_docs import (
     SPIELER_PANEL,
     UNDECODABLE_BYTES,
     UNTOKENIZABLE_MODULE,
+    VOCAB_ENTRY,
     VOCAB_FIELDS,
     VOCAB_ROW,
+    WIDENED_GATE_ROW,
     Reported,
     _append,
     _assert_corpus_restored,
@@ -177,6 +181,30 @@ def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
 
     reported = _roadmap_findings(itself)
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_entry_naming_itself_in_its_dependency_column_is_reported_whatever_its_status() -> None:
+    """Inside the `Blocked` fork the test read no `Open` entry, whose self-reference never clears either."""
+
+    def itself() -> None:
+        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| — |", "| " + _tick(VOCAB_ENTRY) + " |"))
+
+    reported = _roadmap_findings(itself)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an open entry depending on itself passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_the_tag_derivation_table_is_held_to_the_paths_the_gate_derives_tags_from() -> None:
+    """One fact in two places, with nothing pairing them: the page's row and the gate's own tuple.
+
+    Both directions: a prefix dropped from the row narrows what a reader thinks earns the tag, and
+    one added widens it.
+    """
+    dropped = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, DROPPED_GATE_ROW))
+    widened = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, WIDENED_GATE_ROW))
+    assert dropped[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix dropped from the row passed: " + _shape(dropped)
+    assert widened[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix no tag derives from passed: " + _shape(widened)
     _assert_corpus_restored()
 
 

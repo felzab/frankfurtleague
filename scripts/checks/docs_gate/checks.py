@@ -12,6 +12,7 @@ alone; the readers, caches and vocabulary are `kernel.py`'s; the German copy rul
 from __future__ import annotations
 
 import argparse
+import ast
 import posixpath
 import re
 import sys
@@ -192,6 +193,8 @@ SEGMENT_SAMPLE: Final = 8
 PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 # Where a finding about a registered claim is filed: the row to repair is there.
 KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
+# Named by a finding about the tag derivation, for the same reason.
+CHECKS_PAGE: Final = "scripts/checks/docs_gate/checks.py"
 
 # Fence info strings a renderer other than mermaid reads, so a diagram in one is one GitHub draws
 # for nobody (OUT-7). Kept by hand: nothing this repository holds enumerates them, so no
@@ -292,8 +295,9 @@ PROTOCOL_STATUS_SECTION: Final = "4."
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
 TABLE_DELIMITER_RE: Final = re.compile(r"^:?-+:?$")
 
-# `docs/_roadmap/items.md`'s tag derivation table, as far as a path can carry it. A path is
-# resolved before it is matched, so a prefix here is a real subtree rather than a spelling.
+# What `_check_tag_derivation` holds `docs/_roadmap/items.md`'s derivation table to, as far as a
+# path can carry it. A path is resolved before it is matched, so a prefix here is a real subtree
+# rather than a spelling.
 TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("FE", ("fl_frontend/",)),
     ("BE", ("fl_backend/",)),
@@ -308,6 +312,10 @@ TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("tests", ("scripts/tests/", "fl_backend/tests/")),
     ("edge", ("nginx/",)),
 )
+# The two columns of that table read by name, for `STATUS_COLUMN`'s reason.
+DERIVATION_VOCABULARY_COLUMN: Final = "Vocabulary"
+DERIVATION_SOURCE_COLUMN: Final = "Derived from a path or symbol under"
+
 # The axes, in the order the Tags cell writes them. A slice is the third axis and the tree's own,
 # so it is not spelled here.
 SURFACE_TAGS: Final[tuple[str, ...]] = ("FE", "BE", "DB", "Ops", "Docs")
@@ -647,6 +655,7 @@ def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
         if token in valid and token in rows:
             filed.setdefault(token, (claim, section))
     found.extend(_check_flat_run(rel, body))
+    found.extend(_check_tag_derivation(rel, body))
     found.extend(_check_batches(rel, valid, paired))
     found.extend(_check_transient_status(rel, rows, paired))
     found.extend(_check_derived_tags(rel, rows, paired))
@@ -672,6 +681,63 @@ def _check_flat_run(rel: str, body: str) -> list[Finding]:
         if (heading := atx_heading(lines[number], 2)) is not None:
             detail = f"`{heading}` groups the entries below it -- the run is flat, and the tag column is the category"
             found.append(Finding("fail", "roadmap-shape", rel, detail, number + 1))
+    return found
+
+
+def _derivation_rows(body: str) -> list[list[str]] | None:
+    """The derivation table's rows, or None where the page opens no table carrying both columns.
+
+    Bounded at the first line that is not a row, so a later table's rows cannot stand in for a row
+    this one lost.
+    """
+    lines = body.split("\n")
+    wanted = {DERIVATION_VOCABULARY_COLUMN, DERIVATION_SOURCE_COLUMN}
+    opened = next((number for number, line in enumerate(lines) if wanted <= set(next(iter(_table_rows(line)), []))), None)
+    if opened is None:
+        return None
+    kept: list[str] = []
+    for line in lines[opened:]:
+        if not TABLE_LINE_RE.match(line):
+            break
+        kept.append(line)
+    return _table_rows("\n".join(kept))
+
+
+def _check_tag_derivation(rel: str, body: str) -> list[Finding]:
+    """The page's derivation table against `TAG_PATH_SOURCES`, both directions.
+
+    One fact in two places otherwise: a prefix dropped from either leaves the tag derived one way
+    and documented the other, with nothing pairing them.
+    """
+    # `TAGS_DERIVED_ONE_WAY` off, its rows naming a collection and a manifest this tuple cannot
+    # spell; the slice row is prose in the vocabulary column and matches no tag at all.
+    held = {tag: frozenset(prefixes) for tag, prefixes in TAG_PATH_SOURCES if tag not in TAGS_DERIVED_ONE_WAY}
+    rows = _derivation_rows(body)
+    if rows is None:
+        headed = f"`{DERIVATION_VOCABULARY_COLUMN}` and `{DERIVATION_SOURCE_COLUMN}`"
+        return [Finding("fail", "roadmap-shape", rel, f"opens no table under {headed}, so no tag's paths were held to the gate's")]
+
+    written: dict[str, frozenset[str]] = {}
+    columns = (rows[0].index(DERIVATION_VOCABULARY_COLUMN), rows[0].index(DERIVATION_SOURCE_COLUMN))
+    for cells in rows[1:]:
+        if max(columns) >= len(cells):
+            continue
+        tag = cells[columns[0]].strip("*` ")
+        if tag in held:
+            written[tag] = frozenset(token for token in BACKTICK_RE.findall(cells[columns[1]]) if token.startswith(REPO_PREFIXES))
+
+    found: list[Finding] = []
+    for tag, prefixes in sorted(held.items()):
+        if tag not in written:
+            detail = f"the derivation table states no row for `{tag}`, so its paths were held to nothing"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+            continue
+        for prefix in sorted(written[tag] - prefixes):
+            detail = f"the derivation table derives `{tag}` from `{prefix}`, which `{CHECKS_PAGE}`'s own derivation does not"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for prefix in sorted(prefixes - written[tag]):
+            detail = f"the gate derives `{tag}` from `{prefix}`, and the derivation table's row does not name it"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 
@@ -749,18 +815,17 @@ def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tup
             elif vocabulary and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
                 detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
+        cell = fields.get(DEPENDS_COLUMN, "")
+        named = BACKTICK_RE.findall(cell) or [cell.strip()]
+        # Ahead of the status fork: a dependency on oneself never clears, whatever the status says,
+        # and the `Blocked` arm below would read it as a blocker filed.
+        if token in named:
+            found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} names itself in `{DEPENDS_COLUMN}`"))
         # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it --
         # token by token, one filed being enough, since a cell names every blocker at once.
-        if ROADMAP_BLOCKED_STATUS in (row_status, entry_status):
-            cell = fields.get(DEPENDS_COLUMN, "")
-            named = BACKTICK_RE.findall(cell) or [cell.strip()]
-            # Its own token resolves against the index like any other, so the arm below reads a
-            # blocker where the entry named nothing.
-            if token in named:
-                found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} is {ROADMAP_BLOCKED_STATUS} on itself"))
-            elif not any(one in rows for one in named):
-                detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
-                found.append(Finding("fail", "roadmap-shape", rel, detail))
+        elif ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and not any(one in rows for one in named):
+            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 
@@ -1234,6 +1299,35 @@ def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
     return found
 
 
+REGISTRY_NAME: Final = "CHECKS"
+
+
+@cache
+def _registry_rows() -> dict[str, frozenset[int]]:
+    """Each registered check's own lines in `KERNEL_PAGE`, taken from the registry's syntax.
+
+    A row spells its contract inside a string, never as a citation, so a text match finds no citing
+    line and certifies its own claim.
+    """
+    text = _read_text(REPO_ROOT / KERNEL_PAGE)[0]
+    if text is None:
+        return {}
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return {}
+    rows: dict[str, frozenset[int]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.AnnAssign) or not isinstance(node.target, ast.Name) or node.target.id != REGISTRY_NAME:
+            continue
+        if not isinstance(node.value, ast.Dict):
+            continue
+        for key, value in zip(node.value.keys, node.value.values, strict=True):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                rows[key.value] = frozenset(range(key.lineno, (value.end_lineno or value.lineno) + 1))
+    return rows
+
+
 def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str, list[str]]) -> list[Finding]:
     """One registered check's claims: its rule ids against the standard's fields, its citations against the corpus."""
     if not check.claims:
@@ -1247,10 +1341,13 @@ def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str
         found.append(Finding("fail", "enforced-by", KERNEL_PAGE, detail))
     for contract in sorted(check.claims - rules - {GATE}):
         # Asked of the resolver first: the citation check passes a left half that reads as no file.
-        if not _resolve(contract.partition(" :: ")[0].strip()):
+        # Gitignored beside it: the check below reads one off the disk, and refusing it here would
+        # call absent a file it resolves.
+        left = contract.partition(" :: ")[0].strip()
+        if not _resolve(left) and not is_gitignored(left):
             found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which names no file"))
             continue
-        for dead in _check_citation(contract, KERNEL_PAGE, invariants):
+        for dead in _check_citation(contract, KERNEL_PAGE, invariants, _registry_rows().get(name)):
             found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which does not resolve: {dead.detail}"))
     return found
 
@@ -1762,6 +1859,15 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
     return parts if all(part.isidentifier() for part in parts) else None
 
 
+def _outside_citations(line: str) -> str:
+    """One line with its citation spans out, as `bare-path` scrubs its quoted spans.
+
+    A second citation of an anchor is another claim about it, never the definition: spec sheets
+    share section names, and symbol names repeat across modules.
+    """
+    return CONTINUATION_RE.sub("", CITATION_RE.sub("", line))
+
+
 def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
 
@@ -1832,8 +1938,9 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
         # lines spelling the citation standing in.
         on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
-        if not spellings - on:
-            return [Finding("fail", "citation", rel, f"anchor '{anchor}' is spelled in {where} only on the line citing it")]
+        if not any(anchor in _outside_citations(lines[number - 1]) for number in spellings - on):
+            detail = f"anchor '{anchor}' is spelled in {where} only by a citation of it -- nothing in the file's own text carries it"
+            return [Finding("fail", "citation", rel, detail)]
     return []
 
 

@@ -429,6 +429,8 @@ def fork_page(rel: str) -> str | None:
     Resolved here rather than taken from `Branch`: the reader wanting one runs where no check has
     it in hand.
     """
+    # The default base is the one base a run can be given: the checker takes no base argument, so
+    # nothing supplies another for a reader here to thread through.
     fork = resolve_base()
     return None if fork is None else git("show", f"{fork}:{rel}")
 

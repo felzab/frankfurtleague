@@ -324,7 +324,10 @@ every file this Scope names.
   issue number are narrower:
   `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
   in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is caught
-  in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks
+  in a Dockerfile, a workflow, an nginx configuration or a manifest. Naming the issue-number shape
+  to ban it is a mention rather than a use, and is written in double quotes — straight or curly —
+  which that reader spares; backticks spare nothing there, a number marked up as code reading as a
+  citation of it. _Enforced by_ gate checks
   `citation`, `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and
   `rule-id`; an unpinned outside link is review judgment.
 - **INC-7:** directive first line · a Python docstring is the first statement, above the imports ·

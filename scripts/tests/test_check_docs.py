@@ -151,6 +151,12 @@ CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
+# One committed file per folder the derivation table names that no other fixture holds: a cell's
+# path is a backticked path like any other, so `path` reports one no tree carries.
+COMMIT_HOOK: Final = ".githooks/pre-commit"
+CLAUDE_HOOK: Final = ".claude/hooks/agreement.sh"
+WORKFLOW: Final = ".github/workflows/gate.yml"
+BACKEND_TEST: Final = "fl_backend/tests/test_agreement.py"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # A root-level file a citation names, beside the attributes file: every other cited path sits under a
 # prefix the resolver lists, so the root-level arm is driven by those two and nothing else.
@@ -203,6 +209,30 @@ DOCS_ITEM: Final = "Give the gate a fixture net"
 SLICE_ITEM: Final = "Serve a fixture through the slice"
 DOCS_ROW: Final = "| " + _tick(DOCS_ENTRY) + " | " + DOCS_ITEM + " | Docs | Open |"
 SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spiele | Open |"
+# The derivation the page states, spelled out rather than lifted from the checker's own tuple, for
+# `SCHEME_TOKENS`' reason.
+TAG_DERIVATION: Final[tuple[tuple[str, str, str], ...]] = (
+    ("**Surface**", "FE", "`fl_frontend/`"),
+    # A backticked run that is no repository prefix, here and on the `ci` row: what parts a path
+    # the arm holds from a folder the sentence merely names.
+    ("", "BE", "`fl_backend/` whole, `tests/` included"),
+    ("", "Ops", "`scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file"),
+    ("", "Docs", "`docs/`, `.claude/`"),
+    ("**Concern**", "gate", "`scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`"),
+    ("", "ci", "`.github/` whole, not its `workflows/` alone"),
+    ("", "tests", "`scripts/tests/`, `fl_backend/tests/`"),
+    ("", "edge", "`nginx/`"),
+)
+DERIVATION_HEADER: Final = "| Axis | Vocabulary | Derived from a path or symbol under |"
+DERIVATION_ROWS: Final[tuple[str, ...]] = tuple(
+    "| " + axis + " | " + _tick(tag) + " | " + sources + " |" for axis, tag, sources in TAG_DERIVATION
+)
+# The row a plant edits: it names four prefixes, so either edit leaves three of them standing and
+# every other row answering.
+GATE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("gate") in row)
+DROPPED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(", " + _tick(".claude/hooks/"), "")
+WIDENED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("docs/"))
+
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
 STATUS_COLUMN_ROW: Final = "| # | When | Status |"
@@ -263,11 +293,16 @@ BRANCH_DIFF: Final = "(branch diff)"
 # What a finding about a registered claim names: the registry, which the fixture holds only as the
 # gitignored copy it imports the gate from.
 KERNEL: Final = "scripts/checks/docs_gate/kernel.py"
+# A check whose name that file spells on its registry row and nowhere else, so a claim citing the
+# name as the kernel's own anchor is proved by the row making it or by nothing at all.
+SELF_CLAIMED_CHECK: Final = "copy-corpus"
 
 # The partition, anchored on folder names rather than `**/*`: a path git spelled in quotes, which a
 # listing without `-z` returns for a name outside ASCII, then matches no segment and reads as
 # unclaimed.
-FOLDER_SEGMENT: Final = "| Folders | `docs/**` · `fl_backend/**` · `fl_frontend/**` · `nginx/**` · `.claude/**` |"
+FOLDER_SEGMENT: Final = (
+    "| Folders | `docs/**` · `fl_backend/**` · `fl_frontend/**` · `nginx/**` · `.claude/**` · `.github/**` · `.githooks/**` |"
+)
 ROOT_SEGMENT: Final = "| Root files | `*` |"
 
 SCRIPTS_COPY: Final = "scripts"
@@ -298,6 +333,9 @@ ECHOED_PASSAGE: Final = (
 )
 # The glossary heading the notes page cites by bare name, which is what the untracked twin copies.
 GLOSSARY_ANCHOR: Final = "the competition year"
+# A run the glossary carries and the notes page does not, so a case can put every spelling of it on
+# the notes page itself.
+GLOSSARY_DEFINITION: Final = "the year a competition runs in"
 # What the fixture is BUILT out of rather than checked. Naming what must SURVIVE the reset keeps this
 # from growing with the corpus, which is the list nobody remembers to extend.
 PRESERVED: Final[tuple[str, ...]] = (SCRIPTS_COPY, HOOKS_STUB, UNTRACKED_DIR)
@@ -546,6 +584,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "**Purpose:** what is open, in one file.",
             "",
+            DERIVATION_HEADER,
+            "| --- | --- | --- |",
+            *DERIVATION_ROWS,
+            "",
             "| ID | Item | Tags | Status |",
             "| --- | --- | --- | --- |",
             STATUS_ROW,
@@ -778,6 +820,28 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "# OPS · an entry point, scanned for its comments and nothing else.",
             "exec nginx",
         ),
+        # The four folders the derivation table names that nothing else here holds. Each is one
+        # file, because a folder is tracked only while something under it is.
+        COMMIT_HOOK: _page(
+            "#!/usr/bin/env bash",
+            "# OPS · a commit hook, holding open the folder two derivation rows name.",
+            "exec true",
+        ),
+        CLAUDE_HOOK: _page(
+            "#!/usr/bin/env bash",
+            "# OPS · a guard, holding open the hook folder two derivation rows name.",
+            "exec true",
+        ),
+        WORKFLOW: _page(
+            "# OPS · a workflow, holding open the folder the `ci` row names.",
+            "name: gate",
+            "on: push",
+        ),
+        BACKEND_TEST: _page(
+            QUOTES + "BACKEND · a test module, holding open the folder the `tests` row names." + QUOTES,
+            "",
+            "TESTED = 1",
+        ),
         DOCKERFILE: _page(
             "# BACKEND · an image, reached by whole filename rather than by suffix.",
             "FROM scratch",
@@ -837,7 +901,8 @@ def _mix_the_short_form(root: Path) -> None:
         if any(c.isdigit() for c in short) and any(c.isalpha() for c in short):
             return
         # The author date, the one field a commit takes from an argument rather than from the clock:
-        # a second amend inside one second is otherwise the same commit and the loop never ends.
+        # a second amend inside one second is otherwise the same commit, and the loop repeats it
+        # until the committer second ticks.
         git(root, "commit", "--amend", "--no-edit", "--date", "2026-01-01T00:00:" + str(attempt).rjust(2, "0") + "+00:00")
     raise AssertionError("no amend of the corpus commit in " + str(MIXED_FORM_TRIES) + " gave it a mixed short form")
 
@@ -2024,8 +2089,8 @@ def test_an_untracked_register_page_is_the_check_s_own_finding() -> None:
 def test_a_register_page_that_cannot_be_decoded_is_the_check_s_own_finding() -> None:
     """A page the reader refuses yields no row, so the register is compared against nothing.
 
-    Read from the words: with this finding gone the check is silent about a register it never
-    read.
+    Read from the words: with this finding gone the run names the codes each tree raises and never
+    the page it could not read.
     """
     _reset()
     _write_raw(ERROR_CODES, UNDECODABLE_BYTES)
@@ -2193,6 +2258,31 @@ def test_a_self_citation_a_wrap_parts_is_read_as_one_citation_over_both_its_line
         _reset()
     assert alone[("fail", "citation", SAMPLE)] == 1, "a wrapped self-citation proved by its own tail passed: " + _shape(alone)
     assert elsewhere[("fail", "citation", SAMPLE)] == 0, "a wrapped anchor the file spells elsewhere was failed: " + _shape(elsewhere)
+    _assert_corpus_restored()
+
+
+def test_a_self_citation_is_proved_by_the_page_s_own_text_and_never_by_a_second_citation() -> None:
+    """Spec sheets here name their sections alike, so one page's citation of an anchor would certify another's.
+
+    The second run is the evidence the arm still reads the other lines: a heading spelling the
+    anchor keeps it silent.
+    """
+    _reset()
+    spelled = "an anchor a heading of this page spells"
+    try:
+        _append(
+            NOTES,
+            "The entry `" + GLOSSARY + " :: " + GLOSSARY_DEFINITION + "` is written beside this page.",
+            "A second `" + NOTES + " :: " + GLOSSARY_DEFINITION + "` has that citation for its only proof.",
+        )
+        _, cited = _run()
+        _reset()
+        _append(NOTES, "", _heading(2, spelled), "", "See `" + NOTES + " :: " + spelled + "`.")
+        _, headed = _run()
+    finally:
+        _reset()
+    assert cited[("fail", "citation", NOTES)] == 1, "an anchor only another citation spells passed: " + _shape(cited)
+    assert headed[("fail", "citation", NOTES)] == 0, "an anchor the page's own heading spells was failed: " + _shape(headed)
     _assert_corpus_restored()
 
 
@@ -3082,6 +3172,24 @@ def test_a_registered_claim_names_a_missing_file_and_a_missing_anchor_apart() ->
     assert "`echo` claims `docs/gone.md :: I1`, which names no file" in output, output
     assert "`anchor` claims `" + NOTES + " :: " + ABSENT_ANCHOR + "`, which does not resolve" in output, output
     assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_registered_claim_is_not_proved_by_the_registry_row_that_makes_it() -> None:
+    """A row spells its contract inside a string, so no line of the file spells the citation.
+
+    Read from the words: this claim draws one finding about the registry however it resolves.
+    """
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    row = kernel.CHECKS[SELF_CLAIMED_CHECK]
+    kernel.CHECKS[SELF_CLAIMED_CHECK] = kernel.Check(row.severities, kernel.claimed(KERNEL + " :: " + SELF_CLAIMED_CHECK))
+    try:
+        _, output = _output()
+    finally:
+        kernel.CHECKS[SELF_CLAIMED_CHECK] = row
+        _reset()
+    assert "anchor '" + SELF_CLAIMED_CHECK + "' is spelled in " + KERNEL + " only by a citation of it" in output, output
     _assert_corpus_restored()
 
 
