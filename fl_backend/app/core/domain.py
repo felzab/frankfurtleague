@@ -1415,6 +1415,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
     ),
     Rule(
+        code="REQ-ANONYMISE-002",
+        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
+        aggregate="Schiedsrichter",
+        summary="a name or a contact detail may not be written back onto an anonymised referee",
+        implemented_by="app.api.schiedsrichter.services.find_anonymisation_undo_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "

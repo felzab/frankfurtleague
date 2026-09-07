@@ -47,6 +47,15 @@ const RENAME_ACTION = sliceBetween(
   "export async function deleteSchiedsrichterAction",
 );
 
+const EDIT_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
+const EDIT_CODES = ["REQ-ANONYMISE-002"];
+/* The first mapper in the module, so its slice ends where the retirement's begins. */
+const EDIT_MAP = sliceBetween(ACTIONS, "function mapEditRefusal", "function mapRetireRefusal");
+const UNDO_ROUTE = readFileSync(
+  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
+  "utf8",
+);
+
 describe("the anonymisation against the backend's refusal register", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
@@ -77,6 +86,21 @@ describe("the anonymisation against the backend's refusal register", () => {
 
   /* `REQ-RETIRE-004` guards the retire and only the retire. Reaching it from here would refuse a
      contact deletion over fixtures the deletion does not touch. */
+  /* Both German sites, per `.claude/rules/cross-surface.md`: the undo route replays this endpoint,
+     so a code the save words and the replay does not reaches the admin as the 409 fallback. */
+  it("maps every refusal the edit declares, on the save and on the undo", () => {
+    const declared = declaredCodes(EDIT_OPERATION);
+
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
+    assert.deepEqual(declared, EDIT_CODES);
+    for (const code of declared) {
+      assert.ok(EDIT_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+      assert.ok(UNDO_ROUTE.includes(`"${code}":`), `${code} reaches the undo as an unhandled conflict`);
+    }
+
+    assert.ok(RENAME_ACTION.includes("mapEditRefusal(error)"), "the edit consults some other mapper");
+  });
+
   it("leaves the retirement's own refusal on the retirement", () => {
     assert.deepEqual(declaredCodes("DELETE /schiedsrichter/{schiedsrichter_id}"), ["REQ-RETIRE-004"]);
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");

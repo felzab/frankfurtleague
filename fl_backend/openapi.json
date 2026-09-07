@@ -1975,7 +1975,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save putting a name or a contact detail back onto an anonymised referee is refused\n(`REQ-ANONYMISE-002`); the fee and the school stay editable, the erasure not reaching them.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {

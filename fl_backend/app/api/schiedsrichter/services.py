@@ -23,6 +23,10 @@ ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {**ANONYMISED_KONTAKT, "name": ANONY
 # the answer would report gone, and clearing it again is one more click.
 KONTAKT_RE_ENTERED_MID_ANONYMISATION = "REQ-ANONYMISE-001"
 
+# An anonymisation an ordinary edit can undo is not an anonymisation: the name goes back onto the row
+# and onto every fixture they officiated, closed seasons' included, and the person is never told.
+ANONYMISATION_UNDONE_BY_AN_EDIT = "REQ-ANONYMISE-002"
+
 
 def _stored_at(schiedsrichter: Mapping[str, Any], path: str) -> Any:
     """The value a dotted key of `ANONYMISED_SCHIEDSRICHTER` addresses, or `None` where a segment is missing."""
@@ -62,6 +66,25 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
         message=(
             "the referee's name or contact details were entered again while this anonymisation ran, so it cleared "
             "nothing and left them standing; run it again to remove what is there now"
+        ),
+    )
+
+
+def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why this edit must be refused, or `None`.
+
+    Both sides through `holds_an_anonymisable_value`, so the mapping deciding what an anonymisation
+    writes is the same one deciding what counts as putting it back.
+    """
+
+    if holds_an_anonymisable_value(stored) or not holds_an_anonymisable_value(patched):
+        return None
+
+    return WriteRefusal(
+        error_code=ANONYMISATION_UNDONE_BY_AN_EDIT,
+        message=(
+            "this referee's name and contact details were deleted on request, and this save would put them back on the row and "
+            "on every fixture they officiated; a deletion made by mistake is recovered from a backup rather than typed in again"
         ),
     )
 

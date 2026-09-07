@@ -133,7 +133,6 @@ deliverable.
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                           | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                 | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Open     |
-| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                    | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                   | BE, DB, tests, saisons                                                      | Standing |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                    | FE, Docs, tests                                                             | Open     |
@@ -2510,33 +2509,6 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
-
-### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
-
-| Tags                                 | Status | Depends on |
-| ------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
-
-**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
-and fans it into every match the referee officiated** — the embedded copy is
-`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
-(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
-again, on the row and on every past fixture, and the administrator making that edit is told a rename
-succeeded.
-
-**The rename reaches every season, where a club's stops.** A referee is not season-scoped
-(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
-has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
-closed seasons, which are the copies nobody edits again and so the ones that keep it.
-
-**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
-an anonymisation runs, judged from a read taken outside the session
-(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
-
-**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
-fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
-cannot undo at all is a different complaint from the one above. What the entry buys is that the
-choice is made rather than defaulted into, and it covers the archive as well as the current season.
 
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
