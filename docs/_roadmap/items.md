@@ -151,7 +151,6 @@ deliverable.
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                                                         | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                                                       | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                                                        | BE, DB, tests, saisons                                                      | Standing |
-| `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                                                                      | Ops, Docs, gate, tests                                                      | Open     |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                                                         | FE, Docs, tests                                                             | Open     |
 | `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                                                                  | FE, BE, Ops, Docs, edge, versions                                           | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
@@ -3133,33 +3132,6 @@ one indirection to follow and no rule saying which pairs took it.
 **What reopens this:** a third site removing a season's drawn collections, which is the instance that
 would make the shape worth naming; or `transactional_callbacks` learning to follow one hop, which
 removes the cost above rather than paying it.
-
-### `qbzd-xrcu` · A scope sweep asserts against a rebuilt predicate rather than the gate's own
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/tests/test_scope_agreement.py :: _bounded_of` rebuilds
-`scripts/checks/docs_gate/branch.py :: _bounded` out of the registers that function reads**, and the
-sweep walking the In-code Scope's trees for a file of a kind the gate cannot read asserts against
-the rebuild rather than against the gate's own answer.
-
-**One guard bounds the shapes it can follow silently**: the rebuild admits a `_bounded` whose body
-reads exactly the two registers it names and refuses every other module-level name, a tree register
-under any spelling among them. It does not catch a condition added to `_bounded`
-that widens what it bounds — the rebuild then bounds less than the gate does, the sweep finds nothing
-and passes, and a file the gate hands to the `#` reader goes unreported. Widening in the other
-direction fails loudly, so the quiet half is the one to close.
-
-**Importing it is what the constraint rules out, and not driving it.**
-`scripts/tests/test_check_docs.py` runs a copy of that package under the same names, so a module
-cached here would decide which of the two trees either file measures — which a subprocess leaves
-alone.
-
-**Done when** the sweep asks `_bounded` itself. `docs/_standard/standard.md`'s In-code Scope is the
-other half of what this module holds together, so its own reading of the register survives whichever
-route is chosen.
 
 ### `qg8u-tbd6` · One test module is named for a function and holds the cases of two others
 
