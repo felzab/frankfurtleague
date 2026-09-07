@@ -178,6 +178,15 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   asked. The database applies it rather than a sweep in this codebase
   (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), and it reaches a stamped row alone
   ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-02.
+- **An undecided application one of whose contact persons has not confirmed is deleted once its
+  confirmation window has run out, those three people's contact details included, and the erasure is
+  announced to the Ansprechperson first where that slot still holds one**
+  (`docs/backend/spec.md :: I151`). The window is fourteen days from the day the links were minted,
+  which a re-send restarts
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`), so the period
+  runs from the last mint rather than from the submission. This is the period the published notice
+  shows a visitor (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this
+  section: every figure in it is a hand-checked mirror of the clocks recorded here.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks
@@ -185,7 +194,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   person whose details they are (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`),
   and the published notice tabulates them (`DatenschutzView.tsx :: FRISTEN`). This bounds the
   permanent record that `docs/glossary.md :: Bewerbung`
-  and `docs/backend/spec.md :: a decided application stays listed` describe. Ruled 2026-09-02.
+  and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends. The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
@@ -209,7 +218,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   rather than one traffic volume sets, which a size rotation is: under a size bound alone a quiet
   month would keep addresses far longer than a busy one. The application logs keep the container
   runtime's size rotation as their only live bound
-  (`docs/logging/spec.md :: Retention is Docker's`), because the only way to rotate a file the
+  (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the
   runtime holds open loses lines; the deploy copies each stream off before replacing its container,
   and those copies are what the thirty days reach (`scripts/ops/deploy.sh :: LOG_DIR`), the host's
   own `systemd-tmpfiles` sweep deleting each one thirty days after the deploy wrote it. A copy is
@@ -254,21 +263,22 @@ owed:
   whole. The disk is encrypted and one person holds the connection string; the bound is what
   stops cleanup depending on memory. Today the copy is reused at any age, the marker file being the
   whole of the reuse test (`scripts/ops/local.sh :: fetch_copy`,
-  `docs/ops/spec.md :: however old it is`); this ruling narrows that.
+  `docs/ops/spec.md :: 1.5`); this ruling narrows that.
 
 ## 10. Adjacent decisions were accepted as recommended
 
 Roadmap items that needed no expert, each accepted on 2026-09-02 as the entry then recommended.
 Where an entry is still open, what is left to do is its own `Status` in
-[`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives.
+[`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives, and
+the `Entry` column carries a token only where one still resolves in that file.
 
 | Entry       | Decision                                                                                                                                                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                               |
 | `kyc4-75k5` | The player editor shows the stored consent, read-only; it never gates publication                                                                                       |
 | `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                    |
-| `cu59-4gqt` | Stays deferred until a rollover is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                          |
-| `2pqm-yxyu` | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)) |
+| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                        |
+| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)) |
 
 ## 11. Open, and owed a decision
 
@@ -281,7 +291,7 @@ Where an entry is still open, what is left to do is its own `Status` in
 - **The access-log bound is not yet configured at Cloudflare's own edge, and the host's
   `logrotate` file is a hand step the deploy cannot verify.**
   [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
-  (`docs/logging/spec.md :: Cloudflare logs the request line`) as well as the host's; Cloudflare's
-  retention is set in its dashboard rather than in this repository, and the host's in a file
-  outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either period was honoured
-  rests on reading the host rather than on a report.
+  (`docs/logging/spec.md :: Cloudflare logs the request line at its own edge`) as well as the
+  host's; Cloudflare's retention is set in its dashboard rather than in this repository, and the
+  host's in a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either
+  period was honoured rests on reading the host rather than on a report.
