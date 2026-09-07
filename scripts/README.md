@@ -25,6 +25,7 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/checks/check_csp_identity.py`        | any           | Each nginx file's Content-Security-Policy copies against that file's first                                                           |
 | `scripts/checks/check_public_routes.py`       | any           | Every App Router route handler against the edge locations that meter it, and every metadata convention against its recorded decision |
 | `scripts/checks/check_regenerate_spelling.py` | any           | Every file printing the command that regenerates `openapi.json`, against the spelling the backend declares                           |
+| `scripts/checks/check_log_quoting_class.py`   | any           | The console format's quoting class in one package against the other's, character by character                                        |
 | `scripts/checks/check_test_estate.py`         | any           | The backend suite's silent shapes: a db read in the wrong tier, an empty parametrize, an unconsumed fixture                          |
 | `scripts/checks/check_conflict_markers.py`    | any           | Every tracked file, for a merge conflict marker left in it                                                                           |
 | `scripts/checks/check_pr_body.py`             | CI only       | A pull request body, which is not in the repository                                                                                  |

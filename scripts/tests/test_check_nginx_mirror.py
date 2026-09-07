@@ -559,6 +559,7 @@ def test_the_repository_own_edge_files_are_clean():
 
 
 def test_the_repository_own_edge_pair_is_fully_declared():
+    """`test_check_compose_mirror.py :: test_the_repository_own_compose_pair_is_fully_declared`'s argument, over the edge pair."""
     prod = mirror.load(mirror.REPO_ROOT / mirror.PROD)
     local = mirror.load(mirror.REPO_ROOT / mirror.LOCAL)
     covered = judged(prod, local)

@@ -734,10 +734,13 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # A later failure's own text, which rows count but never quote. A branch whose diff asks for every
+  # A later scope's own text, which rows count but never quote. A branch whose diff asks for every
   # scope cannot re-run one alone (`scripts/checks/check_scope.py`), so text left unread here costs a
   # second full run.
-  LATER_FAILURE_HEADING="also failed, and the run ended at the failure above rather than at this one — its own output follows"
+
+  # Findings and a refusal both reach it, and the exit contract keeps those two apart
+  # (`docs/ops/spec.md` §1.7), so the heading names neither.
+  LATER_VERDICT_HEADING="also ended with a verdict of its own, and the run ended at the failure above rather than at this one — its own output follows"
 
   # Past the first failure the ending stays that failure's, and the table still tells a pass from a
   # scope that never ran. A crash's rank-5 row would read as findings, so it takes the arm below.
@@ -749,7 +752,7 @@ if (( PARALLEL )); then
         # Only where there is text to show: the heading promises output, and a scope that failed
         # having written none would get a heading over nothing.
         if (( status )) && [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
-          info "the ${scope} scope ${LATER_FAILURE_HEADING}"
+          info "the ${scope} scope ${LATER_VERDICT_HEADING}"
           # Split as `replay_scope` splits it: `docs/ops/spec.md` §1.6 states what a terminal
           # merging the two sees, and sending both to stdout here would change that.
           if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
@@ -902,7 +905,8 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
   fi
 
   # This scope rather than `ops`: the check reads the App Router tree and `nginx/prod.conf`, whose
-  # scopes are `frontend docs` and `ops docs`, and `docs` is the one a diff touching either selects.
+  # scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching either
+  # selects.
 
   step "docs · every route handler and metadata convention is metered or accounted for"
   unit_join public_routes
@@ -931,7 +935,7 @@ register does not cover." \
   fi
 
   # This scope because the two literals sit one per package: their own edits select
-  # `backend db docs` and `frontend docs`, and `docs` is the only one both reach.
+  # `backend db docs` and `format frontend docs`, and `docs` is the only one both reach.
 
   step "docs · one quoting class behind the console format's two spellings"
   unit_join log_quoting_class

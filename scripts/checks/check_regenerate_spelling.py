@@ -27,6 +27,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
     EXIT_REFUSED,
     REPO_ROOT,
     UNREADABLE,
@@ -60,10 +61,6 @@ SITES: Final[tuple[str, ...]] = (
     "fl_frontend/src/core/apiRequests.test.ts",
     "fl_frontend/src/core/einwilligung.test.ts",
 )
-
-# The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
-# line lands under its first.
-CONTINUATION: Final = " " * 14
 
 # How much of the line in front of the command a finding quotes. A site's line can be a whole
 # spec-sheet table row, and what its reader repairs is the prefix rather than the row.

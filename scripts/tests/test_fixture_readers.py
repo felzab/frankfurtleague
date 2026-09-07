@@ -33,6 +33,21 @@ NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, 
 # Closed at a margin the caller did not name, so neither shape matches and the lift has no answer.
 ADRIFT: Final = "\n".join(("#!/usr/bin/env bash", "adrift() {", '  printf "%s" "$1"', "  }", ""))
 
+# `scripts/lib/_lib.sh :: require_file`'s shape: a body opening on the definition's line and closing
+# on the next, where the closer shares its line with the body and no line is a bare `}`.
+UNCLOSED: Final = "\n".join(
+    (
+        "#!/usr/bin/env bash",
+        'unclosed() { [[ -f "$1" ]] || echo "missing: $1${2:+',
+        '$2}"; }',
+        "",
+        "a_block() {",
+        '  printf "not this"',
+        "}",
+        "",
+    )
+)
+
 
 def test_a_one_line_function_is_lifted_without_the_block_below_it(tmp_path: Path) -> None:
     """A wrong lift is a shell that still runs, so nothing but its text says the fixture is not the gate's."""
@@ -71,6 +86,18 @@ def test_a_function_closing_on_neither_shape_is_refused_by_its_name(tmp_path: Pa
         assert "adrift" in str(refusal), refusal
     else:
         raise AssertionError("a function closed by no line this reader knows was lifted anyway")
+
+
+def test_a_body_the_opening_line_never_closes_is_refused_by_its_name(tmp_path: Path) -> None:
+    """The silent over-lift this reader exists to prevent: the block below is what the walk hands back instead."""
+    script = write_shell(tmp_path / "unclosed.sh", UNCLOSED)
+
+    try:
+        lift_function(script, "unclosed")
+    except AssertionError as refusal:
+        assert "unclosed" in str(refusal), refusal
+    else:
+        raise AssertionError("a function whose body outruns its opening line was lifted anyway")
 
 
 def test_the_gates_own_one_line_function_comes_back_as_one_line() -> None:

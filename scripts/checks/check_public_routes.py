@@ -28,7 +28,14 @@ from typing import Final
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
+    EXIT_REFUSED,
+    REPO_ROOT,
+    Finding,
+    report_findings,
+    run,
+)
 
 APP_ROUTER: Final = "fl_frontend/src/app"
 NGINX_CONF: Final = "nginx/prod.conf"
@@ -43,10 +50,6 @@ ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
 # Derived rather than spelled again: Next reads one page-extension list for a handler and for a
 # metadata convention, and two lists here would drift a metadata file out of the walk in silence.
 CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
-
-# The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
-# line lands under its first.
-CONTINUATION: Final = " " * 14
 
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
 # Counting it as coverage would leave this check unable to fail.

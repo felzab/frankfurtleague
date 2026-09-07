@@ -286,8 +286,11 @@ for case_line in "${CASES[@]}"; do
 
   # A passing case only: a failing one already carries its line under its own verdict, and the
   # evidence behind a pass is what the captured run cannot give back afterwards.
+
+  # Prefixed, or the verb naming the case class reads as the verdict: `LEAK <url>` beside an access
+  # line is the shape somebody scanning this output for a leak stops at.
   if verbose && (( FAILURES == _before )); then
-    info "${verb} ${subject}"
+    info "passed: ${verb} ${subject}"
     detail "$logged"
   fi
 done

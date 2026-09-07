@@ -17,11 +17,12 @@ import sys
 from pathlib import Path
 from typing import Final
 
+from conftest import withdraw
+
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
-# Both directories, and both withdrawn again with the kernel behind them, matching
-# `test_check_conflict_markers.py`: a `checker_kernel` left cached here answers another suite's
-# imports and roots that suite at the wrong repository.
+# Both directories, and both modules withdrawn again with the kernel behind them: a `checker_kernel`
+# left cached here answers another suite's imports and roots that suite at the wrong repository.
 sys.path.insert(0, str(SCRIPTS / "lib"))
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
@@ -30,8 +31,7 @@ try:
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
     sys.path.remove(str(SCRIPTS / "lib"))
-    sys.modules.pop("check_conflict_markers", None)
-    sys.modules.pop("checker_kernel", None)
+    withdraw("check_conflict_markers", "checker_kernel")
 
 OPENER: Final = "<" * 7
 
@@ -63,7 +63,7 @@ def test_a_checker_driven_in_process_has_its_findings_captured(tmp_path: Path, c
 
 
 def test_a_stream_named_at_the_call_is_written_instead_of_the_current_stdout(capsys) -> None:
-    """The two callers that name one: `check_pr_body.py` sends every severity where a failed step is looked for."""
+    """The one caller that names one: `check_pr_body.py` sends every severity where a failed step is looked for."""
     named = io.StringIO()
 
     kernel.report_findings([kernel.Finding("fail", DETAIL)], stream=named)

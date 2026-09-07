@@ -25,15 +25,18 @@ from typing import Final
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
+    EXIT_REFUSED,
+    REPO_ROOT,
+    Finding,
+    report_findings,
+    run,
+)
 
 CONFIG_DIR: Final = "nginx"
 CONFIG_GLOB: Final = "*.conf"
 HEADER: Final = "Content-Security-Policy"
-
-# The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
-# line lands under its first.
-CONTINUATION: Final = " " * 14
 
 # Two readers over one line: the first decides which lines are sites, and a site the second cannot
 # read is what the refusal above is for.

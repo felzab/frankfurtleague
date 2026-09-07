@@ -28,6 +28,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
     DEFAULT_BASE,
     EXIT_OK,
     EXIT_REFUSED,
@@ -440,9 +441,9 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
                 Finding(
                     "fail",
                     "the image build did not run, and these files ask for it with a change\n"
-                    "              that is more than comments:\n"
-                    f"                {named_list(images_culprits(material))}\n"
-                    f"              Re-run with:  ./scripts/gate/verify.sh --{scope}",
+                    f"{CONTINUATION}that is more than comments:\n"
+                    f"{CONTINUATION}  {named_list(images_culprits(material))}\n"
+                    f"{CONTINUATION}Re-run with:  ./scripts/gate/verify.sh --{scope}",
                 )
             )
         else:

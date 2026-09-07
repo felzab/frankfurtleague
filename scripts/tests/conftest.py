@@ -186,6 +186,10 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     # line with too.
     if re.search(r";\s*\}$", lines[start].rstrip()):
         return lines[start].removeprefix(indent)
+    # A body the opening line does not close leaves its braces deeper than the group's own
+    # (`scripts/lib/_lib.sh :: require_file`), and the walk below would take the next function's
+    # closing line as this one's -- a lift that still runs.
+    assert lines[start].count("{") - lines[start].count("}") <= 1, f"{_cited(script)}'s {name} opens a body its own line does not close"
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
     assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])

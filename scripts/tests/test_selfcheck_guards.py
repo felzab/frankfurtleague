@@ -180,6 +180,7 @@ def test_the_git_blind_probe_reads_a_refusal_that_exits_cleanly_as_the_refusal(t
     out, err = _blind(REFUSES_CLEANLY[0], tmp_path)
 
     assert "denied" in out and "crashed" not in err, f"{out!r} {err!r}"
+    assert REFUSES_CLEANLY[0] in out, out
 
 
 def _build_hook_fixture(repo: Path, tmp_path: Path) -> tuple[str, str]:

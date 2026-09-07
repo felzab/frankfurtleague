@@ -428,12 +428,11 @@ def _shell_constant(name: str) -> tuple[str, str]:
 
 
 def test_a_later_failing_scope_is_replayed_after_the_first_failures_own_output() -> None:
-    """Rows count a later failure without quoting it, and no partial re-run reaches the text.
+    """Rows count a later verdict without quoting it, and no partial re-run reaches the text.
 
-    The scope that passed is the twin: an arm replaying every later one would head a green scope
-    as a failure.
+    The scope that passed is the twin: an arm replaying every later one would head a green scope too.
     """
-    declaration, heading = _shell_constant("LATER_FAILURE_HEADING")
+    declaration, heading = _shell_constant("LATER_VERDICT_HEADING")
     code, output = _parent(
         "\n".join((declaration, "REPLAY_STATUS=0", "ENDING=0", _lifted_block(*REPLAY_LOOP), "if (( ENDING )); then finish; fi")),
         lifted=LATER,
@@ -459,7 +458,7 @@ def test_a_later_failing_scope_is_replayed_after_the_first_failures_own_output()
         if f"passed wrote this to {stream}" in output:
             wrong.append(f"a scope that passed had its {stream} replayed")
     if f"the passed scope {heading}" in output:
-        wrong.append("a scope that passed was headed as a failure")
+        wrong.append("a scope that passed was headed as one that ended with a verdict of its own")
     # Both markers are on stdout, which the capture holds whole before any of stderr, so their order
     # here is the order the terminal saw. `find`, so an absent one is reported above rather than raising.
     ended_at = output.find("first wrote this to stdout")

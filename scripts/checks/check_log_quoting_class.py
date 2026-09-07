@@ -30,6 +30,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    CONTINUATION,
     EXIT_REFUSED,
     REPO_ROOT,
     UNREADABLE,
@@ -41,10 +42,6 @@ from checker_kernel import (  # noqa: E402 -- the insert above is what resolves 
 LITERAL: Final = "NEEDS_QUOTING"
 BACKEND: Final = "fl_backend/app/core/logging.py"
 FRONTEND: Final = "fl_frontend/src/core/logFormat.ts"
-
-# The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
-# line lands under its first.
-CONTINUATION: Final = " " * 14
 
 # The first of two readers over one file: without it a renamed constant leaves two files with no
 # declaration to disagree over, which is not two files that agree.

@@ -455,7 +455,7 @@ measured at. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — and, where that later scope failed or was refused itself, its own captured output replayed
 after those rows under a heading naming it
-(`scripts/gate/verify.sh :: LATER_FAILURE_HEADING`). The closing table then tells a passing scope
+(`scripts/gate/verify.sh :: LATER_VERDICT_HEADING`). The closing table then tells a passing scope
 from one that never ran, a session fixing the failure knows what it need not pay for again, and a
 second failure's own words are on screen rather than behind another full run:
 `scripts/checks/check_scope.py` refuses a run narrower than the branch's diff, so no partial re-run
