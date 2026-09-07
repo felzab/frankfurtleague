@@ -175,9 +175,10 @@ Run it for every agent, the fifteenth as much as the first.
   stated one notch wider than its evidence, reaches an agent as fact. When two agents disagree about
   one file, drive the difference — never pick a side, never average.
 - **Route every out-of-scope finding in the turn you read it**, from the report's separately headed
-  list: an owner, a roadmap entry, or a check where the class is mechanically detectable, and say
-  which each got. Reports rank findings by their author's scope, so the one that matters is rarely
-  first. **Route at the class, never at the instance reported** — protecting the one file reported
+  list: a fixer in this wave where it is a fix, the owner where its place in this session is unsure,
+  or a check where the class is mechanically detectable — never a roadmap entry the owner has not
+  been asked about (CLAUDE.md §3) — and say which each got. Reports rank findings by their author's
+  scope, so the one that matters is rarely first. **Route at the class, never at the instance reported** — protecting the one file reported
   lost other agents' commit messages in the same directory a wave later.
 - **[The brief](agent-brief-template.md) sections 8, 9 and 13 — plant-and-restore, the traps and the
   siblings test — bind you as they bind an agent**, and 13 binds what you bank from a report: ask
@@ -272,8 +273,8 @@ Do these in this order. None is skippable.
    `.githooks/pre-commit` refuses a partly staged file only where prettier parses it — never a
    `.py`, `.sh` or Dockerfile — so two agents' hunks in one hub file are one commit, or they are
    separated by a commit boundary in time.
-   **One session, one branch, one pull request**: a finding that seems to want its own branch is in
-   scope and fixed here, or out of scope and a roadmap entry.
+   **One session, one branch, one pull request**: a finding that seems to want its own branch is
+   fixed here, or put to the owner — an entry only where the owner says so.
 6. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.
 7. **Enumerate the ending (§7)** so the dispatch floor has something to count.
 8. **Write the register ([register-template.md](register-template.md)) before the first agent

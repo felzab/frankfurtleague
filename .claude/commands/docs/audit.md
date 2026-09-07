@@ -241,6 +241,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    **Split by segment if the diff outgrows one review.**
 
-7. **Anything that is not a documentation fix leaves as a roadmap entry, not a code change.** A
-   finding that the code — rather than the document — is wrong is a defect, and this session does not
-   fix defects. Hand it to the owner, or to `/roadmap:add` if it needs analysis kept.
+7. **Anything that is not a documentation fix leaves as a finding, not a code change.** A finding
+   that the code — rather than the document — is wrong is a defect, and this session does not fix
+   defects. Hand it to whoever invoked the command, to fix on the same branch or put to the owner;
+   `/roadmap:add` only where the owner has ruled it an entry (`.claude/CLAUDE.md` §3).
