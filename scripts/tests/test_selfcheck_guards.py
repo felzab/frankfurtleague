@@ -8,6 +8,8 @@ regression in the gate's own copy is what fails.
 
 from __future__ import annotations
 
+import ast
+import json
 import re
 import shutil
 import subprocess
@@ -57,29 +59,39 @@ def _reader(tmp_path: Path) -> Path:
     return reader
 
 
-# Each fake hook fails in a way that leaves stdout empty, which is also how a hook says "allowed".
-FAKE_HOOKS: Final[tuple[tuple[str, str], ...]] = (
-    ("syntaxerr.sh", "if [\n"),
-    ("exit2.sh", "#!/usr/bin/env bash\nexit 2\n"),
-    ("onstderr.sh", "#!/usr/bin/env bash\nprintf deny >&2\nexit 0\n"),
-    ("allows.sh", "#!/usr/bin/env bash\nexit 0\n"),
+# The verdict shape a guard prints on the way to refusing something.
+REFUSAL: Final = '{"hookSpecificOutput":{"permissionDecision":"deny"}}'
+
+# Each fake hook fails in a way that leaves stdout empty, which is also how a hook says "allowed" --
+# apart from the last, whose stdout carries a correct refusal and whose status says it died.
+FAKE_HOOKS: Final[tuple[tuple[str, str, bool], ...]] = (
+    ("syntaxerr.sh", "if [\n", True),
+    ("exit2.sh", "#!/usr/bin/env bash\nexit 2\n", True),
+    ("onstderr.sh", "#!/usr/bin/env bash\nprintf deny >&2\nexit 0\n", True),
+    ("allows.sh", "#!/usr/bin/env bash\nexit 0\n", False),
+    ("refuses_then_dies.sh", "#!/usr/bin/env bash\nprintf '" + REFUSAL + "'\nexit 3\n", True),
 )
+
+# Driven beside the hooks above and written nowhere: an absent file is silent the way each of them
+# is, and it is the one case no fixture body can produce.
+ABSENT_HOOK: Final[tuple[str, bool]] = ("absent.sh", True)
 
 PAYLOAD_FN: Final = 'cmd_payload() { printf \'{"tool_input":{"command":"%s"}}\' "$1"; }'
 
 
 def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
-    """Silence on stdout is how a hook allows, and how every failure of one looks.
+    """A hook allows by printing nothing, and every failure of one looks the same.
 
-    Without the status and stderr, a guard that has started erroring on some input reads as a guard
-    that ran and allowed -- the one regression the hook probes exist to catch.
+    The row that refuses and then dies is the other half: graded by its stdout, a crash reads as
+    the refusal it printed.
     """
     hooks = tmp_path / "hooks"
     hooks.mkdir()
-    for name, body in FAKE_HOOKS:
+    for name, body, _ in FAKE_HOOKS:
         (hooks / name).write_text(body, encoding="utf-8", newline="\n")
     (tmp_path / "repo").mkdir()
-    names = [name for name, _ in FAKE_HOOKS] + ["absent.sh"]
+    probes = [(name, crashes) for name, _, crashes in FAKE_HOOKS] + [ABSENT_HOOK]
+    names = [name for name, _ in probes]
     _, out, err = _bash(
         (
             SHEBANG,
@@ -97,9 +109,66 @@ def test_a_crashed_hook_is_not_read_as_one_that_allowed(tmp_path: Path) -> None:
         ),
         tmp_path,
     )
-    verdicts = [line.split("\t", 1)[1] for line in out.splitlines() if "\t" in line]
-    assert len([v for v in verdicts if "crashed" in v]) == 4, f"{out!r} {err!r}"
-    assert [v for v in verdicts if v.endswith("allowed")], f"{out!r} {err!r}"
+    graded = [line for line in out.splitlines() if "\t" in line]
+    assert len(graded) == len(probes), f"{out!r} {err!r}"
+    for (name, crashes), line in zip(probes, graded, strict=True):
+        verb, verdict = line.split("\t", 1)
+        # Read off the verb as well as the text: every probe here wants `allowed`, so a fail line
+        # quotes the word `allowed` back and a substring test alone would clear a wrong grade.
+        crashed = verb == "fail" and "crashed" in verdict
+        assert crashed is crashes, f"{name}: {line!r} {err!r}"
+
+
+def _build_hook_fixture(repo: Path, tmp_path: Path) -> tuple[str, str]:
+    """The builder run from the script's own calling position, an `if !`.
+
+    Bash disarms errexit for everything a compound command there runs, so a status not carried by
+    hand never reaches the caller.
+    """
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            f"HOOK_REPO={repo.as_posix()!r}",
+            _function("build_hook_fixture", "  "),
+            "if ! quietly build_hook_fixture; then printf 'REPORTED\\n'; else printf 'SILENT\\n'; fi",
+        ),
+        tmp_path,
+    )
+    return out, err
+
+
+# The builder's own list, so a path added to it is covered here without this file being touched.
+TRACKED_LIST_RE: Final = re.compile(r"for tracked in (.*?); do", re.DOTALL)
+
+
+def test_the_hook_fixture_holds_every_file_its_list_names(tmp_path: Path) -> None:
+    """Nothing downstream asks whether a probe's subject is on disk: `git check-ignore` answers for a path nobody wrote.
+
+    The probes on the tracked half of each pair then run against a fixture that has none.
+    """
+    listed = TRACKED_LIST_RE.search(_function("build_hook_fixture", "  "))
+    assert listed is not None, "build_hook_fixture no longer lists the files it writes"
+    repo = tmp_path / "repo"
+    out, err = _build_hook_fixture(repo, tmp_path)
+    assert "REPORTED" not in out, f"{out!r} {err!r}"
+    absent = [name for name in listed.group(1).replace("\\", " ").split() if not (repo / name).is_file()]
+    assert not absent, f"{absent} -- {out!r} {err!r}"
+
+
+def test_the_hook_fixture_reports_a_file_it_could_not_write(tmp_path: Path) -> None:
+    """A blocked write otherwise leaves the caller told the fixture was built.
+
+    Its own `set -e` cannot report it from the position it is called in, so the status is carried
+    out of the loop by hand.
+    """
+    repo = tmp_path / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    # A file where the builder must make a directory: `mkdir -p` refuses it, and the tracked file
+    # underneath it cannot be written.
+    write_shell(repo / "scripts" / "gate", "blocked\n")
+    out, err = _build_hook_fixture(repo, tmp_path)
+    assert "REPORTED" in out, f"{out!r} {err!r}"
 
 
 def _par_run_harness(body: tuple[str, ...], tmp_path: Path) -> tuple[int, str, str]:
@@ -178,26 +247,154 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
     assert "call\tset_not_run" in done.stdout, "verify.sh's set_not_run call is invisible to the reader"
 
 
-def _armed_patterns(script: Path) -> set[str]:
-    """Every line-anchored awk pattern in one script, its escaping dropped.
+def _armed_patterns(source: str) -> set[str]:
+    """Every line-anchored awk pattern in a stretch of shell, its escaping dropped.
 
     Unescaped rather than the checker's constant escaped: awk leaves a space alone where
     `re.escape` escapes it, so the two could never agree.
     """
-    return {pattern.replace("\\", "") for pattern in AWK_PATTERN_RE.findall(script.read_text(encoding="utf-8"))}
+    return {pattern.replace("\\", "") for pattern in AWK_PATTERN_RE.findall(source)}
 
 
-def test_the_verb_table_is_read_off_the_same_two_literals() -> None:
-    """Two readers of one table, and only the same literals read the same one.
+def _lead_in_names(source: Path) -> list[str]:
+    """Every constant the checker declares whose name ends `_LEAD_IN`.
 
-    This script skips where the gate fails, so a drifted pair leaves the gate green and the skip on
-    somebody else's branch.
+    Swept rather than listed here: a lead-in this file had to be told about is one a checker can
+    gain while the reader beside it gains nothing.
     """
-    patterns = _armed_patterns(SELFCHECK)
-    assert patterns, "no line-anchored awk pattern was read out of selfcheck.sh, so nothing was compared"
-    for name in ("OUTPUT_STANDARD_LEAD_IN", "OUTPUT_VERB_COLUMN"):
-        spelled = str(declared(CHECKER, name)).replace("\\", "")
-        assert spelled in patterns, f"{name} is spelled in no awk pattern of selfcheck.sh: {sorted(patterns)}"
+    return [
+        name
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
+        if isinstance(node, ast.AnnAssign) and (name := getattr(node.target, "id", "")).endswith("_LEAD_IN")
+    ]
+
+
+def test_the_helper_tables_are_read_off_the_same_literals() -> None:
+    """Compared in both directions: a lead-in armed in one file alone reads a table the other keeps no verdict on.
+
+    This script skips where the gate fails, so a drifted pair leaves the skip on somebody else's
+    branch.
+    """
+    reader = _armed_patterns(_function("check_documented_helpers"))
+    assert reader, "no line-anchored awk pattern was read out of the reader, so nothing was compared"
+    names = _lead_in_names(CHECKER)
+    assert names, f"{CHECKER.name} declares no lead-in, so nothing was compared"
+    spelled = {str(declared(CHECKER, name)).replace("\\", "") for name in names}
+    # The bold opener is what a lead-in is, and the reader arms on nothing else that carries one.
+    assert {pattern for pattern in reader if "**" in pattern} == spelled, f"{sorted(reader)} against {sorted(spelled)}"
+    column = str(declared(CHECKER, "OUTPUT_VERB_COLUMN")).replace("\\", "")
+    assert column in reader, f"OUTPUT_VERB_COLUMN is spelled in no awk pattern of the reader: {sorted(reader)}"
+
+
+# A sheet in the shape the reader walks: two lead-ins, a table under each, and prose between them.
+FIXTURE_SHEET: Final = """**The output standard.** One vocabulary, one verb per meaning:
+
+| Verb   | Means                    |
+| ------ | ------------------------ |
+| `die`  | A finding that ends it   |
+
+Prose the reader steps over on its way down the sheet.
+
+**The helpers a script leans on.** Not output verbs:
+
+| Helper      | Answers                  |
+| ----------- | ------------------------ |
+| `verbose`   | Whether to stream        |
+| `worker`    | Whether this is a worker |
+| `quietly`   | Runs a command captured  |
+| `usage`     | Prints the header        |
+"""
+
+# `DEFINED` comes off the opening `name()` of every line, so a body is what the fixture may drop.
+FIXTURE_LIB: Final = "".join(f"{name}() {{ :; }}\n" for name in ("die", "verbose", "worker", "quietly", "usage"))
+
+
+def _documented_helpers(sheet: Path, lib: Path, tmp_path: Path) -> str:
+    """Step 4's vocabulary route over a fixture sheet and a fixture library, its verbs stubbed."""
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            'SELFCHECK_TMP="$(mktemp -d)"',
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
+            "note_skip() { printf 'SKIP %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            _function("read_lib_definitions"),
+            _function("check_documented_helpers"),
+            f"read_lib_definitions {lib.as_posix()!r}",
+            f"check_documented_helpers {sheet.as_posix()!r}",
+        ),
+        tmp_path,
+    )
+    return out + err
+
+
+def test_a_helper_the_sheet_names_and_the_library_dropped_is_a_finding(tmp_path: Path) -> None:
+    """Driven over both tables, the second being the one the reader reaches last.
+
+    Every name in either is a single word, which step 4's call-site reader drops by design, so a
+    rename in `_lib.sh` is caught here or nowhere.
+    """
+    sheet = write_shell(tmp_path / "spec.md", FIXTURE_SHEET)
+    whole = write_shell(tmp_path / "whole.sh", FIXTURE_LIB)
+    intact = _documented_helpers(sheet, whole, tmp_path)
+    assert "FAIL" not in intact and "SKIP" not in intact, intact
+    for renamed in ("die", "quietly"):
+        dropped = write_shell(tmp_path / "dropped.sh", FIXTURE_LIB.replace(f"{renamed}()", "hushed()"))
+        out = _documented_helpers(sheet, dropped, tmp_path)
+        assert "FAIL" in out and renamed in out, f"{renamed}: {out!r}"
+
+
+# A guard in the shape the comparison reads: a decision handed to a child under a kill budget.
+FIXTURE_GUARD: Final = '#!/usr/bin/env bash\nanswer="$(timeout -s KILL 15 bash "$0" --decide)"\n'
+
+
+def _registration(seconds: int) -> str:
+    """One PreToolUse entry, spelled as `.claude/settings.json` spells one."""
+    command = 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard.sh"'
+    entry = {"type": "command", "command": command, "timeout": seconds}
+    return json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [entry]}]}})
+
+
+def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path) -> str:
+    """The step-14 comparison over a fixture pair, its verbs stubbed."""
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            _function("compare_hook_budgets", "  "),
+            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r}",
+        ),
+        tmp_path,
+    )
+    return out + err
+
+
+def test_a_registration_that_does_not_stand_clear_of_its_guards_budget_is_a_finding(tmp_path: Path) -> None:
+    """The equal case is the one worth spelling: at the same number the harness may kill the hook first.
+
+    A killed hook prints nothing and has allowed the command, and lowering a registration reads as
+    tuning a timeout.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    write_shell(hooks / "guard.sh", FIXTURE_GUARD)
+    for seconds, refused in ((30, False), (15, True), (10, True)):
+        settings = write_shell(tmp_path / "settings.json", _registration(seconds))
+        out = _compare_budgets(settings, hooks, tmp_path)
+        assert ("FAIL" in out) is refused, f"{seconds}s: {out!r}"
+
+
+def test_a_guard_with_no_child_is_reported_rather_than_compared(tmp_path: Path) -> None:
+    """A guard deciding in the hook process has one number, and comparing it against itself would fail every such hook."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    write_shell(hooks / "guard.sh", "#!/usr/bin/env bash\nexit 0\n")
+    settings = write_shell(tmp_path / "settings.json", _registration(10))
+    out = _compare_budgets(settings, hooks, tmp_path)
+    assert "FAIL" not in out and "INFO" in out, out
 
 
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of
@@ -210,6 +407,9 @@ DOLLAR: Final = chr(36)
 # One fixture per construct the reader was driven against: its lines, the helper that must still
 # read as a call (the control a fix may not cost), the name that must not, and the name that may
 # appear in no record at all.
+
+# A row naming something that must not read as a call is a construct that reddened the gate on
+# correct code; one carrying only its control lost a call in silence.
 MIS_LEX: Final[tuple[tuple[str, tuple[str, ...], str, str, str], ...]] = (
     ("continuation", ("some_cmd foo " + BS, "  my_plain_argument", "real_one x"), "real_one", "my_plain_argument", ""),
     ("array literal", ("arr=( arr_helper second_word )", "real_two x"), "real_two", "arr_helper", ""),
@@ -230,11 +430,10 @@ MIS_LEX: Final[tuple[tuple[str, tuple[str, ...], str, str, str], ...]] = (
 )
 
 
-def test_the_reader_lexes_seven_constructs_it_used_to_get_wrong(tmp_path: Path) -> None:
-    """Four of these reddened the gate on correct code and three lost a call in silence.
+def test_every_shape_the_call_site_reader_once_mis_lexed(tmp_path: Path) -> None:
+    """A punctuated heredoc is the load-bearing row: a reader that misses its closing word stops, leaving every call below unread.
 
-    Each row carries a control helper that must still read as a call, so a class closed by seeing
-    fewer call sites fails here rather than passing quietly.
+    The control helper in each row fails a fix that closes a class by seeing fewer calls.
     """
     reader = _reader(tmp_path)
     wrong: list[str] = []

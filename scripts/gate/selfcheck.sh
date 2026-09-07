@@ -425,9 +425,14 @@ function emit(w, nextc, atcmd) {
 }
 '
 
-declare -A DEFINED=()
-while IFS= read -r fn; do DEFINED["$fn"]=1; done \
-  < <(grep -oE '^[a-z_]+\(\)' scripts/lib/_lib.sh | tr -d '()')
+# `-g`, so both routes below and the case driving them read one map built from one file.
+read_lib_definitions() { # $1 the library
+  local fn
+  declare -gA DEFINED=()
+  while IFS= read -r fn; do DEFINED["$fn"]=1; done \
+    < <(grep -oE '^[a-z_]+\(\)' "$1" | tr -d '()')
+}
+read_lib_definitions scripts/lib/_lib.sh
 CALL_SITES=0
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
@@ -473,35 +478,44 @@ if (( CALL_SITES == 0 )); then
   note_fail "no helper call site was found in any script, so nothing this step printed was proven"
 fi
 
-# The reader's bound drops single-word helpers, `die` and `ok` among them. `docs/ops/spec.md`'s
-# output standard names that vocabulary by a route that is not `_lib.sh`, so a verb it documents
-# and `_lib.sh` has stopped defining is a finding.
+# The reader's bound drops single-word helpers, `die` and `ok` among them. `docs/ops/spec.md` names
+# them by a route that is not `_lib.sh`, so a name it documents and `_lib.sh` has stopped carrying
+# is a finding here.
 VOCAB_SHEET="docs/ops/spec.md"
-vocab="${SELFCHECK_TMP}/output-verbs.txt"
-vocab_rc=0
-awk '
-  /^\*\*The output standard\./ { armed = 1; next }
-  armed && /^\|/ { inside = 1; if (match($0, /^\| `[a-z_]+`/)) print substr($0, RSTART + 3, RLENGTH - 4); next }
-  inside { exit }
-' "$VOCAB_SHEET" > "$vocab" 2>/dev/null || vocab_rc=$?
-# Skips, not findings: editing the sheet selects `docs` and `format`, never `scripts`, so a
-# reformatted table would redden a job its own gate cannot run. The undefined-verb arm stays a
-# finding: only a `_lib.sh` edit reaches it.
-if (( vocab_rc != 0 )); then
-  note_skip "${VOCAB_SHEET} could not be read (awk exit ${vocab_rc}), so the documented output vocabulary was not checked"
-elif [[ ! -s "$vocab" ]]; then
-  note_skip "no verb was read out of ${VOCAB_SHEET}'s output standard, so the vocabulary was not checked — the table's shape moved"
-else
-  undefined=""
-  while IFS= read -r verb || [[ -n "$verb" ]]; do
-    [[ -n "${DEFINED["$verb"]:-}" ]] || undefined+=" $verb"
+
+# Two lead-ins, one reader: a walk that ended at the first table would leave the second documented
+# for a reader and checked by nobody.
+check_documented_helpers() { # $1 the sheet
+  local documented rc=0 name undefined="" vocab="${SELFCHECK_TMP}/documented-helpers.txt"
+  awk '
+    /^\*\*The output standard\./ { armed = 1; inside = 0; next }
+    /^\*\*The helpers a script leans on\./ { armed = 1; inside = 0; next }
+    armed && /^\|/ { inside = 1; if (match($0, /^\| `[a-z_]+`/)) print substr($0, RSTART + 3, RLENGTH - 4); next }
+    # Disarmed rather than done: the second table sits further down the same sheet.
+    inside { armed = 0; inside = 0 }
+  ' "$1" > "$vocab" 2>/dev/null || rc=$?
+  # Skips, not findings: editing the sheet selects `docs` and `format`, never `scripts`, so a
+  # reformatted table would redden a job its own gate cannot run. The undefined arm stays a
+  # finding: only a `_lib.sh` edit reaches it.
+  if (( rc != 0 )); then
+    note_skip "$1 could not be read (awk exit ${rc}), so the documented helpers were not checked"
+    return 0
+  fi
+  if [[ ! -s "$vocab" ]]; then
+    note_skip "no name was read out of $1's two tables, so the documented helpers were not checked — a table's shape moved"
+    return 0
+  fi
+  while IFS= read -r name || [[ -n "$name" ]]; do
+    [[ -n "${DEFINED["$name"]:-}" ]] || undefined+=" $name"
   done < "$vocab"
   if [[ -n "$undefined" ]]; then
-    note_fail "${VOCAB_SHEET} documents output verb(s) _lib.sh no longer defines —${undefined} — so every script speaking one calls nothing"
+    note_fail "$1 documents helper(s) _lib.sh does not define —${undefined} — so every script reaching for one reaches nothing"
   else
-    info "$(wc -l < "$vocab" | tr -d ' ') documented output verb(s), each still defined in _lib.sh"
+    documented="$(wc -l < "$vocab" | tr -d ' ')"
+    info "${documented} documented helper(s), each still defined in _lib.sh"
   fi
-fi
+}
+check_documented_helpers "$VOCAB_SHEET"
 
 step "5. --help works from an unrelated directory"
 unit_help() { # $1 index · $2 script name · $3 label
@@ -830,14 +844,22 @@ else
       # unignored, its exemption probe passes for want of a match and its refusal cannot fire.
       # build-out/ is the ignored path that is neither credential-shaped nor exempt.
       printf 'docs/audit/\n.vscode/\ncerts/\nnode_modules/\nbuild-out/\n' > .gitignore
-      for tracked in notes.md scripts/gate/verify.sh scripts/checks/check_docs.py src/tracked.py \
+      wrote=0
+      for tracked in notes.md scripts/gate/verify.sh src/tracked.py \
         fl_frontend/package.json fl_frontend/src/app.ts fl_frontend/src/clean.ts \
         fl_frontend/src/features/keep.ts docs/_standard/standard.md \
         docs/audit/tracked-note.md docs/audit/note.md \
         docs/audit/r.md docs/audit/a.md docs/audit/change.patch docs/audit/helper.sh \
         docs/audit/msg.txt; do
-        printf 'x\n' > "$tracked"
+        # `case`, because `${tracked%/*}` on a bare name yields the name itself and would make a
+        # directory of the file about to be written.
+        case "$tracked" in */*) mkdir -p "${tracked%/*}" || wrote=1 ;; esac
+        printf 'x\n' > "$tracked" || wrote=1
       done
+      # Carried out of the loop rather than left to `set -e`: this builder runs as the condition of
+      # an `if !`, where bash disarms errexit for everything the compound command runs, this
+      # subshell's own `set -e` included.
+      [ "$wrote" = 0 ] || exit 1
       # The stale-class hook needs the string on disk, in scope and out, because it reads the file
       # the payload names rather than the payload.
       printf 'const s = "text-fluid-sm";\n' > fl_frontend/src/stale.ts
@@ -876,7 +898,7 @@ else
   # and a verdict on the wrong stream are silent too. Dropping the status and stderr leaves a broken
   # guard indistinguishable from a working one.
   unit_probe() { # $1 index · $2 unused · $3 label
-    local i="$1" payload out err why got rc=0
+    local i="$1" payload out err fed why got rc=0
     case "${PROBE_KIND[i]}" in
       cmd)  payload="$(cmd_payload "${PROBE_SUBJ[i]}")" ;;
       file) payload="$(file_payload "${PROBE_SUBJ[i]}")" ;;
@@ -884,19 +906,27 @@ else
       *)    payload="${PROBE_SUBJ[i]}" ;;
     esac
     err="${SELFCHECK_TMP}/probe-${i}.err"
-    out="$( cd "$HOOK_REPO" && printf '%s' "$payload" | bash "${HOOKS_DIR}/${PROBE_HOOK[i]}" 2>"$err" )" || rc=$?
-    case "$out" in
-      *'"permissionDecision":"deny"'*) got=denied ;;
-      *'"permissionDecision":"ask"'*)  got=asked ;;
-      *'"decision":"block"'*)          got=blocked ;;
-      *hookSpecificOutput*)            got=emitted ;;
-      # Every hook path that decides anything exits 0 with JSON on stdout, so a non-zero status is
-      # a crash rather than a verdict, and stderr is only consulted where stdout said nothing.
-      "")  if   (( rc != 0 ));   then got="crashed (exit ${rc})"
-           elif [[ -s "$err" ]]; then got="crashed (wrote to stderr)"
-           else                       got=allowed; fi ;;
-      *)                               got=unreadable ;;
-    esac
+    # From a file rather than a pipe, for `scripts/gate/selfcheck.sh :: prepush_drive`'s reason:
+    # under pipefail a hook deciding before it reads stdin is graded by the writer's SIGPIPE.
+    fed="${SELFCHECK_TMP}/probe-${i}.json"
+    printf '%s' "$payload" > "$fed"
+    out="$( cd "$HOOK_REPO" && bash "${HOOKS_DIR}/${PROBE_HOOK[i]}" < "$fed" 2>"$err" )" || rc=$?
+    # Every hook path that decides anything exits 0 with JSON on stdout, so the status is read ahead
+    # of the verdict: a guard printing a refusal and then dying is a crash, not the refusal it
+    # printed.
+    if (( rc != 0 )); then
+      got="crashed (exit ${rc})"
+    else
+      case "$out" in
+        *'"permissionDecision":"deny"'*) got=denied ;;
+        *'"permissionDecision":"ask"'*)  got=asked ;;
+        *'"decision":"block"'*)          got=blocked ;;
+        *hookSpecificOutput*)            got=emitted ;;
+        # stderr is consulted only where stdout said nothing, silence being how a hook allows.
+        "")  if [[ -s "$err" ]]; then got="crashed (wrote to stderr)"; else got=allowed; fi ;;
+        *)                               got=unreadable ;;
+      esac
+    fi
     if [[ "$got" == "${PROBE_WANT[i]}" ]]; then
       printf 'info\t%s — %s\n' "$3" "$got"
     else
@@ -906,7 +936,7 @@ else
       if [[ "$got" == crashed* && -s "$err" ]]; then why=" — $(tr '\n\t' '  ' < "$err" | cut -c1-200)"; fi
       printf 'fail\t%s: expected %s, got %s%s\n' "$3" "${PROBE_WANT[i]}" "$got" "$why"
     fi
-    rm -f "$err"
+    rm -f "$err" "$fed"
   }
 
   rm -rf "${HOOKFX:?}"
@@ -1571,6 +1601,54 @@ else
     probe "$ht" allowed file "${hook_root}/inside.py"      'branch guard: detached HEAD'
     par_run unit_probe
   fi
+
+  # A hook the harness kills prints nothing, and a PreToolUse hook printing nothing has allowed the
+  # command — so a guard deciding in a child must be given a budget the harness outlasts.
+
+  # Read here rather than asserted in a test module: the numbers sit in two files, and a copy of
+  # the pair one directory over is the thing that drifts.
+  compare_hook_budgets() { # $1 the settings file · $2 the hooks directory
+    local registrations rc=0 hook budget child
+    if [[ ! -f "$1" ]]; then
+      note_fail "the hook watchdogs could not be compared — ${1} is not there."
+      return 0
+    fi
+    registrations="$(node -e '
+const fs = require("fs");
+const settings = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const groups = (settings.hooks || {}).PreToolUse || [];
+for (const entry of groups.flatMap((group) => group.hooks || [])) {
+  // A registration runs a shell line, so the hook it registers is the .sh path inside that line.
+  const named = /([A-Za-z0-9._-]+\.sh)/.exec(entry.command || "");
+  if (named) process.stdout.write(named[1] + "\t" + entry.timeout + "\n");
+}
+' "$1" 2>/dev/null)" || rc=$?
+    if (( rc != 0 )) || [[ -z "$registrations" ]]; then
+      note_fail "no PreToolUse registration was read out of ${1} (node exit ${rc}), so no watchdog was compared against one."
+      return 0
+    fi
+    while IFS=$'\t' read -r hook budget; do
+      if [[ ! -f "${2}/${hook}" ]]; then
+        note_fail "${1} registers ${hook}, which is not in ${2}, so the harness runs nothing for it."
+        continue
+      fi
+      if [[ ! "$budget" =~ ^[0-9]+$ ]]; then
+        note_fail "${1} gives ${hook} no readable timeout, so nothing here bounds what it may take."
+        continue
+      fi
+      # The largest, because the harness has to outlast whichever child the guard reaches; the
+      # digits are what keep the prose describing the shape out of the answer.
+      child="$(grep -oE 'timeout -s KILL [0-9]+' "${2}/${hook}" | grep -oE '[0-9]+$' | sort -n | tail -1 || true)"
+      if [[ -z "$child" ]]; then
+        info "${hook}: decides in the hook process, so ${budget}s bounds the whole of it"
+      elif (( child < budget )); then
+        info "${hook}: a ${child}s child under a ${budget}s registration"
+      else
+        note_fail "${hook} decides under ${child}s while ${1} gives the hook ${budget}s, so the harness kills it first and the silence reads as permission. Raise the registration in ${1}, or lower the budget in ${hook}."
+      fi
+    done <<< "$registrations"
+  }
+  compare_hook_budgets "${REPO_ROOT}/.claude/settings.json" "$HOOKS_DIR"
 
   # The one informational hook, failing silently either way: stop emitting and no write sees the
   # standard, stop staying quiet and every write outside the scope pays for a slice it cannot use.

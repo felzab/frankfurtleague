@@ -252,6 +252,10 @@ STATUS_COLUMN_ROW: Final = "| # | When | Status |"
 OPS_SPEC: Final = "docs/ops/spec.md"
 OUTPUT_LEAD_IN: Final = "**The output standard.** One vocabulary, one verb per meaning."
 OUTPUT_VERB_ROW: Final = "| `step` | Opens a step and starts its timer |"
+# The second lead-in on that sheet and one row under it: the same reader arms on both, and the
+# checker resolves both, so a corpus carrying one is a corpus one arm fails against.
+HELPER_LEAD_IN: Final = "**The helpers a script leans on.** Not output verbs."
+HELPER_ROW: Final = "| `quietly` | Runs a command with both streams captured |"
 # The refusal register, one row per tree, and the two spellings that answer for them. Each code is
 # written twice on purpose: the page states it and the tree its area names raises it.
 ERROR_CODES: Final = "docs/logging/error-codes.md"
@@ -659,6 +663,12 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "| Verb | Means |",
             "| --- | --- |",
             OUTPUT_VERB_ROW,
+            "",
+            HELPER_LEAD_IN,
+            "",
+            "| Helper | Answers |",
+            "| --- | --- |",
+            HELPER_ROW,
             "",
             _heading(2, "2. Invariants"),
             "",
@@ -2060,13 +2070,14 @@ def test_a_reworded_lead_in_leaves_the_verb_reader_with_nothing_to_arm_on() -> N
     This arm returns before that case's plant is reached, so a shared run would count one finding
     for two plants and leave whichever spoke second unproven.
     """
-    _reset()
-    _replace(OPS_SPEC, OUTPUT_LEAD_IN, OUTPUT_LEAD_IN.replace("The output standard.", "The verbs."))
-    try:
-        _, reported = _run()
-    finally:
+    for lead_in, reworded in ((OUTPUT_LEAD_IN, "The verbs."), (HELPER_LEAD_IN, "The helpers.")):
         _reset()
-    assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
+        _replace(OPS_SPEC, lead_in, lead_in.replace(lead_in.split("**")[1], reworded))
+        try:
+            _, reported = _run()
+        finally:
+            _reset()
+        assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
     _assert_corpus_restored()
 
 

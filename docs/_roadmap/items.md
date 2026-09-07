@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                                                              | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2eec-8qa9` | The hook fixture's builder writes into a directory it never creates, and the failure reaches nobody                                                               | Ops, Docs, gate                                                             | Open     |
 | `2pqm-yxyu` | The origin trusts every source inside Cloudflare's published ranges, so the visitor's name is whatever the request says it is                                     | Ops, Docs, edge                                                             | Open     |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                                                         | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                                                           | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
@@ -92,7 +91,6 @@ deliverable.
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                                                   | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | The gate saturates the machine, then spends its whole tail unable to use it                                                                                       | BE, Ops, gate, tests                                                        | Open     |
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                                                              | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
-| `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                                                                    | Ops, gate, tests                                                            | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                                                    | FE, Docs, versions                                                          | Standing |
 | `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                                                       | FE, Docs, bewerbungen                                                       | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states                                                   | FE, Docs, tests                                                             | Open     |
@@ -119,7 +117,6 @@ deliverable.
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                                                     | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                                                            | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                                                                  | BE, DB, Docs, saisons                                                       | Standing |
-| `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                                                                        | Ops, Docs, gate                                                             | Open     |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                                                              | BE, DB, Docs, bewerbungen                                                   | Open     |
 | `gm9c-2du4` | Every link the local stack mails points at production                                                                                                             | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
@@ -140,7 +137,6 @@ deliverable.
 | `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                                                    | FE, BE, tests                                                               | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                                                       | FE, Docs                                                                    | Open     |
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                                                                | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
-| `p2y9-p9za` | Four helpers every script calls are single words no table names, so nothing holds them to `_lib.sh`                                                               | Ops, Docs, gate                                                             | Open     |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                                                      | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                                                 | FE, BE, spiele                                                              | Open     |
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                                                         | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
@@ -150,7 +146,6 @@ deliverable.
 | `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                                                                  | FE, BE, Ops, Docs, edge, versions                                           | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | The style directive concedes more than the reason recorded for it needs                                                                                           | FE, Ops, Docs, edge                                                         | Open     |
-| `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                                                                    | Ops, Docs, gate                                                             | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                                                                  | Ops, Docs, gate, tests                                                      | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
@@ -185,34 +180,6 @@ deliverable.
 | `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                                                           | Ops, gate, tests                                                            | Open     |
 
 ## The items
-
-### `2eec-8qa9` · The hook fixture's builder writes into a directory it never creates, and the failure reaches nobody
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/gate/selfcheck.sh :: build_hook_fixture` writes every file its list puts under a
-`scripts/` subdirectory into a parent its own `mkdir -p` never makes, and the caller is told the
-build succeeded.** The builder is a subshell run as the condition of an `if !`, and bash ignores
-errexit for everything a compound command in that position runs, the subshell's own `set -e`
-included. Each of those redirects fails, the loop carries on to the files after it, the subshell's
-last command decides its status, and `note_fail` never fires. The hook probes then run against a
-fixture missing the paths those probes name as the tracked file a write must be refused for.
-
-**Rearming errexit inside the subshell is not the repair, because it is already rearmed there.** Run
-on its own the same function exits non-zero, so only the calling position changes the answer, and the
-write's status has to be carried out of the loop deliberately rather than left to `set -e`.
-
-**Nothing fails today, and what keeps it quiet is that no guard asks whether the path exists.**
-`.claude/hooks/guard-branch-bash.sh` places each candidate path and denies it unless git calls it
-ignored, and `git check-ignore` answers for a path nobody wrote. The trap is a probe added later for
-a hook that reads the file its payload names rather than the payload —
-`.claude/hooks/guard-stale-type-class.sh` is already one — where an absent file yields a verdict the
-table then records as the expected one.
-
-**Done when** the loop makes each file's parent before writing it, and a builder that cannot write
-one of its files reaches `note_fail`.
 
 ### `2pqm-yxyu` · The origin trusts every source inside Cloudflare's published ranges, so the visitor's name is whatever the request says it is
 
@@ -673,25 +640,6 @@ actually changed.
 **Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
 reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
 rather than on the shape of the update.
-
-### `5qzd-ubrg` · A test's name counts the cases beside it, and the table has outgrown the count
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/tests/test_selfcheck_guards.py :: test_the_reader_lexes_seven_constructs_it_used_to_get_wrong`
-states a count in its name, and its docstring splits that same count two ways.** The table it
-iterates has since grown, so both numbers are wrong and the run is green: nothing reads a count in a
-name, and the case that is missing is exactly the one the number hides.
-
-**The name is what a failure prints**, so a reader who arrives at a red run takes the count for the
-population and stops short of the cases past it. What selects the set is the constant the test loops
-over, which answers the size question in seconds and stays right on its own (COR-4).
-
-**Done when** neither the name nor the docstring carries a number, the name saying instead what the
-constructs have in common — every one a shape the call-site reader in
-`scripts/gate/selfcheck.sh` once mis-lexed.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
@@ -1878,31 +1826,6 @@ match**, because both call sites want the rows as well as the count: they projec
 nothing at all until a season arrives from outside the draw. What the entry buys today is that the
 guarantee is written down as resting on a bound in one file rather than on the read being safe.
 
-### `g98z-k4cp` · Two hook watchdogs sit under a registration in another file, and nothing compares the pair
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-Lands with: `tnvw-4cqz`
-
-**`.claude/hooks/guard-credential-shell.sh` and `.claude/hooks/guard-branch-bash.sh` each decide in a
-child under a kill budget of their own and deny on anything but that child's answer**, and each
-states at the line that its budget has to stay under the hook's own registration in
-`.claude/settings.json`. A hook the harness kills prints nothing, and a hook that prints nothing has
-allowed the command — so a registration lowered to the child's budget or below hands the kill to the
-harness, and the guard falls silent on the write to `main` or the command reaching credential
-material that it was written to refuse.
-
-**Nothing reads either relationship.** The numbers sit in two files, the failure leaves no trace in
-the transcript, and every probe that drives these guards runs them directly rather than through the
-harness, so all of them stay green. Changing a registration is also the cheapest edit on the page:
-whoever lowers one is tuning a timeout, not touching a guard.
-
-**Done when** one check reads both files and refuses a registration that does not stand clear of the
-budget beneath it. `scripts/gate/selfcheck.sh` already refuses a declared pair that has drifted
-apart, so what is missing is the comparison rather than a place to put it.
-
 ### `gbjj-9wfh` · A test fixture asserts its own type, and the assertion is the only thing holding it to the model
 
 | Tags                                                | Status | Depends on |
@@ -2744,43 +2667,6 @@ of the table.
 from `fl_backend/app/api` source, states in its own docstring which rules it does not reach and what
 that makes permanent, and has been driven red against a row flipped in place.
 
-### `p2y9-p9za` · Four helpers every script calls are single words no table names, so nothing holds them to `_lib.sh`
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/gate/selfcheck.sh` step 4 proves a helper by two routes, and each has a bound it states.**
-The call-site reader walks every runnable script and reports every UNDERSCORED name in command
-position that neither `scripts/lib/_lib.sh` nor the script itself defines; **it stops at underscored
-names because a single word collides with a program name, and telling a helper from a program needs
-`PATH`, which would make the verdict depend on which tools a machine has.** The vocabulary route
-recovers the single-word verbs from a different source, the output-standard table in
-[`docs/ops/spec.md`](../ops/spec.md) §1.7, each of whose verbs is looked up in `_lib.sh`'s
-definitions. **`quietly`, `usage`, `verbose` and `worker` fall through both** — each is a single word
-and the table names none of them, the sheet describing two of them in prose the step's reader never
-opens and the two predicates nowhere. Every runnable script calls at least one of the four.
-
-**What a lost definition costs differs by helper, and the two predicates are the quiet ones.**
-`quietly` gone makes every `|| die` arm behind it fire with a message about the tool it wrapped —
-"the stack could not be stopped", for a helper that was never there. `usage` gone fails step 5's
-`--help` probe. But `verbose` and `worker` are read in conditions — `if verbose`, `if ! worker` — and
-**a condition is where `set -e` and the ERR trap look away by design**: a missing definition is one
-line on stderr and a false answer, and the run goes on. `--verbose` stops streaming, and a pool
-worker that reads itself as the parent never reaches `scripts/lib/_lib.sh :: end_worker` and ends as
-a parent would, over scopes it never ran.
-
-**Done when** the four are named in a table step 4 reads, step 4 counts them among the documented
-helpers, and a `_lib.sh` with one of them renamed fails step 4 on the branch that renamed it rather
-than at a later step, a pool worker or a deploy. **Adding them to the output-standard table is the
-half-honest route the entry does not take**: `DEFINED` is built from every `name()` line in `_lib.sh`
-and all four are defined in that shape, but that table is one output vocabulary, one verb per
-meaning, and two of the four print nothing — a reader would learn that `worker` is a way of saying
-something. The remedy is a second table on the same sheet, under its own bold lead-in, for the
-helpers a script leans on that are not output verbs, with step 4's reader arming on both lead-ins.
-**Resolving every single-word command word against `PATH` instead is the route the reader's bound
-exists to avoid, and this entry does not reopen it.**
-
 ### `pa6f-ksu4` · A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure
 
 | Tags                               | Status | Depends on |
@@ -3119,29 +3005,6 @@ form with the images built ([`docs/ops/spec.md`](../ops/spec.md) §1.6), and the
 read-only with nginx waiting on both upstreams being healthy — so a bad block takes the site down
 rather than turning something red.
 
-### `r5xm-ac7m` · A hook probe reads the status only where the verdict was empty
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/gate/selfcheck.sh :: unit_probe` grades a hook by matching its stdout first**, and asks
-the child's exit status only in the branch that stdout left empty. The contract it names at that
-branch is that every deciding path exits 0 with JSON on stdout — so a guard printing a correct
-refusal and then dying is graded by the refusal, and the crash is invisible to the one thing driving
-these guards.
-
-**The same function fails a correct answer the other way round.** The payload reaches the hook
-through a pipe, under `pipefail`, and a guard can reach its verdict without reading stdin at all —
-`.claude/hooks/guard-branch-bash.sh` stands down off `main` before it looks. Once a payload
-outgrows the pipe buffer, the writer dies of SIGPIPE, the pipeline carries that status, and a silent
-allow is reported as a crash. Nothing today comes near the buffer, so this half is latent rather
-than live, and it turns live on whichever probe first carries a long command.
-
-**Done when** the status is read whatever stdout said, and the payload reaches the hook from a file.
-`scripts/gate/selfcheck.sh :: prepush_drive` already drives its own fixture that way, and records
-the SIGPIPE reading as the reason.
-
 ### `rt37-sv33` · A sort option nothing sends scans the archive it sorts
 
 | Tags                           | Status   | Depends on |
@@ -3428,8 +3291,6 @@ case in `scripts/tests/test_check_docs.py` drives an upper-cased suffix red.
 | Tags            | Status | Depends on |
 | --------------- | ------ | ---------- |
 | Ops, Docs, gate | Open   | —          |
-
-Lands with: `g98z-k4cp`
 
 **`.claude/hooks/guard-standard-bash.sh` carries the write-shape scan byte for byte from
 `.claude/hooks/guard-branch-bash.sh`, parses its payload through node and asks git for the

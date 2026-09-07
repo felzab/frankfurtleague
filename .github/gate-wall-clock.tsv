@@ -84,6 +84,14 @@
 # floor the `docs` row carries; the figures are one machine's upper bound, and the runner's own
 # median is what the report compares.
 #
+# `scripts` gained a check: `selfcheck.sh` step 14 now reads each `PreToolUse` registration in
+# `.claude/settings.json` against the kill budget the hook it registers gives its own child. It
+# costs 0.88-0.97 s over six interleaved rounds against six of the same harness with the comparison
+# left out, measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet of agent
+# sessions, so both ends are upper bounds reading that contention as much as the check; one node
+# start over eight registrations is most of the figure, and a Linux runner starts node faster than
+# this one does. It sits inside the floor the `scripts` row carries.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

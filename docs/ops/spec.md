@@ -697,6 +697,17 @@ own:
 | `excerpt`     | The first few lines of something long, then a count of what `--verbose` would show       |
 | `finish`      | Ends a run that reached its end, printing the closing table and statement                |
 
+**The helpers a script leans on.** Not output verbs — two are predicates, one wraps a command and
+one prints a script's own header — so a table of their own, read beside the one above by
+`scripts/gate/selfcheck.sh` step 4:
+
+| Helper    | Answers                                                                                                          |
+| --------- | ---------------------------------------------------------------------------------------------------------------- |
+| `verbose` | True where `--verbose` was passed; called bare in a condition, where a false answer is a status `set -e` acts on |
+| `worker`  | True inside a pool worker, which ends through `end_worker` rather than through the summary a parent prints       |
+| `quietly` | Runs a command with both streams captured into `QUIETLY_OUTPUT`, replayed only where the command fails           |
+| `usage`   | Prints the calling script's own header block as its help, so a script's help cannot drift from the script        |
+
 **A run has exactly one ending, and its exit code names which.** Nothing else may be inferred from
 the number: a caller that cannot tell "the change needs work" from "the check never ran" acts on the
 wrong one.

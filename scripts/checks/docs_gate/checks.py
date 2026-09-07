@@ -243,10 +243,14 @@ INVARIANT_REF_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-
 # The invariant table's other rows: what `INVARIANT_ID_RE` skips reaches no arm keyed on an id.
 TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
 
-# The two patterns `scripts/gate/selfcheck.sh` step 4 arms its verb reader on, in that script's own
+# The patterns `scripts/gate/selfcheck.sh` step 4 arms its helper reader on, in that script's own
 # dialect: the spellings compare literal for literal once each side's escaping is dropped
-# (`scripts/tests/test_selfcheck_guards.py :: test_the_verb_table_is_read_off_the_same_two_literals`).
+# (`scripts/tests/test_selfcheck_guards.py :: test_the_helper_tables_are_read_off_the_same_literals`).
+
+# Every lead-in is spelled in a constant whose name ends `_LEAD_IN`, which is the population that
+# case compares against the script: one added here and nowhere there protects a table nobody reads.
 OUTPUT_STANDARD_LEAD_IN: Final = r"^\*\*The output standard\."
+OUTPUT_HELPERS_LEAD_IN: Final = r"^\*\*The helpers a script leans on\."
 # Retyped rather than read out of `scripts/lib/_lib.sh`: `kernel.py :: defined_symbols` reads
 # Python alone, and a bash reader this gate has no other use for is the wrong price.
 OUTPUT_VERB_COLUMN: Final = r"^\| `[a-z_]+`"
@@ -1514,7 +1518,7 @@ def _sample(paths: list[str]) -> str:
 
 
 def check_output_verbs() -> list[Finding]:
-    """The verb table is still where `scripts/gate/selfcheck.sh`'s awk looks for it.
+    """Both tables are still where `scripts/gate/selfcheck.sh`'s awk looks for them.
 
     That awk skips rather than fails, and this sheet selects no `scripts` scope, so the skip lands
     on a later branch, not on the one that moved it.
@@ -1522,25 +1526,28 @@ def check_output_verbs() -> list[Finding]:
     rel = OPS_SPEC_PAGE
     text = _tracked_text(rel)
     if text is None:
-        detail = "untracked or unreadable, so the output standard's table was read against nothing"
+        detail = "untracked or unreadable, so the sheet's helper tables were read against nothing"
         return [Finding("fail", "output-verbs", rel, detail)]
     lines = text.split("\n")
-    opened = next((number for number, line in enumerate(lines) if re.match(OUTPUT_STANDARD_LEAD_IN, line)), None)
-    if opened is None:
-        detail = f"no line matches `{OUTPUT_STANDARD_LEAD_IN}`, the pattern `scripts/gate/selfcheck.sh` arms its verb reader on"
-        return [Finding("fail", "output-verbs", rel, detail)]
-    # The first table below the lead-in and no other, as the awk takes it: prose and blank lines are
-    # stepped over, and the first line that is not a row after one has been seen ends the table.
-    rows: list[str] = []
-    for line in lines[opened + 1 :]:
-        if line.startswith("|"):
-            rows.append(line)
-        elif rows:
-            break
-    if not any(re.match(OUTPUT_VERB_COLUMN, row) for row in rows):
-        detail = f"the table under `{OUTPUT_STANDARD_LEAD_IN}` opens no row matching `{OUTPUT_VERB_COLUMN}`, so that reader keeps no verb"
-        return [Finding("fail", "output-verbs", rel, detail)]
-    return []
+    found: list[Finding] = []
+    for lead_in in (OUTPUT_STANDARD_LEAD_IN, OUTPUT_HELPERS_LEAD_IN):
+        opened = next((number for number, line in enumerate(lines) if re.match(lead_in, line)), None)
+        if opened is None:
+            detail = f"no line matches `{lead_in}`, one of the patterns `scripts/gate/selfcheck.sh` arms its helper reader on"
+            found.append(Finding("fail", "output-verbs", rel, detail))
+            continue
+        # The first table below the lead-in and no other, as the awk takes it: prose and blank lines
+        # are stepped over, and the first line that is not a row after one has been seen ends it.
+        rows: list[str] = []
+        for line in lines[opened + 1 :]:
+            if line.startswith("|"):
+                rows.append(line)
+            elif rows:
+                break
+        if not any(re.match(OUTPUT_VERB_COLUMN, row) for row in rows):
+            detail = f"the table under `{lead_in}` opens no row matching `{OUTPUT_VERB_COLUMN}`, so that reader keeps no name"
+            found.append(Finding("fail", "output-verbs", rel, detail))
+    return found
 
 
 def check_template_fragments() -> list[Finding]:
