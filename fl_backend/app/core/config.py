@@ -46,7 +46,7 @@ InternalAPIKey = Annotated[
 
 
 class EnvironmentValidationError(Exception):
-    """The environment refused, naming the variables and nothing else.
+    """The environment refused, naming the variables it could not accept or a failure type, and nothing else.
 
     Its own type rather than pydantic's: a `ValidationError` renders `input_value=`, so one reaching
     the container log publishes the value that was rejected.
@@ -124,9 +124,9 @@ class BackendConfig(BaseSettings):
     # output into the container's json-file stream.
     log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
 
-    # `forbid`, because a class that drops a key it was handed cannot tell a typo from an omission,
-    # and the shipped default then serves production. Only the dotenv source can hand this class a
-    # name no field declares.
+    # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
+    # default serves production. Only the dotenv source hands this class an undeclared name, and it
+    # drops one carrying no value (`docs/backend/spec.md` §1.5).
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
 
     @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
@@ -186,3 +186,8 @@ def get_config() -> BackendConfig:
         # sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so
         # one hint in `scripts/ops/deploy.sh` covers both.
         raise EnvironmentValidationError(f"Invalid environment variables: {_failing_names(error)}") from None
+    except ValueError as error:
+        # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
+        # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
+        # names a field -- so the type alone leaves.
+        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None

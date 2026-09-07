@@ -231,6 +231,22 @@ class TestTheNamesOnlyErrorPath:
         assert raised.value.__cause__ is None
         assert raised.value.__suppress_context__
 
+    def test_a_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
+        """The other way out of `BackendConfig()`: the dotenv read fails before any field is judged.
+
+        No `ValidationError` exists to name a variable, and the raw exception quotes the file's own
+        bytes.
+        """
+        (tmp_path / ".env").write_bytes(b"LOG_LEVEL_APP=\xff\xfe\n")
+        an_environment(monkeypatch, tmp_path)
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "The environment could not be read: UnicodeDecodeError"
+        assert raised.value.__cause__ is None
+        assert raised.value.__suppress_context__
+
     def test_a_well_formed_environment_still_builds(self, monkeypatch, tmp_path):
         an_environment(monkeypatch, tmp_path)
 
@@ -239,7 +255,11 @@ class TestTheNamesOnlyErrorPath:
 
 class TestANameTheClassDoesNotDeclare:
     def test_a_misspelling_in_the_environment_file_fails_the_boot_naming_it(self, monkeypatch, tmp_path):
-        """The typo `extra="ignore"` dropped: a misspelled `LOG_FORMAT` reads as an omission, and the shipped default then serves production."""
+        """`extra="ignore"` is what this refuses.
+
+        Under it a misspelled `LOG_FORMAT` reads as an omission, and the shipped default serves
+        production.
+        """
         # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
         # refusal to naming the variable.
         (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
@@ -251,6 +271,17 @@ class TestANameTheClassDoesNotDeclare:
         assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
         assert "console-but-misspelled" not in str(raised.value)
 
+    def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
+        """The gap the runbook's remedy is written around.
+
+        The dotenv source drops an empty extra, so `forbid` never judges this line and the shipped
+        default serves production.
+        """
+        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=\n")
+        an_environment(monkeypatch, tmp_path)
+
+        assert get_config().log_format == "json"
+
     def test_a_variable_the_host_carries_for_something_else_still_boots(self, monkeypatch, tmp_path):
         """The population `forbid` must not reach: every host's environment carries names no settings class declares."""
         an_environment(monkeypatch, tmp_path, PATH_TO_NOTHING="a value nothing here declares")
@@ -261,6 +292,9 @@ class TestANameTheClassDoesNotDeclare:
         """A subclass that stopped turning the dotenv source off is green on CI and red on a developer's machine alone."""
         (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
         monkeypatch.chdir(tmp_path)
+        # The shipped default is the assertion, and the process environment reaches it too: a shell
+        # exporting LOG_FORMAT would redden this over a file the subclass correctly ignored.
+        monkeypatch.delenv("LOG_FORMAT", raising=False)
 
         assert ConfigReadingNoDotenvFile(**WELL_FORMED).log_format == "json"
 

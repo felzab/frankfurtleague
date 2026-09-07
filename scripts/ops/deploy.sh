@@ -99,7 +99,14 @@ service_cid() {
 # and everything below reaches this script's output. The names alone are what an operator needs.
 ENV_NAME_CHECK='
 import sys
-from app.core.config import EnvironmentValidationError, get_config
+
+try:
+    from app.core.config import EnvironmentValidationError, get_config
+except Exception as unavailable:
+    # Guarded apart, and never inside the block below: an except clause naming a class the import
+    # never bound raises a NameError of its own, which is the traceback this arm exists to prevent.
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
 
 try:
     get_config()
@@ -113,30 +120,32 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# The one place the environment file is read AS A FILE, and so the only place a name nothing
-# declares can be seen: compose hands the container its keys as variables instead
-# (`fl_backend/app/core/config.py :: model_config`).
+# The one place the environment file is read AS A FILE, and so the only place a name nothing declares
+# can be seen: compose hands the container its keys as variables instead
+# (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
 check_env_names() {
   local rc=0 said=""
-  # Neither the image's own user, whose uid this host does not have, nor root: the file belongs to
-  # whoever runs this script. `--network none` because a settings class reaching one would reach it
-  # holding the file.
+  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
+  # readable by whoever runs this script. `--network none` because a settings class reaching one
+  # would reach it holding the file.
   said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
     -v "${PWD}/fl_backend/.env:/app/.env:ro" "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" 2>&1)" || rc=$?
   # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the backend refuses this host's environment file, and the line above names the variables it
-could not accept. A name it does not declare is usually a typo, and nothing in a container ever looks
-one up -- so the variable reads as omitted and the shipped default serves production.
+    refuse "the backend refuses this host's environment file, and the line above is its own answer: the
+variables it could not accept, or the type of a read that failed before it reached one. No value is
+printed either way, and which remedy the line asks for is read off the names it carries. A name the
+backend declares is a value to correct; any other name is a line to delete, nothing in a container
+ever looking an undeclared name up -- so it reads as omitted and the shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
     # that could not be made leaves the deploy exactly where it stood before it was added.
     warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
-here says whether every name in it is one the backend declares. Its own answer is above."
+here says whether the backend accepts what it holds. Its own answer is above."
   else
-    ok "every name in fl_backend/.env is one the backend declares"
+    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses it"
   fi
 }
 
@@ -220,6 +229,9 @@ deploy replaced and every request through it answers 502."
 # How many streams the last call wrote, because the callers' sentence about NONE of them differs:
 # before the recreate that is a first deploy, and inside the rollback it is compose not answering.
 COPIED_STREAMS=0
+# Counted beside it, because zero copies has two causes and only one of them has already been
+# printed: no container answered at all, or every container's copy failed with its own warning.
+ATTEMPTED_STREAMS=0
 
 # One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
 # every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
@@ -227,17 +239,22 @@ COPIED_STREAMS=0
 copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
   local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc
   COPIED_STREAMS=0
+  ATTEMPTED_STREAMS=0
   for svc in frontend backend; do
     # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
     # an empty file would read as a build that logged nothing.
     cid="$(service_cid "$svc")" || cid=""
     [[ -n "$cid" ]] || continue
+    ATTEMPTED_STREAMS=$(( ATTEMPTED_STREAMS + 1 ))
     target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
     # Written beside the target and moved in once the copy succeeded: a copy failing midway would
     # otherwise leave a short `.log` reading as the build's whole stream.
     partial="${target}.partial"
     copy_rc=0
-    docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
+    # Bounded, as every `curl` here is: the rollback runs this with the site down, and a daemon that
+    # stopped mid-stream would hold that outage open. 120s is the `docker-compose.yml :: x-logging`
+    # cap at a 256 KB/s floor.
+    timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
     if (( copy_rc )); then
       rm -f "$partial" 2>/dev/null || true
       "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}), so that stream goes
@@ -271,6 +288,12 @@ roll_back() { # $1 how the build being restored is named on screen
   copy_streams "-failed" warn "The rollback goes on without it."
   if (( COPIED_STREAMS )); then
     ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
+  elif (( ATTEMPTED_STREAMS )); then
+    # Told apart from the branch below, because the two ask for different things: a copy that failed
+    # has already printed its own reason, and no container answering has printed nothing at all.
+    warn "${ATTEMPTED_STREAMS} container(s) answered and not one copy was made -- the warnings above say
+why -- so the failed build's own streams go with the recreate below and the excerpt printed above is
+all there is of why it failed."
   else
     warn "no container answered, so the failed build's own streams go with the recreate below and the
 excerpt printed above is all there is of why it failed."
@@ -820,6 +843,8 @@ else
          "If a log above says 'Invalid environment variables: <NAMES>', a startup gate is doing its" \
          "job -- the frontend and the backend word it identically, so the container that printed it" \
          "names the env file to fix." \
+         "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
+         "could not parse at all, naming the failure's type where it has no variable to name." \
          "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
          "which of three: the value yielded no server to connect to, the server refused to" \
          "authenticate it, or the server could not be reached." \

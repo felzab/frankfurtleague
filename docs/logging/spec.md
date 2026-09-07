@@ -181,10 +181,11 @@ nothing rotates a file the runtime holds open. The access log is a host file ins
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container
 discards it, including `docker compose down` and the `up -d --force-recreate frontend backend` that
 `scripts/ops/deploy.sh` runs on every deploy. nginx is not in that set, and its access log is on the
-host rather than in the container, so a recreate of the edge would not reach it either. **The deploy copies both application streams off before each of its recreates** (`scripts/ops/deploy.sh :: copy_streams`),
-so a deploy whose rollback recreates the pair a second time leaves four files rather than two — the
-replaced build's under the stamp, the failed build's under the same stamp and a `-failed` suffix; a
-deploy made by hand owes the same copies.
+host rather than in the container, so a recreate of the edge would not reach it either. **The deploy
+copies both application streams off before each of its recreates**
+(`scripts/ops/deploy.sh :: copy_streams`), so a deploy whose rollback recreates the pair a second
+time leaves four files rather than two — the replaced build's under the stamp, the failed build's
+under the same stamp and a `-failed` suffix; a deploy made by hand owes the same copies.
 
 ### 1.3 Client-side crashes
 
@@ -279,7 +280,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | The log page answers 500 right after a deploy            | A row written under the stored column's previous name lacks `trace_id`, which `FLAktion` requires                           | Run the rename in [`docs/ops/runbooks.md`](../ops/runbooks.md) §2, then `--check`                                                                                                                             |
 | A total backend outage reports HTTP 200                  | The error boundary streams after headers are sent, so status is no health signal                                            | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live`, the apex host with no trailing slash — either variation answers a redirect a monitor reads as green ([`docs/ops/spec.md`](../ops/spec.md) §3) |
 | A request was slow and no line says where the time went  | Each hop meters its own span, and nothing joins the figures (1.2, `nginx/prod.conf :: log_format fl_json`)                  | An edge `duration_s` with an empty `upstream_duration_s` is nginx or the network; a large backend `duration_ms` is the application                                                                            |
-| An application service's log lines vanish after a deploy | `up -d --force-recreate frontend backend` replaces both containers and their log files                                      | Read the deploy's copy under `scripts/ops/deploy.sh :: LOG_DIR` (1.2)                                                                                                                                         |
+| An application service's log lines vanish after a deploy | `up -d --force-recreate frontend backend` replaces both containers and their log files                                      | Read the deploy's copy under `scripts/ops/deploy.sh :: copy_streams` (1.2)                                                                                                                                    |
 | One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                           | Search on digest plus time plus route, then follow the `FE-RSC-001` line's trace; the error page's report link pre-fills them (`fl_frontend/src/shared/components/ui/Error.tsx :: reportHref`)                |
 | Non-JSON lines appear in a stream                        | nginx's error log and both services' boot lines are outside the contract                                                    | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                                                                                                            |
 | A log line carries personal data                         | A handler logged a rejected value rather than the field that carried it                                                     | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                                                |

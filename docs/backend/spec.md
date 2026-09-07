@@ -351,6 +351,12 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 names the failing variables and never their values (`docs/ops/spec.md :: I179`), so the value to
 look at is the one the log does not print.
 
+**A name this table does not list fails the boot when the `.env` file carries it and is never read
+at all from the process environment** (`fl_backend/app/core/config.py :: model_config`): only the
+dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
+omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
+before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence.
+
 ### 1.6 The test suite
 
 **The backend is the source of truth and the frontend mirrors it**, so the validation rules live here

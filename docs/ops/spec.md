@@ -137,6 +137,14 @@ trailing-slash twin, and a location construct the checker cannot place refuses r
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
 would otherwise leave one of the two standing for both.
 
+**Next's code-generated metadata conventions are accounted for beside the handlers and taken
+unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
+catch-all, and each exports a function reading no request and no live value, so Next prerenders it
+and a flood costs a static response rather than a render or a backend call. That decision is
+recorded at `scripts/checks/check_public_routes.py :: METADATA`; a reserved metadata name the
+checker cannot place refuses, the image conventions among them, whose generated URL carries a hash
+Next mints at build.
+
 **Exact-match binds the path nginx matched, not the URI FastAPI is handed**: nginx merges slashes
 and resolves dot segments before choosing a location, then `proxy_pass` with no URI part forwards
 the request line as written, so `/api/v0//system/is_live` is answered by FastAPI's own
@@ -341,9 +349,15 @@ source carries a different one.
 anything**, the compose files' `start_interval` being what needs it
 (`scripts/ops/deploy.sh :: ENGINE_MIN`). **It then asks the pulled backend image to read
 `fl_backend/.env`**, which is the only place that file is read as a file rather than handed to a
-container as variables (`scripts/ops/deploy.sh :: check_env_names`): a name the settings class does
-not declare refuses the deploy at exit 2 with nothing recreated, and a check that could not be made
-is an advisory ([`runbooks.md`](runbooks.md) §1).
+container as variables (`scripts/ops/deploy.sh :: check_env_names`): the mount is that container's
+whole environment, so a name the backend does not declare, a value it will not accept and a required
+variable the file omits all refuse the deploy at exit 2 with nothing recreated, and a check that
+could not be made is an advisory (I181, [`runbooks.md`](runbooks.md) §1).
+
+**What that check proves stops at the names.** The preflight parses the file as python-dotenv does
+and the running container gets it parsed as Compose does; the two agree on which names a file
+declares and not on every quoting form, so a value the preflight accepted is not proven identical to
+the one the container will see.
 
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other
@@ -942,8 +956,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/lib/checker_kernel.py :: uncovered` over `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for an unpinned difference                                  |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                |
 | I177 | A Cloudflare rule on `nginx/prod.conf :: location /` or `:: location = /signin` may rate-limit but never issue an interactive challenge (§1.3)                                | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                             |
-| I178 | `deploy.sh` checks that the `.env` files and the tunnel token exist and never what they hold; a malformed value is the startup gates' refusal                                 | `scripts/lib/_lib.sh :: require_file`, which tests existence alone; the values are refused by `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: frontend_config`                                                                            |
-| I179 | A startup refusal names the failing variables and never their values, at both tiers: a value in a container log is the whole exposure                                         | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `fl_frontend/src/core/config.test.ts` assert no value appears |
+| I178 | `deploy.sh` reads `fl_frontend/.env` and `secrets/tunnel_token` for existence alone; a value either holds is refused at boot or not at all                                    | `scripts/lib/_lib.sh :: require_file`, which tests existence alone; the frontend's values are `fl_frontend/src/core/config.ts :: frontend_config`'s                                                                                                                            |
+| I179 | A startup refusal names the failing variables, or a failure type where no variable was judged, and never a value                                                              | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `fl_frontend/src/core/config.test.ts` assert no value appears |
+| I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `get_config` rejects, a missing required one included                     | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                            |
+| I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                               |
 
 ## 3. Violation → remedy
 
@@ -951,6 +967,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `not a directory` from nginx                                                      | A mounted config file was missing, so Docker created a directory                                                                                | `git pull`, remove the stray directory                                                                                                                                                                               |
 | `Invalid environment variables: <NAMES>` then no traffic                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
+| `The environment could not be read: <TYPE>` then no traffic                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
 | Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx`, then `docker compose logs cloudflared`                                                                                                                                            |
 | `up` refuses the connector's static address on the tunnel's first deploy          | The network predates the declared subnet and carries no recorded configuration, so `up` reuses it as it stands                                  | `docker compose down` first, then the deploy ([`runbooks.md`](runbooks.md) §8)                                                                                                                                       |
 | No tunnel registers, or the connector restarts in a loop                          | The token file is missing or is not this tunnel's, or the pinned release rejects the run arguments                                              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means the value or the arguments (§1.2)                                                                   |
