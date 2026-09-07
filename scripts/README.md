@@ -22,6 +22,10 @@ directory would reach that directory alone.
 | `scripts/checks/check_commits.py`          | any           | The branch's commit messages                                                                                    |
 | `scripts/checks/check_scope.py`            | any           | The scopes a run named, against the diff it was given                                                           |
 | `scripts/checks/check_compose_mirror.py`   | any           | The local stack against production, minus the differences it declares                                           |
+| `scripts/checks/check_nginx_mirror.py`     | any           | The local edge against production's, directive by directive, minus the differences it declares                  |
+| `scripts/checks/check_csp_identity.py`     | any           | Each nginx file's Content-Security-Policy copies against that file's first                                      |
+| `scripts/checks/check_public_routes.py`    | any           | Every App Router route handler against the edge locations that meter it                                         |
+| `scripts/checks/check_test_estate.py`      | any           | The backend suite's silent shapes: a db read in the wrong tier, an empty parametrize, an unconsumed fixture     |
 | `scripts/checks/check_conflict_markers.py` | any           | Every tracked file, for a merge conflict marker left in it                                                      |
 | `scripts/checks/check_pr_body.py`          | CI only       | A pull request body, which is not in the repository                                                             |
 | `scripts/checks/check_gate_budget.py`      | any           | The gate's wall-clock budget: a run's jobs against their ceilings, and a raised figure against its measurement  |

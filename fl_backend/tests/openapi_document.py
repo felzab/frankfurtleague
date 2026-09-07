@@ -103,7 +103,7 @@ def describe_drift(committed: dict[str, Any], built: dict[str, Any]) -> str:
 
 def _main() -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m tests.openapi_document",
+        prog=REGENERATE.removesuffix(" --write"),
         description="Write or check fl_backend/openapi.json, the published API surface.",
     )
     parser.add_argument("--write", action="store_true", help="rewrite the document from the current models")
