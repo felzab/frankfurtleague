@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, Request
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import ConfigurationError, OperationFailure
 
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_config
@@ -11,21 +12,64 @@ from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
 
+# The variable's NAME and the fact, in one sentence each, used by the log line and the error alike.
+# The three share their opening, so an operator who found one of them reads which by its continuation.
+UNREACHABLE = "MONGODB_URI: the MongoDB server could not be reached, so the application will not start."
+NO_SERVER = "MONGODB_URI: the value did not yield a server to connect to, so the application will not start."
+REJECTED = "MONGODB_URI: the server refused to authenticate this value, so the application will not start."
+
+
+class DatabaseUnreachableError(Exception):
+    """The boot's database refusal, named by the variable that configures it and nothing else.
+
+    Its own type rather than the driver's: pymongo quotes what it parsed out of `MONGODB_URI`, which
+    is how a mistyped value reaches a log.
+    """
+
+
+def _refusal_for(error: BaseException) -> str:
+    """Which of the three sentences an operator is handed, taken from the driver's exception class.
+
+    `str(error)` quotes what the driver parsed or resolved, so nothing derived from it is read here.
+    """
+    # The server answered and refused: a password restored from a manager that does not match lands
+    # here, and it sends an operator to the environment file rather than to the network.
+    if isinstance(error, OperationFailure):
+        return REJECTED
+    # `AsyncMongoClient.__init__` parses the URI, so these arrive from the construction as well as
+    # the ping: `InvalidURI` is a `ConfigurationError`, and a bad port is a plain `ValueError`.
+    if isinstance(error, (ConfigurationError, ValueError)):
+        return NO_SERVER
+    # The residual takes the reachability sentence rather than a fourth: past the classes above, a
+    # driver failure at the boot is the server not answering.
+    return UNREACHABLE
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config = get_config()
-
-    app.state.db_client = AsyncMongoClient(
-        host=config.mongodb_uri.get_secret_value(),
-        serverSelectionTimeoutMS=config.db_server_selection_timeout,
-        minPoolSize=config.db_min_connections,
-        maxPoolSize=config.db_max_connections,
-        uuidRepresentation="standard",
-    )
+    client: AsyncMongoClient | None = None
 
     try:
-        await app.state.db_client.admin.command("ping")
+        try:
+            # Constructed inside the handled region: the driver parses the URI here rather than at
+            # the ping, so a value the scheme check passed and the parser refuses would otherwise
+            # leave as the driver's own traceback, quoting what it read.
+            client = AsyncMongoClient(
+                host=config.mongodb_uri.get_secret_value(),
+                serverSelectionTimeoutMS=config.db_server_selection_timeout,
+                minPoolSize=config.db_min_connections,
+                maxPoolSize=config.db_max_connections,
+                uuidRepresentation="standard",
+            )
+            app.state.db_client = client
+            await client.admin.command("ping")
+        except Exception as error:
+            refusal = _refusal_for(error)
+            fl_logger.critical(refusal)
+            # No `exc_info`, and a new error `from None`: the driver's own message carries the host
+            # it resolved out of the value, which is the half an operator must not be handed.
+            raise DatabaseUnreachableError(refusal) from None
 
         # Reapplied on every boot, and a failure refuses the start (`docs/backend/spec.md :: I15`).
         try:
@@ -46,8 +90,10 @@ async def lifespan(app: FastAPI):
         yield
 
     finally:
-        if app.state.db_client:
-            await app.state.db_client.close()
+        # The local rather than `app.state`, which the construction above may not have reached: a
+        # lookup that raises here would replace the refusal on its way out with an `AttributeError`.
+        if client is not None:
+            await client.close()
 
 
 async def get_db_client(request: Request) -> AsyncMongoClient:

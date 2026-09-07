@@ -149,7 +149,6 @@ deliverable.
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                                                    | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                                                   | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                                                                   | FE, tests                                                                   | Open     |
-| `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                                                               | FE, BE, Ops, Docs, edge                                                     | Standing |
 | `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                                                                   | Ops, gate, tests                                                            | Open     |
 | `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                                                                     | Ops, Docs, gate                                                             | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                                                     | FE, Ops, gate                                                               | Open     |
@@ -3049,49 +3048,6 @@ on every phone, which is louder and agrees with the installed app. Next takes bo
 **Done when** the head carries the colour, whichever answer is taken, and it is pinned to the scheme
 by the same route `fl_frontend/src/app/brandAssets.test.ts` pins the manifest — parsed from the
 stylesheet rather than restated.
-
-### `tc3c-nudr` · Nothing validates the contents of a restored `.env`
-
-| Tags                    | Status   | Depends on |
-| ----------------------- | -------- | ---------- |
-| FE, BE, Ops, Docs, edge | Standing | —          |
-
-**Found 2026-08-01, the hard way, during a server re-clone.** `scripts/ops/deploy.sh` checks that
-`fl_backend/.env`, `fl_frontend/.env`, `nginx/prod.conf` and `certs/` all **exist** before it pulls
-anything, and Compose refuses to start a service whose `env_file` is missing. **Nothing checks that a
-value inside those files is well-formed**, and each `.env` is gitignored — so every server restore
-recreates them by hand from the password manager, unverified, and a malformed value surfaces as a
-container that never becomes healthy.
-
-**What that cost.** The restore produced a `MONGODB_URI` whose host had been truncated, most likely a
-shell redirection swallowing part of the string as the file was written. Every preflight passed: file
-present, key present, URI syntactically parseable. pymongo then resolved an SRV record that cannot
-exist, the startup ping raised `ConfigurationError`, the backend crash-looped, nginx never started
-because it waits on `service_healthy`, and the site was down until the truncation was found by
-reading a stack trace.
-
-**What the deploy already does about an unhealthy build, and why none of it reaches this.**
-`scripts/ops/deploy.sh :: roll_back` restores the previous pair by image id wherever the run recorded
-a target, and a re-clone records no rollback target, so there is nothing to put back; and the value
-that broke is the backend's `MONGODB_URI`, which the startup gate parses no further than its scheme
-(`fl_backend/app/core/config.py :: validate_mongodb_uri`), the unhealthy ending pointing the operator
-at the frontend's gate (`fl_frontend/src/core/config.ts`) instead. Each bounds the window on an
-ordinary bad deploy, which is the ground the trigger below stands on.
-
-**The options, none obviously right.** Leaving it unchecked catches nothing automatically and costs
-zero: the failure is loud, contained and quick to diagnose once recognised. A name-presence preflight
-in `deploy.sh` catches a missing key and is small, and **would not have caught this incident** — the
-key was present and merely wrong. Resolving the Mongo SRV record in `deploy.sh` before `up` catches
-exactly this class plus a dead cluster, and adds a network dependency to a deploy step, so a DNS blip
-becomes a refused deploy. **The trade to weigh** is that resolving the SRV record is the only option
-that would have helped and it makes deployment fail for reasons unrelated to the deployment; given
-the failure is already contained — nginx serves nothing rather than serving something broken — the
-honest question is whether a faster diagnosis is worth a new way for `deploy.sh` to refuse.
-
-**Trigger to revisit:** the second time a restore breaks this way, or a move to a setup where the
-site cannot tolerate a restore that produces an unusable value on a host with no previous build to
-fall back to. Ops audit pass O1 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers
-script failure modes and owns this.
 
 ### `tfyy-hg3y` · A mis-cased suffix drops a citation out of the population instead of failing it
 

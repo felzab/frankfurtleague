@@ -76,15 +76,17 @@ own:
 ```bash
 docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
   -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=x \
+  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=http://x \
   -e INTERNAL_API_KEY_BASE=x -e INTERNAL_API_KEY_SYSTEM=x -e INTERNAL_API_KEY_ADMIN=x \
   <backend-image> python -m app.core.constraints --check
 ```
 
 **Seven variables are required and two carry real values.** `BackendConfig` declares seven fields with no
 default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the
-internal keys rather than anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
-the three keys may be any non-empty string — **do not go looking for the production ones.**
+internal keys rather than anything about the database. `--check` reads the database and nothing else, so the hosts,
+the origins and the three keys need only take the shape the gate requires — **do not go looking for
+the production ones**, and keep the origin's `http://`, which is the one placeholder above that a
+constraint reads.
 
 Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
 `app/` must be readable by that uid, and an SELinux host needs `:z` on the mount.

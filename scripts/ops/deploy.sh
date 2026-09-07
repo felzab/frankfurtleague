@@ -679,8 +679,13 @@ else
   fail "THE NEW VERSION IS NOT HEALTHY."
   detail "This deploy did not tear nginx down, so where it was running the site is answering 502" \
          "rather than refusing the connection." \
-         "If a log above says 'Invalid environment variables: <NAMES>', that is the startup gate" \
-         "doing its job: fix those names in the .env file and run this script again."
+         "If a log above says 'Invalid environment variables: <NAMES>', a startup gate is doing its" \
+         "job -- the frontend and the backend word it identically, so the container that printed it" \
+         "names the env file to fix." \
+         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "which of three: the value yielded no server to connect to, the server refused to" \
+         "authenticate it, or the server could not be reached." \
+         "Neither gate prints a value, so the .env file is what to read and the log is not."
   if (( SAME_BUILD )); then
     detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
               "back: a rollback would restore the build that just failed and cost a second outage" \

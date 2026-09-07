@@ -290,6 +290,9 @@ else
   fail "The stack came up unhealthy."
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
+         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "which: the value yielded no server, the server refused to authenticate it, or nothing" \
+         "answered. Neither refusal prints a value, so the file is what to read." \
          "Stop what is left:  ./scripts/ops/local.sh --down"
   finish
 fi
