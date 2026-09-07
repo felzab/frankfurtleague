@@ -112,7 +112,6 @@ deliverable.
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                         | BE, DB, Docs, bewerbungen                                                   | Open     |
 | `gm9c-2du4` | Every link the local stack mails points at production                                                                        | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
@@ -1674,36 +1673,6 @@ wrong state. A complete, type-correct literal can still represent something the 
 produce, and no type-level mechanism reaches that — not a cast's removal, not a factory, not
 `satisfies`. What catches it is a reader, or a predicate that eventually disagrees with it. The two
 failures share a file and nothing else.
-
-### `ggng-8m7v` · The confirmation link's two anonymous endpoints read a whole application unprojected
-
-| Tags                      | Status | Depends on |
-| ------------------------- | ------ | ---------- |
-| BE, DB, Docs, bewerbungen | Open   | —          |
-
-**Both endpoints load the document and answer with a closed handful of its fields.**
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: get_einwilligung_ansicht` finds the
-application through `fl_backend/app/api/bewerbungen/services.py :: build_token_filter` and answers a
-state, a season, a school, a role, a first name and a wording label
-(`docs/backend/spec.md :: READ-BEWERBUNG-002`);
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` reads the same way
-inside its transaction. Both are base-tier, and the document they load carries three people's email
-addresses and telephone numbers, each seat's `token_hash`, and which schools were turned down.
-
-**Nothing is served that should not be, and that is the whole of the guarantee.** The response models
-declare their fields and no others, so this is depth rather than a leak. What it costs is that the
-guarantee rests on the response model alone: a field added to a model, a debug line, or an error path
-that renders what was loaded turns an unprojected read into a disclosure, on the one tier that
-authenticates nobody.
-
-**The projection habit exists here already, in the opposite shape.**
-`fl_backend/app/api/bewerbungen/services.py :: WITHOUT_TOKEN_HASHES` keeps the hashes off the wire
-for the admin reads, and is an exclusion because an inclusion list there would have to restate every
-field an application holds. These two endpoints are the case that argues the other way: what they
-answer with is a short closed list, and everything else on the document is what they must not carry.
-
-**Done when** each anonymous read names the fields it needs, and a case fails where a field outside
-that list reaches the handler.
 
 ### `gm9c-2du4` · Every link the local stack mails points at production
 

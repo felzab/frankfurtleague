@@ -341,6 +341,39 @@ TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS}
 
 
+def _per_seat(block: str, *fields: str) -> dict[str, int]:
+    """Each seat's copy of these paths, included, so a fourth seat cannot fall out of a read."""
+
+    return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in fields}
+
+
+# An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
+# rest of the document is what a base-tier read must not hold
+# (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which
+# `fl_backend/app/api/bewerbungen/services.py :: seat_holding` compares.
+EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
+    **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
+    **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    "saison_id": 1,
+    "status": 1,
+    "bestaetigungsfrist": 1,
+    "schule.team_name": 1,
+    "team_id": 1,
+}
+
+# Narrower than the view's, and `trainer_ist_zugleich` besides: the answer takes its wording from the
+# payload, names no school, and `fl_backend/app/api/bewerbungen/services.py :: paired_seat` reads
+# that key.
+EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+    **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
+    **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am"),
+    "kontakte.trainer_ist_zugleich": 1,
+    "saison_id": 1,
+    "status": 1,
+    "bestaetigungsfrist": 1,
+}
+
+
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every seat path and both hashes, so the hash alone finds the seat. No status term: a reopened link shows its own state."""
 

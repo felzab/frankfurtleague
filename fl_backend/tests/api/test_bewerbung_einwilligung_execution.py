@@ -60,6 +60,10 @@ ADDRESS: Mapping[str, Any] = {
     "stadt": "Frankfurt am Main",
 }
 
+# Seeded on the application below and answered by neither anonymous endpoint: a surname, a mailbox, a
+# telephone number, a street, and the school's registered name beside the short one that IS served.
+WITHHELD_FROM_A_LINK = ("Mustermann", "example.com", "1234567", "Hanauer", "Gesamtschule")
+
 
 def person(vorname: str) -> dict[str, Any]:
     """One seat as the submission stores it: no date, no stamp, entered on the person's behalf."""
@@ -145,21 +149,21 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = None) -> Any:
     return await get_einwilligung_ansicht(
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         teams_collection=database[Collection.TEAMS],
         today=TODAY,
     )
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
+async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, bewerbungen: Any = None, **overrides: Any) -> Any:
     body = {"token": token, "antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "text_version": "v4", **overrides}
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
@@ -180,6 +184,39 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
+
+
+class _ReadsRecorded:
+    """The applications collection, keeping what each `find_one` answered.
+
+    A delegating wrapper rather than a stub: mongod applies the projection, and a stub would hand
+    back whatever the handler asked for.
+    """
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.answered: list[tuple[Any, Any]] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    # Spelled `filter` because `fl_backend/app/core/crud.py` passes it by that keyword; a rename here
+    # is a TypeError at the first helper this collection is handed to.
+    async def find_one(self, filter: Any = None, *args: Any, **kwargs: Any) -> Any:
+        document = await self._collection.find_one(filter, *args, **kwargs)
+        self.answered.append((filter, document))
+
+        return document
+
+
+def loaded_by_the_link(recorder: _ReadsRecorded) -> list[Any]:
+    """Every document the TOKEN filter found.
+
+    `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
+    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I42`).
+    """
+
+    return [document for db_filter, document in recorder.answered if "$or" in db_filter]
 
 
 class TestWhatALinkOpens:
@@ -215,6 +252,37 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[expired])
 
         assert response.zustand == "abgelaufen"
+
+
+class TestWhatAnAnonymousReadLoads:
+    """These two cases hold the narrowing alone.
+
+    A projection too SHORT is answered by the rest of this module, which drives every field either read resolves.
+    """
+
+    def test_the_view_never_holds_the_application_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            await ansicht(database, RAW["ansprechperson"], bewerbungen=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert [value for value in WITHHELD_FROM_A_LINK if value in str(loaded)] == []
+
+    def test_the_answer_never_holds_the_application_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            await answer(database, client, RAW["ansprechperson"], bewerbungen=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert [value for value in WITHHELD_FROM_A_LINK if value in str(loaded)] == []
 
 
 class TestWhatAConfirmationWrites:
