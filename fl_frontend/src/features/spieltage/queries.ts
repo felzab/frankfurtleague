@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
 
@@ -20,6 +20,7 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
 
   return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
     params: filters,
+    cacheFill: { name: "getSpieltage", args: filters },
   });
 }
 
@@ -36,7 +37,7 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
   const held = adminSpieltageInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingCorrelationId(() =>
+  const started = runWithIncomingTrace(() =>
     apiClient<FLSpieltageListResponse>("/spieltage/list/admin", FLSpieltageListResponseSchema, { authType: "admin", params: filters }),
   );
   adminSpieltageInFlight().set(key, started);
@@ -49,7 +50,7 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
  * which the editor turns into `notFound()`. **Uncached**: `docs/frontend/spec.md` §1.2.
  */
 export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
-  runWithIncomingCorrelationId(() =>
+  runWithIncomingTrace(() =>
     apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}/admin`, FLSpieltageSingleResponseSchema, { authType: "admin" }).catch(
       (error: unknown) => {
         if (error instanceof APIBadStatusError && error.statusCode === 404) return null;

@@ -105,12 +105,17 @@ services:
     # this and docker-compose.local.yml together.
     image: nginx:1.31-alpine
     restart: unless-stopped
-    # Read-only, and both must exist before `up`. If a mounted file is missing, Docker creates a
-    # DIRECTORY at that path and nginx fails with "not a directory" -- `deploy.sh` checks for this
-    # before starting rather than letting it surface as a mystery.
+    # The two config mounts must exist before `up`: if one is missing, Docker creates a DIRECTORY at
+    # that path and nginx fails with "not a directory", which `deploy.sh` checks for rather than
+    # letting it surface as a mystery.
+
+    # The access log is host-side so it outlives this container and `logrotate` can bound its age
+    # (`docs/ops/runbooks.md` §7). Host and container paths are spelled alike, so the stanza and
+    # `nginx/prod.conf` name one string.
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/nginx/certs:ro
+      - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     networks:
       - frankfurtleague-net
     logging: *default-logging

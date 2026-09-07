@@ -1,6 +1,6 @@
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
-  correlationId: string;
+  traceId: string;
   statusCode: number;
   serverErrorCode?: string;
   url: string;
@@ -12,7 +12,7 @@ export class APIBadStatusError extends Error {
     statusCode,
     serverErrorCode,
     endpoint,
-    correlationId,
+    traceId,
     originalError,
   }: {
     message: string;
@@ -20,16 +20,16 @@ export class APIBadStatusError extends Error {
     statusCode: number;
     serverErrorCode?: string;
     endpoint: string;
-    correlationId: string;
+    traceId: string;
     originalError?: unknown;
   }) {
     const errorCause = originalError
-      ? { originalError, correlationId, statusCode, serverErrorCode, url, endpoint }
-      : { correlationId, statusCode, serverErrorCode, url, endpoint };
+      ? { originalError, traceId, statusCode, serverErrorCode, url, endpoint }
+      : { traceId, statusCode, serverErrorCode, url, endpoint };
     super(message, { cause: errorCause });
 
     this.name = "APIBadStatusError";
-    this.correlationId = correlationId;
+    this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
     this.url = url;
@@ -39,7 +39,7 @@ export class APIBadStatusError extends Error {
 
 export class APIMalformedDataError extends Error {
   readonly code = "FE-API-002";
-  correlationId: string;
+  traceId: string;
   statusCode: number;
   url: string;
   endpoint: string;
@@ -49,21 +49,21 @@ export class APIMalformedDataError extends Error {
     url,
     statusCode,
     endpoint,
-    correlationId,
+    traceId,
     zodIssues,
   }: {
     message: string;
     url: string;
     statusCode: number;
     endpoint: string;
-    correlationId: string;
+    traceId: string;
     zodIssues?: unknown;
   }) {
-    const errorCause = zodIssues ? { zodIssues, correlationId, url } : { correlationId, url };
+    const errorCause = zodIssues ? { zodIssues, traceId, url } : { traceId, url };
     super(message, { cause: errorCause });
 
     this.name = "APIMalformedDataError";
-    this.correlationId = correlationId;
+    this.traceId = traceId;
     this.statusCode = statusCode;
     this.url = url;
     this.endpoint = endpoint;
@@ -72,28 +72,28 @@ export class APIMalformedDataError extends Error {
 
 export class APINetworkError extends Error {
   readonly code = "FE-NET-001";
-  correlationId: string;
+  traceId: string;
   url: string;
   isTimeout: boolean;
 
   constructor({
     message,
     url,
-    correlationId,
+    traceId,
     isTimeout,
     originalError,
   }: {
     message: string;
     url: string;
-    correlationId: string;
+    traceId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, correlationId, isTimeout, url } : { correlationId, isTimeout, url };
+    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
-    this.correlationId = correlationId;
+    this.traceId = traceId;
     this.url = url;
     this.isTimeout = isTimeout;
   }
@@ -101,7 +101,7 @@ export class APINetworkError extends Error {
 
 export class MailSendError extends Error {
   readonly code = "FE-MAIL-001";
-  correlationId: string;
+  traceId: string;
   statusCode: number;
   providerErrorName?: string;
   url: string;
@@ -111,18 +111,18 @@ export class MailSendError extends Error {
     url,
     statusCode,
     providerErrorName,
-    correlationId,
+    traceId,
   }: {
     message: string;
     url: string;
     statusCode: number;
     providerErrorName?: string;
-    correlationId: string;
+    traceId: string;
   }) {
-    super(message, { cause: { correlationId, statusCode, providerErrorName, url } });
+    super(message, { cause: { traceId, statusCode, providerErrorName, url } });
 
     this.name = "MailSendError";
-    this.correlationId = correlationId;
+    this.traceId = traceId;
     this.statusCode = statusCode;
     this.providerErrorName = providerErrorName;
     this.url = url;

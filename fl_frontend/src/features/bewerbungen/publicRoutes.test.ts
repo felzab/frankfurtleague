@@ -760,7 +760,7 @@ describe("what stands in for a session on the session-less routes", () => {
       const rumpf = source.slice(source.indexOf("): Promise<NextResponse> {"));
       const vorWache = rumpf.slice(0, rumpf.indexOf("const secFetchSite"));
 
-      assert.doesNotMatch(vorWache, /\bawait\b|\brun\(\)|runWithIncomingCorrelationId/, `${name} works before the guard decides`);
+      assert.doesNotMatch(vorWache, /\bawait\b|\brun\(\)|runWithIncomingTrace/, `${name} works before the guard decides`);
     }
   });
 

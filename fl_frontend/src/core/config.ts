@@ -3,6 +3,8 @@ import "server-only";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+import { formatLogLine } from "./logFormat";
+
 export const frontend_config = createEnv({
   server: {
     // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
@@ -42,6 +44,14 @@ export const frontend_config = createEnv({
       .transform((value) => value.toLowerCase())
       .pipe(z.enum(["console", "json"])),
 
+    // Defaulted so no server .env is touched to keep today's behaviour, and upper-cased before the
+    // enum because the level words are the ones that appear on a log line.
+    LOG_LEVEL: z
+      .string()
+      .transform((value) => value.toUpperCase())
+      .pipe(z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]))
+      .default("INFO"),
+
     // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
     // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
     // could apply.
@@ -60,6 +70,14 @@ export const frontend_config = createEnv({
   // echoing a rejected value into a container log.
   onValidationError: (issues) => {
     const names = [...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort();
+
+    // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
+    // to the console shape.
+    const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
+    // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
+    // would close the cycle.
+    process.stdout.write(formatLogLine(format, "CRITICAL", "Invalid environment variables", { variables: names.join(", ") }) + "\n");
+
     throw new Error(`Invalid environment variables: ${names.join(", ")}`);
   },
 
@@ -80,6 +98,7 @@ export const frontend_config = createEnv({
     ALLOWED_ADMIN_EMAILS: process.env.ALLOWED_ADMIN_EMAILS,
 
     LOG_FORMAT: process.env.LOG_FORMAT,
+    LOG_LEVEL: process.env.LOG_LEVEL,
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
   },
 });

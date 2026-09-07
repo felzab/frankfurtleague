@@ -20,7 +20,7 @@ together, so a session on either side can break it and the paths above reach bot
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
 - **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second CSP
-- **logging** — Let nginx pass a client's correlation id; log outside the envelope
+- **logging** — Let nginx honour a client's traceparent; log outside the envelope
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
 - **table** — Move the league table's default scope off `gruppenphase`
 - **saisons** — Offer in the form wiring the write path refuses

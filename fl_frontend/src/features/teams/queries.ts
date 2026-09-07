@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
@@ -28,6 +28,7 @@ export async function getTeams(filters: FLPublicTeamsFilterParams = {}): Promise
 
   return apiClient<FLTeamsResponse>("/teams", FLTeamsResponseSchema, {
     params: filters,
+    cacheFill: { name: "getTeams", args: filters },
   });
 }
 
@@ -46,6 +47,7 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
 
   return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
     params: filters,
+    cacheFill: { name: "getTeam", args: { teamId: teamId, filters: filters } },
   }).catch((error: unknown) => {
     // A 404 is "no such team" OR "no junction row for this season": the join is strict
     // (`docs/backend/spec.md` I11).
@@ -67,7 +69,7 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
   const held = adminTeamsInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingCorrelationId(() =>
+  const started = runWithIncomingTrace(() =>
     apiClient<FLTeamsResponse>("/teams/list/admin", FLTeamsResponseSchema, { authType: "admin", params: filters }),
   );
   adminTeamsInFlight().set(key, started);
@@ -82,7 +84,7 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
 // Never `"use cache"` here, which keys on the arguments rather than the caller
 // (`docs/frontend/spec.md` §1.2).
 export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> =>
-  runWithIncomingCorrelationId(() =>
+  runWithIncomingTrace(() =>
     apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" }),
   ),
 );

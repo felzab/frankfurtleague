@@ -5,7 +5,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 
 import { toActionErrorResult } from "./actionError.ts";
 
-const base = { url: "http://backend:8000/api/v0/x", endpoint: "/x", correlationId: "ab".repeat(16) };
+const base = { url: "http://backend:8000/api/v0/x", endpoint: "/x", traceId: "ab".repeat(16) };
 
 describe("toActionErrorResult", () => {
   it("maps a 409 onto the conflict message, not the generic one", () => {

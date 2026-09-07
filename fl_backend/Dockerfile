@@ -61,7 +61,7 @@ EXPOSE 8000
 # logging, so uvicorn's default handlers install after the app's and print plain text into the JSON
 # stream.
 
-# --no-access-log because CorrelationIdMiddleware writes the per-request line, carrying the
-# correlation id uvicorn's could not; --log-config routes what uvicorn still logs through the app's
+# --no-access-log because TraceContextMiddleware writes the per-request line, carrying the trace
+# and span ids uvicorn's could not; --log-config routes what uvicorn still logs through the app's
 # own handler (docs/logging/spec.md).
 CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json"]

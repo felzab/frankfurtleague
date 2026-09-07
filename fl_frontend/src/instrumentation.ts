@@ -26,11 +26,10 @@ export async function register() {
   const { frontend_config } = await import("./core/config");
 
   // Installed before the first request can error, so Next's own multi-line console dumps still
-  // reach the log as one JSON document per line.
-  if (frontend_config.LOG_FORMAT === "json") {
-    const { installConsoleShim } = await import("./core/consoleShim");
-    installConsoleShim();
-  }
+  // reach the log as one JSON document per line; the shim itself stands down under the console
+  // format, at the line that would otherwise recurse.
+  const { installConsoleShim } = await import("./core/consoleShim");
+  installConsoleShim();
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it

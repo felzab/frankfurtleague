@@ -548,6 +548,67 @@ if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$
   SAME_BUILD=1
 fi
 
+# --- the streams the recreate destroys, copied off first ---------------------------------------------
+
+section "logs"
+
+step "Copying the application logs off the containers about to be replaced"
+# The host directory the copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
+# their age. The stamp carries the time of day: a rollback and a re-deploy on one day would
+# otherwise overwrite the copy that explains the failure.
+LOG_DIR="/var/log/frankfurtleague"
+LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
+# `refuse`, never `warn`: nothing is stopped or pulled yet, and going on would destroy the only
+# record of the replaced build. `--force-recreate` replaces both containers' `json-file` logs,
+# and a failed deploy's rollback recreates the pair again (docs/logging/spec.md §1.2).
+
+# `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
+# `docker-compose.yml` bind-mounts it as the edge's access log, and one refusal covers the
+# copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
+MKDIR_RC=0
+mkdir -p "$LOG_DIR" "${LOG_DIR}/nginx" 2>/dev/null || MKDIR_RC=$?
+if (( MKDIR_RC )); then
+  refuse "${LOG_DIR} could not be created (exit ${MKDIR_RC}), so the application logs could not be
+copied off before the recreate destroys them, and nginx has nowhere to write its access log.
+NOTHING has been recreated.
+Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
+  sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
+fi
+COPIED=0
+for svc in frontend backend; do
+  # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
+  # an empty file would read as a build that logged nothing.
+  cid="$(service_cid "$svc")" || cid=""
+  [[ -n "$cid" ]] || continue
+  target="${LOG_DIR}/${LOG_STAMP}-${svc}.log"
+  # Written beside the target and moved in once the copy succeeded: a copy failing midway would
+  # otherwise leave a short `.log` reading as the build's whole stream, and `logrotate`'s `*.log`
+  # glob (docs/ops/runbooks.md §7) never reaches a `.partial` name.
+  partial="${target}.partial"
+  COPY_RC=0
+  docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || COPY_RC=$?
+  if (( COPY_RC )); then
+    rm -f "$partial" 2>/dev/null || true
+    refuse "the ${svc} log could not be copied to ${target} (exit ${COPY_RC}), so the recreate would
+destroy the only record of the build it replaces. NOTHING has been recreated.
+Copy it by hand, then re-run:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+  fi
+  MV_RC=0
+  mv "$partial" "$target" 2>/dev/null || MV_RC=$?
+  if (( MV_RC )); then
+    rm -f "$partial" 2>/dev/null || true
+    refuse "the ${svc} log was copied but could not be moved into place at ${target} (exit ${MV_RC}).
+NOTHING has been recreated. Copy it by hand, then re-run:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
+  fi
+  detail "${svc}: ${target}"
+  COPIED=$(( COPIED + 1 ))
+done
+if (( COPIED )); then
+  ok "${COPIED} stream(s) copied to ${LOG_DIR}"
+else
+  info "nothing is running here yet, so there is no stream to copy"
+fi
+
 # --- recreate ---------------------------------------------------------------------------------------
 
 section "deploy"

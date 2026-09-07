@@ -26,7 +26,7 @@ from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSai
 from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from app.core.logging import correlation_id_var
+from app.core.logging import trace_id_var
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -49,7 +49,7 @@ NEIGHBOUR_OID_OFFSET = 100
 # Fixed rather than the real day, so the watermark the draw leaves is a value this file chose.
 TODAY = "2026-08-21"
 
-CORRELATION_ID = "0123456789abcdef0123456789abcdef"
+TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 GROUPS = 4
 TEAMS_PER_GROUP = 4
@@ -190,7 +190,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
-            correlation_id_var.set(CORRELATION_ID)
+            trace_id_var.set(TRACE_ID)
 
             await database[Collection.SAISONS].insert_one(seeded.saison)
             await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
@@ -376,7 +376,7 @@ class TestTheRemovalKeepsEveryImage:
             (str(Collection.SPIELTAGE), "delete_many", undrawn.drawn.spieltage),
             (str(Collection.SAISONS), "patch_one", None),
         ]
-        assert {row["correlation_id"] for row in removal} == {CORRELATION_ID}
+        assert {row["trace_id"] for row in removal} == {TRACE_ID}
         assert [len(row["before"]) for row in removal if row["operation"] == "delete_many"] == [
             undrawn.drawn.spiele,
             undrawn.drawn.spieltage,

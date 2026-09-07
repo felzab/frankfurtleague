@@ -644,7 +644,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id",
                 "at",
                 "actor",
-                "correlation_id",
+                "trace_id",
                 "request",
                 "collection",
                 "operation",
@@ -662,7 +662,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # every row it builds, so those are the only ones outside the retention.
                 "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
-                "correlation_id": {"bsonType": "string"},
+                # Required, so a row written under the previous name fails until the deploy-day
+                # rename in `docs/ops/runbooks.md` §2 has run; strict validation then refuses an
+                # erasure's `$set` over it.
+                "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
                 "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
@@ -734,8 +737,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     SupportIndex(
         Collection.AKTIONEN,
-        "aktionen_correlation_id",
-        (("correlation_id", ASCENDING),),
+        "aktionen_trace_id",
+        (("trace_id", ASCENDING),),
         "a write and its fan-out are read as one action",
     ),
     SupportIndex(
@@ -890,7 +893,7 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     """
     lanes: dict[str, list[tuple[int, _Runner]]] = {}
     # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
-    # `aktionen_correlation_id` does not open its lane and `bewerbungen_queue` does, so per-lane
+    # `aktionen_trace_id` does not open its lane and `bewerbungen_queue` does, so per-lane
     # numbering would report the later-declared one.
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))

@@ -59,7 +59,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   const selectedFromUrl = searchParams.get("saison_id");
 
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
-    const copied = await copyTextToClipboard(aktion.correlation_id);
+    const copied = await copyTextToClipboard(aktion.trace_id);
 
     if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Suche danach, um jede Zeile dieses Vorgangs zu sehen." });
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });

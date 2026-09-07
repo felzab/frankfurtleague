@@ -27,7 +27,7 @@ def stored_row(**overrides):
         "_id": ObjectId("6890a1b2c3d4e5f607200020"),
         "at": "2026-03-15T09:30:00+00:00",
         "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
-        "correlation_id": "9f2c1b7e4a6d8c3f",
+        "trace_id": "9f2c1b7e4a6d8c3f",
         "request": {"method": "PATCH", "path": "/api/v0/spiele/{spiel_id}"},
         "collection": "spiele",
         "operation": "patch_one",

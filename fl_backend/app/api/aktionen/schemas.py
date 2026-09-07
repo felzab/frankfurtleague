@@ -52,7 +52,7 @@ class FLAktion(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
     actor: FLAktor
-    correlation_id: str
+    trace_id: str
     request: FLAktionRequest | None
     collection: str
     operation: FLAktionOperation
@@ -119,7 +119,7 @@ FLAktionenListAdapter = TypeAdapter(list[FLAktion])
 class FLAktionenFilterParams(BaseModel):
     collection: str | None = None
     operation: FLAktionOperation | None = None
-    correlation_id: str | None = None
+    trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
     document_id: str | None = None

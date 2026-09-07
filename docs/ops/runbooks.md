@@ -6,15 +6,16 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
 [`../_git/spec.md`](../_git/spec.md) §1.1.
 
-| Section                                                                                                                       | Answers                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                | What a deploy does, and what a failed one leaves running      |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)       | The one check to run before a constraint reaches production   |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                  | Who can sign in, and what revoking actually ends              |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows     |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish     |
-| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                  | The one deploy that has steps of its own, and its rollback    |
+| Section                                                                                                                        | Answers                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
+| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
+| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host file that bounds them, and where a deploy's copies go |
+| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
 
 ---
 
@@ -123,6 +124,50 @@ The order does not change either way: `--check` from the new checkout while the 
 then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
 serves), then `--check` again.
+
+**A field that is RENAMED is the one case where the backfill cannot precede the validator, and the
+`aktionen` column `trace_id` is that case.** The validator is attached strict
+(`fl_backend/app/core/constraints.py :: _apply_validator`), and the previous one listed the old name
+under `required`, so a `$rename` run under it produces a document missing a required field and is
+refused for every row; the same strictness refuses an erasure's `$set` over a row the NEW validator
+finds invalid ([`../backend/spec.md`](../backend/spec.md) I42), which is why the rename cannot wait
+either. There is no migration runner in this repository; the steps are run by hand, from the same
+container recipe as `--check` above, in this order:
+
+1. `--check` from the new checkout while the old image still serves — every `aktionen` row is
+   reported as missing `trace_id`, which is the confirmation that the rename is owed rather than a
+   finding to fix.
+2. Deploy. The boot attaches the new validator before the image serves.
+3. **At once**, the rename — between this step and the previous one the log page's read fails on
+   every old row and an erasure over one is refused, so type it as the deploy reports healthy:
+
+   ```bash
+   docker run --rm --network <compose-network> \
+     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+     <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; print(db.aktionen.update_many({"correlation_id": {"$exists": True}}, {"$rename": {"correlation_id": "trace_id"}}).modified_count, "rows renamed")'
+   ```
+
+   The image carries pymongo and no `mongosh`, which is why this is a Python one-liner, and it builds
+   no `BackendConfig`, which is why only the two real values are passed; `$rename` is atomic per
+   document, so no row is ever seen holding both names or neither. A count below the rows step 1
+   reported means the update stopped at a row the new validator refuses for a reason of its own —
+   `update_many` is ordered — so repair the row the raised error names and run the same command
+   again, whose filter skips every row already renamed.
+
+4. `--check` again: clean.
+5. Drop the index the previous name held, by hand — `create_index` refuses a name held at different
+   options and creates nothing under a name it does not declare, so the boot leaves it standing
+   forever:
+
+   ```bash
+   docker run --rm --network <compose-network> \
+     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+     <backend-image> python -c 'import os; from pymongo import MongoClient; MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]].aktionen.drop_index("aktionen_correlation_id")'
+   ```
+
+The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
+window for reads and erasures and opens a worse one: every recorded write of the still-serving old
+image is refused until the new image is up, because it writes the old name.
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
@@ -376,7 +421,82 @@ it held.
 the two records above; report inside the 72 hours with what is established and what is not — a report
 may be completed later, and a late one may not; and tell the people affected wherever the risk to
 them is high. Write down what you established and when you established it: the authority asks, and
-the container logs will not be there to reconstruct it from.
+the container logs outlive a deploy only as the copies [section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)
+bounds to thirty days.
+
+## 7. The logs' age bounds, and the copies a deploy leaves behind
+
+**Every deploy copies both application streams to `/var/log/frankfurtleague/` before it recreates a
+container** (`scripts/ops/deploy.sh :: LOG_DIR`), one file per service stamped to the second, and
+refuses at exit 2 with nothing stopped where it cannot write there. The same step creates
+`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts as the edge's access log —
+the one application-visible stream that is a host file rather than a container's. Both are created
+by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
+
+```bash
+sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfurtleague/nginx
+```
+
+**The age bounds are one host mechanism, `logrotate`, and no file in this repository can install
+it** — the file below is written on the server, at `/etc/logrotate.d/frankfurtleague`, in the same
+deployment that ships the published texts stating the bounds
+([`../datenschutz.md`](../datenschutz.md) §6): eight days for the access log, thirty for the copied
+application logs. Substitute the server's own checkout path for `<checkout>` — `docker compose`
+takes its project name from the directory holding the file `-f` names, so a path pointing anywhere
+else finds no `nginx` service and the rotation goes on without the reopen.
+
+```text
+# nginx writes this file through a bind mount, so it outlives the container and can be rotated by
+# rename: the master reopens on USR1 and the renamed file stops growing, the lines written in
+# between having gone to the renamed file rather than nowhere.
+/var/log/frankfurtleague/nginx/access.log {
+    daily
+    rotate 8
+    maxage 8
+    # The disk stays bounded whatever the traffic: a day that outgrows this rotates early, so the
+    # eight days above are the most an entry lives, never a period a spike can stretch.
+    maxsize 100M
+    dateext
+    create 0640 root root
+    missingok
+    notifempty
+    compress
+    delaycompress
+    postrotate
+        docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
+    endscript
+}
+
+# The deploy's copies are written once and never appended: the first daily run moves each into a
+# dated name, and maxage deletes it thirty days after that. A glob does not cross a directory
+# separator, so this one never reaches the access log above.
+/var/log/frankfurtleague/*.log {
+    daily
+    rotate 30
+    maxage 30
+    dateext
+    nocreate
+    missingok
+    notifempty
+    compress
+    delaycompress
+}
+```
+
+**Nothing here rotates the containers' own `json-file` logs**, whose whole bound is the compose size
+cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runtime holds open is
+`copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
+document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
+above runs. The copies are what carry an application log past a deploy, and their thirty days is the
+only age bound over one.
+
+**The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
+reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
+is what the rotation leaves, and the first line written after the reopen changes that ownership;
+reading the file needs the host's root either way.
+
+Read the result once with `logrotate -d /etc/logrotate.d/frankfurtleague`, which rotates nothing,
+before the first real run.
 
 ## 8. Putting the tunnel in front of the origin
 

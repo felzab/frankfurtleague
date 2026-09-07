@@ -22,7 +22,7 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
     id: id,
     at: "2026-08-20T14:23:05+00:00",
     actor: actor,
-    correlation_id: "8f14e45fceea167a",
+    trace_id: "8f14e45fceea167a",
     request: null,
     collection: "teams",
     operation: "patch_one",

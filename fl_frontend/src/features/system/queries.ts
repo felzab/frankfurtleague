@@ -12,7 +12,10 @@ export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   cacheLife("minutes");
   cacheTag("system");
 
-  return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, { authType: "none" });
+  return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, {
+    authType: "none",
+    cacheFill: { name: "checkIsLive", args: {} },
+  });
 };
 
 /**
@@ -24,7 +27,10 @@ export const checkIsReady = async (): Promise<CheckIsReadyReturn> => {
 
   cacheLife("minutes");
   cacheTag("system");
-  return apiClient<CheckIsReadyReturn>("/system/is_ready", CheckIsReadyReturnSchema, { authType: "system" });
+  return apiClient<CheckIsReadyReturn>("/system/is_ready", CheckIsReadyReturnSchema, {
+    authType: "system",
+    cacheFill: { name: "checkIsReady", args: {} },
+  });
 };
 
 export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
@@ -33,5 +39,8 @@ export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
   cacheLife("minutes");
   cacheTag("system");
   // "/system/info", never "/system/meta": the backend serves no such route.
-  return apiClient<GetSystemInfoReturn>("/system/info", GetSystemInfoReturnSchema, { authType: "system" });
+  return apiClient<GetSystemInfoReturn>("/system/info", GetSystemInfoReturnSchema, {
+    authType: "system",
+    cacheFill: { name: "getSystemInfo", args: {} },
+  });
 };

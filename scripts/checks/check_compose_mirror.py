@@ -77,9 +77,13 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("secrets", ANY, ABSENT, "the connector's token file; the local stack runs no connector to hold a credential for"),
     Delta(
         "services.nginx.volumes",
-        ["./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro", "./certs:/etc/nginx/certs:ro"],
-        ["./nginx/local.conf:/etc/nginx/conf.d/default.conf:ro"],
-        "the local proxy mounts local.conf and no certificates",
+        [
+            "./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro",
+            "./certs:/etc/nginx/certs:ro",
+            "/var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx",
+        ],
+        ["./nginx/local.conf:/etc/nginx/conf.d/default.conf:ro", "./.tmp-nginx-log:/var/log/frankfurtleague/nginx"],
+        "the local proxy mounts local.conf and no certificates, and keeps its access log in the checkout rather than under the host's /var/log",
     ),
     Delta("services.frontend.deploy", ANY, ABSENT, "no resource limits locally"),
     Delta("services.backend.deploy", ANY, ABSENT, "no resource limits locally"),

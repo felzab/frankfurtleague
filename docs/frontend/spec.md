@@ -79,8 +79,14 @@ keys on the arguments rather than on caller identity, so one shared entry would 
 admin-authorized data any caller could reach.** **An admin-tier read several components on one page
 make is wrapped in React's `cache`, never in `"use cache"`** — that wrapper dedupes within one
 render pass, so it costs the confinement nothing. None carries a cache tag either: a tag only means
-something inside a cache scope. Each seeds the request's correlation scope, which a `"use cache"`
-read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
+something inside a cache scope. Each seeds the request's trace scope, which a `"use cache"`
+read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-trace-id)).
+
+**Every cached read above declares itself to `apiClient` through `cacheFill`, and the option is the
+table's other half.** A fill runs outside the page request's trace, so the only record of which
+function asked for it is the `INFO` line `apiClient` writes on the minting branch, carrying the
+name and the arguments the fill was keyed on. A cached read added without the option joins nothing,
+which no check can see.
 
 **The application form's reads are base-tier and uncached, and the tier is not what settles it.**
 Each answers a question judged against the present moment rather than a property of the season —
@@ -433,7 +439,7 @@ and a card showing `4:3` where `2:2` belongs would contradict the table about th
 ### 1.7 Environment
 
 Validated at startup by `@t3-oss/env-nextjs` (`fl_frontend/src/core/config.ts`). Failure prints **names only**, never
-values.
+values, as one `CRITICAL` line in the stream's own format before it throws.
 
 | Variable                                       | Constraint                                                                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -445,6 +451,7 @@ values.
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 characters                                                                                                                |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
+| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` \| `CRITICAL`, case-normalised, `INFO` where the server sets nothing                       |
 | `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build |
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real

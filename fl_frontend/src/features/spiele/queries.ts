@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
 
@@ -22,6 +22,7 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 
   return apiClient("/spiele", FLSpieleListResponseSchema, {
     params: filters,
+    cacheFill: { name: "getSpiele", args: filters },
   });
 }
 
@@ -39,7 +40,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
   const held = adminSpieleInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingCorrelationId(() =>
+  const started = runWithIncomingTrace(() =>
     apiClient("/spiele/list/admin", FLSpieleAdminListResponseSchema, { authType: "admin", params: filters }),
   );
   adminSpieleInFlight().set(key, started);
@@ -55,7 +56,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
  */
 
 export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingleResponse | null> {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
     apiClient(`/spiele/${spielId}/admin`, FLSpieleAdminSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {

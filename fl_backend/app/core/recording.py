@@ -19,7 +19,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.logging import correlation_id_var
+from app.core.logging import trace_id_var
 
 Operation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
@@ -110,9 +110,9 @@ async def record_write(
         # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
         "at_date": moment,
         "actor": actor.as_document(),
-        # The request's own id, so a fan-out's rows and the write that caused them are one action on
-        # the page instead of forty.
-        "correlation_id": correlation_id_var.get(),
+        # The request's trace id and never this hop's span: a fan-out's rows and the write that
+        # caused them are one action on the page instead of forty only because they share it.
+        "trace_id": trace_id_var.get(),
         "request": {"method": request[0], "path": request[1]} if request is not None else None,
         "collection": str(collection.name),
         "operation": operation,

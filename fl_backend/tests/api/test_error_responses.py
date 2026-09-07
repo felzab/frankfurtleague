@@ -18,7 +18,7 @@ from app.core.exception_handlers import (
     register_exception_handlers,
 )
 from app.core.logging import JSONFormatter
-from app.core.middlewares import CorrelationIdMiddleware
+from app.core.middlewares import TraceContextMiddleware
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from tests.config import BASE_AUTH, build_test_config
@@ -53,7 +53,7 @@ class NamePayload(BaseModel):
 # payload rejection needs a route that depends on nothing.
 VALIDATION_APP = FastAPI()
 register_exception_handlers(VALIDATION_APP)
-VALIDATION_APP.add_middleware(CorrelationIdMiddleware)
+VALIDATION_APP.add_middleware(TraceContextMiddleware)
 
 
 @VALIDATION_APP.post("/name")
@@ -86,7 +86,7 @@ class TestFailureBodies:
         assert response.status_code == 401
         body = response.json()
         assert body["error_code"] == "REQ-AUTH-001"
-        assert re.fullmatch(r"[a-f0-9]{32}", body["correlation_id"])
+        assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_a_wrong_key_is_distinguishable_by_code(self):
@@ -121,7 +121,7 @@ class TestFailureBodies:
         body = client().get("/api/v0/spiele").json()
 
         # Messages, validation details and stack traces belong to the log, never the wire.
-        assert set(body) == {"error_code", "correlation_id"}
+        assert set(body) == {"error_code", "trace_id"}
 
     def test_no_header_carries_the_message_either(self):
         """The other channel out: `error_response` forwards `exc.headers`, so a leak is one line away.
@@ -135,7 +135,7 @@ class TestFailureBodies:
         # The exact SET, not a search for words: a message copied into any header, under any name,
         # moves this. `www-authenticate` is the one header this exception is allowed to add.
         assert response.status_code == 401
-        assert set(response.headers) == {"www-authenticate", "content-length", "content-type", "x-correlation-id"}
+        assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
 
         # Named too, so the case cannot pass on a set that matched while a value leaked: this is
         # the message the 401 above actually carries.
@@ -420,28 +420,42 @@ class TestValidationLoggingWithholdsTheValue:
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
 
         # The one join between a 422 nobody can read and the line that says which field failed.
-        assert re.fullmatch(r"[a-f0-9]{32}", response.json()["correlation_id"])
+        assert re.fullmatch(r"[a-f0-9]{32}", response.json()["trace_id"])
 
 
-class TestCorrelation:
-    def test_a_well_formed_incoming_id_is_echoed(self):
+TRACEPARENT = f"00-{'c0ffee00' * 4}-{'ab' * 8}-01"
+
+
+class TestTraceContext:
+    def test_a_well_formed_traceparent_s_trace_id_reaches_the_failure_body(self):
+        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+
+        assert response.json()["trace_id"] == "c0ffee00" * 4
+
+    def test_nothing_is_echoed_on_the_response(self):
+        """The failure body is the one channel handing the id back: a response header would put it where nothing reads it."""
+        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+
+        assert not {"traceparent", "x-correlation-id"} & {name.lower() for name in response.headers}
+
+    def test_a_malformed_traceparent_is_replaced_not_honoured(self):
+        response = client().get("/api/v0/spiele", headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
+
+        minted = response.json()["trace_id"]
+        assert minted != "NOT/AN/ID"
+        assert re.fullmatch(r"[a-f0-9]{32}", minted)
+
+    def test_the_retired_header_is_read_by_nothing(self):
+        """A hop still sending the old header must find it ignored rather than honoured: it carries no span and no version."""
         response = client().get("/api/v0/spiele", headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
 
-        assert response.headers["X-Correlation-ID"] == "c0ffee00" * 4
-        assert response.json()["correlation_id"] == "c0ffee00" * 4
-
-    def test_a_malformed_incoming_id_is_replaced_not_echoed(self):
-        response = client().get("/api/v0/spiele", headers={"X-Correlation-ID": "NOT/AN/ID", **BASE_AUTH})
-
-        echoed = response.headers["X-Correlation-ID"]
-        assert echoed != "NOT/AN/ID"
-        assert re.fullmatch(r"[a-f0-9]{32}", echoed)
+        assert response.json()["trace_id"] != "c0ffee00" * 4
 
 
 class TestAccessLine:
-    def test_every_request_writes_one_line_with_the_id_and_timing(self, caplog):
+    def test_every_request_writes_one_line_with_both_ids_and_timing(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get("/", headers={"X-Correlation-ID": "ab" * 16})
+            client().get("/", headers={"traceparent": TRACEPARENT})
 
         lines = [record for record in caplog.records if getattr(record, "method", None) is not None]
         assert len(lines) == 1
@@ -450,7 +464,10 @@ class TestAccessLine:
         assert line.path == "/"
         assert line.status == 200
         assert isinstance(line.duration_ms, float)
-        assert line.correlation_id == "ab" * 16
+        assert line.trace_id == "c0ffee00" * 4
+        # This hop's OWN span, never the one the header carried (L12).
+        assert line.span_id != "ab" * 8
+        assert re.fullmatch(r"[a-f0-9]{16}", line.span_id)
 
     def test_the_query_string_is_part_of_the_logged_path(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):

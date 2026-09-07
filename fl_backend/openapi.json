@@ -4031,7 +4031,7 @@
             }
           },
           {
-            "name": "correlation_id",
+            "name": "trace_id",
             "in": "query",
             "required": false,
             "schema": {
@@ -4043,7 +4043,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Correlation Id"
+              "title": "Trace Id"
             }
           },
           {
@@ -5035,9 +5035,9 @@
           "actor": {
             "$ref": "#/components/schemas/FLAktor"
           },
-          "correlation_id": {
+          "trace_id": {
             "type": "string",
-            "title": "Correlation Id"
+            "title": "Trace Id"
           },
           "request": {
             "anyOf": [
@@ -5122,7 +5122,7 @@
           "id",
           "at",
           "actor",
-          "correlation_id",
+          "trace_id",
           "request",
           "collection",
           "operation",
@@ -5148,9 +5148,9 @@
           "actor": {
             "$ref": "#/components/schemas/FLAktor"
           },
-          "correlation_id": {
+          "trace_id": {
             "type": "string",
-            "title": "Correlation Id"
+            "title": "Trace Id"
           },
           "request": {
             "anyOf": [
@@ -5254,7 +5254,7 @@
           "id",
           "at",
           "actor",
-          "correlation_id",
+          "trace_id",
           "request",
           "collection",
           "operation",

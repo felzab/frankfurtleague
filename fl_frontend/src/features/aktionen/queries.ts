@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLAktionenListResponseSchema } from "./schemas";
 
@@ -10,7 +10,7 @@ import type { FLAktionenListResponse } from "./schemas";
  * one document's history; an omitted key means the whole log.
  */
 export const getAktionen = async (filters: { document_id?: string } = {}): Promise<FLAktionenListResponse> => {
-  return runWithIncomingCorrelationId(() =>
+  return runWithIncomingTrace(() =>
     apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
       authType: "admin",
       params: filters,

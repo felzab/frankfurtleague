@@ -47,7 +47,11 @@ from cloudflared's own source at the release `docker-compose.yml` pins, 2026-09-
 bump moves it; nothing here observes it.
 
 All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
-`frankfurtleague-net` bridge network. **`cap_drop: ALL` and `no-new-privileges:true` are every
+`frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
+the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
+destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and a `logrotate` file the deploy cannot install
+bounds those copies to thirty days and the edge's access log — a host file rather than a container
+stream (§1.2) — to eight ([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
 service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
 deliberate. `nginx` declares `depends_on` both application services with
 `condition: service_healthy`, and `cloudflared` declares one on `nginx` with no condition to give,
@@ -78,16 +82,19 @@ where a version left behind breaks something; §3 carries what each failure look
 
 ### 1.2 Mounts
 
-| Host path                | Container path                   | Mode      |
-| ------------------------ | -------------------------------- | --------- |
-| `./nginx/prod.conf`      | `/etc/nginx/conf.d/default.conf` | read-only |
-| `./certs`                | `/etc/nginx/certs`               | read-only |
-| `./secrets/tunnel_token` | `/run/secrets/tunnel_token`      | read-only |
+| Host path                        | Container path                   | Mode       |
+| -------------------------------- | -------------------------------- | ---------- |
+| `./nginx/prod.conf`              | `/etc/nginx/conf.d/default.conf` | read-only  |
+| `./certs`                        | `/etc/nginx/certs`               | read-only  |
+| `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
+| `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`      | read-only  |
 
-Each must exist before `up`, and `deploy.sh` checks all three before anything is stopped or pulled.
-If a mounted config file is missing, Docker creates a **directory** at that path and nginx fails
-with `not a directory`; the token is a Compose secret rather than a bind mount, so a missing one
-fails the `up` itself. **`./secrets/` is `.gitignore`d**, which is what keeps the credential
+Each must exist before `up`. `deploy.sh` checks the two read-only ones before anything is stopped or
+pulled, and creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a
+directory it left to Docker would be root-owned, and the host's `logrotate` file names it. If a
+mounted config file is missing, Docker creates a **directory** at that path and nginx fails with
+`not a directory`; the token is a Compose secret rather than a bind mount, so a missing one fails
+the `up` itself. **`./secrets/` is `.gitignore`d**, which is what keeps the credential
 uncommittable from a checkout that has to hold it.
 
 ### 1.3 nginx routing
@@ -227,7 +234,7 @@ at the origin.
 
 **A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
 extending it** — the mechanism I2 records for `add_header`, and what decides which of the two
-edge-controlled headers, `X-Correlation-ID` and `X-FL-Actor`, reaches an upstream (L7 and L10,
+edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream (L7 and L10,
 [`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
 place in `api_trusted_hosts` (I13); `location /_next/static/` restates none of it, nothing under
@@ -909,7 +916,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The uptime monitor 404s while the backend container reports healthy               | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in both nginx configs, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                                          |
 | Sign-in returns 429                                                               | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
-| Application container logs are empty right after a deploy                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. Copy them off before deploying ([`docs/logging/spec.md`](../logging/spec.md))                                                                                                                               |
+| Application container logs are empty right after a deploy                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale for up to a day                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
 | League table or fixtures stale after a season edit                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
 | The `verify` check is red naming a job, its seconds and a budget                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run first, then take the cost out rather than raise the figure; a right raise stamps the row with its measuring runs (§1.6)                                                                                       |

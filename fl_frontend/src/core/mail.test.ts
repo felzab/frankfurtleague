@@ -200,7 +200,7 @@ describe("the mail transport", () => {
     assert.equal(logs[0]!.meta?.["error_code"], "FE-MAIL-001");
     assert.equal(logs[0]!.meta?.["status_code"], 422);
     assert.equal(logs[0]!.meta?.["provider_error_name"], "validation_error");
-    assert.match(String(logs[0]!.meta?.["correlation_id"]), /^[a-f0-9]{8,64}$/);
+    assert.match(String(logs[0]!.meta?.["trace_id"]), /^[a-f0-9]{32}$/);
   });
 
   /* `docs/logging/spec.md :: L9` names a field and never the value submitted for it, and the

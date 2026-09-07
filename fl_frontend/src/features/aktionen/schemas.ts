@@ -26,7 +26,7 @@ export const FLAktionSchema = z.object({
   // Not `CustomDateStringSchema`: an instant carrying an offset, where every other date in this app is a calendar day.
   at: z.string(),
   actor: FLAktorSchema,
-  correlation_id: z.string(),
+  trace_id: z.string(),
   // Null on a write made outside a request, which is what the system actor records.
   request: FLAktionRequestSchema.nullable(),
   // Open rather than an enum of the nine names: a collection added on the backend must still list here.

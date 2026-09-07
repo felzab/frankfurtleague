@@ -196,16 +196,26 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   nobody and deletes nothing writes nothing, so an armed sweep and an absent one read alike from
   outside; `docs/_roadmap/items.md :: 6mch-qx2c` is where that stands, and until it is answered a
   claim that a period was honoured rests on reading the data rather than on a report.
-- **Access logs stay on the host and are bounded by age as well as by size: eight days.** The
-  host's own nginx log carries the visitor's address, user agent and referer and survives a
-  deploy, so the only bound today is the container runtime's size rotation
-  (`docs/logging/spec.md :: Retention is Docker's`). A size bound is a period set by traffic volume
-  rather than chosen, so a quiet month keeps addresses far longer than a busy one. The bound is the
-  backup window an erased person is told about ([section 5](#5-erasure-reaches-everyone-who-asks)),
-  which lets one figure answer both the access-log question and the erasure question. Nothing is
-  shipped to a collector: that would lengthen retention and add a processor receiving visitors'
-  addresses. That the access line carries no credential is a separate guarantee, held by
-  `nginx/redaction_test.sh` in the gate's ops scope.
+- **Access logs stay on the host and are kept for at most eight days. The application logs are
+  bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
+  log is a file on the host rather than a stream inside the nginx container — it carries the
+  visitor's address, user agent and referer, and it survives a deploy — so `logrotate` deletes what
+  is older than eight days at its next daily run, and rotates early on a day the file outgrows its
+  size cap, which is what keeps the disk bounded whatever the traffic
+  ([`ops/runbooks.md`](ops/runbooks.md) §7), installed by hand in the same deployment that
+  publishes these figures. That is an age bound
+  rather than one traffic volume sets, which a size rotation is: under a size bound alone a quiet
+  month would keep addresses far longer than a busy one. The application logs keep the container
+  runtime's size rotation as their only live bound
+  (`docs/logging/spec.md :: Retention is Docker's`), because the only way to rotate a file the
+  runtime holds open loses lines; the deploy copies each stream off before replacing its container,
+  and those copies are what the thirty days reach (`scripts/ops/deploy.sh :: LOG_DIR`). The eight is
+  the backup window an erased person is told about
+  ([section 5](#5-erasure-reaches-everyone-who-asks)), which lets one figure answer both the
+  access-log question and the erasure question. Nothing is shipped to a collector: that would
+  lengthen retention and add a processor receiving visitors' addresses. That the access line carries
+  no credential is a separate guarantee, held by `nginx/redaction_test.sh` in the gate's ops scope.
+  Ruled 2026-09-06, re-ruled 2026-09-07.
 
 ## 7. Processors and third parties
 
@@ -264,7 +274,10 @@ Where an entry is still open, what is left to do is its own `Status` in
   and the four texts sent for review carry the wider wording the narrowing set aside. That review
   stands over the request and the breach procedures in [`ops/runbooks.md`](ops/runbooks.md), which
   answer a person on the strength of the rulings above.
-- **The access-log bound is not yet configured at Cloudflare's own edge.**
+- **The access-log bound is not yet configured at Cloudflare's own edge, and the host's
+  `logrotate` file is a hand step the deploy cannot verify.**
   [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
   (`docs/logging/spec.md :: Cloudflare logs the request line`) as well as the host's; Cloudflare's
-  retention is set in its dashboard rather than in this repository.
+  retention is set in its dashboard rather than in this repository, and the host's in a file
+  outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either period was honoured
+  rests on reading the host rather than on a report.

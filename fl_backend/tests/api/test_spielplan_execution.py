@@ -36,7 +36,7 @@ from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from app.core.logging import correlation_id_var
+from app.core.logging import trace_id_var
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -61,7 +61,7 @@ TODAY = "2026-08-21"
 
 # Bound as a request binds it, so "these rows are one action" is a real reading rather than the
 # system default answering for every row in the database.
-CORRELATION_ID = "0123456789abcdef0123456789abcdef"
+TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 GROUPS = 4
 TEAMS_PER_GROUP = 4
@@ -219,7 +219,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
-            correlation_id_var.set(CORRELATION_ID)
+            trace_id_var.set(TRACE_ID)
 
             await database[Collection.SAISONS].insert_one(seeded.saison)
             await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
@@ -782,7 +782,7 @@ class TestTheActionLogRecordsOneRowPerCollection:
             (str(Collection.SPIELE), "insert_many", drawn.response.spiele),
             (str(Collection.SAISONS), "patch_one", None),
         ]
-        assert {row["correlation_id"] for row in drawn.log} == {CORRELATION_ID}
+        assert {row["trace_id"] for row in drawn.log} == {TRACE_ID}
         assert drawn.log[-1]["document_id"] == SAISON_ID
         # The pre-image a restore would replay: the season as it stood before it held a Spielplan.
         assert "spielplan" not in drawn.log[-1]["before"]

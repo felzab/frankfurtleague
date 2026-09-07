@@ -39,7 +39,7 @@ async def get_aktionen(
         collection=aktionen_collection,
         db_filter=build_query(
             filters,
-            terms={"collection", "operation", "correlation_id"},
+            terms={"collection", "operation", "trace_id"},
             compiled=document_id_term(filters.document_id),
         ),
         limit=filters.limit + 1,

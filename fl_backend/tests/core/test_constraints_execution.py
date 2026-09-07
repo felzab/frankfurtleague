@@ -229,7 +229,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "at": "2026-03-15T09:30:00+00:00",
             "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=timezone.utc),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
-            "correlation_id": secrets.token_hex(16),
+            "trace_id": secrets.token_hex(16),
             "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
             # Any collection but its own: the log records every other one and never itself.
             "collection": "teams",
@@ -898,7 +898,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
 def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The log holds twelve months of recorded writes, so a read that cannot walk an index scans them all.
 
-    `correlation_id` is left out: it selects one write's fan-out, which the planner sorts in memory
+    `trace_id` is left out: it selects one write's fan-out, which the planner sorts in memory
     over a handful of rows.
     """
 
@@ -909,7 +909,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
                 | {
                     "_id": ObjectId(),
                     "at": f"2026-03-{(row % 28) + 1:02d}T09:30:00+00:00",
-                    "correlation_id": secrets.token_hex(16),
+                    "trace_id": secrets.token_hex(16),
                     "collection": "teams" if row % 2 else "spiele",
                     "operation": "patch_one" if row % 3 else "insert",
                 }

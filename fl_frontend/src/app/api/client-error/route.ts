@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { z } from "zod";
 
-import { CORRELATION_HEADER, isWellFormedCorrelationId } from "@/core/correlation";
 import { logger } from "@/core/logging";
+import { readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 import type { NextRequest } from "next/server";
 
@@ -37,13 +37,12 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 422 });
   }
 
-  // The ingest request's own id, not the crashed request's -- the browser cannot read that one.
-  const incoming = request.headers.get(CORRELATION_HEADER);
-  const correlationId = isWellFormedCorrelationId(incoming) ? incoming : undefined;
+  // The ingest request's own trace, not the crashed request's -- the browser cannot read that one.
+  const incoming = readTraceparent(request.headers.get(TRACEPARENT_HEADER));
 
   logger.error("Client-side crash reported", undefined, {
     error_code: "FE-CLIENT-001",
-    correlation_id: correlationId,
+    trace_id: incoming?.traceId,
     digest: report.data.digest,
     route: report.data.path,
     client_message: report.data.message,

@@ -28,7 +28,7 @@ from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
-from app.core.middlewares import CorrelationIdMiddleware
+from app.core.middlewares import TraceContextMiddleware
 
 # Reads in one group, writes in the other: `spielorte`, `schiedsrichter` and the ADMIN `bewerbungen`
 # router read under `verify_access_admin`, the rest under `verify_access_base`. Order carries nothing
@@ -88,7 +88,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
-    app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(TraceContextMiddleware)
 
     app.include_router(system_router)
     for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_WRITE_ROUTERS):

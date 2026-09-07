@@ -7,9 +7,9 @@
 # It serves `nginx/local.conf` ITSELF, never a copy — a copy proves the copy — and grades each case
 # on the access line nginx wrote rather than on anything this file models.
 #
-# Enforces `docs/logging/spec.md` invariant L11, whose subject is what the access line CONTAINS. Not
-# `docs/ops/spec.md` I13, which is about which locations the edge makes reachable — a different
-# question this file answers nothing about.
+# Enforces `docs/logging/spec.md` invariant L11, whose subject is what the access line CONTAINS, and
+# the edge's half of L12, the span every line carries. Not `docs/ops/spec.md` I13, which is about
+# which locations the edge makes reachable — a different question this file answers nothing about.
 #
 # local.conf rather than prod.conf because prod.conf terminates TLS and needs a certificate to serve
 # a request at all, while the three map blocks and the `log_format` are identical between the pair.
@@ -41,7 +41,9 @@ cleanup() {
 trap cleanup EXIT
 
 rm -rf "$SCRATCH"
-mkdir -p "$SCRATCH"
+# `log/` is what the edge's access_log path resolves to once mounted below, and it must exist
+# before the run: Docker would otherwise create it root-owned, which the cleanup cannot remove.
+mkdir -p "${SCRATCH}/log"
 
 # The stub answers as `frontend` and `backend` from inside the same nginx, so each case is graded
 # on a real 200 rather than on a 502 that never reached a location.
@@ -63,6 +65,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   -v "/${REPO_ROOT}/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
   nginx:1.31-alpine >/dev/null \
   || refuse "could not start the pinned nginx for the redaction test."
 
@@ -185,25 +188,36 @@ done
 CURL_RC=0
 curl "${REQUESTS[@]}" || CURL_RC=$?
 
-# The image symlinks the access log to stdout, so one read holds every case. `|| true` on the grep
-# alone: an empty stream is a finding below.
-LOGGED_LINES=()
-mapfile -t LOGGED_LINES < <(docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; })
+ACCESS_LOG="${SCRATCH}/log/access.log"
 
+# The bind mount carries a line to this host after curl already has the response, so one read races
+# the last case. Re-reading costs nothing once the file is complete.
+
+# Marked lines only: the warm-up loop's own requests are logged here too.
+LOGGED_LINES=()
 declare -A LINE_OF=()
 MARKED=0
-for logged_line in "${LOGGED_LINES[@]}"; do
-  _ua="${logged_line##*\"user_agent\":\"}"
-  _ua="${_ua%%\"*}"
-  case "$_ua" in "${MARKER}/"*) ;; *) continue ;; esac
-  LINE_OF["$_ua"]="$logged_line"
-  MARKED=$(( MARKED + 1 ))
+for _ in $(seq 1 50); do
+  LINE_OF=()
+  MARKED=0
+  # `|| true` on the grep alone: an empty file is a finding below rather than an error here.
+  mapfile -t LOGGED_LINES < <({ grep '^{' "$ACCESS_LOG" 2>/dev/null || true; })
+  for logged_line in "${LOGGED_LINES[@]}"; do
+    _ua="${logged_line##*\"user_agent\":\"}"
+    _ua="${_ua%%\"*}"
+    case "$_ua" in "${MARKER}/"*) ;; *) continue ;; esac
+    LINE_OF["$_ua"]="$logged_line"
+    MARKED=$(( MARKED + 1 ))
+  done
+  if (( MARKED >= ${#CASES[@]} )); then break; fi
+  sleep 0.2
 done
 
 # `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
 if (( MARKED != ${#CASES[@]} )); then
-  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases, curl having
-exited ${CURL_RC}, so the stream this grades on is not the table. No case above was judged."
+  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases into ${ACCESS_LOG},
+curl having exited ${CURL_RC}, so the stream this grades on is not the table. No case above was
+judged."
 fi
 
 FAILURES=0
@@ -240,6 +254,19 @@ for case_line in "${CASES[@]}"; do
       fi
       ;;
   esac
+
+  # Every line carries the edge's two ids in the envelope's shape, the span the trace's first
+  # sixteen hex (docs/logging/spec.md L12): a `map` capture that failed would leave `span_id`
+  # empty and pass every LEAK case above.
+  if [[ ! "$logged" =~ \"trace_id\":\"([0-9a-f]{32})\",\"span_id\":\"([0-9a-f]{16})\", ]]; then
+    fail "IDS ${subject}"
+    detail "expected trace_id (32 hex) and span_id (16 hex) on the access line, nginx wrote: ${logged}"
+    FAILURES=$(( FAILURES + 1 ))
+  elif [[ "${BASH_REMATCH[1]:0:16}" != "${BASH_REMATCH[2]}" ]]; then
+    fail "IDS ${subject}"
+    detail "expected span_id to be trace_id's first sixteen hex, nginx wrote: ${logged}"
+    FAILURES=$(( FAILURES + 1 ))
+  fi
 done
 
 if (( FAILURES > 0 )); then

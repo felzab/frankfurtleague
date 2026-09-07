@@ -138,7 +138,6 @@ deliverable.
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                                                       | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                                                        | BE, DB, tests, saisons                                                      | Standing |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                                                         | FE, Docs, tests                                                             | Open     |
-| `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                                                                  | FE, BE, Ops, Docs, edge, versions                                           | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | The style directive concedes more than the reason recorded for it needs                                                                                           | FE, Ops, Docs, edge                                                         | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
@@ -509,7 +508,7 @@ Three levers, each recorded with what stands in front of it:
    is aimed at the tail the trace shows, and latency-bound work overlaps rather than divides. No
    timing taken so far is trustworthy, the machine having been contended throughout, and a db-tier
    figure counts only as a pair of runs within a fifth of a second of each other on an idle machine
-   (`eg48-8863`). Two questions ride with it: what `auto` should be, sixteen workers sharing one
+   (the ops sheet's §1.6 rule). Two questions ride with it: what `auto` should be, sixteen workers sharing one
    `mongod` being a guess rather than a finding, and whether the shared server becomes the new tail
    once the workers stop waiting on their own. **`WriteConflict` at a wider width is plausible and
    unproven**, and it belongs inside the width question rather than beside it.
@@ -2630,74 +2629,6 @@ of its two files and stops.
 
 **Done when** each module's cases sit in the file named for it.
 
-### `qp88-3t35` · A cached read's backend call joins to no render, and telemetry has nowhere to go
-
-| Tags                              | Status | Depends on |
-| --------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, edge, versions | Open   | —          |
-
-**Implement the industry-standard shape of the correlation scope this repository runs a subset of**
-(my item, 2026-08-05). What runs today is **one id per request, propagated by an ordinary header,
-written into each service's JSON stream**. The recognised standard for the same job is **W3C Trace
-Context** — a `traceparent` header carrying a trace id, a span id and flags — usually implemented
-through **OpenTelemetry**, which records not just an id but a _span per operation_ with parent
-links, timings and attributes. Next.js documents `instrumentation.ts` as the hook for it and this
-repository already has `fl_frontend/src/instrumentation.ts`; FastAPI/Starlette and pymongo have
-maintained instrumentation packages. **Neither upstream claim has been re-verified here** (COR-9).
-
-**What the standard buys over what exists**, in descending order of what it is worth here:
-
-- **A cached read's backend call joins to the page render that triggered it.** This is the one the
-  hand-rolled scope provably cannot reach: `"use cache"` forbids request APIs, so no application
-  code can carry the request's id into a cache fill (`docs/logging/spec.md`, the cache-fill
-  boundary). OpenTelemetry propagates through the framework's own internals instead. It covers every
-  cached read; the uncached page-render reads already join.
-- **Timings become a tree rather than separate numbers.** Today nginx reports
-  `upstream_duration_s` and the backend reports `duration_ms`, and relating them is manual. A span
-  tree shows where a slow request actually spent its time, including inside Mongo.
-- **A vocabulary other tools already speak**, so a future collector, dashboard or alerting rule
-  needs no bespoke parser.
-
-**The question this entry exists to answer is not "which library" — it is where the telemetry
-goes.** This repository has _no aggregation of any kind_: reading production logs is `ssh` plus
-`docker compose logs`, and those logs are destroyed on every deploy because `scripts/ops/deploy.sh`
-recreates the containers (`docs/logging/spec.md`). **OpenTelemetry with no collector behind it is
-strictly worse than what exists** — a dependency on every surface, a heavier runtime, and the same
-lost-on-deploy stream at the end of it. So the ordering is:
-
-1. **Decide the destination first.** A self-hosted collector on the same box (Jaeger, Grafana
-   Tempo/Loki, SigNoz), a hosted backend, or nothing. Each carries a resource cost on a server whose
-   services are already capped by `docker-compose.yml`'s deploy limits, and a hosted one puts
-   request metadata for a public site into a third party. Whichever answer wins, it lands in
-   `docker-compose.yml` and in `scripts/`, which is where the stack is defined and deployed — so
-   this step is an ops change before it is a code one.
-2. **Only then instrument.** The libraries are the cheap half, and each of them is a new dependency:
-   the backend's in `fl_backend/pyproject.toml`, the frontend's in `fl_frontend/package.json`.
-
-**One cheaper thing that is a real improvement on its own**, and a legitimate answer of "not yet" to
-the whole programme: **ship the logs off the host before they are lost.** A rotating copy, or a log
-driver other than `json-file`. This is the gap that actually costs something today, and it is
-independent of tracing. Shipping to a collector is itself ruled against for the access log —
-`docs/datenschutz.md` §6 refuses one there, on the ground that it lengthens retention and adds a
-processor receiving visitors' addresses — so a destination for traces has to answer that same
-question rather than inherit an answer.
-
-**The avoidable half of the propagation gap is already closed**, which is what bounds this entry:
-`fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` seeds the scope
-for every dynamic caller, the uncached page-render reads included. What is left for OpenTelemetry is
-the half no application code can reach.
-
-**What it would reverse.** That the identifier is a single id on a custom header. The reversal is
-recorded where it will be read — a comment at the line it constrains, a `.claude/CLAUDE.md` §7 line
-or a `.claude/rules/` clause, or an invariant on `docs/logging/spec.md` — and the argument for it
-goes in the closing commit's body. What survives untouched is the stream contract, the error-code
-system and the edge's refusal of a client-supplied id — **a `traceparent` from an untrusted client
-carries exactly the same log-injection risk and must be validated or replaced the same way.**
-
-**Not measured:** the runtime cost of the instrumentation packages on this application, and whether
-a collector fits on the current host beside the capped services. Each is input to step 1 and neither
-should be guessed.
-
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
 | Tags                        | Status | Depends on |
@@ -3569,7 +3500,7 @@ has been taken on such a machine.
 
 **What the readings agree on is the direction the share moves in.** Measured 2026-09-02 on a shared
 machine, each set an ordering and never a number to quote — the scripts pair were taken interleaved,
-and the database row is a single reading per width that does not meet `eg48-8863`'s rule for a
+and the database row is a single reading per width that does not meet the ops sheet's §1.6 rule for a
 database-tier figure — the database tier is flat between 4 and 6 workers and worse either side of
 that pair, and the scripts suite is worse at 4 than at 8 by a third of its own duration. So a machine
 at 8 cores is handed 4 and 3: one width on the wrong side of the readings, and the other below every
@@ -3587,7 +3518,7 @@ consumer's own measured minimum.**
 floor in place of 1, and what a consumer does when the budget cannot reach even that is decided
 rather than defaulted — take the minimum anyway and let the two sections overlap into it, or leave
 the pool and run in sequence at a width that works. The per-width readings the choice rests on have
-to be re-taken on an idle machine under `eg48-8863`'s rule. **A fixture over `gate_width` at several
+to be re-taken on an idle machine under the ops sheet's §1.6 rule. **A fixture over `gate_width` at several
 budgets is the only thing that can show the change works**, the machine it is written on never
 reaching the division.
 
