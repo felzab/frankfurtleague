@@ -181,10 +181,10 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **An undecided application one of whose contact persons has not confirmed is deleted once its
   confirmation window has run out, those three people's contact details included, and the erasure is
   announced to the Ansprechperson first where that slot still holds one**
-  (`docs/backend/spec.md :: I151`). The window is fourteen days from the day the links were minted,
-  which a re-send restarts
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`), so the period
-  runs from the last mint rather than from the submission. This is the period the published notice
+  (`docs/backend/spec.md :: I151`). The window is fourteen days from the day the links were sent
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`); an
+  administrator's re-send replaces a link and restarts it, while the reminder adds a link and moves
+  nothing, so the period runs from the last replacement rather than from the submission. This is the period the published notice
   shows a visitor (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this
   section: every figure in it is a hand-checked mirror of the clocks recorded here.
 - **A declined application is kept for one month after the decision, its three people's contact
