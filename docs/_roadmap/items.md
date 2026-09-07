@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                                                              | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2pqm-yxyu` | The origin trusts every source inside Cloudflare's published ranges, so the visitor's name is whatever the request says it is                                     | Ops, Docs, edge                                                             | Open     |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                                                         | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                                                           | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                                                            | FE                                                                          | Open     |
@@ -102,7 +101,6 @@ deliverable.
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
-| `cu59-4gqt` | Nothing announces that a season rollover is due                                                                                                                   | Ops, Docs, ci                                                               | Standing |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, and nothing reads either half of the claim                                                                            | Ops, Docs, gate, edge                                                       | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                                                | FE, Ops, gate, admin                                                        | Open     |
@@ -180,61 +178,6 @@ deliverable.
 | `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                                                           | Ops, gate, tests                                                            | Open     |
 
 ## The items
-
-### `2pqm-yxyu` · The origin trusts every source inside Cloudflare's published ranges, so the visitor's name is whatever the request says it is
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, edge | Open   | —          |
-
-**`nginx/prod.conf` lists Cloudflare's published address ranges as `set_real_ip_from`, which is every
-Cloudflare customer's egress rather than this account's**, and `nginx/prod.conf :: real_ip_header` then names
-the visitor from a header any of them can send. That address becomes `$remote_addr`, which every
-`limit_req_zone` in the file keys on — through `nginx/prod.conf :: map $remote_addr $client_net` and its wider
-twin `nginx/prod.conf :: map $remote_addr $client_net48` — and which the `client` field of
-`nginx/prod.conf :: log_format` records, so a forged value per request is a fresh bucket per request: the rate
-limits count nothing and the access line names whoever the sender chose. **The wide key caps nothing here**,
-which is worth saying because it looks as though it should: `$client_net48` bounds a walk across a real
-allocation, and an invented address lands in a fresh bucket in both keys at once.
-
-**Ruled: Authenticated Origin Pulls is the cheapest real fix, and a tunnel is the strongest**
-(`docs/datenschutz.md` §10, 2026-09-02). The three below are ranked rather than open, so what is
-owed is the account and host access rather than the choice.
-
-**Done when the origin stops trusting a range list to name the visitor, and none of the three
-remedies is a change to this repository.** Authenticated Origin Pulls is the smallest — an
-`ssl_client_certificate` and `ssl_verify_client` pair here, plus a certificate and a per-hostname
-account setting — and the ports stay open, so it is worth only what `ssl_verify_client` enforces. A
-Cloudflare Tunnel is the strongest and the largest: the origin stops listening publicly, at the cost
-of a container, a credential, and the published ports leaving `docker-compose.yml`. A host firewall
-admitting only Cloudflare's ranges touches this repository not at all and makes the range list
-load-bearing twice. Each needs account or host access.
-
-**`real_ip_recursive on` would not improve matters and is not the fallback.** With the whole range
-trusted, the leftward walk steps past any trusted address into entries the client wrote, so a genuine
-visitor whose own address falls inside those ranges would have the walk continue into what the client
-sent. `nginx/prod.conf :: real_ip_recursive off` has no such failure mode.
-
-**A second party may be able to name the visitor too, and it turns on one untested fact.** Exercised
-2026-08-30 with one value pair and the header name as the only variable, a client's header arriving
-ahead of the proxy's **wins** under `CF-Connecting-IP` and loses under `X-Forwarded-For` — so if
-Cloudflare appends its header rather than replacing it, the party naming the visitor is any visitor
-at all. That is untestable from here: one request through the real edge decides it, and the absence
-of any report of such a flaw is a strong prior that the header is replaced, never a proof.
-
-**What is inferred rather than measured** is that an arbitrary third party can reach the published
-ports from inside those ranges, read off how the platform works. The consequence was measured; the
-availability of the source was not.
-
-**The access line cannot catch it, which is not obvious from reading the line.**
-`nginx/prod.conf :: log_format` records `client` and `x_forwarded_for` while the address is taken
-from the header `real_ip_header` selects, and that header reaches no log field — so the value that
-set the key is absent from the line it produced, and the `x_forwarded_for` beside it is a header this
-edge does not read. Nothing else stands in front of the origin: `docker-compose.yml` publishes 80 and
-443 on the nginx service, and no Authenticated Origin Pulls, Cloudflare Tunnel or host firewall is
-named in [`docs/ops/spec.md`](../ops/spec.md), [`docs/ops/overview.md`](../ops/overview.md),
-[`docs/ops/runbooks.md`](../ops/runbooks.md), `docker-compose.yml` or `scripts/ops/deploy.sh`,
-searched 2026-08-30.
 
 ### `2qae-xcut` · A rule declared multi-document reads only the row its own endpoint writes
 
@@ -1046,46 +989,6 @@ against it.
 shown at, and a check refuses one that does — extending the roster's existing sums rather than
 adding a second reader of the same markup, with the bound recorded where a session adding a column
 meets it (`docs/frontend/spec.md`).
-
-### `cu59-4gqt` · Nothing announces that a season rollover is due
-
-| Tags          | Status   | Depends on |
-| ------------- | -------- | ---------- |
-| Ops, Docs, ci | Standing | —          |
-
-**Deferred until a rollover is actually missed** — my ruling, 2026-08-12, re-confirmed 2026-09-02
-(`docs/datenschutz.md` §10). That miss is the trigger that turns it into work.
-
-**Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
-season, the team and player editors carry the junction rows, the Spielplan panel on
-`/admin/saisons/[saison_id]` draws the matchdays and fixtures, each matchday's own editor dates it,
-and the Umstellung panel on that same season page activates it. Each clears its own caches as it
-saves. What no surface does is notice that the sequence has not started, or that it stopped
-half-way: nothing prompts for a step that is skipped.
-
-**The failure is silent in a specific way.** An omitted step leaves the site serving last season as
-though it were this one, and every read of it is a correct read of stale data.
-
-**A reminder is a scheduled job, not a surface** — nothing renders it, nobody navigates to it, and
-it has to run when no admin is present. This repository runs **no application-level scheduler**:
-there is no queue, no worker, each image's `CMD` starts its one server and nothing else, and nothing
-`scripts/ops/deploy.sh` starts is a scheduler either. What runs on a clock here is
-`.github/workflows/codeql.yml`, which carries a weekly `schedule: cron` and analyses source — so the
-mechanism exists in CI and reaches nothing inside the running application. That, rather than the
-message, is the actual scope.
-
-**What has to be settled when it is worked:**
-
-- **What triggers it.** A season's `end_date` is the obvious clock and is the wrong one on its own —
-  a season is over when its fixtures are played, and an early rollover is legitimate. The honest
-  trigger is probably a date approaching with the next season absent.
-- **What runs it.** A container with a cron, a scheduled GitHub Actions workflow hitting a guarded
-  endpoint, or the host's own crontab. The workflow needs no new runtime and is already proven here
-  by `codeql.yml`, which neither the container nor the host crontab is; the container needs no
-  public surface. The trade is where the credential lives.
-- **What it says.** The value is the checklist, not the alarm: a reminder naming which steps are
-  already done is a different message from one saying a date passed, and only the first is worth
-  reading twice.
 
 ### `cvub-qx5s` · `NOTICE` asserts the source copyright of a natural person while an association publishes the site
 

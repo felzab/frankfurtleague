@@ -74,6 +74,12 @@
 # pooled with the scope's other three units, so the job pays that span only where the pool cannot
 # start all four at once, and either way it sits inside the floor the `backend` row carries.
 #
+# `ops` gained a check: `check_csp_identity.py` costs 101-114 ms over two runs of seven rounds
+# interleaved with `check_compose_mirror.py`, each returning exit 0, measured locally on 2026-09-07
+# on a sixteen-core machine carrying a fleet of agent sessions and an editor, so both ends read
+# that contention as much as the check. The span is the whole process, which is what the ops step
+# pays. It sits inside the floor the `ops` row carries.
+#
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
 # reader answers for and the prose corpus by the notice file, with the fork-pool read behind the

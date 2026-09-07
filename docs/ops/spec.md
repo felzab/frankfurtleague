@@ -2,18 +2,19 @@
 
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
-| Section                                                | Answers                                                              |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| [1.1 Service inventory](#11-service-inventory)         | What runs in production, with which limits and health checks         |
-| [1.2 Mounts](#12-mounts)                               | Which host paths must exist before `up`                              |
-| [1.3 nginx routing](#13-nginx-routing)                 | Which upstream serves which path                                     |
-| [1.4 Security headers](#14-security-headers)           | What is set, and why `'unsafe-inline'` survives                      |
-| [1.5 The scripts](#15-the-scripts)                     | Which script to reach for, and which environment it belongs to       |
-| [1.6 The verification gate](#16-the-verification-gate) | Which scopes exist, what each runs, and what each needs              |
-| [1.7 Script conventions](#17-script-conventions)       | What every script shares, and what every line of output goes through |
-| [2. Invariants](#2-invariants)                         | The rules that must hold                                             |
-| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                        |
-| [4. Known-open](#4-known-open)                         | The accepted gaps                                                    |
+| Section                                                       | Answers                                                              |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [1.1 Service inventory](#11-service-inventory)                | What runs in production, with which limits and health checks         |
+| [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                              |
+| [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                     |
+| [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                      |
+| [1.5 The scripts](#15-the-scripts)                            | Which script to reach for, and which environment it belongs to       |
+| [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and what each needs              |
+| [1.7 Script conventions](#17-script-conventions)              | What every script shares, and what every line of output goes through |
+| [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it         |
+| [2. Invariants](#2-invariants)                                | The rules that must hold                                             |
+| [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                        |
+| [4. Known-open](#4-known-open)                                | The accepted gaps                                                    |
 
 The recurring procedures — the constraints checker, an admin revocation, a flooded queue — are in
 [`runbooks.md`](runbooks.md). This page covers the contracts and constraints those procedures depend
@@ -25,17 +26,32 @@ on, and the scripts that carry them.
 
 ### 1.1 Service inventory
 
-| Service    | Image                                            | Ports published | Resource limits                   | Health check                         |
-| ---------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
-| `frontend` | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
-| `backend`  | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
-| `nginx`    | `nginx:1.31-alpine`                              | **80, 443**     | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
+| Service       | Image                                            | Ports published | Resource limits                   | Health check                         |
+| ------------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
+| `frontend`    | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
+| `backend`     | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
+| `nginx`       | `nginx:1.31-alpine`                              | none            | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
+| `cloudflared` | `cloudflare/cloudflared:2026.8.3`                | none            | none                              | none                                 |
 
-All three: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
-`frankfurtleague-net` bridge network. **`cap_drop: ALL` and `no-new-privileges:true` are the two
-application services' only** — `nginx` declares neither, which is recorded in §4 rather than
-assumed to be deliberate. `nginx` declares `depends_on` both services with
-`condition: service_healthy`.
+**Production publishes no port at all** (I1): `cloudflared` dials out to Cloudflare and carries every
+request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
+internet, and the connector holds a static address on that network because `nginx/prod.conf` trusts
+it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
+variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
+settings are dashboard state (§1.8).
+
+**A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
+sends a reader to: the connector resolves its origin on every new connection and holds no address
+between them, and only the sockets it had pooled to the container that went fail, once each. Read
+from cloudflared's own source at the release `docker-compose.yml` pins, 2026-09-07, and a version
+bump moves it; nothing here observes it.
+
+All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
+`frankfurtleague-net` bridge network. **`cap_drop: ALL` and `no-new-privileges:true` are every
+service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
+deliberate. `nginx` declares `depends_on` both application services with
+`condition: service_healthy`, and `cloudflared` declares one on `nginx` with no condition to give,
+`nginx` carrying no health check to wait on.
 
 **The frontend container is also what runs the retention sweep.**
 `fl_frontend/src/instrumentation.ts :: register` arms
@@ -62,14 +78,17 @@ where a version left behind breaks something; §3 carries what each failure look
 
 ### 1.2 Mounts
 
-| Host path           | Container path                   | Mode      |
-| ------------------- | -------------------------------- | --------- |
-| `./nginx/prod.conf` | `/etc/nginx/conf.d/default.conf` | read-only |
-| `./certs`           | `/etc/nginx/certs`               | read-only |
+| Host path                | Container path                   | Mode      |
+| ------------------------ | -------------------------------- | --------- |
+| `./nginx/prod.conf`      | `/etc/nginx/conf.d/default.conf` | read-only |
+| `./certs`                | `/etc/nginx/certs`               | read-only |
+| `./secrets/tunnel_token` | `/run/secrets/tunnel_token`      | read-only |
 
-Both are files or directories that must exist before `up`. If a mounted config file is missing, Docker
-creates a **directory** at that path and nginx fails with `not a directory` — `deploy.sh` checks for
-this before starting.
+Each must exist before `up`, and `deploy.sh` checks all three before anything is stopped or pulled.
+If a mounted config file is missing, Docker creates a **directory** at that path and nginx fails
+with `not a directory`; the token is a Compose secret rather than a bind mount, so a missing one
+fails the `up` itself. **`./secrets/` is `.gitignore`d**, which is what keeps the credential
+uncommittable from a checkout that has to hold it.
 
 ### 1.3 nginx routing
 
@@ -104,16 +123,15 @@ the request line as written, so `/api/v0//system/is_live` is answered by FastAPI
 URI this block matches decodes either to the probe or to nothing — but the error body fingerprints
 the framework the origin runs.
 
-**`$remote_addr` is the visitor rather than the Cloudflare edge**, and every zone keys on what that
-rewrite produced (`nginx/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
-records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The range list is maintained by
-hand and goes stale**, and the trust it grants reaches every Cloudflare customer rather than this
-account alone (§4). **A fallback inside the trusted ranges is marked rather than silent**: the
-access line carries `realip_fallback`, `1` where the rewrite did not take (each case measured
-2026-08-31 against a running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a
-second hand-kept copy of the ranges per file, held to the first by nothing (§4, db2a-9qu3), and
-reaches only that route: an address from a range published after the fetch falls back **outside**
-both copies, so keeping the list current stays the only answer there.
+**`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
+that rewrite produced (`nginx/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
+records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The trusted set is one address,
+the connector's** — nothing else reaches this origin (§1.1, I1) — which is what Cloudflare's
+published ranges could never be, being every customer's egress rather than this account's. **A
+fallback to the connector's own address is marked rather than silent**: the access line carries
+`realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
+running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
+address per file, held to the first by nothing (§4, db2a-9qu3).
 
 **Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
 `limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
@@ -178,6 +196,15 @@ observed 2026-08-01 as a public `525`. **A Cloudflare proxy sits in front of ngi
 [overview](overview.md)), so an origin-side failure can surface as a Cloudflare status code that
 names neither nginx nor the block responsible.
 
+**No rule at that proxy may answer a page or a server action with an interactive challenge** (I177).
+A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
+interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
+lands on the error boundary before any application code runs. Every page and every server action
+arrives through `location /`, and a server action posts to its own page's path, which is what puts
+the sign-in action behind `= /signin` as well. **A rate limit is the edge control that fits**,
+because a status code is an answer the caller can read; `limit_req` on these paths is that control
+at the origin.
+
 **A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
 extending it** — the mechanism I2 records for `add_header`, and what decides which of the two
 edge-controlled headers, `X-Correlation-ID` and `X-FL-Actor`, reaches an upstream (L7 and L10,
@@ -204,10 +231,18 @@ prerendered HTML, which this application prerenders (`cacheComponents` in
 [`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records.
 
 `style-src` carries it for a narrower reason: several components set a runtime-computed inline
-`style` **attribute**, for which CSP offers no nonce or hash. The prerendered HTML carries no
-inline `<style>` block, so the policy could still be narrowed to `style-src 'self'` with
-`style-src-attr 'unsafe-inline'` — an nginx change rather than a documentation one, and
-`docs/_roadmap/items.md :: qw6j-scru` owns it.
+`style` **attribute**, for which CSP offers no nonce or hash. Narrowing to `style-src 'self'` with
+`style-src-attr 'unsafe-inline'` would cover those and stop admitting an injected `<style>`
+element, and what it costs is Next's own `_global-error` fallback, the one prerendered page here
+carrying an inline `<style>` — a directive on attributes does not reach an element, so that page
+would render unstyled. Every route this application declares carries none.
+`docs/_roadmap/items.md :: qw6j-scru` owns the decision.
+
+**The policy is written six times, and the one pairing nothing holds is the pair across the two
+files.** Each of the two nginx files declares it at server level, in the liveness location and in
+`location /_next/static/`, because `add_header` in a location replaces the inherited set (I2);
+`scripts/checks/check_csp_identity.py` holds each file's three to each other and fails any further
+block that sets a header without restating the policy, while the across-file pair is §4's open item.
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
@@ -476,7 +511,7 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                  | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                          | pnpm install                                                                                                                                 |
 | `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                            | pnpm install                                                                                                                                 |
-| `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`, and its access line carries no credential                                                                                        | Docker, and an interpreter at the checkers' floor for the mirror                                                                             |
+| `--ops`      | both compose files parse; the local stack mirrors production; each nginx policy agrees with itself; nginx accepts `prod.conf`; its access line carries no credential                                                      | Docker, and an interpreter at the checkers' floor for the two python checks                                                                  |
 | `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, against the two real `mongod`s the xdist controller starts (`docs/backend/spec.md` §1.6)                              | venv + Docker                                                                                                                                |
 | `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                    | Docker                                                                                                                                       |
 
@@ -758,12 +793,32 @@ answer with a JSON verdict, so a heading, a fold marker or a colour code in eith
 rather than a nicer log. `scope_map.sh` is accordingly the one script with no `--verbose`, and puts
 its human-readable line on stderr, where it cannot reach the outputs.
 
+### 1.8 The edge's declared state
+
+Every setting below is made in the Cloudflare dashboard or the mail provider's, and no gate check,
+deploy step or test here can read one: a change made there is invisible until something breaks (§4).
+[`overview.md`](overview.md#the-cloudflare-proxy) carries the performance settings that are
+deliberately off, and what terminating TLS at Cloudflare costs the origin.
+
+- **A remotely managed tunnel is the only route to the origin**, its public hostnames
+  `frankfurtleague.de` and `www.frankfurtleague.de`. Each routes to nginx over
+  `frankfurtleague-net` with TLS kept, its `Origin Server Name` set to the name the mounted
+  certificate carries (§1.2) and `No TLS Verify` off, so the header set and the certificates in
+  `nginx/prod.conf` are what a visitor's request still meets. **The dashboard is where its token is
+  issued**, and the server holds the issued value at `./secrets/tunnel_token` (§1.2).
+- **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
+  allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
+  person is a visitor; a crawler filling a training set is not, and the distinction is the whole
+  reason the three are set apart rather than by one toggle.
+- **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
+  dashboard holds.
+
 ## 2. Invariants
 
 | #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                                                     |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1   | Only nginx publishes a port another host can reach — the local database's is bound to `127.0.0.1`                                                                             | `scripts/checks/check_compose_mirror.py :: off_host_ports`, over both files                                                                                                                                                     |
-| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `nginx/prod.conf :: location /_next/static/` and `:: location = /api/v0/system/is_live`, each restating the set its own `add_header` replaced; both observed carrying the full set, 2026-08-30                                  |
+| I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_mirror.py :: off_host_ports` over both files, and its `:: DECLARED_DELTAS` row pinning production's `services.nginx.ports` absent                                                                 |
+| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `scripts/checks/check_csp_identity.py :: dropped` for the policy, over every block that sets a header and does not redirect; the other four observed carrying, 2026-08-30                                                       |
 | I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                                                       |
 | I4   | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                                                      |
 | I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                                             |
@@ -779,12 +834,13 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                   |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                 |
 | I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                              |
-| I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                              |
+| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                              |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                              |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                  |
 | I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                             |
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/checks/check_compose_mirror.py :: uncovered`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for a difference no row pins                                         |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name |
+| I177 | A Cloudflare rule on `nginx/prod.conf :: location /` or `:: location = /signin` may rate-limit but never issue an interactive challenge (§1.3)                                | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                              |
 
 ## 3. Violation → remedy
 
@@ -792,7 +848,9 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `not a directory` from nginx                                                      | A mounted config file was missing, so Docker created a directory                                                                                | `git pull`, remove the stray directory                                                                                                                                                                               |
 | `Invalid environment variables: <NAMES>` then no traffic                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
-| Deploy reports healthy but the site is unreachable                                | nginx                                                                                                                                           | prod: `docker compose logs nginx`                                                                                                                                                                                    |
+| Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx`, then `docker compose logs cloudflared`                                                                                                                                            |
+| No tunnel registers, or the connector restarts in a loop                          | The token file is missing or is not this tunnel's, or the pinned release rejects the run arguments                                              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means the value or the arguments (§1.2)                                                                   |
+| The tunnel is up and Cloudflare answers 502 or 1033                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |
 | `failed to connect to the docker API at npipe:...`                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
 | Deploy stops in preflight naming the Docker Engine version                        | The host's engine is below what the compose files' `start_interval` needs                                                                       | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)                                                                                                           |
 | `./scripts/ops/deploy.sh --status` exits 1 naming two different builds            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
@@ -819,20 +877,20 @@ its human-readable line on stderr, where it cannot reach the outputs.
 
 ## 4. Known-open
 
-| Item                                                                | State                                                                                                                                                                                              |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The API version is spelled in tracked files outside the code        | Open — the backend healthcheck in each compose file, the liveness location in each nginx config, and `scripts/ops/deploy.sh :: PROBE_URL`; §3 carries each symptom                                 |
-| The frontend's `API_VERSION` is deployed rather than committed      | Open — `fl_frontend/src/core/config.ts :: frontend_config` reads a per-environment value no commit carries, so a stale one sends every fetch to `location /` (I13)                                 |
-| A rollback moves nothing in the registry                            | Accepted — `scripts/ops/deploy.sh :: roll_back` re-tags this host's local `:latest` and reaches no registry, so a re-deploy pulls the failed build back ([`runbooks.md`](runbooks.md) §1)          |
-| Registry tag pruning is manual                                      | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
-| Revoking admin access needs a restart                               | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                                                                                     |
-| `nginx` drops no capabilities                                       | Open — the two application services carry `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                 |
-| Certificate renewal is outside this repository                      | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
-| The local database runs unauthenticated                             | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
-| The local database holds real contact records                       | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume and the `.local-db/` copy                                                            |
-| No gate scope COMPARES `nginx/local.conf` against production's      | Open — its header claims production's routing and headers, and nothing compares the pair. The parse half is closed: `nginx/redaction_test.sh` serves `local.conf` itself (§1.6)                    |
-| A guard the database tier stays green without                       | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
-| The linter behind §1.4's compensating control is past end of life   | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
-| A call site's key tier is held to its route by nothing              | Open — omitting `fl_frontend/src/core/api.ts :: apiClient`'s tier is loud, but over-declaring one succeeds identically, and `fl_backend/openapi.json` flattens every tier to one scheme            |
-| Real-IP recovery can fall back on a range published after the fetch | Open — that route falls back OUTSIDE both hand-kept copies, so `realip_fallback` does not mark it and shared keying returns silently (§1.3)                                                        |
-| The origin trusts every source inside Cloudflare's ranges           | Open — `nginx/prod.conf :: set_real_ip_from` trusts every Cloudflare customer's egress, so any of them sets §1.3's rate-limit key, and nothing stands in front (2pqm-yxyu)                         |
+| Item                                                              | State                                                                                                                                                                                              |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The API version is spelled in tracked files outside the code      | Open — the backend healthcheck in each compose file, the liveness location in each nginx config, and `scripts/ops/deploy.sh :: PROBE_URL`; §3 carries each symptom                                 |
+| The frontend's `API_VERSION` is deployed rather than committed    | Open — `fl_frontend/src/core/config.ts :: frontend_config` reads a per-environment value no commit carries, so a stale one sends every fetch to `location /` (I13)                                 |
+| A rollback moves nothing in the registry                          | Accepted — `scripts/ops/deploy.sh :: roll_back` re-tags this host's local `:latest` and reaches no registry, so a re-deploy pulls the failed build back ([`runbooks.md`](runbooks.md) §1)          |
+| Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
+| Revoking admin access needs a restart                             | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                                                                                     |
+| Nothing announces that a season rollover is due                   | Accepted — nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                    |
+| `nginx` drops no capabilities                                     | Open — the two application services carry `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                 |
+| Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
+| The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
+| The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume and the `.local-db/` copy                                                            |
+| No gate scope COMPARES `nginx/local.conf` against production's    | Open — its header claims production's routing and headers, and nothing compares the pair. The parse half is closed: `nginx/redaction_test.sh` serves `local.conf` itself (§1.6)                    |
+| A guard the database tier stays green without                     | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
+| The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
+| A call site's key tier is held to its route by nothing            | Open — omitting `fl_frontend/src/core/api.ts :: apiClient`'s tier is loud, but over-declaring one succeeds identically, and `fl_backend/openapi.json` flattens every tier to one scheme            |
+| The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |

@@ -244,16 +244,17 @@ owed:
 
 ## 10. Adjacent decisions were accepted as recommended
 
-Roadmap items that needed no expert, each accepted on 2026-09-02 as its entry recommends. What is
-still to do is that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items.md).
+Roadmap items that needed no expert, each accepted on 2026-09-02 as its entry recommends. Where the
+entry is still open, what is left to do is its own `Status` in
+[`_roadmap/items.md`](_roadmap/items.md).
 
-| Entry       | Decision                                                                                                                                             |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                            |
-| `kyc4-75k5` | The player editor shows the stored consent, read-only; it never gates publication                                                                    |
-| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here |
-| `cu59-4gqt` | Stays deferred until a rollover is actually missed                                                                                                   |
-| `2pqm-yxyu` | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest                                                                      |
+| Entry       | Decision                                                                                                                                                                |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                               |
+| `kyc4-75k5` | The player editor shows the stored consent, read-only; it never gates publication                                                                                       |
+| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                    |
+| `cu59-4gqt` | Stays deferred until a rollover is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                          |
+| `2pqm-yxyu` | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)) |
 
 ## 11. Open, and owed a decision
 

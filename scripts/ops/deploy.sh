@@ -350,6 +350,7 @@ step "Files and directories the stack mounts, before anything is stopped or pull
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
 require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
+require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 

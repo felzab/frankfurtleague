@@ -14,6 +14,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows     |
 | [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered |
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish     |
+| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                  | The one deploy that has steps of its own, and its rollback    |
 
 ---
 
@@ -25,8 +26,8 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf` and `./certs/` must all exist beside the
-  compose file — preflight checks each before anything is pulled.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf`, `./secrets/tunnel_token` and `./certs/`
+  must all exist beside the compose file — preflight checks each before anything is pulled.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -372,3 +373,33 @@ the two records above; report inside the 72 hours with what is established and w
 may be completed later, and a late one may not; and tell the people affected wherever the risk to
 them is high. Write down what you established and when you established it: the authority asks, and
 the container logs will not be there to reconstruct it from.
+
+## 8. Putting the tunnel in front of the origin
+
+**The deploy that first runs `cloudflared` is the only one with steps of its own**, and every one of
+them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later deploy has none.
+
+1. **Issue the tunnel's token in the dashboard and put the value on the server** at
+   `./secrets/tunnel_token`, beside the compose file and readable by root alone. `.gitignore` covers
+   `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
+   the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
+2. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
+   host was created before any subnet was declared, and `up` reuses an existing network rather than
+   re-declaring it, so the connector's static address would be refused at container-create time —
+   after nginx had already given up its published ports. `down` removes the network with the
+   containers, and the next `up` creates it carrying the declared subnet. The old network is left
+   behind only where something outside this compose file still holds it.
+3. **Deploy, add the two public hostnames in the dashboard, then read
+   `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
+   route, because DNS still names an origin that now publishes nothing.
+4. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
+   probe both run after the health check and both fail into that dark window, while
+   `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`
+   naming `/api/v0/system/is_live` there is the window being observed rather than a reason to
+   intervene.
+
+**This one deploy's rollback is `git revert` of the change and a redeploy, not `deploy.sh`'s own.**
+That path restores IMAGES, and what would be wrong here is the topology: only the reverted commit
+puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
+applies them. Step 2 leaves preflight no running pair to record besides, so there would be nothing
+for it to restore in any case (§1).

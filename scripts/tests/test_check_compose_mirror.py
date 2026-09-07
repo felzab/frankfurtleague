@@ -6,7 +6,9 @@ holds `docs/ops/spec.md :: I1` for a service the mirror waves through.
 
 It drives the comparison too: `diff` finding the disagreements, `declaring` deciding which are
 allowed, and `uncovered` failing a declared delta that covers nothing. Those run against documents
-the test writes, so they pin the mechanism rather than either compose file's current wording.
+the test writes, so they pin the mechanism rather than either compose file's current wording. The
+reader is driven the same way over the sequence-of-mappings shape, which `networks.<name>.ipam.config`
+is the one place either file writes.
 
 Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
 as a script everywhere else, which is what seeds that directory onto the path for it.
@@ -14,8 +16,10 @@ as a script everywhere else, which is what seeds that directory onto the path fo
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +85,55 @@ def test_a_ports_value_this_reader_cannot_judge_fails_rather_than_passing():
 
     assert [finding.severity for finding in findings] == ["fail"]
     assert "cannot judge" in findings[0].detail
+
+
+def parsed(text: str) -> Any:
+    """One compose document as the reader sees it, with no file to put it in."""
+    source = "under-test.yml"
+    tokens = mirror.tokenize(textwrap.dedent(text).strip("\n"), source)
+    node, index = mirror.parse_block(tokens, 0, {}, source)
+
+    assert index == len(tokens)
+    return node
+
+
+def test_a_sequence_of_mappings_parses_as_a_list_of_mappings():
+    """The `ipam.config` shape. A reader that cannot place it refuses the whole comparison."""
+    document = parsed("""
+        networks:
+          frankfurtleague-net:
+            ipam:
+              config:
+                - subnet: 172.30.0.0/24
+        """)
+
+    assert document == {"networks": {"frankfurtleague-net": {"ipam": {"config": [{"subnet": "172.30.0.0/24"}]}}}}
+
+
+def test_a_mapping_entry_keeps_the_keys_written_under_its_dash():
+    """The dash's own width is what puts a second key at its mapping's indent, so a lost one is silent.
+
+    Two entries, because the resumption after the first is where the walk can land inside it.
+    """
+    document = parsed("""
+        config:
+          - subnet: 172.30.0.0/24
+            gateway: 172.30.0.1
+          - subnet: 172.31.0.0/24
+        """)
+
+    assert document == {"config": [{"subnet": "172.30.0.0/24", "gateway": "172.30.0.1"}, {"subnet": "172.31.0.0/24"}]}
+
+
+def test_a_sequence_entry_naming_an_anchor_refuses():
+    """An alias resolves to a node in no listing the reader keeps, so it is not a scalar it may take."""
+    # `suppress` and a raise, not `pytest.raises`, for `scripts/tests/conftest.py`'s pytest invariant.
+    with contextlib.suppress(mirror.ComposeSyntax):
+        parsed("""
+            logging:
+              - *default-logging
+            """)
+        raise AssertionError("an alias parsed as a scalar")
 
 
 def test_the_module_under_test_is_this_repository_own():

@@ -66,7 +66,15 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.frontend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
     Delta("services.backend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
     Delta("volumes", ABSENT, ANY, "the local database's storage; production keeps none on the host"),
-    Delta("services.nginx.ports", ["80:80", "443:443"], ["3000:80"], "the local stack publishes one port on 3000"),
+    Delta("services.nginx.ports", ABSENT, ["3000:80"], "production publishes nothing; the local stack serves the edge on 3000"),
+    Delta("services.cloudflared", ANY, ABSENT, "the tunnel is production's only route in; the local stack is reached on this host"),
+    Delta(
+        "networks.frankfurtleague-net.ipam",
+        ANY,
+        ABSENT,
+        "production declares the subnet `nginx/prod.conf :: set_real_ip_from` trusts by address",
+    ),
+    Delta("secrets", ANY, ABSENT, "the connector's token file; the local stack runs no connector to hold a credential for"),
     Delta(
         "services.nginx.volumes",
         ["./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro", "./certs:/etc/nginx/certs:ro"],
@@ -228,18 +236,33 @@ def parse_block(tokens: list[Token], index: int, anchors: dict[str, Any], source
             raise ComposeSyntax(f"{source}:{tokens[index + 1].line}: a second node beside a flow sequence")
         return scalar(token.text), index + 1
     if token.text == "-" or token.text.startswith("- "):
-        return parse_sequence(tokens, index, token.indent, source)
+        return parse_sequence(tokens, index, token.indent, anchors, source)
     return parse_mapping(tokens, index, token.indent, anchors, source)
 
 
-def parse_sequence(tokens: list[Token], index: int, indent: int, source: str) -> tuple[list[Any], int]:
-    """A block sequence of scalars -- the only sequence shape either compose file writes."""
+# What a `- ` costs a nested mapping's keys: the entry's own first key sits at the column after the
+# dash, and every later key of that mapping lines up with it.
+DASH_WIDTH: Final = 2
+
+
+def parse_sequence(tokens: list[Token], index: int, indent: int, anchors: dict[str, Any], source: str) -> tuple[list[Any], int]:
+    """A block sequence of scalars, or of mappings -- the two shapes either compose file writes."""
     items: list[Any] = []
     while index < len(tokens) and tokens[index].indent == indent and tokens[index].text.startswith("- "):
         token = tokens[index]
-        entry = token.text[2:].strip()
-        if not entry or KEY_RE.match(entry) or entry[0] in "&*":
+        entry = token.text[DASH_WIDTH:].strip()
+        if not entry or entry[0] in "&*":
             raise ComposeSyntax(f"{source}:{token.line}: a sequence entry that is not a plain scalar")
+        if KEY_RE.match(entry) is not None:
+            # `networks.<name>.ipam.config` is the one place either file writes this shape. The
+            # entry is re-indented rather than the token list mutated, so a caller's tokens still
+            # read as the file wrote them.
+            inner = indent + DASH_WIDTH
+            nested = [Token(inner, entry, token.line), *tokens[index + 1 :]]
+            mapping, consumed = parse_mapping(nested, 0, inner, anchors, source)
+            items.append(mapping)
+            index += consumed
+            continue
         items.append(scalar(entry))
         index += 1
         if index < len(tokens) and tokens[index].indent > indent:

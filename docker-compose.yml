@@ -1,13 +1,13 @@
 # OPS · production stack
 #
-# Three containers on one host: nginx in front, the Next.js frontend and the FastAPI backend behind
-# it. Pulls published images and never builds -- `deploy.sh` enforces that, because a server that
-# builds is a server that can fail a build with the site down.
+# One host behind a Cloudflare tunnel: the connector and nginx in front, the Next.js frontend and
+# the FastAPI backend behind them. Pulls published images and never builds -- `deploy.sh` enforces
+# that, because a server that builds is a server that can fail a build with the site down.
 #
 # Invariants:
-# - ONLY nginx publishes ports. The application containers are reachable solely from inside
-#   `frankfurtleague-net`, so anything nginx does not route simply does not exist for the internet.
-#   A `ports:` entry on frontend or backend removes that silently (`docs/ops/spec.md :: I1`).
+# - The host publishes NOTHING. Every service is reachable only from inside `frankfurtleague-net`,
+#   the connector included, so anything nginx does not route does not exist for the internet. A
+#   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
 # - Keep this file and docker-compose.local.yml in step. A difference here is a difference the
 #   local stack will not have caught.
@@ -105,9 +105,6 @@ services:
     # this and docker-compose.local.yml together.
     image: nginx:1.31-alpine
     restart: unless-stopped
-    ports:
-      - "80:80" # HTTP, redirected to HTTPS by the server block
-      - "443:443" # HTTPS
     # Read-only, and both must exist before `up`. If a mounted file is missing, Docker creates a
     # DIRECTORY at that path and nginx fails with "not a directory" -- `deploy.sh` checks for this
     # before starting rather than letting it surface as a mystery.
@@ -133,8 +130,54 @@ services:
         reservations:
           memory: "128M"
 
+  # The connector, and the whole of why this host publishes no port: it dials out to Cloudflare and
+  # carries every request back over the network below, so nothing reaches the origin any other way.
+
+  # No resource limit, unlike the three above: this process forwards bytes for every request on the
+  # site, and a CPU cap nobody has measured throttles the whole of it rather than capping a leak.
+  cloudflared:
+    # Pinned, against the vendor's own `:latest --pull always` example, for the nginx service's
+    # reason above: the component holding the site's one route in would otherwise drift per host,
+    # silently.
+    image: cloudflare/cloudflared:2026.8.3
+    restart: unless-stopped
+    # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
+    # own binary is the unpinned tag again, arrived at from inside the container.
+    command: tunnel --no-autoupdate run --token-file /run/secrets/tunnel_token
+    # `--token-file` rather than `--token` or `TUNNEL_TOKEN`: an argument sits in every process
+    # listing and an environment in `docker inspect`, and a mounted file sits in neither.
+    secrets:
+      - tunnel_token
+    networks:
+      frankfurtleague-net:
+        # High in the subnet so the daemon's own sequential assignment never reaches it first: a
+        # static address already handed to another container fails the whole `up`.
+        ipv4_address: 172.30.0.250
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # No `condition:` to give: nginx declares no healthcheck, so `service_started` is all there is.
+    # It is enough, because nginx itself waits on both upstreams being healthy before it starts.
+    depends_on:
+      - nginx
+
+# The connector's credential as a file the host provides, never a value in this document.
+# `.gitignore` already keeps `secrets/` uncommittable, and `deploy.sh`'s preflight refuses the
+# deploy by name where the file is missing.
+secrets:
+  tunnel_token:
+    file: ./secrets/tunnel_token
+
 # A single user-defined bridge. Containers resolve each other by service name -- `http://backend:8000`
 # and `http://frontend:3000` in nginx/prod.conf are these names, not hosts.
 networks:
   frankfurtleague-net:
     driver: bridge
+    # Declared rather than left to the daemon: `nginx/prod.conf :: set_real_ip_from` trusts the
+    # connector by address, and a bridge subnet the daemon picks differs per host, silently
+    # returning every request to the fail-open path.
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

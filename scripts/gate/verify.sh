@@ -1074,6 +1074,20 @@ the service and the key, and the declared deltas are the checker's own list." \
     ok "every delta between the two files is a declared one"
   fi
 
+  # `nginx -t` below reads no location it parses, so nothing else notices one location's copy of the
+  # policy drifting from the server block's. Same interpreter guard as the step above.
+  step "ops · each nginx file's Content-Security-Policy says one thing"
+  if [[ -z "$OPS_PY" ]]; then
+    skip "no python found, so the policy's copies were not compared"
+  elif (( OPS_FLOOR == 3 )); then
+    skip "this python is below the checkers' floor, so the policy's copies were not compared"
+  else
+    run_checker stop "scripts/checks/check_csp_identity.py" "A Content-Security-Policy copy has drifted. Each finding above names
+the site and the site it disagrees with, both inside one file." \
+      "$OPS_PY" scripts/checks/check_csp_identity.py
+    ok "every declaration in a file matches that file's first"
+  fi
+
   step "ops · nginx accepts prod.conf"
   # `nginx -t` loads the certificates and resolves every proxy_pass host, hence the throwaway pair
   # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a

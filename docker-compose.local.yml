@@ -7,8 +7,9 @@
 # Invariants:
 # - Mirrors docker-compose.yml except where the difference is deliberate: it BUILDS rather than
 #   pulls, overrides API_URL, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI, runs its own
-#   mongo and waits on it, keeps that mongo's data in a named volume, serves the edge on 3000:80
-#   rather than 80:80 and 443:443, mounts nginx/local.conf and no ./certs, and sets no resource
+#   mongo and waits on it, keeps that mongo's data in a named volume, publishes the edge on 3000:80
+#   where production publishes nothing, runs no tunnel connector and so declares neither its ipam
+#   subnet nor its token secret, mounts nginx/local.conf and no ./certs, and sets no resource
 #   limits. A difference beyond those is a difference production will not have caught. This list
 #   and `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS` change together.
 

@@ -2,9 +2,9 @@
 
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
-Three containers behind nginx on one host, deployed by pulling published images. There is no
-orchestrator, no CI runner and no build on the server — deliberately, because a server that builds is
-a server that can fail a build.
+Four containers on one host, reached through a tunnel connector rather than a published port and
+deployed by pulling published images. There is no orchestrator, no CI runner and no build on the
+server — deliberately, because a server that builds is a server that can fail a build.
 
 ## How it is organised
 
@@ -14,7 +14,8 @@ graph TB
     cf["Cloudflare<br/>proxy — terminates public TLS"]
 
     subgraph net["Docker network: frankfurtleague-net"]
-        nginx["nginx<br/>:80 :443 — the only published ports"]
+        connector["cloudflared<br/>dials out; the host publishes nothing"]
+        nginx["nginx<br/>:443 inside the network only"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
         be["backend :8000<br/>FastAPI"]
     end
@@ -22,7 +23,8 @@ graph TB
     mongo[("MongoDB<br/>managed cluster, off this host")]
 
     internet --> cf
-    cf --> nginx
+    cf --> connector
+    connector --> nginx
     nginx -->|"/api/v0/system/is_live"| be
     nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/admin/ · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
@@ -33,8 +35,9 @@ graph TB
 **The diagram is production's** — the local stack adds its own database service to the same network
 and points both application services at it ([`spec.md`](spec.md) §1.5).
 
-**Only nginx publishes a port another host can reach** ([`spec.md`](spec.md) I1), so nginx's routing
-table is the whole of what the internet can address on this host.
+**The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
+routing table is the whole of what the internet can address on this host, and there is no address to
+reach it at otherwise.
 
 **The two arrows into the cluster are two different database users**, neither holding a
 `*AnyDatabase` role: the backend on the application database alone, Auth.js on `authjs` alone — read
