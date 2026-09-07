@@ -91,6 +91,32 @@ route judges the `Closes:` trailer, which needs a diff: a bare
 besides, but only once the commit exists -- so run it in the turn the commit lands, while
 `git commit --amend` still reaches the tip. Past that a reword is a rebase.
 
+**Mechanise this whole sequence before the first commit lands, and pin the session's constants at
+the top of the script.** A wave costs its longest agent and this costs a sum, so it decides the
+session's wall clock while appearing in no wave row, and paying it by hand once per commit is where
+a schedule read-back's arithmetic quietly goes wrong. One call per commit, on the scratch path
+rather than in the repository, which owes a tracked script its scope, its documentation and its
+audit. What that script owes:
+
+- **It stops at the first red step with nothing committed**, so a failure leaves the tree as it
+  found it and the run is repeated rather than unpicked.
+- **It refuses to run against an index that is not empty** unless told the hunks were staged
+  deliberately: in a shared tree an inherited index sweeps another agent's work into your commit.
+- **It stages from a diff captured at the start of the run, never with `git add`.** In a tree the
+  fleet is still writing, `git add <path>` stages whatever the file holds at that instant rather
+  than the content you judged.
+- **It judges the staged content and never the working tree.** A corpus check run over a tree the
+  fleet is writing reddens on somebody else's file and says nothing about your commit, so the check
+  reads a snapshot of what was staged.
+- **It re-implements, as a pre-check, whatever only runs after the commit exists** -- the trailer
+  check above being the case that costs an amend, and a rebase once the push has happened.
+- **Confirm which hooks your commit route actually runs, and call explicitly whatever it skips.** A
+  route that writes the commit object directly runs neither `.githooks/pre-commit` nor `commit-msg`,
+  and neither says anything about not having run.
+- **The session's own constants -- the branch ref, the fork point, the repository root, the scratch
+  path -- sit at the top**, so the next session resets a handful of lines instead of writing the
+  script again.
+
 ## The cycle, per slice -- decided here, before any finding exists
 
 | Slice | Rounds | Critical -- is a wrong result SILENT? Reason |
@@ -144,7 +170,9 @@ mentioned the failure under "what I could not verify".>
 The name is the one it was dispatched under: its scratch subdirectory is named for it and its brief
 calls it `<your agent name>`. **The address a resume or a follow-up is sent to is the id the Agent
 tool returned, never the name** -- the owner's standing instructions record a send by name failing.
-Record both at dispatch; a resume has nothing to aim at otherwise.
+Record both at dispatch; a resume has nothing to aim at otherwise, and where this harness has no
+send tool at all (`resume-prompt.md`) the banked verdict is the whole of what a follow-up brief can
+be built from.
 
 Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
@@ -166,6 +194,11 @@ Cycle is one of: implement, audit, fix, re-audit, fix, done.
 One row per block of remaining work rather than per agent, and the third column is what stops a
 guess hardening into a plan on its second reading. What the read-back is for, and what it looks
 for, is `SKILL.md` §4.
+
+**My own serial work is a row here, and it is the row a wave estimate cannot contain.** A wave's
+figure is its longest agent's and mine is a sum over every commit, report and routing decision, and
+one session's assembly outran the waves it had been estimated against for exactly that reason. Give
+it a row, mark it estimated, and mechanise it rather than try to shorten it by hand.
 
 ## The ending -- enumerated before the last wave goes out
 
