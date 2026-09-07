@@ -4322,6 +4322,50 @@
         }
       }
     },
+    "/api/v0/kontakte/erasure/ansicht": {
+      "post": {
+        "summary": "Show whom an erasure would reach",
+        "description": "Answer who stands in every seat `POST /kontakte/erasure` would clear for this address, by name and season.\n\nStores nothing, and takes that write's own payload: a confirmation cannot then be shown for one address and performed for another.",
+        "operationId": "get_kontakt_erasure_ansicht_api_v0_kontakte_erasure_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLKontaktErasurePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontaktErasureAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v0/kontakte/erasure": {
       "post": {
         "summary": "Erase a Kontaktperson's records",
@@ -4393,7 +4437,7 @@
     "/api/v0/bewerbungen/fenster/{saison_id}": {
       "get": {
         "summary": "One Saison's application window",
-        "description": "Return one season's application window; 404 when the season has none, or does not exist.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id.",
+        "description": "Return one season's application window, or that it records none; 404 only where no season carries the id.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id. A season with no window recorded is served for the same\nreason, and its existence is the whole of what this tier learns about it.",
         "operationId": "get_fenster_api_v0_bewerbungen_fenster__saison_id__get",
         "security": [
           {
@@ -4417,7 +4461,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungKeinFensterResponse"
+                    }
+                  ],
+                  "title": "Response Get Fenster Api V0 Bewerbungen Fenster  Saison Id  Get"
                 }
               }
             }
@@ -6183,7 +6235,7 @@
           "laeuft"
         ],
         "title": "FLBewerbungFensterResponse",
-        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds whole --\nso the window gets its own shape rather than widening a season read."
+        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so\nthe window gets its own shape rather than widening a season read."
       },
       "FLBewerbungKader": {
         "properties": {
@@ -6226,6 +6278,34 @@
           "gute_spieler"
         ],
         "title": "FLBewerbungKaderPayload"
+      },
+      "FLBewerbungKeinFensterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "fenster": {
+            "type": "null",
+            "title": "Fenster"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "fenster"
+        ],
+        "title": "FLBewerbungKeinFensterResponse",
+        "description": "A season that records no application window: its id, and nothing else about it.\n\n`docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps."
       },
       "FLBewerbungKontaktePayload": {
         "properties": {
@@ -7594,6 +7674,40 @@
         ],
         "title": "FLKontaktEinwilligungPayload"
       },
+      "FLKontaktErasureAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSitz"
+            },
+            "type": "array",
+            "title": "Saison Teams"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSitz"
+            },
+            "type": "array",
+            "title": "Bewerbungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_teams",
+          "bewerbungen"
+        ],
+        "title": "FLKontaktErasureAnsichtResponse",
+        "description": "Whom `POST /kontakte/erasure` would reach, and nothing it would destroy.\n\nThe two lists are the two collections the write clears, kept apart because an application is a\nrequest to join and a junction row is a season already played."
+      },
       "FLKontaktErasurePayload": {
         "properties": {
           "email": {
@@ -7652,6 +7766,40 @@
         ],
         "title": "FLKontaktErasureResponse",
         "description": "What the erasure reached, and NOT an echo of the person.\n\n`app/api/spieler/schemas.py :: FLSpielerErasureResponse`'s reason, binding harder here: the\nrequest named an address, so echoing anything of theirs returns a copy of what was destroyed."
+      },
+      "FLKontaktSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontaktSitz",
+        "description": "One seat the address holds.\n\nPer seat and not per person: colleagues share a school inbox, and one row seats one person twice\nwhere `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases."
       },
       "FLKontaktperson": {
         "properties": {
@@ -8336,13 +8484,26 @@
               }
             ],
             "title": "Nachname"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname",
-          "nachname"
+          "nachname",
+          "geburtsdatum"
         ],
         "title": "FLPatchSpielerPayload",
         "description": "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value."
@@ -8905,12 +9066,25 @@
               }
             ],
             "title": "Nachname"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "vorname"
+          "vorname",
+          "geburtsdatum"
         ],
         "title": "FLPostSpielerPayload",
         "description": "The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."
@@ -11358,6 +11532,18 @@
               }
             ],
             "title": "Inactive Since"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           },
           "einwilligung": {
             "anyOf": [

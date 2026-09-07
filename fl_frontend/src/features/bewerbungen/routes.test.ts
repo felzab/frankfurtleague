@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
+
+import type { Metadata } from "next";
+import type { FLBewerbungFensterResponse } from "./schemas";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 const ROUTE_DIR = path.join(SRC_DIR, "app", "admin", "bewerbungen");
@@ -134,5 +139,97 @@ describe("how the triage renders what the applicant typed", () => {
      here too because `.claude/rules/cross-surface.md` forbids disabling that rule, so a suppression comment is the way past it. */
   it("hands the panel no raw markup at all", () => {
     assert.doesNotMatch(PANEL, /dangerouslySetInnerHTML/, "the triage panel writes raw markup, which stored applicant text can reach");
+  });
+});
+
+/** Where the doubled window read takes its answer from, one case at a time. */
+const ANTWORT = "__flBewerbungFensterAntwort";
+
+/* The page's own three reads. A case sets what the window read answers; the two beside it are read
+   inside the boundary alone, which no case here renders. */
+const BEWERBUNGEN_QUERIES_DOUBLE = `export const getBewerbungFenster = async () => globalThis.${ANTWORT};
+export const getBewerbungSchulen = async () => ({ schulen: [] });
+export const getBewerbungTrikotfarben = async () => ({ vergeben: [] });`;
+
+const SAISONS_QUERIES_DOUBLE = `export const getSaisons = async () => ({ saisons: [] });
+export const getAdminSaisons = async () => ({ saisons: [] });`;
+
+const RENDERS_NOTHING = `export const BewerbungView = () => null;
+export const ContentLoader = () => null;`;
+
+/** Stands in for `next/server`, whose `connection()` is request-only and this process makes no request. */
+const CONNECTION_DOUBLE = `export const connection = async () => undefined;`;
+
+/* Everything under the page is doubled -- its reads, its view, its loader and the season list the
+   segment resolver imports -- so a case decides what the window answer does to the metadata. */
+const DOUBLED: [string, string][] = [
+  ["/src/features/bewerbungen/queries.ts", BEWERBUNGEN_QUERIES_DOUBLE],
+  ["/src/features/saisons/queries.ts", SAISONS_QUERIES_DOUBLE],
+  ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
+  ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
+];
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    // Node resolves the package's subpaths only with their extension; Next's own bundler needs none.
+    if (specifier === "next/server" || specifier === "next/navigation") return nextResolve(`${specifier}.js`, context);
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (url.endsWith("/next/server.js")) return { format: "module", source: CONNECTION_DOUBLE, shortCircuit: true };
+
+    const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
+    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+    if (!url.endsWith(".tsx")) return nextLoad(url, context);
+
+    // The runner strips types and compiles no JSX, and the page's own body is JSX.
+    const compiled = ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
+      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
+    }).outputText;
+
+    return { format: "module", shortCircuit: true, source: compiled };
+  },
+});
+
+/* Loaded rather than read: what a crawler is told is the object `generateMetadata` returns, and no
+   assertion over the page's source text can show that. */
+const { generateMetadata } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
+
+/** One season's metadata, with the window read answering `antwort`. */
+async function metadataFor(antwort: { fenster: FLBewerbungFensterResponse | null } | null): Promise<Metadata> {
+  (globalThis as unknown as Record<string, unknown>)[ANTWORT] = antwort;
+
+  return generateMetadata({ params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
+}
+
+const ABGELAUFEN: FLBewerbungFensterResponse = {
+  acknowledged: 1,
+  saison_id: "2026",
+  offen: true,
+  von: "2026-03-01",
+  bis: "2026-04-30",
+  laeuft: false,
+};
+
+describe("what the public application page tells a crawler about its season", () => {
+  /* The whole of what a mistyped year gets: `notFound()` from the metadata, which is the earliest the
+     answer is known. Raised in the body instead, the page it 404s has already rendered its sentence. */
+  it("answers not-found where no season carries the id", async () => {
+    await assert.rejects(
+      () => metadataFor(null),
+      (error: Error & { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
+    );
+  });
+
+  /* A season nobody has recorded a deadline for renders one sentence and no form. Indexed, that
+     sentence is what a school searching for this league finds long after the window opened. */
+  it("asks not to be indexed where the season records no deadline", async () => {
+    assert.deepEqual((await metadataFor({ fenster: null })).robots, { index: false });
+  });
+
+  /* The control, and the boundary of the directive: a deadline that has passed is a real answer for
+     the season it names, so the page stays a page a crawler may keep. */
+  it("leaves a season whose deadline has passed indexable", async () => {
+    assert.equal((await metadataFor({ fenster: ABGELAUFEN })).robots, undefined);
   });
 });

@@ -224,6 +224,18 @@ export const FLBewerbungFensterResponseSchema = BaseAPIResponseSchema.extend({
 export type FLBewerbungFensterResponse = z.infer<typeof FLBewerbungFensterResponseSchema>;
 
 /**
+ * Mirrors `FLBewerbungKeinFensterResponse` — the id of a season that records no application window,
+ * and the answer that it records none. `docs/backend/spec.md :: I188` narrows to that one bit here.
+ */
+export const FLBewerbungKeinFensterResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  // The key the window member has not got, so the union parts on a field rather than on which
+  // member a parser tries first.
+  fenster: z.null(),
+});
+export type FLBewerbungKeinFensterResponse = z.infer<typeof FLBewerbungKeinFensterResponseSchema>;
+
+/**
  * Mirrors `FLBewerbungSchuleOption` — one club as the public form offers it, and nothing more.
  * Declared from nothing rather than picked off `FLTeamSchema`: an anonymous visitor reads this
  * (`READ-BEWERBUNG-001`).

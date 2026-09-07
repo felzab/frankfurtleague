@@ -150,7 +150,6 @@ deliverable.
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
-| `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                   | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                        | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                   | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
 
@@ -3111,35 +3110,6 @@ The decision is to enable ruff's `UP` rules and migrate in one pass, which is wh
 `fl_backend/pyproject.toml`'s ruff selection leaves that family out.
 [`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
 carries the typing check that owns the migration.
-
-### `zeer-rnu5` · An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline
-
-| Tags                      | Status | Depends on |
-| ------------------------- | ------ | ---------- |
-| FE, BE, Docs, bewerbungen | Open   | —          |
-
-**`fl_backend/app/api/bewerbungen/public_router.py :: get_fenster` answers 404 both for a season that has no application
-window and for a season that does not exist**, and its own docstring says so. The page therefore
-cannot tell the two apart:
-`fl_frontend/src/features/bewerbungen/queries.ts :: getBewerbungFenster` turns both into `null`, and
-`BewerbungView` renders "Für diese Saison gibt es keine Bewerbung" for both. A mistyped year gets a
-200 and a sentence implying the season is real.
-
-**Why it matters.** It is a soft 404: a search engine indexes the page as live content, and a visitor
-who mistyped is told the league has no deadline for a season rather than that the season does not
-exist.
-
-**Two traps, and they are why this is not a small fix.** The frontend cannot resolve the season
-itself — `docs/backend/spec.md :: I47` withholds a `future` season from the base tier, and a season
-taking applications IS `future`, so a "does this season exist" check against `getSaisons()` would
-404 exactly the page that must work. And `notFound()` cannot set the status here even for a
-malformed id: `docs/frontend/spec.md :: I22` puts the page's `params` await inside its `<Suspense>`
-boundary, so the shell has already flushed with a 200 by the time the call runs. Verified against the
-local stack: `/bewerbung/zzz`, `/bewerbung/9999` and `/bewerbung/99999999` all answer 200, including
-to a crawler user agent.
-
-**Done when** an id naming no season answers 404, which most likely means the backend route separating
-"no such season" from "no window" and the frontend refusing before the boundary.
 
 ### `zp46-yt3p` · The certainty walk gives up in a group of six or more
 

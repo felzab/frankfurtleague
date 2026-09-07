@@ -1021,6 +1021,11 @@ The consequences worth knowing before editing metadata:
 - **`metadataBase`, the crawl policy and the sitemap keep `fl_frontend/src/core/brand.ts :: SITE_URL`
   and never read an origin from the environment** — one a misconfigured deploy can put in front of a
   crawler — which is why a message's links follow a setting of their own (I186).
+- **`/bewerbung/[saison_id]` is the one route raising `notFound()` from its metadata**, its season
+  being what a visitor types: the read answering whether that season exists runs there rather than
+  inside the boundary the page body's own read sits in. A season that exists and records no
+  application window is served `robots: { index: false }` instead, that page carrying one sentence
+  rather than content.
 
 ### 1.14 The shared editor surface
 

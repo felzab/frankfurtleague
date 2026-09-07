@@ -538,8 +538,8 @@ FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 class FLBewerbungFensterResponse(BaseAPIResponse):
     """One season's application window, and NOTHING else about that season.
 
-    A season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds whole --
-    so the window gets its own shape rather than widening a season read.
+    A season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so
+    the window gets its own shape rather than widening a season read.
     """
 
     saison_id: str
@@ -549,6 +549,19 @@ class FLBewerbungFensterResponse(BaseAPIResponse):
     # The whole judgement, computed server-side: `offen` AND today inside the span. Served rather
     # than left to the client, which would re-derive it against a clock this server does not share.
     laeuft: bool
+
+
+class FLBewerbungKeinFensterResponse(BaseAPIResponse):
+    """A season that records no application window: its id, and nothing else about it.
+
+    `docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts
+    this answer from the 404 a mistyped id keeps.
+    """
+
+    saison_id: str
+    # Always null, and carried all the same: it is the key `FLBewerbungFensterResponse` has not got,
+    # so one endpoint's two bodies part on a field rather than on which one a parser tries first.
+    fenster: None
 
 
 class FLBewerbungSchulenResponse(BaseAPIResponse):

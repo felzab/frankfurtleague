@@ -245,7 +245,7 @@ pytestmark = pytest.mark.db
 
 
 class TestTheWindowReads:
-    """The one thing this tier learns about a `future` season, which `docs/backend/spec.md :: I47` otherwise withholds whole."""
+    """What this tier learns about a `future` season `docs/backend/spec.md :: I47` otherwise withholds: the window, and that it is there."""
 
     def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
         """Two near-misses sort ahead of the answer, so a query dropping either term picks one of them instead."""
@@ -289,15 +289,23 @@ class TestTheWindowReads:
         assert response.json()["offen"] is True
         assert response.json()["von"] == "2025-03-01"
 
-    @pytest.mark.parametrize(
-        "path",
-        [
-            pytest.param(f"{PREFIX}/fenster/{WINDOWLESS_SAISON}", id="a season carrying no window"),
-            pytest.param(f"{PREFIX}/fenster/1999", id="a season no document names"),
-        ],
-    )
-    def test_a_season_with_no_window_is_a_404(self, seeded_url: str, path: str):
-        assert answered(seeded_url, path).status_code == 404
+    def test_a_season_recording_no_window_is_told_from_one_no_document_names(self, seeded_url: str):
+        """Both halves in one case: either assertion alone passes on an endpoint that gives the two ids one answer."""
+
+        recorded_none = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
+
+        assert answered(seeded_url, f"{PREFIX}/fenster/1999").status_code == 404
+        assert recorded_none.status_code == 200
+        assert recorded_none.json()["fenster"] is None
+
+    def test_the_body_for_a_season_recording_no_window_carries_its_id_and_no_other_field(self, seeded_url: str):
+        """Existence is the whole of the narrowing, so the allow-list is asserted as an exact membership and the undecoded body searched."""
+
+        response = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
+
+        assert set(response.json()) == {"acknowledged", "saison_id", "fenster"}
+        for withheld in ("future", f"{WINDOWLESS_SAISON}-01-01", "tordifferenz"):
+            assert withheld not in response.text
 
     def test_the_window_body_carries_no_other_field_of_the_season(self, seeded_url: str):
         """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
@@ -405,10 +413,12 @@ INCOMPLETE_WINDOWS = [
     pytest.param({"offen": True, "von": "2026-03-01"}, id="a window missing its closing date"),
 ]
 
-# Both reads take their window through `app/api/bewerbungen/public_router.py :: _pull_window`.
+# Both reads take their window through `app/api/bewerbungen/public_router.py :: _pull_window` and
+# part on what it finds nothing: the window read answers the season's existence, the colour read the
+# 404 an unknown id gets.
 WINDOW_READS = [
-    pytest.param(f"{PREFIX}/fenster/{OPEN_SAISON}", id="the window read"),
-    pytest.param(f"{PREFIX}/trikotfarben/{OPEN_SAISON}", id="the colour read"),
+    pytest.param(f"{PREFIX}/fenster/{OPEN_SAISON}", 200, id="the window read"),
+    pytest.param(f"{PREFIX}/trikotfarben/{OPEN_SAISON}", 404, id="the colour read"),
 ]
 
 
@@ -419,16 +429,16 @@ class TestAStoredWindowThatIsNotAnObject:
     there; the colour read has `window_is_running`'s own shape check behind it and 404s either way.
     """
 
-    @pytest.mark.parametrize("path", WINDOW_READS)
+    @pytest.mark.parametrize(("path", "status"), WINDOW_READS)
     @pytest.mark.parametrize("bewerbung", MALFORMED_WINDOWS)
-    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
-        """Non-vacuous: the season EXISTS, so a 404 here is the stored shape being refused rather than the id."""
+    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str, status: int):
+        """Non-vacuous on both reads: the season EXISTS, so neither answer here is the one its id would have drawn."""
 
         # UNCONSTRAINED: `_SAISON_BEWERBUNG` is what refuses these windows, so the rows this case is
         # about are rows only a database predating the validator can hold.
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
-        assert answered(mongo_url, path, database_name=database).status_code == 404
+        assert answered(mongo_url, path, database_name=database).status_code == status
 
 
 class TestAStoredWindowShortOfAFieldTheReadNeeds:
@@ -437,15 +447,15 @@ class TestAStoredWindowShortOfAFieldTheReadNeeds:
     A shape-only guard 500s in `_fenster`'s subscript; the colour read 404s either way, as above.
     """
 
-    @pytest.mark.parametrize("path", WINDOW_READS)
+    @pytest.mark.parametrize(("path", "status"), WINDOW_READS)
     @pytest.mark.parametrize("bewerbung", INCOMPLETE_WINDOWS)
-    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
-        """Non-vacuous: the season exists and its window IS an object, so the 404 is the missing key rather than the id or the shape."""
+    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str, status: int):
+        """Non-vacuous: the season exists and its window IS an object, so the answer is the missing key rather than the id or the shape."""
 
         # UNCONSTRAINED for the class above's reason: `_SAISON_BEWERBUNG` requires every key.
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
-        assert answered(mongo_url, path, database_name=database).status_code == 404
+        assert answered(mongo_url, path, database_name=database).status_code == status
 
 
 class TestTheOpenWindowReadIsGivenAWindowItCannotRead:

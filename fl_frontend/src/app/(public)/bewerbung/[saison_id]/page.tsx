@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
@@ -16,11 +17,22 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
+  // The not-found answer is decided here rather than in the body, whose read sits inside a boundary
+  // the response has already begun streaming past: the status is fixed from that first byte.
+
+  // Caught for the body's reason: a window this page could not read is a state it renders, and a
+  // failed read answering not-found would take the season down with the backend.
+  const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
+  if (antwort === null) notFound();
+
   return {
     title: `Bewerbung Saison ${saison_id}`,
     description: `Melde Dein Schulteam für die Saison ${saison_id} der Frankfurt League an.`,
     openGraph: openGraphFor(`/bewerbung/${saison_id}`),
     alternates: { canonical: `/bewerbung/${saison_id}` },
+    // A season with no deadline recorded is not content worth indexing: an indexed copy of that one
+    // sentence outlives the day an administrator records the window (`docs/frontend/spec.md` §1.13).
+    ...(antwort?.fenster === null ? { robots: { index: false } } : {}),
   };
 }
 
@@ -45,8 +57,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
 
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this
   // read never learnt.
+
+  // The season no document names lands on the same state as one recording no window: the metadata
+  // has already answered it not-found, and neither leaves the view a deadline to show.
   const fenster = await getBewerbungFenster(saison_id).then(
-    (antwort) => ({ isUnlesbar: false, fenster: antwort }),
+    (antwort) => ({ isUnlesbar: false, fenster: antwort?.fenster ?? null }),
     () => ({ isUnlesbar: true, fenster: null }),
   );
 
