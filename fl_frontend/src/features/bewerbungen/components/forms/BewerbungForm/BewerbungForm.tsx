@@ -22,6 +22,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
+import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
@@ -35,40 +36,22 @@ import type {
   KuerzelVerdikt,
 } from "@/features/bewerbungen/types";
 import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
 
-/** What the route answers. Always 200, so a non-2xx here is a genuine transport failure. */
-type BewerbungAntwort = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
+type BewerbungAntwort = PublicEnvelope & { message?: string };
 
 /** The availability check's answer, whose `vergeben` is present only where it could be judged. */
 type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
 
 const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
 
-/**
- * The edge's rate limit, generated **before either route handler runs**: the body is nginx's own
- * HTML rather than the always-200 envelope, so the status is the whole of what arrived.
- */
-const RATE_LIMIT_STATUS = 429;
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und schick die Bewerbung dann noch einmal ab.";
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.
 const KUERZEL_RATE_LIMIT = `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`;
 
-async function postBewerbung(payload: unknown): Promise<BewerbungAntwort> {
-  const response = await fetch("/api/bewerbung", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (response.status === RATE_LIMIT_STATUS) return { success: false, error: ZU_VIELE_VERSUCHE };
-  if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
-
-  return response.json() as Promise<BewerbungAntwort>;
-}
-
+// A read and not a write, so it stays outside `postPublicForm` (`docs/frontend/spec.md` §1.3).
 /**
  * `?shorthand=` and never a path segment: nginx matches this location EXACTLY, and a longer path
  * falls through to the catch-all where the rate limit does not apply and nothing reports it.
@@ -76,7 +59,7 @@ async function postBewerbung(payload: unknown): Promise<BewerbungAntwort> {
 async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
   const response = await fetch(`/api/bewerbung/kuerzel?shorthand=${encodeURIComponent(shorthand)}`);
 
-  if (response.status === RATE_LIMIT_STATUS) return { success: false, rateLimited: true };
+  if (response.status === EDGE_RATE_LIMIT_STATUS) return { success: false, rateLimited: true };
   if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
 
   return response.json() as Promise<KuerzelAntwort>;
@@ -85,8 +68,8 @@ async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
 /**
  * One school's application, submitted with no session at all.
  *
- * **A `fetch` to a route handler, not a server action**: `docs/frontend/spec.md :: I7` starts every
- * action with `getAdminSession()`, and a public export there would read as that rule broken.
+ * **A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives**,
+ * and reached through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm` for it.
  */
 export function BewerbungForm({
   saisonId,
@@ -256,15 +239,15 @@ export function BewerbungForm({
     const payload = bewerbungPayload(draft);
 
     startTransition(async () => {
-      let antwort: BewerbungAntwort;
-      try {
-        antwort = await postBewerbung(payload);
-      } catch {
-        // The connection alone: the request never reached a judgement, so nothing of what was typed
-        // may be named here.
-        appToast.danger("Bewerbung nicht abgeschickt", { description: "Prüfe Deine Verbindung und versuche es erneut." });
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload);
+
+      if (!gesendet.answered) {
+        // Nothing of what was typed may be named here: no judgement of it reached this branch.
+        appToast.danger("Bewerbung nicht abgeschickt", { description: gesendet.error });
         return;
       }
+
+      const antwort = gesendet.body;
 
       if (!antwort.success) {
         setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bewerbung: payload });

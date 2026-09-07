@@ -33,6 +33,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -46,7 +47,6 @@ import type { CalendarDate } from "@internationalized/date";
 export type BestaetigungAbschluss =
   { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean } | { zustand: "widersprochen-neu" } | { zustand: LinkZustand };
 
-/** What the route answers. Always 200, so a non-2xx here is a genuine transport failure. */
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
   | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand };
@@ -65,15 +65,7 @@ export const WIDERSPRUCH_SENDEN = "Widerspruch senden";
 // field to speak at.
 export const BESTAETIGUNG_FELDER: readonly string[] = ["geburtsdatum", "whatsapp"];
 
-const VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
-
-/**
- * The edge's rate limit, generated before the route handler runs: the body is nginx's own HTML
- * rather than the always-200 envelope, so the status is the whole of what arrived.
- */
-const RATE_LIMIT_STATUS = 429;
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
 
 const GEBURTSDATUM_HINWEIS = `Kontaktperson kann sein, wer mindestens ${String(BEWERBUNG_MIN_ALTER)} ist. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
@@ -107,19 +99,6 @@ function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLB
   if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false };
 
   return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf) };
-}
-
-async function sendeAntwort(payload: FLBewerbungEinwilligungAntwortPayload): Promise<EinwilligungAntwort> {
-  const response = await fetch("/api/bestaetigung", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (response.status === RATE_LIMIT_STATUS) return { success: false, error: ZU_VIELE_VERSUCHE };
-  if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
-
-  return response.json() as Promise<EinwilligungAntwort>;
 }
 
 /**
@@ -352,14 +331,15 @@ export function BestaetigungFormPanel({
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
   const sende = async (payload: FLBewerbungEinwilligungAntwortPayload): Promise<void> => {
-    let antwort: EinwilligungAntwort;
-    try {
-      antwort = await sendeAntwort(payload);
-    } catch {
-      // The connection alone: the request never reached a judgement, so nothing typed is named.
-      appToast.danger("Speichern fehlgeschlagen", { description: VERBINDUNG });
+    const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung", payload);
+
+    if (!gesendet.answered) {
+      // Nothing typed is named here: no judgement of it reached this branch.
+      appToast.danger("Speichern fehlgeschlagen", { description: gesendet.error });
       return;
     }
+
+    const antwort = gesendet.body;
 
     if (!antwort.success) {
       // The link died between the open and the press: the answer is the panel, never a toast.

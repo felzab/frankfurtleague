@@ -197,6 +197,23 @@ write may happen ([`docs/backend/spec.md`](../backend/spec.md) §1.1). The confi
 credential is the emailed token, sent in the body: the link's GET writes nothing, because a mail
 scanner's GET and a reader's are one request to the same-origin guard.
 
+**What puts a public write in a route handler is the answer it has to tell apart, never the absent
+session**: `handleSignIn` authorizes nobody either and stays a server action, one neutral sentence
+being its whole answer, so an unreadable one costs it nothing. A public write owes two answers: a
+refusal belonging at a control, and an answer that never reached this application at all, the edge's
+own 429 among them. Only a `fetch()` caller can read the second
+([`docs/ops/spec.md`](../ops/spec.md) §1.3, I177).
+**`fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm` is where that reading is done**,
+as `handlePublicRequest` is where the answering is: one place tells a rate limit, a challenge and an
+unparseable body from an outcome this application decided, so no form has to recognise one to report
+it. The application form has a second reason the confirmation page does not: its page sits on a
+dynamic segment, so a server action there would post to no path an exact `location` could meter,
+which `/signin` and `/bestaetigung` each have. **The Kürzel check
+(`fl_frontend/src/app/api/bewerbung/kuerzel/route.ts`) is a route handler on the first reason and
+stays outside that helper**: it is a read that refuses nothing, so an answer it cannot use costs the
+applicant a courtesy rather than a submit, and the helper's sentence would stand beside the hint its
+own field is already showing.
+
 **The eight share two modules and spell neither per slice**, so a rule about an undo is written
 once and every editor gets it. `fl_frontend/src/shared/utils/undoDispatch.ts` `fetch`es the route
 rather than dispatching an action, the editor being unmounted by the time the press lands, and

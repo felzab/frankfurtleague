@@ -11,8 +11,8 @@ import type { NextRequest } from "next/server";
 
 /**
  * What a cross-site caller is told, answered 200 with the outcome in the body as every other refusal
- * here is: a non-2xx reaches no reader, each caller throwing on it and reporting the throw as a
- * connection fault.
+ * here is: on any other status `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`
+ * answers its own sentence and these words reach no reader.
  */
 const FREMDE_HERKUNFT = "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und versuche es noch einmal.";
 
@@ -55,7 +55,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     }
   });
 
-  // Always 200: the body carries the outcome, so a non-2xx would read as a transport failure to a
-  // form that has a German sentence to render either way.
+  // Always 200: the body carries the outcome, and every other status is `postPublicForm`'s to report
+  // as an answer this application never gave.
   return NextResponse.json(result);
 }

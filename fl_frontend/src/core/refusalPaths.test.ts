@@ -735,7 +735,10 @@ describe("every path a refusal mapper emits", () => {
 
     assert.ok(handlers.length > 0, "no route handler calls a mapper, so the bridge below is proving nothing");
     for (const [file, handler] of handlers) {
-      const fetchers = components.filter((component) => (sources.get(component) ?? "").includes(`fetch("${routeUrl(handler)}"`));
+      // Two spellings of one POST: an undo dispatches to its route directly, and a public form
+      // names its own through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`.
+      const posts = new RegExp(String.raw`(?:fetch|postPublicForm<\w+>)\("${routeUrl(handler)}"`);
+      const fetchers = components.filter((component) => posts.test(sources.get(component) ?? ""));
       assert.ok(
         fetchers.length > 0,
         `${handler} maps ${file}'s refusals and nothing fetches ${routeUrl(handler)} -- the form showing them cannot be found`,
