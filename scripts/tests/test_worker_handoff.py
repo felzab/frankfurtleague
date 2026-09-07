@@ -146,10 +146,11 @@ def _worker_script(body: tuple[str, ...]) -> str:
         (
             "#!/usr/bin/env bash",
             'source "' + LIB.as_posix() + '"',
-            # This run is no step worker and owns no pool: `gate_exit`'s reclaims are false by
-            # construction rather than by a copy of the gate's own tests, and `set -u` refuses a
-            # missing array.
+            # This run is no step worker, owns no pool and holds no db claim: `gate_exit`'s
+            # reclaims are false by construction rather than by a copy of the gate's own tests,
+            # and `set -u` refuses a missing array or marker.
             "POOL_DIRS=()",
+            'DB_RUN_MARKER=""',
             "step_worker() { false; }",
             "cleanup() { :; }",
             _lifted("gate_exit"),
