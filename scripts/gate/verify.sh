@@ -58,6 +58,11 @@ fi
 # does not exist.
 POOL_DIRS=()
 
+# The db run's own claim, empty until `claim_db_run` takes it, so a run refused for another's claim
+# reclaims nothing. Declared up here for POOL_DIRS' reason, and never exported: a worker process
+# inheriting it would give back a claim the parent is holding.
+DB_RUN_MARKER=""
+
 # A step worker is one check body, run as its own process. It creates none of the resources below
 # and inherits every one, so its trap must reclaim nothing: they are the parent's, still running.
 STEP_UNIT="${FL_GATE_STEP:-}"
@@ -76,12 +81,13 @@ gate_exit() {
   # Every reclaim below is best-effort: unguarded, one failing `rm` ends the trap where it stands,
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
+  if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
   fi
-  # Only the opener, for the arrays' reason above: `set -E` hands this trap to every subshell, and
-  # one reclaiming the ledger deletes it mid-write. The next `>>` recreates it holding what came
-  # after, which reads as records lost, not a file removed.
+  # Only the opener: the ledger path is exported, so a worker process re-entering this script
+  # inherits it and its own exit would reclaim the parent's file mid-write. The next `>>` recreates
+  # it holding what came after, which reads as records lost, not a file removed.
   if [[ -n "${FL_SELFCHECK_LEDGER:-}" && "${FL_SELFCHECK_LEDGER_OWNER:-}" == "$BASHPID" ]]; then
     rm -f "$FL_SELFCHECK_LEDGER" || true
   fi
@@ -1152,8 +1158,59 @@ fi
 
 # Split from the default tier because it needs the Docker daemon the quick scope exists to avoid.
 # Without it a change breaking the pipeline against a real mongod passes every local gate.
+
+# One machine's claim, never one checkout's: the daemon, the reaper and the fixed addresses two db
+# tiers collide over are the host's. `${TMPDIR:-/tmp}` is writable under Git Bash and on a runner.
+DB_RUN_DIR="${TMPDIR:-/tmp}/fl-gate-db-run"
+
+# `mkdir` rather than a test and a write: it is the one primitive that asks and takes in a single
+# step, so a second run's failure to create IS the detection.
+take_db_run() {
+  mkdir "$DB_RUN_DIR" 2>/dev/null || return 1
+  # Before the write, never after it: the claim exists from the line above, and a marker set only
+  # once the write lands leaves a failed write holding the machine until someone deletes it by hand.
+  DB_RUN_MARKER="$DB_RUN_DIR"
+  # Written immediately, because `claim_db_run` reads a claim with no pid as one still being taken.
+  printf '%s\n' "$$" > "${DB_RUN_DIR}/pid" \
+    || refuse "took ${DB_RUN_DIR} but could not write a pid into it, so no later run could tell this
+claim from one a killed run abandoned. The claim is given back on the way out; check that directory."
+}
+
+# Called by the one process that runs the tier: a pooled run dispatches the db scope to a worker
+# and exits at `wrap_up`, so the parent never reaches this block; every other form runs it in the
+# one process.
+claim_db_run() {
+  local held stale
+  if take_db_run; then return 0; fi
+  held="$(cat "${DB_RUN_DIR}/pid" 2>/dev/null || true)"
+  # An unreadable pid is a run between its own mkdir and its write, never an abandoned claim:
+  # calling that stale would delete a claim seconds old.
+  if [[ ! "$held" =~ ^[0-9]+$ ]] || kill -0 "$held" 2>/dev/null; then
+    # A refusal and not a wait: a lock would make the second run queue in silence, which is the
+    # same unexplained result this guard exists to replace.
+    refuse "another db-tier run holds ${DB_RUN_DIR} (pid ${held:-none recorded}), and two at once make
+each other's failures unreadable. Wait for it to finish. If no such process is running, a killed run
+left the claim behind and \`rm -rf ${DB_RUN_DIR}\` clears it."
+  fi
+  warn "${DB_RUN_DIR} was left behind by pid ${held}, which is gone, so this run takes it over"
+  # The rename decides the takeover and the `mkdir` after it does not: `mv` is one step, so of two
+  # runs that read this same pid dead, one moves the claim and the other finds nothing to move.
+  stale="${DB_RUN_DIR}.abandoned.$$"
+  mv "$DB_RUN_DIR" "$stale" 2>/dev/null \
+    || refuse "another db-tier run is already clearing ${DB_RUN_DIR}, which a killed run left behind.
+Wait for it to finish."
+  rm -rf "$stale" || true
+  take_db_run || refuse "another db-tier run took ${DB_RUN_DIR} while this one was clearing a claim a
+killed run had left behind. Wait for it to finish."
+}
+
 if (( RUN_DB )); then
   section db
+
+  # Claimed here and not at the parse, for `claim_db_run`'s reason: two db tiers at once report a
+  # wall of validator and unique-index failures naming no cause, and the green verdict is worth as
+  # little as the red (`docs/ops/spec.md` §1.6).
+  claim_db_run
 
   # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
   # isolates, so `--dist load` would hold too.

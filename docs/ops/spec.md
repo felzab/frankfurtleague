@@ -507,6 +507,19 @@ so it releases the call site rather than the helper. A URI on the served port is
 is written, `./scripts/ops/local.sh` answering it on the author's machine and nothing answering it
 in CI.
 
+**One db tier at a time on a machine, and the second gate run is refused rather than queued**
+(`scripts/gate/verify.sh :: claim_db_run`). Two at once make each other's failures unreadable, §3
+naming the symptom, and neither verdict survives it, the green one included; a lock would hold the
+second run in exactly the silence that row exists to end. The claim is a directory in the shell's
+temporary directory and not in the checkout, because what two runs collide over — the daemon, the
+reaper, a fixed address — is the host's, so two clones on one machine collide exactly as two runs in
+one clone do; on Windows that directory is the signed-in user's own, which is as wide as the claim
+gets there. A claim a killed run left behind names its pid, so the next run reports it and takes it
+over rather than waiting for a process that is gone. **A db-tier figure counts only where a pair of
+runs lands within a fifth of a second of each other on an idle machine** — a wider pair is a reading
+of the machine rather than of the tier, and neither half of it belongs in
+`.github/gate-wall-clock.tsv`.
+
 CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
 `scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
 the mapping and the flag that proves it are one word. Which paths select `format` is decided by
@@ -879,7 +892,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `./scripts/ops/local.sh` reports `mongo` unhealthy                                | The local database has not elected itself primary, so no transaction opens and no validator applies                                             | `docker compose -f docker-compose.local.yml logs mongo`; the script waits on `mongo` by name, so this reports as itself                                                                                              |
 | `./scripts/ops/local.sh --seed` dies during the copy from production              | The production tier throttles past its operations-per-second cap, and anything else querying the cluster shares that budget                     | Nothing was written to the local database. Re-run with nothing else talking to production; the dump already takes one collection at a time (§1.5)                                                                    |
 | The local stack's data disagrees with production, in either direction             | Working as intended — `--seed` reuses the copy already on disk however old it is                                                                | `./scripts/ops/local.sh --refresh-db` takes a fresh one (§1.5)                                                                                                                                                       |
-| A db-tier run reports a wall of failures naming validators and unique indexes     | Another `pytest -m db` was running beside it; the mechanism is unestablished                                                                    | Trust neither verdict, the green one included. Re-run with nothing else running, and take any db-tier measurement alone (`docs/_roadmap/items.md :: eg48-8863`)                                                      |
+| A db-tier run reports a wall of failures naming validators and unique indexes     | A second `pytest -m db` ran beside it, bare rather than through the gate, whose db step refuses one; the mechanism is unestablished             | Trust neither verdict, the green one included. Re-run with nothing else on the tier; a db-tier figure needs an idle machine (§1.6)                                                                                   |
 | Container unhealthy, health log empty, `FailingStreak: 0`                         | The app died before the first probe                                                                                                             | Usually a malformed `.env` value restored by hand. Read `docker compose logs <service>` on the server                                                                                                                |
 | A directory appeared named `something;C`                                          | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                               | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                                                                          |
 | `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                          | Windows only, when the output is piped or redirected                                                                                            | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                                                                   |

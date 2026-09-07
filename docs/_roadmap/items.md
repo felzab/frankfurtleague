@@ -103,7 +103,6 @@ deliverable.
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                                                | FE, Ops, gate, admin                                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`                                       | FE, BE, Docs, bewerbungen, teams                                            | Standing |
-| `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                                                         | BE, Ops, gate, ci, tests                                                    | Open     |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                                                             | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range                                              | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing                                                 | FE, Docs, tests                                                             | Open     |
@@ -1045,70 +1044,6 @@ survive either ruling and is the reason to rename nothing before the ruling land
 **Done when** the basis is ruled and the three names are settled against it: recorded as correct
 where the next reader meets them, or renamed together with the validator, the Zod mirror, the
 published document and the stored keys, in one migration rather than three edits.
-
-### `eg48-8863` · Two db-tier runs at once fail in a way that names nothing
-
-| Tags                     | Status | Depends on |
-| ------------------------ | ------ | ---------- |
-| BE, Ops, gate, ci, tests | Open   | —          |
-
-**Starting `./scripts/gate/verify.sh --db` while a `pytest -m db` is already running produces a wall
-of unrelated failures, and nothing in the output says why.** Observed 2026-08-22: one run reported
-147 failed and 71 errors, while two immediately subsequent runs of the identical command, with
-nothing else changed, reported 411 passed. The failures land on validators and unique indexes, which
-`fl_backend/tests/core/test_constraints_execution.py` applies to the database it is given — so the
-first reading available to whoever hits it is that their own change broke the schema. **What it costs
-is a wrong conclusion rather than a wait**: the gate is the evidence a branch rests on, and a db-tier
-result anything running beside it can corrupt is a result nobody can quote, the green one included,
-which is the half that does not announce itself.
-
-**The mechanism is unestablished, and finding it is the first half of this entry**, ahead of choosing a
-repair. Almost every db-marked suite names its own database, and the two names that are shared — the one the
-suites seeding through pymongo's synchronous client take from `fl_backend/tests/config.py :: CORPUS_DATABASE`,
-and the `fl_test` that `fl_backend/tests/conftest.py :: mongo_database` hands out — now carry the worker that
-chose them (`fl_backend/tests/worker.py :: worker_database`), which separates two workers of ONE run and does
-nothing for two runs, every worker of which draws the same suffix. A run starts its `mongo:8` containers
-through testcontainers with no reuse flag set anywhere in the tree, so two runs are not obviously sharing a
-server either. **What to eliminate, in order:** testcontainers' Ryuk reaper, which is one container per Docker
-host and removes on a reconnection timeout; contention on the Docker daemon while two runs each pull an image,
-start a container and elect a single-node replica set; and any fixture reaching a fixed address rather than a
-container's mapped port.
-
-**Two `AutoReconnect` occurrences stay separate, and the port exhaustion does not account for the
-earlier one.** Across 25 db-tier rounds on 2026-08-26 — twelve beside the rest of the gate, seven
-alone, the remainder under a full-form run — one round failed two tests on `connection pool paused`,
-a failed connect to the container's published port. **It is not attributed and one occurrence in 25
-is not evidence of a flaky tier**; the controls point away from load, the tier alone having been
-green six times and the full gate seven under heavier contention. On 2026-09-01, with roughly a dozen
-agents driving db-tier suites on one Windows machine, `AutoReconnect` surfaced with `WinError 10048`
-while 12,000 to 15,900 sockets machine-wide stood in `TIME_WAIT`: the host ran out of ephemeral
-ports, and a run started once `TIME_WAIT` had drained below 7,000 was green. **That is a property of
-the host under a dozen concurrent agents, not of the harness or the driver**, and the driver half was
-measured rather than assumed — three hundred `fl_backend/tests/database.py :: a_clean_database`
-client lifecycles, polled through `serverStatus`, held `connections.current` flat at 3 while
-`totalCreated` climbed linearly to 903, so no pool the driver holds accumulates connections to
-reconnect over.
-
-**Width is a second contributor to the same socket pressure, and any repair has to survive it.** A
-db-tier run at `-n auto --dist loadfile` left 799 more sockets in `TIME_WAIT` than it found, where a
-serial run of the same 769 tests on the same machine went net negative. The mechanism is structural
-rather than a leak: a worker is a pytest session of its own, so each opens its own clients against
-the two shared servers, `fl_backend/tests/conftest.py :: mongo_database` and
-`fl_backend/tests/database.py :: shared_client` being per process rather than per run. **Count the
-state with `Get-NetTCPConnection -State TimeWait`**: a localised Windows `netstat` prints the state
-in the host's own language, so a grep for `TIME_WAIT` reads zero on a machine holding thousands.
-
-**Done when** the mechanism is known and one of three answers is taken — a database name carrying the
-run's own identity, a lock that makes the second run wait, or a check that refuses to start while
-another run holds whatever the collision is over. **Only the last keeps a single result trustworthy
-without changing what the suites do, and it is also the only one that says out loud what happened**,
-and `scripts/gate/verify.sh`'s db step is what it would sit in front of.
-This entry also fixes what a db-tier figure has to be to count at all: a pair of runs within a fifth
-of a second of each other on an idle machine.
-
-**Not measured:** whether the collision can reach CI at all. `.github/workflows/verify.yml` runs one
-`verify.sh` scope per job and each job takes its own runner, so two db-tier runs would have to land
-on one host — which a hosted runner is not.
 
 ### `ewf2-e2f3` · A confirmation or reminder link that bounces is written to the log and told to nobody
 
@@ -3614,7 +3549,7 @@ battery pointed at this banner unchanged fails on a sentence that is right.
 | -------------------- | ------ | ---------- |
 | Ops, gate, ci, tests | Open   | —          |
 
-Lands with: `3s6w-kndn`, `eg48-8863`
+Lands with: `3s6w-kndn`
 
 **`scripts/gate/verify.sh :: gate_width` divides one concurrency budget between the gate's parallel
 consumers, and a consumer's share cannot fall below one worker.** Each width-taking tool declares the

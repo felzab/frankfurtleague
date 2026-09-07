@@ -112,6 +112,15 @@
 # as much as the check. It sits far inside the floor the `ops` row carries, and the ceiling it
 # answers to is that row's budget.
 #
+# `backend-db` gained a guard in front of the tier: a claim that refuses a second gate run rather
+# than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
+# of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
+# take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
+# much as the guard, and each paid once per run. Their 0.05 s is a thousandth of the row's 49 s
+# reference, against a floor of 40 percent of it, so neither the reference nor the 125 s budget
+# moves and neither takes a new stamp. The figure is a development machine's, which is what the
+# guard's own cost can be measured on: it runs before the tier rather than in it.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.
