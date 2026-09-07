@@ -11,17 +11,6 @@ from pymongo.database import Database
 from app.core.config import BackendConfig
 from tests.config import build_test_config
 
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
-# module without editing anything, so pinning the number would ask for a bump and prove nothing.
-
-# One constant rather than one per module: `test_admin_guard.py` walks the published surface and
-# `test_actor_binding.py` the mounted routes, and a floor raised for one leaves the other standing
-# under a tree it has outgrown.
-
-# Set under the inventory by less than the largest router holds, so that router dropping out of the
-# mount lands below the floor.
-MINIMUM_EXPECTED_MUTATIONS = 30
-
 SAISON = "2026"
 PRIOR_SAISON = "2025"
 
@@ -45,8 +34,8 @@ TEAM_OIDS = {
 }
 
 # The spelling a season row and a fixture side both copy in at entry. Helmholtz's differs from its
-# club document's, which is what makes the copy provable; Fremd holds no season row, so its fixtures
-# carry the club's.
+# club document's, which is what proves the copy; Fremd, holding no season row, is written to match
+# its club document instead.
 SAISON_SHORTHANDS = {
     "Helmholtz": "HE",
     "Bock": "BO",
@@ -54,15 +43,6 @@ SAISON_SHORTHANDS = {
     "Ohne": "OH",
     "Fremd": "FR",
     "Komplett": "KO",
-}
-
-# One matchday per season and phase. No `spieltage` row is seeded, and `spiele.spieltag_id` is not
-# nullable, so a fixture generated under no matchday at all is a shape the collection would refuse.
-SPIELTAG_OIDS = {
-    (SAISON, "gruppenphase"): ObjectId("6890a1b2c3d4e5f60719b001"),
-    (SAISON, "viertelfinale"): ObjectId("6890a1b2c3d4e5f60719b002"),
-    (SAISON, "halbfinale"): ObjectId("6890a1b2c3d4e5f60719b003"),
-    (PRIOR_SAISON, "gruppenphase"): ObjectId("6890a1b2c3d4e5f60719b004"),
 }
 
 # A dict rather than a model: Pydantic could not express a row the validator rejects.
@@ -175,6 +155,15 @@ def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
     return {"team_id": TEAM_OIDS[key], "name": key, "tore": tore, "shorthand": SAISON_SHORTHANDS[key]}
 
 
+def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
+    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `REQ-SPIELTAG-001` refuses.
+
+    No `spieltage` row is seeded and nothing joins on the key, but `spieltag_id` is not nullable.
+    """
+
+    return ObjectId(f"6890a1b2c3d4e5f6{saison_id}{nr:04d}")
+
+
 def _spiel(
     nr: int,
     phase: str,
@@ -192,7 +181,7 @@ def _spiel(
         "spiel_nr": nr,
         "saison_id": saison_id,
         "saison_phase": phase,
-        "spieltag_id": SPIELTAG_OIDS[(saison_id, phase)],
+        "spieltag_id": _spieltag_oid(saison_id, nr),
         # Written null rather than left out: each is a nullable key the collection still REQUIRES,
         # and a `quelle` is its side's independent sibling rather than a value the side implies
         # (`docs/backend/spec.md :: I22`).
@@ -290,3 +279,15 @@ def league(mongo_database: Database) -> SeededLeague:
     mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
 
     return SeededLeague(database=mongo_database, team_oids=dict(TEAM_OIDS))
+
+
+# A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
+# module without editing anything, so pinning the number would ask for a bump and prove nothing.
+
+# One constant rather than one per module: `test_admin_guard.py` walks the published surface and
+# `test_actor_binding.py` the mounted routes, and a floor raised for one leaves the other standing
+# under a tree it has outgrown.
+
+# Set under the inventory by less than the largest router holds, so that router dropping out of the
+# mount lands below the floor.
+MINIMUM_EXPECTED_MUTATIONS = 30
