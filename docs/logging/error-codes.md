@@ -6,15 +6,29 @@
 the message, the validation detail and the stack trace reach the log and never the wire, so a code seen on a
 response is followed by finding the log line carrying that same code under that trace id.
 
-The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the request was
-wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a frontend-side
-failure class. A new failure mode gets a new code, never a reused one.
+**A code is `<AREA>-<SUBJECT>-<NNN>`, and each segment is allocated under a rule of its own:**
+
+- **AREA is the closed set `REQ`, `DB`, `SRV` and `FE`, and names what raised the failure** — a rule
+  the request broke, the database driver, the server itself outside any request's contract, and the
+  Next surface. That is also who acts on one, with `DB-COMMON-*` the exception: an ordinary read or
+  write outcome a caller acts on.
+- **SUBJECT is closed per AREA** — the rule family under `REQ-*`, the component under the other three
+  — and is named by the sections below rather than declared in either tree. One subject word under
+  two areas is two families rather than a collision, which is what puts `REQ-VAL-001` beside
+  `SRV-VAL-001` and `DB-FAIL-001` beside `SRV-FAIL-001`: the area carries the whole difference
+  between a caller's bug and the server's, so a subject is free to repeat under another one.
+- **NNN is three digits, one past the highest its own `<AREA>-<SUBJECT>` holds, and never reused.** A
+  gap in a run is a spent number rather than a free one ([section 5](#5-retired-codes)).
+- **A code reaches a response body only where it was raised inside a request** — [section
+  1](#1-backend-codes) and no other section, which is why that one table carries a status. Everywhere
+  else the code reaches a log line and nothing on the wire.
 
 **What holds this page to the code is `scripts/checks/docs_gate/error_codes.py`**: every row is
 required to be spelled in the tree its area names — `FE-*` under `fl_frontend/src/`, every other
 area under `fl_backend/app/` — and every code a tree spells under a prefix it answers for is
 required to have a row, so the backend codes the frontend words for a reader are not read as the
-frontend's own.
+frontend's own. **It reads the shape rather than the four areas** (`:: CODE_SHAPE`), so a fifth area
+would owe a row like any other rather than dropping out of both populations unseen.
 
 **`READ-*` shares that shape and is not an error code.** A read rule refuses nothing, so it reaches no
 response body, no log line and no row on this page, and the `RULES` correspondence below is scanned over
@@ -27,6 +41,7 @@ response body, no log line and no row on this page, and the `RULES` corresponden
 | [Frontend codes](#2-frontend-codes)   | Every code the Next surface raises, and why an admin write's never reaches the error page |
 | [Startup codes](#3-startup-codes)     | Every code a boot refusal carries, none of which answers a request                        |
 | [Forwarded codes](#4-forwarded-codes) | The code a line neither service raised carries, on both surfaces                          |
+| [Retired codes](#5-retired-codes)     | What each gap in a run once refused, and why the number stays spent                       |
 
 ## 1. Backend codes
 
@@ -49,7 +64,8 @@ would have succeeded against a different state of the database
 too and a shut window is not a 403.** The endpoint is open to everyone
 ([`docs/backend/spec.md`](../backend/spec.md) §1.1) and what refuses is the season's own state: the
 same submission would have been stored a week earlier, or before another school took the Kürzel.
-`REQ-*` still names the side that must act, and on this form that side is a member of the public.
+`REQ-*` still names a rule the request broke, and on this form the one who acts on it is a member of
+the public.
 
 **`DB-COMMON-001` is also what a season the base tier may not read answers**, deliberately the same code
 and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md) I47), so a 404 carrying
@@ -240,3 +256,26 @@ and a row above.
 | ---------------- | ---------------------------------------------------------------------------------------------------------- |
 | `FE-CONSOLE-001` | A warning or error reaching `console.*` under the json format, Next's own `⨯ Error` dumps included         |
 | `SRV-LOG-001`    | A warning or error from a logger that is not the application's — uvicorn's, PyMongo's, the file reloader's |
+
+## 5. Retired codes
+
+**A spent number stays spent**, so a family with a gap in its run still takes one past its highest.
+Each tree holds exactly the codes it raises, while a copied-off log stream
+([`spec.md`](spec.md#12-the-stream-contract) §1.2) can carry one of these, so this is the only list
+that says what a gap once refused and the only thing telling a spent number from an unallocated one.
+The commit that retired one is reached with `git log -S` on the code.
+
+**Each entry is a bullet and never a table row**: the register's reader takes a backticked code in a
+row's first cell as a live row (`scripts/checks/docs_gate/error_codes.py :: CODE_ROW_RE`) and would
+demand a tree spell every code below.
+
+- **`REQ-DATE-006`** — reserved and raised by nothing. What the reservation covered is unrecorded, no
+  revision spelling the code at all; the commit that shipped `REQ-DATE-008` is where the run skipping
+  two rather than one is argued.
+- **`REQ-DATE-007`** — reserved beside `REQ-DATE-006`, on the same terms.
+- **`REQ-RETIRE-002`** — a matchday holding a played match was asked to retire, which would unpublish
+  that result.
+- **`REQ-SQUAD-002`** — a squad row took a `nummer` another live row of the same team and season
+  already held.
+- **`REQ-STATE-001`** — what it refused is unrecorded: no revision this history holds spells it, and
+  the family's rows open at `REQ-STATE-002`.

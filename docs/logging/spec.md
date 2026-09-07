@@ -158,7 +158,7 @@ configured cannot be governed by it. uvicorn's pre-import lines fall back to pla
 startup banner prints before `register()` installs the shim, and the backend's environment refusal
 fails while building the settings the logger is configured from, so it leaves the process as a
 traceback on stderr rather than a document (`fl_backend/app/core/config.py :: get_config`). **What
-reaches the envelope at all carries a code, whoever wrote it**: the frontend's environment refusal
+reaches the envelope at all carries a code, whoever wrote it** (L13): the frontend's environment refusal
 reaches the formatter directly and takes one (`fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`),
 and a line the application did not write takes the forwarding route's own rather than the nearest
 call site's — the console shim's on the frontend, and on the backend a filter on the handler every
@@ -259,6 +259,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | L10 | The `X-FL-Actor` a visitor sends is cleared on every proxied path that reaches a write                                                              | `nginx/prod.conf :: proxy_set_header X-FL-Actor` at server level, which every location declaring no `proxy_set_header` of its own inherits and the liveness location restates (1.1)                                                                                                                                                                                  |
 | L11 | A credential a URL carries never reaches the edge's access line, on the path field or on the referer (section 4)                                    | `nginx/prod.conf :: map $uri $logged_uri`, `:: map $request_uri $credential_free_uri` and `:: map $http_referer $logged_referer`, each byte-identical in `nginx/local.conf`, held so by `scripts/checks/check_nginx_mirror.py`; driven by `nginx/redaction_test.sh`                                                                                                  |
 | L12 | Every hop mints its own span and forwards the trace id unchanged; no hop keeps an incoming span                                                     | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`; `fl_frontend/src/core/trace.test.ts`; nginx's by `nginx/redaction_test.sh`, which reads the edge's `span_id` off every access line                                                                                                                                                                 |
+| L13 | Every failure line carries an `error_code`: a forwarded one takes the route's, and an application omission is left visible rather than defaulted    | `fl_frontend/src/core/consoleShim.test.ts`; `fl_backend/tests/core/test_logging.py :: TestForwardedFailureFilter`                                                                                                                                                                                                                                                    |
 
 ## 3. Violation → remedy
 
