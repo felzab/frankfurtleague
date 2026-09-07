@@ -187,10 +187,22 @@ ESCAPES: Final = {"t": "\t", "r": "\r", "n": "\n"}
 # `if` or an `upstream` decides routing, and a reader that walks past one may not call the pair equal.
 BLOCKS: Final = ("server", "location", "map", "geo")
 
-# nginx applies these as a set rather than in sequence: it emits every `add_header`, tests
-# membership of the `set_real_ip_from` addresses, binds every `listen`, and applies every
-# `limit_req` on the level. Everything else compares in source order, where a `rewrite` runs.
-ORDER_FREE: Final = frozenset({"add_header", "listen", "limit_req", "set_real_ip_from"})
+# Each name against the leading arguments nginx tells one repetition from another by. Repetitions
+# compare sorted on that identity; two sharing one keep source order, a repeated header field name
+# being emitted in it (`docs/ops/spec.md`).
+ORDER_FREE: Final[dict[str, int]] = {
+    "add_header": 1,
+    "limit_req": 1,
+    "limit_req_zone": 2,
+    "listen": 1,
+    "proxy_set_header": 1,
+    "set_real_ip_from": 1,
+}
+
+# nginx runs the rewrite module in source order, and `directives` keys a level by name, keeping no
+# order between two names. A level writing two of these names is refused rather than compared as a
+# set nginx never applied.
+SEQUENCED: Final = frozenset({"break", "return", "rewrite", "set"})
 
 LOCATION_PREFIX: Final = "location["
 
@@ -331,27 +343,47 @@ def directives(section: Section, source: str) -> dict[str, tuple[tuple[str, ...]
     routes differently while still comparing equal.
     """
     collected: dict[str, list[tuple[str, ...]]] = {}
+    ordered: tuple[str, int] | None = None
     for name, args, line in section.directives:
         if name == "include":
             raise NginxSyntax(f"{source}:{line}: `include` names a file this reader does not open")
+        if name in SEQUENCED:
+            if ordered is None:
+                ordered = (name, line)
+            elif ordered[0] != name:
+                raise NginxSyntax(
+                    f"{source}:{line}: `{name}` and the `{ordered[0]}` at {source}:{ordered[1]} run in the order "
+                    f"they are written, which this reader keys by name and does not keep"
+                )
         collected.setdefault(name, []).append(args)
-    return {name: tuple(sorted(args)) if name in ORDER_FREE else tuple(args) for name, args in collected.items()}
+    return {name: _repetitions(name, args) if name in ORDER_FREE else tuple(args) for name, args in collected.items()}
+
+
+def _repetitions(name: str, args: list[tuple[str, ...]]) -> tuple[tuple[str, ...], ...]:
+    """One order-free directive's repetitions, sorted on the identity `ORDER_FREE` gives its name.
+
+    Stable, so two sharing an identity stay in the order nginx applies them in.
+    """
+    width = ORDER_FREE[name]
+    return tuple(sorted(args, key=lambda one: one[:width]))
 
 
 def arms(block: Block, source: str) -> tuple[tuple[str, str], ...]:
     """A `map` or `geo` body in source order, nginx testing a regex arm in the order it is written."""
     if block.body.blocks:
-        raise NginxSyntax(f"{source}:{block.line}: a block inside `{block.name}`, which holds arms alone")
+        # The nested block's own line, not the `map`'s: the fallback body runs to twenty-odd arms,
+        # and a refusal naming its opening line leaves the reader hunting for the construct.
+        raise NginxSyntax(f"{source}:{block.body.blocks[0].line}: a block inside `{block.name}`, which holds arms alone")
     entries: list[tuple[str, str]] = []
-    for name, args, _ in block.body.directives:
+    for name, args, line in block.body.directives:
         # `hostnames;` and `volatile;` change what the block means and carry no value to compare.
         if len(args) != 1:
-            raise NginxSyntax(f"{source}:{block.line}: `{name}` in `{block.name}` is not a pattern and a value")
+            raise NginxSyntax(f"{source}:{line}: `{name}` in `{block.name}` is not a pattern and a value")
         # An `include` has an arm's shape, a name and one argument, so only the key tells a directive
         # from an arm here; one read as a pattern would compare as an arm where a whole body went
         # unopened.
         if name != "default" and ARM_KEY_RE.match(name):
-            raise NginxSyntax(f"{source}:{block.line}: `{name}` in `{block.name}` reads as a directive rather than an arm")
+            raise NginxSyntax(f"{source}:{line}: `{name}` in `{block.name}` reads as a directive rather than an arm")
         entries.append((name, args[0]))
     return tuple(entries)
 
@@ -376,9 +408,15 @@ def server_body(block: Block, source: str) -> dict[str, Any]:
     for child in block.body.blocks:
         if child.name != "location":
             raise NginxSyntax(f"{source}:{child.line}: `{child.name}` opens a block this reader does not parse; a server holds locations alone")
-        # A regex or an `@named` location is keyed on its text like any other, comparing two files
-        # needing no match order. `scripts/checks/check_public_routes.py :: read_location` refuses
-        # both instead, having to say which URLs one answers for.
+        # Refused rather than keyed on its text: nginx tests regex locations in source order, and a
+        # dict keyed by text calls two files carrying one set in two orders equal.
+        # `scripts/checks/check_public_routes.py :: read_location` refuses one too.
+        if child.args[:1] in (("~",), ("~*",)):
+            raise NginxSyntax(
+                f"{source}:{child.line}: the regex location `{' '.join(child.args)}`, whose match order this reader does not keep"
+            )
+        # An `@named` location is keyed on its text like any other: nginx reaches one by name from an
+        # internal redirect, never by testing it against a URI in the order it stands.
         keyed(node, f"{LOCATION_PREFIX}{' '.join(child.args)}]", location_body(child, source), source, child.line)
     return node
 
@@ -426,7 +464,7 @@ def load(path: Path) -> dict[str, Any]:
         raise NginxSyntax(f"{path.name}: no content to compare")
     section, index = parse_section(tokens, 0, path.name, top=True)
     if index != len(tokens):
-        raise NginxSyntax(f"{path.name}: content this reader could not place")
+        raise NginxSyntax(f"{path.name}:{tokens[index].line}: content this reader could not place")
     return model(section, path.name)
 
 

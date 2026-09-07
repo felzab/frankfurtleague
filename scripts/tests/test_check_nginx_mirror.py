@@ -119,6 +119,30 @@ def test_an_order_free_directive_compares_as_its_arguments_sorted(tmp_path):
     assert mirror.diff(first, second) == []
 
 
+def test_two_proxy_set_header_lines_naming_different_fields_are_not_a_difference(tmp_path):
+    """Both orders build one upstream request, so the swap is layout rather than a second edge."""
+    first = read(tmp_path, "proxy_set_header X-Real-IP $a;\nproxy_set_header X-Forwarded-For $b;\n", "first.conf")
+    second = read(tmp_path, "proxy_set_header X-Forwarded-For $b;\nproxy_set_header X-Real-IP $a;\n", "second.conf")
+
+    assert mirror.diff(first, second) == []
+
+
+def test_two_proxy_set_header_lines_sharing_a_field_name_keep_their_order(tmp_path):
+    """nginx passes both, so the upstream reads one field `$a, $b` here and `$b, $a` there."""
+    first = read(tmp_path, "proxy_set_header X-FL $a;\nproxy_set_header X-FL $b;\n", "first.conf")
+    second = read(tmp_path, "proxy_set_header X-FL $b;\nproxy_set_header X-FL $a;\n", "second.conf")
+
+    assert [one.path for one in mirror.diff(first, second)] == ["proxy_set_header"]
+
+
+def test_two_limit_req_zone_lines_sharing_one_key_are_not_a_difference(tmp_path):
+    """Each declares its own zone, so what tells them apart is the zone and never the shared key."""
+    first = read(tmp_path, "limit_req_zone $k zone=a:10m rate=2r/m;\nlimit_req_zone $k zone=b:10m rate=9r/m;\n", "first.conf")
+    second = read(tmp_path, "limit_req_zone $k zone=b:10m rate=9r/m;\nlimit_req_zone $k zone=a:10m rate=2r/m;\n", "second.conf")
+
+    assert mirror.diff(first, second) == []
+
+
 def test_a_rewrite_pair_written_in_opposite_orders_is_a_difference(tmp_path):
     """nginx runs a rewrite in source order, so the file testing `^/a` first sends `/ab` elsewhere."""
     first = read(tmp_path, "rewrite ^/a /x permanent;\nrewrite ^/ab /y permanent;\n", "first.conf")
@@ -147,16 +171,69 @@ def test_an_include_is_refused(tmp_path):
         raise AssertionError("an include parsed")
 
 
-def test_an_include_inside_a_map_body_is_refused(tmp_path):
+def test_an_include_inside_a_map_body_is_refused_at_the_arm_line(tmp_path):
     """It has an arm's shape -- a name and one argument -- and names arms that were never compared."""
     text = "map $a $b {\n    include /etc/nginx/arms.conf;\n    default 1;\n}\n"
 
     try:
         read(tmp_path, text)
     except mirror.NginxSyntax as refusal:
-        assert re.search("reads as a directive rather than an arm", str(refusal)), refusal
+        assert re.search(r"one\.conf:2: .* reads as a directive rather than an arm", str(refusal)), refusal
     else:
         raise AssertionError("an include inside a map body parsed as an arm")
+
+
+def test_a_block_inside_a_map_body_is_refused_at_the_line_it_opens_on(tmp_path):
+    """A `map` holds arms alone, and the block is what the reader has to find, not the `map`."""
+    text = "map $a $b {\n    default 1;\n    geo $c {\n        default 0;\n    }\n}\n"
+
+    try:
+        read(tmp_path, text)
+    except mirror.NginxSyntax as refusal:
+        assert re.search(r"one\.conf:3: a block inside `map`", str(refusal)), refusal
+    else:
+        raise AssertionError("a block inside a map body parsed")
+
+
+def test_a_regex_location_is_refused(tmp_path):
+    """nginx tests them in source order, and a key on the text calls two orders one edge."""
+    text = "server {\n    location ~ ^/api/ {\n        proxy_pass http://a;\n    }\n}\n"
+
+    try:
+        read(tmp_path, text)
+    except mirror.NginxSyntax as refusal:
+        assert re.search(r"one\.conf:2: the regex location", str(refusal)), refusal
+    else:
+        raise AssertionError("a regex location was keyed on its text")
+
+
+def test_a_level_writing_two_rewrite_module_directives_is_refused(tmp_path):
+    """Their relative order decides the response, and a level keyed by name compares both equal."""
+    text = "server {\n    server_name x;\n    set $a 1;\n    return 301 https://x.test;\n}\n"
+
+    try:
+        read(tmp_path, text)
+    except mirror.NginxSyntax as refusal:
+        assert re.search(r"one\.conf:4: `return` and the `set` at one\.conf:3", str(refusal)), refusal
+    else:
+        raise AssertionError("two rewrite-module directives were keyed by name")
+
+
+def test_content_left_unplaced_is_refused_at_the_line_it_begins_on(tmp_path, monkeypatch):
+    """`load`'s own guard: the token index it holds is a line, and a reader owed one gets none.
+
+    Driven through a `parse_section` that stops short, no configuration reaching the guard while
+    the parser consumes the whole token list.
+    """
+    write(tmp_path, "one.conf", "server_tokens off;\nsendfile on;\n")
+    monkeypatch.setattr(mirror, "parse_section", lambda *_args, **_kwargs: (mirror.Section((), ()), 3))
+
+    try:
+        mirror.load(tmp_path / "one.conf")
+    except mirror.NginxSyntax as refusal:
+        assert re.search(r"one\.conf:2: content this reader could not place", str(refusal)), refusal
+    else:
+        raise AssertionError("content the reader could not place was compared")
 
 
 def test_a_block_this_reader_does_not_parse_is_refused(tmp_path):
@@ -236,7 +313,7 @@ def test_a_map_arm_that_is_not_a_pattern_and_a_value_is_refused(tmp_path):
     try:
         read(tmp_path, text)
     except mirror.NginxSyntax as refusal:
-        assert re.search("is not a pattern and a value", str(refusal)), refusal
+        assert re.search(r"one\.conf:2: .* is not a pattern and a value", str(refusal)), refusal
     else:
         raise AssertionError("a valueless map arm parsed")
 

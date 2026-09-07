@@ -170,12 +170,24 @@ pattern and address class: no prefix split across two keys, no two prefixes shar
 reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
 2026-08-30). Both files carry the same map arms in the same order, held there by
 `scripts/checks/check_nginx_mirror.py` (§1.6), which compares arms rather than bytes: a body
-respaced on one side passes. **Source order is the grain throughout**: a `map` or `geo` body's arms
-and every repeated directive compare in the order they are written, because nginx tests an arm and
-runs a `rewrite` that way. The four whose repetitions nginx applies as a set instead —
-`add_header`, `listen`, `limit_req` and `set_real_ip_from` — compare sorted, so one of those blocks
-rewritten in another order is layout rather than a difference
-(`scripts/checks/check_nginx_mirror.py :: ORDER_FREE`).
+respaced on one side passes. **Source order is the grain wherever nginx acts on it**: a `map` or
+`geo` body's arms and every repeated directive compare in the order they are written, because nginx
+tests an arm and runs a `rewrite` that way. **The exception is a list of the comparator's own**,
+`scripts/checks/check_nginx_mirror.py :: ORDER_FREE`, whose repetitions compare sorted on the
+leading arguments that identify one of them, two sharing an identity staying in source order — a
+second `add_header` or `proxy_set_header` on one field name is emitted in it, so a swap there is a
+difference. **A name joins that list against nginx's semantics, and half of it rests on
+inference**: nginx's pages state that several `add_header` or `limit_req` may stand on a level and
+inherit all-or-nothing, and `proxy_set_header`'s gives that rule without an order, leaving distinct
+field names to HTTP's own indifference to the order of unlike fields; the `listen`,
+`limit_req_zone` and `set_real_ip_from` pages say nothing about repetition at all, and read as a
+bound socket, an independently named zone and a membership test. Freeing a name wrongly is the one
+direction that hides a difference.
+
+**Two shapes refuse rather than compare**: a level writing two of the rewrite module's ordered
+directives — `break`, `return`, `rewrite`, `set` — whose relative order a reader keying a level by
+directive name keeps nothing of, and a regex `location`, which nginx tests in source order while a
+server's locations are keyed on their text.
 
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the

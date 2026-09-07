@@ -96,6 +96,30 @@ def test_a_metered_exact_match_covers_its_handler():
     assert used == set()
 
 
+UNMETERED_TWIN = routes.Reason("/api/bewerbung", "a prefix reason spelled at an exact match's own path")
+
+
+def test_a_recorded_reason_at_an_exact_match_path_does_not_excuse_its_missing_meter(monkeypatch):
+    """Not redundant beside the plain unmetered-exact case: the recorded reason names that same path.
+
+    `REASONS` accounts for what a PREFIX covers, so nothing there may answer for an exact match.
+    """
+    monkeypatch.setattr(routes, "REASONS", (UNMETERED_TWIN,))
+    findings, used = judged(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "carries no limit_req" in details(findings)
+    assert used == set()
+
+
+def test_a_recorded_reason_at_an_exact_match_path_declares_no_prefix_location(monkeypatch):
+    """An exact match is no prefix location, so a reason spelling its path declares nothing."""
+    monkeypatch.setattr(routes, "REASONS", (UNMETERED_TWIN,))
+    where = served(exact("/api/bewerbung", metered=False), CATCH_ALL)
+
+    assert "no prefix location declares that path" in details(routes.unused(set(), where))
+
+
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves all four extensions, so a walk seeing one of them accounts for part of the tree."""
     findings, _ = judged(tree("/api/mail/zustellung", file="route.tsx"), served(METERED, CATCH_ALL))
