@@ -138,7 +138,6 @@ deliverable.
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                           | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                 | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Open     |
-| `pndk-uquh` | Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it                        | Ops, Docs, gate, tests                                                      | Open     |
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                    | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                   | BE, DB, tests, saisons                                                      | Standing |
@@ -2718,49 +2717,6 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
-
-### `pndk-uquh` · Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/check_nginx_mirror.py` and `scripts/checks/check_compose_mirror.py` hold
-`Marker`, `Delta`, `Difference`, `diff`, `side_matches`, `declaring` and `uncovered` twice**, five
-of the seven character for character and the other two differing in their docstring alone. The nginx
-checker's module
-header records the copying and its reason — `scripts/lib/checker_kernel.py` is the one place a
-checker shares anything, and neither of these two may reach into the other — and names five of the
-seven. `Difference` and `diff` are copied on the same terms and are not in that list, so a reader
-following it copies five symbols and reinvents two.
-
-**The header sends a reader to a file that does not hold the argument.** It closes by saying the
-compose checker is where the argument for the copying lives;
-`scripts/checks/check_compose_mirror.py`'s own header states the mirror invariant and the refusal
-contract and says nothing about being copied from. The argument is therefore written at the copy
-alone, which is the one place a reader deleting the copy would not look.
-
-**Nothing holds the two copies to each other.** They are compared by no check and read by no shared
-test, so a repair to `declaring` or `uncovered` in one file leaves the other on the old behaviour and
-both gates stay green — the pair's whole claim being that they are recognisably one mechanism.
-
-**What a third copy would earn.** `.claude/rules/ops.md`'s **helpers** clause is the nearest
-ratified statement of the convention: it refuses a copy of a shared test helper where an import would
-serve, and refuses a copy that must differ unless the original is cited at it. Its subject is
-`scripts/tests/`, so it does not reach these two checkers, and what it fixes is the shape rather than
-the case — a copy is admissible when it must differ, and only with the original named at it. A third
-mirror checker is the point at which that shape stops being enough: three copies of one comparison
-is the mechanism living nowhere, and `scripts/lib/checker_kernel.py` is already named as the place a
-checker shares anything.
-
-**Done when the copying is stated once, in full, at the file its citation names, and the two copies
-are held to each other by something a change can trip.** Moving the comparison into the kernel is the
-alternative and is not obviously wrong; what it costs is that `declaring` and `uncovered` read
-`DECLARED_DELTAS` as a module global today, so a shared form takes the row list as an argument and
-both checkers change at once. Decide it before the third mirror rather than during it.
-
-**Not verified.** The identity of the copies is a read of the two files rather than a diff of the
-two spans, and neither checker was run.
 
 ### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
 

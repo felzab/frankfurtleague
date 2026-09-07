@@ -5,10 +5,6 @@ gains and local does not is a difference the local stack can never catch — whi
 of verifying against it. A construct outside the parsed subset refuses rather than answering, and a
 declared delta matching no difference is a finding.
 
-`scripts/checks/check_compose_mirror.py` is where `:: Marker`, `:: Delta`, `:: Difference`,
-`:: diff`, `:: side_matches`, `:: declaring` and `:: uncovered` come from, copied rather than shared
-for the reason that file's header gives. They must stay recognisable as the same mechanism.
-
 Invariants:
 Every difference is declared or it is a finding, and every declaration covers a difference.
 A `server` block is matched across the files by its role, never by its position or its name.
@@ -27,41 +23,25 @@ from typing import Any, Final
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    ABSENT,
+    ANY,
+    CONTINUATION,
+    EXIT_REFUSED,
+    REPO_ROOT,
+    Delta,
+    Difference,
+    Finding,
+    Marker,
+    declaring,
+    diff,
+    report_findings,
+    run,
+    uncovered,
+)
 
 PROD: Final = "nginx/prod.conf"
 LOCAL: Final = "nginx/local.conf"
-
-# The column `checker_kernel.py :: report_findings` leaves after its `FAIL` tag, so a finding's second
-# line lands under its first.
-CONTINUATION: Final = " " * 14
-
-
-class Marker:
-    """A stand-in for a value that is not there, or for one this list does not pin."""
-
-    def __init__(self, text: str) -> None:
-        self.text = text
-
-    def __repr__(self) -> str:
-        return self.text
-
-
-# `absent` is a value, not a missing entry: "the directive is not in that file" is the commonest
-# thing either side has to say.
-ABSENT: Final = Marker("absent")
-ANY: Final = Marker("whatever that file writes there")
-
-
-@dataclass(frozen=True)
-class Delta:
-    """One difference between the two edge configurations, at the grain it is declared."""
-
-    path: str
-    prod: Any
-    local: Any
-    why: str
-
 
 NO_TLS: Final = "the local stack terminates no TLS"
 
@@ -468,64 +448,6 @@ def load(path: Path) -> dict[str, Any]:
     return model(section, path.name)
 
 
-@dataclass(frozen=True)
-class Difference:
-    """One place the two files disagree, described by what each side has there."""
-
-    path: str
-    prod: Any
-    local: Any
-
-
-def diff(prod: Any, local: Any, path: str = "") -> list[Difference]:
-    """Every place the two configurations disagree, reported at the deepest key they share."""
-    if isinstance(prod, dict) and isinstance(local, dict):
-        found: list[Difference] = []
-        for key in sorted(set(prod) | set(local)):
-            here = f"{path}.{key}" if path else key
-            if key not in local:
-                found.append(Difference(here, prod[key], ABSENT))
-            elif key not in prod:
-                found.append(Difference(here, ABSENT, local[key]))
-            else:
-                found.extend(diff(prod[key], local[key], here))
-        return found
-    if prod == local:
-        return []
-    return [Difference(path, prod, local)]
-
-
-def side_matches(declared: Any, observed: Any) -> bool:
-    """Whether one side of a difference is what the delta declares for it."""
-    if declared is ANY:
-        return observed is not ABSENT
-    return declared == observed
-
-
-def declaring(difference: Difference) -> Delta | None:
-    """The delta that declares this difference, or None where none does."""
-    for delta in DECLARED_DELTAS:
-        if delta.path == difference.path and side_matches(delta.prod, difference.prod) and side_matches(delta.local, difference.local):
-            return delta
-    return None
-
-
-def uncovered(judged: list[tuple[Difference, Delta | None]]) -> list[Finding]:
-    """Every declared delta that matched no difference -- the allowlist rotting the other way."""
-    # Identity, not equality: each row is its own object, so two rows spelling the same path cannot
-    # mark one another matched.
-    matched = {id(delta) for _, delta in judged if delta is not None}
-    return [
-        Finding(
-            "fail",
-            f"the declared delta {delta.path} ({delta.why}) covered nothing\n"
-            f"{CONTINUATION}the files agree there, or the difference is no longer the one it pins",
-        )
-        for delta in DECLARED_DELTAS
-        if id(delta) not in matched
-    ]
-
-
 def repeated(value: Any) -> bool:
     """Whether a value is a directive's argument lists rather than a block or a marker."""
     return isinstance(value, tuple) and bool(value) and all(isinstance(one, tuple) for one in value)
@@ -587,7 +509,7 @@ def main() -> int:
         # EXIT_CRASH would claim the environment is broken and send a reader to the wrong repair.
         return EXIT_REFUSED
 
-    judged = [(difference, declaring(difference)) for difference in diff(prod, local)]
+    judged = [(difference, declaring(difference, DECLARED_DELTAS)) for difference in diff(prod, local)]
 
     if args.verbose:
         for difference, delta in judged:
@@ -604,7 +526,7 @@ def main() -> int:
     ]
     # A delta covering nothing is the same rot pointed the other way, and only a check that fails
     # on it gets the claim removed.
-    findings += uncovered(judged)
+    findings += uncovered(judged, DECLARED_DELTAS)
 
     code = report_findings(findings)
     if findings:

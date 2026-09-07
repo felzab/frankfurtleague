@@ -29,6 +29,9 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     mirror = importlib.import_module("check_nginx_mirror")
+    # Out of the cache the line above filled, so the case comparing the two reads one object under
+    # one name rather than a second kernel loaded beside it.
+    kernel = importlib.import_module("checker_kernel")
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
     withdraw("check_nginx_mirror", "checker_kernel")
@@ -74,7 +77,7 @@ def read(root: Path, text: str, name: str = "one.conf") -> dict[str, Any]:
 
 def judged(prod: dict[str, Any], local: dict[str, Any]) -> list[tuple[Any, Any]]:
     """Every difference against the delta declaring it, the pairing `uncovered` reads."""
-    return [(difference, mirror.declaring(difference)) for difference in mirror.diff(prod, local)]
+    return [(difference, mirror.declaring(difference, mirror.DECLARED_DELTAS)) for difference in mirror.diff(prod, local)]
 
 
 def run_main(monkeypatch, prod: Path, local: Path) -> int:
@@ -411,64 +414,59 @@ def test_a_difference_is_reported_at_the_deepest_key_the_two_share():
 
 def test_any_accepts_whatever_that_file_writes():
     """Every TLS row pins one side and leaves production's own value free, being production's."""
-    assert mirror.side_matches(mirror.ANY, (("on",),)) is True
+    assert kernel.side_matches(mirror.ANY, (("on",),)) is True
 
 
 def test_any_does_not_accept_a_missing_key():
     """`test_check_compose_mirror.py :: test_any_does_not_accept_a_missing_key`'s argument, over the rows this list writes `ANY` on."""
-    assert mirror.side_matches(mirror.ANY, mirror.ABSENT) is False
+    assert kernel.side_matches(mirror.ANY, mirror.ABSENT) is False
 
 
 def test_a_pinned_side_is_matched_by_equality_alone():
     """A pinned row is the one that fails when production's listen port moves off 443."""
-    assert mirror.side_matches((("443", "ssl"),), (("443", "ssl"),)) is True
-    assert mirror.side_matches((("443", "ssl"),), (("8443", "ssl"),)) is False
+    assert kernel.side_matches((("443", "ssl"),), (("443", "ssl"),)) is True
+    assert kernel.side_matches((("443", "ssl"),), (("8443", "ssl"),)) is False
 
 
 PINNED = mirror.Delta("server[main].listen", (("443", "ssl"),), (("80",),), "the local stack terminates no TLS")
 FREE = mirror.Delta("server[main].ssl_stapling", mirror.ANY, mirror.ABSENT, "no stapling without TLS")
 
 
-def test_a_difference_both_sides_of_a_row_describe_is_declared(monkeypatch):
+def test_a_difference_both_sides_of_a_row_describe_is_declared():
     """`test_check_compose_mirror.py :: test_a_difference_both_sides_of_a_row_describe_is_declared`'s argument, over a listen row."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
+    difference = mirror.Difference("server[main].listen", (("443", "ssl"),), (("80",),))
 
-    assert mirror.declaring(mirror.Difference("server[main].listen", (("443", "ssl"),), (("80",),))) is PINNED
+    assert mirror.declaring(difference, (PINNED, FREE)) is PINNED
 
 
-def test_a_row_whose_path_matches_but_whose_pinned_value_no_longer_does_declares_nothing(monkeypatch):
+def test_a_row_whose_path_matches_but_whose_pinned_value_no_longer_does_declares_nothing():
     """A second listen added beside the declared one has to fail, or the pin buys nothing over ANY."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED,))
     difference = mirror.Difference("server[main].listen", (("443", "ssl"), ("8443", "ssl")), (("80",),))
 
-    assert mirror.declaring(difference) is None
+    assert mirror.declaring(difference, (PINNED,)) is None
 
 
-def test_a_difference_at_a_path_no_row_names_declares_nothing(monkeypatch):
+def test_a_difference_at_a_path_no_row_names_declares_nothing():
     """`test_check_compose_mirror.py :: test_a_difference_at_a_path_no_row_names_declares_nothing`'s argument, over a zone directive."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-
-    assert mirror.declaring(mirror.Difference("limit_req_zone", (("a",),), (("b",),))) is None
+    assert mirror.declaring(mirror.Difference("limit_req_zone", (("a",),), (("b",),)), (PINNED, FREE)) is None
 
 
-def test_a_row_covering_nothing_is_a_finding(monkeypatch):
+def test_a_row_covering_nothing_is_a_finding():
     """`test_check_compose_mirror.py :: test_a_row_covering_nothing_is_a_finding`'s argument, over the edge's own declared list."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
     covered = [(mirror.Difference(FREE.path, (("on",),), mirror.ABSENT), FREE)]
 
-    findings = mirror.uncovered(covered)
+    findings = mirror.uncovered(covered, (PINNED, FREE))
 
     assert [finding.severity for finding in findings] == ["fail"]
     assert PINNED.path in findings[0].detail
 
 
-def test_two_rows_sharing_a_path_do_not_mark_each_other_covered(monkeypatch):
+def test_two_rows_sharing_a_path_do_not_mark_each_other_covered():
     """Why `uncovered` compares identity: the two resolver rows carry one reason word for word."""
     twin = mirror.Delta(PINNED.path, PINNED.prod, PINNED.local, PINNED.why)
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, twin))
     covered = [(mirror.Difference(PINNED.path, PINNED.prod, PINNED.local), PINNED)]
 
-    assert len(mirror.uncovered(covered)) == 1
+    assert len(mirror.uncovered(covered, (PINNED, twin))) == 1
 
 
 def test_a_repeated_directive_is_reported_as_what_parts_the_two_files():
@@ -544,6 +542,16 @@ def test_the_module_under_test_is_this_repository_own():
     assert mirror.REPO_ROOT == SCRIPTS.parent
 
 
+# Spelled out rather than read off either module: a list derived from what this checker binds would
+# lose a symbol taken back into a copy instead of failing on it.
+COMPARISON = ("ABSENT", "ANY", "Marker", "Delta", "Difference", "diff", "declaring", "uncovered")
+
+
+def test_the_comparison_is_the_kernel_own_rather_than_a_copy_here():
+    """`test_check_compose_mirror.py :: test_the_comparison_is_the_kernel_own_rather_than_a_copy_here`'s argument, from the edge side."""
+    assert [getattr(mirror, name) for name in COMPARISON] == [getattr(kernel, name) for name in COMPARISON]
+
+
 def test_the_repository_own_edge_files_are_clean():
     """The reader against the real pair, so a construct either file gains refuses here too."""
     assert mirror.load(mirror.REPO_ROOT / mirror.PROD)
@@ -556,7 +564,7 @@ def test_the_repository_own_edge_pair_is_fully_declared():
     covered = judged(prod, local)
 
     assert [difference.path for difference, delta in covered if delta is None] == []
-    assert mirror.uncovered(covered) == []
+    assert mirror.uncovered(covered, mirror.DECLARED_DELTAS) == []
     assert len(covered) == len(mirror.DECLARED_DELTAS)
 
 
