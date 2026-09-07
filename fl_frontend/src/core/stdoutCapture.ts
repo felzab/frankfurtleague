@@ -1,3 +1,8 @@
+/**
+ * Test-only, and `no-restricted-imports` in `fl_frontend/eslint.config.mjs` is what holds it there:
+ * every export below replaces `process.stdout.write` for the length of a call.
+ */
+
 import assert from "node:assert/strict";
 
 /** A run's stdout: the chunks that opened like documents verbatim, and those chunks parsed. */
@@ -40,6 +45,7 @@ export function writtenBy(run: () => void): WrittenLines {
   return written;
 }
 
+/** For a caller grading the documents alone, the raw text of a line it never inspects being noise. */
 export function documentsWrittenBy(run: () => void): Record<string, unknown>[] {
   return writtenBy(run).documents;
 }

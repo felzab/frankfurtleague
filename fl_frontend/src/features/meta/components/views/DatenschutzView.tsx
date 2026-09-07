@@ -102,7 +102,8 @@ const VEROEFFENTLICHT = [
 const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
-    frist: "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ersetzen wir einen Link durch einen neuen, beginnt die Frist neu",
+    frist:
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht",
   },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
@@ -282,7 +283,7 @@ export function DatenschutzView() {
             Jahre alt ist und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung
             bleibt so lange offen, bis alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt,
             löschen wir die Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze
-            Bewerbung von vorn; die Erinnerung ändert sie nicht.
+            Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ}>
             Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige

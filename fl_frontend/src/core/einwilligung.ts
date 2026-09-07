@@ -147,8 +147,6 @@ export const LIGA_EINWILLIGUNGEN = {
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
   },
-  // A label of its own because the words moved: every record already stamped keeps the ones it
-  // was given.
   "2026-09-bestaetigung-2": {
     absaetze: [
       "Die Liga speichert von jeder der drei Personen oben Vorname, Nachname, E-Mail-Adresse und " +
@@ -164,25 +162,43 @@ export const LIGA_EINWILLIGUNGEN = {
     ],
     schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
   },
+  // A label of its own because the words moved: every record already stamped keeps the ones it
+  // was given.
+  "2026-09-bestaetigung-3": {
+    absaetze: [
+      "Die Liga speichert von jeder der drei Personen oben Vorname, Nachname, E-Mail-Adresse und " +
+        "Telefonnummer, um das Team während dieser Saison zu erreichen. Diese Angaben bleiben in der " +
+        "Verwaltung der Liga und werden nirgends veröffentlicht.",
+      "Jede der drei Personen bekommt gleich eine eigene E-Mail mit einem persönlichen Link und bestätigt " +
+        "dort selbst, dass die Angaben stimmen. Ihr Geburtsdatum trägt jede dort selbst ein, und daran " +
+        "prüfen wir, ob sie mindestens 16 Jahre alt ist; hier im Formular brauchst Du es nicht. Solange " +
+        "nicht alle bestätigt haben, bearbeiten wir die Bewerbung nicht; fehlt vierzehn Tage nach dem " +
+        "Versand dieser Links noch eine Bestätigung, löschen wir die Bewerbung samt allen Kontaktdaten. " +
+        "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung " +
+        "von vorn; eine Erinnerung verschiebt sie nicht. Was wir mit den Daten sonst machen und welche " +
+        "Rechte jede dieser Personen hat, steht in der Datenschutzerklärung.",
+    ],
+    schalter: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+  },
   // A label of its own, never a second block in the entry above: that entry is stamped on the
   // applicant's and the admin editor's records, and neither reader saw a word of the page below.
   "2026-09-bestaetigungsseite": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
   },
-  // A label of its own because the words moved: every record already stamped keeps the ones it
-  // was given.
   "2026-09-bestaetigungsseite-2": {
     absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09_2,
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
   },
+  // A label of its own because the words moved: every record already stamped keeps the ones it
+  // was given.
   "2026-09-bestaetigungsseite-3": {
     absaetze: Object.values(BESTAETIGUNG_ABSAETZE),
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
   },
 } as const satisfies Readonly<Record<string, EinwilligungFassung>>;
 
-const AKTUELLE_FASSUNG = "2026-09-bestaetigung-2";
+const AKTUELLE_FASSUNG = "2026-09-bestaetigung-3";
 const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite-3";
 
 // Read off the record rather than spelled again, so a new wording and the bump that names it cannot

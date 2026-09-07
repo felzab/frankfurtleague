@@ -22,6 +22,7 @@ const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
   "2026-08": "d1e56ea29e00f2d6b76ccd47694f86b268e06024817ed24f7b457c4e22879edd",
   "2026-09-bestaetigung": "b503d29ff41e70cdf5b129b43e0f95568a2849fd0b88d01443b367d07a12d818",
   "2026-09-bestaetigung-2": "9d075e3f8b6f38e2e70577134c22dc1a2f6c31ddb5390b803e76cf6c510d6a05",
+  "2026-09-bestaetigung-3": "af66039f44dc5aceb10f01d7d01e4ca9acbb628050b2d085ed726deb37d7a36e",
   "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
   "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
   "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
@@ -71,6 +72,17 @@ describe("LIGA_EINWILLIGUNGEN", () => {
     const { textVersion, ...aktuell } = LIGA_EINWILLIGUNG;
 
     assert.deepEqual(einwilligungFassung(textVersion), aktuell, "the stamped version and the rendered wording have come apart");
+  });
+
+  /* The digests pin each label's words; nothing else pins WHICH label is live, and an earlier label
+     states the fourteen days with no start, or with no carve-out for the reminder. */
+  it("points both live labels at a wording naming when the fourteen days start and what does not restart them", () => {
+    for (const { textVersion, absaetze } of [LIGA_EINWILLIGUNG, BESTAETIGUNG_EINWILLIGUNG]) {
+      const text = absaetze.join(" ");
+
+      assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
+      assert.ok(text.includes("eine Erinnerung verschiebt sie nicht"), `${textVersion} lets a reminder read as a new deadline`);
+    }
   });
 
   it("answers nothing for a label no record was ever made under", () => {

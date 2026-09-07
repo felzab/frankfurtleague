@@ -96,6 +96,24 @@ const LAYER_BOUNDARY = {
   },
 };
 
+/**
+ * `stdoutCapture` swaps `process.stdout.write` out for the length of a call, which in a server
+ * process swallows the log stream. Nothing else in the toolchain would say so: the module
+ * type-checks, builds and imports anywhere.
+ */
+const TEST_ONLY = {
+  group: ["**/stdoutCapture.ts", "**/stdoutCapture"],
+  message: "stdoutCapture replaces process.stdout.write: a *.test.ts(x) file may import it, production code may not.",
+};
+
+const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
+
+/**
+ * eslint decides `no-restricted-imports` from the LAST config object matching a file rather than
+ * merging the matches, so a block covering a subset restates every pattern that reaches it.
+ */
+const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: patterns }] });
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -117,14 +135,14 @@ const eslintConfig = defineConfig([
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.
-  {
-    files: ["src/core/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.core] }] },
-  },
-  {
-    files: ["src/shared/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.shared] }] },
-  },
+  { files: ["src/core/**/*.{ts,tsx}"], rules: restrictImports(LAYER_BOUNDARY.core) },
+  { files: ["src/shared/**/*.{ts,tsx}"], rules: restrictImports(LAYER_BOUNDARY.shared) },
+
+  // The test-only ban, which a `*.test.ts(x)` file alone escapes. Each block restates the boundary
+  // above it for `restrictImports`'s reason.
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY) },
+  { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.core) },
+  { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.shared) },
 
   {
     files: ["src/**/*.{ts,tsx}"],

@@ -139,14 +139,36 @@ class TestForwardedFailureFilter:
         assert ForwardedFailureFilter().filter(make_record(level=logging.ERROR, logger_name="uvicorn.error")) is True
 
 
-def _get_logger_call(node: ast.AST) -> ast.Call | None:
-    """A `logging.getLogger(...)` or a bare `getLogger(...)`, whichever way the module imported it."""
-    if not isinstance(node, ast.Call):
-        return None
-    named = (isinstance(node.func, ast.Attribute) and node.func.attr == "getLogger") or (
-        isinstance(node.func, ast.Name) and node.func.id == "getLogger"
-    )
-    return node if named else None
+def _reaches_get_logger(node: ast.expr, names: set[str]) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr == "getLogger") or (isinstance(node, ast.Name) and node.id in names)
+
+
+def _get_logger_names(tree: ast.AST) -> set[str]:
+    """Every bare name one module can reach `logging.getLogger` through: the plain import's, an `as` alias, and a name assigned from either.
+
+    Repeated until the set stops growing, so a name assigned from an alias binds the way the alias did.
+    """
+
+    names = {"getLogger"}
+    while True:
+        found = set(names)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "logging":
+                found |= {alias.asname or alias.name for alias in node.names if alias.name == "getLogger"}
+            elif isinstance(node, ast.Assign) and _reaches_get_logger(node.value, found):
+                found |= {target.id for target in node.targets if isinstance(target, ast.Name)}
+
+        if found == names:
+            return names
+        names = found
+
+
+def _get_logger_calls(tree: ast.AST) -> list[ast.Call]:
+    """Every `logging.getLogger(...)` one module makes, under whichever of its own names it spells the call."""
+
+    names = _get_logger_names(tree)
+
+    return [node for node in ast.walk(tree) if isinstance(node, ast.Call) and _reaches_get_logger(node.func, names)]
 
 
 class TestTheApplicationsOneLogger:
@@ -155,13 +177,27 @@ class TestTheApplicationsOneLogger:
         calls = [
             (path.relative_to(APP_ROOT.parent).as_posix(), call)
             for path in sorted(APP_ROOT.rglob("*.py"))
-            for node in ast.walk(parsed(path))
-            if (call := _get_logger_call(node)) is not None
+            for call in _get_logger_calls(parsed(path))
         ]
 
         assert [where for where, _ in calls] == ["app/core/logging.py"]
         [(_, call)] = calls
         assert [ast.unparse(argument) for argument in call.args] == ["FL_LOGGER_NAME"]
+
+    @pytest.mark.parametrize(
+        ("source", "found"),
+        [
+            ("import logging\nlogging.getLogger('x')\n", 1),
+            ("from logging import getLogger\ngetLogger('x')\n", 1),
+            ("from logging import getLogger as g\ng('x')\n", 1),
+            ("import logging\nmint = logging.getLogger\nmint('x')\n", 1),
+            ("from logging import getLogger as g\nmint = g\nmint('x')\n", 1),
+            ("import logging\nlogging.info('x')\n", 0),
+        ],
+    )
+    def test_the_walk_reads_a_second_logger_under_every_spelling(self, source, found):
+        """A spelling the walk passes over is a second logger the case above then reports nothing about."""
+        assert len(_get_logger_calls(ast.parse(source))) == found
 
     def test_that_logger_is_the_one_the_filter_treats_as_ours(self):
         assert fl_logger.name == FL_LOGGER_NAME
