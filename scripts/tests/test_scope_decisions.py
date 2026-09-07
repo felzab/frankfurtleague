@@ -393,6 +393,17 @@ def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> N
     assert {name for name, selected in answered.items() if selected} == {"docs"}, repr(answered)
 
 
+def test_the_backend_dockerfile_stops_short_of_the_backend_scope() -> None:
+    """`SELECTED` reads its scopes as a subset, so its row here passes with `backend` and `db` left true.
+
+    The image builds the backend and runs none of its tests, and only a set comparison says so.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map(["fl_backend/Dockerfile"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"images", "docs", "scripts"}, repr(answered)
+
+
 def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
     """`SELECTED` reads its scopes as a subset, so the row above passes with `scripts` left true.
 

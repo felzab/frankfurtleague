@@ -40,6 +40,10 @@ LATER = "24@2026-09-02"
 
 HEADER = "# job\tseconds\tfloor\tbudget\tmeasured"
 
+# What a direct `check_run` call says it read. Nothing on disk, so a finding carrying it can only
+# have taken it from the argument rather than from the module's own default.
+NAMED = "some/where/gate-wall-clock.tsv"
+
 
 def table(*rows: str) -> str:
     """A reference file's text out of its rows, header comment included."""
@@ -163,6 +167,23 @@ def test_main_refuses_a_table_it_cannot_read(tmp_path: Path):
 
     assert code == 2
     assert "backend" in err
+    assert str(reference) in err
+
+
+def test_a_refusal_names_the_file_it_opened_rather_than_the_default(tmp_path: Path):
+    """A reference that is not there at all, the arm no other case reaches.
+
+    A refusal naming `REFERENCE` while `--reference` pointed elsewhere sends its reader to a file
+    the run never opened, and that file parses.
+    """
+    missing = tmp_path / "absent.tsv"
+    jobs = written(tmp_path / "jobs.json", json.dumps(payload(job("backend", 30))))
+
+    code, _, err = run_main("--jobs", str(jobs), "--reference", str(missing))
+
+    assert code == 2
+    assert str(missing) in err
+    assert str(budget.REFERENCE) not in err
 
 
 # --- the run in hand -------------------------------------------------------------------------------
@@ -172,7 +193,7 @@ def test_a_job_over_its_budget_is_a_finding_naming_both_figures():
     """The check's reason to exist, and the sentence a red run has to carry."""
     rows = budget.parse_reference(BASELINE)
 
-    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("backend", 61))))
+    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("backend", 61))), NAMED)
 
     assert details(findings) == ["`backend` took 61 s against a budget of 60 s"]
 
@@ -181,7 +202,7 @@ def test_a_job_at_its_budget_passes_and_prints_its_cost():
     """The ceiling is inclusive, and a green run still shows each job's seconds against its budget."""
     rows = budget.parse_reference(BASELINE)
 
-    findings, lines = budget.check_run(rows, budget.spans_of(payload(job("backend", 60))))
+    findings, lines = budget.check_run(rows, budget.spans_of(payload(job("backend", 60))), NAMED)
 
     assert findings == []
     assert lines == ["backend: 60 s of 60 s"]
@@ -191,17 +212,18 @@ def test_a_job_with_no_row_is_a_finding():
     """The clause's first half, mechanically: a job added to the gate arrives with its row or goes red."""
     rows = budget.parse_reference(BASELINE)
 
-    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("newjob", 5))))
+    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("newjob", 5))), NAMED)
 
     assert len(findings) == 1
     assert "`newjob`" in findings[0].detail and "no row" in findings[0].detail
+    assert NAMED in findings[0].detail
 
 
 def test_an_unbudgeted_row_is_measured_and_not_compared():
     """`images` at any length is a line in the log and never a finding."""
     rows = budget.parse_reference(BASELINE)
 
-    findings, lines = budget.check_run(rows, budget.spans_of(payload(job("images", 900))))
+    findings, lines = budget.check_run(rows, budget.spans_of(payload(job("images", 900))), NAMED)
 
     assert findings == []
     assert lines == ["images: 900 s, measured and not budgeted (the header says why)"]
@@ -219,7 +241,7 @@ def test_a_skipped_job_and_a_failed_job_are_lines_rather_than_findings():
     rows = budget.parse_reference(BASELINE)
     spans = budget.spans_of(payload(job("backend", None, conclusion="skipped"), job("commits", None, conclusion="failure")))
 
-    findings, lines = budget.check_run(rows, spans)
+    findings, lines = budget.check_run(rows, spans, NAMED)
 
     assert findings == []
     assert lines == [
@@ -232,7 +254,7 @@ def test_a_successful_job_with_no_timestamp_is_a_finding():
     """A job the API could not time was not held to anything, which is not the same as passing."""
     rows = budget.parse_reference(BASELINE)
 
-    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("backend", None))))
+    findings, _ = budget.check_run(rows, budget.spans_of(payload(job("backend", None))), NAMED)
 
     assert len(findings) == 1
     assert "could not be measured" in findings[0].detail
@@ -258,7 +280,7 @@ def test_main_passes_a_run_inside_every_budget(tmp_path: Path):
     code, out, _ = run_main("--jobs", str(jobs), "--reference", str(reference))
 
     assert code == 0
-    assert "every measured job sits inside its budget" in out
+    assert f"every measured job sits inside its budget ({reference})" in out
 
 
 def test_main_refuses_a_payload_it_cannot_read(tmp_path: Path):
@@ -270,6 +292,7 @@ def test_main_refuses_a_payload_it_cannot_read(tmp_path: Path):
 
     assert code == 2
     assert "payload" in err
+    assert str(jobs) in err
 
 
 def test_main_annotates_under_actions(tmp_path: Path):
@@ -380,7 +403,7 @@ def test_main_passes_an_unmoved_file(tmp_path: Path):
         code, out, _ = run_main("--base", "--reference", str(reference))
 
     assert code == 0
-    assert "no figure" in out
+    assert f"no figure in {reference} rose" in out
 
 
 def test_main_refuses_where_no_base_resolves(tmp_path: Path):
@@ -421,8 +444,8 @@ def test_the_committed_reference_can_go_red_and_green():
     over = budget.spans_of(payload(*(job(name, ceiling + 1) for name, ceiling in budgeted.items())))
     at = budget.spans_of(payload(*(job(name, ceiling) for name, ceiling in budgeted.items())))
 
-    red, _ = budget.check_run(rows, over)
-    green, lines = budget.check_run(rows, at)
+    red, _ = budget.check_run(rows, over, NAMED)
+    green, lines = budget.check_run(rows, at, NAMED)
 
     assert sorted(re.match(r"`([^`]+)`", d).group(1) for d in details(red)) == sorted(budgeted)  # type: ignore[union-attr]
     assert green == []
