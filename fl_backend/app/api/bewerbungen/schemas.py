@@ -50,7 +50,10 @@ from app.shared.schemas.responses import BaseAPIResponse
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
 FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
-FLBewerbungenSortOptions = Literal["eingereicht_am", "saison_id"]
+# One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
+# submission and no path removes a row, so a second order would plan a blocking sort over an archive
+# nothing bounds.
+FLBewerbungenSortOptions = Literal["eingereicht_am"]
 
 # The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
 # derives the same three from the model, and a test holds the two spellings equal.

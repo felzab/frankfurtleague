@@ -131,7 +131,6 @@ deliverable.
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                    | FE, Docs, tests                                                             | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                       | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                   | FE, BE, Docs, tests, saisons                                                | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject              | FE, Docs, tests                                                             | Open     |
@@ -2493,42 +2492,6 @@ here establishes that an SSR'd attribute the parser refused stays unapplied afte
 every overlay still positions under the strict policy; both are read off the react-dom and react-aria
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
-
-### `rt37-sv33` · A sort option nothing sends scans the archive it sorts
-
-| Tags                           | Status   | Depends on |
-| ------------------------------ | -------- | ---------- |
-| FE, BE, DB, admin, bewerbungen | Standing | —          |
-
-**Not a defect today, and what makes it harmless is that nothing reaches it.**
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions` offers `saison_id` beside
-`eingereicht_am`, and every read that names it plans a blocking sort: no index over `bewerbungen` leads with
-`saison_id` as a sort key, the three in `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` all ending in
-`eingereicht_am` then `_id` (measured 2026-08-30 at 60,000 rows, across every combination of the season and
-status filters with each order; the reads narrowing on neither filter scan the collection whole). **No caller
-sends it.** `fl_frontend/src/app/admin/bewerbungen/page.tsx` sends `order` alone, and no other surface reads
-this endpoint, so the option is reachable only by composing the request by hand against an admin-guarded API.
-
-**Both exits are wrong, which is what makes this a decision rather than a repair.** Two more indexes
-would buy a sort nobody performs and would be carried, applied at every boot and re-read by every
-future reader of `SUPPORT_INDEXES`, for no caller. Narrowing `FLBewerbungenSortOptions` to the one
-option that is used is a wire change: it moves `fl_backend/openapi.json` and the hand-written Zod
-mirror, and it takes an offered capability away rather than adding one. **Which is right depends on
-whether sorting the archive by season is a thing this product means to offer, and that has not been
-asked.**
-
-**The discriminator this entry adds.** A blocking sort is judged on whether anything bounds the
-collection, not on whether it blocks. Here the bound is absent — `bewerbungen` grows with every
-submission and no path removes a row — and the read is harmless anyway, because **nothing reaches
-it**. So a blocking sort is judged on two questions before its plan matters: what bounds the
-collection, and what reaches the read.
-
-**Trigger to revisit:** any surface gaining a season sort over this list, which turns the option
-from unreachable into the ordinary path and makes the plan above the one an administrator waits on.
-
-**What was measured and what was not** (COR-9). The plans were measured, at a row count the
-collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
-another consumer rather than proven by instrumenting the endpoint.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 

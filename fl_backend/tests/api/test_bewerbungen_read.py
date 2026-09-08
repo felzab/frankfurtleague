@@ -233,3 +233,20 @@ class TestNoQueryStringReachesAnUnboundedRead:
 
         with TestClient(_probe) as client:
             assert client.get(f"/probe?limit={value}").status_code == 422
+
+
+class TestTheQueueOffersOneOrderAlone:
+    """Why one order is all this endpoint offers sits at `app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions`."""
+
+    # 422 rather than 404: the value arrives in the query string, and the routing clause in
+    # `.claude/rules/backend.md` keeps 404 for a path id.
+    @pytest.mark.parametrize("value", ["saison_id", "status", "eingereicht_am_desc"])
+    def test_an_unoffered_sort_key_is_refused(self, value: str):
+        with TestClient(_probe) as client:
+            assert client.get(f"/probe?sort_by={value}").status_code == 422
+
+    def test_the_offered_sort_key_is_served(self):
+        """Non-vacuity: a model refusing every value would pass the case above without offering anything."""
+
+        with TestClient(_probe) as client:
+            assert client.get("/probe?sort_by=eingereicht_am").status_code == 200

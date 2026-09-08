@@ -2135,10 +2135,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "eingereicht_am",
-                "saison_id"
-              ],
+              "const": "eingereicht_am",
               "type": "string",
               "default": "eingereicht_am",
               "title": "Sort By"

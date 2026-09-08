@@ -21,7 +21,7 @@ export type AdminBewerbungRow = FLBewerbung & {
   inSelectedSaison: boolean;
 };
 
-type FLBewerbungenSortingOptions = "eingereicht_am" | "saison_id";
+type FLBewerbungenSortingOptions = "eingereicht_am";
 
 /**
  * What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one.
