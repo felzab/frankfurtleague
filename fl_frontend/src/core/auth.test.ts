@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 
 import { ObjectId } from "mongodb";
 
@@ -59,7 +59,9 @@ const sessionDocument = {
   expires: new Date(Date.now() + 48 * 60 * 60 * 1000),
 };
 
-const userDocument = { _id: USER_ID, name: "Vorstand", email: ADMIN_EMAIL, emailVerified: new Date(0), image: null };
+// The email provider's profile carries an id, an address and the verification stamp, and the adapter
+// writes exactly that -- so a fixture holding more asserts a body no administrator receives.
+const userDocument = { _id: USER_ID, email: ADMIN_EMAIL, emailVerified: new Date(0) };
 
 (globalThis as unknown as Record<string, unknown>)[COLLECTIONS] = {
   sessions: { findOne: async ({ sessionToken }: { sessionToken: string }) => (sessionToken === SESSION_TOKEN ? sessionDocument : null) },
@@ -69,7 +71,13 @@ const userDocument = { _id: USER_ID, name: "Vorstand", email: ADMIN_EMAIL, email
 };
 
 // `@auth/core` refuses a config carrying no secret, and the real one is a credential no test holds.
+// Restored because the runner's one-process mode would otherwise carry this into every later module.
+const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
 process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
+after(() => {
+  if (ORIGINAL_AUTH_SECRET === undefined) delete process.env.AUTH_SECRET;
+  else process.env.AUTH_SECRET = ORIGINAL_AUTH_SECRET;
+});
 
 // Imported here rather than at the top, both of them: a static import resolves before the hook above
 // is registered, so neither the alias nor the `next/server` extension would be in place yet.
@@ -125,7 +133,7 @@ describe("the session endpoint's response body", () => {
     const body = await (await readSession()).json();
 
     assert.deepEqual(Object.keys(body).sort(), ["expires", "user"]);
-    assert.deepEqual(Object.keys(body.user).sort(), ["email", "image", "name", "role"]);
+    assert.deepEqual(Object.keys(body.user).sort(), ["email", "role"]);
   });
 });
 
