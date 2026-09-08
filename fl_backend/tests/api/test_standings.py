@@ -752,6 +752,29 @@ class TestAGroupPastTheFixtureLimit:
         assert standing(*group(29)).by_platz == {}
         assert [team.name for team in standing(*group(26)).by_platz.values()] == ["Team 1", "Team 2", "Team 3"]
 
+    def test_one_fixture_past_the_cap_declines_a_placing_the_walk_settles(self, a_team: TeamFactory, played: MatchFactory):
+        """Only the walk sees that the clubs which could take this placing from Team 1 have all left the season."""
+
+        teams = [
+            a_team(1, punkte=3, gespielt=1),
+            a_team(2, punkte=0, gespielt=1, austritt=AUSGETRETEN),
+            *(a_team(seed, punkte=0, gespielt=0, austritt=AUSGETRETEN) for seed in (3, 4, 5)),
+        ]
+        pairs = all_pairs([1, 2, 3, 4, 5])
+
+        def fixtures(*called_off: int) -> list[dict[str, Any]]:
+            states = {0: (1, 0), **dict.fromkeys(called_off, CALLED_OFF)}
+            return [in_state(played, number + 1, home, away, states.get(number)) for number, (home, away) in enumerate(pairs)]
+
+        # Team 1 beat Team 2, and a CALL-OFF closes the second fixture: it takes the open count down
+        # without moving a figure, so the two lists rank everybody alike.
+        at_the_cap = fixtures(pairs.index((3, 4)))
+        one_past_it = fixtures()
+
+        assert sum(1 for spiel in at_the_cap if spiel["ergebnis"] is None and spiel["sonderereignis"] is None) == CERTAINTY_FIXTURE_LIMIT
+        assert standing(teams, at_the_cap).by_platz[1].name == "Team 1"
+        assert standing(teams, one_past_it).by_platz == {}
+
     def test_a_club_with_nothing_counted_seeds_nothing_however_clear_of_it_the_rest_are(self, a_team: TeamFactory, played: MatchFactory):
         """Every fixture it has left being called off takes it out of `_may_hold_a_platz`, so the number it stands at is not its to keep."""
 
@@ -766,6 +789,19 @@ class TestAGroupPastTheFixtureLimit:
         assert standing([a_team(1, punkte=0, gespielt=1), *chasers], fixtures).by_platz[6].name == "Team 1"
 
 
+# Every points scheme the family below is swept under: the ordinary competition, one where two draws
+# total exactly one win, and one scoring a draw above a win.
+POINTS_SCHEMES: tuple[FLSaisonRules, ...] = (
+    RULES,
+    RULES.model_copy(update={"win_points": 4, "draw_points": 2}),
+    RULES.model_copy(update={"win_points": 1, "draw_points": 3}),
+)
+
+# The clubs the family is built from, read by the sweep below to size itself: a family counted from a
+# figure written out separately is one a widening leaves counting the old shape.
+SWEPT_SEEDS: tuple[int, ...] = (1, 2, 3)
+
+
 def every_three_club_group(a_team: TeamFactory, played: MatchFactory) -> Iterator[tuple[str, FLSaisonRules, list[FLTeam], list[FLSpiel]]]:
     """One closed family: three clubs under three points schemes, every fixture state, every subset of them departed.
 
@@ -773,21 +809,17 @@ def every_three_club_group(a_team: TeamFactory, played: MatchFactory) -> Iterato
     cannot produce.
     """
 
-    seeds = [1, 2, 3]
-    pairs = all_pairs(seeds)
-    conventional = RULES
-    joint_separates = RULES.model_copy(update={"win_points": 4, "draw_points": 2})
-    draw_beats_a_win = RULES.model_copy(update={"win_points": 1, "draw_points": 3})
+    pairs = all_pairs(SWEPT_SEEDS)
 
-    for rules in (conventional, joint_separates, draw_beats_a_win):
+    for rules in POINTS_SCHEMES:
         for states in product(FIXTURE_STATES, repeat=len(pairs)):
             paired = zip(pairs, states, strict=True)
             documents = [in_state(played, number + 1, home, away, state) for number, ((home, away), state) in enumerate(paired)]
             spiele = FLSpielListAdapter.validate_python(documents)
             figures = {str(team_id): row for team_id, row in build_statistik_by_team(spiele, rules).items()}
 
-            for departures in product((None, AUSGETRETEN), repeat=len(seeds)):
-                marked = list(zip(seeds, departures, strict=True))
+            for departures in product((None, AUSGETRETEN), repeat=len(SWEPT_SEEDS)):
+                marked = list(zip(SWEPT_SEEDS, departures, strict=True))
                 teams = [a_team(seed, **as_stated(figures.get(TEAM_ID.format(seed))), austritt=mark) for seed, mark in marked]
                 left = [seed for seed, mark in marked if mark is not None]
 
@@ -804,17 +836,33 @@ class TestEveryWayThreeClubsCanStand:
     def test_the_separation_test_certifies_nothing_the_walk_declines(self, a_team: TeamFactory, played: MatchFactory):
         """A placing only the separation test declares is one the group can still change, which is the defect this layer exists not to have."""
 
+        certified = {"played out": 0, "outstanding": 0}
+        groups = 0
+
         for case, rules, teams, spiele in every_three_club_group(a_team, played):
+            groups += 1
             left_to_play = _still_to_play(spiele)
             placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0)))
             settled = frozenset(team.id for team in teams if left_to_play.get(team.id, 0) == 0)
 
             walked = _decide_one_gruppe(teams=teams, spiele=spiele, rules=rules, still_to_play=left_to_play, has_unattributable=False)
             separated = _separated_placings(teams, spiele, rules, left_to_play, settled, placeable)
+            # With nothing outstanding every ceiling equals its floor and the interval test is the
+            # ranking, so the other arm is the one that exercises the separation at all.
+            arm = "outstanding" if any(left_to_play.values()) else "played out"
 
             for platz, holder in separated.items():
+                certified[arm] += 1
                 walked_holder = walked.by_platz.get(platz)
                 assert walked_holder is not None and walked_holder.id == holder.id, f"{case}: platz {platz} to {holder.name}"
+
+        # The family multiplied out, so a generator dropping an axis fails here; an axis emptied to
+        # nothing satisfies this and fails the floor below instead.
+        assert groups == len(POINTS_SCHEMES) * len(FIXTURE_STATES) ** len(all_pairs(SWEPT_SEEDS)) * 2 ** len(SWEPT_SEEDS)
+
+        # A floor rather than the tally, an order of magnitude under what each arm certifies: what has
+        # to fail here is an arm nothing reaches, and widening any axis moves every count.
+        assert certified["played out"] >= 100 and certified["outstanding"] >= 10, certified
 
 
 def gruppe_faults(resolution: BracketResolution) -> list[tuple[int, str, int, str]]:

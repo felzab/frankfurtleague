@@ -422,16 +422,22 @@ class TestTheConstructionIsTheTable:
             bracket_seeding(number_of_groups=3, qualifiers_per_group=2)
 
     def test_a_group_count_the_closed_set_cannot_name_is_refused(self):
-        """`offered_gruppen` slices, so it answers short; unrefused, one group's qualifier would take another group's slot."""
+        """The smallest power of two past the closed set: at any other field the size guard answers instead, and `match` pins which one did.
 
-        with pytest.raises(ValueError):
-            bracket_seeding(number_of_groups=len(GRUPPEN) + 1, qualifiers_per_group=1)
+        Unrefused, a slot indexes past the last name -- an `IndexError`, never a misseeding.
+        """
+
+        with pytest.raises(ValueError, match="the closed set holds"):
+            bracket_seeding(number_of_groups=1 << len(GRUPPEN).bit_length(), qualifiers_per_group=1)
 
 
 class TestTheConstructionScoresTheBestThereIs:
-    @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
+    @pytest.mark.parametrize("key", sorted(legal_combinations()))
     def test_it_reaches_the_closed_form_bound(self, key: tuple[int, int]):
-        """What replaces a permutation sweep: linear in the field, so it holds at every size the closed group set reaches."""
+        """Every shape the write path admits, never the reference table's keys, which a widened rules bound may leave behind.
+
+        The closed form is linear in the field, so the proof follows that widening at no cost.
+        """
 
         assert score(bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1])) == best_possible(*key)
 

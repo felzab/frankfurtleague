@@ -46,8 +46,8 @@ SESSION_TAKING_HELPERS = WRITE_HELPERS | REMOVAL_HELPERS
 # what a replace and an undraw are FOR, and `delete_many_from_db` keeps both in the images it logs.
 NOT_A_RECORD: frozenset[str] = frozenset({"datum", "uhrzeit"})
 
-# The whole of what the recorded-fact window reads, the private helper included: the floor below is
-# what holds the pair complete, a third helper taking its own reads out of every clause here.
+# The whole of what the recorded-fact window reads, the private helper included. A helper outside this
+# tuple takes its own reads out of every clause below, which is what the closure clause holds it to.
 RECORDED_FACT_PREDICATES: tuple[Callable[..., Any], ...] = (holds_a_recorded_fact, _a_side_is_off_the_draw)
 
 # Every package under `app/api/` declaring a services module, pinned beside the glob that finds
@@ -87,6 +87,14 @@ def _subscripted_constants(functions: tuple[Callable[..., Any], ...]) -> set[str
         for argument in call.args
         if isinstance(argument, ast.Constant) and isinstance(argument.value, str)
     }
+
+
+def _application_calls(function: Callable[..., Any]) -> set[str]:
+    """Every function of the application's own that one function hands off to, by the name at the call site."""
+
+    return {
+        call.func.id for call in ast.walk(declared(function)) if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    } & app_declares()
 
 
 def _model_copy_keys(function: Callable[..., Any]) -> set[str]:
@@ -303,18 +311,19 @@ class TestThePredicateReadsNoKeyItsProjectionMisses:
     added to weigh and every other test stays green.
     """
 
-    def test_the_swept_pair_is_the_whole_window_and_both_slots_are_spelled_out(self):
-        """The floor: a third helper under the predicate, or either slot read through a variable, empties the clause below.
+    def test_the_swept_predicates_are_closed_and_both_slots_are_spelled_out(self):
+        """A helper grown below any swept predicate joins the tuple or fails here.
 
-        A key built into an f-string reaches this sweep as no constant, which is what the spelled-out
-        slots buy.
+        The clause below reads that tuple alone, so a helper outside it takes its own reads with it.
         """
 
-        handed_off = {
-            call.func.id for call in ast.walk(declared(holds_a_recorded_fact)) if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-        } & app_declares()
+        handed_off = {name for predicate in RECORDED_FACT_PREDICATES for name in _application_calls(predicate)}
 
-        assert handed_off == {_a_side_is_off_the_draw.__name__}
+        # The floor: the hand-off the window does make is SEEN, so the closure below is asked of a
+        # matcher that matched something.
+        assert handed_off, "no hand-off is seen inside the window, so the closure clause below is vacuous"
+
+        assert sorted(handed_off - {predicate.__name__ for predicate in RECORDED_FACT_PREDICATES}) == []
 
         assert {"team1", "team2", "team1_quelle", "team2_quelle"} <= _subscripted_constants(RECORDED_FACT_PREDICATES)
 
