@@ -30,9 +30,9 @@ const RULES = {
 };
 
 /**
- * Whether a whole create carrying this shape parses. The PAYLOAD rather than a field schema:
- * `REQ-RULES-001` and `REQ-RULES-007` read two of the three numbers each, so they are refinements on
- * the season, and an offer is held to them rather than to a second copy of itself.
+ * The PAYLOAD rather than a field schema: `REQ-RULES-001` and `REQ-RULES-007` read two of the three
+ * numbers each, so they are refinements on the season, and an offer is held to them rather than to a
+ * second copy of itself.
  */
 const saves = (shape: FLSpielplanShape): boolean =>
   FLPostSaisonPayloadSchema.safeParse({
@@ -84,7 +84,7 @@ describe("the group count offer", () => {
 
   /* A season stored before these rules holds a count no shape satisfies. Drop it and the trigger
      shows a number the list does not carry; offer it and the picker promises a season that cannot
-     be saved. It is a row, closed, at its place in numeric order. */
+     be saved. */
   it("keeps a stored count the universe does not carry", () => {
     const rows = groupCountOptions({ groups: 3, qualifiers: 2 });
 
@@ -169,9 +169,9 @@ describe("the team count", () => {
     assert.equal(teamsPerGroupFloor({ qualifiers: 8, held: null }), 8);
   });
 
-  /* react-stately snaps a controlled value into the range before rendering and calls no handler, so a
-     floor above the held value shows a number the payload does not carry. A season stored
-     over-qualifying keeps saving its other fields (`docs/backend/spec.md :: I44`). */
+  /* A season stored over-qualifying keeps saving its other fields (`docs/backend/spec.md :: I44`), so
+     the floor is what bends: react-stately's snap would otherwise show a number the payload does not
+     carry. */
   it("never puts its floor above the value the draft holds", () => {
     assert.equal(teamsPerGroupFloor({ qualifiers: 8, held: 4 }), 4);
   });
@@ -180,7 +180,7 @@ describe("the team count", () => {
 describe("the group cap", () => {
   /* The cap is the closed name set's size on the backend and here, and the create payload's own
      ceiling is a third spelling of it. Let them part and the picker offers a season the create
-     refuses outright, which is the defect this module exists to close. */
+     refuses outright. */
   it("is a group count a create saves", () => {
     assert.equal(saves({ number_of_groups: MAX_GROUPS, qualifiers_per_group: 1, teams_per_group: MAX_TEAMS_PER_GROUP }), true);
   });

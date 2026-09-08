@@ -22,11 +22,12 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
   label: SONDEREREIGNIS_LABELS[event],
 }));
 
+// Its own word rather than the label
+// `fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`, so rewording
+// what a reader sees does not change what a saved link selects.
 /**
  * The merged option's value, in the URL and never on screen: no referee id collides with it, an id
- * being an ObjectId string. Its own word rather than the label
- * `fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`, so
- * rewording what a reader sees does not change what a saved link selects.
+ * being an ObjectId string.
  */
 export const ANONYMISED_SCHIEDSRICHTER_VALUE = "anonymisiert";
 

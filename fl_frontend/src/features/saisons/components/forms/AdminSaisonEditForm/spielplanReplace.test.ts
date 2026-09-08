@@ -149,8 +149,7 @@ describe("the draw half of the Spielplan panel", () => {
   });
 
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would
-     move between the two presses, and the second press sends whatever the fields hold then. Arming
-     is a press, so the render says the three stand open and the source says what shuts them. */
+     move between the two presses, and the second press sends whatever the fields hold then. */
   it("freezes the three numbers once the control is armed", () => {
     for (const path of ["number_of_groups", "qualifiers_per_group"]) {
       const tag = shapeSelectTag(path, DRAWN);
@@ -160,9 +159,11 @@ describe("the draw half of the Spielplan panel", () => {
     }
     assert.doesNotMatch(shapeStepperTag(DRAWN), /data-readonly="true"/, "the team stepper is shut before the panel is armed");
 
+    // Arming is a press, so the render above says the three stand open and the source says what
+    // shuts them.
+    assert.match(SOURCE, /const isShapeFrozen = isConfirming \|\| isWriting;/);
     // ONE expression, spelled twice because `Select` carries no read-only state: a control naming a
     // freeze of its own would stay live under a confirmation that has already read the numbers.
-    assert.match(SOURCE, /const isShapeFrozen = isConfirming \|\| isWriting;/);
     assert.equal((SOURCE.match(/is(?:ReadOnly|Disabled)=\{isShapeFrozen\}/g) ?? []).length, 2);
   });
 

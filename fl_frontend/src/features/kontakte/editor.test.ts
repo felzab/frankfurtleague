@@ -1173,9 +1173,8 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     },
   };
 
-  /* An administrator entering it is the defect ruling 274 closes: a date typed on somebody's behalf
-     is the one field the published notice says only that person fills, and it is what the age floor
-     at the confirmation is there to judge. */
+  /* A date typed on somebody's behalf is the one field the published notice says only that person
+     fills, and it is what the age floor at the confirmation is there to judge (ruling 274). */
   it("reads the stored date out and offers no box to type one into", () => {
     const box = geburtsdatumBox(sectionMarkup(BLOCK), "trainer");
 
@@ -1203,9 +1202,9 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
   });
 
-  /* THE defect: a seat whose person has not confirmed holds no date, the payload required one, and the
-     submit guard refused a body no administrator could repair — so the Kenntnisnahme, the address and
-     every other field on that seat were unsaveable with it. */
+  /* A seat whose person has not confirmed holds no date: a payload requiring one refuses a body no
+     administrator can repair, taking the Kenntnisnahme, the address and every other field on that
+     seat down with it. */
   it("saves a seat whose birthdate is null", () => {
     const payload = {
       team_id: "507f1f77bcf86cd799439011",

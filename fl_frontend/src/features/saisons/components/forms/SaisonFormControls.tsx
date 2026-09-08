@@ -165,9 +165,6 @@ export function SaisonRuleNumberField({
  * `number_of_groups` and `qualifiers_per_group`, whose legal values SKIP: a floor and a ceiling can
  * only describe a set that skips by admitting the values between, which is the offer
  * `.claude/rules/cross-surface.md`'s **saisons** clause bars.
- *
- * Not `RefusableSelect`, which carries neither a `name` nor a `FieldError`: a shape refusal names a
- * payload path, and the box holding it is where the message has to land.
  */
 export function SaisonCountSelect({
   name,
@@ -215,6 +212,8 @@ export function SaisonCountSelect({
         <span>{String(value)}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
+      {/* Not `RefusableSelect`, which carries neither a `name` nor this: a shape refusal names a
+          payload path, and the box holding it is where the message has to land. */}
       <FieldError className={FIELD_ERROR} />
       {/* `RefusableSelect`'s popover rather than `SELECT_POPOVER`, which pins the list to the trigger:
           in a third-width cell a note beside a one-character number would have nowhere to stand. */}

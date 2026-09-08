@@ -280,12 +280,10 @@ export const FLGruppenTeamSchema = z.object({
 });
 export type FLGruppenTeam = z.infer<typeof FLGruppenTeamSchema>;
 
+// Each list arrives in STANDING order. **Never re-sort one here** (`docs/frontend/spec.md :: 1.2`).
 /**
  * A SUBSET of the closed set: the backend seeds the groups one season offers, so a key per name
  * would fail every season running fewer than the set holds.
- *
- * Each list arrives in STANDING order. **Never re-sort one here** — the same ordering seeds the
- * playoff bracket.
  */
 export const FLGruppenSchema = z.partialRecord(FLGruppenNamesSchema, z.array(FLGruppenTeamSchema));
 export type FLGruppen = z.infer<typeof FLGruppenSchema>;

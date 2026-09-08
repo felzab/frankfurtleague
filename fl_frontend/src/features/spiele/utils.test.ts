@@ -828,10 +828,11 @@ describe("every bracket fault reaches words", () => {
   });
 
   /* The end alone is not enough: `formatQuelle`'s label closes on a point, and a sentence that embeds
-     one reads „Sieger 25., obwohl“ — a full stop before a comma. Spared here are a card's own second
-     sentence, which opens on a capital, and the points inside a date, which stand between digits. */
+     one reads „Sieger 25., obwohl“ — a full stop before a comma. */
   it("carries a full stop only where a sentence ends", () => {
     for (const sentence of [...toasts, ...cards]) {
+      // Spared: a card's own second sentence, which opens on a capital, and the points inside a date,
+      // which stand between digits.
       assert.doesNotMatch(sentence, /\.(?!$|\d| [A-ZÄÖÜ])/u, `„${sentence}“ closes a sentence part-way through`);
     }
   });

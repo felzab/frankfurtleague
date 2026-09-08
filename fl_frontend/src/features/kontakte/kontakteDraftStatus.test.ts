@@ -177,7 +177,10 @@ describe("deriveKontakteDraftStatus", () => {
   });
 });
 
-/** Every path a seat could conceivably report under, whether the rows read it or not. */
+/**
+ * Every path a seat could conceivably report under, whether the rows read it or not — the birthdate
+ * included, which is what leaves the case below able to fail.
+ */
 const candidatePaths = (rolle: KontaktRolle): string[] => [
   `kontakte.${rolle}`,
   `kontakte.${rolle}.vorname`,
@@ -223,7 +226,7 @@ describe("kontaktSeatPaths", () => {
 
   /* Spelled as its own case because the pair above holds either way: both sides would drop the path
      together, and a list rebuilt from the read-only readout would then re-judge a box nobody types
-     in. `candidatePaths` keeps naming it, so this is the half that fails. */
+     in. */
   it("leaves the birthdate out, no payload carrying one for a message to land on", () => {
     for (const { value: rolle } of KONTAKT_ROLLEN) {
       assert.ok(!kontaktSeatPaths(rolle).includes(`kontakte.${rolle}.geburtsdatum`), `${rolle} re-judges a path nothing reports under`);

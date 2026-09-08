@@ -23,9 +23,9 @@ function powersOfTwoUpTo(ceiling: number): number[] {
 }
 
 /**
- * Every count a shape select offers. `REQ-RULES-001` asks the PRODUCT to be a power of two, and a
- * product of two positives is one exactly when both factors are — so membership here is that rule
- * read once rather than a second copy of the schema's refinement.
+ * `REQ-RULES-001` asks the PRODUCT to be a power of two, and a product of two positives is one
+ * exactly when both factors are: membership here is that rule read once rather than a second copy of
+ * the schema's refinement.
  */
 export const SHAPE_COUNT_UNIVERSE: readonly number[] = powersOfTwoUpTo(MAX_QUALIFIERS);
 
@@ -69,11 +69,7 @@ function qualifierCountRefusal({ count, groups, teams }: { count: number; groups
   return bracketRefusal(groups, count);
 }
 
-/**
- * A value the season HOLDS is always a row, at its place in numeric order and closed with whichever
- * rule shuts it: the trigger and the list have to agree, and a stored count then reads as a
- * statement rather than an offer — `FormTeamPicker.tsx`'s rule for a fixture past the season's count.
- */
+/** A value the season HOLDS is always a row (`docs/frontend/spec.md :: 1.19`): the trigger and the list have to agree. */
 function countOptions(universe: readonly number[], held: number, refusalOf: (count: number) => ShapeRefusal | null): RefusableOption[] {
   const counts = universe.includes(held) ? universe : [...universe, held].sort((first, second) => first - second);
 

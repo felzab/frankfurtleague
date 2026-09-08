@@ -59,9 +59,8 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /**
- * The three seats a season holds for one club, each with the Kenntnisnahme its details are kept
- * under. A seat switched on demands a whole person; a seat switched off holds nobody, the state the
- * payload accepts and an erasure leaves.
+ * A seat switched on demands a whole person; a seat switched off holds nobody, the state the payload
+ * accepts and an erasure leaves.
  */
 export function FormKontakteSection({
   value,
