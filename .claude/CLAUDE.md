@@ -319,6 +319,12 @@ binds no session already running, including the one making it**: the copy in con
 launch and never re-read, and a dispatched agent's copy is its coordinator's rather than the file on
 disk.
 
+**COR-3's ban on edit narration reaches a document describing the SYSTEM, and a handoff, a register
+and a starter describe a SESSION** — what went wrong in one is their subject rather than narration
+of it, so they carry it and are the one place that does. The bound they keep is the other half of
+the same rule: a claim the tree does not bear out is corrected there as anywhere else, and a lesson
+is written as what is true rather than as a difference between drafts.
+
 A rule is one list line; read the rules governing what you are about to write. Three carry the
 weight: COR-13, why rather than what; COR-5, the deletion test, which every bound in that file is
 read after and never instead of; COR-14, which rung a fact belongs on. **COR-15 selects by reader,

@@ -5,10 +5,16 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.kontakte.schemas import FLKontaktErasurePayload, FLKontaktErasureResponse
+from app.api.kontakte.schemas import (
+    FLKontaktErasureAnsichtResponse,
+    FLKontaktErasurePayload,
+    FLKontaktErasureResponse,
+    FLKontaktSitz,
+)
 from app.api.kontakte.services import (
     build_clearing_update,
     build_matching_rows_pipeline,
+    build_matching_seats_pipeline,
     build_orphaned_image_filter,
     find_matching_slots,
 )
@@ -40,6 +46,46 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
         cleared += len(slots)
 
     return cleared
+
+
+def _seats_of(rows: Sequence[Mapping[str, Any]], email: str) -> list[FLKontaktSitz]:
+    """Every seat these rows hold for the address.
+
+    `find_matching_slots` and not a second reading of the projection: a reveal deciding which slots
+    matched on its own terms would confirm a write against a different set of people.
+    """
+
+    return [
+        # `model_validate` rather than the constructor: the slot is read off the model as a plain
+        # string, and the wire's closed set is what refuses one no client has been told about.
+        FLKontaktSitz.model_validate(
+            {"saison_id": row.get("saison_id"), "rolle": slot, **{field: row["kontakte"][slot].get(field) for field in ("vorname", "nachname")}}
+        )
+        for row in rows
+        for slot in find_matching_slots(row, email)
+    ]
+
+
+@router.post("/erasure/ansicht", response_model=FLKontaktErasureAnsichtResponse, summary="Show whom an erasure would reach")
+async def get_kontakt_erasure_ansicht(
+    erasure_data: Annotated[FLKontaktErasurePayload, Body()],
+    saison_teams_collection: SaisonTeamsCollection,
+    bewerbungen_collection: BewerbungenCollection,
+) -> FLKontaktErasureAnsichtResponse:
+    """
+    Answer who stands in every seat `POST /kontakte/erasure` would clear for this address, by name and season.
+
+    Stores nothing, and takes that write's own payload: a confirmation cannot then be shown for one address and performed for another.
+    """
+
+    email = str(erasure_data.email)
+
+    # Unbounded, as the erasure's own reads are: a capped reveal names fewer people than the write
+    # clears, which is the confirmation reading best exactly where it is least complete.
+    saison_team_rows = await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_matching_seats_pipeline(email))
+    bewerbung_rows = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_seats_pipeline(email))
+
+    return FLKontaktErasureAnsichtResponse(saison_teams=_seats_of(saison_team_rows, email), bewerbungen=_seats_of(bewerbung_rows, email))
 
 
 @router.post("/erasure", response_model=FLKontaktErasureResponse, summary="Erase a Kontaktperson's records")

@@ -9,6 +9,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
 /**
@@ -19,11 +20,13 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
  */
 export function AdminSpielerEditView({
   spieler,
+  einwilligung,
   saison,
   teams,
   membershipCount,
 }: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null };
+  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+  einwilligung: FLEinwilligung | null;
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
@@ -53,6 +56,7 @@ export function AdminSpielerEditView({
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielerEditForm
         spieler={spieler}
+        einwilligung={einwilligung}
         saison={saison}
         teams={teams}
         membershipCount={membershipCount}

@@ -15,9 +15,12 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungSweepAngekuendigtPayload,
     FLBewerbungSweepLoeschenPayload,
+    FLBewerbungZustellungAngenommenPayload,
+    FLBewerbungZustellungEreignisPayload,
 )
 from app.api.bewerbungen.services import BEWERBUNG_TOKEN_UNKNOWN, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.api.bewerbungen.sweep_router import angekuendigt_bewerbungen, get_sweep_saisons, loeschen_bewerbungen, sweep_saison
+from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -43,6 +46,9 @@ TOMORROW = "2026-04-02"
 MAILED_ON_THE_MARK = "2026-03-29"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
+
+# One pass an hour, as `fl_frontend/src/features/bewerbungen/sweep.ts :: SWEEP_INTERVAL_MS` sets it.
+PASSES_A_DAY = 24
 
 # Fixed rather than generated, so a failure names the same row every run.
 REMIND_OID = ObjectId("6890a1b2c3d4e5f607960001")
@@ -78,7 +84,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "geburtsdatum": None,
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": None,
@@ -277,6 +283,44 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
 
 async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
+
+
+# One message id and the two instants around it, so the delivery state below arrives the way the
+# provider's own does rather than being written into the document by hand.
+MESSAGE_ID = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
+ACCEPTED_AT = "2026-03-29T10:00:00Z"
+REFUSED_AT = "2026-03-29T10:05:00Z"
+
+
+async def refuse_the_submitters_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
+    """Send to the mailbox that would read the deletion notice, and have the provider refuse it.
+
+    Through the endpoints rather than a hand-written state: what the clock reads has to be what a
+    real event leaves.
+    """
+
+    seats = ["trainer", "ansprechperson"]
+    await angenommen_zustellung(
+        angenommen_data=FLBewerbungZustellungAngenommenPayload.model_validate(
+            {"bewerbung_id": str(bewerbung_id), "rollen": seats, "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
+    await post_zustellung(
+        ereignis_data=FLBewerbungZustellungEreignisPayload.model_validate(
+            {
+                "bewerbung_id": str(bewerbung_id),
+                "rollen": seats,
+                "nachricht_id": MESSAGE_ID,
+                "stand": "unzustellbar",
+                "grund": "NoEmail",
+                "am": REFUSED_AT,
+            }
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
 
 
 class TestTheReminderClock:
@@ -572,6 +616,61 @@ class TestTheFourteenDayClock:
         assert on_a_league(mongo_replica_set_url, body) == (0, TODAY)
 
 
+class TestAnApplicationWhoseNoticeCannotArrive:
+    """Held past the deadline for an administrator, never erased on a notice the provider skipped.
+
+    Without the delivery state the stamp says a message went out, the erasure follows, and the school
+    hears nothing.
+    """
+
+    def test_the_pass_offers_it_to_nobody_and_neither_call_takes_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_submitters_address(database, client, DELETE_OID)
+            pass_response = await sweep(database, client)
+            stamped = await announce(database, client, [DELETE_OID])
+            erased = await erase(database, client, [DELETE_OID])
+
+            return pass_response, stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
+
+        pass_response, stamped, erased, document = on_a_league(mongo_replica_set_url, body)
+
+        assert [entry.bewerbung_id for entry in pass_response.loeschungen] == []
+        assert (stamped, erased) == (0, 0)
+        assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
+        assert document.get("loeschung_angekuendigt_am") is None
+
+    def test_a_notice_that_bounced_after_it_was_stamped_stops_the_erasure(self, mongo_replica_set_url: str):
+        """The stamp lands as soon as the provider accepts, and the refusal arrives minutes later.
+
+        Re-judging on every call makes that harmless: the id is skipped rather than erased.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            stamped = await announce(database, client, [DELETE_OID])
+            await refuse_the_submitters_address(database, client, DELETE_OID)
+            erased = await erase(database, client, [DELETE_OID])
+
+            return stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
+
+        stamped, erased, document = on_a_league(mongo_replica_set_url, body)
+
+        assert (stamped, erased) == (1, 0)
+        assert document is not None
+        # The stamp stands: a message really was accepted, and a later pass must not compose a second.
+        assert document["loeschung_angekuendigt_am"] == TODAY
+
+    def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
+        """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_submitters_address(database, client, REMIND_OID)
+            response = await sweep(database, client)
+
+            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen]
+
+        assert on_a_league(mongo_replica_set_url, body) == [("bramblewick@example.com", [["stellvertretung"]])]
+
+
 class TestTheOneMonthClock:
     def test_a_declined_application_a_month_old_is_erased_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -721,3 +820,74 @@ class TestTheSeasonList:
         response = on_a_league(mongo_replica_set_url, body, next_status="future")
 
         assert response.saison_ids == [OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID]
+
+    def test_it_answers_the_day_the_last_pass_stored(self, mongo_replica_set_url: str):
+        """Null before any pass and the day after one, which is what parts an unarmed sweep from a quiet one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+            await sweep(database, client, saison_id=NEXT_SAISON_ID)
+            after = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+
+            return before.sweep_gelaufen_am, after.sweep_gelaufen_am
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, TODAY)
+
+    def test_the_read_stamps_nothing_of_its_own(self, mongo_replica_set_url: str):
+        """A read that stamped would answer `it ran` to the operator asking whether it had."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await database[Collection.AKTIONEN].count_documents({})
+            response = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+            after = await database[Collection.AKTIONEN].count_documents({})
+
+            return response.saison_ids, after - before
+
+        assert on_a_league(mongo_replica_set_url, body) == ([OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID], 0)
+
+
+class TestThePassRecordsTheDayItRan:
+    def test_a_pass_that_reminded_nobody_and_deleted_nothing_still_records_the_day(self, mongo_replica_set_url: str):
+        """Over the season holding no application at all, so the day is the whole of what the pass wrote."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await database[Collection.AKTIONEN].count_documents({})
+            response = await sweep(database, client, saison_id=NEXT_SAISON_ID)
+            after = await database[Collection.AKTIONEN].count_documents({})
+            stamped = await database[Collection.SAISONS].find({}, {"sweep_gelaufen_am": 1}).sort("_id", 1).to_list(length=None)
+
+            return response, after - before, [row.get("sweep_gelaufen_am") for row in stamped]
+
+        response, appended, days = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.erinnerungen, response.loeschungen) == ([], [])
+        assert (response.abgelehnte_geloescht, response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0, 0)
+        assert appended == 1
+        # Every season and not the one swept: one pass stamps them all, which is what makes the day
+        # the run's rather than the season's.
+        assert days == [TODAY, TODAY, TODAY]
+
+    def test_the_days_second_pass_appends_no_row_at_all(self, mongo_replica_set_url: str):
+        """`patch_many_in_db` files a row per call even where its filter matches nothing, so the guard read is what the hourly pass rests on."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client, saison_id=NEXT_SAISON_ID)
+            after_first = await database[Collection.AKTIONEN].count_documents({})
+            await sweep(database, client, saison_id=NEXT_SAISON_ID)
+            after_second = await database[Collection.AKTIONEN].count_documents({})
+
+            return after_second - after_first
+
+        assert on_a_league(mongo_replica_set_url, body) == 0
+
+    def test_a_whole_days_passes_over_every_season_cost_one_row(self, mongo_replica_set_url: str):
+        """The arithmetic the shape stands on: a row per season per pass would bury the administrative history the page can reach."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(PASSES_A_DAY):
+                for saison_id in (OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID):
+                    await sweep(database, client, saison_id=saison_id)
+
+            return await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
+
+        assert on_a_league(mongo_replica_set_url, body) == 1

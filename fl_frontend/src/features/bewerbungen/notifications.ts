@@ -5,8 +5,11 @@ import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 
 import { BEWERBUNG_SEATS } from "./constants";
+import { meldeZustellungAngenommen } from "./mutations";
+import { zustellungIdempotenzSchluessel, zustellungTags } from "./zustellung";
 
 import type { BewerbungBestaetigungData, BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
+import type { ZustellAnlass } from "./zustellung";
 
 /**
  * The three seats, narrowed to the one field a fan-out reads. Both a stored block and a submitted
@@ -25,7 +28,24 @@ type BewerbungRolle = keyof BewerbungSeats;
  * One mailbox and the seats it holds, already one German phrase. **Per recipient**: two of the three
  * are told a different seat than the first, and one person holding two is told both.
  */
-export type BewerbungEmpfaenger = { address: string; rollenText: string };
+// `rollen` beside the phrase: one message's delivery state belongs to every seat it covered, and a
+// German phrase cannot be read back into seat keys.
+export type BewerbungEmpfaenger = { address: string; rollen: readonly BewerbungRolle[]; rollenText: string };
+
+/**
+ * Which application a fan-out's messages are about, so an accepted send is recorded against the seats
+ * it covered. Absent on the two triage decisions, whose application is closed by the time a delivery
+ * state could be read.
+ */
+export type BewerbungMailAuftrag = {
+  bewerbungId: string;
+  anlass: ZustellAnlass;
+  /**
+   * The day the idempotency key is scoped to, set ONLY where the body cannot change inside the
+   * provider's window: a key reused over a changed body is refused rather than ignored.
+   */
+  idempotenzTag?: string;
+};
 
 /** Both lists are in the order the addresses were tried. */
 export type BewerbungMailOutcome = {
@@ -90,7 +110,7 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
 }
 
 function toEmpfaenger({ address, rollen }: { address: string; rollen: readonly BewerbungRolle[] }): BewerbungEmpfaenger {
-  return { address: address, rollenText: rollenText(rollen) };
+  return { address: address, rollen: rollen, rollenText: rollenText(rollen) };
 }
 
 /** Every distinct address the application names — who a decision the league has taken goes to. */
@@ -127,7 +147,7 @@ export type BewerbungLinkSeats = {
 };
 
 /** One mailbox and every link it is sent, which is one message's worth. */
-export type BewerbungLinkEmpfaenger = { address: string; seats: BewerbungBestaetigungData["seats"] };
+export type BewerbungLinkEmpfaenger = { address: string; rollen: readonly BewerbungRolle[]; seats: BewerbungBestaetigungData["seats"] };
 
 /**
  * `fl_backend/app/api/bewerbungen/services.py :: paired_seat` answers both seats from either press,
@@ -147,7 +167,11 @@ function paarLink(
 }
 
 /** The one place the emptiness is decided, so what the message's type demands is what the filter proves. */
-function hatLink(empfaenger: { address: string; seats: readonly BewerbungLinkSeat[] }): empfaenger is BewerbungLinkEmpfaenger {
+function hatLink(empfaenger: {
+  address: string;
+  rollen: readonly BewerbungRolle[];
+  seats: readonly BewerbungLinkSeat[];
+}): empfaenger is BewerbungLinkEmpfaenger {
   return empfaenger.seats.length > 0;
 }
 
@@ -160,7 +184,7 @@ export function seatsByMailbox(
   /** A seat the caller left out gets no link, and a mailbox left with none gets no message: that is what keeps a reminder off an answered seat. */
   linkBySeat: Partial<Record<BewerbungRolle, string>>,
 ): BewerbungLinkEmpfaenger[] {
-  const gruppiert: { address: string; seats: readonly BewerbungLinkSeat[] }[] = collectSeats(kontakte).map(({ address, rollen }) => {
+  const gruppiert = collectSeats(kontakte).map(({ address, rollen }) => {
     // Keyed by link rather than by person: two seats one press answers are one thing to do, and a
     // shared inbox holding two readers is two, which no other key here tells apart.
     const proLink = new Map<string, { vorname: string; rollen: BewerbungRolle[] }>();
@@ -180,7 +204,9 @@ export function seatsByMailbox(
       link: seatLink,
     }));
 
-    return { address: address, seats: seats };
+    // Every seat the MAILBOX holds, not only the ones that got a link: the message's delivery state
+    // is the address's, and a seat whose link was withheld shares the address's fate.
+    return { address: address, rollen: rollen as readonly BewerbungRolle[], seats: seats as readonly BewerbungLinkSeat[] };
   });
 
   return gruppiert.filter(hatLink);
@@ -192,16 +218,18 @@ export function seatsByMailbox(
  */
 export async function sendBewerbungMail({
   operation,
+  auftrag,
   recipients,
   buildMail,
 }: {
   /** The action this fan-out belongs to: `sendMail`'s own line cannot say which decision failed. */
   operation: string;
+  auftrag?: BewerbungMailAuftrag;
   recipients: readonly BewerbungEmpfaenger[];
   /** Composed per recipient, because each is told the seat they hold; the rest of the message is one text. */
   buildMail: (rollenText: string) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
-  return settleFanOut(operation, recipients, ({ rollenText }) => buildMail(rollenText));
+  return settleFanOut(operation, auftrag, recipients, ({ rollenText }) => buildMail(rollenText));
 }
 
 /**
@@ -212,19 +240,52 @@ export async function sendBewerbungMail({
  */
 export async function sendBewerbungLinkMail({
   operation,
+  auftrag,
   recipients,
   buildMail,
 }: {
   operation: string;
+  auftrag?: BewerbungMailAuftrag;
   recipients: readonly BewerbungLinkEmpfaenger[];
   buildMail: (seats: BewerbungLinkEmpfaenger["seats"]) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
-  return settleFanOut(operation, recipients, ({ seats }) => buildMail(seats));
+  return settleFanOut(operation, auftrag, recipients, ({ seats }) => buildMail(seats));
+}
+
+/**
+ * The seats one accepted message covered, stamped with THIS server's clock.
+ *
+ * The backend takes an `angenommen` write whatever it already holds, so the two clocks are never
+ * compared: every later event is ordered against the provider's own timestamps alone.
+ */
+async function meldeAngenommen(
+  auftrag: BewerbungMailAuftrag,
+  rollen: readonly BewerbungRolle[],
+  nachrichtId: string,
+  operation: string,
+): Promise<void> {
+  try {
+    await meldeZustellungAngenommen({
+      bewerbung_id: auftrag.bewerbungId,
+      rollen: [...rollen],
+      nachricht_id: nachrichtId,
+      am: new Date().toISOString(),
+    });
+  } catch (error) {
+    // Never thrown on: the message HAS gone, and a caller told otherwise would report a send that
+    // happened as one that did not. Name only, never the error (`docs/logging/spec.md :: L9`).
+    logger.error("bewerbung.zustellung_ungemeldet", undefined, {
+      error_code: "FE-MAIL-003",
+      name: error instanceof Error ? error.name : undefined,
+      operation: operation,
+    });
+  }
 }
 
 /** Settles every address, whatever the message was composed from. */
-async function settleFanOut<T extends { address: string }>(
+async function settleFanOut<T extends { address: string; rollen: readonly BewerbungRolle[] }>(
   operation: string,
+  auftrag: BewerbungMailAuftrag | undefined,
   recipients: readonly T[],
   buildMail: (recipient: T) => BewerbungEmail,
 ): Promise<BewerbungMailOutcome> {
@@ -234,20 +295,36 @@ async function settleFanOut<T extends { address: string }>(
     // failure for a written decision (`docs/frontend/spec.md :: I39`).
     recipients.map(async (recipient) => {
       const mail = buildMail(recipient);
+      const sendung =
+        auftrag === undefined ? undefined : { bewerbungId: auftrag.bewerbungId, rollen: recipient.rollen, anlass: auftrag.anlass };
 
-      return sendMail({ to: recipient.address, subject: mail.subject, html: mail.html, text: mail.text });
+      return sendMail({
+        to: recipient.address,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        tags: sendung === undefined ? undefined : zustellungTags(sendung),
+        idempotencyKey:
+          sendung === undefined || auftrag?.idempotenzTag === undefined
+            ? undefined
+            : zustellungIdempotenzSchluessel(sendung, auftrag.idempotenzTag),
+      });
     }),
   );
 
   const delivered: string[] = [];
   const unreachable: string[] = [];
+  const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
     // One array mapped, so the index is the address; `forEach` walks only indices that exist.
-    const { address } = recipients[index]!;
+    const { address, rollen } = recipients[index]!;
 
     if (result.status === "fulfilled") {
       delivered.push(address);
+      // An accepted answer carrying no id joins nothing: recording a state with no message to attach
+      // it to would mark the seat delivered on the strength of the request alone.
+      if (auftrag !== undefined && result.value.id !== null) gemeldet.push(meldeAngenommen(auftrag, rollen, result.value.id, operation));
       return;
     }
 
@@ -260,6 +337,10 @@ async function settleFanOut<T extends { address: string }>(
       operation: operation,
     });
   });
+
+  // Together rather than one after another: three seats of one submission are three round trips a
+  // visitor waits on, and each is independent of the others.
+  await Promise.all(gemeldet);
 
   return { delivered: delivered, unreachable: unreachable };
 }

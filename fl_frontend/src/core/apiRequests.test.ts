@@ -5,7 +5,10 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
+import { DECLARED_BY_DEFAULT, KEY_TIER_EXTENSION, KEY_TIERS, keyTierOf } from "@/core/keyTiers.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
+
+import type { KeyTier } from "@/core/keyTiers.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const FRONTEND_DIR = path.resolve(SRC_DIR, "..");
@@ -50,8 +53,8 @@ const unplaceable = Object.keys(publishedPaths).filter((published) => !UNVERSION
 /** What one published query parameter admits: whether it may be omitted, its types, its closed value set. */
 type PublishedParam = { required: boolean; values: string[] | null; primitives: Set<string>; readable: boolean };
 
-/** One operation as published: what it answers on, and the query parameters it will read. */
-type PublishedOperation = { published: string; queryParams: Map<string, PublishedParam> };
+/** One operation as published: what it answers on, the key tier it is guarded at, and the query parameters it will read. */
+type PublishedOperation = { published: string; tier: KeyTier | null; queryParams: Map<string, PublishedParam> };
 
 /**
  * Read through FastAPI's optional idiom: an omissible parameter publishes as
@@ -122,6 +125,9 @@ const operationKey = (method: string, segments: readonly string[]): string => `$
 /** Query parameters whose published schema names neither a type nor a value set. Never skipped: one that is would read as covered. */
 const unresolvable: string[] = [];
 
+/** Operations publishing no tier this reader can spell. A reader that found none silently would pass every comparison below. */
+const untiered: string[] = [];
+
 const published = new Map<string, PublishedOperation>();
 for (const [publishedPath, item] of Object.entries(publishedPaths)) {
   if (UNVERSIONED.includes(publishedPath) || unplaceable.includes(publishedPath)) continue;
@@ -133,7 +139,9 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
     for (const [name, param] of params) {
       if (!param.readable) unresolvable.push(`${operationKey(method, segments)} · ${name} (${publishedPath})`);
     }
-    published.set(operationKey(method, segments), { published: publishedPath, queryParams: new Map(params) });
+    const tier = keyTierOf((operation ?? {}) as JsonObject);
+    if (tier === null) untiered.push(`${operationKey(method, segments)} (${publishedPath})`);
+    published.set(operationKey(method, segments), { published: publishedPath, tier: tier, queryParams: new Map(params) });
   }
 }
 
@@ -170,11 +178,33 @@ const clientModule = clientFile === undefined ? undefined : checker.getSymbolAtL
 // `fl_frontend/src/core/api.ts` is called the same way, and a call site may rename it on import.
 const clientSymbol = clientModule === undefined ? undefined : checker.getExportsOfModule(clientModule).find((s) => s.name === "apiClient");
 
+/**
+ * The tier a call sending no `authType` puts on the wire. Read off the declaration rather than
+ * imported: `fl_frontend/src/core/api.ts` pulls in `server-only`, which throws outside a React
+ * server build.
+ */
+function declaredClientDefault(): string | null {
+  for (const statement of clientFile?.statements ?? []) {
+    if (!ts.isVariableStatement(statement)) continue;
+
+    for (const declaration of statement.declarationList.declarations) {
+      const initializer = declaration.initializer;
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== "BASE_FETCH_AUTH_TYPE") continue;
+
+      return initializer !== undefined && ts.isStringLiteralLike(initializer) ? initializer.text : null;
+    }
+  }
+
+  return null;
+}
+
 /** One `apiClient` call as the source spells it, with the placeholder already substituted. */
 type ExtractedCall = {
   where: string;
   method: string;
   segments: string[];
+  /** The key this call puts on the wire, which is `DECLARED_BY_DEFAULT` where the options name no tier. */
+  declaredTier: KeyTier;
   sent: { name: string; source: string }[];
   /** The mirrored type behind `sent`, where one was passed — an inline `?a=b` carries no type to compare. */
   typed: SentParams | null;
@@ -219,20 +249,21 @@ function paramProperties(node: ts.Expression): SentParams | string {
   return { label: label, names: names, properties: properties, node: node };
 }
 
-type ReadOptions = { method: string; params: SentParams | null };
+type ReadOptions = { method: string; declaredTier: KeyTier; params: SentParams | null };
 
 function readOptions(argument: ts.Expression, where: string): ReadOptions | null {
   if (!ts.isObjectLiteralExpression(argument)) {
-    unreadable.push(`${where}: the options argument is not an object literal, so its method and params cannot be read`);
+    unreadable.push(`${where}: the options argument is not an object literal, so its method, tier and params cannot be read`);
     return null;
   }
 
   let method = "GET";
+  let declaredTier: KeyTier = DECLARED_BY_DEFAULT;
   let params: SentParams | null = null;
 
   for (const property of argument.properties) {
     if (ts.isSpreadAssignment(property)) {
-      unreadable.push(`${where}: the options argument spreads another value, so its method and params cannot be read`);
+      unreadable.push(`${where}: the options argument spreads another value, so its method, tier and params cannot be read`);
       return null;
     }
     const key =
@@ -241,7 +272,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
       unreadable.push(`${where}: an options key is computed, so what it sets cannot be read`);
       return null;
     }
-    if (key !== "method" && key !== "params") continue;
+    if (key !== "method" && key !== "params" && key !== "authType") continue;
 
     const value = ts.isPropertyAssignment(property) ? property.initializer : ts.isShorthandPropertyAssignment(property) ? property.name : null;
     if (value === null) {
@@ -258,6 +289,18 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
       continue;
     }
 
+    if (key === "authType") {
+      const spelled = KEY_TIERS.find((tier) => tier === (ts.isStringLiteralLike(value) ? value.text : null));
+      // Reported rather than defaulted: a tier read as the default would be compared against the
+      // wrong key and pass wherever the endpoint happens to be base-tier.
+      if (spelled === undefined) {
+        unreadable.push(`${where}: \`authType\` is not one of ${KEY_TIERS.join(", ")} spelled literally, so the key sent cannot be read`);
+        return null;
+      }
+      declaredTier = spelled;
+      continue;
+    }
+
     const resolved = paramProperties(value);
     if (typeof resolved === "string") {
       unreadable.push(`${where}: ${resolved}`);
@@ -266,7 +309,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
     params = resolved;
   }
 
-  return { method: method, params: params };
+  return { method: method, declaredTier: declaredTier, params: params };
 }
 
 for (const file of callerFiles) {
@@ -288,7 +331,9 @@ for (const file of callerFiles) {
       } else {
         const optionsArgument = node.arguments[2];
         const options =
-          optionsArgument === undefined ? ({ method: "GET", params: null } satisfies ReadOptions) : readOptions(optionsArgument, where);
+          optionsArgument === undefined
+            ? ({ method: "GET", declaredTier: DECLARED_BY_DEFAULT, params: null } satisfies ReadOptions)
+            : readOptions(optionsArgument, where);
 
         if (options !== null) {
           const [pathText = "", queryText = ""] = endpoint.split("?");
@@ -299,6 +344,7 @@ for (const file of callerFiles) {
           calls.push({
             where: where,
             method: options.method,
+            declaredTier: options.declaredTier,
             segments: pathText.split("/").filter((segment) => segment.length > 0),
             sent: [...inline, ...typed],
             typed: options.params,
@@ -423,6 +469,61 @@ describe("every request the frontend composes is published", () => {
         [],
         `${call.where} sends query parameters ${operation.published} does not declare, and the server drops an unknown one in silence.\n` +
           `  declared: ${[...operation.queryParams.keys()].sort().join(", ") || "none"}`,
+      );
+    });
+  }
+});
+
+describe("the tier reader reports a value it cannot spell", () => {
+  it("reads a tier the client can send", () => {
+    assert.equal(keyTierOf({ [KEY_TIER_EXTENSION]: "system" }), "system");
+  });
+
+  it("reports an operation publishing no tier at all", () => {
+    assert.equal(keyTierOf({}), null);
+  });
+
+  // `fl_backend/app/main.py :: publish_key_tiers` joins the guards of an operation carrying two,
+  // which no key satisfies: read as a tier it would name one of them and hide the other.
+  it("reports a tier outside the four the client can send", () => {
+    assert.equal(keyTierOf({ [KEY_TIER_EXTENSION]: "admin+base" }), null);
+  });
+});
+
+describe("every request is sent under the key its operation is guarded at", () => {
+  /* First, for the reason the unreadable-call floor above has: a reader finding no tier at all
+     returns nothing to compare, and every case below then passes on an empty comparison. */
+  it("reads a tier off every published operation", () => {
+    assert.deepEqual(
+      untiered,
+      [],
+      `These operations publish no \`${KEY_TIER_EXTENSION}\` this comparison can spell, so nothing holds a call site's tier to them.\n` +
+        `Refresh the document with:  ${REGENERATE}\n  ${untiered.join("\n  ")}`,
+    );
+  });
+
+  /* The tier of a call naming none, which is most of the base-tier ones: read from the client's own
+     declaration, so moving that default cannot leave every unmarked call compared against the old one. */
+  it("compares an unmarked call against the tier the client actually falls back to", () => {
+    assert.equal(
+      declaredClientDefault(),
+      DECLARED_BY_DEFAULT,
+      `fl_frontend/src/core/api.ts declares ${declaredClientDefault()} as its fallback tier and fl_frontend/src/core/keyTiers.ts expects ${DECLARED_BY_DEFAULT}`,
+    );
+  });
+
+  for (const call of calls) {
+    const key = operationKey(call.method, call.segments);
+    const operation = published.get(key);
+    // An unpublished operation and an unspellable tier are each reported once, above.
+    if (operation === undefined || operation.tier === null) continue;
+
+    it(`${key} at ${call.where}`, () => {
+      assert.equal(
+        call.declaredTier,
+        operation.tier,
+        `${call.where} sends the ${call.declaredTier} key to ${operation.published}, which the backend guards at ${operation.tier}.\n` +
+          `A key the route refuses answers 401; a stronger one than it asks for widens what a bug on this call can reach.`,
       );
     });
   }

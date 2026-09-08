@@ -73,8 +73,8 @@ _TRIKOT_FARBEN = [
     "grau",
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
-_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
-_KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
+_KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
+_KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
@@ -142,13 +142,13 @@ _EINWILLIGUNG = _object(
     },
 )
 
-# A CONTACT person's consent, and never `_EINWILLIGUNG` above: that one records what may be
+# A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
-_KONTAKT_EINWILLIGUNG = _object(
-    required=("umfang", "erteilt_von", "text_version", "datum"),
+_KONTAKT_KENNTNISNAHME = _object(
+    required=("umfang", "erfasst_von", "text_version", "datum"),
     properties={
-        "umfang": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_UMFANG},
-        "erteilt_von": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_QUELLEN},
+        "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
+        "erfasst_von": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_QUELLEN},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
         # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
@@ -158,7 +158,7 @@ _KONTAKT_EINWILLIGUNG = _object(
 )
 
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
-# set of details carrying no consent is one nobody agreed to be held.
+# set of details carrying no record is one nobody was told the league holds.
 _KONTAKTPERSON = _object(
     required=("vorname", "nachname", "email", "telefon", "einwilligung"),
     properties={
@@ -169,7 +169,7 @@ _KONTAKTPERSON = _object(
         # Nullable and out of `required`: the date arrives with the confirmation, and "required once
         # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-        "einwilligung": _KONTAKT_EINWILLIGUNG,
+        "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
 )
 
@@ -197,6 +197,25 @@ _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, prop
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
+# The six a seat's delivery state may read. `angenommen` is the provider ACCEPTING the request,
+# which is all a send ever learns; the other five are what a delivery event reports.
+_BEWERBUNG_ZUSTELLSTAENDE = ["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+
+# What became of the last message to one seat. Required TOGETHER as `_EINWILLIGUNG` is: the write
+# condition is an ordering, and a state carrying no stamp orders against nothing.
+_BEWERBUNG_ZUSTELLUNG = _object(
+    nullable=True,
+    required=("nachricht_id", "stand", "grund", "am"),
+    properties={
+        "nachricht_id": {"bsonType": "string"},
+        "stand": {"bsonType": "string", "enum": _BEWERBUNG_ZUSTELLSTAENDE},
+        "grund": {"bsonType": _STRING_OR_NULL},
+        # An INSTANT where every other stamp here is a date: two events about one message share a
+        # day, and only sub-day ordering makes a redelivery a no-op.
+        "am": {"bsonType": "string"},
+    },
+)
+
 # One seat's confirmation bookkeeping. `token_hash` is here and on NO model: a raw document key the
 # confirm query alone reads. Nullable per seat, as the slot beside it is: an erasure empties the one
 # naming the person.
@@ -211,6 +230,9 @@ _BEWERBUNG_BESTAETIGUNG = _object(
         "verschickt_am": {"bsonType": "string"},
         "erinnert_am": {"bsonType": _STRING_OR_NULL},
         "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `token_hash_zuvor`'s reason: the first mint knows nothing yet about
+        # the message its link goes out in, and a re-send writes a fresh entry carrying none.
+        "zustellung": _BEWERBUNG_ZUSTELLUNG,
     },
 )
 
@@ -412,6 +434,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # together: a switch with no span cannot say when the window closes, and a span with
                 # no switch cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
+                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
+                # null both read as a database no retention pass has ever run against.
+                "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -465,6 +490,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": _STRING_OR_NULL},
+                # Out of `required` for `saisons.spielplan`'s reason.
+                "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": _EINWILLIGUNG,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
@@ -747,8 +774,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
     ),
-    # All three end in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the
-    # sort key unindexed every request scans the collection and sorts it in memory, which is work
+    # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
+    # key unindexed every request scans the collection and sorts it in memory, which is work
     # proportional to an archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
@@ -769,6 +796,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
+    ),
+    # `eingereicht_am` and `_id` past the count's own key: measured, a bare `("status",)` serves the
+    # count and leaves the narrowed list read on another index, and three keys answer both.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_status_queue",
+        (("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "every season's queue at one status, and the count each status is told",
     ),
     # An index, not a season-cache set: that cache is keyed by season id, and a missing set would
     # read as an empty one, which narrows on nothing

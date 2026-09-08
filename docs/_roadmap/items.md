@@ -80,7 +80,7 @@ deliverable.
 | Token       | Item                                                                                                                         | Tags                                                                        | Status   |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                    | BE, spiele                                                                  | Open     |
-| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                      | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
+| `2rz3-a754` | A colliding pair split across the read's cap is marked at neither end                                                        | FE, BE, Ops, Docs, edge, bewerbungen                                        | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                         | FE, Ops, gate, tests, saisons                                               | Open     |
@@ -88,22 +88,17 @@ deliverable.
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                              | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
-| `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                         | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
-| `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                  | FE, Docs, bewerbungen                                                       | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states              | FE, Docs, tests                                                             | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                   | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                              | FE, BE, DB, Docs, spieler                                                   | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                              | FE, Ops, gate, tests                                                        | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                          | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                          | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                            | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                           | FE, Ops, gate, admin                                                        | Open     |
-| `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`  | FE, BE, Docs, bewerbungen, teams                                            | Standing |
-| `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                        | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range         | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
@@ -112,20 +107,13 @@ deliverable.
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                         | BE, DB, Docs, bewerbungen                                                   | Open     |
-| `gm9c-2du4` | Every link the local stack mails points at production                                                                        | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
-| `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
-| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                              | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                               | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
-| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                 | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                         | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                            | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                             | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
@@ -134,13 +122,11 @@ deliverable.
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                           | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                 | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Open     |
-| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                    | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                   | BE, DB, tests, saisons                                                      | Standing |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                    | FE, Docs, tests                                                             | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                       | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                   | FE, BE, Docs, tests, saisons                                                | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject              | FE, Docs, tests                                                             | Open     |
@@ -152,17 +138,12 @@ deliverable.
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                            | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                | FE, Docs, ci, tests, saisons                                                | Standing |
-| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                  | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                         | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
 | `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                  | FE, admin, spiele                                                           | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
-| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                          | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                           | FE, tests, bewerbungen, teams                                               | Open     |
-| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                 | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
-| `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                   | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                        | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                   | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
 
@@ -197,11 +178,11 @@ caller happens to hold a set, which is most of them.
 `fl_backend/app/core/domain.py :: Rule.multi_document` gives it, and the unit that decides — the
 rule's own reads, or its caller's — is written where the next declaration meets it.
 
-### `2rz3-a754` · Deciding an application does not drain the queue, and duplicates are marked only across one read's rows
+### `2rz3-a754` · A colliding pair split across the read's cap is marked at neither end
 
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, edge, admin, bewerbungen | Open   | —          |
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| FE, BE, Ops, Docs, edge, bewerbungen | Open   | —          |
 
 **The duplicate marking runs over the rows one read served.**
 `fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page was
@@ -216,24 +197,13 @@ unauthenticated form is itself a denial of service, so the write refuses no dupl
 shows them instead; a queue that shows them across part of its set honours that ruling across part
 of its set.
 
-**A decision leaves the row, so the working set never shrinks.**
+**A decision leaves the row, and the queue does not serve it by default.**
 `fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt`
 and stamps who decided and why; the row stays, deliberately, the submission being the record the
-decision was taken against. The triage page sends no `status`
-(`fl_frontend/src/app/admin/bewerbungen/page.tsx`), so a decided application of any season keeps its
-place among the rows served. **An administrator who declines every one of them sees the list
-unchanged**, and no endpoint removes an application, so nothing reachable from the product clears
-the state.
-
-**The obvious repair collides with the facet, and that collision is most of the effort.** Decided rows leaving
-the default view means a `status` term on the server read. The panel then counts each option against the rows
-it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the loaded list — and
-`fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at zero unless it is
-already picked. Narrow the server read to `eingereicht` and both other statuses stand at zero, so both go dead
-and the archive is unreachable from the control that hid it. The **admin** clause in
-`.claude/rules/frontend.md` forbids withdrawing an option on a zero count, and disabling one arrives in the
-same place by another route. **So the counts have to come from the server in the same change**, or the
-narrowing has to be stated somewhere the facet does not read.
+decision was taken against. The triage page sends the status its bar selects
+(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`), open by default, so a
+decided application leaves the working set while staying one press away. No endpoint removes an
+application, so the row itself is permanent.
 
 **Two answers are closed, and each looks right from the code alone.**
 
@@ -246,15 +216,16 @@ narrowing has to be stated somewhere the facet does not read.
   remove the mechanism the ruling above rests on, and remove it silently, with no surface saying
   that a pair split across a page boundary goes unmarked —
   `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`'s own declaration records
-  that the list is served whole for exactly this reason. It also lands in the facet the way the
-  server-side filter does: a page holding one season's open applications leaves every other status
-  and every other season at zero, so the archive and the cross-season view both go dead.
+  that the list is served whole for exactly this reason. It also lands in the facet: the status counts now come
+  from the server (`docs/backend/spec.md :: I193`) and would survive it, but a page holding one
+  season's rows leaves every other season at zero, so the cross-season view goes dead.
 
-**Done is a third shape** — a narrowing the facet is told about rather than one it has to infer from
-what arrived, with the marking's set decided by the server rather than by what a single read
-happened to serve. **There is no bulk action**, so clearing a flood is one press per row, each with
-its own confirmation and its own round trip; that is the cheapest of these gaps to close once the
-read has somewhere to put a narrowing.
+**Done when** a colliding pair is marked or named however the read was cut. The queue now narrows on
+the server and the bar is told the counts it cannot derive
+(`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`), so the cap is spent on the
+status being triaged rather than on the archive — which shrinks the window without closing it.
+**There is no bulk action**, so clearing a flood is one press per row, each with its own
+confirmation and its own round trip.
 
 **What bounds the severity.** Reaching the state takes a deliberate flood: the ceiling is
 `nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list from a single
@@ -533,38 +504,6 @@ to go, or whether it is. The warning was counted over a single import in a fresh
 than over a full suite run, where what keeps it to one is the warning filter's own per-location
 deduplication.
 
-### `4enu-5xx9` · The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied
-
-| Tags                                       | Status | Depends on |
-| ------------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, bewerbungen, kontakte, teams | Open   | —          |
-
-**The contacts editor reads the stored block, composes a new one from it, and writes the block
-whole.** `fl_backend/app/api/teams/admin_router.py :: patch_saison_team_kontakte` reads the row's
-`kontakte` through `fl_backend/app/core/crud.py :: pull_one_from_db` outside any transaction, so that
-a seat which has confirmed keeps its provenance, then `$set`s the composed block over the stored one.
-`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson` is the other writer of that
-block, and nulls every slot one address holds. An erasure landing between the editor's read and its
-write is undone by the write: the person who asked to be forgotten is back on the row, and the action
-log records an ordinary edit.
-
-**The window is the whole-block `$set` and not the read, and narrowing the payload is not the
-repair.** The editor sends all three slots because a payload accepting fewer would let an edit drop a
-seat in silence, and every slot it sends is a claim about that seat rather than a field somebody
-happened to touch. So the block the admin rendered is the block the endpoint stores, and any seat
-changed underneath it is overwritten by definition.
-
-**The confirmation write is the shape that closes it, in this same tree.**
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` judges and writes inside
-one session, reading the document it is about in-session so that a retry re-judges it, and its update
-names field paths under one seat instead of replacing a block. Either half would answer here: the
-editor's read moved inside the transaction that writes, or the update reduced to the paths the editor
-actually changed.
-
-**Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
-reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
-rather than on the shape of the update.
-
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
 | Tags               | Status   | Depends on |
@@ -688,37 +627,6 @@ pickers, table and overlays and taken from index pages for the rest; whether Man
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
 
-### `6mch-qx2c` · A retention sweep that never runs looks exactly like one that found nothing
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
-
-**The sweep writes a line only where a pass fails.**
-`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep` walks the seasons, and
-`fl_frontend/src/features/bewerbungen/sweep.ts :: logSweepFailure` is the only thing on that path
-which reaches the log at all (`FE-SWEEP-001`). A pass that reminds nobody and deletes nothing writes
-nothing, and that is the ordinary case — so silence is what a healthy sweep and an absent one both
-produce, and no operator can tell them apart.
-
-**Three ways it can be absent, and none of them shows.** `fl_frontend/src/core/config.ts` reads
-`BEWERBUNG_SWEEP`, so a server setting it off arms no timer at all;
-`fl_frontend/src/instrumentation.ts :: register` is what arms it, so a deployment where that hook
-does not run arms nothing; and the timer lives in the process that serves the site
-(`docs/ops/spec.md :: I149`), so a process restarting before its first pass restarts the delay with
-it. Each is a deadline nobody chases and an unconfirmed application nobody deletes, found when a
-school asks why it heard nothing.
-
-**Two answers, weighed and neither taken.** One info line per completed pass, carrying what the pass
-did, makes the absence visible in the stream the failure already uses, at the cost of a line an hour
-in production whose only reader is somebody already suspicious. An observable the system tier answers
-on demand — when the last pass completed — costs a route and a caller, and is read only by somebody
-who thinks to ask. The choice is which of those two costs is worth paying, not whether the gap is
-real.
-
-**Done when** an operator can tell a sweep that ran and did nothing from a sweep that did not run,
-without reading the container's environment.
-
 ### `6zuv-9tkx` · Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states
 
 | Tags            | Status | Depends on |
@@ -783,8 +691,6 @@ and a module already resolved by then gets the real cache rather than the harnes
 | --------------------------- | ------- | ----------- |
 | FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
 
-Lands with: `8y7c-rstr`
-
 **`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
 `fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
 `erteilt_von` as `erziehungsberechtigt` and `bestaetigt_am` as the same day; its one caller,
@@ -813,42 +719,9 @@ read-rules table before any code.
 caller gone with it, the vocabulary narrowed to what stays expressible, the publication gate reading
 what the flow stores, and the notice's squad and referee publication rows
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
-interest they rest on to the consent the flow collects.
-
-### `8y7c-rstr` · No birthdate is stored, and every age rule guesses from `stufe`
-
-| Tags                      | Status  | Depends on  |
-| ------------------------- | ------- | ----------- |
-| FE, BE, DB, Docs, spieler | Blocked | `f3ar-m4qf` |
-
-Lands with: `8wd7-ff49`
-
-**No `spieler` document carries a birthdate, so nothing can judge a pupil's age.** `stufe` is the
-only signal and it is a proxy: it says which Halbjahr a pupil is in, not how old they are.
-
-**Ruled: the birthdate is required at sign-up and stored** (`docs/datenschutz.md` §2). The minimum
-age is 16 for everyone — the age at which a person consents for themselves under Art. 8 GDPR in
-Germany — a sign-up below it is refused, and the check cannot run without the date.
-
-**Optional is the rejected shape, and the reason it was rejected is the reason to keep it rejected.**
-An optional field would leave the age check unrunnable for every row that declined it, which is a
-rule that judges some people and not others. The tension the option was reaching for does not vanish
-— a birthdate is more identifying than a `stufe`, which is the argument against storing one at all —
-and what answers it is that the date is collected at sign-up and never backfilled: the pupil rows
-standing today are deleted once at the end of this season (`docs/datenschutz.md` §3), so no existing
-document is reached.
-
-**The `volljaehrig` trap.** The consent vocabulary's `volljaehrig`
-(`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, mirrored in
-`fl_backend/app/core/constraints.py`) pins no age in code and reads as 18. The threshold is 16, the
-one number the tree already commits to for a contact person
-(`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`), so reading the enum
-as the rule gets it wrong by two years.
-
-**Done** is the field on the `spieler` model with its hand-written copies moved in the same commit —
-the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
-`fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
-It is not a migration.
+interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
+until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
+carrying the state that ends there.
 
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
@@ -1073,80 +946,6 @@ figures predate this scheme, which moved them toward the floor without reaching 
 
 **Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
 rule stops being prose.
-
-### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
-
-| Tags                             | Status   | Depends on |
-| -------------------------------- | -------- | ---------- |
-| FE, BE, Docs, bewerbungen, teams | Standing | —          |
-
-**The product says confirmation and the schema says consent, about one record.** A contact person
-opens their own link, the application carries `bestaetigungsfrist` and a `bestaetigungen` block, and
-the seat is stamped `bestaetigt_am` — while the record holding that stamp is
-`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung`, the wording it cites is
-`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`, and the field saying how it was obtained
-is `erteilt_von`, written `administrativ` by
-`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung` and `person` by the endpoint
-that seat's own link reaches.
-
-**Why it is not cosmetic.** `erteilt_von` is a stored key on two collections and on every image the
-action log holds of them, so a rename is a migration rather than an edit, and it travels through a
-`$jsonSchema` validator, a Zod mirror and `fl_backend/openapi.json`. A reader meeting `Einwilligung`
-on a screen headed „Bestätigung“ reaches for the pupil vocabulary instead, where `erteilt_von`
-answers an entirely different question (`docs/glossary.md :: Einwilligung`).
-
-**The trigger is the legal basis, and it is not ours to pick.** The basis for holding a contact
-person's details is with the Datenschutzexperte (`docs/datenschutz.md` §11). Ruled as consent, the
-three names are right as they stand. Ruled as necessary processing, `bestaetigt_am` becomes an
-address-verification stamp, `erteilt_von` says who acknowledged a notice, and consent proper narrows
-to the optional WhatsApp channel — at which point the three describe the wrong thing on every screen
-that reads them. **No field here is named for a legal category**, which is what lets one schema
-survive either ruling and is the reason to rename nothing before the ruling lands.
-
-**Done when** the basis is ruled and the three names are settled against it: recorded as correct
-where the next reader meets them, or renamed together with the validator, the Zod mirror, the
-published document and the stored keys, in one migration rather than three edits.
-
-### `ewf2-e2f3` · A confirmation or reminder link that bounces is written to the log and told to nobody
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
-
-**A refused send leaves a line that names no address, deliberately.**
-`fl_frontend/src/features/bewerbungen/notifications.ts :: settleFanOut` settles every recipient and
-writes `FE-MAIL-002` per failure carrying the operation and the error's name alone, because
-`docs/logging/spec.md :: L9` keeps a submitted value off the stream. The address is meant to reach a
-person by the other route:
-`fl_frontend/src/features/bewerbungen/notifications.ts :: describeBewerbungMail` names who was not
-reached, in the sentence an admin action appends to its report.
-
-**The link messages have nobody standing at that route.** The submission's links go out from
-`fl_frontend/src/app/api/bewerbung/route.ts` to a member of the public, the confirmation's two from
-`fl_frontend/src/app/api/bestaetigung/route.ts` to a contact person, and the reminder from
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung`, which returns nothing at all. Each
-discards the outcome, so a seat whose mailbox refuses its link stays outstanding for the whole span
-and is then deleted with the application it belongs to — and the first anyone hears of it is a school
-asking why nothing arrived.
-
-**A reminder is spent whether or not it arrives.** `docs/backend/spec.md :: I152` stamps
-`erinnert_am` and mints the fresh link before the caller mails, deliberately: mailing first would
-re-send to a refusing address every day the sweep runs. The cost that ordering accepts is one person
-one reminder — and because
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung` answers `void`, that cost is
-uncountable as well as unreported. The clock will not chase that seat again, the seat is outstanding
-still, and the deadline deletes the application on time.
-
-**The counter-example is in the same file.**
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailLoeschung` reads whether the deletion notice
-was delivered and withholds the erasure where it was not, because erasing somebody who was never told
-is the failure that clock exists to prevent. Nothing weighs a link mail the same way, and a seat
-nobody can reach is the same kind of loss one step earlier.
-
-**Done when** two things hold: an unreachable contact address reaches an administrator, the
-application's own admin page being where the triage already stands; and a reminder whose send was
-refused does not count as the one chase that seat gets. Neither is answerable by a log line, which
-L9 forbids naming the address in.
 
 ### `ex2m-qjkg` · The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range
 
@@ -1678,67 +1477,6 @@ produce, and no type-level mechanism reaches that — not a cast's removal, not 
 `satisfies`. What catches it is a reader, or a predicate that eventually disagrees with it. The two
 failures share a file and nothing else.
 
-### `ggng-8m7v` · The confirmation link's two anonymous endpoints read a whole application unprojected
-
-| Tags                      | Status | Depends on |
-| ------------------------- | ------ | ---------- |
-| BE, DB, Docs, bewerbungen | Open   | —          |
-
-**Both endpoints load the document and answer with a closed handful of its fields.**
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: get_einwilligung_ansicht` finds the
-application through `fl_backend/app/api/bewerbungen/services.py :: build_token_filter` and answers a
-state, a season, a school, a role, a first name and a wording label
-(`docs/backend/spec.md :: READ-BEWERBUNG-002`);
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` reads the same way
-inside its transaction. Both are base-tier, and the document they load carries three people's email
-addresses and telephone numbers, each seat's `token_hash`, and which schools were turned down.
-
-**Nothing is served that should not be, and that is the whole of the guarantee.** The response models
-declare their fields and no others, so this is depth rather than a leak. What it costs is that the
-guarantee rests on the response model alone: a field added to a model, a debug line, or an error path
-that renders what was loaded turns an unprojected read into a disclosure, on the one tier that
-authenticates nobody.
-
-**The projection habit exists here already, in the opposite shape.**
-`fl_backend/app/api/bewerbungen/services.py :: WITHOUT_TOKEN_HASHES` keeps the hashes off the wire
-for the admin reads, and is an exclusion because an inclusion list there would have to restate every
-field an application holds. These two endpoints are the case that argues the other way: what they
-answer with is a short closed list, and everything else on the document is what they must not carry.
-
-**Done when** each anonymous read names the fields it needs, and a case fails where a field outside
-that list reaches the handler.
-
-### `gm9c-2du4` · Every link the local stack mails points at production
-
-| Tags                             | Status | Depends on |
-| -------------------------------- | ------ | ---------- |
-| FE, Ops, Docs, edge, bewerbungen | Open   | —          |
-
-**`fl_frontend/src/core/brand.ts :: SITE_URL` is a module constant, and every absolute link is built
-from it.** `fl_frontend/src/app/api/bewerbung/route.ts` and
-`fl_frontend/src/features/bewerbungen/sweep.ts` each spell a confirmation link from it, and
-`fl_frontend/src/app/layout.tsx`, `fl_frontend/src/app/robots.ts` and
-`fl_frontend/src/app/sitemap.ts` build the site's own absolute URLs the same way. The origin that
-does move is `AUTH_URL`, which `fl_frontend/src/core/config.ts` validates at startup and
-`docker-compose.local.yml` points at loopback — so the local stack answers on one origin and mails
-links on another.
-
-**What it costs is the browser pass.** Every confirmation, reminder and deletion notice the local
-stack sends carries a link to the live site, so exercising the flow end to end means lifting each
-token out of a message and putting it on localhost by hand, once per seat and again per re-send.
-That is the one part of this flow nobody can walk through as its reader would.
-
-**The two origins are not one setting, which is what makes this a decision rather than an edit.**
-`AUTH_URL` is validated as the public origin and refused unless it is https or loopback, while
-`SITE_URL` is also what `metadataBase`, the crawl policy and the sitemap publish — and a published
-origin read from the environment is one a misconfigured deploy can put in front of a crawler. Making
-the mail links follow the serving origin while the published metadata stays fixed, and making both
-follow one variable, are different changes with different blast radii.
-
-**Done when** a link a message carries points at the stack that sent it, with whatever holds the
-published metadata to the real origin written where a deploy would otherwise break it
-(`docs/frontend/spec.md :: 1.7 Environment`).
-
 ### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
 
 | Tags                   | Status | Depends on |
@@ -1920,46 +1658,6 @@ version it was written against.
 block opening `THE TOAST, deliberately small:` and the one over-bound block in that file no pass has
 yet read, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
 
-### `ja32-9rpv` · A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
-
-| Tags                                                  | Status | Depends on |
-| ----------------------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, kontakte, spielorte | Open   | —          |
-
-**`fl_frontend/src/core/api.ts :: apiClient` takes the key tier as an option and defaults it to
-`base`, so a call naming no `authType` is authorized as the public app.** `getFetchHeaders` puts the
-base key on the request, and the actor header rides on the admin tier alone, so an omission also
-sends the call unattributed.
-
-**The omitting direction is loud.** An admin router is guarded whole by
-`fl_backend/app/core/security.py :: verify_access_admin`, so a base key reaching one is refused with
-`REQ-AUTH-004` and the read or the write fails outright rather than succeeding under-authorized, and
-`fl_backend/tests/api/test_admin_guard.py` holds that backend half by comparing guards by identity.
-**Nothing ships silently broken in this direction**: the cost of an omission is a failure an
-administrator meets, not data reaching somebody it should not.
-
-**The over-declaring direction is the silent one.** `authType: "admin"` on a call a public route
-would have answered succeeds exactly as the narrower tier would, and the only differences are the
-admin key on the wire and the actor header attached to a read that needed neither. Nothing reads a
-call site to say its tier is wider than the route requires, and `.claude/rules/frontend.md`'s ban on
-caching an admin-scoped read makes the tier a decision with consequences past authorization.
-
-**What exists is per-slice and hand-written.** `fl_frontend/src/features/bewerbungen/queries.test.ts`
-and `fl_frontend/src/features/spielorte/queries.test.ts` each assert the tier on a recorded call, and
-`fl_frontend/src/features/kontakte/actions.test.ts` matches `authType:` in its own mutations source;
-every other feature's queries and mutations declare their tiers with nothing reading them, measured
-2026-08-28. The two audit prompts that pair the halves end to end —
-`docs/_auditing/prompts/crosscut/1-contracts-and-seams.md` and
-`docs/_auditing/prompts/frontend/4-security.md` — do it by reading, on a schedule.
-
-**Done when** the decision is taken: whether a mechanical pairing is worth building against a failure
-mode that is loud in one direction and, in the other, costs a wider key on a request that would have
-succeeded anyway. **What makes a mechanical pairing non-trivial is that neither side publishes the
-tier** — `fl_backend/openapi.json` describes one `HTTPBearer` scheme and marks an operation as
-needing a bearer token or not, where which key it wants is a router-level dependency the document
-does not carry — so a check would have to derive the backend half from the routers themselves and the
-frontend half from the call sites, and **that derivation, not the comparison, is the work**.
-
 ### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
 
 | Tags               | Status | Depends on |
@@ -1996,39 +1694,6 @@ guards deletable.
 
 **Not verified here:** the database tier was not run for this entry. That dropping the argument
 leaves it green is a report; the mechanism above is what the code says would allow it.
-
-### `k3g7-cqx7` · An erasure is confirmed without naming whom the address matches
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| FE, BE, DB, Docs, kontakte | Open   | —          |
-
-**Ruled: an erasure keyed on an email address shows the matched names for confirmation before the
-write** (`docs/datenschutz.md :: 5. Erasure reaches everyone who asks`). The code is the regression,
-and the ruling stands.
-
-**The confirmation names one person and describes the rest as a class.**
-`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx` is
-opened from inside one seat's own panel, names that seat's person, and says the write reaches them
-everywhere rather than only here. Everyone else the address holds is left to the administrator's
-memory, and the counts saying how far the write actually went arrive in the result afterwards.
-
-**A shared school inbox is the case the ruling was made for, and it is the case that reads best.**
-The panel names a real person, the sentence is plainly worded, and nothing on screen suggests
-anything is missing — so the confirmation is most convincing exactly where it is least complete, and
-an administrator clearing one departing Trainer can empty two colleagues' seats across every season
-that inbox appears in.
-
-**Nothing on the backend answers the question either.**
-`fl_backend/app/api/kontakte/admin_router.py` publishes the erasure and no read beside it, so what an
-address matches is knowable only by performing the write. Whatever renders the names needs a read
-that does not exist yet, and that read is the part to design first: it serves contact records to an
-administrator, so it is admin-tier and carries the same withholding every other read of the block
-does.
-
-**Done when** the confirm reveal lists every person the address matches, by name and by the season
-each seat sits in, before the write — read from a route added for it rather than inferred on the
-client, with a case pinning that a second matched person appears in the reveal.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
@@ -2068,113 +1733,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `kajk-z7nu` · A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it
-
-| Tags                                    | Status | Depends on |
-| --------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, teams | Open   | —          |
-
-**`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: CAPPED_CONTROLS` maps a constant to
-a form module and a box count, and the loop under it turns each row into one case.** The register is
-named in that file and in no other, so its rows are the whole population it is judged over: a bound
-absent from it generates no case, and the suite is as green with the row as without it.
-
-**Nothing marks a bound as belonging here.**
-`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx` caps the
-Kürzel box with `KUERZEL_LAENGE`, which
-`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` pairs against the backend's own
-length; the register carries its row, and would read exactly as complete without it. The prose
-declares one bound deliberately outside — `KONTAKT_EMAIL_MAX_LENGTH`, which bounds schemas and binds
-no input anywhere — and that is the only stated exception, so a row nobody wrote and a row nobody
-wanted are indistinguishable by reading.
-
-**Severity is low and worth stating rather than inflating.** The Zod mirror still refuses an
-over-long Kürzel, so an uncapped box costs the applicant a refusal at the submit rather than a stop
-at the keystroke, which is the whole of what a cap on the control buys. What makes it worth an entry
-is that the rule the register enforces — each ceiling reaches the control as well as the schema — is
-enforced over the rows somebody remembered.
-
-**The same file refuses a hand-kept list for its other register.**
-`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: MIRRORS` takes its ceilings off
-`fl_backend/openapi.json` rather than naming them, on the stated ground that a ceiling a test file
-names is one somebody remembered, and a floor over what that read finds stops an empty discovery
-passing. `CAPPED_CONTROLS` is the half kept by hand.
-
-**The repair's shape is next door.** `fl_backend/tests/shared/test_frontend_mirrors.py` keeps a
-register of this kind and closes it from both ends —
-`:: test_every_module_claiming_a_mirror_is_one_this_register_covers` and
-`:: test_every_constant_a_module_says_it_mirrors_is_declared_here` — which is why a row taken out of
-that one fails.
-
-**Done when** every constant a module under
-`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/` applies to a box is one
-`CAPPED_CONTROLS` names, or when the claim leaves the source text and the register with it. **The
-second route is the one `.claude/rules/frontend.md`'s tests clause points at**, and it is available
-in this slice already: `fl_frontend/src/features/bewerbungen/form.test.ts` renders
-`FormSchuleSection` through `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`, and a cap
-asserted against the rendered control takes its population from the boxes that came back rather than
-from a list somebody keeps. **Either route still declares what is deliberately uncapped**, the
-register's email bound being one such.
-
-**Three shapes in that directory refuse a sweep keyed on a bare identifier:**
-
-- the website box caps at `TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length`, so one match
-  yields two names
-- the strong-player box caps at `strongPlayerCeiling`, a function the cases under the register hold
-  to the schema by parsing instead
-- the caps the form applies are declared across
-  `fl_frontend/src/features/bewerbungen/constants.ts` and
-  `fl_frontend/src/features/teams/constants.ts` alike, so a reader rooted at one slice sees half of
-  them
-
-### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
-
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, tests, bewerbungen | Open   | —          |
-
-**One refusal code carries its meaning in three written statements, and no check reads any of them.**
-`fl_backend/app/core/domain.py :: RULES` gives each rule a `summary`;
-[`docs/logging/error-codes.md`](../logging/error-codes.md) gives each code a row stating what it
-refuses and with which status; and the frontend turns the code into the German sentence an admin or
-an applicant actually reads, naming it as a string literal in each slice's `actions.ts`, in
-`fl_frontend/src/shared/utils/actionError.ts`, and in
-`fl_frontend/src/features/bewerbungen/utils.ts` for the public application form.
-
-**What the checks that exist do reach.** `fl_backend/tests/core/test_domain.py` resolves each rule's
-`implemented_by` and `tested_by` and asserts the code appears in both; it opens no `summary`. On the
-frontend the assertions are that a code maps to something at all and which field path it lands on,
-`fl_frontend/src/core/refusalPaths.test.ts` holding that path to a rendered input. **Not one of them
-compares a sentence with the condition the backend refuses on**, so a sentence describing a
-neighbouring fact passes every test, ships, and is read by the person the refusal is for. **How close
-those facts sit is recorded in the code itself**: the comment above
-`fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal`'s arm for a club already
-in the season warns that a second application and a club already playing read alike and only one of
-them is what the backend refused.
-
-**No figure is quoted for how many, deliberately**: every branch that adds a refusal adds to all
-three listings and has no reason to open this page, so a dated count here is stale by the branch
-after the one that takes it — and the three listings named above ARE the count, each a grep from a
-reader who wants it. The three sets agree today, which is what makes this a class rather than a
-defect.
-
-**Done when** the decision is taken about what a repair can reach. A check can hold the three sets
-together — every rule's code takes a row, every code a surface renders takes a sentence — and that is
-`scripts/checks/docs_gate/error_codes.py`'s shape extended by one side. **What it cannot do is judge a
-meaning**, so the rest is a place where the three statements are read side by side and a rule about
-when they are re-read: a
-fourth column on the table, or a generated comparison a reader walks.
-`docs/_auditing/prompts/crosscut/1-contracts-and-seams.md`'s sixth check already asks a pass to trace
-each error class through to the German it renders, so the reading exists and happens when a programme
-runs rather than when a refusal changes. **Choosing between those is the work**, and the entry is
-here rather than decided because the cheapest of them is also the one nothing enforces.
-
-**Why this stays its own entry rather than widening the error-code check.** That check is a set
-comparison between two enumerations, complete and mechanical, and it already holds the codes this
-entry needs. This one has no such form — nothing decides whether a German sentence states the fact a
-predicate tests — so folding it into that check would close the cheap half under one id and let the
-half that matters leave with it.
 
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 
@@ -2216,38 +1774,6 @@ otherwise a flat read, and keeping that count fresh across the writes the same p
 **Low severity, and the entry should not inflate it.** The endpoint refuses correctly, the message
 is actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
 already full.
-
-### `kyc4-75k5` · A pupil's consent is stored and served, and shown by nothing
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, BE, Docs, spieler | Open   | —          |
-
-**`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` records what a pupil agreed may be
-published — its `umfang`, who gave it in `erteilt_von`, and the dates beside them — and no surface
-in the product renders it.** `POST /spieler` composes one through
-`fl_backend/app/api/spieler/services.py :: registration_einwilligung`;
-`fl_backend/app/core/domain.py` declares the field `IMMUTABLE`, no payload carrying it, so a manual
-database edit is the only other writer; `GET /spieler/memberships` serves it on
-`fl_backend/app/api/spieler/schemas.py :: FLSpielerWithMemberships`; and
-`fl_frontend/src/features/spieler/schemas.ts :: FLEinwilligungSchema` mirrors the shape. No
-component under `fl_frontend/src` reads the field.
-
-**Ruled: the player editor shows the stored consent, read-only, and it never gates publication**
-(`docs/datenschutz.md` §10, 2026-09-02). An immutable record shown beside editable fields owes the
-reader a word saying which it is, which is the whole of the remaining design.
-
-**What it must not quietly become.** Rendering the field is not gating publication on it, not making
-it writable, and not marking a backfilled consent as distinguishable from a collected one. The
-publication gate is `8wd7-ff49`'s, and it is ruled to read what a sign-up flow stores rather than
-what stands today.
-
-**What it would show is uniform, measured against the live database on 2026-08-22:** each of the 362
-stored pupils carries a consent, every one `umfang: kader_oeffentlich` and `erteilt_von:
-bestandsuebernahme`, each with a confirmation date. That is a backfill rather than a collected
-consent, and it is what makes the display worth something: a record nobody can see is a record
-nobody can check. Those rows are deleted once at the end of this season (`docs/datenschutz.md` §3),
-so what this shows is a population with an end date on it.
 
 ### `m4m3-hxmj` · The shared editor shell's widest layout step has never been rendered
 
@@ -2572,33 +2098,6 @@ range makes the ausstehend/heute/vergangen ternary genuinely harder, and the int
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
-### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
-
-| Tags                                 | Status | Depends on |
-| ------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
-
-**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
-and fans it into every match the referee officiated** — the embedded copy is
-`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
-(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
-again, on the row and on every past fixture, and the administrator making that edit is told a rename
-succeeded.
-
-**The rename reaches every season, where a club's stops.** A referee is not season-scoped
-(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
-has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
-closed seasons, which are the copies nobody edits again and so the ones that keep it.
-
-**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
-an anonymisation runs, judged from a read taken outside the session
-(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
-
-**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
-fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
-cannot undo at all is a different complaint from the one above. What the entry buys is that the
-choice is made rather than defaulted into, and it covers the archive as well as the current season.
-
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
 | Tags                                                   | Status | Depends on |
@@ -2611,7 +2110,7 @@ choice is made rather than defaulted into, and it covers the archive as well as 
 a referee is entered by an administrator through
 `fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx`
 and is asked nothing. A team's contact person holds the opposite: a record on
-`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung` that only that person's own emailed
+`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` that only that person's own emailed
 link can stamp.
 
 **Ruled: referees get a consent record on the same terms as contact persons**
@@ -2628,7 +2127,7 @@ what is missing is the record, not a guard.
 block on the `bewerbungen` collection, a public router that resolves it, and a mail fan-out over
 three seats — so reaching a referee is a second collection, a second write path and a second message
 rather than a parameter, which is why this is an entry and not a fold-in. The vocabulary is a choice
-between the two that exist and never a third: `FLKontaktEinwilligung` says only that details may be
+between the two that exist and never a third: `FLKontaktKenntnisnahme` says only that details may be
 held and used, `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` says what may be published,
 and a referee is a pupil whose name is published on every fixture they officiate. And a referee's
 removal is an anonymisation rather than a deletion, so whoever adds the record decides whether it
@@ -2835,42 +2334,6 @@ here establishes that an SSR'd attribute the parser refused stays unapplied afte
 every overlay still positions under the strict policy; both are read off the react-dom and react-aria
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
-
-### `rt37-sv33` · A sort option nothing sends scans the archive it sorts
-
-| Tags                           | Status   | Depends on |
-| ------------------------------ | -------- | ---------- |
-| FE, BE, DB, admin, bewerbungen | Standing | —          |
-
-**Not a defect today, and what makes it harmless is that nothing reaches it.**
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions` offers `saison_id` beside
-`eingereicht_am`, and every read that names it plans a blocking sort: no index over `bewerbungen` leads with
-`saison_id` as a sort key, the three in `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` all ending in
-`eingereicht_am` then `_id` (measured 2026-08-30 at 60,000 rows, across every combination of the season and
-status filters with each order; the reads narrowing on neither filter scan the collection whole). **No caller
-sends it.** `fl_frontend/src/app/admin/bewerbungen/page.tsx` sends `order` alone, and no other surface reads
-this endpoint, so the option is reachable only by composing the request by hand against an admin-guarded API.
-
-**Both exits are wrong, which is what makes this a decision rather than a repair.** Two more indexes
-would buy a sort nobody performs and would be carried, applied at every boot and re-read by every
-future reader of `SUPPORT_INDEXES`, for no caller. Narrowing `FLBewerbungenSortOptions` to the one
-option that is used is a wire change: it moves `fl_backend/openapi.json` and the hand-written Zod
-mirror, and it takes an offered capability away rather than adding one. **Which is right depends on
-whether sorting the archive by season is a thing this product means to offer, and that has not been
-asked.**
-
-**The discriminator this entry adds.** A blocking sort is judged on whether anything bounds the
-collection, not on whether it blocks. Here the bound is absent — `bewerbungen` grows with every
-submission and no path removes a row — and the read is harmless anyway, because **nothing reaches
-it**. So a blocking sort is judged on two questions before its plan matters: what bounds the
-collection, and what reaches the read.
-
-**Trigger to revisit:** any surface gaining a season sort over this list, which turns the option
-from unreachable into the ordinary path and makes the plan above the one an administrator waits on.
-
-**What was measured and what was not** (COR-9). The plans were measured, at a row count the
-collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
-another consumer rather than proven by instrumenting the endpoint.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
@@ -3255,61 +2718,6 @@ outstanding repair**, and the window in which the fix was cheap closed at the pu
 **Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
 the argument for a per-commit resolution check, and the sweep above is what it would be built from.
 
-### `vyr6-uk2p` · The open-window read filters into arrays and subscripts whatever comes back
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| FE, BE, tests, bewerbungen | Open   | —          |
-
-**`fl_backend/app/api/bewerbungen/public_router.py :: get_offenes_fenster` selects the season with a
-dotted query — `bewerbung.offen`, `bewerbung.von`, `bewerbung.bis` — and hands
-`open_seasons[0]["bewerbung"]` straight to `:: _fenster`, which subscripts all three by name.** A
-dotted path in a MongoDB filter matches into an array of embedded documents, so a season storing
-`bewerbung: [{offen, von, bis}]` — the window wrapped in a list — satisfies every term of the query
-and reaches `_fenster` as a list. `bewerbung["offen"]` on a list raises `TypeError`, and
-`GET /bewerbungen/fenster` answers **500 on the public tier**. It is the one malformed shape the
-query lets through: a string or a number has no `bewerbung.offen` to match, and an object short of a
-field fails the term that names it, so neither reaches the subscript on this route.
-
-**The sibling route is guarded and this one is not.** `:: _pull_window`, behind
-`GET /bewerbungen/fenster/{saison_id}` and the colour read, passes the stored value through
-`fl_backend/app/api/bewerbungen/services.py :: recorded_window` and answers 404 where it is not a
-mapping carrying all three fields; the comment at that call says why — `_fenster` subscripts, so a
-shape check alone would 500. `get_offenes_fenster` takes the shape from a query that already asserts
-the three fields exist, and **array matching is exactly what breaks that inference.**
-`:: window_is_running` inside `_fenster` carries the same guard, and `_fenster` subscripts before it
-gets there.
-
-**Why nothing produces it today.** `fl_backend/app/core/constraints.py :: _SAISON_BEWERBUNG` types
-the field as a nullable object with the three keys required, and the collection runs under
-`validationLevel: strict` with `validationAction: error`, so no write through the driver stores a
-list there. The field and its validator landed in one commit
-on 2026-08-28, so no season carried the key before the rule existed. What remains is a write past the validator — a
-`bypassDocumentValidation` write, a dump restored from elsewhere, the validator dropped and
-re-applied — the class of document `wszt-rpmy` files against, and the one
-`fl_backend/tests/api/test_bewerbung_public_read.py :: MALFORMED_WINDOWS` already names for the
-per-season reads, its list-wrapped case included.
-
-**What it costs when one does arrive.** The read is made by
-`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx` on the public start page and the
-contact page, and `fl_frontend/src/features/bewerbungen/queries.ts :: getOffenesBewerbungFenster` turns a 404
-into "no window" and rethrows everything else — so the 500 is thrown inside a server component rather than
-rendered as the band's absence.
-
-**Done is the guard on this path and the case that pins it.** `get_offenes_fenster` passes
-`open_seasons[0]["bewerbung"]` through `recorded_window` and answers the 404 an empty result already answers:
-a season whose stored window cannot be read is one taking no applications, which is what the route's docstring
-promises for "none". And
-`fl_backend/tests/api/test_bewerbung_public_read.py :: TestAStoredWindowThatIsNotAnObject` drives the
-list-wrapped case against `GET /bewerbungen/fenster` beside the two per-season paths in `:: WINDOW_READS`. On
-this route that case is the only non-vacuous member of `MALFORMED_WINDOWS`, the other two never passing the
-query, and the test's own comment already claims the class it belongs to.
-
-**Established by reading, not driven** (COR-9). The array matching, the `TypeError` and the band's
-rethrow were read off the query, `_fenster`, the filter semantics and the two frontend files; no
-list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
-renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
-
 ### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
 
 | Tags               | Status | Depends on |
@@ -3440,168 +2848,6 @@ enumeration moves in the same commit.
 path or written down as one it deliberately does not report — with `gruppe_too_small`'s misnaming
 corrected at the same time.
 
-### `x7pk-g4bh` · Three entry refusals are rendered twice, and nothing holds either half to the other
-
-| Tags                                    | Status | Depends on |
-| --------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, teams | Open   | —          |
-
-**`REQ-ENTER-001`, `-002` and `-003` each reach an administrator through two mappers, and the German
-differs in every pair.** `fl_backend/app/core/domain.py` declares all three against
-`POST /teams/{team_id}/saisons` and against `POST /bewerbungen/{bewerbung_id}/annehmen`, acceptance
-reusing the season's own entry services rather than restating them. So each code has two frontends:
-`fl_frontend/src/features/bewerbungen/actions.ts :: mapTriageRefusal`, which answers for the
-application being triaged, and `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal`, which
-answers for the three club-editor write paths that create a club into a season, enter an existing
-one, or move one between groups — `postTeamAction`, `postSaisonTeamAction` and
-`patchSaisonTeamAction`, measured 2026-08-28.
-
-| Code            | `mapTriageRefusal` renders                                                                                                       | `mapEntryRefusal` renders                                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `REQ-ENTER-001` | A `buildRefusal` pair: the application's season has left planning, entry being into a planned one, then „Lehne die Bewerbung ab" | A written-out pair: „Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." |
-| `REQ-ENTER-002` | A `gruppe` field message naming „die Saison der Bewerbung"                                                                       | The same field message naming „die gewählte Saison"                                                               |
-| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist schon voll."                                                                                    |
-
-**Two of the three are a surface addressing its own reader**, which is what makes this a ruling
-rather than a correction. `-002` says which season is meant, and the two readers stand on different
-ones. `-001` is the sharper pair: the triage states the rule, the club editor enumerates the two
-statuses that failed it. [`docs/frontend/spec.md`](../frontend/spec.md) §1.12 asks for the rule
-rather than the situation that met it — and the club editor's own neighbours, the
-`team.not-in-saison-*` bodies in
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts :: buildTeamBanners`,
-enumerate the same two statuses in nearly the same words. So either that enumeration is the
-surface's settled house style, or three sentences move together.
-
-**`-003` is the one that can leave an administrator with nothing named to do.** §1.12 holds that a refusal
-names the repair wherever one exists, and that one shortened past its second sentence has become a dead end;
-the club editor's stops at the state. The rule pulling the other way is in the same section: the FIELD
-register declared at `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` keeps a field
-message to one sentence about the value, and both of these render under the `gruppe` picker, which is itself
-the way out. §1.12's own precedence line — the worked example outranks the generalisation drawn from it, and
-the rule is what gets amended — is why this is a ruling to take rather than a defect to fix.
-
-**One half is composed and the other is written out.** The triage builds its FORM message through
-`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal`, which is what guarantees the two-sentence
-shape and frames the panel name inside the helper. `mapEntryRefusal` returns its FORM strings as
-literals, so nothing holds their shape, and an assertion spanning a pair has to read two
-constructions.
-
-**What nothing does today is hold a pair together.**
-`fl_frontend/src/features/bewerbungen/actions.test.ts :: renderingsOf` is built for exactly this: it
-cuts every branch answering one code out of the sources it is handed and grades them as one set —
-the state word, the neuter agreement „Team" forces, and the imperative a repair is written in. It is
-called once, on `REQ-ENTER-005` (measured 2026-08-28).
-`fl_frontend/src/features/teams/actions.test.ts` asserts that `mapEntryRefusal` answers every code
-the entry endpoint declares and then grades the replacement mapper's German in detail; it reads none
-of the entry mapper's own sentences. **So an edit can move either half of any of these three pairs
-and leave the other standing, and the gate stays green.**
-
-**Three routes, and this entry picks none.** Rule each pair to one sentence and assert the halves
-equal, which is the cheapest thing to check and the likeliest to be wrong about `-002`. Or keep each
-surface's wording and widen `renderingsOf`'s call to these three codes, asserting only what must
-agree across a pair — the state word, the agreement, the imperative, and that a repair stands
-wherever one exists — which is the shape the helper was written for and the harder set of assertions
-to word. Or record at each branch, as a comment, why its wording is its own, and leave the pairing
-to a reader.
-
-### `xe5b-v4nu` · A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| FE, tests, bewerbungen, teams | Open   | —          |
-
-**`REQ-ENTER-005` is rendered in four places and graded as three.**
-`fl_frontend/src/features/bewerbungen/actions.test.ts :: renderingsOf` collects every branch
-answering one refusal code and holds them to one vocabulary and one grammar — „stillgelegt" rather
-than an austritt's words, „Team" as the noun, the neuter determiner and pronoun that noun forces,
-and an imperative wherever a repair is written. It is handed the triage's mapper and
-`fl_frontend/src/features/teams/actions.ts`, whose two mappers answer this code about different
-clubs, and it asserts that it found three branches before judging any of them. The fourth is the
-`team.not-in-saison-retired` banner in
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts :: buildTeamBanners`,
-which renders the same stored `teams.inactive_since` state as one body per season status: the
-reactivation and the entry for a `future` season, and for the other two a sentence saying the
-reactivation alone would not open one.
-
-**The code is at that branch, and in the one form the helper cannot see.** The banner names
-`REQ-ENTER-005` in a `//` comment, and `renderingsOf` splits on the double-quoted literal; its
-comment-stripping step would drop that comment before any assertion read it, so **a comment can
-never be the anchor.** The cut is shaped for a mapper besides — it runs from the literal to the next
-`case`, the next `serverErrorCode ===`, a `default:`, or a `}` at column zero, and `banners.ts`
-carries none of the first three, so a slice taken there would run from the anchor to the end of the
-function and sweep the austritt banners' German in with it.
-
-**The four say the same thing today, so this is a coverage hole rather than a defect** (read
-2026-08-28). The banner calls the club „das stillgelegte Team", stands „es" in for it a clause
-later, and writes its repair as an imperative, so it holds the vocabulary and the agreement the
-three graded branches are held to.
-
-**One rule inside that battery would refuse it even so.** `renderingsOf`'s callers require the
-object of „Reaktiviere" to be exactly „es", and the `future` body writes „Reaktiviere das
-stillgelegte Team" — correct German, and the sentence `mapEntryRefusal` names as the source of its
-own words. That rule was drawn from three sentences that had each named the club already, so
-pointing it at a fourth which names the club inside the imperative means widening it to a neuter
-phrase rather than the bare pronoun. **The reach is therefore not the whole of what is missing.**
-
-**The banner's own module carries part of the vocabulary.**
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.test.ts` pins
-„stillgelegte" as the state word, pins that neither „Austritt" nor „ausgeschieden" appears, and pins
-that only the `future` body promises the entry control. Of the agreement and imperative battery it
-carries nothing, and it compares the banner against no other rendering.
-
-**The coupling is already written down, at the branch that depends on it.** `mapEntryRefusal`'s
-`REQ-ENTER-005` arm says in a comment that its words are `buildTeamBanners`'s, because the mapper
-fires only while the page still believes the club is active and the banner is what the same panel
-shows once the page catches up. So the two are meant to read alike, one of them is graded, and which
-one that is was settled by where a string literal happens to sit.
-
-**Two fixes, and each costs something.** A `"REQ-ENTER-005"` literal at the banner would put the
-code where the helper's split already looks — but `buildTeamBanners` renders state and never a
-server code, so a literal there asserts a coupling the runtime does not have, and the cut would
-still have to learn where a branch ends inside an object literal. Or `renderingsOf` takes the banner
-as a source of its own, with an extraction that reads a built banner's `body` and `title` rather
-than a slice of text — the honest shape, costing the helper a second mode, and the only one that
-reaches the title at all, a template literal being invisible to a match written for quoted
-sentences. **Either route pays for the „Reaktiviere" rule's widening**, and neither may skip it: a
-battery pointed at this banner unchanged fails on a sentence that is right.
-
-### `yjsf-uc2y` · Acceptance copies a school's postal address into the club, where an anonymous read serves it
-
-| Tags                                 | Status  | Depends on |
-| ------------------------------------ | ------- | ---------- |
-| FE, BE, DB, Docs, bewerbungen, teams | Decided | —          |
-
-**`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` builds a club out of the
-school's own block and inserts it into `teams`, the address included.**
-`fl_backend/app/api/bewerbungen/services.py :: compose_new_club` maps the school's `address`
-straight into the club document through `_CLUB_FIELDS_FROM_SCHULE`, beside `team_name`, `full_name`,
-`shorthand`, `schulform` and `website_url`, and the acceptance writes that document inside its
-transaction.
-
-**Ruled 2026-08, Datenschutzexperte consulted: the address stays public, and the form says so where
-it is asked for** (`docs/datenschutz.md` §4). The rule stands at the read that serves the field
-(`fl_backend/app/api/teams/schemas.py :: _TeamWritable`), the application form states beside its
-address block that the address will stand on the public team page
-(`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`), and
-`docs/backend/spec.md`'s known-open row records the crossing as accepted. **The alternatives —
-narrowing the public model, or not copying the field at acceptance — are rejected by that
-decision**, so neither is to be proposed again without overturning it.
-
-**Ruled 2026-09-01: the acceptance screen carries that sentence too**, where the administrator
-takes the action that publishes it
-(`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`, on the
-arm that creates the club); the admin club forms need none.
-
-**What remains is the crossing itself.** The read registry answers for both ends: `READ-CONTACT-001`
-withholds the application that carries the school's address, and `READ-ADDRESS-002` declares a club's
-public. Each governs ONE read and the acceptance sits between them, so whether a school's
-correspondence address is the league's to copy into a club is a question about the write, which no
-read rule can answer — and the registry runs to `READ-` rules alone, so there is no write family to
-put the answer in.
-
-**Done** is a write rule in the registry saying the acceptance may copy the field. Nothing in it
-reopens the decision.
-
 ### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
 
 | Tags          | Status | Depends on |
@@ -3637,35 +2883,6 @@ The decision is to enable ruff's `UP` rules and migrate in one pass, which is wh
 `fl_backend/pyproject.toml`'s ruff selection leaves that family out.
 [`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
 carries the typing check that owns the migration.
-
-### `zeer-rnu5` · An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline
-
-| Tags                      | Status | Depends on |
-| ------------------------- | ------ | ---------- |
-| FE, BE, Docs, bewerbungen | Open   | —          |
-
-**`fl_backend/app/api/bewerbungen/public_router.py :: get_fenster` answers 404 both for a season that has no application
-window and for a season that does not exist**, and its own docstring says so. The page therefore
-cannot tell the two apart:
-`fl_frontend/src/features/bewerbungen/queries.ts :: getBewerbungFenster` turns both into `null`, and
-`BewerbungView` renders "Für diese Saison gibt es keine Bewerbung" for both. A mistyped year gets a
-200 and a sentence implying the season is real.
-
-**Why it matters.** It is a soft 404: a search engine indexes the page as live content, and a visitor
-who mistyped is told the league has no deadline for a season rather than that the season does not
-exist.
-
-**Two traps, and they are why this is not a small fix.** The frontend cannot resolve the season
-itself — `docs/backend/spec.md :: I47` withholds a `future` season from the base tier, and a season
-taking applications IS `future`, so a "does this season exist" check against `getSaisons()` would
-404 exactly the page that must work. And `notFound()` cannot set the status here even for a
-malformed id: `docs/frontend/spec.md :: I22` puts the page's `params` await inside its `<Suspense>`
-boundary, so the shell has already flushed with a 200 by the time the call runs. Verified against the
-local stack: `/bewerbung/zzz`, `/bewerbung/9999` and `/bewerbung/99999999` all answer 200, including
-to a crawler user agent.
-
-**Done when** an id naming no season answers 404, which most likely means the backend route separating
-"no such season" from "no window" and the frontend refusing before the boundary.
 
 ### `zp46-yt3p` · The certainty walk gives up in a group of six or more
 

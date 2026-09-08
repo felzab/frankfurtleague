@@ -678,12 +678,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SAISON_TEAMS,
         "kontakte",
-        # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: the two behave alike, and no state
-        # refuses either. What a replacement does to both is a clearing, never a refusal.
+        # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
+        # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
-        "against another club being personal data nobody there gave. No state refuses it",
+        "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
+        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`)",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(
@@ -1230,6 +1231,14 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-KONTAKT-001",
+        operation="PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
+        aggregate="Saison",
+        summary="the contact block must still answer the token this save was composed against, or the whole save is refused rather than merged",
+        implemented_by="app.api.teams.services.find_kontakte_precondition_refusal",
+        tested_by="tests/api/test_saison_team_kontakte.py::TestAnErasureLandingMidSaveIsNotUndone",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         operation="DELETE /teams/{team_id}",
         aggregate="Team",
@@ -1415,6 +1424,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
     ),
     Rule(
+        code="REQ-ANONYMISE-002",
+        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
+        aggregate="Schiedsrichter",
+        summary="a name or a contact detail may not be written back onto an anonymised referee",
+        implemented_by="app.api.schiedsrichter.services.find_anonymisation_undo_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
@@ -1455,6 +1472,7 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
             " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
         ),
         aggregate="Bewerbung",
         summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
@@ -1539,7 +1557,10 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-011",
-        operation="POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut",
+        operation=(
+            "POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
+        ),
         aggregate="Bewerbung",
         summary="a seat already confirmed or declined, or with nothing left to confirm, takes no second answer and no new link",
         implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
@@ -1560,6 +1581,14 @@ RULES: tuple[Rule, ...] = (
         summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
         implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-014",
+        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email",
+        aggregate="Bewerbung",
+        summary="a corrected contact address is not one another contact person on the same application is already reached at",
+        implemented_by="app.api.bewerbungen.services.find_kontakt_email_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestCorrectingOneContactAddress",
     ),
     Rule(
         code="REQ-PURGE-001",
@@ -1696,6 +1725,23 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestAPersonWithNoSquadRow",
+        surfaced_by="/admin/spieler",
+    ),
+    Unenforced(
+        subject="a person carrying no birthdate, whose age nothing judges",
+        reason=(
+            "No flow exists through which a pupil supplies their own date, so requiring one would refuse every "
+            "squad entry an administrator makes today. `POST /spieler` takes the field nullable and the "
+            "`spieler` validator leaves it out of `required`, so a person stored before it still writes. The "
+            "league's threshold is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`, judged for a "
+            "contact seat answering its own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
+            "`FLEinwilligung.erteilt_von`'s `volljaehrig` names "
+            "who spoke rather than an age. THE TRIGGER IS THE NEXT SEASON'S REGISTRATION: every pupil row standing "
+            "today is dropped once at the end of this season (`docs/datenschutz.md`), and from that registration "
+            "on the field is required and the refusal below the threshold is built with it."
+        ),
+        near=("REQ-BEWERBUNG-012", "REQ-SQUAD-001"),
+        proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
         surfaced_by="/admin/spieler",
     ),
     Unenforced(

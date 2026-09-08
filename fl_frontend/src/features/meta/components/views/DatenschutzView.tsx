@@ -17,7 +17,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "4. September 2026";
+const STAND = "8. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -103,7 +103,7 @@ const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
     frist:
-      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht",
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet; die angekündigte Löschung ginge sonst an niemanden",
   },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
@@ -248,6 +248,16 @@ export function DatenschutzView() {
             Standardvertragsklauseln der Europäischen Kommission nach Art. 46 Abs. 2 lit. c DSGVO, die Bestandteil des
             Auftragsverarbeitungsvertrags mit Resend sind.
           </p>
+          <p className={ABSATZ}>
+            Wir messen nicht, ob eine E-Mail geöffnet oder ob ein Link darin angeklickt wird. Unsere Nachrichten enthalten dafür weder ein
+            Zählpixel noch umgeschriebene Links.
+          </p>
+          <p className={ABSATZ}>
+            Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
+            wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
+            wir bei der Kontaktperson, an die die Nachricht ging, damit die Verwaltung sieht, wen sie nicht erreicht. Er wird zusammen mit der
+            Bewerbung gelöscht.
+          </p>
         </LegalSection>
 
         <LegalSection title="6. Wenn eine Schule sich bewirbt">
@@ -371,8 +381,8 @@ export function DatenschutzView() {
           </dl>
           <p className={ABSATZ}>
             Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten und die
-            Schule einer Schiedsrichterin oder eines Schiedsrichters und die Stufe einer Spielerin oder eines Spielers, also das Halbjahr der
-            Oberstufe von E1 bis Q4.
+            Schule einer Schiedsrichterin oder eines Schiedsrichters sowie das Geburtsdatum und die Stufe einer Spielerin oder eines Spielers.
+            Die Stufe ist das Halbjahr der Oberstufe von E1 bis Q4.
           </p>
           <p className={ABSATZ}>
             Die beiden vollständigen Namen im Impressum stehen nicht auf der Grundlage aus dieser Aufstellung, sondern weil § 5 DDG und § 18
@@ -395,6 +405,11 @@ export function DatenschutzView() {
             Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Veröffentlicht werden dann
             Vorname und erster Buchstabe des Nachnamens, bei einer Spielerin und einem Spieler dazu das Team, die Rückennummer und die Position,
             soweit sie angegeben sind.
+          </p>
+          <p className={ABSATZ}>
+            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
+            nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
+            wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
           </p>
           <p className={ABSATZ}>
             Für Schiedsrichterinnen und Schiedsrichter gilt dieselbe Form: An einem Spiel stehen Vorname und erster Buchstabe des Nachnamens.

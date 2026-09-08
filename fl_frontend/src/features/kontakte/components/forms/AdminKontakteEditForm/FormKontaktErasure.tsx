@@ -1,24 +1,72 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { eraseKontaktpersonAction } from "@/features/kontakte/actions";
+import { eraseKontaktpersonAction, readKontaktErasureAnsichtAction } from "@/features/kontakte/actions";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
-import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import { FormKontaktReveal } from "./FormKontaktReveal";
+
+import type { FLKontaktErasureAnsichtResponse } from "@/features/kontakte/schemas";
+
 /** What the draft guard says here: the write lands on the server and this page re-reads after it. */
 const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
+
+/** The one repair this panel holds: arming it again is what reads the list a second time. */
+const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
+
+/**
+ * What the arming press learned, carried WITH the address it asked about: this seat's own boxes stay
+ * live while the panel is armed, so an answer read for one address must not stand under another.
+ */
+type ErasureAnsicht = { email: string } & (
+  { status: "reading" } | { status: "read"; sitze: FLKontaktErasureAnsichtResponse } | { status: "refused"; reason: string }
+);
+
+/** The armed reveal's body, in the three states the read leaves it in. */
+function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
+  if (ansicht?.status === "read") {
+    return (
+      <FormKontaktReveal
+        saison_teams={ansicht.sitze.saison_teams}
+        bewerbungen={ansicht.sitze.bewerbungen}
+      />
+    );
+  }
+
+  if (ansicht?.status === "refused") {
+    return (
+      <p className="fluid-xxs text-foreground leading-normal font-medium">
+        Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. {ansicht.reason}
+      </p>
+    );
+  }
+
+  // The app's one „not yet here“ treatment rather than a sentence the names then replace: what
+  // arrives is a list, so what stands in for it is shaped like one.
+  return (
+    <div
+      aria-hidden="true"
+      className="flex w-full flex-col gap-y-2">
+      <span className={`${skeletonBlock()} h-3 w-40 rounded-md`} />
+      <span className={`${skeletonBlock()} h-4 w-full rounded-md`} />
+      <span className={`${skeletonBlock()} h-4 w-full rounded-md`} />
+    </div>
+  );
+}
 
 /**
  * One contact person's erasure, from inside their own panel.
@@ -29,9 +77,34 @@ const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nich
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
   const router = useRouter();
   const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);
+
+  const ansicht = gelesen?.email === email ? gelesen : null;
+
+  const readAnsicht = async () => {
+    setGelesen({ email, status: "reading" });
+
+    const res = await readKontaktErasureAnsichtAction({ email });
+
+    if (res.success && res.ansicht !== undefined) {
+      setGelesen({ email, status: "read", sitze: res.ansicht });
+      return;
+    }
+
+    // A field map with no field to lay it on: the address came off the stored record, so
+    // `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` would send the reader to a
+    // box this panel does not render.
+    const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
+
+    setGelesen({ email, status: "refused", reason: gesagt ?? NOCH_EINMAL });
+  };
 
   const handleErase = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
+
+    // On the arming press and on no other: this read serves contact records, so it is made when
+    // somebody asks whom the address holds rather than on every render of the panel.
+    if (!isConfirming) void readAnsicht();
 
     press(async () => {
       const res = await eraseKontaktpersonAction({ email });
@@ -64,34 +137,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
 
       {isConfirming && (
         <ConfirmReveal>
-          <div className="flex w-full flex-col gap-y-1">
-            <h4 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h4>
-            <dl className="flex w-full flex-col gap-y-1">
-              <ConfirmReadoutRow
-                label="Person"
-                value={fullName}
-              />
-              {/* The reach, stated because the control now sits on a page showing ONE season: without
-                  these three rows it reads as clearing this seat. */}
-              <ConfirmReadoutRow
-                label="Saison-Zugehörigkeiten"
-                value="jede, in der diese Adresse steht"
-              />
-              <ConfirmReadoutRow
-                label="Bewerbungen"
-                value="jede, in der diese Adresse steht"
-              />
-              <ConfirmReadoutRow
-                label="Änderungsprotokoll"
-                value="gesicherte Stände werden geleert"
-              />
-            </dl>
-          </div>
-
-          <p className="fluid-xxs text-foreground leading-normal font-medium">
-            {fullName} wird aus jeder Saison und jeder Bewerbung entfernt, in der diese E-Mail-Adresse steht, und im Änderungsprotokoll bleibt
-            dazu kein gesicherter Stand. Zurückholen lässt sich das nicht.
-          </p>
+          <ErasureAnsichtBody ansicht={ansicht} />
         </ConfirmReveal>
       )}
 
@@ -102,7 +148,9 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
         <Button
           type="button"
           variant="primary"
-          isDisabled={isPending}
+          // Closed until the names are on screen: they ARE the confirmation, so a press taken over the
+          // placeholder or over a refused read would confirm nothing.
+          isDisabled={isPending || (isConfirming && ansicht?.status !== "read")}
           onPress={handleErase}
           className={confirmButton(isConfirming)}>
           {/* Dropped while armed, as every two-press control here drops it: the glyph announces the

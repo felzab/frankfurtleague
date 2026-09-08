@@ -22,6 +22,14 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
+
+# The extension and the tier names, spelled here rather than imported from `app/main.py`: a
+# comparison taking them from the pass it checks would let a rename through, and the frontend's own
+# comparison is what would fail instead.
+TIER_EXTENSION = "x-fl-tier"
+EXPECTED_TIERS: dict[Callable[..., Any], str] = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
+UNGUARDED_TIER = "none"
+
 # `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
 # healthcheck: one that needs a secret fails for the wrong reasons (`app/core/security.py`).
 UNGUARDED_BY_DESIGN = frozenset({"/", "/api/v0/system/is_live"})
@@ -87,6 +95,8 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
+    ("/api/v0/bewerbungen/zustellung", "post"),
+    ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
 ]
 
 MUTATIONS = [
@@ -110,6 +120,9 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
+    # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
+    # stop covering it the day somebody makes the reveal a GET.
+    ("/api/v0/kontakte/erasure/ansicht", "post"),
 ]
 
 
@@ -148,6 +161,20 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
         return
 
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
+
+
+def test_every_guard_this_file_knows_names_a_tier():
+    """A guard in one set and not the other publishes `none` for a route that is in fact guarded."""
+    assert SLICE_GUARDS == set(EXPECTED_TIERS)
+
+
+@pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
+def test_the_published_tier_is_the_guard_the_route_carries(path: str, method: str):
+    """The frontend sends the key this names, so a wrong one here is a 401 nobody meets until a page opens."""
+    guards = guards_of(ROUTES_BY_OPERATION[(path, method)])
+    expected = "+".join(sorted(EXPECTED_TIERS[guard] for guard in guards)) or UNGUARDED_TIER
+
+    assert APP.openapi()["paths"][path][method].get(TIER_EXTENSION) == expected
 
 
 def test_the_mutation_inventory_clears_its_floor():

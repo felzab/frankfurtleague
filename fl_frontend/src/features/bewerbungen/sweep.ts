@@ -1,7 +1,9 @@
 import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
+import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
@@ -124,24 +126,35 @@ async function sweepSaison(saisonId: string): Promise<void> {
 
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */
 async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<void> {
+  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  const origin = frontend_config.AUTH_URL;
   const [erster, ...weitere] = erinnerung.seats.map((seat) => ({
     vorname: seat.vorname,
     rolleText: rollenText(seat.rollen),
-    link: bestaetigungsLink(seat.token),
+    link: bestaetigungsLink(origin, seat.token),
   }));
 
   // The wire can carry an empty list where the recipient type cannot, and a message offering no link
   // is one nobody can answer.
   if (erster === undefined) return;
 
-  const empfaenger: BewerbungLinkEmpfaenger = { address: erinnerung.email, seats: [erster, ...weitere] };
+  const empfaenger: BewerbungLinkEmpfaenger = {
+    address: erinnerung.email,
+    rollen: erinnerung.seats.flatMap((seat) => seat.rollen),
+    seats: [erster, ...weitere],
+  };
 
   await sendBewerbungLinkMail({
     operation: SWEEP_OPERATION,
+    // No idempotency key: every reminder mints a fresh token, so one key over two bodies would be
+    // refused rather than collapsed (`fl_frontend/src/features/bewerbungen/zustellung.ts :: zustellungIdempotenzSchluessel`).
+    auftrag: { bewerbungId: erinnerung.bewerbung_id, anlass: "erinnerung" },
     recipients: [empfaenger],
     buildMail: (seats) =>
       buildBewerbungErinnerungEmail({
         saisonId: erinnerung.saison_id,
+        origin: origin,
         schule: erinnerung.schule,
         seats: seats,
         // The deadline the first message gave; a reminder does not move it (`docs/backend/spec.md :: I152`).
@@ -165,13 +178,24 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
   // is named by both, and the notice then lists a seat it has already told them they hold.
   const empfaenger: BewerbungEmpfaenger = {
     address: loeschung.ansprechperson_email,
+    rollen: loeschung.ansprechperson_rollen,
     rollenText: rollenText(loeschung.ansprechperson_rollen),
   };
 
   const { delivered } = await sendBewerbungMail({
     operation: SWEEP_OPERATION,
+    // The one send here that may legitimately repeat: a pass that mailed and then failed to stamp
+    // composes the identical notice an hour later. This body carries no token, which is what makes
+    // a key safe at all.
+    auftrag: { bewerbungId: loeschung.bewerbung_id, anlass: "loeschung", idempotenzTag: getGermanTodayStr() },
     recipients: [empfaenger],
-    buildMail: (rollen) => buildBewerbungGeloeschtEmail({ saisonId: loeschung.saison_id, rollenText: rollen, ausstehend: ausstehend }),
+    buildMail: (rollen) =>
+      buildBewerbungGeloeschtEmail({
+        saisonId: loeschung.saison_id,
+        origin: frontend_config.AUTH_URL,
+        rollenText: rollen,
+        ausstehend: ausstehend,
+      }),
   });
 
   return delivered.length > 0;

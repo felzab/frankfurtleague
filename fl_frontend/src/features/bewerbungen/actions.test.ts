@@ -7,8 +7,11 @@ import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
+import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
+
+import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -72,8 +75,17 @@ const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefus
 const erneutSatz = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
 /** What the re-send runs after its own write, which is where the minted token is spent. */
 const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
-/* The re-send is the last declaration in the module, so its slice runs to the end of the file. */
-const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", null);
+const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
+
+const KORREKTUR_MAPPER = sliceBetween(ACTIONS, "function mapKontaktEmailRefusal", "export async function kontaktEmailKorrigierenAction");
+/* The correction is the last declaration in the module, so its slice runs to the end of the file. */
+const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", null);
+
+/** The one field of a submitted application an administrator may move, in the backend's own spelling. */
+const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
+
+/** Every code the correction answers, read off its own switch rather than the re-send's. */
+const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 /**
  * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
@@ -311,31 +323,73 @@ describe("how each endpoint is addressed", () => {
 /** One branch with its comments dropped: only a rendered string is German a reader ever sees. */
 const withoutComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
 
+/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
+const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
+
 /**
- * Every branch answering one refusal code, cut from the code's own literal to the next branch. Read
- * across the mappers rather than out of one: what a code means is the backend's, and two surfaces
- * naming that meaning differently is what this looks for.
+ * Where one surface's German comes from. A mapper hands over its own text and the cut below finds the
+ * branch; a builder hands over what it returned, its title being a template literal no cut can read.
  */
-function renderingsOf(code: string, sources: readonly { where: string; source: string }[]): { where: string; german: string }[] {
-  return sources.flatMap(({ where, source }) =>
-    source
-      .split(`"${code}"`)
-      .slice(1)
-      // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
-      .map((tail, index) => ({
-        where: `${where} #${String(index + 1)}`,
-        german: withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? ""),
-      })),
+type RenderingSource = { where: string; source: string } | { where: string; rendered: readonly string[] };
+
+/**
+ * Every rendering of one refusal code. Read across the surfaces rather than out of one: what a code
+ * means is the backend's, and two surfaces naming that meaning differently is what this looks for.
+ */
+function renderingsOf(code: string, sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
+  return sources.flatMap((source) =>
+    "rendered" in source
+      ? [{ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }]
+      : source.source
+          .split(`"${code}"`)
+          .slice(1)
+          // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
+          .map((tail, index) => {
+            const german = withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? "");
+
+            return { where: `${source.where} #${String(index + 1)}`, german: german, sentences: sentencesOf(german) };
+          }),
   );
 }
+
+/**
+ * The season panel's own answer to the same stored state, built rather than read: which of its three
+ * bodies stands is picked from `saisonStatus`, and no branch of it names the server's code.
+ */
+const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): RenderingSource[] => {
+  const banner = buildTeamBanners({
+    isRetired: true,
+    saisonId: "2026",
+    saisonStatus: saisonStatus,
+    isMember: false,
+    storedAustritt: null,
+    hasAustritt: false,
+    draftGrund: "",
+    isGruppeLocked: false,
+    isGruppeChanged: false,
+  }).find(({ id }) => id === "team.not-in-saison-retired");
+
+  // Dropped rather than rendered empty: a banner the panel stopped raising is what the count above
+  // catches, and an empty string would satisfy every case below without carrying a word.
+  if (banner === undefined) return [];
+
+  // Both halves: the title carries the season and the noun, the body the state word and the repair.
+  const rendered = [banner.title, banner.body ?? ""].filter((line) => line !== "");
+
+  return [{ where: `the banner on a ${saisonStatus} season`, rendered: rendered }];
+};
+
+/**
+ * Named against the union, so a status renamed out of it fails here rather than quietly dropping a
+ * rendering. A status ADDED to it is caught by neither this nor the count, and stays review's.
+ */
+const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
 const RETIRED_RENDERINGS = renderingsOf("REQ-ENTER-005", [
   { where: "the triage", source: MAPPER },
   { where: "the club editor", source: TEAMS_ACTIONS },
+  ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
-
-/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
-const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
 
 /** Every determiner a neuter noun takes. One in front of „Team“ that is not here is the disagreement. */
 const NEUTER_DETERMINERS = ["Das", "das", "Dieses", "dieses", "Ein", "ein", "Kein", "kein", "Sein", "sein", "Jedes", "jedes"];
@@ -350,19 +404,56 @@ const NOT_A_TEAM = /(?<!\p{L})(ihn|ihm|er)(?!\p{L})/gu;
  * The words ending in `-st` that address nobody. Every other one is a second-person indicative, and a
  * repair is written as an imperative (`docs/frontend/spec.md` §1.12).
  */
-const NOT_AN_INDICATIVE = ["ist", "erst", "selbst", "sonst", "zunächst", "fast", "meist", "Frist", "Rest"];
+const NOT_AN_INDICATIVE = ["ist", "lässt", "erst", "selbst", "sonst", "zunächst", "fast", "meist", "Frist", "Rest"];
+
+/**
+ * What „Reaktiviere“ takes as its object: the neuter pronoun, or „Team“ under the determiner and any
+ * adjective agreeing with it. A sentence naming the club inside the imperative reaches no pronoun.
+ */
+const REACTIVATED_OBJECT = new RegExp(`^(?:es|(?:${NEUTER_DETERMINERS.join("|")})(?:\\s+\\p{L}+)?\\s+Team)\\b`, "u");
+
+/**
+ * The agreement „Team“ forces and the imperative a repair is written in, over one rendering. Neither
+ * is greppable: the word that has to agree sits a clause after the noun, or in the next sentence.
+ */
+function assertTheGermanAgrees(where: string, sentences: readonly string[]): void {
+  for (const sentence of sentences) {
+    // Both words before the noun, and one of them carrying the agreement: which of the two is the
+    // determiner and which the adjective is not decidable by position — „nimm das Team“ reads alike.
+    for (const [, ...before] of sentence.matchAll(/(?:(\p{L}+)\s+)?(\p{L}+)\s+Team(?![-\p{L}])/gu)) {
+      const words = before.filter((word) => word !== undefined);
+
+      assert.ok(
+        words.some((word) => NEUTER_DETERMINERS.includes(word)),
+        `${where} puts „${words.join(" ")}“ in front of the neuter „Team“`,
+      );
+    }
+
+    for (const [, object] of sentence.matchAll(/Reaktiviere\s+([^.,;]+)/gu)) {
+      assert.match(object!, REACTIVATED_OBJECT, `${where} reactivates „${object!}“, which does not agree with the neuter „Team“`);
+    }
+
+    for (const [pronoun] of sentence.matchAll(NOT_A_TEAM)) {
+      assert.fail(`${where} stands „${pronoun}“ in for a „Team“, which is neuter`);
+    }
+
+    for (const [word] of sentence.matchAll(/(?<!\p{L})(\p{L}+st)(?!\p{L})/gu)) {
+      assert.ok(NOT_AN_INDICATIVE.includes(word), `${where} says „${word}“ where a repair addresses the reader as an imperative`);
+    }
+  }
+}
 
 describe("the German one refusal code is given", () => {
-  /* First: a cut that stopped matching leaves every string below empty, and an empty string carries
-     no banned word, so the case below would pass over nothing at all. */
+  /* First: a cut that stopped matching, or a banner that stopped being raised, leaves nothing for the
+     cases below to read, and no sentence carries a banned word, so each would pass over nothing. */
   it("finds every rendering of the retired-club refusal before judging one", () => {
     assert.equal(
       RETIRED_RENDERINGS.length,
-      3,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} branches, not the three this case reads`,
+      6,
+      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
     );
-    for (const { where, german } of RETIRED_RENDERINGS) {
-      assert.match(german, /reason:|return\s+"|\n\s+"/, `${where} was cut to something holding no message`);
+    for (const { where, sentences } of RETIRED_RENDERINGS) {
+      assert.notEqual(sentences.length, 0, `${where} holds no rendered sentence`);
     }
   });
 
@@ -384,28 +475,46 @@ describe("the German one refusal code is given", () => {
      is a pronoun a clause later, which no grep for the noun finds. „Reaktiviere ihn“ and the
      indicative „nimmst“ pass every case above. */
   it("keeps the agreement a neuter Team forces, and the imperative a repair is written in", () => {
-    for (const { where, german } of RETIRED_RENDERINGS) {
-      const sentences = sentencesOf(german);
-      assert.notEqual(sentences.length, 0, `${where} was cut to something holding no rendered sentence`);
+    for (const { where, sentences } of RETIRED_RENDERINGS) assertTheGermanAgrees(where, sentences);
+  });
+});
 
-      for (const sentence of sentences) {
-        for (const [, determiner] of sentence.matchAll(/(\p{L}+)\s+(?:\p{L}+\s+)?Team(?![-\p{L}])/gu)) {
-          assert.ok(NEUTER_DETERMINERS.includes(determiner!), `${where} puts „${determiner!}“ in front of the neuter „Team“`);
-        }
+/**
+ * The entry rules an acceptance and the club editor both answer. `REQ-ENTER-004` is not among them:
+ * it guards a group MOVE, which no acceptance performs.
+ */
+const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 
-        // The club is what a repair reactivates, so the pronoun standing for it is the neuter „es“.
-        for (const [, object] of sentence.matchAll(/Reaktiviere\s+(\p{L}+)/gu)) {
-          assert.equal(object, "es", `${where} reactivates „${object!}“, and a „Team“ is reactivated as „es“`);
-        }
+const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
+  code: code,
+  renderings: renderingsOf(code, [
+    { where: "the triage", source: MAPPER },
+    { where: "the club editor", source: TEAMS_ACTIONS },
+  ]),
+}));
 
-        for (const [pronoun] of sentence.matchAll(NOT_A_TEAM)) {
-          assert.fail(`${where} stands „${pronoun}“ in for a „Team“, which is neuter`);
-        }
-
-        for (const [word] of sentence.matchAll(/(?<!\p{L})(\p{L}+st)(?!\p{L})/gu)) {
-          assert.ok(NOT_AN_INDICATIVE.includes(word), `${where} says „${word}“ where a repair addresses the reader as an imperative`);
-        }
+describe("the sentence both entry surfaces render for one code", () => {
+  for (const { code, renderings } of ENTRY_RENDERINGS) {
+    /* The opening sentence and not the whole message: a repair names a control, and the two surfaces
+       have different ones — the triage declines an application, the club editor picks a season. */
+    it(`opens ${code} with one sentence, spelled the same on both`, () => {
+      // Before the comparison: a cut that stopped matching leaves one side empty, and two empty
+      // sides are equal.
+      assert.equal(renderings.length, 2, `${code} is rendered in ${String(renderings.length)} places, not the two this case reads`);
+      for (const { where, sentences } of renderings) {
+        assert.notEqual(sentences.length, 0, `${where} was cut to something holding no rendered sentence for ${code}`);
       }
+
+      const [first, second] = renderings;
+
+      assert.equal(second?.sentences[0], first?.sentences[0], `the two surfaces open ${code} with different sentences`);
+    });
+  }
+
+  /* Equality above leaves the repair unread, and a repair is the half each surface writes alone. */
+  it("keeps the agreement and the imperative in every entry refusal, repair included", () => {
+    for (const { renderings } of ENTRY_RENDERINGS) {
+      for (const { where, sentences } of renderings) assertTheGermanAgrees(where, sentences);
     }
   });
 });
@@ -622,19 +731,26 @@ describe("a message that cannot be sent", () => {
       node.forEachChild(walk);
     });
 
-    // The exact count rather than a floor: each of the two is judged by its own rule below, and a
-    // third reader is a path whose side of the write nobody has decided.
-    assert.equal(reads.length, 2, `expected two club-name readers, found ${String(reads.length)}`);
+    // The exact count rather than a floor: each reader is judged by its own rule below, and a
+    // further one is a path whose side of the write nobody has decided.
+    assert.equal(reads.length, 3, `expected three club-name readers, found ${String(reads.length)}`);
 
     const nachDemSchreiben = reads.find((read) => read.holder === "notifyBewerbung");
     assert.ok(nachDemSchreiben?.guarded, "a failed club read reports a committed decision as one that did not happen");
 
-    const vorDemMint = reads.find((read) => read.holder === "einwilligungErneutSendenAction");
-    assert.ok(vorDemMint, "the re-send reads the club's name outside the action that mints, where a throw costs a link");
-    assert.ok(
-      vorDemMint.at < ACTIONS.indexOf("await erneutSendenEinwilligung("),
-      "the re-send reads the club's name after spending the seat's link on a message it may not be able to compose",
-    );
+    // Both of the two that mint: each reads before its own write, where a throw has cost nothing.
+    for (const [holder, schreiben] of [
+      ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
+      ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
+    ] as const) {
+      const vorDemMint = reads.find((read) => read.holder === holder);
+
+      assert.ok(vorDemMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
+      assert.ok(
+        vorDemMint.at < ACTIONS.indexOf(schreiben),
+        `${holder} reads the club's name after spending the seat's link on a message it may not be able to compose`,
+      );
+    }
   });
 
   /* What the administrator is left with: the decision is taken, nobody was written to, and the only
@@ -700,15 +816,8 @@ describe("the re-sent confirmation link", () => {
     }
   });
 
-  /* Both the application and the seat travel in the path, and the tier is `admin`: over-declaring a
-     tier fails loudly, while under-declaring one sends an admin write out unattributed. */
   it("addresses its own endpoint, with the seat in the path", () => {
     assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/einwilligung\/\$\{rolle\}\/erneut`/, "the re-send no longer addresses its own endpoint");
-    assert.match(
-      MUTATIONS,
-      /erneut`,\s*FLBewerbungEinwilligungErneutResponseSchema,\s*\{\s*method: "POST",\s*authType: "admin",/,
-      "the re-send is sent as something other than an admin-tier POST",
-    );
   });
 
   /* The token is minted and the deadline moved by the time the message is composed, so the read that
@@ -804,7 +913,7 @@ describe("the re-sent confirmation link", () => {
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", () => {
-    const link = "bestaetigungsLink(token)";
+    const link = "bestaetigungsLink(origin, token)";
 
     assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
     assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
@@ -827,5 +936,150 @@ describe("the re-sent confirmation link", () => {
   it("invalidates nothing, and says why", () => {
     assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
     assert.match(ERNEUT_ACTION, /Nothing to invalidate/, "the re-send no longer says why it invalidates nothing");
+  });
+});
+
+describe("the corrected contact address", () => {
+  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
+     green, and this endpoint's operation string is the backend's to spell. */
+  it("finds rules declared against the endpoint it addresses", () => {
+    assert.ok(declaredCodes(KORREKTUR_OPERATION).length > 0, `no rule is declared against ${KORREKTUR_OPERATION}`);
+  });
+
+  it("maps every code the correction declares", () => {
+    for (const code of declaredCodes(KORREKTUR_OPERATION)) {
+      assert.ok(korrekturCodes.includes(code), `${code} is declared against the correction and reaches the admin unmapped`);
+    }
+  });
+
+  it("maps no code the backend does not declare at all", () => {
+    for (const code of korrekturCodes) {
+      assert.ok(
+        DECLARED_RULES.some((rule) => rule.code === code),
+        `${code} is mapped by the correction and declared by no rule`,
+      );
+    }
+  });
+
+  it("addresses its own endpoint, with the seat in the path and the address in the body", () => {
+    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}\/email`/, "the correction no longer addresses its own endpoint");
+    assert.match(MUTATIONS, /body: JSON\.stringify\(\{ email: email \}\)/, "the correction sends something other than the address alone");
+  });
+
+  /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
+     address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
+  it("mails the address the write stored, never the one the read still holds", () => {
+    assert.match(
+      KORREKTUR_ACTION,
+      /email: validated\.data\.email/,
+      "the correction composes its message against the address the application held before the write",
+    );
+  });
+
+  /* The address IS corrected whatever the message did, so a failure arm here would tell the
+     administrator to try a correction that has already happened. */
+  it("reports a corrected address whose message did not go as a correction that stands", () => {
+    assert.match(KORREKTUR_ACTION, /success: true, verschickt: false/, "a refused send reports the correction as one that did not happen");
+    assert.ok(!KORREKTUR_ACTION.includes("success: false, error: zustellung.error"), "the correction takes the re-send's failure arm");
+  });
+
+  /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
+     throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
+     written, with the seat's previous link already dead. */
+  it("catches a message that threw, the address being stored before it is composed", () => {
+    const gesendet = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
+    const gefangen = KORREKTUR_ACTION.indexOf("} catch (error) {", gesendet);
+
+    assert.notEqual(gesendet, -1, "the correction sends no message at all");
+    assert.notEqual(gefangen, -1, "a throw from the send escapes the correction as a write that did not happen");
+    assert.match(
+      KORREKTUR_ACTION.slice(gefangen),
+      /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/,
+      "the caught throw answers with something other than the correction standing and no link sent",
+    );
+  });
+
+  /* Rulings 76 and 91: one press writes every seat the person holds, so the message names both or a
+     reader goes looking for a second link that will never come. */
+  it("names every seat of a mirrored pair in the message it sends", () => {
+    assert.match(
+      KORREKTUR_ACTION,
+      /sitze: gepaarteSitze\(bewerbung, validated\.data\.rolle\)/,
+      "the correction names one seat of a mirrored pair",
+    );
+  });
+
+  it("invalidates nothing, and says why", () => {
+    assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
+    assert.match(KORREKTUR_ACTION, /Nothing to invalidate/, "the correction no longer says why it invalidates nothing");
+  });
+
+  /* The sentence stood when nothing edited an application. With the control beside it there is a way
+     out, and a refusal naming none sends the administrator to another channel for nothing. */
+  it("sends the administrator to the correction where a seat carries no address at all", () => {
+    assert.match(erneutSatz("KEINE_ADRESSE"), /Trage zuerst eine ein/, "the empty-address refusal still names no way out");
+  });
+});
+
+/* Read rather than rendered, for the reason `STRIP`'s own declaration above gives: this component
+   holds a `useRouter`, which the test runner has no router for. */
+describe("the seat row's correction control", () => {
+  /* One condition for both, because the correction ends in a re-sent link: a seat no link can reach
+     has nothing to correct towards, and a second condition would arm one of the two alone. */
+  it("stands under the re-send's own condition, and closes while a send is in flight", () => {
+    assert.match(STRIP, /hatAngebot=\{isOpen && angebot\.has\(sitz\.rolle\)\}/, "the two controls no longer share one condition");
+    assert.equal(STRIP.match(/hatAngebot && !bearbeitet &&/g)?.length, 2, "the pencil and the re-send no longer stand under one gate");
+    assert.match(STRIP, /aria-label=\{`E-Mail-Adresse von \$\{sitz\.nameSatz\} korrigieren`\}/, "the pencil names nobody it edits");
+  });
+
+  /* `docs/frontend/spec.md :: I66` gives a panel one action row, and a second open editor would put
+     two: three rows each holding a draft is three ways to leave one unsaved. */
+  it("is one editor for the whole strip rather than one per row", () => {
+    assert.match(STRIP, /useState<KontaktRolle \| null>\(null\)/, "the strip holds something other than one editor slot");
+    assert.match(STRIP, /\{bearbeitet && \(/, "the editor is mounted whether or not its row is the open one");
+  });
+
+  /* A press that corrects nothing is a re-send wearing another name, and the re-send has its own
+     control; the hint beneath says what opens it (`docs/frontend/spec.md` §1.12). */
+  it("closes the press until the address has actually moved", () => {
+    assert.match(STRIP, /gleicheAdresse\(email, gespeicherteAdresse \?\? ""\)/, "the press is open on the address the row already shows");
+    assert.match(STRIP, /Gib zuerst eine andere E-Mail-Adresse ein\./, "the closed press names nothing that would open it");
+    assert.match(STRIP, /aria-describedby=\{unveraendert \? hinweisId : undefined\}/, "the closed press points at no reason");
+  });
+
+  /* `.claude/rules/frontend.md` **forms**: a message between two keystrokes describes a value nobody
+     finished entering, so the field is judged when it is left and at the press. */
+  it("judges the typed address on blur and at the press, through the shared mechanism", () => {
+    assert.match(STRIP, /useDraftFieldErrors\(\{/, "the editor judges its field with something other than the shared hook");
+    assert.match(
+      STRIP,
+      /onBlur=\{\(\) => \{\s*validatePaths\("korrektur", payload, \["email"\]\);/,
+      "the field is no longer judged when it is left",
+    );
+    assert.match(STRIP, /guardSubmit\(\{ korrektur: payload \}, \(\) => void schreibe\(\)\)/, "the press writes without the submit gate");
+  });
+
+  /* Refused by the backend regardless; judged here so the administrator is told at the field rather
+     than by a round trip, and the mirrored pair is excepted as the submission excepts it. */
+  it("refuses an address another seat of the application holds", () => {
+    assert.match(
+      STRIP,
+      /belegteAdressen\.some\(\(belegt\) => gleicheAdresse\(email, belegt\)\)/,
+      "an address another person holds reaches the write",
+    );
+    assert.match(STRIP, /!sindEinePerson\(andere, sitz\)/, "the mirrored pair is refused its own address");
+  });
+
+  /* A keyboard user whose focused input has just unmounted is otherwise dropped on the document
+     body, with nothing announcing where focus went. */
+  it("returns focus to the pencil when the editor closes", () => {
+    assert.match(STRIP, /stiftRef\.current\?\.focus\(\)/, "focus is left wherever the unmounted field was");
+  });
+
+  /* Ruling 78: a grey chip on a coloured row reads as a control that has been switched off, and this
+     one is the row's most actionable fact. */
+  it("grades a refused delivery with a tone rather than leaving it neutral", () => {
+    assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
+    assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");
   });
 });

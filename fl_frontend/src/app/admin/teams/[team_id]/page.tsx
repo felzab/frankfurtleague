@@ -78,6 +78,7 @@ async function AdminTeamEditContent({
             austritt: membership.austritt,
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
+            kontakte_stand: membership.kontakte_stand,
           },
   };
 

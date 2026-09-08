@@ -48,7 +48,7 @@ Resume this session. Do not continue any work until you have finished this proto
        its whole context and re-reads nothing. Treat the resume as a new dispatch: check that its
        files are still free before it continues, and treat nothing it claims as done until the
        acceptance evidence is on disk.
-       Where the resume fails, re-brief
+       Where this harness has no send tool at all, or the resume fails, re-brief
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
 
@@ -90,13 +90,22 @@ evidence is on disk and still valid. Re-run what you cannot prove; read what you
 
 ## Step 3's address
 
-The register carries each agent's id so that a resume has an address at all: the harness's
-agent-to-agent send tool resumes an agent from its transcript, **addressed by the id the Agent tool
-returned rather than by the name in its brief, a send by name having failed** (the owner's standing
-instructions). An agent stopped by a quota limit has come back that way with its context intact and
-nothing on disk, and the attempt costs one message where a re-brief costs the whole context. What a
-resumed agent cannot supply is evidence: an agent that "was nearly done" has, by definition, none
-for the part that was nearly done. A resumed agent re-enters its partition — two agents were live in
+**Establish whether this harness can resume an agent at all by attempting one send, before any plan
+rests on a resume** — never from a tool description, which has named a send tool the session did not
+have ([agent-brief-template.md](agent-brief-template.md) section 13).
+
+- **With a send tool**, that tool resumes an agent from its transcript, **addressed by the id the
+  Agent tool returned rather than by the name in its brief, a send by name having failed** (the
+  owner's standing instructions), which is why the register carries the id beside it. An agent stopped
+  by a quota limit has come back that way with its context intact and nothing on disk, and the
+  attempt costs one message where a re-brief costs the whole context.
+- **Without one, every continuation is a fresh dispatch carrying a corrected brief**, and the only
+  material it can be built from is what the register banked plus what is on disk: an unbanked
+  verdict is unreachable however live the transcript looks. A follow-up then costs a whole brief
+  rather than one message, which is a schedule figure rather than a detail.
+
+What a resumed agent cannot supply is evidence: an agent that "was nearly done" has, by definition,
+none for the part that was nearly done. A resumed agent re-enters its partition — two agents were live in
 one directory because a resume was not treated as a dispatch — and one nested helper never returned
 at all, which is why the fleet is listed rather than assumed.
 
@@ -109,7 +118,8 @@ messaging costs the same quota that stopped you. What is recoverable is what the
 
 A resumed session restores the conversation, the model, the permission mode and the subagent
 transcripts — documented, not driven, like every harness fact here; [USAGE.md](USAGE.md) carries the
-source and its date. It does **not** restore background shell commands or monitors, so restart what was
+source and its date. **A restored subagent transcript is not by itself a route back to that agent.**
+It does **not** restore background shell commands or monitors, so restart what was
 watching; nor the launch flags, which are the owner's to pass again ([USAGE.md](USAGE.md)), so a
 directory that was reachable may not be. The register on disk is the fallback for a lost
 transcript, never a substitute for one.

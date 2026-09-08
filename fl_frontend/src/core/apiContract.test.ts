@@ -77,6 +77,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -119,6 +120,8 @@ const FRONTEND_ONLY: Record<string, string> = {
  * backend reads from the PATH — RFC 5789 puts a patch's target in the URI, so no payload carries it.
  */
 const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
+  // The seat is a path segment too, the correction addressing one seat of one application.
+  FLBewerbungKontaktEmailPayload: ["id", "rolle"],
   FLPatchSchiedsrichterPayload: ["id"],
   FLAnnehmenBewerbungPayload: ["id"],
   FLAblehnenBewerbungPayload: ["id"],
@@ -333,7 +336,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 163;
+const EXPECTED_PAIRS = 172;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

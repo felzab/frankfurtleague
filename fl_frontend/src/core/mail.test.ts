@@ -52,8 +52,9 @@ const PROVIDER_ENDPOINT = "https://api.resend.com/emails";
    noise in a source scan. */
 const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
 
-/** The module's own timeout, restated so a change to it has to be made here too. */
+/** The module's own timeout and retry pause, restated so a change to either has to be made here too. */
 const MAIL_TIMEOUT_MS = 15000;
+const MAIL_RETRY_DELAY_MS = 400;
 
 /** What the doubled transport was asked to send, and on what terms. */
 type RecordedSend = { url: string; init: RequestInit };
@@ -91,13 +92,14 @@ async function sentRequest(): Promise<RecordedSend> {
   return sends[0]!;
 }
 
-async function refusalFrom(respondWith: () => Promise<Response>): Promise<Error> {
+/** `versuche` is stated rather than defaulted at every call: a status the provider calls temporary is tried again. */
+async function refusalFrom(respondWith: () => Promise<Response>, versuche = 1): Promise<Error> {
   respond = respondWith;
 
   try {
     await sendMail(MESSAGE);
   } catch (error) {
-    assert.equal(sends.length, 1, `expected the refusal to follow one request, saw ${sends.length}`);
+    assert.equal(sends.length, versuche, `expected the refusal to follow ${String(versuche)} requests, saw ${sends.length}`);
     return error as Error;
   }
 
@@ -144,6 +146,146 @@ describe("the mail transport", () => {
     assert.equal(body["to"], MESSAGE.to);
     assert.equal(body["html"], MESSAGE.html);
     assert.equal(body["text"], MESSAGE.text);
+  });
+
+  /* The id is the only join between a send and any later delivery event, so a caller that cannot
+     read it has no way to tell one message's bounce from a message a re-send has replaced. */
+  it("answers the id the provider gave the accepted message", async () => {
+    respond = async () => jsonResponse({ id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" }, 200);
+
+    assert.deepEqual(await sendMail(MESSAGE), { id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" });
+  });
+
+  /* The message HAS gone. Throwing here would report a decision the league has already sent out as
+     one that never happened. */
+  it("answers a null id, rather than a refusal, when an accepted answer carries none", async () => {
+    respond = async () => jsonResponse({}, 200);
+
+    assert.deepEqual(await sendMail(MESSAGE), { id: null });
+  });
+
+  it("carries no tags and no idempotency key where the caller passes none", async () => {
+    const sent = await sentRequest();
+
+    assert.equal(Object.hasOwn(JSON.parse(String(sent.init.body)) as object, "tags"), false);
+    assert.equal(Object.hasOwn(sent.init.headers as object, "Idempotency-Key"), false);
+  });
+
+  it("sends tags as the name-and-value pairs the provider echoes back on every event", async () => {
+    await sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc", rollen: "trainer" } });
+    const body = JSON.parse(String(sends[0]!.init.body)) as { tags: unknown };
+
+    assert.deepEqual(body.tags, [
+      { name: "bewerbung_id", value: "abc" },
+      { name: "rollen", value: "trainer" },
+    ]);
+  });
+
+  it("sends an idempotency key as the header the provider collapses a repeat on", async () => {
+    await sendMail({ ...MESSAGE, idempotencyKey: "loeschung_abc_2026-09-08" });
+
+    assert.equal((sends[0]!.init.headers as Record<string, string>)["Idempotency-Key"], "loeschung_abc_2026-09-08");
+  });
+});
+
+describe("a refusal the mail transport tries again", () => {
+  beforeEach(() => {
+    sends.length = 0;
+    logs.length = 0;
+    respond = async () => jsonResponse({ id: "01HZ" }, 200);
+  });
+
+  /** Answers the given statuses in order, and the accepted body after them. */
+  function answersInTurn(statuses: readonly number[]): void {
+    let at = 0;
+    respond = async () => {
+      const status = statuses[at++];
+      return status === undefined ? jsonResponse({ id: "01HZ" }, 200) : jsonResponse({ name: "rate_limit_exceeded" }, status);
+    };
+  }
+
+  it("sends again after a refusal the provider calls temporary, and answers the id it then gave", async () => {
+    answersInTurn([429]);
+
+    assert.deepEqual(await sendMail(MESSAGE), { id: "01HZ" });
+    assert.equal(sends.length, 2);
+    // The refusal line is for a send nobody will try again, so a retried one that ends in a delivery
+    // must not write it; the retry has its own line and its own level.
+    assert.deepEqual(
+      logs.map((line) => line.message),
+      ["mail.send_retried"],
+    );
+  });
+
+  /* A key reused over a changed body is refused rather than ignored, and no attempt can repair it;
+     nor can one repair a validation error or a missing key. */
+  it("does not send again after a refusal no second attempt can repair", async () => {
+    respond = async () => jsonResponse({ name: "invalid_idempotent_request" }, 409);
+
+    await assert.rejects(sendMail(MESSAGE));
+    assert.equal(sends.length, 1);
+  });
+
+  /* The provider may have accepted the request before the connection broke, and this transport
+     passes no idempotency key unless a caller does: a second send is a second message to a person. */
+  it("does not send again after a connection failure, which may have been accepted", async () => {
+    respond = async () => {
+      throw new TypeError("fetch failed");
+    };
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof APINetworkError);
+    assert.equal(sends.length, 1);
+  });
+
+  it("gives up after three attempts and logs the refusal once", async () => {
+    answersInTurn([429, 500, 503]);
+
+    const error = await sendMail(MESSAGE).then(
+      () => assert.fail("the third refusal resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.ok(error instanceof MailSendError);
+    assert.equal(sends.length, 3);
+    assert.equal(logs.filter((line) => line.message === "mail.send_failed").length, 1);
+  });
+
+  /* One budget for the whole call, not one per attempt: the sign-in action has a response floor and
+     no ceiling, so a per-attempt budget would multiply the worst case by the attempts above. */
+  it("draws no further attempt once the call's own budget has run out", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+    try {
+      respond = async () => jsonResponse({ name: "rate_limit_exceeded" }, 429);
+      // Handled at creation: the runner attributes an unhandled rejection to whichever test is
+      // running and kills it out of band, so the `finally` below would never reset the clock.
+      const pending = sendMail(MESSAGE).then(
+        () => assert.fail("the refused send resolved"),
+        (thrown: Error) => thrown,
+      );
+
+      await settle();
+      mock.timers.tick(MAIL_RETRY_DELAY_MS);
+      await settle();
+      // The budget expires while the second wait is still running, which is the one moment a
+      // per-attempt budget and this one behave differently.
+      mock.timers.tick(MAIL_TIMEOUT_MS);
+      await settle();
+
+      assert.ok((await pending) instanceof MailSendError);
+      assert.equal(sends.length, 2, "a third attempt was drawn after the budget was spent");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+});
+
+describe("what the mail transport reports when a send fails", () => {
+  beforeEach(() => {
+    sends.length = 0;
+    logs.length = 0;
+    respond = async () => jsonResponse({ id: "01HZ" }, 200);
   });
 
   it("says nothing at all when the provider accepts the message", async () => {
@@ -255,8 +397,10 @@ describe("the mail transport", () => {
     }
   });
 
+  /* A proxy's HTML 502 is the shape this answers, and a 5xx with no token to read is temporary by
+     status, so the refusal reported is the third attempt's. */
   it("refuses on a bad status whose body is not JSON, rather than failing to parse it", async () => {
-    const error = await refusalFrom(async () => new Response("<html>502</html>", { status: 502 }));
+    const error = await refusalFrom(async () => new Response("<html>502</html>", { status: 502 }), 3);
 
     assert.ok(error instanceof MailSendError);
     assert.equal(error.statusCode, 502);

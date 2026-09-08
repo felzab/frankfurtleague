@@ -1,6 +1,19 @@
+import hashlib
+import json
 from typing import Annotated, Any, Literal, Mapping, Union
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+    RootModel,
+    StringConstraints,
+    TypeAdapter,
+    computed_field,
+)
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -100,9 +113,9 @@ def strip_austritt_grund(value: Any) -> Any:
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
-# both on every write path, and a payload declaring either is a route to a consent nobody gave
+# both on every write path, and a payload declaring either is a route to an answer nobody gave
 # (`docs/backend/spec.md :: I142`).
-class _KontaktEinwilligungWritable(BaseModel):
+class _KontaktKenntnisnahmeWritable(BaseModel):
     umfang: Literal["kontaktdaten"]
     # The version of the text they were shown. The text lives in the frontend and is versioned
     # there, so a later rewording never changes what a stored record claims.
@@ -110,19 +123,20 @@ class _KontaktEinwilligungWritable(BaseModel):
     datum: CustomDateString
 
 
-class FLKontaktEinwilligung(_KontaktEinwilligungWritable):
-    """What this person agreed to, and which wording they agreed to.
+class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
+    """Which wording this person was shown, and how the record came to be held.
 
-    NOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be
-    PUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it.
+    Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
+    `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
+    (`docs/glossary.md :: Einwilligung`).
     """
 
     # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
     # confirmation page, and a payload offering it would let an administrator transcribe one.
     umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
-    # Distinguishing the two is what stops an admin's transcription reading as a person's own
-    # consent. `person` is the confirmation link's to write and nobody else's.
-    erteilt_von: Literal["person", "administrativ"]
+    # Distinguishing the two is what stops an admin's transcription reading as the person's own
+    # answer. `person` is the confirmation link's to write and nobody else's.
+    erfasst_von: Literal["person", "administrativ"]
     # The day this person confirmed the seat themselves; null until they do. Defaulted for
     # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
     bestaetigt_am: CustomOptionalDateString = None
@@ -141,7 +155,7 @@ class FLKontaktperson(BaseModel):
     # Null until the person types it on their own confirmation page, so the public form never asks
     # for it (`docs/backend/spec.md :: I141`). Defaulted for `FLTeam.schulform`'s reason.
     geburtsdatum: CustomOptionalDateString = None
-    einwilligung: FLKontaktEinwilligung
+    einwilligung: FLKontaktKenntnisnahme
 
 
 class FLSaisonTeamKontakte(BaseModel):
@@ -162,10 +176,51 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_ist_zugleich: FLTrainerZugleich | None
 
 
+def _project_seat(value: Any) -> Any:
+    """One seat with every READ field spelled, absent or not.
+
+    `geburtsdatum` and `bestaetigt_am` arrived after rows existed, so a row missing either key has to
+    answer the same token as one storing it null.
+    """
+
+    # `parse_empty_string_to_none` at every leaf, the coercion the read model makes on the way in: a
+    # stored blank it nulls would answer a token no read can mint, and that row would refuse every
+    # save made against it.
+    if not isinstance(value, Mapping):
+        # A value that is no mapping is no seat, which carries `trainer_ist_zugleich` and a fourth
+        # seat alike.
+        return parse_empty_string_to_none(value)
+
+    projected: dict[str, Any] = {field: parse_empty_string_to_none(value.get(field)) for field in FLKontaktperson.model_fields}
+    einwilligung = projected.get("einwilligung")
+    if isinstance(einwilligung, Mapping):
+        projected["einwilligung"] = {
+            field: parse_empty_string_to_none(einwilligung.get(field)) for field in FLKontaktKenntnisnahme.model_fields
+        }
+
+    return projected
+
+
+# DERIVED and stored nowhere: a version the row carried would have to be bumped by all four writers
+# of `kontakte`, and a club rename would then refuse a contacts save.
+def kontakte_stand_of(block: Any) -> str:
+    """The token naming which contact block a save was composed against. A precondition, never a secret."""
+
+    # Projected rather than validated, so a value the read model refuses cannot 500 the very save
+    # that repairs it (`docs/backend/spec.md :: I104`).
+    projected = {field: _project_seat(block.get(field)) for field in FLSaisonTeamKontakte.model_fields} if isinstance(block, Mapping) else block
+    # Sorted keys and `sha256`, never `hash()`, whose seed changes per process
+    # (`docs/backend/spec.md :: I192`). `default` reaches only a stored value no model describes,
+    # each of which `str` renders the same way twice.
+    canonical = json.dumps(projected, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
-class FLKontaktEinwilligungPayload(_KontaktEinwilligungWritable):
+class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Stripped before the floor counts it, as the names below are: a record whose wording version is
@@ -198,7 +253,7 @@ class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
     # Required where the stored shape is nullable: the editor collects a whole person, and the one
     # payload that takes no date is the application's (`docs/backend/spec.md :: I141`).
     geburtsdatum: CustomDateString
-    einwilligung: FLKontaktEinwilligungPayload
+    einwilligung: FLKontaktKenntnisnahmePayload
 
 
 class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
@@ -326,6 +381,13 @@ class FLTeamMembership(BaseModel):
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
 
+    @computed_field
+    @property
+    def kontakte_stand(self) -> str:
+        """The token a save against this contact block has to echo back (`docs/backend/spec.md :: I192`)."""
+
+        return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
+
 
 class FLTeamWithMemberships(FLTeamRecord):
     """The stored club document plus every season membership it holds.
@@ -411,10 +473,10 @@ class FLPatchSaisonTeamPayload(BaseModel):
 
 
 class FLPatchSaisonTeamKontaktePayload(BaseModel):
-    """The contact block alone, so the editor that owns the people never writes the row's other fields.
+    """The contact block alone, plus the token naming which block it was composed against.
 
-    ONE field, `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value
-    this endpoint was never asked to decide.
+    `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
+    endpoint was never asked to decide.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -422,6 +484,9 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     # Nullable, and required: null CLEARS the block, which is how a team with no recorded contacts is
     # expressed at entry and must stay expressible here.
     kontakte: FLSaisonTeamKontaktePayload | None
+    # One opaque token rather than the read block echoed back, which would put a read model on a
+    # request body. Required with no default: an omitted precondition judges nothing.
+    kontakte_stand: str
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -559,6 +624,13 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     saison_id: str
     team_id: CustomObjectId
     kontakte: FLSaisonTeamKontakte | None
+
+    @computed_field
+    @property
+    def kontakte_stand(self) -> str:
+        """The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other."""
+
+        return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
 
 
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):

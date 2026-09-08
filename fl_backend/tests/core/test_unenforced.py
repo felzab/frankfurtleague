@@ -48,6 +48,7 @@ from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
 from tests.core.app_source import (
+    APP_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
     WRITE_HELPERS,
     app_calls,
@@ -294,6 +295,31 @@ def _calls_of(function: Callable[..., Any]) -> set[str]:
     name = function.__name__
 
     return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
+
+
+def _module_reads(tree: ast.Module, name: str) -> bool:
+    """Every form that reaches the value, not `ImportFrom` alone: `from x import bounds` then `bounds.NAME` holds it and names it in no import.
+
+    The AST rather than the text, a name a comment merely mentions reading nothing.
+    """
+
+    return any(
+        (isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names))
+        or (isinstance(node, ast.Name) and node.id == name)
+        or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
+
+
+def _packages_reading(name: str) -> set[str]:
+    """Every folder between `app/` and the module, not the one holding it: a rule filed a level down answers under that subpackage alone."""
+
+    return {
+        folder
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        if _module_reads(parsed(path), name)
+        for folder in path.relative_to(APP_ROOT).parts[:-1]
+    }
 
 
 class TestExactlyOneActiveSeason:
@@ -556,6 +582,39 @@ class TestAPersonWithNoSquadRow:
             "patch_saison_spieler",
             "reactivate_saison_spieler",
         }
+
+
+class TestAPupilStoredWithNoBirthdate:
+    """That the person create takes a null date, that a stored person needs no key, and that the league's age reaches no squad module."""
+
+    def test_the_person_create_takes_a_null_date(self):
+        assert FLPostSpielerPayload(vorname="Max", nachname="Mustermann", geburtsdatum=None).geburtsdatum is None
+
+    def test_a_stored_person_carrying_no_key_still_validates(self):
+        schema = COLLECTION_VALIDATORS[Collection.SPIELER]["$jsonSchema"]
+
+        # The floor: this collection DOES require keys, so the absence below is the field going
+        # unrequired rather than a validator that asks nothing of anybody.
+        assert schema["required"]
+
+        assert "geburtsdatum" in schema["properties"]
+        assert "geburtsdatum" not in schema["required"]
+
+    def test_the_leagues_age_reaches_no_squad_module(self):
+        """The threshold is one constant, so where a module can read it is where an age can be judged."""
+
+        # The reader's own floor, against a sample: every module in the tree names the value in its
+        # import, so no count over the tree separates a correct reader from one matching that alone.
+        through_its_module = ast.parse("from app.shared.schemas import bounds\n\nFLOOR = bounds.BEWERBUNG_KONTAKT_MIN_AGE_YEARS\n")
+        assert _module_reads(through_its_module, "BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
+
+        reading = _packages_reading("BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
+
+        # The floor: the application DOES judge a contact person's age against it, so the absence
+        # below is the squad package asking nothing rather than a sweep that found no reader.
+        assert "bewerbungen" in reading
+
+        assert "spieler" not in reading
 
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.

@@ -32,7 +32,7 @@ const REPLAY_REFUSALS: Record<string, string> = {
 const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 /** What replaces it where the person half went back first, which makes the sentence above untrue. */
-const NAME_HALF_RESTORED = "Nur der Name wurde zurückgesetzt.";
+const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -57,14 +57,14 @@ export async function POST(request: NextRequest) {
           const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
           if (refusal === undefined) throw error;
 
-          return `${refusal} ${person === undefined ? CHANGE_STANDS : NAME_HALF_RESTORED}`;
+          return `${refusal} ${person === undefined ? CHANGE_STANDS : PERSON_HALF_RESTORED}`;
         }
 
         if (!operation.acknowledged) {
           // The first half may already be restored; reported rather than papered over.
           return person === undefined
             ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."
-            : "Nur der Name wurde zurückgesetzt. Prüfe den Kadereintrag.";
+            : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`;
         }
       }
 

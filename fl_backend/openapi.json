@@ -21,7 +21,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "none"
       }
     },
     "/api/v0/system/is_ready": {
@@ -45,7 +46,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/system/info": {
@@ -69,7 +71,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/spiele": {
@@ -229,7 +232,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/spiele/{spiel_id}": {
@@ -274,7 +278,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Spiel",
@@ -339,7 +344,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams": {
@@ -531,7 +537,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a team",
@@ -573,7 +580,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}": {
@@ -648,7 +656,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
@@ -701,7 +710,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Retire a team (soft delete)",
@@ -744,7 +754,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage": {
@@ -864,7 +875,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/spieltage/{spieltag_id}": {
@@ -909,7 +921,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Re-date a Spieltag",
@@ -962,7 +975,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler": {
@@ -1071,7 +1085,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a Spieler",
@@ -1113,7 +1128,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}": {
@@ -1158,11 +1174,12 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Spieler's name",
-        "description": "Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document.",
+        "description": "Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
         "operationId": "patch_spieler_api_v0_spieler__spieler_id__patch",
         "security": [
           {
@@ -1211,7 +1228,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Retire a Spieler (soft delete)",
@@ -1254,7 +1272,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons": {
@@ -1352,7 +1371,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a Saison",
@@ -1394,7 +1414,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/current": {
@@ -1418,7 +1439,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/saisons/{saison_id}": {
@@ -1463,7 +1485,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
@@ -1516,7 +1539,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte": {
@@ -1599,7 +1623,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Create a Spielort",
@@ -1641,7 +1666,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte/{spielort_id}": {
@@ -1686,7 +1712,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "patch": {
         "summary": "Update a Spielort and fan the change out",
@@ -1739,7 +1766,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Deactivate a Spielort (soft delete)",
@@ -1782,7 +1810,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter": {
@@ -1884,7 +1913,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Create a Schiedsrichter",
@@ -1926,7 +1956,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
@@ -1971,11 +2002,12 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save putting a name or a contact detail back onto an anonymised referee is refused\n(`REQ-ANONYMISE-002`); the fee and the school stay editable, the erasure not reaching them.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2024,7 +2056,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Deactivate a Schiedsrichter (soft delete)",
@@ -2067,13 +2100,14 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.",
+        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`anzahl_je_status` counts every status over the season this request named and never over the\nstatuses it named, so a caller that narrowed to one still knows what asking for another would\nfetch. Repeating the parameter and comma-joining its values are one request; omitting it is every\nstatus, and sending it empty is too.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2102,19 +2136,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "enum": [
-                    "eingereicht",
-                    "angenommen",
-                    "abgelehnt"
-                  ],
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
               "title": "Status"
             }
           },
@@ -2135,10 +2157,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "eingereicht_am",
-                "saison_id"
-              ],
+              "const": "eingereicht_am",
               "type": "string",
               "default": "eingereicht_am",
               "title": "Sort By"
@@ -2180,7 +2199,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Submit a Bewerbung",
@@ -2222,7 +2242,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
@@ -2267,7 +2288,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/list/admin": {
@@ -2427,7 +2449,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/action_required": {
@@ -2479,7 +2502,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/{spiel_id}/admin": {
@@ -2524,7 +2548,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/memberships": {
@@ -2548,7 +2573,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/list/admin": {
@@ -2750,7 +2776,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/reactivate": {
@@ -2795,7 +2822,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons": {
@@ -2850,7 +2878,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
@@ -2914,13 +2943,14 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses\nnothing: a `past` season's contacts stay correctable. Each seat's `erteilt_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other\nseat is stored as entered administratively.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrefusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A `past`\nseason's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the\nserver's: a seat the same address confirmed keeps both, and every other seat is stored as entered\nadministratively.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -2978,7 +3008,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
@@ -3042,7 +3073,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage/list/admin": {
@@ -3162,7 +3194,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage/{spieltag_id}/admin": {
@@ -3207,7 +3240,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/memberships": {
@@ -3231,7 +3265,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/reactivate": {
@@ -3276,7 +3311,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/erasure": {
@@ -3321,7 +3357,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons": {
@@ -3376,7 +3413,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
@@ -3440,7 +3478,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Remove a Spieler from a squad",
@@ -3492,7 +3531,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
@@ -3546,7 +3586,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/list/admin": {
@@ -3644,7 +3685,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/activate": {
@@ -3689,7 +3731,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
@@ -3744,7 +3787,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/spielplan": {
@@ -3798,7 +3842,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
@@ -3841,7 +3886,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
@@ -3886,7 +3932,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
@@ -3931,7 +3978,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
@@ -3976,7 +4024,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/aktionen": {
@@ -4110,7 +4159,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/aktionen/{aktion_id}": {
@@ -4155,7 +4205,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
@@ -4210,7 +4261,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/ablehnen": {
@@ -4265,7 +4317,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
@@ -4319,7 +4372,118 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
+      "post": {
+        "summary": "Correct one contact person's email address and re-send their link",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link\nthe mail provider will not carry: everything else the school typed stays the record the decision is taken\nagainst. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an\naddress another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is\na 404.",
+        "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungKontaktEmailPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/kontakte/erasure/ansicht": {
+      "post": {
+        "summary": "Show whom an erasure would reach",
+        "description": "Answer who stands in every seat `POST /kontakte/erasure` would clear for this address, by name and season.\n\nStores nothing, and takes that write's own payload: a confirmation cannot then be shown for one address and performed for another.",
+        "operationId": "get_kontakt_erasure_ansicht_api_v0_kontakte_erasure_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLKontaktErasurePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontaktErasureAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/kontakte/erasure": {
@@ -4363,7 +4527,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/fenster": {
@@ -4387,13 +4552,14 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/fenster/{saison_id}": {
       "get": {
         "summary": "One Saison's application window",
-        "description": "Return one season's application window; 404 when the season has none, or does not exist.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id.",
+        "description": "Return one season's application window, or that it records none; 404 only where no season carries the id.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id. A season with no window recorded is served for the same\nreason, and its existence is the whole of what this tier learns about it.",
         "operationId": "get_fenster_api_v0_bewerbungen_fenster__saison_id__get",
         "security": [
           {
@@ -4417,7 +4583,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungKeinFensterResponse"
+                    }
+                  ],
+                  "title": "Response Get Fenster Api V0 Bewerbungen Fenster  Saison Id  Get"
                 }
               }
             }
@@ -4432,7 +4606,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/schulen": {
@@ -4456,7 +4631,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/kuerzel/{shorthand}": {
@@ -4501,7 +4677,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
@@ -4546,7 +4723,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/einwilligung/ansicht": {
@@ -4590,7 +4768,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/einwilligung": {
@@ -4634,13 +4813,14 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
         "operationId": "get_sweep_saisons_api_v0_bewerbungen_sweep_get",
         "responses": {
           "200": {
@@ -4658,13 +4838,14 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.",
+        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -4703,13 +4884,14 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
       "post": {
         "summary": "Stamp the candidates whose notice was delivered",
-        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. 404 where no season has the id. An empty list answers zero.",
+        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this\ncall is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty\nlist answers zero.",
         "operationId": "angekuendigt_bewerbungen_api_v0_bewerbungen_sweep__saison_id__angekuendigt_post",
         "security": [
           {
@@ -4758,13 +4940,14 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
       "post": {
         "summary": "Erase the notified deletion candidates",
-        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding AND carrying the\nannouncement stamp is erased, so an application confirmed and accepted between the calls survives, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.",
+        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the\nmail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between\nthe calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.",
         "operationId": "loeschen_bewerbungen_api_v0_bewerbungen_sweep__saison_id__loeschen_post",
         "security": [
           {
@@ -4813,7 +4996,98 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/bewerbungen/zustellung/angenommen": {
+      "post": {
+        "summary": "Record the message the provider accepted for these seats",
+        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than what the seat already holds, so a call retried after a\nlater one landed writes nothing. A seat the application does not hold -- erased, or never mailed -- is skipped\nrather than refused, and the answer names the seats that were written. 404 where no application has the id.",
+        "operationId": "angenommen_zustellung_api_v0_bewerbungen_zustellung_angenommen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/bewerbungen/zustellung": {
+      "post": {
+        "summary": "Apply one delivery event to the seats its message was sent to",
+        "description": "Record what the mail provider reported about one message, on every seat that message was sent to.\n\nApplied only where the event names the message the seat still holds AND is stamped strictly later than the state\nit holds: a re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or\nan event overtaken by a later one changes nothing. Both are answered with the seats written -- none, where nothing\nqualified -- rather than with a refusal, because the provider retries anything but a success and would resend a\nsettled event for hours.\n\n404 where no application has the id, which an application erased between the send and the event is: a caller that\nmust not retry maps it rather than repeating the call.",
+        "operationId": "post_zustellung_api_v0_bewerbungen_zustellung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungZustellungEreignisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/": {
@@ -4830,7 +5104,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "none"
       }
     }
   },
@@ -5643,7 +5918,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: only `status`, `entscheidung` and `team_id` move, and only\nthrough the two triage endpoints."
+        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a seat's `email` through\n`app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -5719,6 +5994,16 @@
               }
             ],
             "title": "Abgelehnt Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -5984,6 +6269,10 @@
             "type": "boolean",
             "title": "Whatsapp"
           },
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -6036,6 +6325,7 @@
           "ausstehend",
           "geburtsdatum",
           "whatsapp",
+          "bewerbung_id",
           "saison_id",
           "rolle",
           "vorname",
@@ -6106,7 +6396,7 @@
           "erteilt"
         ],
         "title": "FLBewerbungEinwilligungPayload",
-        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erteilt_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a consent."
+        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a record."
       },
       "FLBewerbungEntscheidung": {
         "properties": {
@@ -6183,7 +6473,7 @@
           "laeuft"
         ],
         "title": "FLBewerbungFensterResponse",
-        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds whole --\nso the window gets its own shape rather than widening a season read."
+        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so\nthe window gets its own shape rather than widening a season read."
       },
       "FLBewerbungKader": {
         "properties": {
@@ -6226,6 +6516,98 @@
           "gute_spieler"
         ],
         "title": "FLBewerbungKaderPayload"
+      },
+      "FLBewerbungKeinFensterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "fenster": {
+            "type": "null",
+            "title": "Fenster"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "fenster"
+        ],
+        "title": "FLBewerbungKeinFensterResponse",
+        "description": "A season that records no application window: its id, and nothing else about it.\n\n`docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps."
+      },
+      "FLBewerbungKontaktEmailPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLBewerbungKontaktEmailPayload",
+        "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten."
+      },
+      "FLBewerbungKontaktEmailResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "rollen",
+          "token",
+          "bestaetigungsfrist"
+        ],
+        "title": "FLBewerbungKontaktEmailResponse",
+        "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."
       },
       "FLBewerbungKontaktePayload": {
         "properties": {
@@ -6842,14 +7224,27 @@
             },
             "type": "array",
             "title": "Saison Ids"
+          },
+          "sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sweep Gelaufen Am"
           }
         },
         "type": "object",
         "required": [
-          "saison_ids"
+          "saison_ids",
+          "sweep_gelaufen_am"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
-        "description": "Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."
+        "description": "Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."
       },
       "FLBewerbungSweepSeat": {
         "properties": {
@@ -7014,6 +7409,191 @@
         ],
         "title": "FLBewerbungTrikotPayload"
       },
+      "FLBewerbungZustellung": {
+        "properties": {
+          "nachricht_id": {
+            "type": "string",
+            "title": "Nachricht Id"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "angenommen",
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
+          "am": {
+            "type": "string",
+            "title": "Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nachricht_id",
+          "stand",
+          "grund",
+          "am"
+        ],
+        "title": "FLBewerbungZustellung",
+        "description": "What became of the last message to one seat.\n\nInside the seat's block rather than a collection of its own: an erasure empties that block, so\nthis goes with the person it is about."
+      },
+      "FLBewerbungZustellungAngenommenPayload": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "nachricht_id",
+          "am"
+        ],
+        "title": "FLBewerbungZustellungAngenommenPayload",
+        "description": "One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state."
+      },
+      "FLBewerbungZustellungEreignisPayload": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "nachricht_id",
+          "am",
+          "stand",
+          "grund"
+        ],
+        "title": "FLBewerbungZustellungEreignisPayload",
+        "description": "One delivery event about a message this application's seats were sent."
+      },
+      "FLBewerbungZustellungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angewendet": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Angewendet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angewendet"
+        ],
+        "title": "FLBewerbungZustellungResponse",
+        "description": "Which seats the write reached, empty where the event was about a message no seat still holds.\n\nEmpty rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
+      },
       "FLBewerbungenListResponse": {
         "properties": {
           "acknowledged": {
@@ -7035,12 +7615,27 @@
           "vollstaendig": {
             "type": "boolean",
             "title": "Vollstaendig"
+          },
+          "anzahl_je_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "eingereicht",
+                "angenommen",
+                "abgelehnt"
+              ]
+            },
+            "type": "object",
+            "title": "Anzahl Je Status"
           }
         },
         "type": "object",
         "required": [
           "bewerbungen",
-          "vollstaendig"
+          "vollstaendig",
+          "anzahl_je_status"
         ],
         "title": "FLBewerbungenListResponse",
         "description": "The queue, newest first, and whether that is the whole of it.\n\nThe list is served WHOLE by design -- the page marks duplicate submissions across it, and a\nsplit set would leave a pair unmarked with nothing saying so."
@@ -7516,83 +8111,39 @@
         ],
         "title": "FLKontakt"
       },
-      "FLKontaktEinwilligung": {
+      "FLKontaktErasureAnsichtResponse": {
         "properties": {
-          "umfang": {
-            "type": "string",
+          "acknowledged": {
+            "type": "integer",
             "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
+              0,
+              1
             ],
-            "title": "Umfang"
+            "title": "Acknowledged",
+            "default": 1
           },
-          "text_version": {
-            "type": "string",
-            "title": "Text Version"
+          "saison_teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSitz"
+            },
+            "type": "array",
+            "title": "Saison Teams"
           },
-          "datum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum"
-          },
-          "erteilt_von": {
-            "type": "string",
-            "enum": [
-              "person",
-              "administrativ"
-            ],
-            "title": "Erteilt Von"
-          },
-          "bestaetigt_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Am"
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSitz"
+            },
+            "type": "array",
+            "title": "Bewerbungen"
           }
         },
         "type": "object",
         "required": [
-          "umfang",
-          "text_version",
-          "datum",
-          "erteilt_von"
+          "saison_teams",
+          "bewerbungen"
         ],
-        "title": "FLKontaktEinwilligung",
-        "description": "What this person agreed to, and which wording they agreed to.\n\nNOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be\nPUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it."
-      },
-      "FLKontaktEinwilligungPayload": {
-        "properties": {
-          "umfang": {
-            "type": "string",
-            "const": "kontaktdaten",
-            "title": "Umfang"
-          },
-          "text_version": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version"
-          },
-          "datum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "umfang",
-          "text_version",
-          "datum"
-        ],
-        "title": "FLKontaktEinwilligungPayload"
+        "title": "FLKontaktErasureAnsichtResponse",
+        "description": "Whom `POST /kontakte/erasure` would reach, and nothing it would destroy.\n\nThe two lists are the two collections the write clears, kept apart because an application is a\nrequest to join and a junction row is a season already played."
       },
       "FLKontaktErasurePayload": {
         "properties": {
@@ -7653,6 +8204,118 @@
         "title": "FLKontaktErasureResponse",
         "description": "What the erasure reached, and NOT an echo of the person.\n\n`app/api/spieler/schemas.py :: FLSpielerErasureResponse`'s reason, binding harder here: the\nrequest named an address, so echoing anything of theirs returns a copy of what was destroyed."
       },
+      "FLKontaktKenntnisnahme": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kontaktdaten",
+              "kontaktdaten_whatsapp"
+            ],
+            "title": "Umfang"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "erfasst_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erfasst Von"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "umfang",
+          "text_version",
+          "datum",
+          "erfasst_von"
+        ],
+        "title": "FLKontaktKenntnisnahme",
+        "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."
+      },
+      "FLKontaktKenntnisnahmePayload": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "const": "kontaktdaten",
+            "title": "Umfang"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "umfang",
+          "text_version",
+          "datum"
+        ],
+        "title": "FLKontaktKenntnisnahmePayload"
+      },
+      "FLKontaktSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontaktSitz",
+        "description": "One seat the address holds.\n\nPer seat and not per person: colleagues share a school inbox, and one row seats one person twice\nwhere `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases."
+      },
       "FLKontaktperson": {
         "properties": {
           "vorname": {
@@ -7686,7 +8349,7 @@
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktEinwilligung"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahme"
           }
         },
         "type": "object",
@@ -7733,7 +8396,7 @@
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktEinwilligungPayload"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmePayload"
           }
         },
         "additionalProperties": false,
@@ -7903,15 +8566,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "kontakte"
+          "kontakte",
+          "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontaktePayload",
-        "description": "The contact block alone, so the editor that owns the people never writes the row's other fields.\n\nONE field, `extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value\nthis endpoint was never asked to decide."
+        "description": "The contact block alone, plus the token naming which block it was composed against.\n\n`extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide."
       },
       "FLPatchSaisonTeamKontakteResponse": {
         "properties": {
@@ -7941,13 +8609,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand",
+            "description": "The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other.",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "saison_id",
           "team_id",
-          "kontakte"
+          "kontakte",
+          "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",
         "description": "The block as STORED after the write, and the row it was written to.\n\nNo other field off that row: the caller sent none of them, and echoing one would invite a client\nto believe this endpoint owns it."
@@ -8336,13 +9011,26 @@
               }
             ],
             "title": "Nachname"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname",
-          "nachname"
+          "nachname",
+          "geburtsdatum"
         ],
         "title": "FLPatchSpielerPayload",
         "description": "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value."
@@ -8905,12 +9593,25 @@
               }
             ],
             "title": "Nachname"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "vorname"
+          "vorname",
+          "geburtsdatum"
         ],
         "title": "FLPostSpielerPayload",
         "description": "The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."
@@ -11359,6 +12060,18 @@
             ],
             "title": "Inactive Since"
           },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
           "einwilligung": {
             "anyOf": [
               {
@@ -11954,13 +12667,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand",
+            "description": "The token a save against this contact block has to echo back (`docs/backend/spec.md :: I192`).",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "saison_id",
           "gruppe",
-          "austritt"
+          "austritt",
+          "kontakte_stand"
         ],
         "title": "FLTeamMembership",
         "description": "One junction row as seen from its club: which season, which group, and the record if any."

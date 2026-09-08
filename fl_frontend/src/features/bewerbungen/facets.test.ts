@@ -6,10 +6,11 @@ import { pathToFileURL } from "node:url";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
-import { applyFacets, readFacetSelection } from "@/shared/utils/facets.ts";
+import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { BEWERBUNGEN_FACETS } from "./facets.ts";
+import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueStatus } from "./facets.ts";
 
+import type { FLBewerbungStatus } from "./schemas.ts";
 import type { AdminBewerbungRow } from "./types.ts";
 
 /** Spelled out so a rename fails here rather than silently. */
@@ -18,13 +19,13 @@ const SAISONBEZUG_PARAM = "saisonbezug";
 /** The facet under test, cut out by its parameter. */
 const SAISON_FACET = BEWERBUNGEN_FACETS.find((facet) => facet.param === SAISONBEZUG_PARAM);
 
-/** One row, of which only the two fields the facets read carry anything. */
-function row(id: string, inSelectedSaison: boolean): AdminBewerbungRow {
+/** One row, of which only the three fields the facets read carry anything. */
+function row(id: string, inSelectedSaison: boolean, status: FLBewerbungStatus = "eingereicht"): AdminBewerbungRow {
   return {
     id,
     saison_id: inSelectedSaison ? "2627" : "2526",
     eingereicht_am: "2026-05-01",
-    status: "eingereicht",
+    status,
     team_id: null,
     schule: null,
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
@@ -93,6 +94,128 @@ describe("the season facet on the triage list", () => {
       assert.equal(held.length, 1);
       assert.ok(offered.has(held[0]!), `a row answers with ${String(held[0])}, which the facet does not offer`);
     }
+  });
+});
+
+/** The facet the server narrows on, cut out the way the season facet above is. */
+const STATUS_FACET = BEWERBUNGEN_FACETS.find((facet) => facet.param === BEWERBUNGEN_STATUS_PARAM);
+
+/** What a served page looks like once the endpoint has narrowed to the open applications. */
+const NUR_EINGEREICHT = [row("6890a1b2c3d4e5f607190021", true), row("6890a1b2c3d4e5f607190022", true)];
+
+/** What the endpoint answers beside those rows: every state counted, the two it did not serve included. */
+const ANZAHL_JE_STATUS: Record<string, number> = { eingereicht: 2, angenommen: 9, abgelehnt: 4 };
+
+/** Which options `FilterPanel :: FacetCell` would leave pressable, given the counts it was handed. */
+function reachable(counts: Record<string, number>, picked: readonly string[]): string[] {
+  return (STATUS_FACET?.options ?? [])
+    .filter((option) => isFacetOptionReachable(counts[option.value] ?? 0, picked.includes(option.value)))
+    .map((option) => option.value);
+}
+
+// Registered before the component is loaded, so `renderTest.ts`'s hooks are in place: JSX compiles
+// nowhere else, and `renderMarkup` beside a static import of a `.tsx` would fail to load it.
+const { renderMarkup } = await import("@/shared/testing/renderTest.ts");
+const { FilterPanelBody } = await import("@/shared/components/ui/FilterPanel.tsx");
+
+/** The option values a reader can still press, read off the opening tag react-aria writes them on. */
+function pressable(markup: string): string[] {
+  return markup
+    .split('data-slot="list-box-item"')
+    .slice(1)
+    .map((item) => item.split(">")[0] ?? "")
+    .filter((tag) => !tag.includes('aria-disabled="true"'))
+    .map((tag) => /data-key="([^"]+)"/.exec(tag)?.[1] ?? "");
+}
+
+describe("the status facet the server narrows on", () => {
+  /* First: a facet the cut fails to find would leave every assertion below reading `undefined`. */
+  it("offers the status as a facet at all, and marks it as one the read narrows on", () => {
+    assert.ok(STATUS_FACET, "no facet reads the status parameter");
+    // Without the mark `useUrlFilters` writes history alone, so picking a state would filter the
+    // rows already loaded instead of asking the server for the ones it left out.
+    assert.equal(STATUS_FACET.narrowsTheRead, true);
+    assert.deepEqual(STATUS_FACET.defaultValues, ["eingereicht"]);
+  });
+
+  /* The queue narrows on the server, so the answer holds one state's rows — and the two decided
+     states stay pressable, or the control that hid the archive is what stands between an admin
+     and it. */
+  it("keeps every decided state reachable while the page holds none of their rows", () => {
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams());
+
+    assert.deepEqual(selection[BEWERBUNGEN_STATUS_PARAM], ["eingereicht"]);
+    assert.deepEqual(reachable(ANZAHL_JE_STATUS, selection[BEWERBUNGEN_STATUS_PARAM] ?? []), ["eingereicht", "angenommen", "abgelehnt"]);
+  });
+
+  /* Non-vacuity, and the defect itself: counted against the rows one narrowed read served, both
+     decided states stand at zero and go dead. */
+  it("loses both decided states where the counts are taken off the rows served instead", () => {
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams());
+    const offRows = countFacetOptions([...NUR_EINGEREICHT], BEWERBUNGEN_FACETS, selection, STATUS_FACET!);
+
+    assert.deepEqual(offRows, { eingereicht: 2, angenommen: 0, abgelehnt: 0 });
+    assert.deepEqual(reachable(offRows, selection[BEWERBUNGEN_STATUS_PARAM] ?? []), ["eingereicht"]);
+  });
+
+  /* A state nothing in the archive holds still counts zero, and an option leading nowhere is worth
+     saying so about — the counts are what tells those two cases apart. */
+  it("still refuses a state the archive really is empty of", () => {
+    assert.deepEqual(reachable({ eingereicht: 2, angenommen: 9, abgelehnt: 0 }, ["eingereicht"]), ["eingereicht", "angenommen"]);
+  });
+});
+
+describe("what the triage bar draws once the server has narrowed", () => {
+  /* Rendered rather than reasoned about: `isDisabled` is decided inside `FacetCell`, and what a
+     reader can press is the only form of that decision anyone meets. */
+  const bar = (facetCounts: Record<string, Record<string, number>> | undefined): string =>
+    // `FilterPanelBody` and not the view above it: that sits on `useUrlFilters`, whose
+    // `useSearchParams` answers null with no Router around it, and the render throws first.
+    renderMarkup(FilterPanelBody<AdminBewerbungRow>, {
+      facets: BEWERBUNGEN_FACETS,
+      shown: [STATUS_FACET!],
+      items: [...NUR_EINGEREICHT],
+      facetCounts: facetCounts,
+      selection: { [BEWERBUNGEN_STATUS_PARAM]: ["eingereicht"] },
+      onSelect: () => undefined,
+      onClear: () => undefined,
+    });
+
+  it("offers both decided states, whose rows this answer does not carry", () => {
+    assert.deepEqual(pressable(bar({ [BEWERBUNGEN_STATUS_PARAM]: ANZAHL_JE_STATUS })), ["eingereicht", "angenommen", "abgelehnt"]);
+  });
+
+  it("kills both of them where the counts are withheld and the rows served are all it has", () => {
+    // Non-vacuity, and the defect itself: the archive is then reachable from nothing on the page
+    // that hid it, which is what `.claude/rules/frontend.md`'s **admin** clause refuses.
+    assert.deepEqual(pressable(bar(undefined)), ["eingereicht"]);
+  });
+
+  it("says so about a state the archive really holds none of", () => {
+    const leer = { ...ANZAHL_JE_STATUS, abgelehnt: 0 };
+
+    assert.deepEqual(pressable(bar({ [BEWERBUNGEN_STATUS_PARAM]: leer })), ["eingereicht", "angenommen"]);
+  });
+});
+
+describe("what the queue asks the endpoint to narrow to", () => {
+  it("opens on the undecided applications while the URL names no status", () => {
+    assert.equal(bewerbungenQueueStatus({}), "eingereicht");
+  });
+
+  it("asks for nothing at all once the parameter is emptied, which is the archive", () => {
+    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "" }), undefined);
+  });
+
+  it("carries a two-state selection, which is the whole reason the parameter is a list", () => {
+    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,abgelehnt" }), "angenommen,abgelehnt");
+  });
+
+  it("falls back to the queue rather than sending a value the endpoint would refuse with a 422", () => {
+    // A pasted or hand-edited link is the live case: forwarding `erfunden` reaches the endpoint's
+    // closed set and answers 422, which the page has nothing to render.
+    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "erfunden" }), "eingereicht");
+    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,erfunden" }), "angenommen");
   });
 });
 

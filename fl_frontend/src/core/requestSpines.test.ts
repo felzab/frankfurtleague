@@ -16,7 +16,10 @@ const BEDINGUNG = 'secFetchSite !== null && secFetchSite !== "same-origin"';
 
 /* An OAuth callback arrives cross-site by construction and Auth.js brings its own CSRF token, so
    this guard would refuse the one request this handler exists to take. */
-const UNGUARDED_BY_DECISION = [path.join("api", "auth", "[...nextauth]", "route.ts")];
+// The provider's delivery webhook takes neither spine, and the reason is in its own doc
+// block: `handlePublicRequest` always answers 200, which would tell a caller that retries on
+// non-200 that a forgery and an unreachable backend were both accepted.
+const UNGUARDED_BY_DECISION = [path.join("api", "auth", "[...nextauth]", "route.ts"), path.join("api", "mail", "zustellung", "route.ts")];
 
 const SOURCES = new Map<string, string>();
 

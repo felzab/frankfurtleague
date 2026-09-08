@@ -34,7 +34,10 @@ const {
   buildBewerbungVollstaendigEmail,
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
-const { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 /**
  * The markup branch reduced to the facts a reader ends up with. Lets a fact be checked as a fact in
@@ -146,6 +149,7 @@ const DELIMITER_VALUE = "Erste Zeile\n-- \nZweite Zeile";
 const ZUSAGE = {
   teamName: "Ernst-Reuter-Schule",
   saisonId: "2627",
+  origin: ORIGIN,
   rollenText: "Ansprechperson",
   gruppe: "B",
   trikotFarbeLabel: "Hellgrün",
@@ -154,9 +158,14 @@ const ZUSAGE = {
 const ABSAGE = {
   teamName: "Ernst-Reuter-Schule",
   saisonId: "2627",
+  origin: ORIGIN,
   rollenText: "Stellvertretung",
   grund: "Die Saison ist voll: 16 Teams stehen schon fest.",
 } satisfies BewerbungAbsageData;
+
+/** The field a hostile NAME cannot stand in for: `emailShell.ts :: mailOrigin` refuses one, so it has a URL-shaped case of its own below. */
+const NICHT_VOM_ABSENDER = ["origin"];
+
 /**
  * One fixture per interpolated string, each carrying the hostile value in a different field. Read
  * off the fixture rather than written out per field, so a field added tomorrow reaches the sweep on
@@ -168,7 +177,7 @@ function hostileVariants<Data extends Record<string, string | null>>(
   value: string = HOSTILE_NAME,
 ): { field: string; data: Data }[] {
   return Object.keys(data)
-    .filter((field) => typeof data[field] === "string")
+    .filter((field) => typeof data[field] === "string" && !NICHT_VOM_ABSENDER.includes(field))
     .map((field) => ({ field: `${branch}.${field}`, data: { ...data, [field]: value } }));
 }
 
@@ -177,7 +186,7 @@ function hostileVariants<Data extends Record<string, string | null>>(
  * moves with it, which is how five mutations to fixed copy stayed green while every interpolated
  * value was covered.
  */
-const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ${SITE_URL}, sobald die Saison startet.`;
+const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ${ORIGIN}, sobald die Saison startet.`;
 
 /**
  * Spelled out for the reason above, and WHOLE: what this sentence must not promise is carried by the
@@ -186,7 +195,7 @@ const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir
 const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert; über die Paarungen entscheidet der Spielplan.`;
 
 /** The second control both decisions carry: one page that is a dead end for neither of their readers. */
-const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` };
+const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
 
 /** Spelled out for the reason above. The sign-in link states the same sentence, and the two move together. */
 const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
@@ -212,8 +221,8 @@ const textFooter = (empfaenger: keyof typeof EMPFAENGER_SATZ): string =>
     "-- ",
     EMPFAENGER_SATZ[empfaenger],
     `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`,
-    `Datenschutzerklärung: ${SITE_URL}/datenschutz`,
-    `Impressum: ${SITE_URL}/impressum`,
+    `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
+    `Impressum: ${ORIGIN}/impressum`,
     `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
   ].join("\n");
 
@@ -638,7 +647,7 @@ describe("both decisions", () => {
     for (const { name, mail } of alleMeldungen()) {
       for (const absatz of mail.html.matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)) {
         const inner = absatz[1] ?? "";
-        if (!inner.includes(SITE_URL) && !inner.includes(KONTAKT_EMAIL)) continue;
+        if (!inner.includes(ORIGIN) && !inner.includes(KONTAKT_EMAIL)) continue;
 
         assert.match(inner, /<a href="[^"]+"[^>]*>[^<]+<\/a>/, `${name} sets an address in prose without a link`);
         assert.ok(inner.includes("text-decoration:underline"), `${name}'s prose link is marked by colour alone`);
@@ -729,15 +738,6 @@ describe("both decisions", () => {
   it("escape a panel label and a heading as they escape a panel value", () => {
     assert.match(MODULE_SOURCE, /const label = escapeHtml\(fakt\.label\);/, "a panel label is interpolated raw");
     assert.match(MODULE_SOURCE, /ueberschrift: `\$\{escapeHtml\(headingVor\)\}/, "a heading is interpolated raw");
-  });
-
-  it("take the site's public origin from the brand rather than spelling one", () => {
-    assert.match(
-      MODULE_SOURCE,
-      /import \{ KONTAKT_EMAIL, SITE_URL \} from "\.\/brand";/,
-      "the messages no longer read the origin off the brand",
-    );
-    assert.ok(!/^const SITE_URL =/m.test(MODULE_SOURCE), "the messages declare an origin of their own beside the brand's");
   });
 
   it("never hand a reader the other decision's subject or heading", () => {
@@ -836,8 +836,8 @@ describe("no value can open a line of its own in the text branch", () => {
 });
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a real credential is one somebody copies. */
-const LINK_EINS = `${SITE_URL}/bestaetigung?token=beispiel-eins`;
-const LINK_ZWEI = `${SITE_URL}/bestaetigung?token=beispiel-zwei`;
+const LINK_EINS = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
+const LINK_ZWEI = `${ORIGIN}/bestaetigung?token=beispiel-zwei`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK_EINS };
@@ -845,6 +845,7 @@ const JONAS = { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: LIN
 
 const BESTAETIGUNG = {
   saisonId: "2627",
+  origin: ORIGIN,
   schule: "Ernst-Reuter-Schule",
   seats: [ERIKA],
   fristText: FRIST,
@@ -868,16 +869,23 @@ const AUSSTEHEND = [
 
 const EINGANG_OFFEN = {
   saisonId: "2627",
+  origin: ORIGIN,
   rollenText: "Ansprechperson",
   ausstehend: AUSSTEHEND,
   fristText: FRIST,
   link: LINK_EINS,
 } satisfies BewerbungEingangOffenData;
 
-const VOLLSTAENDIG = { saisonId: "2627", rollenText: "Ansprechperson" } satisfies BewerbungVollstaendigData;
-const GELOESCHT = { saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND } satisfies BewerbungGeloeschtData;
+const VOLLSTAENDIG = { saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson" } satisfies BewerbungVollstaendigData;
+const GELOESCHT = {
+  saisonId: "2627",
+  origin: ORIGIN,
+  rollenText: "Ansprechperson",
+  ausstehend: AUSSTEHEND,
+} satisfies BewerbungGeloeschtData;
 const ABLEHNUNG = {
   saisonId: "2627",
+  origin: ORIGIN,
   rollenText: "Ansprechperson",
   abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
   fristText: FRIST,
@@ -1221,7 +1229,7 @@ describe("buildBewerbungGeloeschtEmail", () => {
       ["Nicht bestätigt", OFFEN_LISTE],
     ]);
     assert.deepEqual(steuerung(mail.html), [
-      { href: `${SITE_URL}/bewerbung/${GELOESCHT.saisonId}`, label: "Neu bewerben" },
+      { href: `${ORIGIN}/bewerbung/${GELOESCHT.saisonId}`, label: "Neu bewerben" },
       { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
     ]);
   });
@@ -1241,7 +1249,7 @@ describe("buildBewerbungGeloeschtEmail", () => {
       assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
     }
     // The text branch has no button to draw, so the offer is a labelled line under the note.
-    assert.ok(mail.text.includes(`Neu bewerben: ${SITE_URL}/bewerbung/${GELOESCHT.saisonId}`), "the text branch offers no way to start again");
+    assert.ok(mail.text.includes(`Neu bewerben: ${ORIGIN}/bewerbung/${GELOESCHT.saisonId}`), "the text branch offers no way to start again");
   });
 });
 
@@ -1274,7 +1282,7 @@ describe("buildBewerbungAblehnungEmail", () => {
 
   it("offers the way to start again, as the deletion notice does", () => {
     assert.deepEqual(steuerung(buildBewerbungAblehnungEmail(ABLEHNUNG).html), [
-      { href: `${SITE_URL}/bewerbung/${ABLEHNUNG.saisonId}`, label: "Neu bewerben" },
+      { href: `${ORIGIN}/bewerbung/${ABLEHNUNG.saisonId}`, label: "Neu bewerben" },
       { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
     ]);
   });
@@ -1468,7 +1476,7 @@ describe("the confirmation workflow's messages", () => {
     for (const { name, mail } of alleWorkflow()) {
       for (const absatz of mail.html.matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)) {
         const inner = absatz[1] ?? "";
-        if (!inner.includes(SITE_URL) && !inner.includes(KONTAKT_EMAIL)) continue;
+        if (!inner.includes(ORIGIN) && !inner.includes(KONTAKT_EMAIL)) continue;
 
         assert.match(inner, /<a href="[^"]+"[^>]*>[^<]+<\/a>/, `${name} sets an address in prose without a link`);
         assert.ok(inner.includes("text-decoration:underline"), `${name}'s prose link is marked by colour alone`);
@@ -1501,5 +1509,66 @@ describe("the confirmation workflow's messages", () => {
 
     assert.ok(!mail.text.split("\n").some((zeile) => zeile.startsWith(geforgt)), "a submitted school name forged a fact line");
     assert.ok(mail.text.includes(`Schule: Echte Schule ${geforgt}`), "the name was not carried onto one line");
+  });
+});
+
+describe("the origin every message's links are built on", () => {
+  /** An origin no fixture and no module constant carries, so a link still built on either fails here rather than reading alike. */
+  const SERVIERT = "https://beispiel.test";
+  const LINK = `${SERVIERT}/bestaetigung?token=beispiel-eins`;
+  const SEATS = [{ ...ERIKA, link: LINK }] satisfies BewerbungBestaetigungData["seats"];
+
+  /** Every message this module builds, each handed that origin, so no builder drops out of the sweep below. */
+  const gebaut = (): { name: string; mail: { html: string; text: string } }[] => [
+    { name: "Zusage", mail: buildBewerbungZusageEmail({ ...ZUSAGE, origin: SERVIERT }) },
+    { name: "Absage", mail: buildBewerbungAbsageEmail({ ...ABSAGE, origin: SERVIERT }) },
+    { name: "Bestätigung", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, origin: SERVIERT, seats: SEATS }) },
+    { name: "Erinnerung", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, origin: SERVIERT, seats: SEATS }) },
+    { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, origin: SERVIERT, link: LINK }) },
+    { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: SERVIERT }) },
+    { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, origin: SERVIERT }) },
+    { name: "Ablehnung", mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, origin: SERVIERT }) },
+  ];
+
+  /** Every absolute address a branch carries, the punctuation of the sentence it stands in cut off its tail. */
+  const adressen = (teil: string): string[] => [...teil.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0].replace(/[,.;:]+$/, ""));
+
+  /* The defect this closes: every link a message carried stood on the published origin, so a stack
+     serving loopback mailed its readers into production. */
+  it("builds every absolute link on the origin it was handed", () => {
+    for (const { name, mail } of gebaut()) {
+      const gefunden = [...adressen(mail.html), ...adressen(mail.text)];
+
+      // The close alone carries two, so a message reaching this with fewer is one whose links a
+      // reader could not follow at all.
+      assert.ok(gefunden.length >= 2, `${name} carries almost no address, so this case compares nothing`);
+      for (const adresse of gefunden) {
+        // The bare origin as well as a path on it: the acceptance sets the site's own address in its prose.
+        const eigen = adresse === SERVIERT || adresse.startsWith(`${SERVIERT}/`);
+        assert.ok(eigen, `${name} builds ${adresse}, which does not stand on the origin it was handed`);
+      }
+    }
+  });
+
+  /* Everything past the host is dropped, so a value configured with a trailing slash or a path
+     cannot double a separator or bury the page path it is joined to. */
+  it("takes the scheme, the host and the port out of the origin and drops the rest", () => {
+    const mail = buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: `${SERVIERT}/pfad?a=b#c` });
+
+    assert.ok(mail.html.includes(`href="${SERVIERT}/datenschutz"`), "a configured path reached the close's href");
+    assert.ok(mail.text.includes(`Impressum: ${SERVIERT}/impressum`), "a configured path reached the text branch's close");
+  });
+
+  /* A host may hold `"`, `'` and `&` — `URL` refuses only `<`, `>` and the space — and the origin
+     lands in an href, so it is escaped like any submitted value rather than trusted for being ours. */
+  it("escapes an origin carrying markup in the markup branch and leaves the text branch alone", () => {
+    const gift = `https://a"b'c&d.test`;
+    const mail = buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: gift });
+
+    assert.ok(mail.html.includes(`href="https://a&quot;b&#39;c&amp;d.test/datenschutz"`), "the origin reached the href unescaped");
+    assert.ok(mail.text.includes(`Impressum: ${gift}/impressum`), "the text branch must carry the origin as configured");
+    for (const roh of ["<", ">", " "]) {
+      assert.throws(() => buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: `https://a${roh}b.test` }), /absolute origin/);
+    }
   });
 });

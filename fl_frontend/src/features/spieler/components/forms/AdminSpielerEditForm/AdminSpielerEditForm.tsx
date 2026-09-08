@@ -27,11 +27,13 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
+import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormLoeschenSection } from "./FormLoeschenSection";
 import { FormPersonSection } from "./FormPersonSection";
 
 import type {
+  FLEinwilligung,
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
   FLSpielerPosition,
@@ -53,12 +55,15 @@ type SpielerUndoPayloads = {
 /** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
 export function AdminSpielerEditForm({
   spieler,
+  einwilligung,
   saison,
   teams,
   membershipCount,
   pageHeader,
 }: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null };
+  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+  /** `null` for a person stored before consent was collected. */
+  einwilligung: FLEinwilligung | null;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
@@ -76,6 +81,7 @@ export function AdminSpielerEditForm({
   const [personDraft, setPersonDraft] = useState<SpielerPersonFields>({
     vorname: spieler.vorname,
     nachname: spieler.nachname,
+    geburtsdatum: spieler.geburtsdatum,
   });
 
   const [teamId, setTeamId] = useState<string | null>(storedMembership?.team_id ?? null);
@@ -112,11 +118,13 @@ export function AdminSpielerEditForm({
   const draftFields: FLSpielerDraftFields = {
     vorname: personDraft.vorname,
     nachname: personDraft.nachname ?? "",
+    geburtsdatum: personDraft.geburtsdatum,
     membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
     vorname: spieler.vorname,
     nachname: spieler.nachname ?? "",
+    geburtsdatum: spieler.geburtsdatum,
     membership:
       storedMembership === null
         ? null
@@ -177,7 +185,7 @@ export function AdminSpielerEditForm({
   });
 
   const resetDraftToStored = () => {
-    setPersonDraft({ vorname: spieler.vorname, nachname: spieler.nachname });
+    setPersonDraft({ vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum });
     setTeamId(storedMembership?.team_id ?? null);
     setNummer(storedMembership?.nummer ?? "");
     setPosition(storedMembership?.position ?? null);
@@ -234,7 +242,7 @@ export function AdminSpielerEditForm({
       if (personDirty) {
         const res = await patchSpielerAction(personPayload);
         if (res.success) {
-          savedParts.push("Name gespeichert.");
+          savedParts.push("Personendaten gespeichert.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.error ?? "Die Personendaten konnten nicht gespeichert werden.");
@@ -267,7 +275,9 @@ export function AdminSpielerEditForm({
       // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
       // values. Built BEFORE leaving, because the toast outlives the page.
       const undoPayloads: SpielerUndoPayloads = {
-        ...(personDirty ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname } } : {}),
+        ...(personDirty
+          ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
+          : {}),
         ...(saisonDirty && storedMembership !== null
           ? {
               saison: {
@@ -323,6 +333,10 @@ export function AdminSpielerEditForm({
             onChange={setPersonDraft}
             onFieldLeft={validatePersonFields}
           />
+
+          {/* Beside the name and above the season's panels: consent is the person's, and it does not
+              change when the sidemenu's season does. */}
+          <FormEinwilligungSection einwilligung={einwilligung} />
 
           <FormKaderSection
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}

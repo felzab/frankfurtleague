@@ -128,7 +128,7 @@ describe("the step that stands in a row of chips", () => {
     assert.match(strip, /const STRIP_CHIP = "h-7/, "the chips this step is measured against no longer stand at it");
     assert.equal(
       strip.match(/labelBadge\(/g)?.length,
-      4,
+      5,
       "the chips this step is measured against are no longer composed as the app's label pill",
     );
   });

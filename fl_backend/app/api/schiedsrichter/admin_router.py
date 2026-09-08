@@ -16,6 +16,7 @@ from app.api.schiedsrichter.services import (
     ANONYMISED_NAME,
     ANONYMISED_SCHIEDSRICHTER,
     find_anonymisation_refusal,
+    find_anonymisation_undo_refusal,
     find_referee_retire_refusal,
     holds_an_anonymisable_value,
 )
@@ -81,13 +82,32 @@ async def patch_schiedsrichter(
     Update a referee, then update the embedded name on every Spiel that uses them.
 
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+
+    A save putting a name or a contact detail back onto an anonymised referee is refused
+    (`REQ-ANONYMISE-002`); the fee and the school stay editable, the erasure not reaching them.
     """
 
     async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSchiedsrichterResponse:
+        patched = schiedsrichter_data.model_dump(mode="json")
+
+        # Read THROUGH the session, where the anonymisation's own guard reads outside one: this `$set`
+        # moves the row, so a rival erasure conflicts on the write set and the retry re-reads (I53).
+        refuse(
+            find_anonymisation_undo_refusal(
+                stored=await pull_one_from_db(
+                    collection=schiedsrichter_collection,
+                    db_filter={"_id": schiedsrichter_id},
+                    projection={"kontakt": 1, "name": 1},
+                    session=session,
+                ),
+                patched=patched,
+            )
+        )
+
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            update={"$set": schiedsrichter_data.model_dump(mode="json")},
+            update={"$set": patched},
             session=session,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
@@ -220,10 +240,10 @@ async def anonymise_schiedsrichter(
             session=session,
         )
 
-        # A `$set` rewriting nothing joins no write set, so a `PATCH` re-entering the details raises
-        # no conflict to retry on. Re-read OUTSIDE the session, where that PATCH is visible and this
-        # write is not (I53) -- hence only on the no-op path.
+        # Only on the no-op path: a `$set` rewriting nothing joins no write set, so a re-entry
+        # outside the API raises no conflict to retry on.
         if rewrites_nothing:
+            # Read OUTSIDE the session, where that re-entry is visible and this write is not (I53).
             refuse(find_anonymisation_refusal(re_entered=await an_anonymisable_value_stands(None)))
 
         return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))

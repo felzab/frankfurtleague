@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 
 import { TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "./facets.ts";
@@ -332,7 +332,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -345,7 +345,7 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
   address: { strasse: "Habsburgerallee", hausnummer: "57", plz: "60385", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
   schulform: "gymnasium_g9",
   inactive_since: null,
-  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte }],
+  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" }],
 });
 
 describe("buildKontaktRows", () => {
@@ -511,7 +511,7 @@ describe("what a new consent cites", () => {
   it("stamps the league's current wording version", () => {
     const frisch = buildEmptyKontaktperson().einwilligung;
 
-    assert.equal(frisch.text_version, LIGA_EINWILLIGUNG.textVersion, "a new consent cites a version the league did not stamp");
+    assert.equal(frisch.text_version, LIGA_KENNTNISNAHME.textVersion, "a new consent cites a version the league did not stamp");
     assert.notEqual(frisch.text_version, "", "a new consent cites no wording at all");
   });
 });

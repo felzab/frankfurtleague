@@ -27,7 +27,7 @@ STORED_KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
 }
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -287,7 +287,7 @@ class TestTheContactsPatchPayload:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate({})
 
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte"]
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte", "kontakte_stand"]
 
 
 class TestAContactRecordReadsBackHoweverItWasStored:
@@ -306,7 +306,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     STORED = {
         "vorname": "Anke",
         "geburtsdatum": "1984-05-09",
-        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
         **REFUSED,
     }
 

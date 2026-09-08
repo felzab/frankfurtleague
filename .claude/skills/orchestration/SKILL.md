@@ -106,18 +106,21 @@ The ending, in order:
    request's link and its checks' conclusions are the only facts that cannot be in it yet — a gap to
    fill as they land, never a reason to start later. Audited by an agent that has seen none of the
    work, then fixed.
-5. **Where a programme plan's handoff instructions differ from this skill's, this skill wins; where
-   this skill differs from `.claude/CLAUDE.md` or the owner's standing instructions, this skill is
-   wrong and is fixed here.**
+
+**Where a programme plan's handoff instructions differ from this skill's, this skill wins; where
+this skill differs from `.claude/CLAUDE.md` or the owner's standing instructions, this skill is
+wrong and is fixed here.**
 
 ## 3. Every dispatch
 
 Run it for every agent, the fifteenth as much as the first.
 
 1. **Read the live-agent table.** Is a live agent already covering this question? Resume it rather
-   than start a fresh one, which hands you a second conclusion to drive — work has gone to a fresh
-   agent a live one already covered. A resumed agent re-enters its partition — check its files are
-   still free.
+   than start a fresh one, which hands you a second conclusion to drive; a resumed agent re-enters
+   its partition, so check its files are still free. **That the harness can resume an agent at all
+   is established by attempting one send** ([resume-prompt.md](resume-prompt.md)): without one, a
+   live agent is waited out and a finished one's follow-up is a fresh brief carrying the verdict the
+   register banked.
 2. **Diff this brief's file list against what every unclosed agent OWNS, path by path** — its whole
    brief list, never the subset it is writing now, because an agent can return to any of its files
    until it reports. Nothing mechanical sees
@@ -159,8 +162,8 @@ Run it for every agent, the fifteenth as much as the first.
   for typing** (the owner's standing instructions): every dispatch costs a brief, a report you must
   read, a slot, and the risk of a second conclusion to drive. Dispatch the handoff, a document that
   must be checked cold, a fix round across many files, and any read of a corpus you have not seen.
-- **Resume a finished agent for a follow-up on its own files** rather than brief a stranger into
-  them, an audit's fixes included **where the finding is SETTLED** — by a driven plant, an owner's
+- **A follow-up on an agent's own files goes to that agent (§3)** rather than to a stranger, an
+  audit's fixes included **where the finding is SETTLED** — by a driven plant, an owner's
   ruling, a quoted never-clause. A finding that argues the shape is wrong goes to a fresh reader
   instead, being one the author can dispute from inside the reasoning that produced it; the
   re-audit's agent wrote none of the fixes either way (§6).
@@ -208,9 +211,7 @@ rather than the change ([the brief](agent-brief-template.md) section 12).
 - **A guard, a hook registration or a manifest changes what every other agent may do** ([the
   brief](agent-brief-template.md) section 10), so it takes an exclusive window even at one line, and
   **two agents reporting one out-of-scope failure is one such change rather than two findings.**
-- **The local stack is a wave-boundary instrument like the gate, so raise it only once the tree has
-  stopped moving.** Its production build type-checks every file in the tree, so any agent's
-  in-flight edit kills it, and it holds port 3000 against the next build (CLAUDE.md §5).
+- **The local stack is a wave-boundary instrument on the gate's condition** (§5).
 
 ## 6. The cycle
 

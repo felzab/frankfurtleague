@@ -1,7 +1,12 @@
+import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
+
 import { BEWERBUNG_STATUS_OPTIONS } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminBewerbungRow } from "./types";
+
+/** Spelled once: the read narrows on this parameter and the bar writes it, and the endpoint's own term carries the name. */
+export const BEWERBUNGEN_STATUS_PARAM = "status";
 
 // Module scope is load-bearing (`docs/frontend/spec.md` §1.1).
 export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
@@ -23,12 +28,15 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
     read: (bewerbung) => [bewerbung.inSelectedSaison ? "diese_saison" : "andere_saison"],
   },
   {
-    param: "status",
+    param: BEWERBUNGEN_STATUS_PARAM,
     label: "Status",
     options: BEWERBUNG_STATUS_OPTIONS.map(({ value, label }) => ({ value: value, label: label })),
     // The list opens on the queue rather than on the archive: a decided application is a record, and
     // the decided ones stay one click away because an empty parameter turns the facet off.
     defaultValues: ["eingereicht"],
+    // The one dimension the endpoint narrows on, so a decision leaves the working set rather than
+    // spending the read's cap on rows nobody is triaging.
+    narrowsTheRead: true,
     read: (bewerbung) => [bewerbung.status],
   },
   {
@@ -47,3 +55,11 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
     },
   },
 ];
+
+/**
+ * What `GET /bewerbungen` is asked to narrow to, comma-joined for the wire and `undefined` for every status.
+ * The bar's own reader answers it, so the served rows and the pills cannot disagree about one query string.
+ */
+export function bewerbungenQueueStatus(params: Readonly<Record<string, string | string[] | undefined>>): string | undefined {
+  return readFacetSelectionFromRoute(BEWERBUNGEN_FACETS, params)[BEWERBUNGEN_STATUS_PARAM]?.join(",");
+}

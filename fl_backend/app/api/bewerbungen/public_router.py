@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.schemas import (
     FLBewerbungBestaetigungTokens,
     FLBewerbungFensterResponse,
+    FLBewerbungKeinFensterResponse,
     FLBewerbungKuerzelResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
@@ -56,27 +57,23 @@ router = APIRouter(
 SUBMITTED = "eingereicht"
 
 # What a season read serves this tier: the window and no other field. `docs/backend/spec.md :: I47`
-# withholds a `future` season whole, and one taking applications IS `future`.
+# withholds a `future` season, and one taking applications IS `future`; `:: I111` carves the window
+# and the season's existence out of that.
 WINDOW_PROJECTION = ["bewerbung"]
 
 
-async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> Mapping[str, Any]:
-    """One season's application window, or the 404 an id naming no season answers.
+async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> Mapping[str, Any] | None:
+    """One season's application window, or `None` where nothing readable is recorded.
 
     A null, no key -- every season stored before the field carries none -- or an object short of a
     field: none is readable, and all are a miss rather than an error.
     """
 
-    db_filter = {"_id": saison_id}
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=WINDOW_PROJECTION)
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=WINDOW_PROJECTION)
 
     # `recorded_window`, not a shape check: `_fenster` subscripts every window key, so a short object
     # would 500 where this promises a miss.
-    bewerbung = recorded_window(bewerbung=saison_raw.get("bewerbung"))
-    if bewerbung is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
-
-    return bewerbung
+    return recorded_window(bewerbung=saison_raw.get("bewerbung"))
 
 
 def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFensterResponse:
@@ -113,24 +110,35 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
         collection=saisons_collection, db_filter=db_filter, limit=1, sort_by=[("_id", -1)], projection=WINDOW_PROJECTION
     )
 
-    if not open_seasons:
+    # `recorded_window` for `_pull_window`'s reason, and reachable past the query: a dotted term
+    # traverses a LIST, so a window stored inside one matches every term and 500s in `_fenster`.
+    bewerbung = recorded_window(bewerbung=open_seasons[0]["bewerbung"]) if open_seasons else None
+
+    if bewerbung is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
-    return _fenster(saison_id=str(open_seasons[0]["_id"]), bewerbung=open_seasons[0]["bewerbung"], today=today)
+    return _fenster(saison_id=str(open_seasons[0]["_id"]), bewerbung=bewerbung, today=today)
 
 
-@router.get("/fenster/{saison_id}", response_model=FLBewerbungFensterResponse, summary="One Saison's application window")
+@router.get(
+    "/fenster/{saison_id}",
+    response_model=FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse,
+    summary="One Saison's application window",
+)
 async def get_fenster(
     saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
-) -> FLBewerbungFensterResponse:
+) -> FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse:
     """
-    Return one season's application window; 404 when the season has none, or does not exist.
+    Return one season's application window, or that it records none; 404 only where no season carries the id.
 
     A CLOSED window is served rather than hidden: the page says the deadline has passed, which a
-    404 could not tell from a mistyped id.
+    404 could not tell from a mistyped id. A season with no window recorded is served for the same
+    reason, and its existence is the whole of what this tier learns about it.
     """
 
     bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
+    if bewerbung is None:
+        return FLBewerbungKeinFensterResponse(saison_id=saison_id, fenster=None)
 
     return _fenster(saison_id=saison_id, bewerbung=bewerbung, today=today)
 

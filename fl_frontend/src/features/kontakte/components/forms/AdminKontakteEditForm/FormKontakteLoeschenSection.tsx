@@ -32,12 +32,15 @@ export function FormKontakteLoeschenSection({
   teamId,
   saisonId,
   hasStored,
+  stand,
   isDirty,
 }: {
   teamId: string;
   saisonId: string;
   /** Nothing stored means nothing to clear, and a control offering it would refuse itself. */
   hasStored: boolean;
+  /** The token the page's own read served: this clearing is a save like any other and is judged against it. */
+  stand: string;
   isDirty: boolean;
 }) {
   const router = useRouter();
@@ -51,7 +54,7 @@ export function FormKontakteLoeschenSection({
     if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
 
     press(async () => {
-      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null });
+      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand });
 
       if (!res.success) {
         appToast.danger("Kontakte nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });

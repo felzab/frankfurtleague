@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/AdminBewerbungenView";
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
-import { getBewerbungen } from "@/features/bewerbungen/queries";
+import { getBewerbungenQueue } from "@/features/bewerbungen/queries";
 import { buildBewerbungRows, leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
@@ -42,12 +42,12 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
   const richtung = parseLeserichtung(params);
 
-  // Every status: the facet opens the list on the undecided ones, and a decided application stays
-  // the record its decision was taken against. The clubs, because a picked one is stored as an id.
   const [bewerbungenRes, teamsRes, saisonsRes] = await Promise.all([
-    // `order` alone: the default sort is already the submission date, so reversing it swaps which end
-    // of a flooded queue survives the endpoint's cap.
-    getBewerbungen({ order: richtung }),
+    // Narrowed by the status the bar selects rather than after the read, so a decided application
+    // stops spending the endpoint's cap while staying one click away. Reversing `order` swaps which
+    // end of a flooded queue survives that cap.
+    getBewerbungenQueue(params, richtung),
+    // The clubs, because a picked one is stored as an id.
     getTeamMemberships(),
     getAdminSaisons(),
   ]);
@@ -59,6 +59,7 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   return (
     <AdminBewerbungenView
       bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
+      anzahlJeStatus={bewerbungenRes.anzahl_je_status}
       unvollstaendig={bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHref(params, richtung) }}
     />
   );

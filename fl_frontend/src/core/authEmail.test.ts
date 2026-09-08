@@ -13,7 +13,10 @@ registerHooks({
 });
 
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
-const { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 /** The markup branch reduced to the facts a reader ends up with, so a fact is checked as a fact in both branches. */
 function readable(html: string): string {
@@ -48,8 +51,8 @@ const IGNORIER_SATZ = "Du hast diese Anmeldung nicht angefordert? Dann ignoriere
 const TEXT_SCHLUSS = [
   "-- ",
   FUSS_SATZ,
-  `Datenschutzerklärung: ${SITE_URL}/datenschutz`,
-  `Impressum: ${SITE_URL}/impressum`,
+  `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
+  `Impressum: ${ORIGIN}/impressum`,
   `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
 ].join("\n");
 
@@ -57,7 +60,7 @@ describe("buildMagicLinkEmail", () => {
   /* A mail client renders one branch or the other, so a fact only one half carried would reach only
      half the readers -- and here that fact is the link the message exists to deliver. */
   it("states the same facts in both branches", () => {
-    const mail = buildMagicLinkEmail(URL_);
+    const mail = buildMagicLinkEmail(URL_, ORIGIN);
 
     for (const fakt of [URL_, "Anmeldung bestätigen", "15 Minuten", "kann nur einmal verwendet werden", IGNORIER_SATZ]) {
       assert.ok(flat(readable(mail.html)).includes(fakt), `the HTML branch lost „${fakt}“`);
@@ -69,7 +72,7 @@ describe("buildMagicLinkEmail", () => {
   /* The validity the message states is copy, and the TTL that enforces it is Auth.js's. A reader told
      the wrong number asks for a link that has already expired, or trusts one that has. */
   it("states the validity its own constant carries, in both branches", () => {
-    const mail = buildMagicLinkEmail(URL_);
+    const mail = buildMagicLinkEmail(URL_, ORIGIN);
 
     assert.ok(readable(mail.html).includes("Der Link ist 15 Minuten gültig"));
     assert.ok(mail.text.includes("Er ist 15 Minuten gültig"));
@@ -78,7 +81,7 @@ describe("buildMagicLinkEmail", () => {
   /* Auth.js builds the URL from the address typed into a public form, so it reaches the markup as a
      caller's value like any other -- an unescaped `&` alone already makes the document invalid. */
   it("escapes the link it is handed", () => {
-    const mail = buildMagicLinkEmail(HOSTILE_URL);
+    const mail = buildMagicLinkEmail(HOSTILE_URL, ORIGIN);
 
     assert.ok(!mail.html.includes("<script>"), "an unescaped tag reached the markup");
     assert.ok(mail.html.includes("&amp;b=&#39;c&#39;"), "the query string reached the markup unescaped");
@@ -90,7 +93,7 @@ describe("buildMagicLinkEmail", () => {
   /* One control, where the three application messages carry a pair: a second destination beside it
      competes with the one press this message exists for. */
   it("offers the link as its only control, and again as an address to copy", () => {
-    const mail = buildMagicLinkEmail(URL_);
+    const mail = buildMagicLinkEmail(URL_, ORIGIN);
     const steuer = mail.html.slice(mail.html.indexOf("<hr"), mail.html.indexOf("<hr", mail.html.indexOf("<hr") + 1));
     const ziele = [...steuer.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((treffer) => `${treffer[2]}`);
 
@@ -103,7 +106,7 @@ describe("buildMagicLinkEmail", () => {
   /* Where the note stands decides whether the reader it exists for reaches it: last in the body, above
      the rule, and never down in the grey close -- as it stands in the application messages. */
   it("places the note for a reader who requested nothing above the controls", () => {
-    const mail = buildMagicLinkEmail(URL_);
+    const mail = buildMagicLinkEmail(URL_, ORIGIN);
     const auf = mail.html.lastIndexOf("<p ", mail.html.indexOf(IGNORIER_SATZ));
     const grade = mail.html.slice(auf, mail.html.indexOf(">", auf));
 
@@ -115,7 +118,7 @@ describe("buildMagicLinkEmail", () => {
   /* The escaping test's counterpart, against the text branch's own hazard: a client folding at a
      delimiter line inside the link hides every line below it, the whole footer included. */
   it("keeps the link it is handed from opening a second signature block", () => {
-    const mail = buildMagicLinkEmail("https://frankfurtleague.de/x\n-- \nZweite Zeile");
+    const mail = buildMagicLinkEmail("https://frankfurtleague.de/x\n-- \nZweite Zeile", ORIGIN);
 
     assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, "the link stands as a second signature delimiter");
     assert.ok(mail.text.includes("\n -- \n"), "the link's delimiter line was dropped rather than stuffed");
@@ -124,7 +127,7 @@ describe("buildMagicLinkEmail", () => {
   });
 
   it("closes the text branch with RFC 3676's signature delimiter", () => {
-    const mail = buildMagicLinkEmail(URL_);
+    const mail = buildMagicLinkEmail(URL_, ORIGIN);
 
     assert.ok(mail.text.includes("\n-- \n"), "without the trailing space no client folds the footer");
     assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the text branch no longer closes on its footer");

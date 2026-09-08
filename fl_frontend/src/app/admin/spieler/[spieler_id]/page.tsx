@@ -96,7 +96,11 @@ async function AdminSpielerEditContent({
         vorname: spieler.vorname,
         nachname: spieler.nachname,
         inactive_since: spieler.inactive_since,
+        geburtsdatum: spieler.geburtsdatum,
       }}
+      // Off the record this page already holds: no read of its own, the memberships tier being the
+      // only one that serves the field.
+      einwilligung={spieler.einwilligung}
       saison={saison}
       teams={teams}
       // Every season's rows, not the selected season's: the erasure takes them all, so the figure it

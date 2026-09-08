@@ -1,4 +1,5 @@
 import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
@@ -40,14 +41,24 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
     return;
   }
 
+  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  const origin = frontend_config.AUTH_URL;
+
   await sendBewerbungMail({
     operation: "postEinwilligung",
-    recipients: [{ address: antwort.ansprechperson_email, rollenText: rollenText(antwort.ansprechperson_rollen) }],
+    // The token is spent by the time this runs, so the same body cannot be composed twice: the key
+    // guards nothing here and would refuse a genuine second answer from the paired seat.
+    auftrag: { bewerbungId: antwort.bewerbung_id, anlass: vollstaendig ? "vollstaendig" : "widerspruch" },
+    recipients: [
+      { address: antwort.ansprechperson_email, rollen: antwort.ansprechperson_rollen, rollenText: rollenText(antwort.ansprechperson_rollen) },
+    ],
     buildMail: (rollen) =>
       vollstaendig
-        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, rollenText: rollen })
+        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, origin: origin, rollenText: rollen })
         : buildBewerbungAblehnungEmail({
             saisonId: antwort.saison_id,
+            origin: origin,
             rollenText: rollen,
             // Named off the answer rather than a second read: the decline emptied the slot this
             // came from, and nothing left in the record can say whose entry was refused.
@@ -57,6 +68,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
   });
 }
 
+// A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
 /**
  * POST alone, and no GET: a mail scanner fetches every link in a message, and the same-origin guard
  * cannot tell a scanner's GET from a reader's, so a link that wrote on GET would confirm for the

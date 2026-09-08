@@ -6,10 +6,12 @@ import {
   FLBewerbungEinwilligungAnsichtResponseSchema,
   FLBewerbungEinwilligungAntwortResponseSchema,
   FLBewerbungEinwilligungErneutResponseSchema,
+  FLBewerbungKontaktEmailResponseSchema,
   FLBewerbungSweepAngekuendigtResponseSchema,
   FLBewerbungSweepLoeschenResponseSchema,
   FLBewerbungSweepResponseSchema,
   FLBewerbungSweepSaisonsResponseSchema,
+  FLBewerbungZustellungResponseSchema,
   FLPostBewerbungResponseSchema,
 } from "./schemas";
 
@@ -23,12 +25,17 @@ import type {
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungKontaktEmailPayload,
+  FLBewerbungKontaktEmailResponse,
   FLBewerbungSweepAngekuendigtPayload,
   FLBewerbungSweepAngekuendigtResponse,
   FLBewerbungSweepLoeschenPayload,
   FLBewerbungSweepLoeschenResponse,
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
+  FLBewerbungZustellungAngenommenPayload,
+  FLBewerbungZustellungEreignisPayload,
+  FLBewerbungZustellungResponse,
   FLEinwilligungErneutPayload,
   FLPostBewerbungPayload,
   FLPostBewerbungResponse,
@@ -108,6 +115,39 @@ export async function erneutSendenEinwilligung({ id, rolle }: FLEinwilligungErne
       authType: "admin",
     },
   );
+}
+
+/** **The only field of a submitted application an administrator may move**, answered with a link the caller mails to it. */
+export async function korrigierenKontaktEmail({ id, rolle, email }: FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
+  return apiClient<FLBewerbungKontaktEmailResponse>(`/bewerbungen/${id}/kontakte/${rolle}/email`, FLBewerbungKontaktEmailResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify({ email: email }),
+  });
+}
+
+/**
+ * The system tier, not admin: a delivery event carries no session, and the send sites reporting an
+ * acceptance include two public route handlers and a timer.
+ */
+export async function meldeZustellungAngenommen(payload: FLBewerbungZustellungAngenommenPayload): Promise<FLBewerbungZustellungResponse> {
+  return apiClient<FLBewerbungZustellungResponse>("/bewerbungen/zustellung/angenommen", FLBewerbungZustellungResponseSchema, {
+    method: "POST",
+    authType: "system",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Its own endpoint beside the acceptance above, because the two are judged differently: an
+ * acceptance is taken whatever is stored, and an event only where it beats what the seat holds.
+ */
+export async function meldeZustellEreignis(payload: FLBewerbungZustellungEreignisPayload): Promise<FLBewerbungZustellungResponse> {
+  return apiClient<FLBewerbungZustellungResponse>("/bewerbungen/zustellung", FLBewerbungZustellungResponseSchema, {
+    method: "POST",
+    authType: "system",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**

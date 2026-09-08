@@ -16,6 +16,8 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
 | [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
 | [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
+| [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                   | The one call that answers it, and what each answer means       |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
 
 ---
 
@@ -154,49 +156,61 @@ then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
 serves), then `--check` again.
 
-**A field that is RENAMED is the one case where the backfill cannot precede the validator, and the
-`aktionen` column `trace_id` is that case.** The validator is attached strict
-(`fl_backend/app/core/constraints.py :: _apply_validator`), and the previous one listed the old name
-under `required`, so a `$rename` run under it produces a document missing a required field and is
-refused for every row; the same strictness refuses an erasure's `$set` over a row the NEW validator
-finds invalid ([`../backend/spec.md`](../backend/spec.md) I42), which is why the rename cannot wait
-either. There is no migration runner in this repository; the steps are run by hand, from the same
-container recipe as `--check` above, in this order:
+**A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
+validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
+previous one lists the old name under `required`, so a `$rename` run under it produces a document
+missing a required field and is refused for every row; the same strictness refuses an erasure's
+`$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
+which is why the rename cannot wait either. **This repository holds no migration runner and no
+migration**: the command belongs to the change that needs it and is run by hand against the
+database, so what is written here is the order alone.
 
-1. `--check` from the new checkout while the old image still serves — every `aktionen` row is
-   reported as missing `trace_id`, which is the confirmation that the rename is owed rather than a
-   finding to fix.
+1. `--check` from the new checkout while the old image still serves. Every row is reported as
+   missing the new name, which is the confirmation that the rename is owed rather than a finding to
+   fix — and it is the count step 3 is read against.
 2. Deploy. The boot attaches the new validator before the image serves.
-3. **At once**, the rename — between this step and the previous one the log page's read fails on
-   every old row and an erasure over one is refused, so type it as the deploy reports healthy:
-
-   ```bash
-   docker run --rm --network <compose-network> \
-     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-     <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; print(db.aktionen.update_many({"correlation_id": {"$exists": True}}, {"$rename": {"correlation_id": "trace_id"}}).modified_count, "rows renamed")'
-   ```
-
-   The image carries pymongo and no `mongosh`, which is why this is a Python one-liner, and it builds
-   no `BackendConfig`, which is why only the two real values are passed; `$rename` is atomic per
-   document, so no row is ever seen holding both names or neither. A count below the rows step 1
-   reported means the update stopped at a row the new validator refuses for a reason of its own —
-   `update_many` is ordered — so repair the row the raised error names and run the same command
-   again, whose filter skips every row already renamed.
-
+3. **At once**, the rename. Between this step and the previous one every read of the renamed field
+   fails and an erasure over such a row is refused, so type it as the deploy reports healthy.
 4. `--check` again: clean.
-5. Drop the index the previous name held, by hand — `create_index` refuses a name held at different
-   options and creates nothing under a name it does not declare, so the boot leaves it standing
-   forever:
+5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
+   different options and creates nothing under a name it does not declare, so the boot leaves the old
+   one standing forever.
 
-   ```bash
-   docker run --rm --network <compose-network> \
-     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-     <backend-image> python -c 'import os; from pymongo import MongoClient; MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]].aktionen.drop_index("aktionen_correlation_id")'
-   ```
+**Four things decide whether the command typed at step 3 is the right one.**
+
+- **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
+  one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
+  than `--check`'s seven.
+- **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
+- **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
+  new validator refuses for a reason of its own. Repair the row the raised error names and run again:
+  a filter on the old name's `$exists` skips every row already moved, which is what makes the command
+  re-runnable rather than a thing to get right once.
+- **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
+  whole document where a segment has to traverse a null —
+  `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
+  three `kontakte` seats moves rows until it meets the first club holding one seat and not another
+  and then stops, the earlier rows moved and the later ones not, inside the window step 3 exists to
+  keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
+  a document matching that filter necessarily holding the segment. Measured against a copy of
+  production, 2026-09-08.
 
 The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
 window for reads and erasures and opens a worse one: every recorded write of the still-serving old
 image is refused until the new image is up, because it writes the old name.
+
+**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says**, and
+what it costs is worth knowing before the deploy rather than during it.
+`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
+editor, a club's season panel and the whole application queue answer 500 on every stored row until
+the rename lands. A junction contacts save over an already-confirmed seat raises too,
+`fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
+contact person's own confirmation link still OPENS**, serving no contact record
+(`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
+refused with everything else, so a person who confirms or objects in that window is told nothing
+landed. Every public club read keeps working, the junction join withholding the block from the base
+tier ([`../backend/spec.md`](../backend/spec.md) I50).
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
@@ -290,29 +304,29 @@ filtered one, so a search or a facet cannot take the mark off a pair
 truncation boundary is not marked, and the notice says plainly that which pair went unmarked is not knowable
 from the page. Treat duplicate marking as unreliable for as long as the notice stands.
 
-**The facet counts are the second thing to distrust.** They count the loaded rows alone, so a facet reading
-zero means zero among what came back rather than zero in the queue.
+**The facet counts are the second thing to distrust, the status one excepted.** Every other facet counts the
+loaded rows alone, so a zero means zero among what came back rather than zero in the queue; the status counts
+come from the server and hold whatever the read was cut to.
 
 **Reversing the read is the recovery the page offers, and the only one.** The default order is newest first,
 so what a cut-short answer keeps is the newest rows and what it drops is the oldest — which is exactly where
 applications submitted before a flood sit. The notice names which end is loaded and links to the other, the
 link reading `die ältesten zuerst laden` on a default view
 (`fl_frontend/src/features/bewerbungen/utils.ts :: leserichtungHref`, with `:: parseLeserichtung` reading the
-`order` parameter back and treating anything unexpected as the default). The page sends `order` and nothing
-else (`fl_frontend/src/app/admin/bewerbungen/page.tsx`).
+`order` parameter back and treating anything unexpected as the default). The page sends `order` and the status the
+bar selects (`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`).
 
 **The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
 Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
 reduce how many are.
 
-**Narrowing by season or status is not offered, and that is a finding rather than an omission.** The read
-accepts both (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenFilterParams`), but neither
-separates a flood from genuine applications: a submission is admitted only while a season's window is open
-(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`), so a flood lands in the season the
-public form points at, and the server sets `status` on write, so every flooded row is `eingereicht`. Both
-facets would therefore select the flood itself. Reaching those parameters anyway would mean a backend call,
-and the edge carries exactly one backend path (`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it
-would have to be made on the server against the backend container. Nothing in this repository wraps that.
+**Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
+flooded row is `eingereicht` and the queue's own default already selects them; season narrowing is not
+offered and would not separate a flood either, a submission being admitted only while one season's window
+is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
+would mean a backend call, and the edge carries exactly one backend path
+(`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it would have to be made on the server against
+the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
@@ -647,3 +661,45 @@ That path restores IMAGES, and what would be wrong here is the topology: only th
 puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
 applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
 for it to restore in any case (§1).
+
+## 9. Checking that the retention sweep has run
+
+**One call answers it**, on the system key, against the origin rather than through the tunnel:
+
+    curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
+
+**`sweep_gelaufen_am` is the day the last pass ran, and it is today or yesterday on a healthy
+stack.** A pass that reminds nobody and deletes nothing records it exactly as a busy one does
+([`spec.md`](spec.md) §1.1), so the date is the answer and the absence of log lines is not.
+
+**Null means no pass has ever run against this database**, which on production is one of the ways
+[`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off, `fl_frontend/src/instrumentation.ts :: register` not reached, or
+a build that is not a production one. Check the frontend container's environment and its startup
+before looking at the backend.
+
+**A date more than a day old means the timer stopped**: the frontend process holds it
+([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
+frontend service arms a fresh one, and the clocks are date-selected, so the pass that follows does
+whatever the missed days owed.
+
+## 10. The mail provider's dashboard
+
+**None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
+are taken by hand in the mail provider's own console; step 3 is a line in the server's environment
+file, and it is the one that stops the frontend booting.
+
+1. Create an endpoint at `https://<the league's domain>/api/mail/zustellung`.
+2. Subscribe exactly six events -- `email.delivered`, `email.bounced`, `email.complained`,
+   `email.suppressed`, `email.failed` and `email.delivery_delayed` -- and **neither `email.opened`
+   nor `email.clicked`**, which the published notice promises are not measured
+   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
+3. Copy the signing secret into the frontend's environment as `RESEND_WEBHOOK_SECRET`. **It begins
+   `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
+   the boot check does not, deliberately -- refusing at start beats answering 400 to every event.
+4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
+   step 2.
+
+**The failure mode is silent and then abrupt.** About thirty-two hours of non-200 answers disables
+the endpoint and notifies the account; nothing in the product reports it, and re-enabling is done
+here by hand. A frontend that boots without the secret crash-loops rather than answering, which is
+the boot check doing its job.

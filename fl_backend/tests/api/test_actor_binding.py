@@ -244,12 +244,15 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen/einwilligung", "POST"),
 ]
 
-# The retention sweep's writes, which the application makes to itself on the system key: no session
-# exists to name an administrator, and `SYSTEM` is the truthful actor rather than a fallback.
+# The writes the application makes to itself on the system key -- the retention sweep's, and the two
+# a delivery report reaches: no session exists to name an administrator, and `SYSTEM` is the
+# truthful actor rather than a fallback.
 SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "POST"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "POST"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "POST"),
+    ("/api/v0/bewerbungen/zustellung", "POST"),
+    ("/api/v0/bewerbungen/zustellung/angenommen", "POST"),
 ]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.

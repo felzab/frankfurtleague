@@ -6,7 +6,12 @@ import { describe, it } from "node:test";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { BEWERBUNG_STUFENGROESSE_MAX, BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
-import { FLBewerbungTrikotFarbenResponseSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
+import {
+  FLBewerbungKontaktEmailPayloadSchema,
+  FLBewerbungTrikotFarbenResponseSchema,
+  FLPostBewerbungPayloadSchema,
+  gleicheAdresse,
+} from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
@@ -558,5 +563,39 @@ describe("the squad question asks for one level in both halves", () => {
     assert.ok(refusal !== "", "an unanswered squad field is not refused, so there is nothing to compare");
     assert.match(label, /Verbandsliga/, "the label dropped the level, leaving „im Verein“ to be read as breadth");
     assert.match(refusal, /Verbandsliga/, "the refusal dropped the level the label names");
+  });
+});
+
+describe("the one field of a submitted application an administrator may move", () => {
+  const KORREKTUR = { id: "6890a1b2c3d4e5f607190001", rolle: "ansprechperson" as const, email: "erika@schule.de" };
+
+  const refusalFor = (payload: unknown): Record<string, string> => {
+    const parsed = FLBewerbungKontaktEmailPayloadSchema.safeParse(payload);
+
+    return parsed.success ? {} : toFieldErrors(parsed.error);
+  };
+
+  it("takes an application, a seat and an address, and refuses any other key", () => {
+    assert.deepEqual(refusalFor(KORREKTUR), {});
+    assert.deepEqual(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...KORREKTUR, vorname: "Erika" })), ["id", "rolle", "email"]);
+  });
+
+  /* One address is judged alike wherever it is typed: a sentence of this schema's own would tell an
+     administrator something different from what the school was told about the same value. */
+  it("refuses a malformed address in the submission's own words", () => {
+    assert.equal(refusalFor({ ...KORREKTUR, email: "erika@" })["email"], "Bitte gib eine gültige E-Mail-Adresse ein.");
+    assert.match(refusalFor({ ...KORREKTUR, email: `${"e".repeat(300)}@schule.de` })["email"] ?? "", /^Die E-Mail-Adresse darf höchstens /);
+  });
+
+  it("refuses an empty address rather than storing a seat nothing can reach", () => {
+    assert.ok(refusalFor({ ...KORREKTUR, email: "" })["email"] !== undefined);
+  });
+
+  /* Exported for the editor, which closes its own press on an address that has not moved: two
+     spellings of one rule would let a press through that the submission's own comparison refuses. */
+  it("compares two spellings of one address the way the submission does", () => {
+    assert.equal(gleicheAdresse(" Erika@Schule.de ", "erika@schule.de"), true);
+    assert.equal(gleicheAdresse("erika@schule.de", "mira@schule.de"), false);
+    assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would close the press on a seat that has none");
   });
 });

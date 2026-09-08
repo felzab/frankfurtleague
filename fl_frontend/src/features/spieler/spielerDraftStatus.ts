@@ -1,4 +1,5 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import { rolleLabel } from "./constants";
 
@@ -14,6 +15,7 @@ import type { SpielerTeamOption } from "./types";
 export type FLSpielerDraftFields = {
   vorname: string;
   nachname: string;
+  geburtsdatum: string | null;
   membership: {
     team_id: string | null;
     nummer: string;
@@ -31,6 +33,14 @@ export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] = [
   { path: "vorname", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.vorname) },
   { path: "nachname", label: "Nachname", group: "Person", read: (source) => emptyAsNull(source.nachname) },
+  {
+    path: "geburtsdatum",
+    label: "Geburtsdatum",
+    group: "Person",
+    // Formatted, as every sibling rail is: the `DatePicker` beside this row shows the German day,
+    // and a change row quoting the stored ISO string is one nobody can check against the control.
+    read: (source) => (source.geburtsdatum === null ? null : formatSpielDatum(source.geburtsdatum)),
+  },
 ];
 
 /** Built per call: `team_id` needs the season's team list, since a change row showing an id is one nobody can check. */

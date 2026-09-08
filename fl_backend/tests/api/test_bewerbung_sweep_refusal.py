@@ -7,7 +7,9 @@ from app.api.bewerbungen.schemas import FLBewerbungSweepLoeschenPayload
 from app.api.bewerbungen.services import (
     KONTAKT_SEATS,
     TOKEN_HASH_FIELDS,
+    ZUSTELLUNG_ABGEWIESEN,
     acceptance_erasure_is_due,
+    announcement_is_undeliverable,
     ansprechperson_mailbox,
     build_token_filter,
     compose_bestaetigungen,
@@ -48,7 +50,7 @@ def person(vorname: str, *, email: str | None = None, bestaetigt_am: str | None 
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ" if bestaetigt_am is None else "person",
+            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
@@ -70,6 +72,18 @@ def bestaetigungen(*, verschickt_am: str = MAILED_ON_THE_MARK, **entries: Any) -
     """Three live entries mailed on one day, any of them replaced by a case's own."""
 
     return {**compose_bestaetigungen(hashes=HASHES, today=verschickt_am), **entries}
+
+
+def zustellung(stand: str) -> dict[str, Any]:
+    return {"nachricht_id": "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794", "stand": stand, "grund": None, "am": "2026-03-29T10:00:00.000000+00:00"}
+
+
+def refusing(seat: str, *, stand: str = "unzustellbar") -> dict[str, Any]:
+    """The three entries with the provider refusing the last message to one of them."""
+
+    block = bestaetigungen()
+
+    return {**block, seat: {**block[seat], "zustellung": zustellung(stand)}}
 
 
 def application(**overrides: Any) -> dict[str, Any]:
@@ -187,6 +201,21 @@ class TestTheReminderMark:
     def test_every_open_seat_at_its_mark_is_listed_in_declaration_order(self):
         assert reminder_seats(bewerbung_raw=application(), today=TODAY) == list(KONTAKT_SEATS)
 
+    @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
+    def test_a_seat_the_provider_refuses_is_not_chased(self, stand: str):
+        """The one reminder a seat gets is spent on nobody where the address is already known to reject it."""
+
+        assert reminder_seats(bewerbung_raw=application(bestaetigungen=refusing("ansprechperson", stand=stand)), today=TODAY) == [
+            "trainer",
+            "stellvertretung",
+        ]
+
+    @pytest.mark.parametrize("stand", ["angenommen", "zugestellt", "verzoegert"])
+    def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):
+        """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
+
+        assert seat_reminder_is_due(kontakte=kontakte(), bestaetigungen=refusing("trainer", stand=stand), seat="trainer", today=TODAY)
+
 
 class TestOneMessagePerMailbox:
     """Grouped as the first mail groups: the local part byte for byte, the domain without case.
@@ -293,6 +322,45 @@ class TestTheFourteenDayClock:
     @pytest.mark.parametrize("status", ["abgelehnt", "angenommen"])
     def test_a_decided_application_is_another_clocks(self, status: str):
         assert not deletion_is_due(bewerbung_raw=application(status=status, bestaetigungsfrist=YESTERDAY), today=TODAY)
+
+
+class TestAnApplicationWhoseNoticeCannotArrive:
+    """Held past the deadline instead of erased, so an administrator can correct the address.
+
+    The wrong answer reads exactly like the right one: an application erased on a stamp saying a
+    notice went out that never did.
+    """
+
+    @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
+    def test_a_refused_ansprechperson_holds_the_application(self, stand: str):
+        overdue = application(bestaetigungsfrist=YESTERDAY, bestaetigungen=refusing("ansprechperson", stand=stand))
+
+        assert announcement_is_undeliverable(bewerbung_raw=overdue)
+        assert not deletion_is_due(bewerbung_raw=overdue, today=TODAY)
+
+    @pytest.mark.parametrize("stand", ["angenommen", "zugestellt", "verzoegert"])
+    def test_a_state_a_later_message_may_still_repair_does_not_hold_it(self, stand: str):
+        overdue = application(bestaetigungsfrist=YESTERDAY, bestaetigungen=refusing("ansprechperson", stand=stand))
+
+        assert deletion_is_due(bewerbung_raw=overdue, today=TODAY)
+
+    @pytest.mark.parametrize("seat", ["trainer", "stellvertretung"])
+    def test_another_seat_being_refused_holds_nothing(self, seat: str):
+        """The notice goes to the submitter, and it is that seat's address the clock turns on."""
+
+        overdue = application(bestaetigungsfrist=YESTERDAY, bestaetigungen=refusing(seat))
+
+        assert deletion_is_due(bewerbung_raw=overdue, today=TODAY)
+
+    def test_an_ansprechperson_who_erased_their_own_entry_is_still_erased_with_no_notice(self):
+        """The exception this must not swallow: an emptied seat leaves no mailbox to tell, which is not the same as a refused address."""
+
+        erased = application(
+            bestaetigungsfrist=YESTERDAY, kontakte=kontakte(ansprechperson=None), bestaetigungen=bestaetigungen(ansprechperson=None)
+        )
+
+        assert not announcement_is_undeliverable(bewerbung_raw=erased)
+        assert deletion_is_due(bewerbung_raw=erased, today=TODAY)
 
 
 class TestTheOneMonthClock:

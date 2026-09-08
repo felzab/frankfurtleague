@@ -112,7 +112,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
 
     created = await post_spieler(
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
-        spieler_data=FLPostSpielerPayload(vorname=vorname, nachname=f"{vorname}-Mustermann"),
+        spieler_data=FLPostSpielerPayload(vorname=vorname, nachname=f"{vorname}-Mustermann", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
         today=TODAY,
     )
@@ -146,7 +146,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
     )
     await patch_spieler(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau"),
+        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
     )
 
@@ -160,7 +160,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     """A person created, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
 
     created = await post_spieler(
-        spieler_data=FLPostSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Mustermann"),
+        spieler_data=FLPostSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Mustermann", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
         today=TODAY,
     )
@@ -168,7 +168,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
 
     await patch_spieler(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau"),
+        spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
     )
     await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)

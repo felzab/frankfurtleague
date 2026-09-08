@@ -289,10 +289,39 @@ HELPER_ROW: Final = "| `quietly` | Runs a command with both streams captured |"
 ERROR_CODES: Final = "docs/logging/error-codes.md"
 BACKEND_CODE: Final = "REQ-SAMPLE-001"
 FRONTEND_CODE: Final = "FE-SAMPLE-001"
-BACKEND_ROW: Final = "| `" + BACKEND_CODE + "` | The sample module refused a write |"
-FRONTEND_ROW: Final = "| `" + FRONTEND_CODE + "` | The sample component could not read the answer |"
 BACKEND_RAISE: Final = 'RAISED = "' + BACKEND_CODE + '"'
 FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
+# The rule register the wording column's population is derived from, at the path the checker names.
+DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
+# One declared rule per arm the wording column takes, so a plant breaking one leaves the rest
+# answering. The first is the code the row comparison above already turns on.
+WORDED_CODES: Final[tuple[str, ...]] = (BACKEND_CODE, "REQ-SAMPLE-002", "REQ-SAMPLE-003", "REQ-SAMPLE-004", "REQ-SAMPLE-005")
+# The module wording them, and one naming a code in a comment alone: a citation resolved by
+# presence would land on the second, which is what the comment arm below refuses.
+REFUSAL_SAMPLE: Final = "fl_frontend/src/refusals.ts"
+REMARK_SAMPLE: Final = "fl_frontend/src/remarks.ts"
+MAPPER_CITATION: Final = "`" + REFUSAL_SAMPLE + " :: mapSampleRefusal`"
+# The second frontend row exists for the boundary arm alone: the first is the anchor two row-
+# comparison plants already grow rows beneath.
+SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
+WORDED_MEANING: Final = "The sample module refused another write"
+SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
+
+
+def _code_row(code: str, meaning: str, worded: str | None) -> str:
+    """One register row, its wording cell dropped where None -- the shape a row without the column keeps."""
+    return "| `" + code + "` | " + meaning + (" |" if worded is None else " | " + worded + " |")
+
+
+def _refusal_arm(code: str) -> str:
+    """A reader excluding a comment by substring, not by column, takes the answer beside a remark with it."""
+    remark = " // " + code + " is the arm this line answers" if code == WORDED_CODES[1] else ""
+    return '    "' + code + '",' + remark
+
+
+BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write", MAPPER_CITATION)
+FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer", "—")
+SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, "—")
 # One entry per agreement arm, so a plant breaking one leaves the others answering. They ascend as
 # the page's own listings do.
 STATUS_ENTRY: Final = "bqxs-4dtn"
@@ -687,12 +716,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         ERROR_CODES: _page(
             _heading(1, "Logging — error codes"),
             "",
-            "**Purpose:** every code either service raises.",
+            "**Purpose:** every code either service raises, and where a declared rule is worded.",
             "",
-            "| Code | Meaning |",
-            "| --- | --- |",
+            "| Code | Meaning | Worded by |",
+            "| --- | --- | --- |",
             BACKEND_ROW,
+            *(_code_row(code, WORDED_MEANING, MAPPER_CITATION) for code in WORDED_CODES[1:]),
             FRONTEND_ROW,
+            SECOND_FRONTEND_ROW,
         ),
         OPS_SPEC: _page(
             _heading(1, "Ops — spec"),
@@ -853,8 +884,27 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         TSX_SAMPLE: _page(
             "export function Sample() {",
             FRONTEND_RAISE,
-            "  return <output>a component the corpus scans</output>;",
+            '  const gone = "' + SECOND_FRONTEND_CODE + '";',
+            "  return <output>a component the corpus scans, {gone}</output>;",
             "}",
+        ),
+        REFUSAL_SAMPLE: _page(
+            "export function mapSampleRefusal(code: string) {",
+            "  return [",
+            *(_refusal_arm(code) for code in WORDED_CODES),
+            "  ].includes(code);",
+            "}",
+        ),
+        REMARK_SAMPLE: _page(
+            "// " + WORDED_CODES[-1] + " is named here and answered nowhere in this module.",
+            "export const REMARKED = 1;",
+        ),
+        DOMAIN_REGISTER: _page(
+            QUOTES + "BACKEND · the rule register a refusal code's wording is cited against." + QUOTES,
+            "",
+            "RULES: tuple[Rule, ...] = (",
+            *('    Rule(code="' + code + '"),' for code in WORDED_CODES),
+            ")",
         ),
         SCHEME: _scheme_page(),
         APP_GLOBALS: _globals_page(),
@@ -1407,20 +1457,32 @@ def _plant_output_verbs() -> None:
     _replace(OPS_SPEC, OUTPUT_VERB_ROW, OUTPUT_VERB_ROW.replace("`step`", "step"))
 
 
-def _plant_error_codes() -> None:
-    """Both directions, and the prefix split the whole shape rests on.
+def _reword(code: str, cell: str | None) -> None:
+    """One declared row's wording cell replaced, the row found by its code rather than by position."""
+    _replace(ERROR_CODES, _code_row(code, WORDED_MEANING, MAPPER_CITATION), _code_row(code, WORDED_MEANING, cell))
 
-    A row spelled only in the other tree is what a merged population would pass: it satisfies the
-    row from a spelling the area's own tree never carries.
-    """
+
+def _plant_error_codes() -> None:
+    """Both directions, the prefix split the whole shape rests on, and every way a citation misses."""
     # The register losing a row a tree still raises, and each tree raising a code with no row.
     _drop(ERROR_CODES, BACKEND_ROW)
     _append(SAMPLE, 'OTHER = "REQ-OTHER-002"')
     _append(TSX_SAMPLE, 'const other = ["FE-OTHER-002"];')
-    # A row no tree spells at all, and one only the wrong tree spells.
-    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `SRV-SAMPLE-009` | A code neither tree raises |")
-    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `FE-CROSS-003` | A code only the backend tree spells |")
+    # A row no tree spells at all, and one only the wrong tree spells -- which a merged population
+    # would pass, satisfying the row from a spelling the area's own tree never carries.
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `SRV-SAMPLE-009` | A code neither tree raises | — |")
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `FE-CROSS-003` | A code only the backend tree spells | — |")
     _append(SAMPLE, 'CROSSED = "FE-CROSS-003"')
+    # A row losing the column, which a reader keyed on cell position would take from `Meaning`.
+    _reword(WORDED_CODES[1], None)
+    # Prose where a citation belongs; a citation off the surface that words a refusal at all; and
+    # one naming a module that mentions the code without answering it.
+    _reword(WORDED_CODES[2], "the sample mapper")
+    _reword(WORDED_CODES[3], "`" + DOMAIN_REGISTER + " :: RULES`")
+    _reword(WORDED_CODES[4], "`" + REMARK_SAMPLE + " :: REMARKED`")
+    # The boundary: a row no rule declares, carrying a citation rather than the em dash saying
+    # nothing is owed there.
+    _replace(ERROR_CODES, SECOND_FRONTEND_ROW, _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, MAPPER_CITATION))
 
 
 def _plant_compose_entry() -> None:
@@ -1864,7 +1926,7 @@ CASES: Final[tuple[Case, ...]] = (
     # Six on the registry: the five planted rows, and `glossary-entry`, whose one claiming field
     # the page-side plant names an absent check in.
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 6), _plant_enforced_by, _undo_enforced_by),
-    Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 5), _plant_error_codes),
+    Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 10), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _fails("history", NOTES, NOTICE_FILE, SECOND_SAMPLE), _plant_history),

@@ -34,7 +34,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
        * `from` or `apiKey` here configures a path nothing reads.
        */
       async sendVerificationRequest({ identifier: to, url }) {
-        const { subject, html, text } = buildMagicLinkEmail(url);
+        // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+        // production must not mail production links (`docs/frontend/spec.md :: I186`).
+        const { subject, html, text } = buildMagicLinkEmail(url, frontend_config.AUTH_URL);
 
         await sendMail({ to, subject, html, text });
       },

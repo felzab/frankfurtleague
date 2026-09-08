@@ -153,6 +153,20 @@ the public route handlers below can, and it answers a neutral sentence rather th
 carrying a verdict — a distinguishable refusal there is a membership oracle. `signOutAction` ends
 the session it would otherwise check.
 
+**The sign-in form's send carries a boundary of its own**
+(`fl_frontend/src/features/auth/components/ui/SignInActionFallback.tsx`, wired by `catchError` in
+`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`): an edge answering that POST with
+anything but a Flight stream throws before any application code runs
+([`docs/ops/spec.md`](../ops/spec.md) I177), and a route-segment `error.tsx` would answer a send the
+visitor can simply repeat with the whole page. **Nothing of the response reaches the panel** — a
+rejected server action arrives carrying no status and no body — so it says the answer was not ours,
+offers the send again, and names no cause. The typed address is held outside the boundary, every
+mount inside it being replaced by the reset. **Nothing else about a sign-in is held in the page**:
+`redirectTo` is a literal `handleSignIn` re-supplies on every POST and reaches the browser only
+inside the emailed link's own `callbackUrl`, which outranks the cookie, and next-auth's server-side
+`signIn` skips the CSRF check, so no cookie is owed before the POST and a reload of `/signin` costs
+nothing but what was typed.
+
 **That `getAdminSession()` call is also what makes the write attributable**: it records the
 session's address in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it
 as `X-FL-Actor` on admin-tier calls alone — the ordering is load-bearing. A write reaching the
@@ -183,6 +197,32 @@ write may happen ([`docs/backend/spec.md`](../backend/spec.md) §1.1). The confi
 credential is the emailed token, sent in the body: the link's GET writes nothing, because a mail
 scanner's GET and a reader's are one request to the same-origin guard.
 
+**The provider's delivery webhook (`fl_frontend/src/app/api/mail/zustellung/route.ts`) takes neither
+spine, and is the one route handler here that answers a status a caller reads.**
+`handlePublicRequest` always answers 200 with the outcome in the body, which is right for a browser
+form and wrong for a caller that retries on non-200 — it would tell the provider that a forgery and
+an unreachable backend were both accepted. Its `sec-fetch-site` guard means nothing for a
+server-to-server POST besides. Its own credential is the Svix signature over the raw bytes, which is
+why the handler reads `request.text()` rather than `request.json()`: the signature is over the exact
+bytes and a re-serialised body verifies against nothing.
+
+**What puts a public write in a route handler is the answer it has to tell apart, never the absent
+session**: `handleSignIn` authorizes nobody either and stays a server action, one neutral sentence
+being its whole answer, so an unreadable one costs it nothing. A public write owes two answers: a
+refusal belonging at a control, and an answer that never reached this application at all, the edge's
+own 429 among them. Only a `fetch()` caller can read the second
+([`docs/ops/spec.md`](../ops/spec.md) §1.3, I177).
+**`fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm` is where that reading is done**,
+as `handlePublicRequest` is where the answering is: one place tells a rate limit, a challenge and an
+unparseable body from an outcome this application decided, so no form has to recognise one to report
+it. The application form has a second reason the confirmation page does not: its page sits on a
+dynamic segment, so a server action there would post to no path an exact `location` could meter,
+which `/signin` and `/bestaetigung` each have. **The Kürzel check
+(`fl_frontend/src/app/api/bewerbung/kuerzel/route.ts`) is a route handler on the first reason and
+stays outside that helper**: it is a read that refuses nothing, so an answer it cannot use costs the
+applicant a courtesy rather than a submit, and the helper's sentence would stand beside the hint its
+own field is already showing.
+
 **The eight share two modules and spell neither per slice**, so a rule about an undo is written
 once and every editor gets it. `fl_frontend/src/shared/utils/undoDispatch.ts` `fetch`es the route
 rather than dispatching an action, the editor being unmounted by the time the press lands, and
@@ -192,7 +232,7 @@ the replay, and nothing else. **Both answer 200 with the outcome in the body for
 case**, a non-2xx landing in the dispatch's rejection arm, which blames the transport and sends the
 admin to check a connection that is fine.
 
-**Five of the eight undo replays can be refused on the way back**, and each answers in German out of
+**Seven of the eight undo replays can be refused on the way back**, and each answers in German out of
 its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal, and the toast reports the change as still
 standing — which is correct. The contacts undo reaches `revalidateTag` not at all — the one place the
@@ -449,6 +489,7 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                          |
 | `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                 |
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
+| `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                            |
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
@@ -476,6 +517,12 @@ public origin reaches FastAPI on the liveness path alone
 stops that half-alive shape reaching a page. `AUTH_TRUST_HOST` is deliberately **not** declared:
 `@auth/core` reads `AUTH_URL` first in the same chain, and `AUTH_URL` is mandatory, so the variable
 can never be reached.
+
+**`AUTH_URL` is also the origin every message's links are built on** (I186): repointing it moves the
+sign-in link, the confirmation links and each close's legal links together, which is what lets a
+stack mail links back into itself. The published origin is the module constant
+`fl_frontend/src/core/brand.ts :: SITE_URL` and no variable moves it, so a deploy that repoints
+`AUTH_URL` leaves the canonical, the crawl policy and the sitemap where they are.
 
 ### 1.8 Lint rules that encode a decision
 
@@ -605,6 +652,16 @@ does not publish type-checks, lints, builds and answers 404 only once someone op
 undeclared query parameter is not refused but dropped, so a filter renamed on one side alone narrows
 nothing and the page still renders. It widens I17 by nothing, deliberately, the Zod mirror being
 hand-written (§4).
+
+**The tier each call declares is compared against the operation's own** (I191). A wrong tier is not
+silent and not survivable: `fl_backend/app/core/security.py :: verify_api_key` builds each guard
+around exactly one key, so an over-declared call is refused 401 like any other and the page it
+serves breaks. What the comparison buys is catching that before a deploy rather than after, and
+across every call rather than the slices somebody wrote an assertion for; a stronger key than the
+route asks for also widens what a bug on that call can reach. A call naming no `authType` is compared under the client's own
+fallback, read off `fl_frontend/src/core/api.ts` rather than restated here, and every published
+operation has to name a tier the reader can spell: one that named none would leave the comparison
+holding of nothing.
 
 **`fl_frontend/src/core/apiRequests.test.ts` is blind to:**
 
@@ -798,6 +855,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: a FIELD message stays one
   sentence about the value, a FORM message is two with the action second, and field messages are
   the one place "Bitte" stays — a field nudges toward input, a banner refuses it.
+- **A message under the control that is itself the way out needs no repair sentence** (my rule,
+  2026-09-06). Naming a picker the reader is already looking at repairs nothing, so the second
+  sentence would restate the control rather than route to one.
 - **The FORM shape is built rather than written**:
   `fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` composes the two sentences from a
   reason and a repair, and every `actions.ts` with a write path reaches it. The panel a repair
@@ -886,7 +946,8 @@ state each answer a question the reader has already been made to ask. What binds
 
 - **A refusal names the repair wherever one exists.** The FORM shape above is its floor, not its
   ceiling, and diagnostic 8 does not reach it: naming the panel that holds the repair IS the
-  repair. **Where the closure is a boundary with no route back**, the refusal says so and stops.
+  repair. **Where the closure is a boundary with no route back**, the refusal says so and stops,
+  and the field register above carries the second exception.
 - **A banner names the one thing the reader would otherwise get wrong about the act in front of
   them**, and the register rule binds its body — a conditional chain is a specification wherever it
   is written.
@@ -977,6 +1038,14 @@ The consequences worth knowing before editing metadata:
   title and description.
 - **No route ships a `keywords` array, and none is added for a new route** — the engines ignore it
   or read it as a spam signal; ranking terms belong in the title and description.
+- **`metadataBase`, the crawl policy and the sitemap keep `fl_frontend/src/core/brand.ts :: SITE_URL`
+  and never read an origin from the environment** — one a misconfigured deploy can put in front of a
+  crawler — which is why a message's links follow a setting of their own (I186).
+- **`/bewerbung/[saison_id]` is the one route raising `notFound()` from its metadata**, its season
+  being what a visitor types: the read answering whether that season exists runs there rather than
+  inside the boundary the page body's own read sits in. A season that exists and records no
+  application window is served `robots: { index: false }` instead, that page carrying one sentence
+  rather than content.
 
 ### 1.14 The shared editor surface
 
@@ -1345,6 +1414,10 @@ holds whether a conditional block renders or not
 | I172 | **The block's left edge is the halfway line and its right edge the goal line, so neither is drawn**                                                                                                                                        | Review, against `fl_frontend/src/shared/components/ui/BrandHero.tsx :: PitchTrace`, at the narrowest viewport                                                                                                                                                                                   |
 | I173 | **Every tab stop shows focus**: where the border-based indicator is suppressed, an outline replaces it (WCAG 2.4.7)                                                                                                                        | Review, against `fl_frontend/src/app/globals.css :: A frozen field and a closed picker`, at every suppressed border                                                                                                                                                                             |
 | I175 | **The privacy notice is linked from every public page's footer and from the public application form; the imprint from that footer**                                                                                                        | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
+| I186 | **A message's links stand on `AUTH_URL`'s origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`**: one variable behind both puts an environment-read origin before a crawler                                                           | `fl_frontend/src/core/emailShell.ts :: mailOrigin`; `fl_frontend/src/core/emailShell.test.ts` sweeps every builder's close and `fl_frontend/src/features/bewerbungen/bestaetigungLink.test.ts` every minter's origin                                                                            |
+| I191 | Every `apiClient` call declares the tier `fl_backend/openapi.json` publishes for the operation it reaches, a wrong one being a 401 no page survives                                                                                        | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                      |
+| I194 | A facet marked `narrowsTheRead` navigates on a change and is given the server's counts, so an option the server left out stays pressable                                                                                                   | `fl_frontend/src/shared/utils/facets.ts :: Facet` and `:: isFacetOptionReachable`; `fl_frontend/src/shared/utils/facets.test.ts :: the counts a server-narrowed facet is told` sweeps every hop                                                                                                 |
+| I197 | The delivery webhook answers 400 for a signature it cannot verify, 503 where the backend is unreachable or answers 5xx, and 200 for all else                                                                                               | `fl_frontend/src/app/api/mail/zustellung/route.ts`; `fl_frontend/src/features/bewerbungen/zustellung.test.ts` drives each of the three                                                                                                                                                          |
 
 ## 3. Violation → remedy
 

@@ -70,6 +70,10 @@ const server = {
   AUTH_SECRET: z.string(),
   AUTH_RESEND_KEY: z.string(),
 
+  // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
+  // the provider retries for thirty-two hours before disabling the endpoint.
+  RESEND_WEBHOOK_SECRET: z.string().startsWith("whsec_", "the signing secret Resend shows on the webhook's detail page starts with whsec_"),
+
   INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
@@ -123,6 +127,7 @@ export const frontend_config = createEnv({
     AUTH_URL: process.env.AUTH_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_RESEND_KEY: process.env.AUTH_RESEND_KEY,
+    RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
 
     INTERNAL_API_KEY_BASE: process.env.INTERNAL_API_KEY_BASE,
     INTERNAL_API_KEY_SYSTEM: process.env.INTERNAL_API_KEY_SYSTEM,

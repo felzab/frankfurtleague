@@ -39,7 +39,8 @@ class FLEinwilligung(BaseModel):
     # once, and `MIRRORED_ENUMS` reads its members off the field.
     umfang: Literal["kader_oeffentlich", "intern"]
     # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
-    # consent was collected stays distinguishable from one a person actually gave.
+    # consent was collected stays distinguishable from one a person actually gave. `volljaehrig`
+    # pins no age; the league's is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`.
     erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString
@@ -109,8 +110,10 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
-    # No default, unlike the two above: every stored row carries one after the backfill, and a
-    # default here would let a row with no consent read back as though it had been asked.
+    # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
+    geburtsdatum: CustomOptionalDateString = None
+    # No default, unlike every defaulted field above: every stored row carries one after the
+    # backfill, and a default here would let a row with no consent read back as though it had been asked.
     einwilligung: FLEinwilligung
 
 
@@ -168,6 +171,9 @@ class FLPostSpielerPayload(BaseModel):
     # Optional here and REQUIRED on the patch below: a create has nothing to overwrite, while a
     # patch that omits it would erase a surname somebody typed.
     nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None = None
+    # NULLABLE, and the caller states the null rather than omitting: no flow collects a pupil's own
+    # date yet (`app/core/domain.py :: UNENFORCED`).
+    geburtsdatum: CustomOptionalDateString
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -181,6 +187,7 @@ class FLPatchSpielerPayload(BaseModel):
 
     vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
     nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None
+    geburtsdatum: CustomOptionalDateString
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -288,6 +295,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
 
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
+    # Defaulted for `FLSpielerMembership`'s reason, over a person stored before the field existed.
+    geburtsdatum: CustomOptionalDateString = None
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
     # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
     einwilligung: FLEinwilligung | None = None

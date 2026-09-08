@@ -28,6 +28,16 @@ def _same_address(email: str) -> Mapping[str, Any]:
     return {"$regex": f"^{re.escape(email)}$", "$options": "i"}
 
 
+def _rows_naming(email: str) -> Mapping[str, Any]:
+    """The stage both pipelines below open with.
+
+    One selection and not two: a reveal listing rows the clearing does not reach confirms an erasure
+    against people it will leave standing.
+    """
+
+    return {"$or": [{f"kontakte.{slot}.email": _same_address(email)} for slot in KONTAKT_SLOTS]}
+
+
 def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
     """Every row naming this address in a slot, projected to those addresses and `bestaetigungen`.
 
@@ -36,10 +46,30 @@ def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        {"$match": {"$or": [{f"kontakte.{slot}.email": _same_address(email)} for slot in KONTAKT_SLOTS]}},
+        {"$match": _rows_naming(email)},
         # The bookkeeping block's PRESENCE rides along: the clearing nulls its seat only where the
         # block exists, since a dotted `$set` into an absent one creates a block short of its keys.
         {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}, "bestaetigungen": 1}},
+    ]
+
+
+# The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
+SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+
+
+def build_matching_seats_pipeline(email: str) -> list[Mapping[str, Any]]:
+    """The seats' names and their season.
+
+    Nothing else of the block: a confirmation answers WHO, and a read serving the records would hand
+    a fresh copy of them to whoever is about to destroy them.
+    """
+
+    return [
+        {"$match": _rows_naming(email)},
+        {"$project": {"saison_id": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in SEAT_FIELDS}}},
+        # Ordered here rather than by the reader: a reader counting seats needs one season's together,
+        # and natural order is the order the rows were written in.
+        {"$sort": {"saison_id": 1}},
     ]
 
 

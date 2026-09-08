@@ -11,6 +11,8 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAntwortResponse,
 )
 from app.api.bewerbungen.services import (
+    EINWILLIGUNG_ANSICHT_FIELDS,
+    EINWILLIGUNG_ANTWORT_FIELDS,
     ansprechperson_mailbox,
     ausstehende_seats,
     build_token_filter,
@@ -73,7 +75,7 @@ async def get_einwilligung_ansicht(
     token_hash = hash_token(ansicht_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    bewerbung_raw = await bewerbungen_collection.find_one(build_token_filter(token_hash=token_hash))
+    bewerbung_raw = await bewerbungen_collection.find_one(build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANSICHT_FIELDS)
     seat = None if bewerbung_raw is None else seat_holding(bewerbung_raw=bewerbung_raw, token_hash=token_hash)
     refuse(find_unknown_token_refusal(seat=seat))
     assert bewerbung_raw is not None and seat is not None
@@ -124,7 +126,9 @@ async def post_einwilligung(
         the session could answer a seat a decline had just emptied.
         """
 
-        bewerbung_raw = await bewerbungen_collection.find_one(build_token_filter(token_hash=token_hash), session=session)
+        bewerbung_raw = await bewerbungen_collection.find_one(
+            build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANTWORT_FIELDS, session=session
+        )
         seat = None if bewerbung_raw is None else seat_holding(bewerbung_raw=bewerbung_raw, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))
         assert bewerbung_raw is not None and seat is not None
@@ -171,6 +175,7 @@ async def post_einwilligung(
                 ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
                 geburtsdatum=geburtsdatum,
                 whatsapp=antwort_data.whatsapp,
+                bewerbung_id=bewerbung_raw["_id"],
                 saison_id=saison_id,
                 rolle=seat,
                 vorname=vorname,
@@ -204,6 +209,7 @@ async def post_einwilligung(
             ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
             geburtsdatum=None,
             whatsapp=antwort_data.whatsapp,
+            bewerbung_id=bewerbung_raw["_id"],
             saison_id=saison_id,
             rolle=seat,
             vorname=vorname,

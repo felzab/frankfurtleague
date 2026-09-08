@@ -1,4 +1,5 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
+import { frontend_config } from "@/core/config";
 import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
@@ -63,6 +64,9 @@ export async function POST(request: NextRequest) {
       const { kontakte } = parsed.data;
       const fristText = formatSpielDatum(eingang.bestaetigungsfrist);
       const seats = eingang.bestaetigungen;
+      // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
+      // production must not mail production links (`docs/frontend/spec.md :: I186`).
+      const origin = frontend_config.AUTH_URL;
 
       // Read rather than taken from the payload, which names a picked club by id alone. Empty on a
       // failed read: a message naming no school still beats no message at all.
@@ -77,7 +81,10 @@ export async function POST(request: NextRequest) {
       const verlinkt = seatsByMailbox(
         kontakte,
         Object.fromEntries(
-          BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [seat.value, bestaetigungsLink(seats[seat.value])]),
+          BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [
+            seat.value,
+            bestaetigungsLink(origin, seats[seat.value]),
+          ]),
         ),
       );
 
@@ -85,10 +92,14 @@ export async function POST(request: NextRequest) {
       // others theirs. The raw token reaches these two calls and no log line.
       await sendBewerbungLinkMail({
         operation: "postBewerbung",
+        // No idempotency key on either fan-out here: both messages carry links minted for this one
+        // submission, so no second send can ever compose the same body.
+        auftrag: { bewerbungId: eingang.created_id, anlass: "eingang" },
         recipients: verlinkt,
         buildMail: (seats) =>
           buildBewerbungBestaetigungEmail({
             saisonId: eingang.saison_id,
+            origin: origin,
             schule: schule,
             seats: seats,
             fristText: fristText,
@@ -109,16 +120,18 @@ export async function POST(request: NextRequest) {
 
       await sendBewerbungMail({
         operation: "postBewerbung",
+        auftrag: { bewerbungId: eingang.created_id, anlass: "empfang" },
         // The Ansprechperson alone: this message names every seat still outstanding, and the
         // submitter is the one person who can ask a colleague in the corridor.
         recipients: collectBewerbungEingangEmpfaenger(kontakte),
         buildMail: (rollenText) =>
           buildBewerbungEingangOffenEmail({
             saisonId: eingang.saison_id,
+            origin: origin,
             rollenText: rollenText,
             ausstehend: ausstehend,
             fristText: fristText,
-            link: bestaetigungsLink(seats.ansprechperson),
+            link: bestaetigungsLink(origin, seats.ansprechperson),
           }),
       });
 

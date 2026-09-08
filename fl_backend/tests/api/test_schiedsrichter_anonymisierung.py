@@ -11,10 +11,12 @@ from pymongo.errors import OperationFailure
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
 from app.api.schiedsrichter.services import (
+    ANONYMISATION_UNDONE_BY_AN_EDIT,
     ANONYMISED_KONTAKT,
     ANONYMISED_NAME,
     ANONYMISED_SCHIEDSRICHTER,
     KONTAKT_RE_ENTERED_MID_ANONYMISATION,
+    find_anonymisation_undo_refusal,
     holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import FLSpielSchiedsrichterField, FLSpielSchiedsrichterFieldPublic
@@ -78,6 +80,27 @@ SPIEL_OIDS: dict[ObjectId, tuple[ObjectId, ...]] = {
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6078000a1")
 SAISON_ID = "2026"
 
+PAST_SAISON_ID = "2025"
+PAST_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6078000a2")
+
+# Seeded per case rather than into the league below, whose fan-out assertions count the fixtures each
+# referee holds.
+ARCHIVED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607800014")
+
+# Read by no path here -- a referee's fan-out asks no season for its status, which is what the
+# archived case drives -- and required of any season row by the shipped validator.
+SAISON_RULES: dict[str, Any] = {
+    "win_points": 3,
+    "draw_points": 1,
+    "qualifiers_per_group": 2,
+    "number_of_groups": 4,
+    "teams_per_group": 4,
+    "tiebreak_order": "tordifferenz",
+    "max_kadergroesse": 18,
+    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+}
+
 
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
     """Every field the validator requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
@@ -132,6 +155,51 @@ def fixture_documents() -> list[dict[str, Any]]:
     ]
 
 
+def saison_document(saison_id: str, status: str) -> dict[str, Any]:
+    return {
+        "_id": saison_id,
+        "start_date": f"{saison_id}-01-01",
+        "end_date": f"{saison_id}-06-30",
+        "status": status,
+        "rules": dict(SAISON_RULES),
+    }
+
+
+async def an_archived_fixture(database: AsyncDatabase) -> None:
+    """One more of their played fixtures, in a season that is CLOSED.
+
+    Both season rows, so a fan-out that started reading a status would find one and stop at this
+    fixture rather than passing because no season exists.
+    """
+
+    await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
+    await database[Collection.SPIELE].insert_one(
+        {
+            **fixture_document(SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 4),
+            "saison_id": PAST_SAISON_ID,
+            "spieltag_id": PAST_SPIELTAG_OID,
+        }
+    )
+
+
+def a_patch(**overrides: Any) -> dict[str, Any]:
+    """A whole payload as the endpoint hands it over, defaulting to the values an anonymisation writes.
+
+    Built through the model rather than as a literal, so no case can pass over a shape the endpoint
+    cannot receive.
+    """
+
+    fields: dict[str, Any] = {
+        "name": ANONYMISED_NAME,
+        "schule": SCHULE,
+        "default_payment": DEFAULT_PAYMENT,
+        "kontakt": FLKontakt(**A_CLEARED_KONTAKT),
+        **overrides,
+    }
+
+    return FLPatchSchiedsrichterPayload(**fields).model_dump(mode="json")
+
+
 class TestTheUpdateNamesTheMembersAndNeverTheBlock:
     """The spelling the write turns on, apart from a database.
 
@@ -184,6 +252,44 @@ class TestTheGuardWeighsTheNameBesideTheDetails:
         """The control: a predicate answering `True` for every row would pass the case above."""
 
         assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": ANONYMISED_NAME})
+
+
+# The row as the anonymisation leaves it, which is the only state the undo guard has anything to say about.
+ANONYMISED_ROW: dict[str, Any] = {"kontakt": dict(A_CLEARED_KONTAKT), "name": ANONYMISED_NAME}
+
+A_NAMED_ROW: dict[str, Any] = {"kontakt": dict(KONTAKT[SCHIEDSRICHTER_OID]), "name": REFEREE_NAMES[SCHIEDSRICHTER_OID]}
+
+
+class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
+    """Each half alone gets a case wrong.
+
+    The payload alone refuses the ordinary rename this endpoint exists for, and the row alone freezes
+    an anonymised referee whose fee must stay editable while they take fixtures.
+    """
+
+    def test_a_name_put_back_onto_an_anonymised_row_is_refused(self):
+        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(name=REFEREE_NAMES[SCHIEDSRICHTER_OID]))
+
+        assert refusal is not None
+        assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
+
+    def test_a_contact_detail_put_back_is_refused_with_the_label_left_standing(self):
+        """The details are as much of the erasure as the label is, and a guard reading the name alone lets them back."""
+
+        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(kontakt=FLKontakt(**KONTAKT[SCHIEDSRICHTER_OID])))
+
+        assert refusal is not None
+        assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
+
+    def test_an_edit_leaving_what_the_anonymisation_wrote_alone_passes(self):
+        """The fee and the school are outside the erasure, and an anonymised referee still takes fixtures."""
+
+        assert find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(default_payment=DEFAULT_PAYMENT + 5)) is None
+
+    def test_the_same_restoring_payload_against_a_row_still_naming_them_passes(self):
+        """The control: without it a guard reading the payload alone would refuse every rename."""
+
+        assert find_anonymisation_undo_refusal(stored=A_NAMED_ROW, patched=a_patch(name=REFEREE_NAMES[SCHIEDSRICHTER_OID])) is None
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -617,8 +723,8 @@ async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hoo
 class TestAReEntryLandingMidAnonymisationIsRefused:
     """The referee is CLEARED already, so the second run's `$set` rewrites nothing.
 
-    A rewrite of nothing joins no write set, so a `PATCH` re-entering the details raises no conflict
-    and no retry judges it. Only the read outside the session refuses this.
+    A rewrite of nothing joins no write set, so nothing inside the transaction judges a re-entry.
+    Only the read outside the session refuses this.
     """
 
     @pytest.mark.db
@@ -628,7 +734,11 @@ class TestAReEntryLandingMidAnonymisationIsRefused:
             await anonymise_under(database, client, None)
 
             async def re_enter_the_details() -> None:
-                await a_referee_with_a_history(database, client, SCHIEDSRICHTER_OID)
+                # Not through `PATCH`, which refuses this restore itself (`REQ-ANONYMISE-002`): what
+                # can still land under a running erasure is a writer outside the API.
+                await database[Collection.SCHIEDSRICHTER].update_one(
+                    {"_id": SCHIEDSRICHTER_OID}, {"$set": {"kontakt": dict(KONTAKT[SCHIEDSRICHTER_OID])}}
+                )
 
             try:
                 await anonymise_under(database, client, re_enter_the_details)
@@ -659,3 +769,50 @@ class TestAReEntryLandingMidAnonymisationIsRefused:
 
         assert (echoed.telefon, echoed.email) == (None, None)
         assert stored == {"telefon": None, "email": None}
+
+
+def after_editing_the_details_back_in(url: str) -> tuple[str, Mapping[str, Any], Mapping[str, Any]]:
+    """The outcome, the row and the archived fixture together: one seeded database serves all three."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await an_archived_fixture(database)
+        await call_anonymisation(database, client)
+
+        try:
+            # The edit that seeded their details, run again a week after the erasure committed.
+            await a_referee_with_a_history(database, client, SCHIEDSRICHTER_OID)
+            outcome = "the edit committed"
+        except DocumentConflictException as refusal:
+            outcome = refusal.error_code
+
+        return outcome, (await stored_referees(database))[SCHIEDSRICHTER_OID], (await stored_fixtures(database))[ARCHIVED_SPIEL_OID]
+
+    return on_a_league(url, body)
+
+
+class TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused:
+    """`REQ-ANONYMISE-001` judges a re-entry landing WHILE the erasure runs and meets nothing after it.
+
+    The seeded league renames both referees before any erasure, so a guard reaching an ordinary edit
+    fails every case in this module rather than passing quietly.
+    """
+
+    @pytest.mark.db
+    def test_the_edit_is_refused_and_the_row_keeps_the_label(self, mongo_replica_set_url: str):
+        outcome, referee, _ = after_editing_the_details_back_in(mongo_replica_set_url)
+
+        assert outcome == ANONYMISATION_UNDONE_BY_AN_EDIT
+        assert referee["name"] == ANONYMISED_NAME
+        assert referee["kontakt"] == {"telefon": None, "email": None}
+
+    @pytest.mark.db
+    def test_the_closed_seasons_fixture_keeps_the_label_too(self, mongo_replica_set_url: str):
+        """The archive is what an unrefused edit re-names.
+
+        A referee's fan-out carries no `past` bound where a club's stops (`docs/backend/spec.md :: I13`).
+        """
+
+        _, _, archived = after_editing_the_details_back_in(mongo_replica_set_url)
+
+        assert archived["saison_id"] == PAST_SAISON_ID, "the archived fixture was seeded into the open season"
+        assert archived["schiedsrichter"]["name"] == ANONYMISED_NAME

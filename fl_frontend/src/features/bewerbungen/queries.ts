@@ -1,13 +1,17 @@
 import { cache } from "react";
 
+import z from "zod";
+
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import { bewerbungenQueueStatus } from "./facets";
 import { postEinwilligungAnsicht } from "./mutations";
 import {
   FLBewerbungenListResponseSchema,
   FLBewerbungFensterResponseSchema,
+  FLBewerbungKeinFensterResponseSchema,
   FLBewerbungKuerzelResponseSchema,
   FLBewerbungSchulenResponseSchema,
   FLBewerbungSingleResponseSchema,
@@ -18,6 +22,7 @@ import { mapEinwilligungAnsichtRefusal } from "./utils";
 import type {
   FLBewerbungenListResponse,
   FLBewerbungFensterResponse,
+  FLBewerbungKeinFensterResponse,
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
@@ -26,7 +31,7 @@ import type {
 import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
 
 /**
- * Every application, newest first, narrowable by season and by status.
+ * Every application, newest first, narrowable by season and by any number of statuses.
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a
  * cached read of this admin-tier personal data is a shared slot.
@@ -39,6 +44,18 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
       params: filters,
     }),
   );
+}
+
+/**
+ * The queue as one route's query string selects it. Here rather than at the page: a facet carries a `read`
+ * function, which a Server Component may not pass on
+ * (`fl_frontend/src/shared/utils/facets.test.ts :: who may hold a facet`).
+ */
+export async function getBewerbungenQueue(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+  order: "asc" | "desc",
+): Promise<FLBewerbungenListResponse> {
+  return getBewerbungen({ order: order, status: bewerbungenQueueStatus(params) });
 }
 
 /**
@@ -77,20 +94,30 @@ export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterRe
   );
 }
 
+// The two bodies `GET /bewerbungen/fenster/{saison_id}` answers, told apart by a key rather than by
+// parse order: a member swallowing a malformed window would read as a season with no deadline.
+const FensterAntwortSchema = z.union([FLBewerbungFensterResponseSchema, FLBewerbungKeinFensterResponseSchema]);
+
 /**
- * One season's window, or `null` where that season takes no applications at all. The whole of what
- * the public page may read about its own season: `docs/backend/spec.md :: I47` withholds the rest.
+ * One season's window, `null` where that season records none — and `null` for the whole answer where
+ * no season carries the id, which is the page's `notFound()`.
  */
-export async function getBewerbungFenster(saisonId: string): Promise<FLBewerbungFensterResponse | null> {
-  return runWithIncomingTrace(() =>
-    apiClient<FLBewerbungFensterResponse>(`/bewerbungen/fenster/${encodeURIComponent(saisonId)}`, FLBewerbungFensterResponseSchema, {
-      authType: "base",
-    }).catch((error: unknown) => {
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
-      throw error;
-    }),
-  );
-}
+// `cache`, never `"use cache"`: the metadata and the body read this once between them, and a cache
+// would key on the season and go on serving `laeuft` after the window shut (`docs/frontend/spec.md` §1.2).
+export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fenster: FLBewerbungFensterResponse | null } | null> =>
+  runWithIncomingTrace(() =>
+    apiClient<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse>(
+      `/bewerbungen/fenster/${encodeURIComponent(saisonId)}`,
+      FensterAntwortSchema,
+      { authType: "base" },
+    )
+      .then((antwort) => ("fenster" in antwort ? { fenster: null } : { fenster: antwort }))
+      .catch((error: unknown) => {
+        if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+        throw error;
+      }),
+  ),
+);
 
 /** The clubs a school picks itself out of, name and id alone, in the order the picker offers them. */
 export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse> {

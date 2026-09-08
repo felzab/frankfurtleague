@@ -47,20 +47,33 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Everyone signs up for themselves through the website and gives their own consent there** —
   players, referees, contact persons, organisers and administrators alike. An administrator can
   neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
+  **A contact person is the one seat where that consent is not the record kept:** what such a person
+  answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(b)/(f) rather than an
+  Einwilligung, and the only consent their block holds is the optional WhatsApp scope
+  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
-- **The minimum age is 16, for everyone, and a sign-up below it is refused.** Sixteen is the age
-  at which a person consents for themselves under Art. 8 GDPR in Germany, and one rule for every
-  role replaces three. The birthdate is **required** at sign-up and stored, never optional —
-  `8y7c-rstr` holds the optional field as the rejected shape and the reason it stays rejected. A
-  contact person is the one role the rule reaches today, and it reaches them without a sign-up flow:
-  that person types their own date on the confirmation page and
+- **The minimum age is 16 for every role, and today only one write judges it.**
+  Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a
+  person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
+  three. That write is the contact person's own confirmation:
+  they type their date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. The consent vocabulary's `volljaehrig`
+  written. **The junction contacts editor is not that write** -- it requires a birthdate of the
+  administrator and bounds it at neither tier, so a seat entered there can hold any date at all. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
   for a contact person
   (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`).
+- **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
+  2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
+  the one field whose purpose is the age floor, a validator that invalidates every standing pupil
+  row until a backfill is run by hand, and an administrator making a date up at every squad entry
+  until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED` carries the standing state and
+  names what ends it — the next season's registration, at which the pupil rows standing today are
+  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
+  question about one arises**, which is what the published notice tells a reader; it gates no
+  read and no publication, and nothing judges it automatically. Ruled 2026-09-08.
 - **There is no guardian workflow.** The consent a registration composes today asserts a guardian
   (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`) while its only caller
   is an administrator; that path goes with the flow that replaces it, and the consent vocabulary
@@ -71,7 +84,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   pupil row that exists today counts as fully consented, since those rows go at the season's end
   ([section 3](#3-the-current-pupil-records-are-reset-once)) and the gate must not empty the public
   squad lists meanwhile. The predicate is written into
-  [`backend/spec.md`](backend/spec.md#17-read-rules) before any code. Today no read consults the
+  [`backend/spec.md`](backend/spec.md#17-tier-rules) before any code. Today no read consults the
   stored consent, and the published notice claims the narrower basis it can honestly claim
   meanwhile: a squad row and a referee at a fixture stand there on a legitimate interest rather than
   on a consent (`DatenschutzView.tsx :: VEROEFFENTLICHT`). That wording returns to consent in the
@@ -104,7 +117,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
-  `docs/backend/spec.md :: Acceptance publishes a school's address as the club's` names; the
+  `docs/backend/spec.md :: WRITE-CLUB-001` states; the
   sentence sits on the arm that creates the club
   (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.
@@ -129,15 +142,16 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
-  repeated and nobody is told a person's details are gone while they stand.
-- **An erasure keyed on an email address warns first.** Colleagues sharing a school inbox are one
-  subject to the match, so the matched names are shown for confirmation before the write. A
-  person id across seasons is not introduced: contact persons are season-scoped by design. Today
-  the confirmation names the person whose panel it was opened from and states the reach as a class
-  rather than listing whom the address matches
-  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
-  so an administrator confirms a write whose subjects they have not seen
-  (`docs/_roadmap/items.md :: k3g7-cqx7`).
+  repeated and nobody is told a person's details are gone while they stand. A save putting the name
+  or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
+  `docs/backend/spec.md :: I184`), closed seasons' fixtures included: an erasure a routine edit
+  undoes is not an erasure, and the snapshot window is the only route back.
+- **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
+  are one subject to the match, so every seat the address holds is listed for confirmation before the
+  write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather
+  than inferred on the client
+  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`).
+  A person id across seasons is not introduced: contact persons are season-scoped by design.
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
@@ -189,7 +203,18 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   (`:: compose_erinnerung_update`), so the period runs from the last replacement rather than from
   the submission. This is the period the published notice shows a visitor
   (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this section: every
-  figure in it is a hand-checked mirror of the clocks recorded here.
+  figure in it is a hand-checked mirror of the clocks recorded here. **An application whose deletion notice the
+  provider refuses is held past that window rather than erased** (ruling 182,
+  `docs/backend/spec.md :: I196`): the provider accepts a send to a suppressed address and skips
+  it, so erasing on a stamp saying the notice went out is erasing somebody who was told nothing,
+  which is what ruling 87 refuses. It stands until an administrator enters a reachable address or
+  decides the application. Ruled 2026-09-08.
+- **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
+  reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
+  six delivery events are subscribed and `email.opened` and `email.clicked` are not
+  ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
+  half of that). The delivery state is stored beside the seat it was sent to and is erased with the
+  application (`docs/glossary.md :: Zustellstand`). Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks
@@ -205,9 +230,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **A timer in the frontend process is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` per season). A pass that reminds
-  nobody and deletes nothing writes nothing, so an armed sweep and an absent one read alike from
-  outside; `docs/_roadmap/items.md :: 6mch-qx2c` is where that stands, and until it is answered a
-  claim that a period was honoured rests on reading the data rather than on a report.
+  nobody and deletes nothing records the day it ran exactly as a busy one does, and
+  `GET /bewerbungen/sweep` answers that day (`docs/backend/spec.md :: I189`), so a claim that a
+  period was honoured rests on a date rather than on reading the data.
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
@@ -275,13 +300,13 @@ Where an entry is still open, what is left to do is its own `Status` in
 [`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives, and
 the `Entry` column carries a token only where one still resolves in that file.
 
-| Entry       | Decision                                                                                                                                                                |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                               |
-| `kyc4-75k5` | The player editor shows the stored consent, read-only; it never gates publication                                                                                       |
-| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                    |
-| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                        |
-| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)) |
+| Entry       | Decision                                                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
+| —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
+| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                                                                |
+| —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
+| —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 
 ## 11. Open, and owed a decision
 

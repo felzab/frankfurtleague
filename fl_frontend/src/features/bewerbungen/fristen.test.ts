@@ -24,18 +24,26 @@ const {
   buildBewerbungGeloeschtEmail,
   buildBewerbungVollstaendigEmail,
 } = await import("@/core/bewerbungEmail.ts");
-const { LIGA_EINWILLIGUNGEN } = await import("@/core/einwilligung.ts");
-const { SITE_URL } = await import("@/core/brand.ts");
+const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
-const LINK = `${SITE_URL}/bestaetigung?token=beispiel-eins`;
+const LINK = `${ORIGIN}/bestaetigung?token=beispiel-eins`;
 const FRIST = "18.09.2026";
 
 const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK };
 const JONAS = { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: LINK };
 const AUSSTEHEND = [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }];
 
-const EIN_SITZ = { saisonId: "2627", schule: "Ernst-Reuter-Schule", seats: [ERIKA], fristText: FRIST } satisfies BewerbungBestaetigungData;
+const EIN_SITZ = {
+  saisonId: "2627",
+  origin: ORIGIN,
+  schule: "Ernst-Reuter-Schule",
+  seats: [ERIKA],
+  fristText: FRIST,
+} satisfies BewerbungBestaetigungData;
 /* Both arms of every builder that has two: the plural wording is a second copy of each sentence, and
    only a render of it reads the clock it states. */
 const ZWEI_SITZE = { ...EIN_SITZ, seats: [ERIKA, JONAS] } satisfies BewerbungBestaetigungData;
@@ -47,14 +55,25 @@ const NACHRICHTEN = [
   ["the reminder to a shared inbox", buildBewerbungErinnerungEmail(ZWEI_SITZE)],
   [
     "the receipt",
-    buildBewerbungEingangOffenEmail({ saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND, fristText: FRIST, link: LINK }),
+    buildBewerbungEingangOffenEmail({
+      saisonId: "2627",
+      origin: ORIGIN,
+      rollenText: "Ansprechperson",
+      ausstehend: AUSSTEHEND,
+      fristText: FRIST,
+      link: LINK,
+    }),
   ],
-  ["the completeness notice", buildBewerbungVollstaendigEmail({ saisonId: "2627", rollenText: "Ansprechperson" })],
-  ["the deletion notice", buildBewerbungGeloeschtEmail({ saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND })],
+  ["the completeness notice", buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson" })],
+  [
+    "the deletion notice",
+    buildBewerbungGeloeschtEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson", ausstehend: AUSSTEHEND }),
+  ],
   [
     "the seat's decline notice",
     buildBewerbungAblehnungEmail({
       saisonId: "2627",
+      origin: ORIGIN,
       rollenText: "Ansprechperson",
       abgelehnt: { vorname: "Mira", rolleText: "Stellvertretung" },
       fristText: FRIST,
@@ -111,7 +130,7 @@ describe("the two clocks the workflow messages state", () => {
   /* The stamped text is never interpolated from the constant: the words are what somebody agreed to,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
   it("holds the stamped consent texts to the deletion clock, written in a word", () => {
-    const gefunden = Object.values(LIGA_EINWILLIGUNGEN).flatMap((fassung) => tageIn(fassung.absaetze.join(" ")));
+    const gefunden = Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => tageIn(fassung.absaetze.join(" ")));
 
     assert.ok(gefunden.length > 0, "no stored wording states a day count, so this case compares nothing");
     for (const zahl of gefunden) {

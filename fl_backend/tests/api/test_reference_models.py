@@ -148,6 +148,20 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
+    @pytest.mark.parametrize("payload", [FLPostSpielerPayload, FLPatchSpielerPayload])
+    def test_a_person_payload_requires_the_birthdate_key(self, payload):
+        """No default, so a form that forgot the field cannot silently clear a stored date.
+
+        The value stays optional -- null is an answer somebody gave; what is refused is the key's absence.
+        """
+
+        without = {"vorname": "Max", "nachname": "Mustermann"}
+
+        with pytest.raises(ValidationError):
+            payload.model_validate(without)
+
+        assert payload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+
 
 class TestEinwilligung:
     """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
@@ -589,7 +603,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"vorname": "Max", "nachname": "Mustermann"}
+        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
         club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.

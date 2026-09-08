@@ -20,6 +20,25 @@ did the reasonable thing in their absence.
   the instruction as _stop and report_, which is reachable and returns the task to you.
 - **Glob every path before the brief goes out.** A file list assembled from another agent's report
   inherits that report's errors, and the agent's rediscovery costs more than the check.
+- **For a signature change the file list is the CALLERS, plus every test asserting over the call's
+  own text — never the definition's neighbours.** A list built from what the change reads misses
+  what calls it: one naming every module that read a constant and no module that called the builders
+  taking it could not land an added parameter, optional or not, and the agent wrote nothing and
+  reported it. Derive it by searching for the symbol's call sites and for its name in test source,
+  not by reading out from the module the change starts in.
+- **Measure what a design costs before briefing it as the closure, and read what already constrains
+  the surface it lands on.** A briefed count design measured at three collection scans per page load
+  against a growing collection, which the endpoint's own comment already forbade — so the refusal
+  was in the file the brief was written from.
+- **Where the plan names the repair, brief the agent to DRIVE it and to report if it does not close
+  the item** — never to implement it as settled. A briefed repair has been driven, instrumented and
+  measured not to close its entry, and the entry offering it was wrong as well; what paid was
+  section 4's standing instruction to report a contradicted premise.
+- **Name an acceptance check by what it asserts, never by what it is called.** A brief named a
+  contract test as an item's guard; the agent ran it and read a green suite over a half-done
+  narrowing, because that test pairs schema components and the change was a query parameter. Say in
+  one sentence what the named check compares before the brief goes out — and where you cannot, the
+  item has no acceptance test and the brief owes it one.
 - **Give every figure its provenance**, because a number acquires false authority in transit —
   three relayed in one programme were wrong in three different directions.
 - **Never cap the report's length.** A cap makes an agent drop its caveats, its not-established

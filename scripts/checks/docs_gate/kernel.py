@@ -187,7 +187,7 @@ CHECKS: Final[dict[str, Check]] = {
     "diagram": Check(FAIL, claimed("OUT-7")),
     "echo": Check(FAIL, claimed("COR-2")),
     "enforced-by": Check(FAIL, claimed("PRE-4")),
-    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176")),
+    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176", "docs/ops/spec.md :: I187")),
     "glossary-entry": Check(FAIL, claimed("COR-12", "OUT-6")),
     "header-see": Check(FAIL, claimed("INC-2")),
     "history": Check(FAIL, claimed("COR-3")),

@@ -7,6 +7,7 @@ import {
   BRAND_NAME,
   escapeHtml,
   link,
+  mailOrigin,
   paragraph,
   renderKarte,
   strong,
@@ -39,7 +40,7 @@ function aktionen(url: string): readonly Aktion[] {
   return [{ href: url, label: "Jetzt anmelden", ton: "primary" }];
 }
 
-function renderHtml(url: string): string {
+function renderHtml(url: string, origin: string): string {
   return renderKarte({
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(UEBERSCHRIFT),
@@ -55,10 +56,11 @@ function renderHtml(url: string): string {
     ],
     aktionen: aktionen(url),
     fuss: ANTWORT_SATZ_HTML,
+    origin: origin,
   });
 }
 
-function renderText(url: string): string {
+function renderText(url: string, origin: string): string {
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
@@ -72,17 +74,21 @@ function renderText(url: string): string {
     IGNORIER_SATZ,
   ];
 
-  return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter([ANTWORT_SATZ_TEXT])].join("\n");
+  return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 }
 
 /**
  * **The two parts state the same facts**, as in the application messages
  * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail`).
  */
-export function buildMagicLinkEmail(url: string): MagicLinkEmail {
+export function buildMagicLinkEmail(url: string, origin: string): MagicLinkEmail {
+  // Passed rather than read off `url`: Auth.js composes that URL, so a close following it would rest
+  // on a coupling nothing states.
+  const site = mailOrigin(origin);
+
   return {
     subject: `Anmeldelink für ${BRAND_NAME}`,
-    html: renderHtml(url),
-    text: renderText(url),
+    html: renderHtml(url, site),
+    text: renderText(url, site),
   };
 }

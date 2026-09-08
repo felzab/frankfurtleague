@@ -74,7 +74,10 @@ so a redeploy, a restart and a double-arm each cost nothing; the deletion notice
 floor, a crash between a delivery and its stamp repeating that one notice once
 ([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
 production build (§1.5); a `next dev` process arms nothing whatever that switch says, its default
-being on.
+being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep` is what
+tells one from a pass that found nothing to do: it answers the day the last pass ran, null where
+none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). [`runbooks.md`](runbooks.md) §9
+is the call.
 
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
@@ -243,7 +246,9 @@ observed 2026-08-01 as a public `525`. **A Cloudflare proxy sits in front of ngi
 [overview](overview.md)), so an origin-side failure can surface as a Cloudflare status code that
 names neither nginx nor the block responsible.
 
-**No rule at that proxy may answer a page or a server action with an interactive challenge** (I177).
+**A rule at that proxy may challenge a top-level navigation and never a server action's POST**
+(I177): a navigation renders the interstitial and the clearance it issues then covers the form's own
+POST, where a background POST can render nothing and is answered with markup the caller cannot read.
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
 lands on the error boundary before any application code runs. Every page and every server action
@@ -814,6 +819,12 @@ codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directio
 answering for its own prefixes so that the backend codes the frontend words for a reader are not
 read as the frontend's own.
 
+**That register's `Worded by` column is held by the same checker**: every code
+`fl_backend/app/core/domain.py :: RULES` declares carries a citation naming a `fl_frontend/src/`
+module that spells the code outside a comment, and a row no rule declares carries none. The
+citation's resolution is the whole of it
+([`docs/logging/error-codes.md`](../logging/error-codes.md#1-backend-codes)).
+
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
@@ -953,6 +964,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
   reason the three are set apart rather than by one toggle.
+- **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
+  else** — not `/api/*`, and not a server action's POST, for the reason §1.3 gives at I177. Two page
+  patterns cover the writes behind them because passing a navigation's challenge issues the
+  clearance the form's own POST then carries.
 - **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
   dashboard holds.
 
@@ -983,12 +998,13 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                                                                            |
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/lib/checker_kernel.py :: uncovered` over `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for an unpinned difference                                  |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                |
-| I177 | A Cloudflare rule on `nginx/prod.conf :: location /` or `:: location = /signin` may rate-limit but never issue an interactive challenge (§1.3)                                | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                             |
+| I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                             |
 | I178 | `deploy.sh` reads `secrets/tunnel_token` for existence alone, and `fl_frontend/.env` for its names besides; a value either holds is refused at boot or not at all             | `scripts/lib/_lib.sh :: require_file`, which tests existence alone; the frontend's values are `fl_frontend/src/core/config.ts :: frontend_config`'s                                                                                                                            |
 | I179 | A startup refusal names the failing variables, or a failure type where no variable was judged, and never a value                                                              | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `fl_frontend/src/core/config.test.ts` assert no value appears |
 | I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `get_config` rejects, a missing required one included                     | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                            |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                               |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 a name its schema does not declare; every value stays the boot gate's                     | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key set `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/check-environment-names.test.mjs`                                     |
+| I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                               |
 
 ## 3. Violation → remedy
 
@@ -1042,5 +1058,4 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume, `.local-db/` and `.tmp-nginx-log/`                                                  |
 | A guard the database tier stays green without                     | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
-| A call site's key tier is held to its route by nothing            | Open — omitting `fl_frontend/src/core/api.ts :: apiClient`'s tier is loud, but over-declaring one succeeds identically, and `fl_backend/openapi.json` flattens every tier to one scheme            |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |

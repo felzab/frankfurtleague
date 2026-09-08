@@ -11,11 +11,15 @@ from pymongo.errors import OperationFailure
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktor
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
+    FLBewerbungBestaetigung,
+    FLBewerbungBestaetigungen,
     FLBewerbungEntscheidung,
     FLBewerbungKader,
     FLBewerbungSchule,
     FLBewerbungStatus,
     FLBewerbungTrikot,
+    FLBewerbungZustellstand,
+    FLBewerbungZustellung,
 )
 from app.api.saisons.schemas import (
     FLSaison,
@@ -50,7 +54,7 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenNames,
-    FLKontaktEinwilligung,
+    FLKontaktKenntnisnahme,
     FLKontaktperson,
     FLSaisonTeamKontakte,
     FLSchulform,
@@ -141,9 +145,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISON_TEAMS, ("kontakte", "trainer"), FLKontaktperson, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson"), FLKontaktperson, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung"), FLKontaktperson, frozenset()),
-    (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktEinwilligung, frozenset()),
-    (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktEinwilligung, frozenset()),
-    (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.BEWERBUNGEN, (), FLBewerbung, frozenset()),
     (Collection.BEWERBUNGEN, ("schule",), FLBewerbungSchule, frozenset()),
     (Collection.BEWERBUNGEN, ("schule", "address"), FLAddress, frozenset()),
@@ -155,9 +159,19 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BEWERBUNGEN, ("kontakte", "trainer"), FLKontaktperson, frozenset()),
     (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson"), FLKontaktperson, frozenset()),
     (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung"), FLKontaktperson, frozenset()),
-    (Collection.BEWERBUNGEN, ("kontakte", "trainer", "einwilligung"), FLKontaktEinwilligung, frozenset()),
-    (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktEinwilligung, frozenset()),
-    (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "trainer", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    # The confirmation bookkeeping, one row per seat because the validator declares the block three
+    # times over. Its own enums are pinned beside it; without these rows nothing walked the field
+    # names, the bson types or `required` here at all.
+    (Collection.BEWERBUNGEN, ("bestaetigungen",), FLBewerbungBestaetigungen, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
 ]
@@ -195,84 +209,84 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.SAISON_TEAMS,
         ("kontakte", "trainer", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.SAISON_TEAMS,
         ("kontakte", "trainer", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (
         Collection.SAISON_TEAMS,
         ("kontakte", "ansprechperson", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.SAISON_TEAMS,
         ("kontakte", "ansprechperson", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (
         Collection.SAISON_TEAMS,
         ("kontakte", "stellvertretung", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.SAISON_TEAMS,
         ("kontakte", "stellvertretung", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "trainer", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "trainer", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "ansprechperson", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "ansprechperson", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "stellvertretung", "einwilligung"),
         "umfang",
-        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
     ),
     (
         Collection.BEWERBUNGEN,
         ("kontakte", "stellvertretung", "einwilligung"),
-        "erteilt_von",
-        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        "erfasst_von",
+        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
         False,
     ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
@@ -305,6 +319,11 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Nullable for a reason the two above do not share: holding no role is the ordinary state, and
     # a row predating the field carries no key at all.
     (Collection.SAISON_SPIELER, (), "rolle", get_args(FLSpielerRolle), True),
+    # One row per seat, as the confirmation block's own enums are: the validator declares the state
+    # three times over, and a sub-schema shared in Python is still three paths to the drift walk.
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
 ]
 
 
@@ -378,6 +397,14 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # opens: the triage renders an application's state from `bestaetigungen`, and a second date
     # beside it would be one an administrator can act on nowhere.
     (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
+    # The raw token's hashes are the whole credential and no model declares either, so the link
+    # cannot be recovered from any read.
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer")): frozenset({"token_hash", "token_hash_zuvor"}),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash", "token_hash_zuvor"}),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash", "token_hash_zuvor"}),
+    # The pass's own clock rather than a fact about the season it is stored on: an operator asks
+    # whether the sweep ran, and no page of a season is that question.
+    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
 }
 
 

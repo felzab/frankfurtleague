@@ -237,6 +237,12 @@ const UNDRAW_HAS_NO_FIELDS =
  */
 const RECORD_ITSELF = "the record's own path: refusable only on a shape the typed payload cannot build";
 
+/** The row's own identity, travelling in the path as the re-send's does; the surface renders one input. */
+const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the path rather than typed";
+
+/** Opaque to this side: the page carries it from the read to the save and never composes one. */
+const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
+
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
 const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
 
@@ -262,6 +268,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
   FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
+  FLBewerbungKontaktEmailPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -332,6 +339,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
     team_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
     kontakte: RECORD_ITSELF,
+    kontakte_stand: THE_TOKEN_THE_READ_SERVED,
     // Each seat is nullable in its own right, so each carries the block's reason one level down.
     "kontakte.trainer": RECORD_ITSELF,
     "kontakte.ansprechperson": RECORD_ITSELF,
@@ -735,7 +743,10 @@ describe("every path a refusal mapper emits", () => {
 
     assert.ok(handlers.length > 0, "no route handler calls a mapper, so the bridge below is proving nothing");
     for (const [file, handler] of handlers) {
-      const fetchers = components.filter((component) => (sources.get(component) ?? "").includes(`fetch("${routeUrl(handler)}"`));
+      // Two spellings of one POST: an undo dispatches to its route directly, and a public form
+      // names its own through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`.
+      const posts = new RegExp(String.raw`(?:fetch|postPublicForm<\w+>)\("${routeUrl(handler)}"`);
+      const fetchers = components.filter((component) => posts.test(sources.get(component) ?? ""));
       assert.ok(
         fetchers.length > 0,
         `${handler} maps ${file}'s refusals and nothing fetches ${routeUrl(handler)} -- the form showing them cannot be found`,

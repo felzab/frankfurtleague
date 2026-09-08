@@ -18,6 +18,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_EXPIRED,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    TOKEN_HASH_FIELDS,
     compose_bestaetigungen,
     hash_token,
 )
@@ -61,6 +62,28 @@ ADDRESS: Mapping[str, Any] = {
 }
 
 
+def _seat_paths(block: str, *leaves: str) -> set[str]:
+    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_SEATS for leaf in leaves}
+
+
+# What each handler resolves off the document its token filter found. Reached from the HANDLERS
+# rather than from `app/api/bewerbungen/services.py :: _per_seat`, so a projection widened by a field
+# no handler reads fails here.
+ANSICHT_RESOLVES = frozenset(
+    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version")
+    | {"saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
+)
+
+# `_id` is here and not in the view's, whose own line says why
+# (`app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS`).
+ANTWORT_RESOLVES = frozenset(
+    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
+)
+
+
 def person(vorname: str) -> dict[str, Any]:
     """One seat as the submission stores it: no date, no stamp, entered on the person's behalf."""
 
@@ -72,7 +95,7 @@ def person(vorname: str) -> dict[str, Any]:
         "geburtsdatum": None,
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": None,
@@ -145,21 +168,21 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = None) -> Any:
     return await get_einwilligung_ansicht(
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         teams_collection=database[Collection.TEAMS],
         today=TODAY,
     )
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
+async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, bewerbungen: Any = None, **overrides: Any) -> Any:
     body = {"token": token, "antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "text_version": "v4", **overrides}
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
@@ -180,6 +203,52 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
+
+
+class _ReadsRecorded:
+    """The applications collection, keeping what each `find_one` answered.
+
+    A delegating wrapper rather than a stub: mongod applies the projection, and a stub would hand
+    back whatever the handler asked for.
+    """
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.answered: list[tuple[Any, Any]] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    # Spelled `filter` because `fl_backend/app/core/crud.py` passes it by that keyword; a rename here
+    # is a TypeError at the first helper this collection is handed to.
+    async def find_one(self, filter: Any = None, *args: Any, **kwargs: Any) -> Any:
+        document = await self._collection.find_one(filter, *args, **kwargs)
+        self.answered.append((filter, document))
+
+        return document
+
+
+def loaded_by_the_link(recorder: _ReadsRecorded) -> list[Any]:
+    """Every document the TOKEN filter found.
+
+    `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
+    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I39`).
+    """
+
+    return [document for db_filter, document in recorder.answered if "$or" in db_filter]
+
+
+def leaf_paths(document: Any, prefix: str = "") -> set[str]:
+    """Every dotted path this document holds a value at.
+
+    An empty block counts as one: it would otherwise vanish from the comparison, and a projection
+    widened onto a block this seed leaves empty would pass.
+    """
+
+    if not isinstance(document, Mapping) or not document:
+        return {prefix} if prefix else set()
+
+    return {path for key, value in document.items() for path in leaf_paths(value, f"{prefix}.{key}" if prefix else key)}
 
 
 class TestWhatALinkOpens:
@@ -217,6 +286,37 @@ class TestWhatALinkOpens:
         assert response.zustand == "abgelaufen"
 
 
+class TestWhatAnAnonymousReadLoads:
+    """These two cases hold the narrowing alone.
+
+    A projection too SHORT is answered by the rest of this module, which drives every field either read resolves.
+    """
+
+    def test_the_view_never_holds_the_application_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            await ansicht(database, RAW["ansprechperson"], bewerbungen=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= ANSICHT_RESOLVES
+
+    def test_the_answer_never_holds_the_application_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            await answer(database, client, RAW["ansprechperson"], bewerbungen=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= ANTWORT_RESOLVES
+
+
 class TestWhatAConfirmationWrites:
     """The one `$set`: `docs/backend/spec.md :: I141`'s pairing lands whole, and the hash stays where it is."""
 
@@ -233,7 +333,7 @@ class TestWhatAConfirmationWrites:
         # The wording the CONFIRMING person saw, not the one the applicant ticked for them.
         assert trainer["einwilligung"] == {
             "umfang": "kontaktdaten_whatsapp",
-            "erteilt_von": "person",
+            "erfasst_von": "person",
             "text_version": "v4",
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,

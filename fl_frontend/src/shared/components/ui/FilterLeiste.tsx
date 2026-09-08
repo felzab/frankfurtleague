@@ -10,7 +10,7 @@ import { COUNT_BADGE } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
 
-import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
+import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
 const CONTROL_BOX = "border-border bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
@@ -58,6 +58,7 @@ function FilterPill<TItem>({
   facet,
   facets,
   items,
+  facetCounts,
   selection,
   available,
   onSelect,
@@ -66,6 +67,7 @@ function FilterPill<TItem>({
   facet: Facet<TItem>;
   facets: readonly Facet<TItem>[];
   items: TItem[];
+  facetCounts: FacetCounts | undefined;
   selection: FacetSelection;
   available: number | null;
   onSelect: (param: string, values: string[]) => void;
@@ -95,6 +97,7 @@ function FilterPill<TItem>({
             shown={[facet]}
             available={available}
             items={items}
+            facetCounts={facetCounts}
             selection={selection}
             onSelect={onSelect}
             onClear={onClear}
@@ -125,11 +128,14 @@ function FilterPill<TItem>({
 export function FilterLeiste<TItem>({
   facets,
   items,
+  facetCounts,
 }: {
   /** Must be a module-scope constant, for the reason `AdminCrudView`'s `searchKeys` must be. */
   facets: readonly Facet<TItem>[];
   /** Every row before filtering, so each option can say what it would leave. */
   items: TItem[];
+  /** Required of a `narrowsTheRead` facet, whose options `items` cannot count. */
+  facetCounts?: FacetCounts;
 }) {
   if (facets.length === 0) return null;
 
@@ -137,6 +143,7 @@ export function FilterLeiste<TItem>({
     <FilterRow
       facets={facets}
       items={items}
+      facetCounts={facetCounts}
     />
   );
 }
@@ -145,7 +152,15 @@ export function FilterLeiste<TItem>({
  * The row's content is a function of what was chosen and of nothing else: no dimension is present until it is filtering,
  * nothing is promoted or demoted by width, and nothing hidden is measured. Adding a filter moves nothing already there.
  */
-function FilterRow<TItem>({ facets, items }: { facets: readonly Facet<TItem>[]; items: TItem[] }) {
+function FilterRow<TItem>({
+  facets,
+  items,
+  facetCounts,
+}: {
+  facets: readonly Facet<TItem>[];
+  items: TItem[];
+  facetCounts: FacetCounts | undefined;
+}) {
   const { selection, paramOrder, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 
   // The panel is bounded by this row rather than by the window; `useFilterPanelWidth` carries why.
@@ -200,6 +215,7 @@ function FilterRow<TItem>({ facets, items }: { facets: readonly Facet<TItem>[]; 
                   shown={unfiltered}
                   available={rowWidth}
                   items={items}
+                  facetCounts={facetCounts}
                   selection={selection}
                   onSelect={setFacet}
                   onClear={clearFacet}
@@ -223,6 +239,7 @@ function FilterRow<TItem>({ facets, items }: { facets: readonly Facet<TItem>[]; 
                   facet={facet}
                   facets={facets}
                   items={items}
+                  facetCounts={facetCounts}
                   selection={selection}
                   available={rowWidth}
                   onSelect={setFacet}

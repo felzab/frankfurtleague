@@ -20,6 +20,7 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
+    kontakte_stand_of,
 )
 from app.core.collections import Collection
 from app.core.crud import build_query
@@ -758,7 +759,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 
 
 # What a seat holds until its person confirms it (`docs/backend/spec.md :: I142`).
-UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erteilt_von": "administrativ", "bestaetigt_am": None}
+UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
 
 
 def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
@@ -778,7 +779,7 @@ def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] 
 
     # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
     # narrower one.
-    return {"umfang": einwilligung["umfang"], "erteilt_von": einwilligung["erteilt_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
+    return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
@@ -806,6 +807,25 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
 
 
 # What every code below refuses is `docs/logging/error-codes.md`.
+KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
+
+
+def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRefusal | None:
+    """Why this save may not land on the block the row now holds, or `None`.
+
+    Refused whole rather than merged into the changed paths: an erasure clearing one seat leaves the
+    whole open editor stale.
+    """
+
+    if kontakte_stand_of(stored) == erwartet:
+        return None
+
+    return WriteRefusal(
+        error_code=KONTAKTE_MOVED_UNDER_THE_SAVE,
+        message="the stored contacts have moved since this save was composed; re-read the row and send the change again",
+    )
+
+
 ENTRY_SAISON_NOT_FUTURE = "REQ-ENTER-001"
 ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
 ENTRY_GRUPPE_FULL = "REQ-ENTER-003"

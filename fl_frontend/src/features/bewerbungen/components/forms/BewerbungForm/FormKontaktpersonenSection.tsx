@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { FieldError, Input, Label, Switch, TextField } from "@heroui/react";
 
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import { FIELD_ERROR, FIELD_ERROR_SWITCH, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
@@ -258,7 +258,7 @@ export function FormEinwilligungSection({
       <div className={panel.body()}>
         {/* `muted-meta` rather than `muted-hint`: the wording is stamped and cannot be shortened, so
             the type step it is set at is the only lever on how long the block reads. */}
-        {LIGA_EINWILLIGUNG.absaetze.map((absatz) => (
+        {LIGA_KENNTNISNAHME.absaetze.map((absatz) => (
           <p
             key={absatz}
             className="muted-meta">
@@ -277,7 +277,7 @@ export function FormEinwilligungSection({
           isSelected={erteilt}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>
-            {LIGA_EINWILLIGUNG.schalter}
+            {LIGA_KENNTNISNAHME.schalter}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>

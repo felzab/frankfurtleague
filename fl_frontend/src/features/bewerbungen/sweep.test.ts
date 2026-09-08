@@ -7,8 +7,8 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  | { kind: "api"; endpoint: string; method: string; authType?: string; params?: Record<string, string>; body?: string }
-  | { kind: "mail"; to: string; subject: string; text: string };
+  | { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string }
+  | { kind: "mail"; to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -23,7 +23,7 @@ recorders.__flSweepAnswer = () => ({});
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  const call = { kind: "api", endpoint, method: options.method ?? "GET", authType: options.authType, params: options.params, body: options.body };
+  const call = { kind: "api", endpoint, method: options.method ?? "GET", params: options.params, body: options.body };
   globalThis.__flSweepEvents.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
@@ -31,8 +31,9 @@ const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = 
 };`;
 
 const MAIL_DOUBLE = `export const sendMail = async (mail) => {
-  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text });
+  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
   if (globalThis.__flSweepRefused.has(mail.to)) throw new Error("the provider refused the message");
+  return { id: "56761188-7520-42d8-8898-ff6fc54ce618" };
 };`;
 
 const LOGGING_DOUBLE = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
@@ -41,6 +42,7 @@ const LOGGING_DOUBLE = `export const logger = { info: () => {}, warn: () => {}, 
 // switch could only ever prove one side of it.
 const CONFIG_DOUBLE = `export const frontend_config = {
   LOG_FORMAT: "console",
+  AUTH_URL: "http://localhost:3000",
   get BEWERBUNG_SWEEP() { return globalThis.__flSweepSwitch; },
 };`;
 
@@ -61,6 +63,7 @@ registerHooks({
 
 const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
+const { FLBewerbungSweepLoeschungSchema } = await import("./schemas.ts");
 
 /** One hour and one minute, as the arming spells them. */
 const HOUR_MS = 60 * 60 * 1000;
@@ -99,7 +102,8 @@ function sweepAnswers({
 }): void {
   answerWith((call) => {
     const saisonId = saisonOf(call);
-    if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds };
+    if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds, sweep_gelaufen_am: null };
+    if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
     if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
     if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
 
@@ -151,6 +155,8 @@ describe("the switch the retention sweep is armed by", () => {
     AUTH_URL: "http://localhost:3000",
     AUTH_SECRET: "secret",
     AUTH_RESEND_KEY: "resend",
+    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
+    RESEND_WEBHOOK_SECRET: "whsec_probe",
     INTERNAL_API_KEY_BASE: "b".repeat(64),
     INTERNAL_API_KEY_SYSTEM: "s".repeat(64),
     INTERNAL_API_KEY_ADMIN: "a".repeat(64),
@@ -286,13 +292,12 @@ describe("what register arms", () => {
 });
 
 describe("one pass of the sweep", () => {
-  it("calls the backend once per season, as the system", async () => {
+  it("calls the backend once per season", async () => {
     sweepAnswers({ saisonIds: ["2526", "2627"] });
 
     await runBewerbungSweep();
 
     assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
-    assert.deepEqual(new Set(apiCalls().map((call) => call.authType)), new Set(["system"]));
   });
 
   it("stamps the reminder before it mails it, so a refused address costs one reminder rather than a daily one", async () => {
@@ -316,7 +321,9 @@ describe("one pass of the sweep", () => {
 
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "mail"],
+      // The fourth is the accepted send recording itself, which follows the message rather than
+      // preceding it: no id exists to record until the provider has answered.
+      ["api", "api", "mail", "api"],
     );
   });
 
@@ -360,7 +367,8 @@ describe("one pass of the sweep", () => {
     const [stamp, erasure] = apiCalls().slice(-2);
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "mail", "mail", "api", "api"],
+      // The record after the delivered notice, and none after the refused one.
+      ["api", "api", "mail", "api", "mail", "api", "api"],
       "both notices go out before anything is stamped or erased",
     );
     assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
@@ -427,9 +435,63 @@ describe("one pass of the sweep", () => {
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NIEMAND] });
   });
 
+  /* Ruling 182's hold is the backend's alone: `fl_backend/app/api/bewerbungen/services.py ::
+     announcement_is_undeliverable` drops a refused Ansprechperson out of `:: deletion_is_due`, so no
+     held application is listed here. A second judgement on this side would be a copy free to drift. */
+  it("mails every candidate the listing hands it, reading no delivery state to withhold one on", async () => {
+    assert.ok(
+      !Object.keys(FLBewerbungSweepLoeschungSchema.shape).some((feld) => feld.includes("zustellung")),
+      "the listing's row carries a delivery state again, which is the backend's judgement arriving where it can be redone",
+    );
+
+    sweepAnswers({
+      saisonIds: ["2627"],
+      loeschungen: { "2627": [loeschung(ID_ERREICHT, "erika@schule.de"), loeschung(ID_STUMM, "stumm@schule.de")] },
+    });
+
+    await runBewerbungSweep();
+
+    assert.equal(events.filter((event) => event.kind === "mail").length, 2, "a listed candidate was held back on this side");
+    assert.deepEqual(JSON.parse(apiCalls().at(-2)?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT, ID_STUMM] });
+  });
+
+  /* The one send here whose body cannot change inside the provider's window, and the one that can
+     legitimately repeat: a pass that mailed and then failed to stamp composes it again an hour on. */
+  it("passes an idempotency key with the deletion notice and none with a reminder", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      erinnerungen: {
+        "2627": [
+          {
+            bewerbung_id: ID_ERREICHT,
+            saison_id: "2627",
+            schule: "Goetheschule",
+            bestaetigungsfrist: "2026-09-18",
+            email: "erika@schule.de",
+            seats: [{ rollen: ["ansprechperson"], vorname: "Erika", token: "token-a" }],
+          },
+        ],
+      },
+      loeschungen: { "2627": [loeschung(ID_STUMM, "stumm@schule.de")] },
+    });
+
+    await runBewerbungSweep();
+
+    const [erinnerung, notiz] = events.filter((event) => event.kind === "mail");
+
+    assert.equal(
+      erinnerung?.idempotencyKey,
+      undefined,
+      "the reminder mints a fresh token, so a reused key would be refused over a changed body",
+    );
+    assert.match(String(notiz?.idempotencyKey), /^loeschung_/);
+    assert.deepEqual(erinnerung?.tags, { bewerbung_id: ID_ERREICHT, rollen: "ansprechperson", anlass: "erinnerung" });
+    assert.deepEqual(notiz?.tags, { bewerbung_id: ID_STUMM, rollen: "ansprechperson", anlass: "loeschung" });
+  });
+
   it("carries on to the next season when one throws", async () => {
     answerWith((call) => {
-      if (call.method === "GET") return { acknowledged: 1, saison_ids: ["2526", "2627"] };
+      if (call.method === "GET") return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null };
       if (saisonOf(call) === "2526") throw new Error("the backend refused this season");
       return {
         acknowledged: 1,

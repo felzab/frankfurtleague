@@ -1,6 +1,8 @@
 "use client";
 
-import { FieldError, Input, Label, TextField } from "@heroui/react";
+import { parseDate } from "@internationalized/date";
+
+import { Calendar, DateField, DatePicker, FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
@@ -8,7 +10,17 @@ import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { FLCreateSpielerFormPayloadSchema } from "@/features/spieler/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import {
+  DATE_PICKER_CALENDAR,
+  DATE_PICKER_PLACEMENT,
+  DATE_PICKER_POPOVER,
+  FIELD_ERROR,
+  FIELD_GROUP,
+  FIELD_INPUT,
+  FIELD_LABEL,
+  FIELD_PAIR,
+} from "@/shared/components/ui/formFieldStyles";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
 
 import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/spieler/types";
@@ -16,6 +28,7 @@ import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/s
 const EMPTY_DRAFT_BASE = {
   vorname: "",
   nachname: null,
+  geburtsdatum: null,
   team_id: null,
   nummer: null,
   position: null,
@@ -81,6 +94,62 @@ export function AdminCreateSpielerForm({
                 />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
+            </div>
+
+            <div className={FIELD_PAIR}>
+              {/* Its own row rather than a third name column: this is the person, and the pair below
+                  is the season's squad row. */}
+              <DatePicker
+                name="geburtsdatum"
+                value={draft.geburtsdatum === null ? null : parseDate(draft.geburtsdatum)}
+                // A cleared picker is `null`, which is what the payload stores: no date was given.
+                onChange={(next) => setDraft((current) => ({ ...current, geburtsdatum: next?.toString() ?? null }))}
+                className="w-full">
+                <Label className={FIELD_LABEL}>Geburtsdatum</Label>
+                <DateField.Group
+                  fullWidth
+                  className={FIELD_GROUP}>
+                  <DateField.Input className="fluid-sm">
+                    {(segment) => (
+                      <DateField.Segment
+                        segment={segment}
+                        className="data-[type=literal]:text-foreground-muted"
+                      />
+                    )}
+                  </DateField.Input>
+                  <DateField.Suffix>
+                    <DatePicker.Trigger>
+                      <DatePicker.TriggerIndicator />
+                    </DatePicker.Trigger>
+                  </DateField.Suffix>
+                </DateField.Group>
+                <FieldError className={FIELD_ERROR} />
+                <DatePicker.Popover
+                  className={DATE_PICKER_POPOVER}
+                  placement={DATE_PICKER_PLACEMENT}>
+                  {/* No span: the calendar greys out what is offered, and this form judges no age
+                      (`fl_backend/app/core/domain.py :: UNENFORCED`). */}
+                  <Calendar
+                    aria-label="Geburtsdatum auswählen"
+                    className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
+                    <Calendar.Header className="bg-transparent">
+                      <Calendar.YearPickerTrigger>
+                        <Calendar.YearPickerTriggerHeading />
+                        <Calendar.YearPickerTriggerIndicator />
+                      </Calendar.YearPickerTrigger>
+                      <Calendar.NavButton slot="previous" />
+                      <Calendar.NavButton slot="next" />
+                    </Calendar.Header>
+                    <Calendar.Grid>
+                      <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
+                      <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
+                    </Calendar.Grid>
+                    <Calendar.YearPickerGrid>
+                      <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
+                    </Calendar.YearPickerGrid>
+                  </Calendar>
+                </DatePicker.Popover>
+              </DatePicker>
             </div>
 
             <div className={FIELD_PAIR}>

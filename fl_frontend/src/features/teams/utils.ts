@@ -1,4 +1,4 @@
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
@@ -201,8 +201,8 @@ const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInA
 };
 
 /**
- * A blank contact person, for the moment the editor's contact block is switched on. `erteilt_von` and
- * the date stay unanswered: who agreed, and when, is the one thing nobody may guess for the league.
+ * A blank contact person, for the moment the editor's contact block is switched on. `erfasst_von` and
+ * the date stay unanswered: who recorded it, and when, is the one thing nobody may guess for the league.
  */
 export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   vorname: "",
@@ -214,8 +214,8 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   // an admin transcribing a version number is a value nobody decided stored as though they had.
   einwilligung: {
     umfang: EINWILLIGUNG_UMFANG,
-    erteilt_von: null,
-    text_version: LIGA_EINWILLIGUNG.textVersion,
+    erfasst_von: null,
+    text_version: LIGA_KENNTNISNAHME.textVersion,
     datum: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.

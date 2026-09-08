@@ -50,6 +50,7 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
 export type SpielerPersonFields = {
   vorname: string;
   nachname: string | null;
+  geburtsdatum: string | null;
 };
 
 /**

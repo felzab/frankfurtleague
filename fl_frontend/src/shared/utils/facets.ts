@@ -1,4 +1,4 @@
-/** One choosable value of a facet. `count` is filled in by `countFacetOptions`, never by the caller. */
+/** One choosable value of a facet, and no count of its own: `countFacetOptions` answers those against the rows on hand. */
 export type FacetOption = {
   value: string;
   label: string;
@@ -21,7 +21,26 @@ export type Facet<TItem> = {
   defaultValues?: readonly string[];
   /** Every option value this item matches. Empty means the item matches none of them. */
   read: (item: TItem) => readonly string[];
+  /**
+   * Whether the SERVER narrows on this parameter. `useUrlFilters` then navigates rather than writing history
+   * alone, and the surface owes `FacetCounts`, which `countFacetOptions` cannot answer for rows never served.
+   */
+  narrowsTheRead?: boolean;
 };
+
+/**
+ * Option counts a surface was TOLD, by facet parameter and then by option value. What a server-narrowed facet
+ * passes in place of `countFacetOptions`, which can only count what one read happened to serve.
+ */
+export type FacetCounts = Readonly<Record<string, Readonly<Record<string, number>>>>;
+
+/**
+ * Whether an option still leads somewhere. A picked one stays reachable at zero, or it could not be deselected;
+ * an unpicked one at zero is offered and inert, which is why a server-narrowed facet must be told real counts.
+ */
+export function isFacetOptionReachable(count: number, isPicked: boolean): boolean {
+  return count > 0 || isPicked;
+}
 
 /** What is selected right now, by facet param. An absent or empty entry means "no opinion". */
 export type FacetSelection = Readonly<Record<string, readonly string[]>>;
@@ -109,6 +128,23 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
 
   lastReadSelection.set(facets, { search, selection });
   return selection;
+}
+
+/**
+ * The same selection off a Server Component's `searchParams`. One reader for both halves: a page parsing the
+ * URL its own way would serve rows the bar then filters away, with nothing saying why.
+ */
+export function readFacetSelectionFromRoute<TItem>(
+  facets: readonly Facet<TItem>[],
+  params: Readonly<Record<string, string | string[] | undefined>>,
+): FacetSelection {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    for (const single of Array.isArray(value) ? value : [value]) search.append(key, single);
+  }
+
+  return readFacetSelection(facets, search);
 }
 
 /** How many facets have something picked — what the trigger's badge counts. */

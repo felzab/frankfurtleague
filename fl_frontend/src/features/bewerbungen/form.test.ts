@@ -17,7 +17,7 @@ const { FormSchuleSection } = await import("./components/forms/BewerbungForm/For
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
-const { LIGA_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { FIELD_ERROR, FIELD_ERROR_SWITCH } = await import("@/shared/components/ui/formFieldStyles.ts");
 
@@ -103,7 +103,11 @@ describe("the public application form", () => {
   /* `location = /api/bewerbung/kuerzel` is an EXACT match in nginx, so a path segment falls through
      to the catch-all with no limit, and neither `nginx -t` nor the build can see it. */
   it("calls both public routes at the exact paths the edge limits", () => {
-    assert.match(FORM, /fetch\("\/api\/bewerbung", \{/, "the submission posts to something other than /api/bewerbung");
+    assert.match(
+      FORM,
+      /postPublicForm<BewerbungAntwort>\("\/api\/bewerbung", payload\)/,
+      "the submission posts to something other than /api/bewerbung",
+    );
     assert.match(
       FORM,
       /fetch\(`\/api\/bewerbung\/kuerzel\?shorthand=\$\{encodeURIComponent\(shorthand\)\}`\)/,
@@ -115,12 +119,12 @@ describe("the public application form", () => {
   /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
      none of the always-200 envelope. Read as a transport failure it tells an applicant nothing about
      the one remedy it has, which is to wait. */
-  it("answers the edge's rate limit in its own words on both calls", () => {
-    const antworten = [...FORM.matchAll(/if \(response\.status === RATE_LIMIT_STATUS\) return/g)];
+  it("answers the edge's rate limit in its own words on the availability check", () => {
+    const antworten = [...FORM.matchAll(/if \(response\.status === EDGE_RATE_LIMIT_STATUS\) return/g)];
 
-    assert.equal(antworten.length, 2, "one of the two calls reads a 429 as a transport failure");
-    assert.match(FORM, /const RATE_LIMIT_STATUS = 429;/);
-    assert.match(FORM, /Zu viele Versuche in kurzer Zeit/);
+    assert.equal(antworten.length, 1, "the check reads a 429 as a transport failure");
+    assert.ok(!FORM.includes("= 429"), "the form spells the edge's status beside the one publicSubmit.ts exports");
+    assert.match(FORM, /Zu viele Anfragen in kurzer Zeit/);
   });
 
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
@@ -258,7 +262,7 @@ describe("how the consent panel sits among the sections around it", () => {
   it("sets the stamped wording at the muted caption step, one recipe for all of it", () => {
     assert.equal(
       [...FORMULAR.matchAll(/<p class="muted-meta">/g)].length,
-      LIGA_EINWILLIGUNG.absaetze.length,
+      LIGA_KENNTNISNAHME.absaetze.length,
       "a stamped paragraph is set in something other than the panel's own muted recipe",
     );
   });

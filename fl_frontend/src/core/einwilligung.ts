@@ -123,7 +123,7 @@ const BESTAETIGUNGSSEITE_ABSAETZE_2026_09_2 = [
 // A stored record cites its label alone, so an entry here is never reworded or removed: either
 // leaves a record claiming words nobody was shown. Spelling the league's name is not a rewording:
 // the agreed words do not move.
-export const LIGA_EINWILLIGUNGEN = {
+export const LIGA_KENNTNISNAHMEN = {
   "2026-08": {
     absaetze: [
       "Ich bin damit einverstanden, dass die Frankfurt League meinen Namen, meine E-Mail-Adresse, meine " +
@@ -203,15 +203,15 @@ const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite-3";
 
 // Read off the record rather than spelled again, so a new wording and the bump that names it cannot
 // land in separate edits.
-export const LIGA_EINWILLIGUNG = {
+export const LIGA_KENNTNISNAHME = {
   textVersion: AKTUELLE_FASSUNG,
-  ...LIGA_EINWILLIGUNGEN[AKTUELLE_FASSUNG],
+  ...LIGA_KENNTNISNAHMEN[AKTUELLE_FASSUNG],
 } as const;
 
-/** The confirming person's own wording and label, read off the record for `LIGA_EINWILLIGUNG`'s reason. */
+/** The confirming person's own wording and label, read off the record for `LIGA_KENNTNISNAHME`'s reason. */
 export const BESTAETIGUNG_EINWILLIGUNG = {
   textVersion: AKTUELLE_BESTAETIGUNG,
-  ...LIGA_EINWILLIGUNGEN[AKTUELLE_BESTAETIGUNG],
+  ...LIGA_KENNTNISNAHMEN[AKTUELLE_BESTAETIGUNG],
 } as const;
 
 /**
@@ -219,7 +219,7 @@ export const BESTAETIGUNG_EINWILLIGUNG = {
  * label is a record claiming agreement to a text its person never read.
  */
 export function einwilligungFassung(textVersion: string): EinwilligungFassung | null {
-  const fassungen: Readonly<Record<string, EinwilligungFassung>> = LIGA_EINWILLIGUNGEN;
+  const fassungen: Readonly<Record<string, EinwilligungFassung>> = LIGA_KENNTNISNAHMEN;
 
   // `hasOwn` before the index: a record read answers `Object.prototype`'s own members, so a label
   // spelling `toString` would resolve to a function rather than to nothing.

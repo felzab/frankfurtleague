@@ -1,11 +1,5 @@
 import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
-import type {
-  FLBewerbung,
-  FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungKontaktpersonPayload,
-  FLBewerbungSchulePayload,
-  FLBewerbungStatus,
-} from "./schemas";
+import type { FLBewerbung, FLBewerbungEinwilligungAnsichtResponse, FLBewerbungKontaktpersonPayload, FLBewerbungSchulePayload } from "./schemas";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */
 export type NamedTeam = { id: string; name: string };
@@ -21,7 +15,7 @@ export type AdminBewerbungRow = FLBewerbung & {
   inSelectedSaison: boolean;
 };
 
-type FLBewerbungenSortingOptions = "eingereicht_am" | "saison_id";
+type FLBewerbungenSortingOptions = "eingereicht_am";
 
 /**
  * What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one.
@@ -31,7 +25,9 @@ type FLBewerbungenSortingOptions = "eingereicht_am" | "saison_id";
  */
 export type FLBewerbungenFilterParams = {
   saison_id?: string;
-  status?: FLBewerbungStatus;
+  // Comma-joined rather than an array: `apiClient` serialises one value per key, and the endpoint
+  // splits this back into the `$in` a multi-select facet's selection needs.
+  status?: string;
 
   limit?: number;
   sort_by?: FLBewerbungenSortingOptions;

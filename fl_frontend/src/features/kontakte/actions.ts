@@ -1,16 +1,35 @@
 "use server";
 
 import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations";
+import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLKontaktErasurePayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
+import type {
+  FLKontaktErasureAnsichtResponse,
+  FLKontaktErasurePayload,
+  FLPatchSaisonTeamKontaktePayload,
+  FLPatchSaisonTeamKontakteResponse,
+} from "./schemas";
+
+/**
+ * The stale-block refusal, or `null` when the 409 is something else. It lands on no field: the whole
+ * screen is behind the row, so no box the admin could correct is at fault.
+ */
+function mapStaleBlockRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
+
+  return buildRefusal({
+    reason: "Die Kontakte dieser Saison wurden inzwischen geändert, meistens durch das Löschen einer Kontaktperson",
+    repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
+  });
+}
 
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved
@@ -78,7 +97,16 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
-    const saisonTeam = await patchSaisonTeamKontakte(validated.data);
+    // The refusal belongs on the page that asked, not on the error page.
+    let saisonTeam;
+    try {
+      saisonTeam = await patchSaisonTeamKontakte(validated.data);
+    } catch (error) {
+      const refusal = mapStaleBlockRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
     if (!saisonTeam.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
@@ -92,5 +120,31 @@ export async function patchSaisonTeamKontakteAction(
       // not expect to have to check for.
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",
     };
+  });
+}
+
+/**
+ * Whom `eraseKontaktpersonAction` would clear, read before it runs. It refuses nothing: an address
+ * matching nobody answers two empty lists rather than a failure the panel would have to word.
+ */
+export async function readKontaktErasureAnsichtAction(
+  rawPayload: FLKontaktErasurePayload,
+): Promise<ActionResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
+  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
   });
 }

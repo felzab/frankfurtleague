@@ -100,30 +100,31 @@ export const FLTrikotFarbeSchema = z.enum(
 export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
- * Mirrors `FLKontaktEinwilligung` — what a contact person agreed to, and on whose word it is held.
+ * Mirrors `FLKontaktKenntnisnahme` — which wording a contact person was shown, and on whose word the
+ * record is held.
  * The wider `umfang` is written by the person's own confirmation alone, so the payload below keeps
  * the one-member literal.
  */
-export const FLKontaktEinwilligungSchema = z.object({
+export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Einwilligung gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  erteilt_von: z.enum(["person", "administrativ"]),
+  erfasst_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
   datum: CustomDateStringSchema,
   // Null until the person has answered their own confirmation link. It is the one field separating
-  // a consent the person gave from one the league recorded on their behalf.
+  // a record the person answered themselves from one the league entered on their behalf.
   bestaetigt_am: CustomDateStringSchema.nullable(),
 });
-export type FLKontaktEinwilligung = z.infer<typeof FLKontaktEinwilligungSchema>;
+export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;
 
-/** Mirrors `FLKontaktEinwilligungPayload`. German throughout: the team editor binds it to its inputs. */
-export const FLKontaktEinwilligungPayloadSchema = z.object({
+/** Mirrors `FLKontaktKenntnisnahmePayload`. German throughout: the team editor binds it to its inputs. */
+export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
   umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
-  // No `erteilt_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
-  // could name either would let an administrator record a consent as the person's own.
+  // No `erfasst_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
+  // could name either would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
     .nonempty({ error: "Bitte gib an, welche Fassung unterschrieben wurde." })
@@ -132,7 +133,7 @@ export const FLKontaktEinwilligungPayloadSchema = z.object({
     }),
   datum: CustomDateStringSchema,
 });
-export type FLKontaktEinwilligungPayload = z.infer<typeof FLKontaktEinwilligungPayloadSchema>;
+export type FLKontaktKenntnisnahmePayload = z.infer<typeof FLKontaktKenntnisnahmePayloadSchema>;
 
 /**
  * Mirrors `FLKontaktperson`. Mailbox and number are shapeless here on purpose: `GET /teams/memberships`
@@ -147,7 +148,7 @@ export const FLKontaktpersonSchema = z.object({
   // Null until the person enters it on their confirmation page. Refused on read, one unconfirmed
   // seat would answer 500 for a whole triage list — `FLBewerbungSchule.website_url`'s failure.
   geburtsdatum: CustomDateStringSchema.nullable(),
-  einwilligung: FLKontaktEinwilligungSchema,
+  einwilligung: FLKontaktKenntnisnahmeSchema,
 });
 export type FLKontaktperson = z.infer<typeof FLKontaktpersonSchema>;
 
@@ -165,7 +166,7 @@ export const FLKontaktpersonPayloadSchema = z.object({
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   geburtsdatum: CustomDateStringSchema,
-  einwilligung: FLKontaktEinwilligungPayloadSchema,
+  einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
 
@@ -395,6 +396,9 @@ export const FLTeamMembershipSchema = z.object({
   // season's kit is not evidence of this season's.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
+  // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
+  // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
+  kontakte_stand: z.string(),
 });
 export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
 

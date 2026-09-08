@@ -250,7 +250,7 @@ class TestWhatASubmissionStores:
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
-                "erteilt_von": "administrativ",
+                "erfasst_von": "administrativ",
                 "text_version": "v3",
                 "datum": TODAY,
                 "bestaetigt_am": None,

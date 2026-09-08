@@ -58,20 +58,19 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
       // `redirect: false` is the other half of `neutralResult`: by default an allowlisted address
       // navigates and a rejected one does not, so navigating IS the oracle. `redirectTo` is separate.
       await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
-
-      return settleAfterFloor(startedAt, neutralResult(validated.data.email));
     } catch (error) {
       // `unstable_rethrow` stops a future `redirect()` or `notFound()` from being swallowed by the
       // AuthError branch below.
       unstable_rethrow(error);
 
-      // AccessDenied from the allowlist check lands here and must not be distinguishable from success.
-      if (error instanceof AuthError) {
-        return settleAfterFloor(startedAt, neutralResult(validated.data.email));
-      }
-
-      throw error;
+      // AccessDenied from the allowlist check arrives as an AuthError, and rethrowing one would
+      // answer the rejected address with the error page while an allowlisted one gets a sentence.
+      if (!(error instanceof AuthError)) throw error;
     }
+
+    // The one exit both outcomes take. A second `return` above it is how the two become
+    // distinguishable, which is the membership oracle this action exists to withhold.
+    return settleAfterFloor(startedAt, neutralResult(validated.data.email));
   });
 }
 

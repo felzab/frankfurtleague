@@ -1,8 +1,8 @@
 import re
-from datetime import date
-from typing import Annotated, Literal, Self
+from datetime import date, datetime, timezone
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
@@ -27,6 +27,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    KONTAKT_EMAIL_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -50,11 +51,69 @@ from app.shared.schemas.responses import BaseAPIResponse
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
 FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
-FLBewerbungenSortOptions = Literal["eingereicht_am", "saison_id"]
+# One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
+# submission and no path removes a row, so a second order would plan a blocking sort over an archive
+# nothing bounds.
+FLBewerbungenSortOptions = Literal["eingereicht_am"]
 
 # The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
 # derives the same three from the model, and a test holds the two spellings equal.
 FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+# What became of the last message to one seat's address. `angenommen` is the provider ACCEPTING the
+# request, which is all a send ever learns; the five after it are what a delivery event reports.
+FLBewerbungZustellstand = Literal["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+
+# The arms an EVENT may carry. `angenommen` is the sender's own answer and no event reports it, so an
+# event claiming it would overwrite a refusal with the accept that preceded it.
+FLBewerbungZustellEreignis = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+
+
+def normalise_zustellzeitpunkt(value: str) -> str:
+    """One spelling per instant, UTC at a fixed width, so comparing two of these compares two moments.
+
+    The provider spells its own stamps more than one way; a naive one names no instant at all.
+    """
+
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError as unparseable:
+        raise ValueError("Der Zustellzeitpunkt ist kein ISO-8601-Zeitpunkt.") from unparseable
+
+    if moment.tzinfo is None or moment.utcoffset() is None:
+        raise ValueError("Der Zustellzeitpunkt braucht einen UTC-Versatz.")
+
+    return moment.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+
+# The ceiling is judged BEFORE the parse, as `FLBewerbungSchulePayload.website_url`'s is: no ISO-8601
+# instant is longer, and `fromisoformat` should not be handed an unbounded string from outside.
+CustomZustellzeitpunkt = Annotated[
+    Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)], AfterValidator(normalise_zustellzeitpunkt)
+]
+
+# Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value
+# arrives from outside and is stored.
+CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
+
+
+class FLBewerbungZustellung(BaseModel):
+    """What became of the last message to one seat.
+
+    Inside the seat's block rather than a collection of its own: an erasure empties that block, so
+    this goes with the person it is about.
+    """
+
+    # The join key: an event naming another message is about a link the seat does not hold, so a
+    # superseded message's bounce cannot mark the fresh one.
+    nachricht_id: str
+    stand: FLBewerbungZustellstand
+    # The provider's own token, never its prose: a bounce message quotes the recipient's address
+    # (`docs/logging/spec.md :: L9`), and the German is composed at the surface.
+    grund: str | None
+    # A PLAIN string here where the payload normalises, as `FLBewerbungSchule.website_url` is: this
+    # model reads stored values, and refusing one would 500 the whole triage list.
+    am: str
 
 
 class FLBewerbungBestaetigung(BaseModel):
@@ -70,6 +129,9 @@ class FLBewerbungBestaetigung(BaseModel):
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString
+    # Null on every seat mailed before the delivery state existed, and on every fresh entry a re-send
+    # writes: nothing is yet known about the message that entry's link went out in.
+    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLBewerbungBestaetigungen(BaseModel):
@@ -139,8 +201,9 @@ class FLBewerbungEntscheidung(BaseModel):
 class FLBewerbung(BaseModel):
     """One school's application to play one season, as it is stored.
 
-    The submission is never rewritten: only `status`, `entscheidung` and `team_id` move, and only
-    through the two triage endpoints.
+    The submission is never rewritten: `status`, `entscheidung` and `team_id` move through the
+    triage, and a seat's `email` through
+    `app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -174,11 +237,35 @@ class FLBewerbung(BaseModel):
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
 
 
+def parse_status_list(value: Any) -> Any:
+    """Comma-joined as well as repeated, so the page forwards the parameter it read rather than re-encoding it.
+
+    `fl_frontend/src/core/api.ts :: apiClient` sends one value per key, and the queue's URL spells a
+    multi-select selection comma-joined.
+    """
+
+    if value is None:
+        return None
+
+    picked: list[Any] = []
+    for item in value if isinstance(value, list) else [value]:
+        # A non-string is passed on untouched, so Pydantic refuses it rather than this splitter
+        # dropping it into a narrowing nobody asked for.
+        picked.extend(item.split(",") if isinstance(item, str) else [item])
+
+    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would
+    # answer that with a page holding nothing.
+    return [part for part in picked if part != ""] or None
+
+
 class FLBewerbungenFilterParams(BaseModel):
     """What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one."""
 
     saison_id: str | None = None
-    status: FLBewerbungStatus | None = None
+    # A LIST, because the facet offering these is multi-select and a two-status selection has no
+    # other request that expresses it. Published as the STRING it arrives as: an array parameter is
+    # one `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
+    status: Annotated[list[FLBewerbungStatus] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
 
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
     # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
@@ -231,6 +318,10 @@ class FLBewerbungenListResponse(BaseAPIResponse):
     # German, unlike the envelope fields around it, because `complete` reads as "the read finished"
     # as readily as "the list is whole" -- and this flag decides whether an admin may trust the list.
     vollstaendig: bool
+    # Counted on the SERVER: the answer holds only the statuses the request asked for, so a caller
+    # counting the rows it was served reads zero for each one the server hid and would offer no way
+    # back to them.
+    anzahl_je_status: dict[FLBewerbungStatus, int]
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
@@ -313,8 +404,8 @@ def normalise_telefon(value: str) -> str:
 class FLBewerbungEinwilligungPayload(BaseModel):
     """What the applicant agreed to, and nothing about how the record of it is composed.
 
-    `umfang`, `erteilt_von` and `datum` are the SERVER's: a client offered them could claim an
-    administrative transcription, or backdate a consent.
+    `umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an
+    administrative transcription, or backdate a record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -538,8 +629,8 @@ FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 class FLBewerbungFensterResponse(BaseAPIResponse):
     """One season's application window, and NOTHING else about that season.
 
-    A season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds whole --
-    so the window gets its own shape rather than widening a season read.
+    A season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so
+    the window gets its own shape rather than widening a season read.
     """
 
     saison_id: str
@@ -549,6 +640,19 @@ class FLBewerbungFensterResponse(BaseAPIResponse):
     # The whole judgement, computed server-side: `offen` AND today inside the span. Served rather
     # than left to the client, which would re-derive it against a clock this server does not share.
     laeuft: bool
+
+
+class FLBewerbungKeinFensterResponse(BaseAPIResponse):
+    """A season that records no application window: its id, and nothing else about it.
+
+    `docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts
+    this answer from the 404 a mistyped id keeps.
+    """
+
+    saison_id: str
+    # Always null, and carried all the same: it is the key `FLBewerbungFensterResponse` has not got,
+    # so one endpoint's two bodies part on a field rather than on which one a parser tries first.
+    fenster: None
 
 
 class FLBewerbungSchulenResponse(BaseAPIResponse):
@@ -693,8 +797,12 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
 
-    # The five below compose the two outbound messages and are the frontend SERVER's alone; its
+    # The seven below compose the two outbound messages and are the frontend SERVER's alone; its
     # route handler answers the browser the four above.
+
+    # The application this seat belongs to, so a message composed here can be tagged with it and the
+    # provider's delivery event routed back to the seat that was written to.
+    bewerbung_id: CustomObjectId
     saison_id: str
     # The seat the TOKEN opened, never the pair a `trainer_ist_zugleich` answer wrote alongside it.
     rolle: FLKontaktRolle
@@ -714,6 +822,27 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
 
     token: str
     rolle: FLKontaktRolle
+    bestaetigungsfrist: CustomDateString
+
+
+class FLBewerbungKontaktEmailPayload(BaseModel):
+    """The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
+    # public form refused too and a correction cannot store what a submission could not.
+    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+
+
+class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
+    """The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."""
+
+    email: str
+    # Plural: one person may hold two seats, and the correction writes the address and the link to
+    # both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
+    rollen: list[FLKontaktRolle]
+    token: str
     bestaetigungsfrist: CustomDateString
 
 
@@ -815,6 +944,53 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."""
+    """Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."""
 
     saison_ids: list[str]
+    # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
+    # once (`docs/backend/spec.md :: I189`). Null means no pass has ever run here.
+    sweep_gelaufen_am: CustomDateString | None
+
+
+# --- The ZUSTELLSTAND, system tier. One endpoint records what the sender learned, the other applies
+# what the provider reported; both write `bestaetigungen.<seat>.zustellung` and nothing else.
+
+
+class _ZustellungPayload(BaseModel):
+    """What both writes name: the application, the seats one message covered, that message, and when.
+
+    In the BODY and not the path, which the edge logs: an application id keys three people's records
+    (`docs/logging/spec.md :: L9`).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    bewerbung_id: CustomObjectId
+    # Every seat the one message reached, which is two where a person holds two: a re-send writes the
+    # fresh entry to both, so a state written to one of them alone would leave the other stale.
+    rollen: list[FLKontaktRolle]
+    nachricht_id: CustomNachrichtId
+    am: CustomZustellzeitpunkt
+
+
+class FLBewerbungZustellungAngenommenPayload(_ZustellungPayload):
+    """One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state."""
+
+
+class FLBewerbungZustellungEreignisPayload(_ZustellungPayload):
+    """One delivery event about a message this application's seats were sent."""
+
+    stand: FLBewerbungZustellEreignis
+    # Required as a KEY and null where the event carries none: a state with no token is a fact about
+    # the mailbox all the same, and an omitted key would read as a client that forgot it.
+    grund: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
+
+
+class FLBewerbungZustellungResponse(BaseAPIResponse):
+    """Which seats the write reached, empty where the event was about a message no seat still holds.
+
+    Empty rather than a refusal: the provider repeats a settled event for hours if anything but a
+    success answers it.
+    """
+
+    angewendet: list[FLKontaktRolle]

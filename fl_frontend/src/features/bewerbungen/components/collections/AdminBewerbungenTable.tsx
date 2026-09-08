@@ -9,6 +9,7 @@ import { Table } from "@heroui/react";
 import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
+import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellung";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -100,6 +101,11 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     return <span className={labelBadge(BEWERBUNG_DUBLETTE_TINT)}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
   };
 
+  // Beside the duplicate mark, and `danger` where that one is `warning`: a colliding pair is waited
+  // out by declining one of them, and an address the provider refuses for good is not.
+  const renderUnerreichbar = (bewerbung: AdminBewerbungRow) =>
+    hatUnerreichbarenSitz(bewerbung) ? <span className={labelBadge(ZUSTELLUNG_QUEUE_TINT)}>{ZUSTELLUNG_QUEUE_LABEL}</span> : null;
+
   // The count and never a fourth `status` value: an application waits on its contacts inside
   // `eingereicht`, and a filter over this would partition the queue on something no decision moves.
   const renderBestaetigung = (bewerbung: AdminBewerbungRow) => {
@@ -164,6 +170,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
             <div className="flex flex-row flex-wrap items-center gap-2">
               {renderHerkunft(bewerbung)}
               {renderDublette(bewerbung)}
+              {renderUnerreichbar(bewerbung)}
               {renderBestaetigung(bewerbung)}
               {/* Words rather than a pill: the season is the card's ordinary case, which the date
                   beside it already states in the same register. */}
@@ -264,6 +271,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                       <div className="flex flex-col items-start gap-1">
                         {renderHerkunft(bewerbung)}
                         {renderDublette(bewerbung)}
+                        {renderUnerreichbar(bewerbung)}
                       </div>
                     </Table.Cell>
 

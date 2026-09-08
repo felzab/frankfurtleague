@@ -102,7 +102,7 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
         "email": KONTAKT_EMAIL,
         "telefon": KONTAKT_TELEFON,
         "geburtsdatum": KONTAKT_GEBURTSDATUM,
-        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
     }
 
 

@@ -10,18 +10,30 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung
+from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung, korrigiere_kontakt_email
 from app.api.bewerbungen.router import get_bewerbungen
-from app.api.bewerbungen.schemas import FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbungenFilterParams
+from app.api.bewerbungen.schemas import (
+    FLAblehnenBewerbungPayload,
+    FLAnnehmenBewerbungPayload,
+    FLBewerbungenFilterParams,
+    FLBewerbungKontaktEmailPayload,
+    FLBewerbungZustellungAngenommenPayload,
+    FLBewerbungZustellungEreignisPayload,
+)
 from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
+    BEWERBUNG_KONTAKT_EMAIL_TAKEN,
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
+    BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_SUBJECT_UNRESOLVED,
+    bestaetigungsfrist_from,
     compose_bestaetigungen,
     compose_new_club,
     hash_token,
+    seat_zustellung,
 )
+from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
@@ -116,7 +128,7 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 69 1234567",
         "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
     }
 
 
@@ -563,7 +575,7 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
         block[slot]["geburtsdatum"] = "1980-05-04" if stamped else None
         block[slot]["einwilligung"] = {
             **block[slot]["einwilligung"],
-            "erteilt_von": "person" if stamped else "administrativ",
+            "erfasst_von": "person" if stamped else "administrativ",
             "bestaetigt_am": "2026-02-10" if stamped else None,
         }
 
@@ -1223,3 +1235,211 @@ class TestAnAcceptanceTakenOnAStaleJudgement:
         # 404 rather than the decline's 409: that endpoint re-reads because its window is real and a
         # raced decision must not read as a missing application. Nothing reaches this one.
         assert status_code == 404
+
+
+CORRECTION_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000a")
+
+CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
+
+REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
+
+
+async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *, email: str = CORRECTED_EMAIL) -> Any:
+    return await korrigiere_kontakt_email(
+        bewerbung_id=CORRECTION_BEWERBUNG,
+        seat=seat,
+        email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def seed_a_bounced_application(database: AsyncDatabase, client: AsyncMongoClient, *, mirrored: bool = False) -> None:
+    """One open application whose Ansprechperson the mail provider has refused, which is the case the correction exists for."""
+
+    kontakte = confirmed_kontakte(open_seat="ansprechperson")
+    if mirrored:
+        # The Trainer IS the Ansprechperson, so the correction must move both blocks and both links.
+        kontakte["trainer"] = {**kontakte["ansprechperson"]}
+        kontakte["trainer_ist_zugleich"] = "ansprechperson"
+
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            CORRECTION_BEWERBUNG,
+            team_id=EXISTING_OID,
+            kontakte=kontakte,
+            bestaetigungen=BESTAETIGUNGEN,
+            bestaetigungsfrist="2026-02-15",
+        )
+    )
+    seats = ["trainer", "ansprechperson"] if mirrored else ["ansprechperson"]
+    await angenommen_zustellung(
+        angenommen_data=FLBewerbungZustellungAngenommenPayload.model_validate(
+            {"bewerbung_id": str(CORRECTION_BEWERBUNG), "rollen": seats, "nachricht_id": REFUSED_MESSAGE, "am": "2026-02-01T10:00:00Z"}
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
+    await post_zustellung(
+        ereignis_data=FLBewerbungZustellungEreignisPayload.model_validate(
+            {
+                "bewerbung_id": str(CORRECTION_BEWERBUNG),
+                "rollen": seats,
+                "nachricht_id": REFUSED_MESSAGE,
+                "stand": "unzustellbar",
+                "grund": "NoEmail",
+                "am": "2026-02-01T10:05:00Z",
+            }
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
+
+
+class TestCorrectingOneContactAddress:
+    """The one repair there is for a link the provider will not carry, and the one field of a submitted application it rewrites."""
+
+    def test_it_writes_the_address_mints_a_link_and_restarts_the_deadline(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            response = await correct(database, client, "ansprechperson")
+
+            return response, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
+        assert response.bestaetigungsfrist == bestaetigungsfrist_from(today=TODAY)
+        assert stored["kontakte"]["ansprechperson"]["email"] == CORRECTED_EMAIL
+        assert stored["bestaetigungsfrist"] == response.bestaetigungsfrist
+        # The raw token exists in the answer and in the mail; the document keeps its hash alone.
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+
+    def test_the_refusal_recorded_against_the_old_address_goes_with_the_entry(self, mongo_replica_set_url: str):
+        """Left standing it would hold the application back from the deadline for ever, on a mailbox this seat has stopped naming."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            before = seat_zustellung(
+                bestaetigungen=(await stored_bewerbung(database, CORRECTION_BEWERBUNG))["bestaetigungen"], seat="ansprechperson"
+            )
+            await correct(database, client, "ansprechperson")
+            after = seat_zustellung(
+                bestaetigungen=(await stored_bewerbung(database, CORRECTION_BEWERBUNG))["bestaetigungen"], seat="ansprechperson"
+            )
+
+            return before, after
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert before is not None and before["stand"] == "unzustellbar"
+        assert after is None
+
+    def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str):
+        """A seat left on the old address keeps a live link to a mailbox the league has stopped using."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client, mirrored=True)
+            response = await correct(database, client, "ansprechperson")
+
+            return response.rollen, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        rollen, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert sorted(rollen) == ["ansprechperson", "trainer"]
+        assert stored["kontakte"]["trainer"]["email"] == CORRECTED_EMAIL
+        assert stored["bestaetigungen"]["trainer"]["token_hash"] == stored["bestaetigungen"]["ansprechperson"]["token_hash"]
+
+    def test_nothing_else_the_school_wrote_moves(self, mongo_replica_set_url: str):
+        """The submission is the record the decision is taken against, and this endpoint is its one exception."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            await correct(database, client, "ansprechperson")
+
+            return before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        moved = {key for key in before if before[key] != after[key]}
+
+        assert moved == {"kontakte", "bestaetigungen", "bestaetigungsfrist"}
+        assert {seat: person for seat, person in after["kontakte"].items() if seat != "ansprechperson"} == {
+            seat: person for seat, person in before["kontakte"].items() if seat != "ansprechperson"
+        }
+        assert {key: value for key, value in after["kontakte"]["ansprechperson"].items() if key != "email"} == {
+            key: value for key, value in before["kontakte"]["ansprechperson"].items() if key != "email"
+        }
+
+    def test_the_write_is_recorded_against_the_administrator(self, mongo_replica_set_url: str):
+        """A contact detail moving with nobody named is a change nothing can be traced back through."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            await correct(database, client, "ansprechperson")
+
+            return await database[Collection.AKTIONEN].find({"document_id": CORRECTION_BEWERBUNG}).sort("_id", 1).to_list(length=None)
+
+        rows = on_a_league(mongo_replica_set_url, body)
+
+        assert rows[-1]["operation"] == "patch_one"
+        assert rows[-1]["before"]["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
+
+    def test_an_address_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as conflict:
+                await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
+
+            return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert after == before
+
+    def test_a_seat_that_has_already_answered_takes_no_correction(self, mongo_replica_set_url: str):
+        """Their own record stands: correcting the address would put a confirmed seat behind a link nobody asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+
+            with pytest.raises(DocumentConflictException) as conflict:
+                await correct(database, client, "trainer")
+
+            return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert stored["kontakte"]["trainer"]["email"] != CORRECTED_EMAIL
+
+    def test_a_decided_application_takes_no_correction(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            await decline(database, CORRECTION_BEWERBUNG)
+
+            with pytest.raises(DocumentConflictException) as conflict:
+                await correct(database, client, "ansprechperson")
+
+            return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert stored["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
+
+    def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+
+            with pytest.raises(DocumentNotFoundException) as missing:
+                await correct(database, client, "hausmeister")
+
+            return missing.value.status_code
+
+        assert on_a_league(mongo_replica_set_url, body) == 404

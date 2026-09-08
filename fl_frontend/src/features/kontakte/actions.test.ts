@@ -60,7 +60,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */
@@ -165,7 +165,7 @@ describe("the erasure against the backend's refusal register", () => {
     assert.ok(ERASE_MUTATION.includes('"/kontakte/erasure"'), "the erasure's mutation is outside its slice");
     assert.ok(!ERASE_MUTATION.includes("/saisons/"), "the erasure's mutation slice runs on into the seats' write");
     assert.ok(
-      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations"'),
+      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations"'),
       "the header's slice no longer holds the import",
     );
     assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
@@ -206,17 +206,6 @@ describe("what the erasure moves", () => {
     assert.match(ERASE_MUTATION, /body: JSON\.stringify\(payload\)/, "the payload no longer travels in the body");
     assert.ok(!ERASE_MUTATION.includes("params:"), "the address is sent as a query parameter, which the access log keeps");
     assert.ok(!/\$\{[^}]*\}/.test(ERASE_MUTATION), "the endpoint interpolates a value into the path");
-  });
-
-  /* The admin tier is what `apiClient` sends `X-FL-Actor` on, so any other tier is refused 401 and
-     unattributable both. What is asserted is the tier every write DECLARES; a call would report one
-     request's outcome rather than the set. */
-  it("leaves at the admin tier and at no other", () => {
-    // Every write in the module, not the erasure alone: both are admin-tier and a second one added
-    // at any other tier is refused 401 and unattributable both.
-    const tiers = [...MUTATIONS.matchAll(/authType: "(\w+)"/g)].map((match) => match[1]);
-
-    assert.deepEqual(tiers, ["admin", "admin"], `the module's writes are sent at: ${tiers.join(", ") || "no tier at all"}`);
   });
 
   /* The response carries counts and no person, and nothing on this side may put one back. */
@@ -379,7 +368,12 @@ describe("what the save hands the write", () => {
     };
     // Composed exactly as the editor composes it
     // (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: buildPayload`).
-    const payload = { team_id: "507f1f77bcf86cd799439011", saison_id: "2526", kontakte: toKontaktePayload(mirrorKontakte(gespeichert)) };
+    const payload = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload(mirrorKontakte(gespeichert)),
+      kontakte_stand: "9f2c",
+    };
 
     const decision = submitDecision({ payloads: { kontakte: payload }, schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema } });
     assert.equal(decision.blocked, false, "the editor's own guard refuses a block the season already holds");

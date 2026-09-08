@@ -27,6 +27,23 @@ import type {
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
 
+/** `null` where the 409 is something else; it lands on no field, three boxes each triggering it alone. */
+function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-ANONYMISE-002") {
+    return {
+      error: buildRefusal({
+        reason: "Name und Kontaktdaten dieser Person wurden gelöscht, und dieses Speichern würde sie wieder eintragen",
+        // No route back is named here: the deletion panel on this same page already refuses one
+        // (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx`).
+        repair: "Lade die Seite neu",
+      }),
+    };
+  }
+  return null;
+}
+
 /** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
 function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -111,7 +128,16 @@ export async function patchSchiedsrichterAction(
       };
     }
 
-    const postOperation = await patchSchiedsrichter(validated.data);
+    // The refusal belongs on the form that asked, not on the error page.
+    let postOperation;
+    try {
+      postOperation = await patchSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapEditRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!postOperation.acknowledged) {
       return {
         success: false,
