@@ -42,6 +42,8 @@ NOTES: Final = "docs/notes.md"
 SPARE: Final = "docs/spare.md"
 BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"
+# The one sheet the `L` band belongs to (OUT-4), so a scenario reaching that band has a sheet to add to.
+LOGGING_SPEC: Final = "docs/logging/spec.md"
 # Where a scenario moves the frontend sheet: still a spec sheet, under a folder the fork holds none in.
 MOVED_SPEC: Final = "docs/ui/spec.md"
 # A German page name, which `core.quotePath` spells back as an escaped run this diff walk cannot
@@ -106,6 +108,16 @@ GAPPED_ID: Final = "I20"
 HOLE_ID: Final = "I5"
 # Neither sheet holds it at the fork, so only the branch's own rows can catch the second one.
 RACED_ID: Final = "I9"
+# Far below the other band's ceiling on purpose: a run computed from the wrong band then names a
+# number no correct allocation could reach, so conflating the two fails loudly rather than by a
+# near miss.
+LOG_LOW_ID: Final = "L1"
+LOG_HIGH_ID: Final = "L4"
+LOG_FREE_ID: Final = "L5"
+LOG_GAPPED_ID: Final = "L6"
+# A row of the invariant table's shape in neither band, which a reader widened past the two would
+# take and allocate against.
+OTHER_BAND_ID: Final = "X1"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
 # A run no comment reader finds in its own file, the `.py` tokenizer reading it as a string: only a
@@ -278,6 +290,11 @@ def _corpus() -> dict[str, str]:
             _row(HIGH_ID, "The number the band has reached"),
         ),
         FRONTEND_SPEC: _sheet("Frontend", _row(SHARED_ID, "A route names its own data"), _row(FRONTEND_ID, "One page renders")),
+        LOGGING_SPEC: _sheet(
+            "Logging",
+            _row(LOG_LOW_ID, "One JSON document per line"),
+            _row(LOG_HIGH_ID, "The number the logging band has reached"),
+        ),
         MOD: _module("a module the scenarios write comments into."),
         SIDE: _module("a module kept beside the first, so per-file answers separate."),
         EMBEDDED: _page(
@@ -662,9 +679,9 @@ def _number_fail(rel: str, number: str, *homes: str) -> tuple[str, str, str, str
     return ("fail", "invariant-number", rel, detail)
 
 
-def _outside_fail(rel: str, number: str, span: str) -> tuple[str, str, str, str]:
+def _outside_fail(rel: str, number: str, span: str, ceiling: str = HIGH_ID) -> tuple[str, str, str, str]:
     detail = (
-        number + " is outside " + span + " -- OUT-4 allocates from one past " + HIGH_ID + ", the highest number any sheet defines at the fork"
+        number + " is outside " + span + " -- OUT-4 allocates from one past " + ceiling + ", the highest number any sheet defines at the fork"
     )
     return ("fail", "invariant-number", rel, detail)
 
@@ -810,6 +827,44 @@ def test_an_added_invariant_row_outside_this_sheet_s_own_section_allocates_nothi
     assert FRONTEND_SPEC in outside["additions"] and FRONTEND_SPEC in inside["additions"]
     assert _findings(outside) == []
     assert _findings(inside) == [_outside_fail(FRONTEND_SPEC, GAPPED_ID, FREE_ID)]
+
+
+def test_an_added_logging_row_takes_one_past_the_logging_band_s_own_ceiling() -> None:
+    """The second band allocates as the first does, against its own ceiling (OUT-4).
+
+    The row of neither band rides in the passing run: a reader widened past the two bands allocates
+    against it, and nothing else here would see that.
+    """
+    _reset()
+    kept = _row(LOG_LOW_ID, "One JSON document per line")
+    try:
+        taken = _row(LOG_FREE_ID, "A row taking one past the logging ceiling")
+        stray = _row(OTHER_BAND_ID, "A row of the table's shape in neither band")
+        _replace(LOGGING_SPEC, kept, kept + "\n" + taken + "\n" + stray)
+        allocated = _run()
+        _reset()
+        _replace(LOGGING_SPEC, kept, kept + "\n" + _row(LOG_GAPPED_ID, "A row skipping the number below it"))
+        gapped = _run()
+    finally:
+        _reset()
+    assert LOGGING_SPEC in allocated["additions"] and LOGGING_SPEC in gapped["additions"]
+    assert _findings(allocated) == []
+    assert _findings(gapped) == [_outside_fail(LOGGING_SPEC, LOG_GAPPED_ID, LOG_FREE_ID, LOG_HIGH_ID)]
+
+
+def test_the_two_bands_allocate_independently_on_one_branch() -> None:
+    """One ceiling across both bands would fill the run with the surface row and leave the logging row outside it (OUT-4)."""
+    _reset()
+    surface_kept = _row(FRONTEND_ID, "One page renders")
+    logging_kept = _row(LOG_LOW_ID, "One JSON document per line")
+    try:
+        _replace(FRONTEND_SPEC, surface_kept, surface_kept + "\n" + _row(FREE_ID, "A row taking one past the surface ceiling"))
+        _replace(LOGGING_SPEC, logging_kept, logging_kept + "\n" + _row(LOG_FREE_ID, "A row taking one past the logging ceiling"))
+        together = _run()
+    finally:
+        _reset()
+    assert sorted(together["additions"]) == [FRONTEND_SPEC, LOGGING_SPEC]
+    assert _findings(together) == []
 
 
 def test_a_sheet_git_cannot_read_as_a_rename_has_every_row_it_kept_charged_as_a_new_one() -> None:

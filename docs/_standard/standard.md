@@ -443,11 +443,11 @@ README and every template.
   _Enforced by_ gate checks `cell-prose`, `invariant-row`, `citation` and `path`; `spec-spine` for
   the four sections and for the contract's numbering; `invariant-id` for a cited
   number no sheet's table defines, which is a dead citation rather than an ambiguous one;
-  `invariant-number` for an added `I` row's number, another sheet's already or outside the run this
-  branch fills one past the highest, which reads the branch's own diff and so leaves a number two
-  sheets already share standing (CUR-6), and which matches `I` rows alone
-  (`scripts/checks/docs_gate/branch.py :: INVARIANT_ROW_RE`), so an added `L` row's number is
-  `/docs:audit`'s;
+  `invariant-number` for an added `I` or `L` row's number, another sheet's already or outside the run
+  this branch fills one past its own band's highest, which reads the branch's own diff and so leaves a
+  number two sheets already share standing (CUR-6), and which reads the two bands as separate runs
+  (`scripts/checks/docs_gate/kernel.py :: INVARIANT_ID_RE`), so a row added to either band answers to
+  that band's own ceiling;
   gate check `rule-id`, which fails a bare number two sheets both define — **in a comment alone, and
   not where a surface word sits in the same block**, so a page naming the wrong sheet or no sheet is
   `/docs:audit`'s, as contract over mechanism is.

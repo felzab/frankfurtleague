@@ -88,11 +88,9 @@ BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
 # What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
 # rule itself does, is a mention rather than a use.
 QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
-# A row of the invariant shape wherever it sits, for a reader of diff lines, which carry no
-# section; `invariant_rows` reads the table alone.
-INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
-# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
-# enough that an id is resolved against every sheet.
+# Both bands (OUT-4): a citation crosses surfaces, and an allocation reads whichever band its row
+# is in. Section-blind, for a reader of diff lines; `invariant_rows` is what confines a match to
+# the table.
 INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 # The closing sections are fixed so a growing contract cannot push Invariants down and silently
 # repoint every citation of section 3 — which is what makes an invariant number safe to cite.
