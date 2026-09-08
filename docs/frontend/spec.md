@@ -382,13 +382,14 @@ link rather than per seat. The footer line saying who a message reached is split
 who never applied to ignore it, an address on an application being one a stranger can type, and
 each says what ignoring it costs.
 
-**The queue MARKS a colliding application ACROSS THE ROWS IT LOADED; the write refuses none.** Both
-of a colliding pair are flagged for the administrator to decide between
-(`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten`, which is where the
-argument against enforcing that uniqueness at an unauthenticated write is recorded). A pair split
-across the endpoint's cap goes unmarked, and nothing identifies which pair:
-`FLBewerbungenListResponse.vollstaendig` is false there, and the notice `AdminBewerbungenView`
-raises on it says so before it says anything else.
+**The queue MARKS a colliding application ACROSS THE WHOLE QUEUE; the write refuses none.** Both of a
+colliding pair are flagged for the administrator to decide between
+(`fl_frontend/src/features/bewerbungen/duplicates.ts :: markBewerbungDubletten`, which is where the
+argument against enforcing that uniqueness at an unauthenticated write is recorded). The endpoint
+answers which keys collide over every open application rather than over the rows it served
+(`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), so the cap parts a pair
+without unmarking either end. The partner may still sit outside the page, which is what the notice
+`AdminBewerbungenView` raises on `vollstaendig` says.
 
 The other absences are deliberate rather than unbuilt: there is no `DELETE /saisons/{saison_id}`,
 because a season that is over is `past`; no action writes `saisons.status` except

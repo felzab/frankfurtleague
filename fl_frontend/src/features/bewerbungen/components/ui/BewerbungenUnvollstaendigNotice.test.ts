@@ -116,7 +116,7 @@ describe("the notice a truncated queue carries", () => {
         return stelle;
       };
 
-      const reihenfolge = [at("Dubletten werden nur"), at("Auch die Zahlen an den Filtern"), at("Geladen sind"), at("Auch diese Ansicht")];
+      const reihenfolge = [at("Dubletten werden über alle"), at("Die Zahlen an den Filtern"), at("Geladen sind"), at("Auch diese Ansicht")];
 
       assert.deepEqual(
         [...reihenfolge].sort((a, b) => a - b),
@@ -131,7 +131,7 @@ describe("the notice a truncated queue carries", () => {
   it("says it is still incomplete from both ends of the queue", () => {
     for (const props of [NEUESTE, AELTESTE]) {
       assert.match(markup(props), /Auch diese Ansicht bleibt unvollständig\./);
-      assert.match(markup(props), /Dubletten werden nur unter den geladenen Zeilen erkannt\./);
+      assert.match(markup(props), /Dubletten werden über alle Bewerbungen erkannt/);
     }
 
     assert.match(markup(NEUESTE), /Geladen sind die neuesten Bewerbungen/);

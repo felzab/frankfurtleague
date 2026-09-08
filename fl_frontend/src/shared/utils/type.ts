@@ -1,6 +1,7 @@
 /**
- * `Object.entries` widens keys to `string`, losing the union on a record keyed by a literal; this asserts it back. Safe
- * only for a known-shape object literal — never for anything parsed from outside the program.
+ * `Object.entries` widens a literal-keyed record's keys to `string`; the cast asserts the union back. Sound wherever no
+ * key outside `keyof T` can reach the object — an object literal, or a strict Zod record, which refuses an unrecognised
+ * key.
  */
 export function typedObjectEntries<T extends object>(obj: T) {
   // `Object.entries` yields only keys the object HAS, so an optional key's value is present at every

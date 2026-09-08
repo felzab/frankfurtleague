@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                         | Tags                                                                        | Status   |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2rz3-a754` | A colliding pair split across the read's cap is marked at neither end                                                        | FE, BE, Ops, Docs, edge, bewerbungen                                        | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                         | FE, Ops, gate, tests, saisons                                               | Open     |
@@ -92,7 +91,7 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                   | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                              | FE, Ops, gate, tests                                                        | Open     |
-| `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `buut-5cyw` | An undo rewrites the edited fixture whole, from the payload the page loaded                                                  | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                          | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                            | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                           | FE, Ops, gate, admin                                                        | Open     |
@@ -129,67 +128,8 @@ deliverable.
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
-| `zp46-yt3p` | No exact placing is available above the certainty walk's fixture limit                                                       | BE, Docs, saisons, teams                                                    | Standing |
 
 ## The items
-
-### `2rz3-a754` · A colliding pair split across the read's cap is marked at neither end
-
-| Tags                                 | Status | Depends on |
-| ------------------------------------ | ------ | ---------- |
-| FE, BE, Ops, Docs, edge, bewerbungen | Open   | —          |
-
-**The duplicate marking runs over the rows one read served.**
-`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page was
-handed, groups the `eingereicht` rows on season plus club or season plus Kürzel, and marks every member of a
-group of two or more. `fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen` serves at most
-`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` rows and reports when its answer was cut. A
-colliding pair split across that cut falls into no group, so neither half is marked and nothing names the pair
-— the notice can say that a pair is unmarked and cannot say which.
-
-**That is not cosmetic, because the marking is what the write's silence buys.** Uniqueness on an
-unauthenticated form is itself a denial of service, so the write refuses no duplicate and the queue
-shows them instead; a queue that shows them across part of its set honours that ruling across part
-of its set.
-
-**A decision leaves the row, and the queue does not serve it by default.**
-`fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt`
-and stamps who decided and why; the row stays, deliberately, the submission being the record the
-decision was taken against. The triage page sends the status its bar selects
-(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`), open by default, so a
-decided application leaves the working set while staying one press away. No endpoint removes an
-application, so the row itself is permanent.
-
-**Two answers are closed, and each looks right from the code alone.**
-
-- **Per-school uniqueness on the write is refused by my ruling.** An index over unauthenticated
-  input hands whoever fills the field first the power to own it, so a real school meets a refusal
-  holding its own name and the rule meant to protect it locks it out. The marking is what the league
-  has **instead** of that index, and the argument is recorded at `findBewerbungDubletten` and stated
-  again in `docs/frontend/spec.md`.
-- **Pagination is refused because a cursor splits the set the marking runs over.** Paging would
-  remove the mechanism the ruling above rests on, and remove it silently, with no surface saying
-  that a pair split across a page boundary goes unmarked —
-  `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`'s own declaration records
-  that the list is served whole for exactly this reason. It also lands in the facet: the status counts now come
-  from the server (`docs/backend/spec.md :: I193`) and would survive it, but a page holding one
-  season's rows leaves every other season at zero, so the cross-season view goes dead.
-
-**Done when** a colliding pair is marked or named however the read was cut. The queue now narrows on
-the server and the bar is told the counts it cannot derive
-(`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`), so the cap is spent on the
-status being triaged rather than on the archive — which shrinks the window without closing it.
-**There is no bulk action**, so clearing a flood is one press per row, each with its own
-confirmation and its own round trip.
-
-**What bounds the severity.** Reaching the state takes a deliberate flood: the ceiling is
-`nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list from a single
-allocation at roughly three hours of sustained work, and closing the season's application window
-stops new rows at once.
-
-**What is read and what is not** (COR-9). Every gap above is read off a branch rather than measured:
-`findBewerbungDubletten`'s loop, `ablehnen_bewerbung`'s `$set`, and the list `countFacetOptions` is
-handed. **Nothing here was driven against a truncated queue.**
 
 ### `2v3g-9g2y` · The root not-found page renders without the shell every other page has
 
@@ -669,66 +609,56 @@ gate — so that the two blocks are compared with each other rather than with a 
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
 
-### `buut-5cyw` · An undo restores a whole stored fixture from a list read before the save
+### `buut-5cyw` · An undo rewrites the edited fixture whole, from the payload the page loaded
 
 | Tags                        | Status | Depends on |
 | --------------------------- | ------ | ---------- |
 | FE, BE, Docs, admin, spiele | Open   | —          |
 
-**A save on `/admin/spiele/[spiel_id]` can rewrite fixtures nobody opened, and the undo offered for it puts
-each of them back as a whole document.** `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`
-resolves the bracket inside its transaction, so one save clears results on advanced fixtures and releases
-sides on others. `fl_frontend/src/features/spiele/utils.ts :: buildUndoPayloads` then composes one payload per
-moved fixture through `:: toPatchPayload`, which lists every field the endpoint takes because the update is a
-wholesale `$set` — `fl_backend/app/api/spiele/schemas.py :: FLPatchSpielDataPayload` says so at each field,
-and an omitted one is overwritten with nothing. So an undo writes back `datum`, `uhrzeit`, `notiz`, both
-quellen and both sides of a fixture whose slot was the only thing that moved.
+**A save on `/admin/spiele/[spiel_id]` can rewrite fixtures nobody opened, and the undo offered for it sends
+two shapes rather than one.** `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data` resolves the
+bracket inside its transaction, so one save clears results on advanced fixtures and releases sides on others.
+Each of those goes back through `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_paarung`, which
+takes the two sides, the `elfmeterschiessen` and the `sonderereignis` and nothing else
+(`fl_backend/app/api/spiele/schemas.py :: FLSpielPriorPaarung`), so a date or a note somebody moved in between
+survives the undo. The fixture the admin opened goes back whole:
+`fl_frontend/src/features/spiele/utils.ts :: toPatchPayload` lists every field the wholesale endpoint takes
+because the update is a `$set` — `fl_backend/app/api/spiele/schemas.py :: FLPatchSpielDataPayload` says so at
+each field, and an omitted one is overwritten with nothing.
 
-**The values come from a snapshot, and the snapshot is a different read from the write it
-corrects.** The moved fixtures are picked out of the season list the admin context holds
-(`fl_frontend/src/features/spiele/utils.ts :: listMovedSpiele`):
-`fl_frontend/src/features/admin/components/providers/AdminContextWrapper.tsx` fetches it once per
-page render through `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele`, and
-`fl_frontend/src/features/admin/components/providers/AdminContextProvider.tsx` holds it for the life
-of the mounted editor. That read is uncached, so the window is one page visit rather than a cache
-lifetime — and inside it, anything another writer changes on a moved fixture is reverted by the
-undo, silently, with nothing in the payload marking a field the resolution never touched.
-
-**One half of the shape is closed, and the reason it is closed does not generalise.** A payload
-built from that list alone would blank `mietpreis` and `payment`, which the season list does not
-carry, so the editor reads each moved fixture's booking through
-`fl_frontend/src/features/spiele/actions.ts :: readAdminSpielBookingsAction` after the write and
-merges it in. That is sound for exactly one reason, stated at the line: the resolution rewrites
-slots and results and never a ground or a referee, so the booking read after the write is the
-booking that stood before it. **No other field has that property.**
-
-**The response already names what it rewrote, and stops one step short of what a narrow restore
-needs.** `fl_backend/app/api/spiele/schemas.py :: FLSpielAdvancement` and `:: FLSpielReleasedSide`
-report per fixture the `voided_ergebnis`, `voided_elfmeterschiessen` and `voided_sonderereignis` a
-rewrite destroyed, and which `side` was released. Neither carries enough to rebuild those fields: an
-`ergebnis` is a formatted string rather than the goal counts a payload takes, and a released side
-names its club rather than the `team_id` a payload takes.
+**The moved fixtures' values come from the write itself; the edited one's come from a read before it.**
+`fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` composes each moved fixture's before-state off
+the season slice the resolution was judged on, inside the same transaction, so nothing can land between the
+judgement and the report. The edited fixture is out of that report, being the one the request named, and its
+payload is built from the props the page render was served
+(`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`). That
+read is uncached, so the window is one page visit rather than a cache lifetime — and inside it, anything
+another writer changes on that fixture is reverted by the undo, silently, with nothing in the payload marking
+a field the resolution never touched.
 
 **Two answers, and they are different sizes.**
 
-- **Carry the prior values on the response and restore only the fields it names.** The write path
-  then has to accept a payload naming fewer fields than `FLPatchSpielDataPayload` declares, which is
-  the whole reason every field there is required — so the endpoint's contract,
-  `fl_backend/openapi.json`, the Zod mirror checked against it and the payload builder all move in
-  one change.
-- **Restore over the action log instead.** `fl_backend/app/core/recording.py` keeps the document
-  each write replaced, so a restore reading it is correct by construction and needs no prior value
-  on the response at all. That is `32bs-nhzd`'s subject, and taking this route makes this entry a
-  consumer of that work rather than a repair of its own.
+- **Report the edited fixture's before-state too, and restore only the fields it names.** The wholesale write
+  path then has to accept a payload naming fewer fields than `FLPatchSpielDataPayload` declares, which is the
+  whole reason every field there is required — so the endpoint's contract, `fl_backend/openapi.json`, the Zod
+  mirror checked against it and the payload builder all move in one change.
+- **Restore over the action log instead.** `fl_backend/app/core/recording.py` keeps the document each write
+  replaced, so a restore reading it is correct by construction and needs no prior value on the response at
+  all. That is `32bs-nhzd`'s subject, and taking this route makes this entry a consumer of that work rather
+  than a repair of its own.
 
-**What may not move either way.** `.claude/rules/frontend.md` fixes two edges a repair may not
-cross — the undo offer is scoped to the destructive save, and a route-handled undo may not sit
-outside a page-owned editor — so what moves is the payloads rather than where the undo lives.
+**What may not move either way.** `.claude/rules/frontend.md` fixes two edges a repair may not cross — the
+undo offer is scoped to the destructive save, and a route-handled undo may not sit outside a page-owned editor
+— so what moves is the payloads rather than where the undo lives.
 
-**Not measured:** whether a moved fixture has ever changed under a mounted editor. One person writes
-today, so the window is a single administrator's page visit; a second writer arrives in the season
-plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
-meet inside.
+**What is read and what is not** (COR-9). The two payload shapes, and the order the replay writes them in, are
+read off `fl_frontend/src/app/api/admin/spiele/undo/route.ts`. **No case drives that replay against a
+database**, so a restore putting occupants and a scoreline back while a note added in between survives is
+asserted by nothing.
+
+**Not measured:** whether the edited fixture has ever changed under a mounted editor. One person writes today,
+so the window is a single administrator's page visit; a second writer arrives in the season plan this year
+(confirmed 2026-08-12), which is what turns that window into a shape two people can meet inside.
 
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 
@@ -831,9 +761,11 @@ both the create modal and the Regeln panel, and the combinations they accept are
 can be saved in.** The **saisons** clause in `.claude/rules/cross-surface.md` bars exactly this — _offer in
 the form wiring the write path refuses_ — and the three shape fields are where the product still does it. The
 clearest instance needs no arithmetic at all:
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.ts :: SHAPE_FIELDS`
-gives `qualifiers_per_group` a `minValue` of 1 and **no maximum**, so the stepper walks upward without end
-into a refusal.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx` and
+`fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx` each cap the group count at four
+by hand, pinned by no test, where `fl_backend/app/api/saisons/schemas.py :: NumberOfGroups` admits every group
+`fl_backend/app/api/teams/schemas.py :: FLGruppenNames` spells — so the form offers a quarter of what a season
+may run.
 
 **The legal set is small, and two of the three fields cannot be expressed by an interval.**
 `fl_backend/app/api/saisons/schedule.py :: qualifier_count` is `number_of_groups ×
@@ -888,28 +820,11 @@ therefore needs a test of its own pinning it against the backend's rule function
 rather than restating it. Where a rule should genuinely stop holding,
 `fl_backend/app/core/domain.py :: UNENFORCED` is the mechanism and deletion is not.
 
-**Raising the cap to 16 is my direction, and these are the hazards it turns live.** Each was read
-2026-08-27 and none is reachable while the cap and the closed name set agree.
-
-| Site                                                           | What it does                                                                                                                                                                                                                                                                                                    | Loud or silent                                                                                                                 |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `fl_backend/app/api/teams/services.py :: offered_gruppen`      | `get_args(FLGruppenNames)[:number_of_groups]` — a bare slice that returns four names for eight and raises nothing. `find_entry_refusal`, `REQ-SPIELPLAN-004` and `fl_backend/app/api/saisons/spielplan.py :: _squads` all inherit it                                                                            | **Silent.** Held shut today only by `fl_backend/tests/api/test_reference_models.py`, which asserts the cap equals the set size |
-| `fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer`  | The identical slice in TypeScript, so clubs could not be entered into the new groups at all                                                                                                                                                                                                                     | Silent                                                                                                                         |
-| `fl_frontend/src/features/teams/schemas.ts :: FLGruppenSchema` | A `z.object` with four required keys, and `z.object` strips unknown ones — a fifth group is dropped on parse and the standings page renders four tables with no error                                                                                                                                           | Silent at runtime; `apiContract.test.ts` catches the drift                                                                     |
-| `fl_backend/app/api/teams/services.py :: build_gruppen`        | Seeds from the name set rather than the season, so a wider set renders empty group cards on every smaller season. Changing it moves `docs/backend/spec.md :: I10`, the glossary's trap and `FLGruppenSchema`'s shape together                                                                                   | Silent                                                                                                                         |
-| `.../AdminEditSpielDataForm/FormTeamPicker.tsx`                | Hardcodes the group list with `satisfies`, which type-checks against a wider union and quietly stops offering the new groups                                                                                                                                                                                    | Silent                                                                                                                         |
-| `FormRegelnSection.tsx` and `AdminCreateSaisonForm.tsx`        | Two hand-written `maxValue={4}` steppers, pinned by no test                                                                                                                                                                                                                                                     | Silent                                                                                                                         |
-| `fl_backend/app/api/spiele/admin_router.py` and `:: crud.py`   | Season-scoped fixture reads raise past `LIST_LIMIT_DEFAULT` (1024) as a 500 rather than a refusal. `fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup`'s comment states its ceiling of 16 was chosen to keep the largest legal season inside that limit, so raising the group cap makes that comment false | Loud, as a 500                                                                                                                 |
-
-Raising the group cap adds no seeding key: `fl_backend/app/api/saisons/spielplan.py ::
-bracket_seeding` constructs the arrangement for any legal shape, and the table it replaced at
-runtime is now the reference that construction is held to.
-
-**What is unexpectedly clean.** No layout anywhere is sized per group — every grid in
-`fl_frontend/src` is card responsiveness, no tab strip or filter row carries one entry per group,
-and no table has a column per group. Nothing on the frontend sorts group names, so the byte-order
-hazard `docs/backend/spec.md :: I54` guards against does not reach this. The standings page stacks
-one card per group and grows, which is a design question at sixteen groups rather than a breakage.
+**No layout is sized per group, which is what keeps the widest legal season a design question rather
+than a breakage.** Every grid in `fl_frontend/src` is card responsiveness, no tab strip or filter row
+carries one entry per group, and no table has a column per group. Nothing on the frontend sorts group
+names either, so the byte-order hazard `docs/backend/spec.md :: I54` guards against does not reach
+this. The standings page stacks one card per group and grows.
 
 **Not verified.** Nothing here was seen rendering — no admin session is available to the sessions
 that read it — so every claim about a control is read off source and class strings. The legal-set
@@ -2270,57 +2185,3 @@ The decision is to enable ruff's `UP` rules and migrate in one pass, which is wh
 `fl_backend/pyproject.toml`'s ruff selection leaves that family out.
 [`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
 carries the typing check that owns the migration.
-
-### `zp46-yt3p` · No exact placing is available above the certainty walk's fixture limit
-
-| Tags                     | Status   | Depends on |
-| ------------------------ | -------- | ---------- |
-| BE, Docs, saisons, teams | Standing | —          |
-
-**Not a defect, and what is accepted is incompleteness rather than silence.**
-`fl_backend/app/api/teams/services.py :: _decide_one_gruppe` enumerates every ending of a group's
-outstanding fixtures — a call-off among them — and seeds a placing only where the same club holds it
-under all of them. That enumeration is bounded per group by `:: CERTAINTY_FIXTURE_LIMIT`, and above
-the bound `:: _separated_placings` answers instead, from a per-club interval that is SOUND and
-INCOMPLETE: it never seeds a placing the group could still change, and it declines some the exact
-walk would have settled. **Every legal group size is answered.** What a decline costs is a bracket
-slot left unseeded until the group settles further, and a placing that is merely undecided is
-deliberately reported to nobody (invariant I24c).
-
-**Raising the bound is not the fix.** Each fixture past it multiplies the enumeration by the ending
-alphabet, and the walk runs once per referenced group inside `PATCH /spiele/{spiel_id}`'s
-transaction, whose lifetime is bounded. The walk deduplicates by the points table each ending
-produces together with the clubs that ending leaves able to place, and stops the moment no placing
-survives every table — so the ranking work is bounded by the distinct tables, while the enumeration
-itself is not pruned, which is what the bound guards.
-
-**What the incompleteness costs is bounded in the direction that matters.** A declined placing is a
-slot nobody seeds; a wrongly seeded one is a club written into a knockout fixture the group can still
-overturn, which every surface then agrees with. The interval test can only make the first mistake.
-
-**Nor is a cleverer algorithm the fix, and the reason was settled on 2026-08-06.** The question this
-walk answers — is a team's placing the same however the remaining fixtures go — is the complement of
-the classical sports elimination problem. That problem has an efficient exact solution by network
-flow **only under a win/draw scheme where a match distributes a fixed number of points**; under the
-three-points-for-a-win rule a win creates a point that a draw does not, and deciding elimination
-becomes NP-complete (Bernholt, Gülich, Hofmeister and Schmitt, _Football Elimination Is Hard to
-Decide Under the 3-Point-Rule_, 1999). Season 2026 scores 3/1/0 through `FLSaisonRules`, and
-`win_points` is configurable per season, so the hard case is the one this system has to serve.
-**There is therefore no polynomial exact replacement to write.** The approximation was taken, in the
-sound direction, which is why no placing it seeds is overturned — and it is what leaves the
-incompleteness above the bound as the accepted cost rather than a defect to close.
-
-**The textbook fallback is a person, and this system deliberately does not have one.** Established
-platforms do not infer finality at all: a group's standing becomes available to seed the next stage
-only when the organiser **validates** it, and validation also locks the group's matches. So the cheap
-way to recover a declined placing is an explicit "this group is final" control feeding the same
-`DecidedStanding`, not a faster walk.
-
-**Not established:** whether the exact walk is exact against SCORELINES. It hypothesises points and
-fixtures left, never goals, so a band holding a club that could still settle is never broken — which
-is `docs/backend/spec.md :: I24a`'s second clause rather than a gap above the bound. Settling it needs
-a ground-truth oracle over scorelines.
-
-**Trigger to revisit:** any change to how groups are sized, since
-`fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup` bounds what the interval test is quadratic
-in.

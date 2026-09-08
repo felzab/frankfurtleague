@@ -297,16 +297,17 @@ BewerbungenUnvollstaendigNotice`). Answering short and saying so is the delibera
 threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.
 
-**What truncation costs first is duplicate detection, which is why the notice leads on it.** Colliding
-applications are marked across the rows that came back — derived from the whole loaded list rather than the
-filtered one, so a search or a facet cannot take the mark off a pair
-(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). A pair split across the
-truncation boundary is not marked, and the notice says plainly that which pair went unmarked is not knowable
-from the page. Treat duplicate marking as unreliable for as long as the notice stands.
+**What truncation costs first is the partner of a marked pair, which is why the notice leads on it.** The
+collision is decided on the server over every open application the request's season term leaves, never over the
+rows served (`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), so a served row is
+marked whatever the cut took; a search or a facet cannot take the mark off it either
+(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). What the cut can take is
+the other half: the notice says plainly that a marked row's partner is not always on the page, and reversing
+the read is how it is reached.
 
-**The facet counts are the second thing to distrust, the status one excepted.** Every other facet counts the
-loaded rows alone, so a zero means zero among what came back rather than zero in the queue; the status counts
-come from the server and hold whatever the read was cut to.
+**The Herkunft counts are the second thing to distrust.** That facet counts the loaded rows alone, so a zero
+means zero among what came back rather than zero in the queue; the status and season counts come from the
+server and hold whatever the read was cut to.
 
 **Reversing the read is the recovery the page offers, and the only one; the page offers it by two
 routes.** The default order is newest first, so what a cut-short answer keeps is the newest rows and
@@ -317,8 +318,8 @@ it names that end in a sentence and links the act, reading `Lade die ältesten z
 view. Both write one URL through one builder
 (`fl_frontend/src/shared/utils/leserichtung.ts :: leserichtungHref`, with `:: parseLeserichtung`
 reading the `order` parameter back and treating anything unexpected as the default), so either route
-lands on the identical page. The page sends `order` and the status the bar selects
-(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`).
+lands on the identical page. The page sends `order` and the terms the bar selects
+(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueTerms`).
 
 **The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
 Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
