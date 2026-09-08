@@ -15,6 +15,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen.admin_router import annehmen_bewerbung
+from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
 from app.api.spieler.admin_router import patch_saison_spieler, post_saison_spieler, reactivate_saison_spieler
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL
@@ -149,6 +151,43 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
         "saison_phase": "gruppenphase",
         "saison_id": SAISON,
         "position": position,
+    }
+
+
+def kontaktperson(vorname: str) -> dict[str, Any]:
+    return {
+        "vorname": vorname,
+        "nachname": f"{vorname}-Mustermann",
+        "email": f"{vorname.lower()}@example.com",
+        "telefon": "+49 69 1234567",
+        "geburtsdatum": "1980-05-04",
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    }
+
+
+def bewerbung_document(index: int) -> dict[str, Any]:
+    """One submitted application naming an existing club, and carrying no `bestaetigungen` block.
+
+    An application stored before the confirmation flow is not held to it, so the acceptance below
+    reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
+    """
+
+    return {
+        "_id": oid(5000 + index),
+        "saison_id": SAISON,
+        "eingereicht_am": "2026-02-01",
+        "status": "eingereicht",
+        "team_id": oid(index),
+        "schule": None,
+        "kontakte": {
+            "trainer": kontaktperson("Wraxlington"),
+            "ansprechperson": kontaktperson("Quillhilde"),
+            "stellvertretung": kontaktperson("Bramblewick"),
+            "trainer_ist_zugleich": None,
+        },
+        "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "entscheidung": None,
     }
 
 
@@ -488,3 +527,64 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
 
         assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
         assert season_reads == 2, "the callback judged once, so the move wrote without being re-judged"
+
+
+# The decision block is written from these two, and this case reads neither back.
+ACCEPTED_ON = "2026-02-20"
+ACCEPTED_BY = "triage.quillhilde@example.com"
+
+
+class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
+    """The rule reached from the OTHER package: a triage acceptance enters a school where `POST /teams/{id}/saisons` enters a club."""
+
+    def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def accept(saisons: Any) -> Any:
+                return await annehmen_bewerbung(
+                    bewerbung_id=oid(5040),
+                    annahme_data=FLAnnehmenBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    teams_collection=database[Collection.TEAMS],
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=saisons,
+                    db=client,
+                    today=ACCEPTED_ON,
+                    von=ACCEPTED_BY,
+                )
+
+            async def the_rival_enters_the_group() -> None:
+                await post_saison_team(
+                    team_id=oid(21),
+                    saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
+                    teams_collection=database[Collection.TEAMS],
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=client,
+                )
+
+            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_enters_the_group)
+            outcome = await outcome_of(accept(seasons))
+
+            occupied = await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON, "gruppe": "A"})
+            applied = await database[Collection.BEWERBUNGEN].find_one({"_id": oid(5040)})
+
+            return outcome, seasons.season_reads, occupied, (applied or {})["status"], await anchor_now(database)
+
+        outcome, season_reads, occupied, status, anchor = on_a_league(
+            mongo_replica_set_url,
+            body,
+            {
+                Collection.SAISONS: [saison_document()],
+                Collection.TEAMS: [team_document(index) for index in (1, 2, 3, 21, 40)],
+                Collection.SAISON_TEAMS: [junction_document(index, "A") for index in (1, 2, 3)],
+                Collection.BEWERBUNGEN: [bewerbung_document(40)],
+            },
+        )
+
+        assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
+        assert season_reads == 2, "the callback judged once, so the acceptance wrote without being re-judged"
+
+        # The whole transaction goes back, so the application is still open for a group that has room:
+        # accepting is irreversible, and a half-applied acceptance has no repair.
+        assert status == "eingereicht"
+        assert anchor == 1
