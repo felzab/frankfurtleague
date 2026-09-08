@@ -765,7 +765,9 @@ read-rules table before any code.
 caller gone with it, the vocabulary narrowed to what stays expressible, the publication gate reading
 what the flow stores, and the notice's squad and referee publication rows
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
-interest they rest on to the consent the flow collects.
+interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
+until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
+carrying the state that ends there.
 
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 

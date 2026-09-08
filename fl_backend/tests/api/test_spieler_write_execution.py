@@ -43,7 +43,8 @@ INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 # Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 TODAY = "2026-04-01"
 
-# A pupil old enough to play, so the stored date cannot be read as one the league would turn away.
+# Any well-formed date: no rule judges a pupil's age (`fl_backend/app/core/domain.py :: UNENFORCED`),
+# so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 GEBURTSDATUM = "2008-05-17"
 
 # MongoDB's own code for a document its `$jsonSchema` refused.
@@ -201,7 +202,7 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
             )
             await patch_spieler(
                 spieler_id=ObjectId(created.spieler_id),
-                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann"),
+                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=None),
                 spieler_collection=database.spieler,
             )
             return await database.spieler.find_one({"_id": ObjectId(created.spieler_id)})
@@ -244,7 +245,7 @@ class TestThePersonsBirthdate:
         assert stored["geburtsdatum"] is None
 
     def test_correcting_a_name_leaves_the_date_standing(self, mongo_url: str):
-        """`$set` names only the payload's keys, so a write that carries no date cannot clear one -- against a real update."""
+        """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
 
         async def body(database: AsyncDatabase) -> Any:
             created = await post_spieler(
@@ -254,7 +255,7 @@ class TestThePersonsBirthdate:
             )
             await patch_spieler(
                 spieler_id=ObjectId(created.spieler_id),
-                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann"),
+                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
                 spieler_collection=database.spieler,
             )
             return await database.spieler.find_one({"_id": ObjectId(created.spieler_id)})
@@ -267,15 +268,14 @@ class TestThePersonsBirthdate:
     def test_the_database_refuses_a_date_that_is_no_string(self, mongo_url: str):
         """The half no model can prove: without the `$jsonSchema` property this field could hold any BSON type with the suite still green."""
 
-        async def body(database: AsyncDatabase) -> Any:
+        async def refusal_code_for(database: AsyncDatabase, spieler_number: int, geburtsdatum: Any) -> int | None:
             document = {
-                "_id": spieler_id_for(90),
+                "_id": spieler_id_for(spieler_number),
                 "vorname": "Max",
                 "nachname": "Mustermann",
                 "einwilligung": {"umfang": "kader_oeffentlich", "erteilt_von": "bestandsuebernahme", "datum": None, "bestaetigt_am": None},
                 "inactive_since": None,
-                # A year as an int is what a hand-edit or an unvalidated import writes.
-                "geburtsdatum": 2008,
+                "geburtsdatum": geburtsdatum,
             }
             try:
                 await database.spieler.insert_one(document)
@@ -283,7 +283,13 @@ class TestThePersonsBirthdate:
                 return failure.code
             return None
 
-        assert on_a_database(mongo_url, body) == DOCUMENT_VALIDATION_FAILED
+        async def body(database: AsyncDatabase) -> Any:
+            # A year as an int is what a hand-edit or an unvalidated import writes.
+            return await refusal_code_for(database, 90, GEBURTSDATUM), await refusal_code_for(database, 91, 2008)
+
+        # The floor is the first half: that code is every `$jsonSchema` refusal alike, so a document
+        # differing from it only in this field is what makes the second half this field's answer.
+        assert on_a_database(mongo_url, body) == (None, DOCUMENT_VALIDATION_FAILED)
 
 
 class TestTheSquadCapOnEveryWritePath:

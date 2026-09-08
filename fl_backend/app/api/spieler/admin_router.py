@@ -199,7 +199,7 @@ async def patch_spieler(
     spieler_data: Annotated[FLPatchSpielerPayload, Body()],
     spieler_collection: SpielerCollection,
 ) -> FLSpielerAdminSingleResponse:
-    """Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document."""
+    """Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document."""
 
     updated_raw = await patch_one_in_db(
         collection=spieler_collection,

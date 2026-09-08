@@ -397,9 +397,9 @@ export function DatenschutzView() {
             soweit sie angegeben sind.
           </p>
           <p className={ABSATZ}>
-            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und bleibt
-            bei den meisten Einträgen leer. Sie wird nicht veröffentlicht; sie ist dafür da, dass sich die Altersgrenze von 16 Jahren nachprüfen
-            lässt, die für alle gilt.
+            Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
+            nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
+            wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
           </p>
           <p className={ABSATZ}>
             Für Schiedsrichterinnen und Schiedsrichter gilt dieselbe Form: An einem Spiel stehen Vorname und erster Buchstabe des Nachnamens.

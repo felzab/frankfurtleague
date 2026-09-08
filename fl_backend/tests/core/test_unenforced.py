@@ -297,18 +297,28 @@ def _calls_of(function: Callable[..., Any]) -> set[str]:
     return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
 
 
-def _packages_importing(name: str) -> set[str]:
-    """Which packages under `app/` import one name, by the folder holding the module.
+def _module_reads(tree: ast.Module, name: str) -> bool:
+    """Every form that reaches the value, not `ImportFrom` alone: `from x import bounds` then `bounds.NAME` holds it and names it in no import.
 
-    The import rather than the text: a name a comment merely mentions is not a module that can read
-    the value.
+    The AST rather than the text, a name a comment merely mentions reading nothing.
     """
 
+    return any(
+        (isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names))
+        or (isinstance(node, ast.Name) and node.id == name)
+        or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
+
+
+def _packages_reading(name: str) -> set[str]:
+    """Every folder between `app/` and the module, not the one holding it: a rule filed a level down answers under that subpackage alone."""
+
     return {
-        path.parent.name
+        folder
         for path in sorted(APP_ROOT.rglob("*.py"))
-        for node in ast.walk(parsed(path))
-        if isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names)
+        if _module_reads(parsed(path), name)
+        for folder in path.relative_to(APP_ROOT).parts[:-1]
     }
 
 
@@ -591,15 +601,20 @@ class TestAPupilStoredWithNoBirthdate:
         assert "geburtsdatum" not in schema["required"]
 
     def test_the_leagues_age_reaches_no_squad_module(self):
-        """The threshold is one constant, so where it is imported is where an age can be judged."""
+        """The threshold is one constant, so where a module can read it is where an age can be judged."""
 
-        importing = _packages_importing("BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
+        # The reader's own floor, against a sample: every module in the tree names the value in its
+        # import, so no count over the tree separates a correct reader from one matching that alone.
+        through_its_module = ast.parse("from app.shared.schemas import bounds\n\nFLOOR = bounds.BEWERBUNG_KONTAKT_MIN_AGE_YEARS\n")
+        assert _module_reads(through_its_module, "BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
+
+        reading = _packages_reading("BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
 
         # The floor: the application DOES judge a contact person's age against it, so the absence
-        # below is the squad package asking nothing rather than a sweep that found no importer.
-        assert "bewerbungen" in importing
+        # below is the squad package asking nothing rather than a sweep that found no reader.
+        assert "bewerbungen" in reading
 
-        assert "spieler" not in importing
+        assert "spieler" not in reading
 
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.

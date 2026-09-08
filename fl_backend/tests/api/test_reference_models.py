@@ -148,6 +148,20 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
+    @pytest.mark.parametrize("payload", [FLPostSpielerPayload, FLPatchSpielerPayload])
+    def test_a_person_payload_requires_the_birthdate_key(self, payload):
+        """No default, so a form that forgot the field cannot silently clear a stored date.
+
+        The value stays optional -- null is an answer somebody gave; what is refused is the key's absence.
+        """
+
+        without = {"vorname": "Max", "nachname": "Mustermann"}
+
+        with pytest.raises(ValidationError):
+            payload.model_validate(without)
+
+        assert payload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+
 
 class TestEinwilligung:
     """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""

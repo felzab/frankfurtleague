@@ -48,17 +48,10 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   players, referees, contact persons, organisers and administrators alike. An administrator can
   neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
   `8wd7-ff49` holds the question this answers.
-- **The minimum age is 16, for everyone, and a sign-up below it is refused.** Sixteen is the age
-  at which a person consents for themselves under Art. 8 GDPR in Germany, and one rule for every
-  role replaces three. **A pupil's birthdate is optional until the sign-up flow exists, and
-  required from it.** The alternative weighed and refused was requiring it now: that means
-  inventing data in the one field whose purpose is the age floor, a validator that invalidates
-  every standing pupil row until a backfill is run by hand, and an administrator making a date up
-  at every squad entry until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED`
-  carries the standing state and names what ends it — the next season's registration, at which
-  the pupil rows standing today are dropped
-  ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-08. A
-  contact person is the one role the rule reaches today, and it reaches them without a sign-up flow:
+- **The minimum age is 16 for every role, and today it is judged for a contact person alone.**
+  Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a
+  person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
+  three. The contact person is reached without that flow:
   that person types their own date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
   written. The consent vocabulary's `volljaehrig`
@@ -67,6 +60,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
   for a contact person
   (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`).
+- **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
+  2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
+  the one field whose purpose is the age floor, a validator that invalidates every standing pupil
+  row until a backfill is run by hand, and an administrator making a date up at every squad entry
+  until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED` carries the standing state and
+  names what ends it — the next season's registration, at which the pupil rows standing today are
+  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)).
 - **There is no guardian workflow.** The consent a registration composes today asserts a guardian
   (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`) while its only caller
   is an administrator; that path goes with the flow that replaces it, and the consent vocabulary

@@ -43,15 +43,16 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           <Hint
             mode="reveal"
             label="Hinweis zur Einwilligung"
-            body={{ lead: "Was über diesen Spieler veröffentlicht werden darf." }}
+            body={{ lead: "Was dieser Spieler für die Veröffentlichung zugesagt hat." }}
           />
         </PanelHeading>
       </div>
 
       <div className={panel.body()}>
         {einwilligung === null ? (
-          // Said rather than left blank: a person carrying no record is what this panel exists to show.
-          <p className="muted-hint">Für diesen Spieler ist keine Einwilligung festgehalten.</p>
+          // The missing control belongs in the same breath: this panel stands among four editable
+          // ones, so a reader meeting an empty one goes looking for the way to record a consent.
+          <p className="muted-hint">Für diesen Spieler ist keine Einwilligung festgehalten. Eintragen lässt sie sich hier nicht.</p>
         ) : (
           <>
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
@@ -71,6 +72,13 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
             </dl>
           </>
         )}
+
+        {/* On both branches, because the record gates nothing either way: an administrator reading
+            „Nur innerhalb der Liga“ would otherwise take this player off the public squad list. */}
+        <p className="muted-hint">
+          Der Eintrag steuert die Veröffentlichung nicht: Im öffentlichen Kader stehen Vorname und erster Buchstabe des Nachnamens jeder
+          Spielerin und jedes Spielers.
+        </p>
       </div>
     </section>
   );

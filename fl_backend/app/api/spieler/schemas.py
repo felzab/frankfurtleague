@@ -112,8 +112,8 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     inactive_since: CustomOptionalDateString
     # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
     geburtsdatum: CustomOptionalDateString = None
-    # No default, unlike the two above: every stored row carries one after the backfill, and a
-    # default here would let a row with no consent read back as though it had been asked.
+    # No default, unlike every defaulted field above: every stored row carries one after the
+    # backfill, and a default here would let a row with no consent read back as though it had been asked.
     einwilligung: FLEinwilligung
 
 

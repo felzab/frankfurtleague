@@ -47,7 +47,7 @@ describe("deriveSpielerDraftStatus", () => {
     );
   });
 
-  it("reports a birthdate entered for the first time as a change carrying no previous value", () => {
+  it("reports a birthdate entered for the first time as the German day, carrying no previous value", () => {
     const status = deriveSpielerDraftStatus({
       stored: draftFrom({ geburtsdatum: null }),
       draft: draftFrom({ geburtsdatum: "2008-05-14" }),
@@ -60,7 +60,7 @@ describe("deriveSpielerDraftStatus", () => {
     assert.ok(status.isDirty);
     assert.deepEqual(
       status.changed.map((field) => [field.path, field.storedText, field.draftText]),
-      [["geburtsdatum", null, "2008-05-14"]],
+      [["geburtsdatum", null, "14.05.2008"]],
     );
   });
 
