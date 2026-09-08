@@ -791,8 +791,8 @@ class TestAFutureSeasonHoldingRecordedResults:
 
         named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
         # The shared writer rather than either route, and nested scopes included: both routes delegate
-        # their whole body to it, so a sweep over a route's own would find none of these and pass on
-        # emptiness -- which is what it did until the paarung route split the body out.
+        # their whole body to it, so a sweep over a route's own finds none of these and passes on
+        # emptiness.
         run = {
             callee(call)
             for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)

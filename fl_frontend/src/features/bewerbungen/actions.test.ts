@@ -63,11 +63,7 @@ const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 /** The season's entry services, which `annehmen_bewerbung` reaches rather than restating. */
 const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
 
-/**
- * The group rule is reached through this helper rather than called, because the count it judges is a
- * READ: only the helper's own write on the season puts a second writer in one write set
- * (`docs/backend/spec.md :: I53`), so the acceptance passing its own figure would race an entry.
- */
+/** The group rule is reached through this helper rather than called (`docs/backend/spec.md :: I53`). */
 const ENTRY_CHOKE_POINT = "refuse_a_full_gruppe";
 
 /** The entry rules those services implement, and so the ones an acceptance can answer. */

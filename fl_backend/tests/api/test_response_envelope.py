@@ -61,10 +61,9 @@ def test_the_response_model_inventory_clears_its_floor():
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
         # Every list defaults empty: an edit resolving no bracket slot is the ordinary answer for a
         # group fixture, an undecided placing is nobody's problem, and displacing no team releases none.
-        # `prior_paarungen` defaults empty on the same terms, and it is what the undo replays from: a
-        # save that moved no fixture has nothing to send back, where an absent key would read as an
-        # undo that cannot be composed rather than one with nothing in it.
         (
+            # `prior_paarungen` too, and it is what the undo replays from: a save that moved no fixture
+            # has nothing to send back, where an absent key would read as an undo nobody can compose.
             FLPatchSpielDataResponse,
             {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": [], "prior_paarungen": []},
         ),

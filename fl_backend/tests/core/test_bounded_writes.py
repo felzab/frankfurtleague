@@ -55,8 +55,8 @@ CHOKE_POINTS: tuple[tuple[Callable[..., Any], str, frozenset[str]], ...] = (
 # Every scope calling a choke point, each of which is the callback an endpoint runs its transaction
 # over -- so the session it hands on is a transaction's rather than a bare session's.
 CALLERS: dict[str, frozenset[str]] = {
-    # The acceptance sits here rather than beside the helper: it used to reach the rule with a figure of
-    # its own, which is the shape `app/core/domain.py :: UNENFORCED` declared and this set now denies.
+    # The acceptance reaches the rule through the helper, so it belongs among the callers: a site named
+    # beside the helper instead is one judging the count outside the season's own write.
     "refuse_a_full_gruppe": frozenset(
         {
             "app/api/teams/admin_router.py :: enter_the_club",
