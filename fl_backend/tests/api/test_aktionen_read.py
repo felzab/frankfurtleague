@@ -138,15 +138,44 @@ class TestTheListReportsTheImageWithoutServingIt:
         assert served["stand_gesichert"] is True
 
 
+class _LogCells:
+    """What `aggregate` answers with, called as `aggregate_many_from_db` calls the driver: `to_list`."""
+
+    def __init__(self, cells: list[dict[str, Any]]) -> None:
+        self.cells = cells
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return self.cells if length is None else self.cells[:length]
+
+
 class _LogCollection:
     """One collection, called as `pull_many_from_db` calls the driver: `find`, `sort`, `limit`, `to_list`."""
 
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self.documents = documents
+        # The whole population, kept apart from the list above: `limit` rebinds that one to a slice,
+        # and the tally is issued against the same object in the same `asyncio.gather`.
+        self.population = list(documents)
         # What the route ASKED for, kept because the answer alone cannot tell a read bounded at the
         # cap from one bounded a document past it.
         self.requested_limit: int | None = None
         self.requested_filter: Any = None
+        self.requested_pipeline: Any = None
+
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _LogCells:
+        self.requested_pipeline = list(pipeline)
+        match: dict[str, Any] = self.requested_pipeline[0].get("$match", {})
+        tally: dict[tuple[str, str], int] = {}
+
+        for document in self.population:
+            # Equality alone, which is every term the tally's `$match` can carry: the two facet terms
+            # are the ones it leaves out.
+            if any(document.get(field) != value for field, value in match.items()):
+                continue
+            cell = (str(document["collection"]), str(document["operation"]))
+            tally[cell] = tally.get(cell, 0) + 1
+
+        return _LogCells([{"_id": {"collection": area, "operation": art}, "anzahl": held} for (area, art), held in tally.items()])
 
     def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_LogCollection":
         self.requested_filter = filter
@@ -171,12 +200,33 @@ def log_of(count: int) -> list[dict[str, Any]]:
     return [stored_row(_id=ObjectId(f"6890a1b2c3d4e5f607{index:06d}")) for index in range(1, count + 1)]
 
 
-def run_list(collection: _LogCollection, **filters: Any) -> Any:
+def log_of_two_areas(recent: int, older: int) -> list[dict[str, Any]]:
+    """One area's rows newer than the other's throughout, so a read bounded at the cap serves the first alone.
+
+    The older area is the point: what it counts is a number no page carries.
+    """
+
+    return [
+        stored_row(_id=ObjectId(f"6890a1b2c3d4e5f607{index:06d}"), collection="teams", operation="patch_one") for index in range(1, recent + 1)
+    ] + [
+        stored_row(
+            _id=ObjectId(f"6890a1b2c3d4e5f608{index:06d}"),
+            at="2025-03-15T09:30:00+00:00",
+            collection="spielorte",
+            operation="insert",
+        )
+        for index in range(1, older + 1)
+    ]
+
+
+# Named `log` rather than `collection`, which is a filter term this route takes: the keyword would
+# collide with the parameter below it.
+def run_list(log: _LogCollection, **filters: Any) -> Any:
     """`asyncio.run`, as `test_bewerbungen_read.py` drives its route; no event-loop plugin is configured."""
 
     return asyncio.run(
         get_aktionen(
-            aktionen_collection=cast(AsyncCollection, collection),
+            aktionen_collection=cast(AsyncCollection, log),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )
@@ -249,3 +299,80 @@ class TestTheListNarrowsOnOneDocument:
 
         assert len(answered.aktionen) == 4
         assert answered.vollstaendig is False
+
+
+class TestTheFacetCountsAnswerForTheWholeLog:
+    """The bar's options count the LOG, never the page the cap cut.
+
+    Counted off the served rows instead, every other area reads zero and goes dead, and the control
+    that hid them is the only way back.
+    """
+
+    def test_an_area_the_page_never_carries_still_counts(self):
+        older = 5
+        answered = run_list(_LogCollection(log_of_two_areas(LIST_LIMIT_DEFAULT, older)))
+
+        # Non-vacuity: the answer has to be cut and one-area, or a count over the served rows agrees
+        # with a count over the log by accident.
+        assert len(answered.aktionen) == LIST_LIMIT_DEFAULT
+        assert answered.vollstaendig is False
+        assert {row.collection for row in answered.aktionen} == {"teams"}
+
+        assert answered.anzahl_je_collection == {"teams": LIST_LIMIT_DEFAULT, "spielorte": older}
+        assert answered.anzahl_je_operation == {"patch_one": LIST_LIMIT_DEFAULT, "insert": older}
+
+    def test_an_areas_count_ignores_the_area_the_request_narrowed_to(self):
+        """A dimension counted under its own selection offers the picked option and kills every other."""
+
+        log = _LogCollection(log_of_two_areas(4, 5))
+        answered = run_list(log, collection="teams")
+
+        assert log.requested_filter["collection"] == {"$in": ["teams"]}
+        assert answered.anzahl_je_collection == {"teams": 4, "spielorte": 5}
+
+    def test_an_areas_count_keeps_the_operation_the_request_narrowed_to(self):
+        """The other dimension does apply, or an option answers what it would leave under no filter at all."""
+
+        answered = run_list(_LogCollection(log_of_two_areas(4, 5)), operation="insert")
+
+        assert answered.anzahl_je_collection == {"spielorte": 5}
+        assert answered.anzahl_je_operation == {"patch_one": 4, "insert": 5}
+
+    def test_a_trace_narrows_the_counts_as_it_narrows_the_page(self):
+        """`trace_id` is no facet, so it stays in the tally's own filter rather than being excluded from it."""
+
+        rows = log_of_two_areas(4, 5)
+        rows[0] = stored_row(_id=ObjectId("6890a1b2c3d4e5f607900001"), collection="teams", trace_id="0123456789abcdef")
+        answered = run_list(_LogCollection(rows), trace_id="0123456789abcdef")
+
+        assert answered.anzahl_je_collection == {"teams": 1}
+
+
+class TestTheAreaAndOperationTermsCarryASelection:
+    """The bar offering them is multi-select, so a joined value is the request two picked options make."""
+
+    def test_a_two_area_selection_reaches_the_read_as_one_term(self):
+        log = _LogCollection(log_of_two_areas(4, 5))
+        run_list(log, collection="teams,spielorte")
+
+        assert log.requested_filter["collection"] == {"$in": ["teams", "spielorte"]}
+
+    def test_a_two_operation_selection_reaches_the_read_as_one_term(self):
+        log = _LogCollection(log_of_two_areas(4, 5))
+        run_list(log, operation="patch_one,insert")
+
+        assert log.requested_filter["operation"] == {"$in": ["patch_one", "insert"]}
+
+    def test_an_emptied_parameter_narrows_nothing(self):
+        """The facet turned off. `$in: []` would answer that with a page holding nothing."""
+
+        log = _LogCollection(log_of_two_areas(4, 5))
+        run_list(log, collection="")
+
+        assert "collection" not in log.requested_filter
+
+    def test_the_tally_is_never_narrowed_by_a_facet_term(self):
+        log = _LogCollection(log_of_two_areas(4, 5))
+        run_list(log, collection="teams", operation="patch_one", trace_id="9f2c1b7e4a6d8c3f")
+
+        assert log.requested_pipeline[0]["$match"] == {"trace_id": "9f2c1b7e4a6d8c3f"}

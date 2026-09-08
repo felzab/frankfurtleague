@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { AdminAktionenView } from "@/features/aktionen/components/views/AdminAktionenView";
 import { AKTIONEN_CRUD_COPY } from "@/features/aktionen/constants";
-import { getAktionen } from "@/features/aktionen/queries";
+import { getAktionenLog, readAktionenLogSubjekt } from "@/features/aktionen/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -34,16 +34,17 @@ export default function AdminAktionenPage(props: NextPageProps) {
 async function AktionenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const params = (await searchParams) ?? {};
-  // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the
-  // whole log rather than 404ing — `parseLeserichtung`'s rule, one queue over.
-  const dokumentId = typeof params.document_id === "string" && params.document_id !== "" ? params.document_id : undefined;
-  const aktionenRes = await getAktionen(dokumentId === undefined ? {} : { document_id: dokumentId });
+  const { dokumentId, vorgangId } = readAktionenLogSubjekt(params);
+  const aktionenRes = await getAktionenLog(params);
 
   return (
     <AdminAktionenView
       aktionen={aktionenRes.aktionen}
       vollstaendig={aktionenRes.vollstaendig}
-      dokumentId={dokumentId ?? null}
+      anzahlJeCollection={aktionenRes.anzahl_je_collection}
+      anzahlJeOperation={aktionenRes.anzahl_je_operation}
+      dokumentId={dokumentId}
+      vorgangId={vorgangId}
     />
   );
 }

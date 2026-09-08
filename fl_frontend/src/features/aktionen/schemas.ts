@@ -49,5 +49,11 @@ export const FLAktionenListResponseSchema = BaseAPIResponseSchema.extend({
   aktionen: z.array(FLAktionSchema),
   /** False where the endpoint's cap cut the answer short — and a year of recorded writes reaches that cap without a flood. */
   vollstaendig: z.boolean(),
+  /**
+   * Open keys, as the backend's are: these count the WHOLE log, so a stored value no option names
+   * would take the page down rather than going uncounted. An absent key reads as zero.
+   */
+  anzahl_je_collection: z.record(z.string(), z.int().nonnegative()),
+  anzahl_je_operation: z.record(z.string(), z.int().nonnegative()),
 });
 export type FLAktionenListResponse = z.infer<typeof FLAktionenListResponseSchema>;

@@ -1,7 +1,7 @@
-from typing import Any, Literal, Mapping
+from typing import Annotated, Any, Literal, Mapping
 
 from bson import ObjectId
-from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
@@ -115,9 +115,32 @@ class FLAktionMitStand(FLAktion):
 FLAktionenListAdapter = TypeAdapter(list[FLAktion])
 
 
+def parse_facet_list(value: Any) -> Any:
+    """Comma-joined and repeated alike: `fl_frontend/src/core/api.ts :: apiClient` sends one value per key.
+
+    `app/api/bewerbungen/schemas.py :: parse_status_list` reads the triage queue's parameter so.
+    """
+
+    if value is None:
+        return None
+
+    picked: list[Any] = []
+    for item in value if isinstance(value, list) else [value]:
+        # Passed on untouched where it is not text, so Pydantic refuses it rather than this splitter
+        # dropping it into a narrowing nobody asked for.
+        picked.extend(item.split(",") if isinstance(item, str) else [item])
+
+    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would answer
+    # that with a page holding nothing.
+    return [part for part in picked if part != ""] or None
+
+
 class FLAktionenFilterParams(BaseModel):
-    collection: str | None = None
-    operation: FLAktionOperation | None = None
+    # LISTS, because the bar offering the two is multi-select and a two-value selection has no other
+    # request that expresses it. Published as the STRING they arrive as: an array parameter is one
+    # `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
+    collection: Annotated[list[str] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
+    operation: Annotated[list[FLAktionOperation] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
     trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
@@ -135,6 +158,11 @@ class FLAktionenListResponse(BaseAPIResponse):
     # log takes a row per recorded write and keeps it twelve months, so this read reaches the cap
     # by ordinary use.
     vollstaendig: bool
+    # Open maps rather than the bar's closed sets: these count the WHOLE log, so a stored value no
+    # option names would refuse a response the page can otherwise serve. An absent key is a value
+    # nothing was recorded under.
+    anzahl_je_collection: dict[str, int]
+    anzahl_je_operation: dict[str, int]
 
 
 class FLAktionSingleResponse(BaseAPIResponse):

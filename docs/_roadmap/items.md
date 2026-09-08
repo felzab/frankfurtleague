@@ -103,7 +103,6 @@ deliverable.
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                      | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
@@ -300,9 +299,7 @@ nothing exists to replay one into (`docs/backend/spec.md :: I48`, `:: I26`). Bot
 person to read rather than anything a restore can reach, which is a bound on this entry rather than
 work inside it.
 
-**How far the log page can reach past its one read is not this entry's** — the filters it sends, the
-client-side search and facets over the loaded rows, and the copy toast that promises more than
-either can give are `fau5-jtph`.
+**How far the log page can reach past its one read is not this entry's.**
 
 ### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
 
@@ -1301,51 +1298,6 @@ and [`docs/frontend/spec.md`](../frontend/spec.md) §1.9 is right that a sweep i
 held. **The line to draw is the authority, not the mechanism** — a sweep that compares the tree
 against something outside itself is sound, and one that compares it against a literal in the same
 commit is a note about intent wearing a test's clothes.
-
-### `fau5-jtph` · The action log's page narrows one capped read, and a toast promises more than search can show
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| FE, BE, Docs, admin, aktionen | Open   | —          |
-
-**The page asks for one page of the log and narrows it by one key.**
-`fl_frontend/src/app/admin/aktionen/page.tsx :: AktionenTable` composes its request from `document_id` alone,
-so what arrives is `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` rows of the newest history
-and nothing else. The endpoint is not the constraint:
-`fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` already takes `collection`, `operation` and
-`trace_id` and composes each into its query. Nothing sends them.
-
-**Search and the facets then run over the rows that arrived.**
-`fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS` reads every option's members off
-the loaded list, and `fl_frontend/src/features/aktionen/components/views/AdminAktionenView.tsx`'s
-`SEARCH_KEYS` matches the same rows, so both narrow within one read rather than within the log.
-**Most of that is disclosed rather than silent.** Where the answer was cut, `AdminAktionenView`
-raises a standing warning saying in as many words that the search and the filters reach the loaded
-rows alone, and the `vollstaendig` flag it reads is `docs/backend/spec.md :: I45`'s shape.
-
-**One surface promises otherwise, and it is the one an administrator is following.** Copying a row's
-Vorgangsnummer raises a toast reading "Suche danach, um jede Zeile dieses Vorgangs zu sehen"
-(`fl_frontend/src/features/aktionen/components/collections/AdminAktionenTable.tsx`). A Vorgang whose
-rows straddle the cut is one that search cannot show whole, and the toast is unconditional where the
-warning above it is not — so the instruction is given at the moment nothing is saying it may not
-hold.
-
-**Whether this grows or sits rests on a count nobody has taken.** Every admin write appends a row and
-`docs/backend/spec.md :: I119` expires a stamped one twelve months later, so the log settles at a
-year's recorded writes rather than climbing without end. Whether a year's writes pass
-`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` decides whether this page's reach
-falls at all, and nobody has counted them. `get_aktionen`'s own comment rests on the same premise:
-the extra row it reads is what answers whether the cap was reached.
-
-**Done** is the three terms the endpoint already takes being sent, and the facet counts coming from
-the server rather than from the rows one read returned — the same collision `2rz3-a754` meets on the
-application queue, so whatever answers it there is what this should follow rather than solve a
-second time.
-
-**What is read and what is not** (COR-9). Every claim here is read off the source rather than
-measured: the request the page composes, the terms the endpoint accepts, the two client-side
-narrowings, and the toast's copy. **Nothing was driven against a log past the cap**, and how many
-rows the collection holds today was not counted, so how soon the state arrives is unknown.
 
 ### `fha5-k95h` · A projection and the predicate reading it are coupled in one direction, and the open one fails quietly
 

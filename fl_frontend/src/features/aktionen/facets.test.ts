@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { applyFacets, readFacetSelection } from "@/shared/utils/facets.ts";
+import { leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils.ts";
+import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
-import { AKTIONEN_FACETS } from "./facets.ts";
+import { AKTIONEN_COLLECTION_PARAM, AKTIONEN_FACETS, AKTIONEN_OPERATION_PARAM, aktionenLeserichtung, aktionenLogFacetTerms } from "./facets.ts";
 import { FLAktorSchema } from "./schemas.ts";
 
 import type { FLAktor } from "./schemas.ts";
@@ -87,5 +88,141 @@ describe("the origin facet on the change log", () => {
 
     assert.ok(narrowed.length > 0, "the signed-in people match no row at all, so this proves nothing");
     assert.ok(!narrowed.includes(PUBLIC_ROW!), "a public submission is filed with the people who signed in");
+  });
+});
+
+/** The two dimensions the endpoint narrows on, cut out by the parameters it spells them with. */
+const BEREICH_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
+const ART_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
+
+describe("the two dimensions the read itself narrows on", () => {
+  /* First: a facet the cut fails to find would leave every assertion below reading `undefined`. */
+  it("offers both, each marked as one the read narrows on", () => {
+    assert.ok(BEREICH_FACET, "no facet reads the area parameter");
+    assert.ok(ART_FACET, "no facet reads the operation parameter");
+    // Without the mark `useUrlFilters` writes history alone, so picking an area would filter the rows
+    // already loaded rather than asking for the ones the endpoint's cap left out.
+    assert.equal(BEREICH_FACET.narrowsTheRead, true);
+    assert.equal(ART_FACET.narrowsTheRead, true);
+  });
+
+  /* Spelled as the endpoint spells its own term, so the selection is forwarded rather than translated:
+     a second spelling is a mapping table two sides can disagree about. */
+  it("writes the endpoint's own parameter names", () => {
+    assert.equal(AKTIONEN_COLLECTION_PARAM, "collection");
+    assert.equal(AKTIONEN_OPERATION_PARAM, "operation");
+  });
+});
+
+describe("what the log asks the endpoint to narrow to", () => {
+  it("asks for neither while the URL names neither", () => {
+    assert.deepEqual(aktionenLogFacetTerms({}), { collection: undefined, operation: undefined });
+  });
+
+  it("forwards a picked area, which is the whole of the server-side narrowing", () => {
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection, "teams");
+  });
+
+  it("carries a two-area selection, which is why the parameter is a list on both sides", () => {
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection, "teams,spiele");
+  });
+
+  it("forwards a picked operation on its own parameter", () => {
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation, "insert,delete_many");
+  });
+
+  it("drops a value the facet does not offer rather than sending one the endpoint refuses with a 422", () => {
+    // A pasted or hand-edited link is the live case, and the operation parameter is a closed set on
+    // the endpoint, so an invented member reaches it as a refusal the page has nothing to render.
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "erfunden" }).collection, undefined);
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation, "insert");
+  });
+
+  it("asks for nothing once a parameter is emptied, which is the facet turned off", () => {
+    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "" }).collection, undefined);
+  });
+});
+
+/** What one narrowed answer holds: the picked area's rows, the cap having cut every other. */
+const NUR_TEAMS: AdminAktionRow[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
+
+/** Which options `FilterPanel :: FacetCell` would leave pressable, given the counts it was handed. */
+function pressableAreas(counts: Record<string, number>, picked: readonly string[]): string[] {
+  return (BEREICH_FACET?.options ?? [])
+    .filter((option) => isFacetOptionReachable(counts[option.value] ?? 0, picked.includes(option.value)))
+    .map((option) => option.value);
+}
+
+describe("the counts the area facet is told", () => {
+  /* The endpoint counts the whole log, so an area whose rows the cap cut stays pressable — or the
+     control that hid the rest of the log is what stands between an administrator and it. */
+  it("keeps an area reachable whose rows a cut answer never carried", () => {
+    assert.deepEqual(pressableAreas({ teams: 40, spielorte: 5 }, ["teams"]), ["teams", "spielorte"]);
+  });
+
+  /* Non-vacuity, and the defect itself: counted against the rows one narrowed read served, every
+     other area stands at zero and goes dead. */
+  it("loses that area where the counts are taken off the rows served instead", () => {
+    const offRows = countFacetOptions([...NUR_TEAMS], AKTIONEN_FACETS, { [AKTIONEN_COLLECTION_PARAM]: ["teams"] }, BEREICH_FACET!);
+
+    assert.equal(offRows.spielorte, 0);
+    assert.deepEqual(pressableAreas(offRows, ["teams"]), ["teams"]);
+  });
+
+  /* An area nothing in the log holds still counts zero, and an option leading nowhere is worth saying
+     so about — the told counts are what tells those two cases apart. */
+  it("still refuses an area the log really is empty of", () => {
+    assert.deepEqual(pressableAreas({ teams: 40, spielorte: 0 }, ["teams"]), ["teams"]);
+  });
+});
+
+/** The URL shapes this log writes, each carrying something a reversal must not drop. */
+const LOG_URLS: Record<string, string | string[]>[] = [
+  {},
+  { [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" },
+  { [AKTIONEN_OPERATION_PARAM]: "insert", saison_id: "2026" },
+  { document_id: "68c1f0a2b3c4d5e6f7a8b9c0", order: "asc" },
+  { q: "name@beispiel.de", [HERKUNFT_PARAM]: ["system", "public"] },
+];
+
+/** One URL shape as a query string, repeated keys and all. */
+function asSearch(params: Record<string, string | string[]>): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) for (const single of Array.isArray(value) ? value : [value]) search.append(key, single);
+
+  return search;
+}
+
+describe("the read-order control this log offers", () => {
+  it("turns the newest-first default around", () => {
+    assert.equal(aktionenLeserichtung(new URLSearchParams()).umkehrHref, "?order=asc");
+  });
+
+  it("returns a reversed log to the newest first, and says which end it holds", () => {
+    const gedreht = aktionenLeserichtung(new URLSearchParams("order=asc"));
+
+    assert.equal(gedreht.richtung, "asc");
+    assert.equal(gedreht.umkehrHref, "?order=desc");
+  });
+
+  /* The applications queue's own builder and never a second one: two implementations drift on
+     exactly the parameters only one of the two surfaces has. */
+  it("writes the href the applications queue's own caller writes", () => {
+    for (const params of LOG_URLS) {
+      assert.equal(aktionenLeserichtung(asSearch(params)).umkehrHref, leserichtungHref(params, parseLeserichtung(params)));
+    }
+  });
+
+  it("keeps every narrowing the bar wrote, so reversing the log never drops a filter", () => {
+    for (const params of LOG_URLS) {
+      const { richtung, umkehrHref } = aktionenLeserichtung(asSearch(params));
+      const reversed = new URLSearchParams(umkehrHref.slice(1));
+
+      for (const [key, value] of Object.entries(params)) {
+        if (key === "order") continue;
+        assert.deepEqual(reversed.getAll(key), Array.isArray(value) ? value : [value], `\`${key}\` was dropped by the reversal`);
+      }
+      assert.equal(reversed.get("order"), richtung === "desc" ? "asc" : "desc");
+    }
   });
 });
