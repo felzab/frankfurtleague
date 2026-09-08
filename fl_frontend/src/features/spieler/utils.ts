@@ -47,7 +47,8 @@ export function countLiveSquadRows({
   saisonId: string;
   /**
    * The writing player, whose own row is not counted: a no-op edit must not be refused by its own
-   * place. `null` names no writer, and is right only where the caller's own row is retired.
+   * place. `null` names no writer, right where no row of the caller's could be counted: a create's,
+   * or a retired one.
    */
   exceptSpielerId: string | null;
 }): Record<string, number> {
@@ -66,6 +67,16 @@ export function countLiveSquadRows({
   }
 
   return byTeam;
+}
+
+/**
+ * An UNKNOWN cap refuses nothing: a squad the caller could not bound keeps its writes on offer
+ * rather than losing them to a figure nothing there could read.
+ */
+export function squadIsFull(liveRows: number | undefined, maxKadergroesse: number | null): boolean {
+  // `>=` and never `>`, the comparison the write path makes over the same count
+  // (`fl_backend/app/api/spieler/services.py :: find_squad_capacity_refusal`).
+  return maxKadergroesse !== null && (liveRows ?? 0) >= maxKadergroesse;
 }
 
 /**

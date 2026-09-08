@@ -8,10 +8,10 @@ import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import {
   ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
-  LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   NUMMER_MAX_LENGTH,
   NUMMER_MUST_BE_DIGITS,
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
@@ -56,6 +56,8 @@ const CREATE_FORM = readFileSync(path.resolve(import.meta.dirname, "components",
   /\s+/g,
   " ",
 );
+/** The picker all three squad write paths reach a team through, collapsed for the reason `PANEL` is. */
+const TEAM_SELECT = readFileSync(path.resolve(import.meta.dirname, "components", "forms", "TeamSelect.tsx"), "utf8").replace(/\s+/g, " ");
 /** The squad section, which states it natively beside the schema's own. Collapsed for the same reason. */
 const KADER_SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormKaderSection.tsx"),
@@ -287,7 +289,7 @@ describe("the reactivate's gate on the editor", () => {
   it("offers the press only while the row's club stands in the season", () => {
     assert.match(
       AUSTRAGEN_PANEL,
-      /const blockedReason = isRowTeamInSaison \? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
+      /const clubReason = isRowTeamInSaison \? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
       "the gate reads the wrong way round",
     );
     assert.match(AUSTRAGEN_PANEL, /isDisabled=\{isPending \|\| blockedReason !== null\}/, "the button no longer reads its own gate");
@@ -295,6 +297,32 @@ describe("the reactivate's gate on the editor", () => {
       AUSTRAGEN_PANEL.includes('<Hint mode="refusal" reason={isPending ? null : blockedReason}'),
       "the reason is no longer on the control",
     );
+  });
+
+  /* Both refusals reach one control, in the endpoint's own order: the club's is asked first there, a
+     full squad being no fact worth reporting about a club the season does not hold. */
+  it("asks the cap after the club, and composes the two", () => {
+    assert.match(
+      AUSTRAGEN_PANEL,
+      /const squadFullReason = isRowSquadFull \? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
+      "the cap gate reads the wrong way round",
+    );
+    assert.match(
+      AUSTRAGEN_PANEL,
+      /const blockedReason = clubReason \?\? squadFullReason;/,
+      "the cap reason is reported ahead of the club's, or the two no longer compose",
+    );
+  });
+
+  /* The press returns the row to the club it already names, so a gate keyed on the picker above would
+     refuse a return the endpoint takes and offer one it refuses. */
+  it("derives the cap gate from the row's stored club, not the draft's", () => {
+    assert.match(
+      EDIT_FORM,
+      /const isRowSquadFull = storedMembership !== null && teams\.find\(\(team\) => team\.teamId === storedMembership\.team_id\)\?\.isSquadFull === true;/,
+      "the panel's cap gate is derived from something other than the row's own club",
+    );
+    assert.match(EDIT_FORM, /isRowSquadFull=\{isRowSquadFull\}/, "the panel is no longer handed the fact its gate reads");
   });
 
   /* The reactivate is judged against the season's own team list, which is the one collection
@@ -387,17 +415,63 @@ describe("REQ-SQUAD-003 before the press", () => {
   it("derives the list's cap gate from the row's stored club", () => {
     assert.match(
       TABLE,
-      /const rowSquadFullReason = saisonTeams\.find\(\(team\) => team\.teamId === row\?\.team_id\)\?\.isSquadFull === true \? LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
+      /const rowSquadFullReason = saisonTeams\.find\(\(team\) => team\.teamId === row\?\.team_id\)\?\.isSquadFull === true \? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
       "the cap gate is derived from something other than the row's own club",
     );
   });
 
-  /* Two ways out and the list reaches neither: the reader is a page away from the squad and further
-     from the season's rules, so a sentence naming one of them strands them at the other. */
+  /* Two ways out and neither reader reaches either: the list is a page from the squad and the editor
+     is a page from the season's rules, so a sentence naming one of them strands somebody at the other. */
   it("names both ways out of a full squad", () => {
-    assert.match(LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD, /Trage dort zuerst einen anderen Spieler aus/);
-    assert.match(LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD, /maximale Kadergröße in den Saisonregeln/);
-    assert.ok(!LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD.includes("oben"), "the list's sentence points at a place the list does not have");
+    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /Trage dort zuerst einen anderen Spieler aus/);
+    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /maximale Kadergröße in den Saisonregeln/);
+    assert.ok(!REACTIVATION_NEEDS_ROOM_IN_SQUAD.includes("oben"), "the sentence points within a page that does not hold the repair");
+  });
+
+  /* The picker offers every write path its team, so a full squad barred here is barred on the create,
+     on the transfer and on the editor's entry at once. Hiding the row instead would say nothing. */
+  it("closes a full squad's row in the picker rather than dropping it", () => {
+    assert.match(TEAM_SELECT, /isDisabled=\{team\.isSquadFull === true\}/, "the picker offers a team the write path refuses");
+    assert.match(
+      TEAM_SELECT,
+      /\{team\.isSquadFull === true && <span [^>]*>Kader voll<\/span>\}/,
+      "a closed row carries no reason for being closed",
+    );
+  });
+
+  /* react-aria mirrors the collection into a hidden native `<select>` whose options carry no
+     `disabled`, so a key for a closed row still reaches `onChange` and the disable alone is cosmetic. */
+  it("re-reads the cap on the pick, not only on the row", () => {
+    assert.match(
+      TEAM_SELECT,
+      /if \(picked === undefined \|\| picked\.isSquadFull === true\) return;/,
+      "a pick past a closed row reaches the caller",
+    );
+  });
+
+  /* The create modal offers every running and planned season, and its picker's teams change with the
+     one chosen — a fold for the preselected season alone would report room in all the others. */
+  it("folds the create loader's counts for every season it offers", () => {
+    assert.match(
+      LIST_PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: saison\.id, exceptSpielerId: null \}\);/,
+      "the create loader counts against one season rather than each offered one",
+    );
+    assert.match(
+      LIST_PAGE,
+      /isSquadFull: squadIsFull\(liveSquadRows\[team\.teamId\], saison\.rules\.max_kadergroesse\)/,
+      "the create loader's teams carry no cap answer, which the picker reads as unknown and offers",
+    );
+  });
+
+  /* A team can stand in both seasons and be full in only one, so the season switch has to drop it for
+     the same reason it drops a team the next season never had. */
+  it("drops a team the newly chosen season has no room in", () => {
+    assert.match(
+      CREATE_FORM,
+      /\(nextOption\?\.teams \?\? \[\]\)\.some\(\(team\) => team\.teamId === current\.team_id && team\.isSquadFull !== true\)/,
+      "a full squad survives the season switch and reaches the submit",
+    );
   });
 });
 

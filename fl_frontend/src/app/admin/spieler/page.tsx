@@ -7,7 +7,7 @@ import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/Ad
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { orderStufen, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
-import { countLiveSquadRows } from "@/features/spieler/utils";
+import { countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -53,19 +53,28 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
   // Repeating the table's read costs nothing: React's `cache` shares one round trip per render pass.
   // Not `"use cache"`, a cross-request store keyed on arguments rather than the caller:
   // `fl_frontend/src/features/saisons/queries.ts :: getAdminSaisons`.
-  const [saisonsRes, teamsRes] = await Promise.all([getAdminSaisons(), getTeamMemberships()]);
+  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
 
   // Running and planned both, unlike the club create's planned-only rule: a squad is filled in
   // during its season.
   const saisonOptions: SpielerCreateSaisonOption[] = saisonsRes.saisons
     .filter((saison) => saison.status === "active" || saison.status === "future")
-    .map((saison) => ({
-      saisonId: saison.id,
-      isNachgetragen: saison.status === "active",
-      teams: teamsInSaison(teamsRes.teams, saison.id),
-      // Ordered by the league's (`orderStufen`), so two seasons never present a different sequence.
-      erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
-    }));
+    .map((saison) => {
+      // Folded for every OFFERED season rather than the preselected one: the picker's refusal has to
+      // be right the moment the season above it moves, with no further read to wait on.
+      const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: saison.id, exceptSpielerId: null });
+
+      return {
+        saisonId: saison.id,
+        isNachgetragen: saison.status === "active",
+        teams: teamsInSaison(teamsRes.teams, saison.id).map((team) => ({
+          ...team,
+          isSquadFull: squadIsFull(liveSquadRows[team.teamId], saison.rules.max_kadergroesse),
+        })),
+        // Ordered by the league's (`orderStufen`), so two seasons never present a different sequence.
+        erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
+      };
+    });
 
   const defaultSaisonId = saisonOptions.find((option) => option.saisonId === requestedSaisonId)?.saisonId ?? saisonOptions[0]?.saisonId ?? null;
 
@@ -96,13 +105,12 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   // there would shrink as the admin types. No writer is named, the control it answers rendering on
   // a retired row alone.
   const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaisonId, exceptSpielerId: null });
-  // Absent where an id names no season, which refuses nothing: a squad nobody can count keeps the
-  // reactivate on offer rather than losing it to a cap the page cannot read.
+  // Absent where an id names no season, which `squadIsFull` reads as unknown and refuses nothing.
   const maxKadergroesse = saisons.find((saison) => saison.id === selectedSaisonId)?.rules.max_kadergroesse ?? null;
 
   const saisonTeams: SpielerTeamOption[] = teamsInSaison(teamsRes.teams, selectedSaisonId).map((team) => ({
     ...team,
-    isSquadFull: maxKadergroesse !== null && (liveSquadRows[team.teamId] ?? 0) >= maxKadergroesse,
+    isSquadFull: squadIsFull(liveSquadRows[team.teamId], maxKadergroesse),
   }));
 
   const rows: AdminSpielerRow[] = membershipsRes.spieler.map((spieler) => {

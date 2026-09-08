@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { Button } from "@heroui/react";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
-import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "@/features/spieler/constants";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -25,6 +25,7 @@ export function FormAustragenSection({
   saisonId,
   rowInactiveSince,
   isRowTeamInSaison,
+  isRowSquadFull,
   banners,
 }: {
   spielerId: string;
@@ -33,14 +34,20 @@ export function FormAustragenSection({
   rowInactiveSince: string | null;
   /** `REQ-SQUAD-001`'s condition, judged on the row's STORED club: whether the reactivate can land. */
   isRowTeamInSaison: boolean;
+  /** `REQ-SQUAD-003`'s condition, judged on that same stored club rather than on the draft's. */
+  isRowSquadFull: boolean;
   banners: readonly SpielerBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
   const [isPending, startWriting] = useTransition();
 
   const isAusgetragen = rowInactiveSince !== null;
-  // Inverted like the erasure's gate, so the press is live exactly where the endpoint would take it.
-  const blockedReason = isRowTeamInSaison ? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
+  // Inverted like the erasure's gate, so a reason stands exactly where the endpoint would refuse.
+  const clubReason = isRowTeamInSaison ? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
+  const squadFullReason = isRowSquadFull ? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;
+  // The club's answer first, the order the endpoint asks the two in: a full squad is not a fact worth
+  // reporting about a club the season does not hold.
+  const blockedReason = clubReason ?? squadFullReason;
 
   const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string, savedDetail: string) => {
     startWriting(async () => {

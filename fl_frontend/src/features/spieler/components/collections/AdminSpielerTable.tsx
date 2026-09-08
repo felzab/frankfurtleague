@@ -10,7 +10,7 @@ import { Table } from "@heroui/react";
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import {
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
-  LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD,
+  REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   rolleKuerzel,
   rolleLabel,
 } from "@/features/spieler/constants";
@@ -115,7 +115,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     // `REQ-SQUAD-003` asked second, the order the endpoint asks it in: a full squad is not a fact
     // worth reporting about a club the season does not hold.
     const rowSquadFullReason =
-      saisonTeams.find((team) => team.teamId === row?.team_id)?.isSquadFull === true ? LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;
+      saisonTeams.find((team) => team.teamId === row?.team_id)?.isSquadFull === true ? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;
 
     return (
       <RowActions>

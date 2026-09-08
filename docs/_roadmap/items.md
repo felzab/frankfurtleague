@@ -108,7 +108,6 @@ deliverable.
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                         | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                            | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                             | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
@@ -1497,47 +1496,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| FE, BE, admin, spieler | Open   | —          |
-
-**`REQ-SQUAD-003` refuses a reactivation, and neither surface that offers one can see it coming.**
-`fl_backend/app/api/spieler/admin_router.py :: reactivate_saison_spieler` calls
-`:: _refuse_a_full_squad`, whose docstring states the reason plainly — the cap is a property of the
-destination squad, not of the verb — so create, transfer and reactivate are judged the same way. The
-two front-end paths to that endpoint are the player editor's Kader section and the squad row's
-restore control on the list, and **neither states the refusal before the press** — but what a gate
-would cost the two of them is not the same.
-
-**The editor already holds both facts the refusal is computed from.**
-`fl_frontend/src/app/admin/spieler/[spieler_id]/page.tsx` reads every player's memberships for the season and
-folds them per club through `fl_frontend/src/features/spieler/utils.ts :: collectHeldRollen`, so the live row
-count is a fold away; the season it reads beside them carries `rules.max_kadergroesse`. `REQ-SQUAD-004` is the
-worked precedent — a per-club, per-season fact computed on that page and raised in the rail as
-`spieler.rolle-vergeben` before any press. **What the editor's half needs is that fold and a banner**, not new
-page data.
-
-**What an administrator gets is correct and late.**
-`fl_frontend/src/features/spieler/actions.ts :: mapSquadRefusal` maps the code to a German sentence naming
-both repairs — raise the cap in the season rules, or take another player out first — and the reactivate action
-routes its 409 through it. So the press produces an accurate red toast rather than the generic conflict
-message, which is the treatment the editor already gives every other squad refusal. **Matching that treatment
-was the right call**: a second mechanism for one refusal would be the split this product keeps avoiding.
-
-**What the list page's half would cost, which is the part worth writing down.** That page needs
-neither the cap nor per-club counts for anything else it renders —
-`fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionRestore` takes a `disabledReason`
-and would use one, and its own comment states the principle, but nothing on that page computes it
-today. Threading it means the season's rules and a live count per club reaching a list that is
-otherwise a flat read, and keeping that count fresh across the writes the same page performs.
-**That is a real page-data change for a refusal an administrator meets rarely.**
-
-**Low severity, and the entry should not inflate it.** The endpoint refuses correctly, the message
-is actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
-already full.
 
 ### `m4m3-hxmj` · The shared editor shell's widest layout step has never been rendered
 

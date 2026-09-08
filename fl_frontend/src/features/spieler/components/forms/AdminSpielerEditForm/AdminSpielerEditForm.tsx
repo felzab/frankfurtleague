@@ -173,6 +173,9 @@ export function AdminSpielerEditForm({
   // The predicate `REQ-SQUAD-001` counts, asked of the same fact: `teams` is exactly this season's
   // junction rows, and a club replacement repoints one away from the squad rows still naming it.
   const isRowTeamInSaison = storedMembership === null || teams.some((team) => team.teamId === storedMembership.team_id);
+  // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
+  // the club it already names, which a transfer in the draft can have moved away from without it.
+  const isRowSquadFull = storedMembership !== null && teams.find((team) => team.teamId === storedMembership.team_id)?.isSquadFull === true;
 
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
@@ -374,6 +377,7 @@ export function AdminSpielerEditForm({
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}
               isRowTeamInSaison={isRowTeamInSaison}
+              isRowSquadFull={isRowSquadFull}
               banners={banners}
             />
           )}

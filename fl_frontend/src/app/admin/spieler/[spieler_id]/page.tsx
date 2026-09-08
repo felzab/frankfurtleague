@@ -8,7 +8,7 @@ import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminS
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
-import { collectHeldRollen, countLiveSquadRows } from "@/features/spieler/utils";
+import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -88,7 +88,7 @@ async function AdminSpielerEditContent({
       name: team.name,
       shorthand: team.shorthand,
       heldRollen: heldRollen[team.id] ?? {},
-      isSquadFull: (liveSquadRows[team.id] ?? 0) >= selectedSaison.rules.max_kadergroesse,
+      isSquadFull: squadIsFull(liveSquadRows[team.id], selectedSaison.rules.max_kadergroesse),
     }));
 
   return (

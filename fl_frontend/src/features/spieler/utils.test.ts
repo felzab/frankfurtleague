@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang } from "./utils.ts";
+import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, squadIsFull } from "./utils.ts";
 
 import type { FLSpielerWithMemberships } from "./schemas.ts";
 
@@ -177,5 +177,27 @@ describe("countLiveSquadRows", () => {
     });
 
     assert.equal(counts[TEAM_A], undefined);
+  });
+});
+
+describe("squadIsFull", () => {
+  /* `>` here would leave one place open in a squad the endpoint has already closed, and every picker
+     and row gate on three pages would then offer a write that comes back 409. */
+  it("closes a squad standing AT the cap and no earlier", () => {
+    assert.equal(squadIsFull(9, 10), false);
+    assert.equal(squadIsFull(10, 10), true);
+    assert.equal(squadIsFull(11, 10), true);
+  });
+
+  /* `countLiveSquadRows` reports a club with no live row as absent rather than as zero, so the
+     unbounded reading of that gap is what would refuse an empty squad. */
+  it("reads an uncounted club as empty", () => {
+    assert.equal(squadIsFull(undefined, 1), false);
+  });
+
+  /* A page that resolved no season reads no cap. Refusing there would take a write the endpoint
+     accepts, on a figure nothing on that page could show the admin. */
+  it("refuses nothing where the cap is unknown", () => {
+    assert.equal(squadIsFull(99, null), false);
   });
 });
