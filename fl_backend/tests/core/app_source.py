@@ -116,9 +116,14 @@ def callee(call: ast.Call) -> str:
 
 
 def carries_session(call: ast.Call) -> bool:
-    """Whether one call site hands the session along -- the keyword whose absence reads or commits outside the transaction around it."""
+    """Whether one call site joins the transaction around it -- the keyword whose absence reads or commits outside it.
 
-    return any(keyword.arg == "session" for keyword in call.keywords)
+    A literal `None` counts as absent: a deliberate escape is a helper's parameter, never a `None` spelled at the read.
+    """
+
+    return any(
+        keyword.arg == "session" and not (isinstance(keyword.value, ast.Constant) and keyword.value.value is None) for keyword in call.keywords
+    )
 
 
 def reads_the_database(call: ast.Call) -> bool:

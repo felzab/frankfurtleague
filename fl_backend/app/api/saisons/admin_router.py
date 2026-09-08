@@ -273,8 +273,9 @@ async def patch_saison(
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
         """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I118)."""
 
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
-        # the season as it stands then. A season id naming nothing raises the 404 here.
+        # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
+        # against, so a rival writing `saisons` under the judgement conflicts instead of being
+        # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # Disqualified rows included: a team never leaves a season.

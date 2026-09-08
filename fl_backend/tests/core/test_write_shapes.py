@@ -19,6 +19,7 @@ from tests.core.app_source import (
     REMOVAL_HELPERS,
     WRITE_HELPERS,
     app_declares,
+    carries_session,
     crud_helpers_taking_a_session,
     declared,
     driver_reads_named_by_the_crud_header,
@@ -383,6 +384,16 @@ class TestEveryReadInsideATransactionCarriesIt:
     A read left off the session sees a document this callback already wrote as it stood before, and
     two of them can straddle a commit and compose a state the database never held.
     """
+
+    def test_a_session_written_as_a_literal_none_is_not_read_as_carried(self):
+        """Take `tests/core/app_source.py :: carries_session` back to a keyword-presence check and this fails.
+
+        No application read is spelled that way, so nothing else here would notice that arm going quiet.
+        """
+
+        spelled = [node.value for node in ast.parse("f(session=session)\nf(session=None)\nf()").body if isinstance(node, ast.Expr)]
+
+        assert [carries_session(call) for call in spelled if isinstance(call, ast.Call)] == [True, False, False]
 
     def test_every_crud_helper_taking_a_session_is_named_by_one_of_the_three_sets(self):
         """The floor under every clause here: rename a helper in `app/core/crud.py`, or add a fourth read, and this fails.

@@ -106,7 +106,6 @@ deliverable.
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
-| `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                         | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                            | FE, auth, spiele, spielorte, teams                                          | Open     |
@@ -1420,43 +1419,6 @@ version it was written against.
 **Done when** the clause's first half reads as I57 does, and the stylesheet's toast comment, the
 block opening `THE TOAST, deliberately small:` and the one over-bound block in that file no pass has
 yet read, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
-
-### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
-
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| BE, tests, saisons | Open   | —          |
-
-**`fl_backend/app/api/saisons/admin_router.py :: judge_and_write_the_rules` opens on a read carrying
-`session=session` under a comment stating why it must**: the read goes through the session, as the
-draw's reads do, so that a retry after a write conflict judges the season as it stands then.
-**Dropping that argument reportedly leaves the whole database tier green.** The guard is therefore
-deletable by anyone, for any reason, with nothing to say so — and it is that way already rather than
-by anything a branch did. **The same comment sits on four sibling reads in that file**, one per
-transactional callback, each held by the same nothing.
-
-**Why the isolation suite does not reach it.**
-`fl_backend/tests/api/test_saison_patch_isolation.py :: TestADrawLandingMidPatchIsJudgedAgain` is built for
-this route's retry: a hook runs a complete draw inside the update call, and `season_reads == 2` asserts the
-callback judged twice rather than once. What the second judgement then refuses on is `REQ-RULES-011`, decided
-by the season's fixture count, read from the fixtures collection through a call keeping its own `session=`.
-**So the case proves that the retry happened and proves a refusal, and neither fact passes through the season
-document's read**, which supplies `status` and `rules` while the plant moves neither.
-
-**What the argument buys, and therefore what a case has to move.** With it, the season row is judged
-from the same snapshot as the entries, fixtures, matchdays and squad rows the same judgement reads;
-without it, one document in that judgement comes from outside the snapshot and the rest from inside,
-so a commit landing between them is half-seen and the patch is refused, or allowed, against a season
-that stood in neither state.
-
-**Done when** a case exists that fails without the argument. **It has to move the season document
-itself, between that read and the in-session ones** — a plant point the existing hook, which sits on
-the update call, does not reach. Whether the case is written once for this site or once as a shape
-over all five is the design question inside the entry, and writing it for this site alone leaves four
-guards deletable.
-
-**Not verified here:** the database tier was not run for this entry. That dropping the argument
-leaves it green is a report; the mechanism above is what the code says would allow it.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 

@@ -1,14 +1,15 @@
 from itertools import product
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import generate_spielplan, patch_saison
+from app.api.saisons.admin_router import activate_saison, generate_spielplan, patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
+    FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
@@ -16,7 +17,12 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSpielplanShape,
 )
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
+from app.api.saisons.services import (
+    RULES_KADER_BELOW_USE,
+    RULES_SAISON_FINISHED,
+    RULES_SHAPE_AFTER_DRAW,
+    RULES_TIEBREAK_AFTER_KNOCKOUT,
+)
 from app.api.spiele.schemas import KNOCKOUT_PHASES
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -31,8 +37,11 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_saison_patch_isolation_test")
 
 SAISON_ID = "2026"
-SAISON_START = "2026-01-01"
-SAISON_END = "2026-06-30"
+# The season a rollover promotes, which is the one way the season under test reaches `past`.
+RIVAL_SAISON_ID = "2027"
+
+# One block of junction-row ids per season, so two seeded seasons cannot collide on `_id`.
+ENTRY_BLOCK = {SAISON_ID: "1", RIVAL_SAISON_ID: "2"}
 
 # Fixed rather than the real day, so the watermark's date is a value this file chose.
 TODAY = "2026-08-21"
@@ -74,19 +83,35 @@ def rules_document(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def saison_document() -> dict[str, Any]:
-    """`future` and undrawn: the state in which the shape rules are still open to a patch."""
+def saison_document(saison_id: str = SAISON_ID, status: str = "future") -> dict[str, Any]:
+    """`future` and undrawn by default: the state in which the shape rules are still open to a patch.
 
-    return {"_id": SAISON_ID, "start_date": SAISON_START, "end_date": SAISON_END, "status": "future", "rules": rules_document()}
+    Each season spans its own year's first half, which covers the schedule these rules imply.
+    """
+
+    return {
+        "_id": saison_id,
+        "start_date": f"{saison_id}-01-01",
+        "end_date": f"{saison_id}-06-30",
+        "status": status,
+        "rules": rules_document(),
+    }
 
 
-def entry_rows() -> list[dict[str, Any]]:
+# The patch resubmits the seeded season's own dates, so no case here is a date edit.
+SAISON_START = str(saison_document()["start_date"])
+SAISON_END = str(saison_document()["end_date"])
+
+
+def entry_rows(saison_id: str = SAISON_ID) -> list[dict[str, Any]]:
     """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
 
     return [
         {
-            "_id": ObjectId(f"6890a1b2c3d4e5f6078{index:05d}"),
-            "saison_id": SAISON_ID,
+            "_id": ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}8{index:05d}"),
+            "saison_id": saison_id,
+            # The same clubs in every seeded season: a `team_id` names a club, and a club plays year
+            # after year. Only the junction row is the season's own.
             "team_id": ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
             "gruppe": gruppe,
             "austritt": None,
@@ -117,16 +142,20 @@ def squad_rows(count: int) -> list[dict[str, Any]]:
     ]
 
 
-class SeasonsRunningAHookBeforeTheWrite:
-    """The seasons collection, running one hook immediately before the first update asked of it.
+Hook = Callable[[], Awaitable[Any]]
 
-    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what
-    the endpoint is handed must delegate every other call.
+
+class SeasonsRunningOneHook:
+    """The seasons collection, running one hook once at whichever of two points a case names.
+
+    A stand-in rather than a subclass: the driver builds a collection off a database handle, so the
+    endpoint's handle must delegate every other call.
     """
 
-    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
+    def __init__(self, inner: Any, *, after_the_first_read: Hook | None = None, before_the_write: Hook | None = None) -> None:
         self._inner = inner
-        self._hook: Callable[[], Awaitable[Any]] | None = hook
+        self._after_the_first_read = after_the_first_read
+        self._before_the_write = before_the_write
         # Every `find_one` answered. A REFUSED patch reads no echo back, so there the count is one
         # per entry into the endpoint's callback and a second one is the retry.
         self.season_reads = 0
@@ -136,14 +165,21 @@ class SeasonsRunningAHookBeforeTheWrite:
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         self.season_reads += 1
+        found = await self._inner.find_one(*args, **kwargs)
 
-        return await self._inner.find_one(*args, **kwargs)
+        # AFTER the read returns, and once: the rival lands between the season row's read and the
+        # write resting on it, where a second one would land after the retry had judged.
+        hook, self._after_the_first_read = self._after_the_first_read, None
+        if hook is not None:
+            await hook()
+
+        return found
 
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
         # ONE-SHOT: the retry has to re-judge against the draw rather than draw again, and a second
         # draw would be refused on its own account and mask the refusal this proves.
-        if self._hook is not None:
-            hook, self._hook = self._hook, None
+        hook, self._before_the_write = self._before_the_write, None
+        if hook is not None:
             await hook()
 
         return await self._inner.find_one_and_update(*args, **kwargs)
@@ -152,29 +188,36 @@ class SeasonsRunningAHookBeforeTheWrite:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_seeded_saison(url: str, body: Body) -> Any:
+def on_a_seeded_saison(url: str, body: Body, *, saisons: Sequence[dict[str, Any]] = (), drawn: Sequence[str] = ()) -> Any:
     """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
-        # action log appends to inside each of the two transactions below.
+        # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 
-            await database[Collection.SAISONS].insert_one(saison_document())
-            await database[Collection.SAISON_TEAMS].insert_many(entry_rows())
+            seeded = list(saisons) or [saison_document()]
+            await database[Collection.SAISONS].insert_many(seeded)
+            for season in seeded:
+                await database[Collection.SAISON_TEAMS].insert_many(entry_rows(str(season["_id"])))
+
+            # Through the ROUTE rather than by hand: what a rollover then judges is the Spielplan a
+            # drawn season really holds, watermark included.
+            for saison_id in drawn:
+                await call_draw(database, client, saison_id=saison_id)
 
             return await body(database, client)
 
     return on_the_seed_loop(_run())
 
 
-async def call_draw(database: AsyncDatabase, client: AsyncMongoClient) -> FLGenerateSpielplanResponse:
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
     """The shape the season already carries, so the draw moves the fixtures and no rule of its own."""
 
     return await generate_spielplan(
-        saison_id=SAISON_ID,
+        saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
@@ -249,6 +292,17 @@ async def call_abandon_a_knockout(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"sonderereignis": "abgebrochen"}})
 
 
+async def call_roll_the_league_over(database: AsyncDatabase, client: AsyncMongoClient) -> FLActivateSaisonResponse:
+    """The rival write: the league rolls over to the other seeded season, which demotes this one to `past`."""
+
+    return await activate_saison(
+        saison_id=RIVAL_SAISON_ID,
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+    )
+
+
 async def abandoned_knockouts_now(database: AsyncDatabase) -> int:
     """The records this file's rival leaves, counted where `app/api/teams/services.py :: has_taken_place` would answer True."""
 
@@ -264,6 +318,14 @@ async def season_now(database: AsyncDatabase) -> dict[str, Any]:
     assert stored is not None, f"the seed holds no season {SAISON_ID}"
 
     return dict(stored)
+
+
+async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
+    """Every seeded season, so a rollover that landed names the league it left rather than the target alone."""
+
+    rows = await database[Collection.SAISONS].find({}).to_list(length=None)
+
+    return {str(row["_id"]): str(row["status"]) for row in rows}
 
 
 async def counts_now(database: AsyncDatabase) -> tuple[int, int]:
@@ -293,7 +355,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
             async def add_between() -> None:
                 await call_add_a_player(database)
 
-            seasons = SeasonsRunningAHookBeforeTheWrite(database[Collection.SAISONS], add_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=add_between)
 
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, max_kadergroesse=SEEDED_SQUAD)
@@ -342,7 +404,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
             async def draw_between() -> None:
                 drawn.append(await call_draw(database, client))
 
-            seasons = SeasonsRunningAHookBeforeTheWrite(database[Collection.SAISONS], draw_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=draw_between)
 
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, teams_per_group=WIDER_PER_GROUP)
@@ -389,7 +451,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
             async def abandon_between() -> None:
                 await call_abandon_a_knockout(database)
 
-            seasons = SeasonsRunningAHookBeforeTheWrite(database[Collection.SAISONS], abandon_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=abandon_between)
 
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
@@ -419,6 +481,69 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
             return response, await season_now(database)
 
         response, stored = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert response.updated_document.rules.tiebreak_order == REORDERED_TIEBREAK
+        assert stored["rules"]["tiebreak_order"] == REORDERED_TIEBREAK
+
+
+class TestARolloverLandingMidPatchIsJudgedAgain:
+    """Two administrators on one season: it is `active` when the patch judges and `past` when it writes.
+
+    The rollover writes `saisons`, so the update conflicts and the callback re-judges -- on `status`,
+    which nothing but the season row supplies.
+    """
+
+    def test_the_reorder_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
+        """Drop `session=` from the season read in `judge_and_write_the_rules` and this fails.
+
+        That read pins the transaction's snapshot; outside the session it opens after the rollover,
+        so the update conflicts with nothing and lands.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            promoted: list[FLActivateSaisonResponse] = []
+
+            async def roll_over_between() -> None:
+                # Permitted: the incumbent is undrawn and so owes nothing, and the rival is drawn.
+                # Demoting the incumbent is what makes the season under test `past`.
+                promoted.append(await call_roll_the_league_over(database, client))
+
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], after_the_first_read=roll_over_between)
+
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
+
+            return refusal.value, promoted[0], seasons.season_reads, await season_now(database), await statuses_now(database)
+
+        refusal, promoted, season_reads, stored, statuses = on_a_seeded_saison(
+            mongo_replica_set_url,
+            body,
+            # The incumbent is UNDRAWN, which is what leaves it owing nothing for the rollover to
+            # refuse, and leaves `REQ-RULES-011` no fixtures to refuse the reorder on either.
+            saisons=[saison_document(status="active"), saison_document(RIVAL_SAISON_ID)],
+            drawn=(RIVAL_SAISON_ID,),
+        )
+
+        # `REQ-RULES-005` weighs the season's own `status`, and it was `active` when this request
+        # first judged: the refusal can only come from a read made after the rollover committed.
+        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert (promoted.updated_document.id, statuses) == (RIVAL_SAISON_ID, {SAISON_ID: "past", RIVAL_SAISON_ID: "active"})
+
+        # TWO: the judgement's read and the retry's. The write conflicted rather than echoing, and a
+        # third would mean the callback was entered once more than this case accounts for.
+        assert season_reads == 2, "the callback was entered a third time"
+
+        assert stored["rules"]["tiebreak_order"] == "tordifferenz", "the reorder landed on a season the rollover had already finished"
+
+    def test_the_same_reorder_commits_when_no_rollover_lands(self, mongo_replica_set_url: str):
+        """The control: without it the case above would pass on an endpoint that refused every reorder on an `active` season."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await call_patch_rules(database, client, tiebreak_order=REORDERED_TIEBREAK)
+
+            return response, await season_now(database)
+
+        response, stored = on_a_seeded_saison(mongo_replica_set_url, body, saisons=[saison_document(status="active")])
 
         assert response.updated_document.rules.tiebreak_order == REORDERED_TIEBREAK
         assert stored["rules"]["tiebreak_order"] == REORDERED_TIEBREAK
