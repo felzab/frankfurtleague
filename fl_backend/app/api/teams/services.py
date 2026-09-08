@@ -265,9 +265,9 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     return pipeline
 
 
-# The walk tries every combination of outcomes, so the work is 3^n. Past the bound nothing is
-# reported as final, which is the safe direction.
-CERTAINTY_FIXTURE_LIMIT = 10
+# How much enumeration the transaction `fl_backend/app/api/spiele/crud.py` holds open will pay for.
+# Past it the separation test answers the group instead, soundly rather than exactly.
+CERTAINTY_FIXTURE_LIMIT = 8
 
 
 def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
@@ -549,6 +549,22 @@ class DecidedStanding:
     by_platz: Mapping[int, FLTeam]
 
 
+def _endings(rules: FLSaisonRules) -> tuple[tuple[int, int, bool], ...]:
+    """The fourth ending is the call-off, which alone awards nothing to BOTH sides and alone leaves neither club it to play.
+
+    `fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_WITHOUT_A_RESULT` is the state a save
+    records for it.
+    """
+
+    # No losing side is added to: `FLSaisonRules` carries no `loss_points`.
+    return (
+        (rules.win_points, 0, True),
+        (rules.draw_points, rules.draw_points, True),
+        (0, rules.win_points, True),
+        (0, 0, False),
+    )
+
+
 def _decide_one_gruppe(
     teams: Sequence[FLTeam],
     spiele: Sequence[FLSpielCommon],
@@ -556,7 +572,7 @@ def _decide_one_gruppe(
     still_to_play: Mapping[CustomObjectId, int],
     has_unattributable: bool,
 ) -> DecidedStanding:
-    """One group's decided placings, by walking every way its outstanding fixtures could still go."""
+    """One group's decided placings: exact by walking every ending inside `CERTAINTY_FIXTURE_LIMIT`, and sound above it."""
 
     # `_spiele_by_gruppe` attributes only fixtures with both sides known, so the two side checks
     # below narrow the type rather than branch.
@@ -572,39 +588,59 @@ def _decide_one_gruppe(
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
     is_complete = not open_pairs and not has_unattributable
 
-    if has_unattributable or len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
+    if has_unattributable:
         return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz={})
 
     # Every member, never `placeable` alone: filtering before the ranking drops a departed club's
     # results from the mini-table the DISPLAYED table computes with them, so the two surfaces order
     # one group differently (`docs/backend/spec.md :: I24b`).
     settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
+
+    if len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
+        return DecidedStanding(
+            eligible=len(placeable),
+            is_complete=is_complete,
+            by_platz=_separated_placings(teams, spiele, rules, still_to_play, settled, placeable),
+        )
+
+    by_id = {team.id: team for team in teams}
     base = {team.id: team.statistik.punkte for team in teams}
     order = [team.id for team in teams]
+    # Every other club is in `placeable` under every ending, so only these need asking again: a club
+    # keeps its place in the set on the strength of one counted match, whatever a call-off takes.
+    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.anzahl_gespielte_spiele == 0]
 
-    # Deduplicated by the points table each outcome set produces, and ranked AS the walk goes, so it
-    # stops the moment no placing survives: this runs inside the write transaction.
+    # Ranked as the walk goes rather than after it, so a group deciding nothing costs one ranking:
+    # this runs inside the write transaction.
     decided: Mapping[int, FLTeam] | None = None
-    seen: set[tuple[int, ...]] = set()
-    for outcomes in product((1, 0, 2), repeat=len(open_pairs)):
+    seen: set[tuple[tuple[int, ...], frozenset[CustomObjectId]]] = set()
+    for endings in product(_endings(rules), repeat=len(open_pairs)):
         punkte = dict(base)
-        for (left, right), outcome in zip(open_pairs, outcomes, strict=True):
+        # A result leaves this count alone rather than moving the fixture into `anzahl_gespielte_spiele`:
+        # the walk hypothesises no `statistik`, and `_may_hold_a_platz` reads the two together.
+        left_to_play = {team_id: still_to_play.get(team_id, 0) for team_id in fragile}
+        for (left, right), (to_left, to_right, played) in zip(open_pairs, endings, strict=True):
             # Added to unguarded: `_spiele_by_gruppe` attributes a fixture to this group only when
             # both its teams are of it, so `base` already holds every side.
-            if outcome == 0:
-                for side in (left, right):
-                    punkte[side] += rules.draw_points
+            punkte[left] += to_left
+            punkte[right] += to_right
+            if played:
                 continue
+            for side in (left, right):
+                if side in left_to_play:
+                    left_to_play[side] -= 1
 
-            # Only the winner is added to: `FLSaisonRules` carries no `loss_points`.
-            punkte[left if outcome == 1 else right] += rules.win_points
-
+        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left))
         vector = tuple(punkte[team_id] for team_id in order)
-        if vector in seen:
+        # The points table stopped deciding the ranking on its own once a call-off became an ending,
+        # so a vector skipped on its table alone is one that ranks differently.
+        if (vector, dropped) in seen:
             continue
-        seen.add(vector)
+        seen.add((vector, dropped))
 
-        placings = _placings(teams, dict(zip(order, vector, strict=True)), settled, spiele, rules, placeable)
+        # `settled` stays as the fixtures leave it: a hypothesised one would put a club into a band
+        # `_tiers` breaks against a placeable set it derives itself, which is not the one here.
+        placings = _placings(teams, punkte, settled, spiele, rules, placeable - dropped)
 
         # A placing survives only while every table so far has put the SAME team there.
         if decided is None:
@@ -616,6 +652,46 @@ def _decide_one_gruppe(
             break
 
     return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz=decided or {})
+
+
+def _separated_placings(
+    teams: Sequence[FLTeam],
+    spiele: Sequence[FLSpielCommon],
+    rules: FLSaisonRules,
+    still_to_play: Mapping[CustomObjectId, int],
+    settled: AbstractSet[CustomObjectId],
+    placeable: AbstractSet[CustomObjectId],
+) -> Mapping[int, FLTeam]:
+    """The placings no ending of an outstanding fixture can reach.
+
+    Sound rather than exact: a placing two clubs could each take but never both is declined, which
+    reports as not yet decided (`docs/backend/spec.md :: I24c`).
+    """
+
+    # The larger of the two, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a
+    # draw worth more than a win only where the excess grows, so a season already holding one arrives.
+    ceiling = max(rules.win_points, rules.draw_points)
+    lo = {team.id: team.statistik.punkte for team in teams}
+    hi = {team.id: lo[team.id] + ceiling * still_to_play.get(team.id, 0) for team in teams}
+
+    def separated(holder: FLTeam, other: FLTeam) -> bool:
+        if lo[other.id] > hi[holder.id] or hi[other.id] < lo[holder.id]:
+            return True
+
+        # A level pair is admitted only where `_break_tie` reads figures no ending can move. Where the
+        # holder itself has a match left, its band is never broken, so nothing below points decides it.
+        return holder.id in settled and other.id in settled and lo[other.id] == lo[holder.id]
+
+    return {
+        platz: holder
+        for platz, holder in _placings(teams, lo, settled, spiele, rules, placeable).items()
+        # `_placings` seeds only a club already in `placeable`, and the one way out of that set is a
+        # call-off emptying what it has left to play, which takes nothing counted with it.
+        if holder.statistik.anzahl_gespielte_spiele > 0
+        # Asked of EVERY club, a departed one included: `_tiers` leaves a band whole while any member
+        # is unsettled, so a club that can hold no placing of its own can still cost the holder one.
+        and all(other.id == holder.id or separated(holder, other) for other in teams)
+    }
 
 
 def _placings(

@@ -108,7 +108,6 @@ deliverable.
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
-| `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
@@ -141,7 +140,7 @@ deliverable.
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
-| `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                        | BE, teams                                                                   | Standing |
+| `zp46-yt3p` | No exact placing is available above the certainty walk's fixture limit                                                       | BE, Docs, saisons, teams                                                    | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                   | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
 
 ## The items
@@ -1492,73 +1491,6 @@ The limitation is deliberate and its docstring says so: a computed name and a co
 it cannot resolve is skipped rather than guessed at, because a false pairing fails a branch that
 touched neither the control nor the schema, which is the standing tax CUR-6 refuses.
 
-### `hstg-rnqj` · The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
-
-| Tags                    | Status | Depends on |
-| ----------------------- | ------ | ---------- |
-| BE, Docs, spiele, teams | Open   | —          |
-
-**`fl_backend/app/api/teams/services.py :: _decide_one_gruppe` walks `product((1, 0, 2),
-repeat=len(open_pairs))` — a win to one side, a win to the other, or a draw — and an outstanding
-fixture has a fourth ending.** A `sonderereignis` of `ausgefallen` or `annulliert` awards nothing to
-either club, and `fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_WITHOUT_A_RESULT` is the
-set that both the walk's own open set and `fl_backend/app/api/teams/services.py :: _still_to_play`
-exclude on. So a call-off does two things none of the three endings can express: it withholds points
-the walk assumed one of three ways, and it lowers what a club still has to play — which is half of
-`:: _may_hold_a_platz`, so a club that has played nothing and whose last outstanding fixture is
-called off leaves `placeable` and stops holding a placing at all.
-
-**What that reaches is the bracket rather than a table.** `fl_backend/app/api/spiele/crud.py` hands
-each group's `by_platz` straight to the bracket resolution, so a placing the walk certifies is
-seeded into a knockout slot. A later call-off that moves it is corrected on the next save, and
-re-resolving an advancement clears the advanced fixture's stored result — the destruction
-`32bs-nhzd` carries.
-
-**Measured on 2026-08-21, against a ground-truth oracle enumerating four endings per open fixture.**
-Across 3,500 randomised groups and 275,000 exhaustive ones, the shipped walk contradicts the
-oracle's set in 1.4% to 6.9% of the groups that declare a placing at all — a spread across the
-generated shapes rather than a confidence bound. **What validates the oracle rather than the walk is
-the control:** the same comparison, with the oracle restricted to the three endings the walk already
-knows, finds no contradiction anywhere.
-
-**Two mechanisms produce it, and only one of them needs unusual rules.**
-
-- **Points.** A call-off leaves both clubs exactly where they stood, and no branch of a three-ending
-  walk does — a draw lifts both, a win lifts one. The run separates this mechanism only where
-  `draw_points` is 2 or more, so a season scoring the conventional 3/1/0 does not meet it.
-- **Placeability.** `_may_hold_a_platz` admits a club with a match that counts or still could, and a
-  call-off removes the second half. Where a club has played nothing and its only outstanding fixture
-  is called off, it leaves `placeable`, every club under it in the order moves up a number, and no
-  table the walk built holds that ordering. This one is reachable at 3/1/0.
-
-**Widening the alphabet is not the fix, and neither obstacle is arithmetic alone.** The enumeration is `3^n`
-and would become `4^n`: measured at `fl_backend/app/api/teams/services.py :: CERTAINTY_FIXTURE_LIMIT` on
-2026-08-21, the four-ending product takes 7.20 seconds against the three-ending 0.79, and that time is spent
-once per referenced group, inside a transaction whose lifetime is bounded. The second obstacle is structural:
-`placeable` and `settled` are derived once before the loop, from the fixtures as they stand, and a
-hypothesised call-off changes both — so each would have to be recomputed per outcome vector, and the
-deduplication by points table that keeps the walk affordable would identify none of the iterations
-that may be skipped.
-
-**What [`docs/backend/spec.md`](../backend/spec.md) I24a already says, and what it does not.** I24a
-states that a placing is written into a bracket slot only when no combination of the group's
-outstanding results could change who holds it, and it carves out one case: a fixture whose
-`sonderereignis` awards nothing counts as never coming, so a no-show recorded on one later can
-overturn a placing that was already final. That carve-out runs the other way — an already-called-off
-fixture that later receives a result — while the direction measured here, an open fixture later
-called off, sits inside the sentence the carve-out qualifies. **Whichever way this is answered, that
-invariant moves with it.**
-
-**Done rests on three answers rather than one:** which endings the walk enumerates, what a wider set
-costs inside a write transaction, and how the invariant states the claim afterwards. It shares
-`_decide_one_gruppe` with `zp46-yt3p`, which is the cap on how many outstanding fixtures the walk
-enumerates at all where this is the set of endings it enumerates per fixture, so either one's
-arithmetic moves the other's.
-
-**Not measured:** whether the state has ever arisen in the live database, and what the walk
-contradicts on this season's own shape rather than on generated groups. Against the season shape and
-rules `zp46-yt3p` records, only the placeability mechanism above is reachable.
-
 ### `huzh-hdfx` · A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
 
 | Tags     | Status | Depends on |
@@ -2788,39 +2720,32 @@ The decision is to enable ruff's `UP` rules and migrate in one pass, which is wh
 [`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
 carries the typing check that owns the migration.
 
-### `zp46-yt3p` · The certainty walk gives up in a group of six or more
+### `zp46-yt3p` · No exact placing is available above the certainty walk's fixture limit
 
-| Tags      | Status   | Depends on |
-| --------- | -------- | ---------- |
-| BE, teams | Standing | —          |
+| Tags                     | Status   | Depends on |
+| ------------------------ | -------- | ---------- |
+| BE, Docs, saisons, teams | Standing | —          |
 
-**Not a defect today, and the numbers say why** (found 2026-08-05, reviewing the bracket).
-`fl_backend/app/api/teams/services.py :: _decide_one_gruppe` walks every combination of outcomes for
-a group's outstanding fixtures and reports a placing only when the same team holds it in all of
-them. The walk is capped per group by `:: CERTAINTY_FIXTURE_LIMIT` — ten outstanding fixtures when
-it was measured on 2026-08-05 — and past the cap it reports no placing at all, which is the safe
-direction and, at ten unplayed matches, the honest one.
+**Not a defect, and what is accepted is incompleteness rather than silence.**
+`fl_backend/app/api/teams/services.py :: _decide_one_gruppe` enumerates every ending of a group's
+outstanding fixtures — a call-off among them — and seeds a placing only where the same club holds it
+under all of them. That enumeration is bounded per group by `:: CERTAINTY_FIXTURE_LIMIT`, and above
+the bound `:: _separated_placings` answers instead, from a per-club interval that is SOUND and
+INCOMPLETE: it never seeds a placing the group could still change, and it declines some the exact
+walk would have settled. **Every legal group size is answered.** What a decline costs is a bracket
+slot left unseeded until the group settles further, and a placing that is merely undecided is
+deliberately reported to nobody (invariant I24c).
 
-**The cap is a group size in disguise**, because a group played out in full has one fixture per
-pair:
+**Raising the bound is not the fix.** Each fixture past it multiplies the enumeration by the ending
+alphabet, and the walk runs once per referenced group inside `PATCH /spiele/{spiel_id}`'s
+transaction, whose lifetime is bounded. The walk deduplicates by the points table each ending
+produces together with the clubs that ending leaves able to place, and stops the moment no placing
+survives every table — so the ranking work is bounded by the distinct tables, while the enumeration
+itself is not pruned, which is what the bound guards.
 
-| Teams in a group | Fixtures to play | Against the cap      |
-| ---------------- | ---------------- | -------------------- |
-| 4                | 6                | walks                |
-| 5                | 10               | walks, exactly at it |
-| 6                | 15               | **reports nothing**  |
-
-Season 2026 holds 16 teams in groups of four, six fixtures apiece (measured 2026-08-06) —
-comfortably inside it. **A group of six would silently stop that group from seeding the bracket at
-any point in its life**, and the symptom would be an empty knockout slot with nothing said about it,
-because a placing that is merely undecided is deliberately reported to nobody (invariant I24c).
-
-**Raising the constant is not the fix.** The enumeration is `3^n`, so each fixture past the cap
-triples the work — a group of six is `3^15` against `3^10`, 243 times as much — and it runs once per
-referenced group inside `PATCH /spiele/{spiel_id}`'s transaction. The walk already deduplicates by
-the points table each outcome set produces and stops the moment no placing survives every table, so
-the ranking work is bounded by the distinct tables — but the `3^n` enumeration itself is not pruned,
-which is what the cap guards.
+**What the incompleteness costs is bounded in the direction that matters.** A declined placing is a
+slot nobody seeds; a wrongly seeded one is a club written into a knockout fixture the group can still
+overturn, which every surface then agrees with. The interval test can only make the first mistake.
 
 **Nor is a cleverer algorithm the fix, and the reason was settled on 2026-08-06.** The question this
 walk answers — is a team's placing the same however the remaining fixtures go — is the complement of
@@ -2830,22 +2755,24 @@ three-points-for-a-win rule a win creates a point that a draw does not, and deci
 becomes NP-complete (Bernholt, Gülich, Hofmeister and Schmitt, _Football Elimination Is Hard to
 Decide Under the 3-Point-Rule_, 1999). Season 2026 scores 3/1/0 through `FLSaisonRules`, and
 `win_points` is configurable per season, so the hard case is the one this system has to serve.
-**There is therefore no polynomial exact replacement to write**, and the honest options are the cap
-that exists, an approximation that would sometimes seed a placing a later result overturns, or a
-person.
+**There is therefore no polynomial exact replacement to write.** The approximation was taken, in the
+sound direction, which is why no placing it seeds is overturned — and it is what leaves the
+incompleteness above the bound as the accepted cost rather than a defect to close.
 
 **The textbook fallback is a person, and this system deliberately does not have one.** Established
 platforms do not infer finality at all: a group's standing becomes available to seed the next stage
-only when the organiser **validates** it, and validation also locks the group's matches. So if a
-group ever does grow to six, the cheap answer is an explicit "this group is final" control feeding
-the same `DecidedStanding`, not a faster walk.
+only when the organiser **validates** it, and validation also locks the group's matches. So the cheap
+way to recover a declined placing is an explicit "this group is final" control feeding the same
+`DecidedStanding`, not a faster walk.
 
-**Not measured:** how long the walk takes at the cap. Groups of four make it `3^6` = 729 raw
-iterations per group, which is unmeasurable; at the cap it is `3^10` = 59,049 per group — cheap per
-iteration once deduplicated, but inside a transaction, whose lifetime is bounded.
+**Not established:** whether the exact walk is exact against SCORELINES. It hypothesises points and
+fixtures left, never goals, so a band holding a club that could still settle is never broken — which
+is `docs/backend/spec.md :: I24a`'s second clause rather than a gap above the bound. Settling it needs
+a ground-truth oracle over scorelines.
 
-**Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how
-groups are sized.
+**Trigger to revisit:** any change to how groups are sized, since
+`fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup` bounds what the interval test is quadratic
+in.
 
 ### `zr2y-4uwj` · A tie-break that provably cannot fire is what stops the index being walked
 
