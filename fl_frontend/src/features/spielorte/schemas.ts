@@ -3,22 +3,24 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, FLAddressPayloadSchema, FLAddressSchema } from "@/shared/schemas";
 
-export const FLPostSpielortPayloadSchema = z.object({
-  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
+/** Shared by create and patch, which mirror one backend class: the patch replaces the venue wholesale. */
+const spielortPayloadFields = {
+  // Trimmed before the floor counts it, as `fl_backend/app/api/spielorte/schemas.py :: _SpielortPayload`
+  // is: the API refuses a name of spaces alone with a bare `REQ-VAL-001` carrying no field detail, so
+  // a looser mirror marks no box.
+  name: z.string().trim().nonempty({ error: "Bitte gib einen Namen ein." }),
   default_mietpreis: z
     .int({ error: "Bitte gib einen Standard-Mietpreis ein." })
     .nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
   address: FLAddressPayloadSchema,
-});
+};
+
+export const FLPostSpielortPayloadSchema = z.object(spielortPayloadFields);
 export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 
 export const FLPatchSpielortPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
-  default_mietpreis: z
-    .int({ error: "Bitte gib einen Standard-Mietpreis ein." })
-    .nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
-  address: FLAddressPayloadSchema,
+  ...spielortPayloadFields,
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Final, NamedTuple
 
 import pytest
+from pydantic import BaseModel, StringConstraints
 
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.shared.schemas import bounds
@@ -132,6 +133,74 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
 
 
+class ModelBound(NamedTuple):
+    module: str
+    typescript: str
+    model: type[BaseModel]
+    field: str
+
+
+# The ceilings the delivery-event endpoint states at its own fields rather than in `bounds.py`, one
+# field stating each. Read off the model's metadata, so a constraint respelled there still pairs.
+MIRRORED_MODEL_BOUNDS: Final = (
+    ModelBound(
+        "features/bewerbungen/zustellung.ts",
+        "ZUSTELLUNG_GRUND_MAX_LENGTH",
+        bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
+        "grund",
+    ),
+    ModelBound(
+        "features/bewerbungen/zustellung.ts",
+        "ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH",
+        bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
+        "nachricht_id",
+    ),
+    ModelBound(
+        "features/bewerbungen/zustellung.ts",
+        "ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH",
+        bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
+        "am",
+    ),
+)
+
+
+def _model_max_length(model: type[BaseModel], field: str) -> int:
+    """Off the model rather than its text: a ceiling respelled still pairs, and one dropped fails rather than reading as covered."""
+
+    stated = [
+        constraint.max_length
+        for constraint in model.model_fields[field].metadata
+        if isinstance(constraint, StringConstraints) and constraint.max_length is not None
+    ]
+
+    assert len(stated) == 1, f"{model.__name__}.{field} states {len(stated)} ceilings, so no one number pairs with the frontend's"
+
+    return stated[0]
+
+
+@pytest.mark.parametrize("mirror", MIRRORED_MODEL_BOUNDS, ids=lambda mirror: f"{mirror.model.__name__}.{mirror.field}->{mirror.typescript}")
+def test_every_model_bound_agrees_with_its_frontend_constant(mirror: ModelBound):
+    """The webhook fills these from a provider's envelope, and its route answers a 422 with 200, so a looser mirror loses the event."""
+
+    found = re.search(rf"^(?:export )?const {mirror.typescript} = (\d+);$", _source(mirror.module), re.MULTILINE)
+
+    assert found is not None, f"{mirror.module} no longer spells {mirror.typescript} as a bare integer"
+    assert int(found[1]) == _model_max_length(mirror.model, mirror.field), f"{mirror.typescript} disagrees with {mirror.field}'s ceiling"
+
+
+def test_every_ceiling_the_event_payload_states_is_paired_here():
+    """The other direction, off the model's own field list: a fourth ceiling would otherwise be mirrored by nothing and read as covered."""
+
+    payload = bewerbungen_schemas.FLBewerbungZustellungEreignisPayload
+    bounded = {
+        name
+        for name, field in payload.model_fields.items()
+        if any(isinstance(constraint, StringConstraints) and constraint.max_length is not None for constraint in field.metadata)
+    }
+
+    assert bounded == {mirror.field for mirror in MIRRORED_MODEL_BOUNDS if mirror.model is payload}
+
+
 class Pattern(NamedTuple):
     module: str
     typescript: str
@@ -228,7 +297,7 @@ VALUE_ERROR: Final = re.compile(r'raise ValueError\("([^"]+)"\)')
 ANSWER_REFUSALS: Final[dict[str, str | None]] = {
     # Not mirrored: the page renders a control for the date, so the missing value is asked for there
     # rather than explained, and the two tiers refuse the same body for the same reason.
-    "Zur Einwilligung gehört das eigene Geburtsdatum.": None,
+    "Zur Bestätigung gehört das eigene Geburtsdatum.": None,
     "Ein Widerspruch speichert kein Geburtsdatum.": "features/bewerbungen/schemas.ts",
     "Ein Widerspruch speichert keine WhatsApp-Einwilligung.": "features/bewerbungen/schemas.ts",
 }

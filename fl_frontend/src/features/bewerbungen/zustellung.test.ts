@@ -177,6 +177,39 @@ describe("what one delivery event says about a seat", () => {
     assert.ok(!inspect(abgewiesen, { depth: null }).includes(ADRESSE), "the recipient reached the write");
   });
 
+  /* The endpoint bounds the reason and holds it to one line, and
+     `fl_frontend/src/app/api/mail/zustellung/route.ts` answers its 422 with a 200 — so a reason
+     passed on unbounded is a bounce recorded nowhere. */
+  it("keeps the state and drops a reason the endpoint would refuse", () => {
+    const prosa = leseZustellEreignis(ereignis("email.failed", { failed: { reason: "Q".repeat(129) } }));
+    const mehrzeilig = leseZustellEreignis(ereignis("email.failed", { failed: { reason: "quota\nexceeded" } }));
+
+    assert.equal(prosa?.stand, "verzoegert");
+    assert.equal(prosa?.grund, null);
+    assert.equal(mehrzeilig?.grund, null);
+    assert.equal(leseZustellEreignis(ereignis("email.failed", { failed: { reason: "Q".repeat(128) } }))?.grund, "Q".repeat(128));
+  });
+
+  /* Neither is repairable the way a reason is: the message id is what tells a superseded link apart,
+     and the instant is the whole of the ordering between two events about one message. */
+  it("says nothing where the message id or the instant is one the endpoint refuses", () => {
+    const langeFraktion = `2026-09-08T10:15:00.${"0".repeat(50)}Z`;
+
+    assert.equal(leseZustellEreignis(ereignis("email.delivered", { email_id: "x".repeat(129) })), null);
+    assert.equal(leseZustellEreignis(ereignis("email.delivered", { email_id: "" })), null);
+    assert.equal(leseZustellEreignis({ ...ereignis("email.delivered"), created_at: "2026-09-08T10:15:00" }), null);
+    assert.equal(leseZustellEreignis({ ...ereignis("email.delivered"), created_at: "2026-09-08" }), null);
+    assert.equal(leseZustellEreignis({ ...ereignis("email.delivered"), created_at: langeFraktion }), null);
+  });
+
+  /* `datetime.fromisoformat` reads more offset spellings than one UTC `Z`, and refusing the others
+     here would drop an event the endpoint takes. */
+  it("takes an offset the provider spells as hours and minutes", () => {
+    const versetzt = leseZustellEreignis({ ...ereignis("email.delivered"), created_at: "2026-09-08T12:15:00+02:00" });
+
+    assert.equal(versetzt?.am, "2026-09-08T12:15:00+02:00");
+  });
+
   it("says nothing about a seat for an event no state is stored for", () => {
     assert.equal(leseZustellEreignis(ereignis("email.sent")), null);
     assert.equal(leseZustellEreignis(ereignis("email.opened")), null);

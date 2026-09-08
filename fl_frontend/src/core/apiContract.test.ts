@@ -475,18 +475,24 @@ describe("each pair agrees on the wire contract", () => {
       const converted = z.toJSONSchema(entry.schema, { io: "output" }) as JsonSchema;
       const frontend = describeObject(converted, converted, false);
 
-      // A `RootModel` over a constrained key map publishes `propertyNames` and no field list, so
-      // compare the key sets instead.
+      // A key-constrained map publishes `propertyNames` and no field list on either side, so the key
+      // set and `required` are the whole of what there is to compare here.
       const keyEnum = (node.propertyNames as JsonSchema | undefined)?.enum as unknown[] | undefined;
       if (keyEnum && backend.size === 0) {
+        const mirrorKeys = ((converted.propertyNames as JsonSchema | undefined)?.enum ?? []) as unknown[];
+        const backendRequired = [...((node.required ?? []) as string[])].sort();
+        const mirrorRequired = [...((converted.required ?? []) as string[])].sort();
+
         assert.deepEqual(
-          [...frontend.keys()].sort(),
+          mirrorKeys.map(String).sort(),
           keyEnum.map(String).sort(),
-          `${component} publishes keys [${keyEnum}] and ${mirror}Schema declares [${[...frontend.keys()]}].`,
+          `${component} publishes keys [${keyEnum}] and ${mirror}Schema declares [${mirrorKeys}].`,
         );
-        assert.ok(
-          [...frontend.values()].every((facts) => facts.required),
-          `${mirror}Schema must require every key: a response omitting an empty group would fail to parse.`,
+        assert.deepEqual(
+          mirrorRequired,
+          backendRequired,
+          `${component} requires [${backendRequired}] of its keys and ${mirror}Schema requires [${mirrorRequired}]: ` +
+            `one side guarantees a key the other takes as optional.`,
         );
         return;
       }
