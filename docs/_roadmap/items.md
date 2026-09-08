@@ -80,7 +80,7 @@ deliverable.
 | Token       | Item                                                                                                                         | Tags                                                                        | Status   |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
 | `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                    | BE, spiele                                                                  | Open     |
-| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                      | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
+| `2rz3-a754` | A colliding pair split across the read's cap is marked at neither end                                                        | FE, BE, Ops, Docs, edge, bewerbungen                                        | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                         | FE, Ops, gate, tests, saisons                                               | Open     |
@@ -180,11 +180,11 @@ caller happens to hold a set, which is most of them.
 `fl_backend/app/core/domain.py :: Rule.multi_document` gives it, and the unit that decides — the
 rule's own reads, or its caller's — is written where the next declaration meets it.
 
-### `2rz3-a754` · Deciding an application does not drain the queue, and duplicates are marked only across one read's rows
+### `2rz3-a754` · A colliding pair split across the read's cap is marked at neither end
 
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, edge, admin, bewerbungen | Open   | —          |
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| FE, BE, Ops, Docs, edge, bewerbungen | Open   | —          |
 
 **The duplicate marking runs over the rows one read served.**
 `fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page was
@@ -199,24 +199,13 @@ unauthenticated form is itself a denial of service, so the write refuses no dupl
 shows them instead; a queue that shows them across part of its set honours that ruling across part
 of its set.
 
-**A decision leaves the row, so the working set never shrinks.**
+**A decision leaves the row, and the queue does not serve it by default.**
 `fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt`
 and stamps who decided and why; the row stays, deliberately, the submission being the record the
-decision was taken against. The triage page sends no `status`
-(`fl_frontend/src/app/admin/bewerbungen/page.tsx`), so a decided application of any season keeps its
-place among the rows served. **An administrator who declines every one of them sees the list
-unchanged**, and no endpoint removes an application, so nothing reachable from the product clears
-the state.
-
-**The obvious repair collides with the facet, and that collision is most of the effort.** Decided rows leaving
-the default view means a `status` term on the server read. The panel then counts each option against the rows
-it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the loaded list — and
-`fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at zero unless it is
-already picked. Narrow the server read to `eingereicht` and both other statuses stand at zero, so both go dead
-and the archive is unreachable from the control that hid it. The **admin** clause in
-`.claude/rules/frontend.md` forbids withdrawing an option on a zero count, and disabling one arrives in the
-same place by another route. **So the counts have to come from the server in the same change**, or the
-narrowing has to be stated somewhere the facet does not read.
+decision was taken against. The triage page sends the status its bar selects
+(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`), open by default, so a
+decided application leaves the working set while staying one press away. No endpoint removes an
+application, so the row itself is permanent.
 
 **Two answers are closed, and each looks right from the code alone.**
 
@@ -229,15 +218,16 @@ narrowing has to be stated somewhere the facet does not read.
   remove the mechanism the ruling above rests on, and remove it silently, with no surface saying
   that a pair split across a page boundary goes unmarked —
   `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`'s own declaration records
-  that the list is served whole for exactly this reason. It also lands in the facet the way the
-  server-side filter does: a page holding one season's open applications leaves every other status
-  and every other season at zero, so the archive and the cross-season view both go dead.
+  that the list is served whole for exactly this reason. It also lands in the facet: the status counts now come
+  from the server (`docs/backend/spec.md :: I193`) and would survive it, but a page holding one
+  season's rows leaves every other season at zero, so the cross-season view goes dead.
 
-**Done is a third shape** — a narrowing the facet is told about rather than one it has to infer from
-what arrived, with the marking's set decided by the server rather than by what a single read
-happened to serve. **There is no bulk action**, so clearing a flood is one press per row, each with
-its own confirmation and its own round trip; that is the cheapest of these gaps to close once the
-read has somewhere to put a narrowing.
+**Done when** a colliding pair is marked or named however the read was cut. The queue now narrows on
+the server and the bar is told the counts it cannot derive
+(`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse`), so the cap is spent on the
+status being triaged rather than on the archive — which shrinks the window without closing it.
+**There is no bulk action**, so clearing a flood is one press per row, each with its own
+confirmation and its own round trip.
 
 **What bounds the severity.** Reaching the state takes a deliberate flood: the ceiling is
 `nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list from a single

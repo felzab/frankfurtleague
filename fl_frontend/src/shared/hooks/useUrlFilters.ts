@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { countActiveFacets } from "@/shared/utils/facets";
 
@@ -16,6 +16,10 @@ import type { Facet } from "@/shared/utils/facets";
 export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const router = useRouter();
+  // The navigation below runs in a transition, so React keeps the list on screen and interactive
+  // instead of replacing the streamed-in region with its fallback while the new rows are fetched.
+  const [, startNarrowing] = useTransition();
 
   const selection = useFacetSelection(facets);
 
@@ -47,9 +51,24 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
       }
 
       const query = params.toString();
-      window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
+      const href = query ? `${pathname}?${query}` : pathname;
+
+      // The exception, and the whole reason a facet declares it: this parameter decided which rows
+      // the page fetched, so writing history alone would leave the client filtering a set chosen
+      // under the old selection.
+      const refetches = facets.some((facet) => facet.narrowsTheRead === true && facet.param in changes);
+      if (!refetches) {
+        window.history.replaceState(null, "", href);
+        return;
+      }
+
+      // `scroll: false`, as the search field's own write is: narrowing a list the reader is looking at must not
+      // send them back to the top of it.
+      startNarrowing(() => {
+        router.replace(href, { scroll: false });
+      });
     },
-    [facets, pathname],
+    [facets, pathname, router],
   );
 
   /** Replaces one facet's selection wholesale, which is what a multi-select ListBox reports. */

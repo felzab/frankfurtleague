@@ -6,6 +6,7 @@ import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import { bewerbungenQueueStatus } from "./facets";
 import { postEinwilligungAnsicht } from "./mutations";
 import {
   FLBewerbungenListResponseSchema,
@@ -30,7 +31,7 @@ import type {
 import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
 
 /**
- * Every application, newest first, narrowable by season and by status.
+ * Every application, newest first, narrowable by season and by any number of statuses.
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a
  * cached read of this admin-tier personal data is a shared slot.
@@ -43,6 +44,18 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
       params: filters,
     }),
   );
+}
+
+/**
+ * The queue as one route's query string selects it. Here rather than at the page: a facet carries a `read`
+ * function, which a Server Component may not pass on
+ * (`fl_frontend/src/shared/utils/facets.test.ts :: who may hold a facet`).
+ */
+export async function getBewerbungenQueue(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+  order: "asc" | "desc",
+): Promise<FLBewerbungenListResponse> {
+  return getBewerbungen({ order: order, status: bewerbungenQueueStatus(params) });
 }
 
 /**

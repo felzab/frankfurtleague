@@ -752,8 +752,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
     ),
-    # All three end in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the
-    # sort key unindexed every request scans the collection and sorts it in memory, which is work
+    # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
+    # key unindexed every request scans the collection and sorts it in memory, which is work
     # proportional to an archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
@@ -774,6 +774,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
+    ),
+    # `eingereicht_am` and `_id` past the count's own key: measured, a bare `("status",)` serves the
+    # count and leaves the narrowed list read on another index, and three keys answer both.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_status_queue",
+        (("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "every season's queue at one status, and the count each status is told",
     ),
     # An index, not a season-cache set: that cache is keyed by season id, and a missing set would
     # read as an empty one, which narrows on nothing

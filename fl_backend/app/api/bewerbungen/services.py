@@ -858,6 +858,16 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
+def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
+    """`$in` rather than an equality, so a facet that offers all three has a request expressing any two of them.
+
+    The leading key of `app/core/constraints.py :: SUPPORT_INDEXES`' `bewerbungen_status_queue`
+    serves it either way.
+    """
+
+    return {} if status is None else {"status": {"$in": list(status)}}
+
+
 def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
     """The triage queue's order, tie-broken by `_id`.
 

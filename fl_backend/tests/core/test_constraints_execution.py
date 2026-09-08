@@ -765,9 +765,21 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
 # merit, and a test asserting IXSCAN there would pass for the wrong reason.
 ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
 
+# The `$in` shapes and no equality one: `build_bewerbungen_status_term` composes the status term one
+# way, and pinning a shape the endpoint cannot issue proves a plan nothing walks.
 BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
     {},
     {"saison_id": SAISON_ID},
+    {"status": {"$in": ["eingereicht"]}},
+    # Two values, because that plan is not one value's: the planner explodes an `$in` into a branch
+    # per value and merges them, which reaches the sort order by another route.
+    {"status": {"$in": ["eingereicht", "angenommen"]}},
+    {"saison_id": SAISON_ID, "status": {"$in": ["eingereicht"]}},
+]
+
+# What `get_bewerbungen` counts on every read: one status at a time, and the season term where the
+# caller named one.
+BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
     {"status": "eingereicht"},
     {"saison_id": SAISON_ID, "status": "eingereicht"},
 ]
@@ -779,27 +791,58 @@ AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
 ]
 
 
+def read_id(db_filter: dict[str, Any]) -> str:
+    """Names how many values an `$in` holds, or two reads narrowing on one key would share an id."""
+
+    named = [f"{field}-in-{len(term['$in'])}" if isinstance(term, dict) else field for field, term in db_filter.items()]
+    return "+".join(named) or "none"
+
+
 def index_reads(filters: list[dict[str, Any]]) -> list[Any]:
     return [
         # Every filter, because the planner is asked afresh for each. Some share an index with the
         # unfiltered read; what the case pins is that the added predicate does not push the plan off it.
-        *(pytest.param(db_filter, "desc", id=f"{'+'.join(db_filter) or 'none'}-desc") for db_filter in filters),
+        *(pytest.param(db_filter, "desc", id=f"{read_id(db_filter)}-desc") for db_filter in filters),
         # The whole `asc` pin: both sort builders derive a single `direction`, so a tie-break pinned
         # against `order` breaks every `asc` read alike and one case catches it.
         pytest.param({}, "asc", id="none-asc"),
     ]
 
 
-def winning_stages(explained: Mapping[str, Any]) -> list[str]:
-    """The winning plan's stages, outermost first. A blocking sort shows up here as `SORT`."""
+def walk_stages(node: Any) -> list[str]:
+    """Outermost first, down the several inputs a `SORT_MERGE` carries as well as the one every other stage has.
 
-    node: Any = explained["queryPlanner"]["winningPlan"]
-    stages: list[str] = []
-    while node:
-        stages.append(node["stage"])
-        node = node.get("inputStage")
+    A walk following `inputStage` alone stops at the merge, so an exploded `$in` reads as a plan
+    reaching no index at all.
+    """
+
+    if node is None:
+        return []
+
+    stages = [node["stage"], *walk_stages(node.get("inputStage"))]
+    for branch in node.get("inputStages", []):
+        stages.extend(walk_stages(branch))
 
     return stages
+
+
+def winning_stages(explained: Mapping[str, Any]) -> list[str]:
+    """The winning plan's stages. A blocking sort shows up here as `SORT`."""
+
+    return walk_stages(explained["queryPlanner"]["winningPlan"])
+
+
+def counted_stages(explained: Mapping[str, Any]) -> list[str]:
+    """The same, for the pipeline `count_documents` issues, which explains in two shapes."""
+
+    # A pipeline pushed whole into the query layer answers a top-level `queryPlanner`; one left as
+    # aggregation stages answers it under the cursor stage. Reading one alone reports the other as
+    # no plan at all.
+    planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
+    winning: Any = planner["winningPlan"]
+
+    # `queryPlan` is where the slot-based engine puts the tree; the classic one puts it in the plan.
+    return walk_stages(winning.get("queryPlan", winning))
 
 
 def test_every_declared_support_index_is_built(mongo_url: str):
@@ -892,6 +935,46 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
     assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
     assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
     assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the archive: {stages}"
+
+
+@pytest.mark.parametrize("db_filter", BEWERBUNGEN_COUNT_FILTERS, ids=read_id)
+def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url: str, db_filter: dict[str, Any]):
+    """Every read of the triage list counts all three statuses, so a count that scans is a scan per page load.
+
+    `COUNT_SCAN` and not merely an index: it answers off the keys and fetches no document at all.
+    """
+
+    async def body(database: AsyncDatabase) -> list[str]:
+        await database["bewerbungen"].insert_many(
+            [
+                valid_document(
+                    "bewerbungen",
+                    _id=ObjectId(),
+                    eingereicht_am=f"2026-02-{(row % 28) + 1:02d}",
+                    saison_id=SAISON_ID if row % 2 else "2025",
+                    status=("eingereicht", "angenommen", "abgelehnt")[row % 3],
+                )
+                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
+            ]
+        )
+        # The pipeline `count_documents` itself issues, explained through the command: a `find` the
+        # endpoint never makes would plan something no page load pays for.
+        explained = await database.command(
+            {
+                "explain": {
+                    "aggregate": "bewerbungen",
+                    "pipeline": [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}],
+                    "cursor": {},
+                },
+                "verbosity": "queryPlanner",
+            }
+        )
+        return counted_stages(explained)
+
+    stages = on_the_shipped_schema(mongo_url, body)
+
+    assert "COUNT_SCAN" in stages, f"counting {db_filter} fetched documents rather than walking keys: {stages}"
+    assert "COLLSCAN" not in stages, f"counting {db_filter} scans the archive: {stages}"
 
 
 @pytest.mark.parametrize(("db_filter", "order"), index_reads(AKTIONEN_QUEUE_FILTERS))

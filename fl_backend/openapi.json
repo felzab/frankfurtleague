@@ -2107,7 +2107,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.",
+        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`anzahl_je_status` counts every status over the season this request named and never over the\nstatuses it named, so a caller that narrowed to one still knows what asking for another would\nfetch. Repeating the parameter and comma-joining its values are one request; omitting it is every\nstatus, and sending it empty is too.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2136,19 +2136,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "enum": [
-                    "eingereicht",
-                    "angenommen",
-                    "abgelehnt"
-                  ],
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
               "title": "Status"
             }
           },
@@ -7208,12 +7196,27 @@
           "vollstaendig": {
             "type": "boolean",
             "title": "Vollstaendig"
+          },
+          "anzahl_je_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "eingereicht",
+                "angenommen",
+                "abgelehnt"
+              ]
+            },
+            "type": "object",
+            "title": "Anzahl Je Status"
           }
         },
         "type": "object",
         "required": [
           "bewerbungen",
-          "vollstaendig"
+          "vollstaendig",
+          "anzahl_je_status"
         ],
         "title": "FLBewerbungenListResponse",
         "description": "The queue, newest first, and whether that is the whole of it.\n\nThe list is served WHOLE by design -- the page marks duplicate submissions across it, and a\nsplit set would leave a pair unmarked with nothing saying so."

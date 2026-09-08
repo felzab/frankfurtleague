@@ -179,6 +179,11 @@ export const FLBewerbungenListResponseSchema = BaseAPIResponseSchema.extend({
   bewerbungen: z.array(FLBewerbungSchema),
   /** False where the endpoint's cap cut the answer short, which every count taken over the rows is then blind to. */
   vollstaendig: z.boolean(),
+  /**
+   * How many applications each state holds, counted by the server over everything but the status the request
+   * narrowed on — so the triage bar can offer a state whose rows this answer does not carry.
+   */
+  anzahl_je_status: z.record(FLBewerbungStatusSchema, z.number().int().nonnegative()),
 });
 export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponseSchema>;
 

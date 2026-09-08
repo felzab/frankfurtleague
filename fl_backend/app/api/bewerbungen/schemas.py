@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
@@ -177,11 +177,35 @@ class FLBewerbung(BaseModel):
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
 
 
+def parse_status_list(value: Any) -> Any:
+    """Comma-joined as well as repeated, so the page forwards the parameter it read rather than re-encoding it.
+
+    `fl_frontend/src/core/api.ts :: apiClient` sends one value per key, and the queue's URL spells a
+    multi-select selection comma-joined.
+    """
+
+    if value is None:
+        return None
+
+    picked: list[Any] = []
+    for item in value if isinstance(value, list) else [value]:
+        # A non-string is passed on untouched, so Pydantic refuses it rather than this splitter
+        # dropping it into a narrowing nobody asked for.
+        picked.extend(item.split(",") if isinstance(item, str) else [item])
+
+    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would
+    # answer that with a page holding nothing.
+    return [part for part in picked if part != ""] or None
+
+
 class FLBewerbungenFilterParams(BaseModel):
     """What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one."""
 
     saison_id: str | None = None
-    status: FLBewerbungStatus | None = None
+    # A LIST, because the facet offering these is multi-select and a two-status selection has no
+    # other request that expresses it. Published as the STRING it arrives as: an array parameter is
+    # one `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
+    status: Annotated[list[FLBewerbungStatus] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
 
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
     # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
@@ -234,6 +258,10 @@ class FLBewerbungenListResponse(BaseAPIResponse):
     # German, unlike the envelope fields around it, because `complete` reads as "the read finished"
     # as readily as "the list is whole" -- and this flag decides whether an admin may trust the list.
     vollstaendig: bool
+    # Counted on the SERVER: the answer holds only the statuses the request asked for, so a caller
+    # counting the rows it was served reads zero for each one the server hid and would offer no way
+    # back to them.
+    anzahl_je_status: dict[FLBewerbungStatus, int]
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):

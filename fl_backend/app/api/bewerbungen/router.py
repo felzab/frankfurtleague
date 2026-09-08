@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import asyncio
+from typing import Annotated, get_args
+
+from fastapi import APIRouter, Depends, Query
 
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
@@ -6,8 +9,9 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungenListResponse,
     FLBewerbungListAdapter,
     FLBewerbungSingleResponse,
+    FLBewerbungStatus,
 )
-from app.api.bewerbungen.services import WITHOUT_TOKEN_HASHES, build_bewerbungen_sort
+from app.api.bewerbungen.services import WITHOUT_TOKEN_HASHES, build_bewerbungen_sort, build_bewerbungen_status_term
 from app.core.config import API_VERSION
 from app.core.crud import build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection
@@ -25,18 +29,37 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin)],
 )
 
+# `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
+# it publishes no query parameter at all and answers `None` whatever the query string holds.
+FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
+
 
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
-    filters: FLBewerbungenFilterParams = Depends(),
+    filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
     """
-    Every application, newest first, narrowable by season and by status.
+    Every application, newest first, narrowable by season and by any number of the three statuses.
 
     Decided ones stay listed: what the league turned down, and why, is the record the decision was
     taken against. `vollstaendig` is false where more rows exist than one read serves.
+
+    `anzahl_je_status` counts every status over the season this request named and never over the
+    statuses it named, so a caller that narrowed to one still knows what asking for another would
+    fetch. Repeating the parameter and comma-joining its values are one request; omitting it is every
+    status, and sending it empty is too.
     """
+
+    # The season term alone, because each count answers for the status it names: counted with the
+    # request's own status term applied, every status the caller did not ask for would read zero.
+    beyond_status = build_query(filters, terms={"saison_id"})
+
+    # Concurrently, so three counts cost one round trip's latency rather than three. Each is a
+    # COUNT_SCAN off `bewerbungen_status_queue`'s leading key, which walks keys and fetches nothing.
+    counted = await asyncio.gather(
+        *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus))
+    )
 
     # One row over what is served, and the extra never is: it answers whether the list is whole
     # without a count, and counting the filtered set is the unbounded work this read must not do.
@@ -45,7 +68,7 @@ async def get_bewerbungen(
     # would drop them only after they had (`app/api/bewerbungen/public_router.py :: get_schulen`).
     read = await pull_many_from_db(
         collection=bewerbungen_collection,
-        db_filter=build_query(filters, terms={"saison_id", "status"}),
+        db_filter={**beyond_status, **build_bewerbungen_status_term(filters.status)},
         limit=filters.limit + 1,
         sort_by=build_bewerbungen_sort(sort_by=filters.sort_by, order=filters.order),
         projection=WITHOUT_TOKEN_HASHES,
@@ -60,6 +83,7 @@ async def get_bewerbungen(
     return FLBewerbungenListResponse(
         bewerbungen=FLBewerbungListAdapter.validate_python(served),
         vollstaendig=len(read) <= filters.limit,
+        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
     )
 
 

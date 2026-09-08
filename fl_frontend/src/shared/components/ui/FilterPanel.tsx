@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import { countFacetOptions } from "@/shared/utils/facets";
+import { countFacetOptions, isFacetOptionReachable } from "@/shared/utils/facets";
 
 import { COUNT_BADGE } from "./badges";
 import { overlayPanel } from "./overlayPanel";
 
-import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
+import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
 import type { CSSProperties, RefObject } from "react";
 
@@ -145,8 +145,7 @@ function FacetCell<TItem>({
               key={option.value}
               id={option.value}
               textValue={option.label}
-              // A picked option stays enabled at zero, or it could not be deselected.
-              isDisabled={count === 0 && !isPicked}
+              isDisabled={!isFacetOptionReachable(count, isPicked)}
               // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
               // colour. A selected row overrides the hover ink below at two variants, because brand ink on
               // that fill measures 3.31:1.
@@ -171,6 +170,11 @@ type FilterPanelContent<TItem> = {
   shown?: readonly Facet<TItem>[];
   /** Every row before filtering, so each option can say what it would leave. */
   items: TItem[];
+  /**
+   * Counts for a facet the SERVER narrowed on, which `items` cannot answer: the rows on hand hold only what was
+   * asked for, so every other option would read zero and be disabled. A facet absent here is counted off `items`.
+   */
+  facetCounts?: FacetCounts;
   selection: FacetSelection;
   onSelect: (param: string, values: string[]) => void;
   onClear: (param: string) => void;
@@ -180,7 +184,15 @@ type FilterPanelContent<TItem> = {
  * The scroller and its cells, for a host that brings its own dialog and width — `FilterPanel` is a `Popover.Dialog`, so a host
  * that is already one would nest a second dialog inside the first.
  */
-export function FilterPanelBody<TItem>({ facets, shown = facets, items, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
+export function FilterPanelBody<TItem>({
+  facets,
+  shown = facets,
+  items,
+  facetCounts,
+  selection,
+  onSelect,
+  onClear,
+}: FilterPanelContent<TItem>) {
   return (
     <div className="scrollbar-line max-h-[70dvh] overflow-x-hidden overflow-y-auto p-3">
       {/* No `items-start`: the default cross-axis stretch equalises each line's cells, and it is per line. */}
@@ -189,7 +201,7 @@ export function FilterPanelBody<TItem>({ facets, shown = facets, items, selectio
           <FacetCell
             key={facet.param}
             facet={facet}
-            counts={countFacetOptions(items, facets, selection, facet)}
+            counts={facetCounts?.[facet.param] ?? countFacetOptions(items, facets, selection, facet)}
             picked={selection[facet.param] ?? []}
             onClear={() => {
               onClear(facet.param);
@@ -212,6 +224,7 @@ export function FilterPanel<TItem>({
   facets,
   shown = facets,
   items,
+  facetCounts,
   selection,
   onSelect,
   onClear,
@@ -235,6 +248,7 @@ export function FilterPanel<TItem>({
         facets={facets}
         shown={shown}
         items={items}
+        facetCounts={facetCounts}
         selection={selection}
         onSelect={onSelect}
         onClear={onClear}

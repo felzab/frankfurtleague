@@ -3,12 +3,13 @@
 import { useMemo } from "react";
 
 import { findBewerbungDubletten } from "@/features/bewerbungen/duplicates";
-import { BEWERBUNGEN_FACETS } from "@/features/bewerbungen/facets";
+import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM } from "@/features/bewerbungen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import { AdminBewerbungenTable } from "../collections/AdminBewerbungenTable";
 import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendigNotice";
 
+import type { FLBewerbungenListResponse } from "@/features/bewerbungen/schemas";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { BewerbungenUnvollstaendig } from "../ui/BewerbungenUnvollstaendigNotice";
 
@@ -29,9 +30,12 @@ const SEARCH_KEYS = [
 /** No create control and no delete: this surface decides applications, and no endpoint writes or removes one. */
 export function AdminBewerbungenView({
   bewerbungen,
+  anzahlJeStatus,
   unvollstaendig = null,
 }: {
   bewerbungen: AdminBewerbungRow[];
+  /** The endpoint's own per-status count. `bewerbungen` holds only what the status facet selected, so it cannot answer for the rest. */
+  anzahlJeStatus: FLBewerbungenListResponse["anzahl_je_status"];
   /** Present only where the endpoint answered with part of the queue, and then carrying the ways out of it. */
   unvollstaendig?: BewerbungenUnvollstaendig | null;
 }) {
@@ -48,6 +52,7 @@ export function AdminBewerbungenView({
         items={bewerbungen}
         searchKeys={SEARCH_KEYS}
         facets={BEWERBUNGEN_FACETS}
+        facetCounts={{ [BEWERBUNGEN_STATUS_PARAM]: anzahlJeStatus }}
         renderTable={({ filteredItems, emptiness }) => (
           <AdminBewerbungenTable
             filteredBewerbungen={filteredItems}

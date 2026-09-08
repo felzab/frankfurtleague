@@ -291,29 +291,29 @@ filtered one, so a search or a facet cannot take the mark off a pair
 truncation boundary is not marked, and the notice says plainly that which pair went unmarked is not knowable
 from the page. Treat duplicate marking as unreliable for as long as the notice stands.
 
-**The facet counts are the second thing to distrust.** They count the loaded rows alone, so a facet reading
-zero means zero among what came back rather than zero in the queue.
+**The facet counts are the second thing to distrust, the status one excepted.** Every other facet counts the
+loaded rows alone, so a zero means zero among what came back rather than zero in the queue; the status counts
+come from the server and hold whatever the read was cut to.
 
 **Reversing the read is the recovery the page offers, and the only one.** The default order is newest first,
 so what a cut-short answer keeps is the newest rows and what it drops is the oldest — which is exactly where
 applications submitted before a flood sit. The notice names which end is loaded and links to the other, the
 link reading `die ältesten zuerst laden` on a default view
 (`fl_frontend/src/features/bewerbungen/utils.ts :: leserichtungHref`, with `:: parseLeserichtung` reading the
-`order` parameter back and treating anything unexpected as the default). The page sends `order` and nothing
-else (`fl_frontend/src/app/admin/bewerbungen/page.tsx`).
+`order` parameter back and treating anything unexpected as the default). The page sends `order` and the status the
+bar selects (`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`).
 
 **The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
 Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
 reduce how many are.
 
-**Narrowing by season or status is not offered, and that is a finding rather than an omission.** The read
-accepts both (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenFilterParams`), but neither
-separates a flood from genuine applications: a submission is admitted only while a season's window is open
-(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`), so a flood lands in the season the
-public form points at, and the server sets `status` on write, so every flooded row is `eingereicht`. Both
-facets would therefore select the flood itself. Reaching those parameters anyway would mean a backend call,
-and the edge carries exactly one backend path (`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it
-would have to be made on the server against the backend container. Nothing in this repository wraps that.
+**Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
+flooded row is `eingereicht` and the queue's own default already selects them; season narrowing is not
+offered and would not separate a flood either, a submission being admitted only while one season's window
+is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
+would mean a backend call, and the edge carries exactly one backend path
+(`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it would have to be made on the server against
+the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the

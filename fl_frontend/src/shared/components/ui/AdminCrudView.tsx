@@ -11,7 +11,7 @@ import { FilterLeiste } from "./FilterLeiste";
 import { PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
-import type { Facet } from "../../utils/facets";
+import type { Facet, FacetCounts } from "../../utils/facets";
 
 /** A stable stand-in for a resource with no facets: a fresh `[]` default would miss every memo below. */
 const NO_FACETS: readonly never[] = [];
@@ -36,6 +36,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   items,
   searchKeys,
   facets = NO_FACETS,
+  facetCounts,
   isCollection = true,
   renderTable,
   renderDeleteModal,
@@ -45,6 +46,11 @@ export function AdminCrudView<TItem extends { id: string }>({
   searchKeys: readonly string[];
   /** Must be a module-scope constant, for the reason `searchKeys` must be. An empty set renders no bar at all. */
   facets?: readonly Facet<TItem>[];
+  /**
+   * What a `narrowsTheRead` facet's options count, which `items` cannot answer: the page fetched only what that
+   * facet selects, so every other option would count zero against the rows on hand and be offered as unreachable.
+   */
+  facetCounts?: FacetCounts;
   /** Whether `renderTable` returns a react-aria collection, which is what has an empty first pass to cover. */
   isCollection?: boolean;
   /**
@@ -78,6 +84,7 @@ export function AdminCrudView<TItem extends { id: string }>({
       <FilterLeiste
         facets={facets}
         items={items}
+        facetCounts={facetCounts}
       />
 
       {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}

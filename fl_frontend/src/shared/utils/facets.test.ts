@@ -6,7 +6,14 @@ import { pathToFileURL } from "node:url";
 
 import { filesUnder } from "@/core/treeWalk.ts";
 
-import { applyFacets, countActiveFacets, countFacetOptions, readFacetSelection } from "./facets";
+import {
+  applyFacets,
+  countActiveFacets,
+  countFacetOptions,
+  isFacetOptionReachable,
+  readFacetSelection,
+  readFacetSelectionFromRoute,
+} from "./facets";
 
 import type { Facet } from "./facets";
 
@@ -192,6 +199,44 @@ describe("readFacetSelection", () => {
   });
 });
 
+describe("readFacetSelectionFromRoute", () => {
+  it("reads a route's parameters exactly as the bar reads the query string", () => {
+    // One reader for both halves: a page narrowing its own request differently from the control that
+    // wrote the URL would serve rows the bar then filters away, with nothing saying why.
+    for (const search of ["", "status=aktiv", "status=aktiv,stillgelegt", "status=", "status=unsinn&gruppe=A"]) {
+      const params = Object.fromEntries(new URLSearchParams(search));
+
+      assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, params), readFacetSelection(DEFAULTED, new URLSearchParams(search)));
+    }
+  });
+
+  it("reads a repeated parameter, which a route hands over as an array", () => {
+    assert.deepEqual(readFacetSelectionFromRoute(FACETS, { status: ["aktiv", "stillgelegt"] }), { status: ["aktiv"] });
+  });
+
+  it("answers an absent parameter with the default and an empty one with nothing", () => {
+    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, {}), { status: ["aktiv"] });
+    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, { status: undefined }), { status: ["aktiv"] });
+    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, { status: "" }), {});
+  });
+});
+
+describe("isFacetOptionReachable", () => {
+  it("offers an option that would leave something", () => {
+    assert.equal(isFacetOptionReachable(1, false), true);
+  });
+
+  it("keeps a picked option reachable at zero, or it could not be deselected", () => {
+    assert.equal(isFacetOptionReachable(0, true), true);
+  });
+
+  it("stops offering an unpicked option that would leave nothing", () => {
+    // The rule a server-narrowed facet must be given real counts for: told what its own read served,
+    // every status the server left out counts zero here and the control that would fetch them dies.
+    assert.equal(isFacetOptionReachable(0, false), false);
+  });
+});
+
 describe("countActiveFacets", () => {
   it("counts facets, not values", () => {
     assert.equal(countActiveFacets({ status: ["aktiv", "stillgelegt"], gruppe: ["A"] }), 2);
@@ -316,6 +361,59 @@ describe("every facet set in the app", () => {
         for (const value of facet.defaultValues ?? []) {
           assert.ok(offered.has(value), `${name} facet "${facet.label}" defaults to "${value}", which it does not offer`);
         }
+      }
+    }
+  });
+});
+
+const UI_DIR = path.resolve(import.meta.dirname, "..", "components", "ui");
+
+/** Each module of the bar, against every component it renders that has to be handed the told counts. */
+const COUNT_HOPS: [string, string[]][] = [
+  ["AdminCrudView.tsx", ["<FilterLeiste"]],
+  ["FilterLeiste.tsx", ["<FilterRow", "<FilterPill", "<FilterPanel"]],
+  ["FilterPanel.tsx", ["<FilterPanelBody"]],
+];
+
+const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
+
+describe("the counts a server-narrowed facet is told", () => {
+  /* Read as source because nothing here can be rendered: every one of these sits under
+     `useUrlFilters`, whose `useSearchParams` answers null with no Router around it, so a render
+     throws before any markup exists. */
+  it("is forwarded by every hop between the view and the cell that reads it", () => {
+    // `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes
+    // every other case, while the panel silently returns to counting the rows one read served.
+    for (const [module, rendered] of COUNT_HOPS) {
+      const source = readFileSync(path.join(UI_DIR, module), "utf8");
+      const hops = rendered.reduce((total, element) => total + occurrences(source, element), 0);
+
+      assert.ok(hops > 0, `${module} renders none of ${rendered.join(", ")}, so this case compares nothing there`);
+      assert.ok(
+        occurrences(source, "facetCounts=") >= hops,
+        `${module} renders ${String(hops)} of the bar's parts without passing facetCounts`,
+      );
+    }
+  });
+
+  it("is handed to `AdminCrudView` by every view whose facets say the server narrows", () => {
+    // The population is the declaration rather than a list: a slice that marks a facet
+    // `narrowsTheRead` and forgets the counts is exactly the pairing this case exists for.
+    const narrowing = discovered.filter(([, facets]) => facets.some((facet) => facet.narrowsTheRead === true));
+    assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so this case compares nothing");
+
+    for (const [name] of narrowing) {
+      const views = sourcesUnder(path.join(FEATURES_DIR, name.split("/")[0] ?? "", "components", "views"), 1);
+      const rendering = views.filter((file) => readFileSync(file, "utf8").includes("<AdminCrudView"));
+
+      assert.ok(rendering.length > 0, `${name} narrows on the server and no view of that slice renders <AdminCrudView>`);
+      for (const view of rendering) {
+        const source = readFileSync(view, "utf8");
+
+        assert.ok(
+          occurrences(source, "facetCounts=") >= occurrences(source, "<AdminCrudView"),
+          `${asPosix(path.relative(FEATURES_DIR, view))} renders <AdminCrudView> without the counts its facets need`,
+        );
       }
     }
   });
