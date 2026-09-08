@@ -684,8 +684,9 @@ whatever the missed days owed.
 
 ## 10. The mail provider's dashboard
 
-**None of this is in the repository**, and the webhook is inert until it is done. Every step below
-is taken by hand in the mail provider's own console.
+**None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
+are taken by hand in the mail provider's own console; step 3 is a line in the server's environment
+file, and it is the one that stops the frontend booting.
 
 1. Create an endpoint at `https://<the league's domain>/api/mail/zustellung`.
 2. Subscribe exactly six events -- `email.delivered`, `email.bounced`, `email.complained`,
