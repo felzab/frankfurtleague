@@ -345,7 +345,7 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
   address: { strasse: "Habsburgerallee", hausnummer: "57", plz: "60385", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
   schulform: "gymnasium_g9",
   inactive_since: null,
-  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte }],
+  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" }],
 });
 
 describe("buildKontaktRows", () => {

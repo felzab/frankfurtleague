@@ -88,7 +88,6 @@ deliverable.
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                              | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
-| `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                         | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states              | FE, Docs, tests                                                             | Open     |
@@ -516,38 +515,6 @@ other consumer of it back too.
 to go, or whether it is. The warning was counted over a single import in a fresh interpreter rather
 than over a full suite run, where what keeps it to one is the warning filter's own per-location
 deduplication.
-
-### `4enu-5xx9` · The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied
-
-| Tags                                       | Status | Depends on |
-| ------------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, bewerbungen, kontakte, teams | Open   | —          |
-
-**The contacts editor reads the stored block, composes a new one from it, and writes the block
-whole.** `fl_backend/app/api/teams/admin_router.py :: patch_saison_team_kontakte` reads the row's
-`kontakte` through `fl_backend/app/core/crud.py :: pull_one_from_db` outside any transaction, so that
-a seat which has confirmed keeps its provenance, then `$set`s the composed block over the stored one.
-`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson` is the other writer of that
-block, and nulls every slot one address holds. An erasure landing between the editor's read and its
-write is undone by the write: the person who asked to be forgotten is back on the row, and the action
-log records an ordinary edit.
-
-**The window is the whole-block `$set` and not the read, and narrowing the payload is not the
-repair.** The editor sends all three slots because a payload accepting fewer would let an edit drop a
-seat in silence, and every slot it sends is a claim about that seat rather than a field somebody
-happened to touch. So the block the admin rendered is the block the endpoint stores, and any seat
-changed underneath it is overwritten by definition.
-
-**The confirmation write is the shape that closes it, in this same tree.**
-`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` judges and writes inside
-one session, reading the document it is about in-session so that a retry re-judges it, and its update
-names field paths under one seat instead of replacing a block. Either half would answer here: the
-editor's read moved inside the transaction that writes, or the update reduced to the paths the editor
-actually changed.
-
-**Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
-reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
-rather than on the shape of the update.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 

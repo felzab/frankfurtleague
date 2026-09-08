@@ -2962,7 +2962,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses\nnothing: a `past` season's contacts stay correctable. Each seat's `erteilt_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other\nseat is stored as entered administratively.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrefusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A `past`\nseason's contacts stay correctable. Each seat's `erteilt_von` and `bestaetigt_am` are the\nserver's: a seat the same address confirmed keeps both, and every other seat is stored as entered\nadministratively.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -8144,15 +8144,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "kontakte"
+          "kontakte",
+          "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontaktePayload",
-        "description": "The contact block alone, so the editor that owns the people never writes the row's other fields.\n\nONE field, `extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value\nthis endpoint was never asked to decide."
+        "description": "The contact block alone, plus the token naming which block it was composed against.\n\n`extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide."
       },
       "FLPatchSaisonTeamKontakteResponse": {
         "properties": {
@@ -8182,13 +8187,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand",
+            "description": "The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other.",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "saison_id",
           "team_id",
-          "kontakte"
+          "kontakte",
+          "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",
         "description": "The block as STORED after the write, and the row it was written to.\n\nNo other field off that row: the caller sent none of them, and echoing one would invite a client\nto believe this endpoint owns it."
@@ -12233,13 +12245,20 @@
                 "type": "null"
               }
             ]
+          },
+          "kontakte_stand": {
+            "type": "string",
+            "title": "Kontakte Stand",
+            "description": "The token a save against this contact block has to echo back (`docs/backend/spec.md :: I192`).",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "saison_id",
           "gruppe",
-          "austritt"
+          "austritt",
+          "kontakte_stand"
         ],
         "title": "FLTeamMembership",
         "description": "One junction row as seen from its club: which season, which group, and the record if any."

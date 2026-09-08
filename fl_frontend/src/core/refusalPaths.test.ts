@@ -237,6 +237,9 @@ const UNDRAW_HAS_NO_FIELDS =
  */
 const RECORD_ITSELF = "the record's own path: refusable only on a shape the typed payload cannot build";
 
+/** Opaque to this side: the page carries it from the read to the save and never composes one. */
+const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
+
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
 const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
 
@@ -332,6 +335,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
     team_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
     kontakte: RECORD_ITSELF,
+    kontakte_stand: THE_TOKEN_THE_READ_SERVED,
     // Each seat is nullable in its own right, so each carries the block's reason one level down.
     "kontakte.trainer": RECORD_ITSELF,
     "kontakte.ansprechperson": RECORD_ITSELF,

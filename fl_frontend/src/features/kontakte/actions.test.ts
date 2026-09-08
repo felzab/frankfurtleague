@@ -368,7 +368,12 @@ describe("what the save hands the write", () => {
     };
     // Composed exactly as the editor composes it
     // (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: buildPayload`).
-    const payload = { team_id: "507f1f77bcf86cd799439011", saison_id: "2526", kontakte: toKontaktePayload(mirrorKontakte(gespeichert)) };
+    const payload = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload(mirrorKontakte(gespeichert)),
+      kontakte_stand: "9f2c",
+    };
 
     const decision = submitDecision({ payloads: { kontakte: payload }, schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema } });
     assert.equal(decision.blocked, false, "the editor's own guard refuses a block the season already holds");

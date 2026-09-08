@@ -23,6 +23,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildKontakteBanners } from "./banners";
@@ -51,6 +52,12 @@ const replayableKontakte = (kontakte: FLSaisonTeamKontakte | null) =>
 // guessed at.
 const datierterSitz = (person: FLKontaktperson | null) => (person === null ? null : { ...person, geburtsdatum: person.geburtsdatum ?? "" });
 
+/** The save answered without the token of what it left, so the undo has no precondition and is refused unsent. */
+const OHNE_NACHSTAND = buildRefusal({
+  reason: "Der gespeicherte Stand kam nicht zurück, und ohne ihn lässt sich die Rücknahme nicht sicher ausführen",
+  repair: "Lade die Seite neu und trage den vorherigen Stand bei Bedarf von Hand ein",
+});
+
 /**
  * **One save bar over one endpoint.** `PATCH /teams/{team_id}/saisons/{saison_id}/kontakte` writes the
  * three seats and nothing else, so this page never has to report a half-saved row the way the club
@@ -74,6 +81,9 @@ export function AdminKontakteEditForm({
   // Mapped ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
   // what the season holds.
   const storedKontakte = replayableKontakte(storedMembership?.kontakte ?? null);
+  // The token the read served, echoed and never rebuilt here. A club outside the season has no row
+  // and so no token, and the save that would carry the empty string is a 404 before it is judged.
+  const kontakteStand = storedMembership?.kontakte_stand ?? "";
 
   const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedKontakte);
 
@@ -92,6 +102,7 @@ export function AdminKontakteEditForm({
     // (`fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte`), and the write shape composed
     // with it: the guard refuses whatever body it is handed, at paths no control renders.
     kontakte: toKontaktePayload(kontakte === null ? null : mirrorKontakte(kontakte)),
+    kontakte_stand: kontakteStand,
   });
 
   const status = deriveKontakteDraftStatus({ stored: { kontakte: storedKontakte }, draft: { kontakte }, fieldErrors });
@@ -161,9 +172,6 @@ export function AdminKontakteEditForm({
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
       const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
-      // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-      // shape the undo route parses.
-      const undoPayload: FLPatchSaisonTeamKontaktePayload = wiederherstellbar;
 
       const payload = buildPayload();
       const res = await patchSaisonTeamKontakteAction(payload);
@@ -177,15 +185,23 @@ export function AdminKontakteEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
+      // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
+      // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
+      const nachStand = res.saison_team?.kontakte_stand;
+      // The same value seen as the endpoint's own payload, so what the toast replays is held to the
+      // shape the undo route parses.
+      const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
+      // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
+      // malformed address on read, that row is no legal write, and the shared spine can only
+      // answer such a body with a reload nothing would change.
+      const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
+
       offerUndo({
         endpoint: "/api/admin/kontakte/undo",
         body: undoPayload,
         message: res.message,
         fallback: "Die Kontakte wurden aktualisiert.",
-        // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
-        // malformed address on read, that row is no legal write, and the shared spine can only
-        // answer such a body with a reload nothing would change.
-        unrestorable: describeUnrestorableKontakte(wiederherstellbar),
+        unrestorable,
         router,
       });
 
@@ -233,6 +249,7 @@ export function AdminKontakteEditForm({
               teamId={teamId}
               saisonId={saison.saisonId}
               hasStored={storedKontakte !== null}
+              stand={kontakteStand}
               isDirty={isDirty}
             />
           )}

@@ -241,12 +241,16 @@ describe("resolveTeamSaisonMembership", () => {
   /** The STORED shape, whose agreement has an origin: the draft's widened `null` is the editor's. */
   const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erteilt_von: "person" } };
 
+  // The server derives the token and this side only carries it, so any value stands in for one here.
+  const STAND = "9f2c";
+
   const membership = (saison_id: string): FLTeamMembership => ({
     saison_id,
     gruppe: "A",
     austritt: null,
     trikot_farbe: null,
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
+    kontakte_stand: STAND,
   });
 
   /* The header names the SELECTED season and a save writes onto that season's row. Falling back to
@@ -270,10 +274,24 @@ describe("resolveTeamSaisonMembership", () => {
     assert.equal(resolved.membership?.kontakte?.trainer?.vorname, "Erika");
     assert.equal(resolved.saisonStatus, "past");
   });
+
+  /* The narrowing is by field, so one left out reaches the editor as `undefined`. A save carrying no
+     token is then refused for a row nothing has touched (`REQ-KONTAKT-001`). */
+  it("carries the token the save is judged against", () => {
+    const resolved = resolveTeamSaisonMembership([membership("2025")], { id: "2025", status: "active" });
+
+    assert.equal(resolved.membership?.kontakte_stand, STAND);
+  });
 });
 
 describe("describeUnrestorableKontakte", () => {
-  const payload = (kontakte: SaisonTeamKontakteDraft | null) => ({ team_id: "507f1f77bcf86cd799439011", saison_id: "2025", kontakte });
+  // The precondition is an opaque string the page carries through, so it decides nothing here.
+  const payload = (kontakte: SaisonTeamKontakteDraft | null) => ({
+    team_id: "507f1f77bcf86cd799439011",
+    saison_id: "2025",
+    kontakte,
+    kontakte_stand: "9f2c",
+  });
 
   it("finds nothing to report about a block the write accepts", () => {
     assert.equal(describeUnrestorableKontakte(payload(block())), null);

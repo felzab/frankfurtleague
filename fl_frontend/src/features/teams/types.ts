@@ -123,6 +123,8 @@ export type TeamSaisonMembership = {
     austritt: FLAustritt | null;
     trikot_farbe: FLTrikotFarbe | null;
     kontakte: FLSaisonTeamKontakte | null;
+    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
+    kontakte_stand: string;
   } | null;
 };
 

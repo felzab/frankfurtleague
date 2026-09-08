@@ -1,6 +1,7 @@
 "use server";
 
 import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -16,6 +17,19 @@ import type {
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
 } from "./schemas";
+
+/**
+ * The stale-block refusal, or `null` when the 409 is something else. It lands on no field: the whole
+ * screen is behind the row, so no box the admin could correct is at fault.
+ */
+function mapStaleBlockRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
+
+  return buildRefusal({
+    reason: "Die Kontakte dieser Saison wurden inzwischen geändert, meistens durch das Löschen einer Kontaktperson",
+    repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
+  });
+}
 
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved
@@ -83,7 +97,16 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
-    const saisonTeam = await patchSaisonTeamKontakte(validated.data);
+    // The refusal belongs on the page that asked, not on the error page.
+    let saisonTeam;
+    try {
+      saisonTeam = await patchSaisonTeamKontakte(validated.data);
+    } catch (error) {
+      const refusal = mapStaleBlockRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
     if (!saisonTeam.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }

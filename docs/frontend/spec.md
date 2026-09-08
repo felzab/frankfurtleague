@@ -223,7 +223,7 @@ the replay, and nothing else. **Both answer 200 with the outcome in the body for
 case**, a non-2xx landing in the dispatch's rejection arm, which blames the transport and sends the
 admin to check a connection that is fine.
 
-**Five of the eight undo replays can be refused on the way back**, and each answers in German out of
+**Seven of the eight undo replays can be refused on the way back**, and each answers in German out of
 its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal, and the toast reports the change as still
 standing — which is correct. The contacts undo reaches `revalidateTag` not at all — the one place the

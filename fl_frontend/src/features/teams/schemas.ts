@@ -395,6 +395,9 @@ export const FLTeamMembershipSchema = z.object({
   // season's kit is not evidence of this season's.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
+  // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
+  // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
+  kontakte_stand: z.string(),
 });
 export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
 

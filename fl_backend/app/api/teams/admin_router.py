@@ -37,6 +37,7 @@ from app.api.teams.services import (
     find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
+    find_kontakte_precondition_refusal,
     find_replacement_refusal,
     find_retire_refusal,
     has_taken_place,
@@ -465,40 +466,55 @@ async def patch_saison_team_kontakte(
     saison_id: str,
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    db: DBClient,
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
-    Its own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses
-    nothing: a `past` season's contacts stay correctable. Each seat's `erteilt_von` and
-    `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other
-    seat is stored as entered administratively.
+    Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
+    refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
+    beside the block, and a row whose block answers to another token is refused rather than
+    overwritten, an erasure between the caller's read and this write being what moves it. A `past`
+    season's contacts stay correctable. Each seat's `erteilt_von` and `bestaetigt_am` are the
+    server's: a seat the same address confirmed keeps both, and every other seat is stored as entered
+    administratively.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
+    payload = kontakte_data.model_dump(mode="json")
 
-    # Read first, outside any transaction. The block's other writer is the erasure
-    # (`app/api/kontakte/admin_router.py :: erase_kontaktperson`), which nulls one slot; the window
-    # is the editor's whole-block replace rather than this read.
-    stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte"])
+    async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
+        # In session, so the precondition judges what this write will land on. Read outside one, an
+        # erasure (`app/api/kontakte/admin_router.py :: erase_kontaktperson`) committing between the
+        # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
+        stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte"], session=session)
 
-    kontakte = compose_kontakte_herkunft(kontakte=kontakte_data.model_dump(mode="json")["kontakte"], stored=stored.get("kontakte"))
+        refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
 
-    updated_raw = await patch_one_in_db(
-        collection=saison_teams_collection,
-        db_filter=db_filter,
-        # The one path, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
-        # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
-        # whatever this caller last read.
-        update={"$set": {"kontakte": kontakte}},
-    )
+        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
-    return FLPatchSaisonTeamKontakteResponse(
-        saison_id=saison_id,
-        team_id=team_id,
-        # The AFTER image, not the payload: what the row holds is the claim this echo makes.
-        kontakte=updated_raw["kontakte"],
-    )
+        updated_raw = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter=db_filter,
+            # The one path, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
+            # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
+            # whatever this caller last read.
+            update={"$set": {"kontakte": kontakte}},
+            session=session,
+        )
+
+        return FLPatchSaisonTeamKontakteResponse(
+            saison_id=saison_id,
+            team_id=team_id,
+            # The AFTER image, not the payload: what the row holds is the claim this echo makes, and
+            # its token is the precondition an undo of this save replays against.
+            kontakte=updated_raw["kontakte"],
+        )
+
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
+    # so a retry after a write conflict refuses on what the winner left rather than on a stale read.
+    async with db.start_session() as session:
+        return await session.with_transaction(rewrite_the_block)
 
 
 @router.post(

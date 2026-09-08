@@ -160,6 +160,7 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
 
+
 def test_every_guard_this_file_knows_names_a_tier():
     """A guard in one set and not the other publishes `none` for a route that is in fact guarded."""
     assert SLICE_GUARDS == set(EXPECTED_TIERS)
@@ -172,6 +173,7 @@ def test_the_published_tier_is_the_guard_the_route_carries(path: str, method: st
     expected = "+".join(sorted(EXPECTED_TIERS[guard] for guard in guards)) or UNGUARDED_TIER
 
     assert APP.openapi()["paths"][path][method].get(TIER_EXTENSION) == expected
+
 
 def test_the_mutation_inventory_clears_its_floor():
     """The partial loss `pyproject.toml :: empty_parameter_set_mark` cannot reach.

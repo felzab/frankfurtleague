@@ -13,6 +13,7 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { FLTeamMembershipSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner";
@@ -183,7 +184,7 @@ const viewMarkup = (kontakte: FLSaisonTeamKontakte | null, hasRow = true): strin
       saison: {
         saisonId: "2526",
         saisonStatus: "active",
-        membership: hasRow ? { gruppe: "A", austritt: null, trikot_farbe: null, kontakte } : null,
+        membership: hasRow ? { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" } : null,
       },
     }),
     kontakte,
@@ -221,9 +222,13 @@ const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch
 const EXIT_HOOK = readFileSync(path.resolve(SRC, "shared", "hooks", "useEditorExit.ts"), "utf8");
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
+/* Spelled out rather than read off the register, which is the very thing the case below compares it
+   to: a code taken from `declaredCodes` would agree with itself whatever the backend declares. */
+const STALE_BLOCK = "REQ-KONTAKT-001";
 
 /* Each declaration is cut at the one named after it: a boundary that stopped matching then fails the
    case pinning the cut rather than every case reading the slice. */
+const REFUSAL_MAP = sliceBetween(ACTIONS, "function mapStaleBlockRefusal", "export async function eraseKontaktpersonAction");
 const PATCH_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonTeamKontakteAction", null);
 const PATCH_MUTATION = sliceBetween(MUTATIONS, "export async function patchSaisonTeamKontakte", null);
 const PAYLOAD_SCHEMA = sliceBetween(
@@ -259,6 +264,8 @@ describe("the contacts write against the backend's refusal register", () => {
   it("cuts each declaration out of its file before reading it", () => {
     assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
     assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
+    assert.ok(REFUSAL_MAP.includes("APIBadStatusError"), "the refusal map's slice does not reach the error it narrows");
+    assert.ok(!REFUSAL_MAP.includes("runAdminMutation"), "the refusal map's slice reaches forward over the write");
     assert.ok(PATCH_MUTATION.includes("/kontakte`"), "the mutation's slice does not reach the endpoint it addresses");
     assert.ok(!PATCH_MUTATION.includes("/kontakte/erasure"), "the mutation's slice reaches back over the erasure");
     assert.ok(PAYLOAD_SCHEMA.includes("team_id"), "the payload mirror's slice does not reach its fields");
@@ -270,13 +277,15 @@ describe("the contacts write against the backend's refusal register", () => {
     assert.notEqual(PAGE_CONTENT, "", "the page's data component is no longer where the cut looks for it");
   });
 
-  /* The endpoint refuses nothing: it replaces a block that is already the admin's to write, and the
-     row it hangs off is named by the path. A rule declared against it later fails here, rather than
-     reaching the admin unmapped. */
-  it("has no refusal to map, and maps none", () => {
-    assert.deepEqual(declaredCodes(KONTAKTE_OPERATION), []);
-    assert.ok(!PATCH_ACTION.includes("serverErrorCode"), "the write maps a code its endpoint does not answer");
-    assert.ok(!PATCH_ACTION.includes("APIBadStatusError"), "the write catches a refusal its endpoint does not raise");
+  /* The two are worded apart: the save's sentence sends the admin to a form the undo toast has not
+     got. A code either path leaves unmapped falls through to the shared 409 fallback, which reports
+     a duplicate entry. */
+  it("words the one refusal its endpoint declares, at the save and at the undo", () => {
+    assert.deepEqual(declaredCodes(KONTAKTE_OPERATION), [STALE_BLOCK]);
+    assert.match(REFUSAL_MAP, new RegExp(`serverErrorCode !== "${STALE_BLOCK}"`), "the write maps something other than the stale block");
+    assert.match(REFUSAL_MAP, /buildRefusal\(\{/, "the refusal is worded outside the shared refusal shape");
+    assert.ok(PATCH_ACTION.includes("mapStaleBlockRefusal(error)"), "the write no longer maps the refusal it raises");
+    assert.ok(UNDO_ROUTE.includes(`"${STALE_BLOCK}":`), "the undo route leaves its replay's refusal to the 409 fallback");
   });
 
   /* The floor under the case above: an empty list has to mean "this endpoint declares none" rather
@@ -312,12 +321,12 @@ describe("the contacts write against the backend's refusal register", () => {
     ]);
   });
 
-  /* The response is the block as stored and no other field of the row: the group, the kit colour and
-     the Austritt are the club editor's, and echoing them here would give this page a second subject. */
-  it("mirrors a response carrying the block and nothing beside it", () => {
+  /* The block as stored and its own token, and no other field of the row: the group, the kit colour
+     and the Austritt are the club editor's, and echoing one would give this page a second subject. */
+  it("mirrors a response carrying the block, its token and nothing beside it", () => {
     assert.deepEqual(
       [...RESPONSE_SCHEMA.matchAll(/^\s{2}(\w+):/gm)].map((match) => match[1]),
-      ["saison_id", "team_id", "kontakte"],
+      ["saison_id", "team_id", "kontakte", "kontakte_stand"],
     );
   });
 
@@ -540,19 +549,54 @@ describe("the editor's shape", () => {
     assert.match(UNDO_ROUTE, /Nothing to clear/, "the absent invalidation is left unexplained");
   });
 
-  /* The STORED block and both ids, which is the whole payload the endpoint takes — so the restore is
-     the save run backwards rather than a second write shape nothing else exercises. */
+  /* The STORED block and both ids, which is the payload's restorable half — so the restore is the
+     save run backwards rather than a second write shape nothing else exercises. */
   it("sends the pre-save block, captured before the write that replaces it", () => {
     assert.match(
       SUBMIT,
       /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: toKontaktePayload\(storedKontakte\) \};/,
       "the undo replays something other than the pre-save block",
     );
-    const capturedAt = SUBMIT.indexOf("const undoPayload");
+    const capturedAt = SUBMIT.indexOf("const wiederherstellbar");
     const writtenAt = SUBMIT.indexOf("patchSaisonTeamKontakteAction(");
     assert.ok(capturedAt !== -1 && writtenAt !== -1 && capturedAt < writtenAt, "the undo payload is captured after the write that moves it");
     // Unconditional: a ratified decision keeps the offer on the save the confirmation dialog gated too.
     assert.match(SUBMIT, /offerUndo\(\{/, "the undo offer is scoped to some saves rather than every one");
+  });
+
+  /* The precondition is the one half that CANNOT come from the render: this save has just moved the
+     row past the block the page read, so replaying that one asks the endpoint to refuse. */
+  it("takes the undo's precondition off the write's own answer", () => {
+    assert.match(SUBMIT, /const nachStand = res\.saison_team\?\.kontakte_stand;/, "the undo's precondition comes from somewhere else");
+    assert.match(SUBMIT, /kontakte_stand: nachStand \?\? ""/, "the undo replays a precondition other than the write's own answer");
+    const answeredAt = SUBMIT.indexOf("const nachStand");
+    const writtenAt = SUBMIT.indexOf("patchSaisonTeamKontakteAction(");
+    assert.ok(answeredAt > writtenAt, "the precondition is read before the write that produces it");
+    // The save's own body carries the token the page was SERVED, which is the whole of what it judges.
+    assert.match(FORM_SOURCE, /kontakte_stand: kontakteStand,/, "the save sends no precondition, or one it composed itself");
+    assert.match(
+      FORM_SOURCE,
+      /const kontakteStand = storedMembership\?\.kontakte_stand \?\? "";/,
+      "the save's precondition is derived here rather than taken as the row served it",
+    );
+    // The clearing is a save on the same endpoint, and one sent without the token is refused whole.
+    assert.match(LOESCHEN, /kontakte_stand: stand/, "the clearing sends no precondition");
+  });
+
+  /* The token is what every save is judged against, so a mirror dropping it leaves the editor sending
+     `undefined` and the endpoint refusing a row nobody has touched. */
+  it("mirrors the token the membership read serves", () => {
+    const parsed = FLTeamMembershipSchema.safeParse({
+      saison_id: "2526",
+      gruppe: "A",
+      austritt: null,
+      trikot_farbe: null,
+      kontakte: BLOCK_LEER,
+      kontakte_stand: "9f2c",
+    });
+
+    assert.ok(parsed.success, "the membership mirror refuses a row the memberships read serves");
+    assert.equal(parsed.data.kontakte_stand, "9f2c");
   });
 
   /* A seat the person confirmed for WhatsApp reaches the editor on the read and is spelled by no
@@ -563,6 +607,7 @@ describe("the editor's shape", () => {
       team_id: "507f1f77bcf86cd799439011",
       saison_id: "2526",
       kontakte: toKontaktePayload({ ...BLOCK, trainer: bestaetigt }),
+      kontakte_stand: "9f2c",
     };
     const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(wiederherstellbar);
 
@@ -581,7 +626,8 @@ describe("what the undo says when it cannot run", () => {
      holds the payload and the reason — diagnoses first. */
   // The diagnosis itself: `fl_frontend/src/features/kontakte/utils.test.ts :: describeUnrestorableKontakte`.
   it("diagnoses an unrestorable block itself rather than dispatching it", () => {
-    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(wiederherstellbar\),/, "the offer no longer judges its own payload");
+    assert.match(SUBMIT, /describeUnrestorableKontakte\(undoPayload\)/, "the offer no longer judges the body it hands on");
+    assert.ok(OFFER_UNDO.includes("unrestorable,"), "the offer dispatches without the verdict beside it");
     const judgedAt = DISPATCH.indexOf("if (unrestorable !== null)");
     const dispatchedAt = DISPATCH.indexOf("postUndo(endpoint, body)");
     assert.ok(judgedAt !== -1 && dispatchedAt !== -1 && judgedAt < dispatchedAt, "the payload is judged after the dispatch it would spare");

@@ -65,9 +65,9 @@ export const FLKontaktErasureResponseSchema = BaseAPIResponseSchema.extend({
 export type FLKontaktErasureResponse = z.infer<typeof FLKontaktErasureResponseSchema>;
 
 /**
- * Mirrors `FLPatchSaisonTeamKontaktePayload` — the three seats alone, on the row the path names.
- * `FLSaisonTeamKontaktePayloadSchema` is reused: the junction PATCH takes the same block, and a
- * second spelling would drift with nothing able to see it.
+ * Mirrors `FLPatchSaisonTeamKontaktePayload` — the three seats and the token naming which block they
+ * were composed against. `FLSaisonTeamKontaktePayloadSchema` is reused: the junction PATCH takes the
+ * same block, and a second spelling would drift with nothing able to see it.
  */
 export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
@@ -77,6 +77,9 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),
+  // Echoed back exactly as the read served it (`REQ-KONTAKT-001`). Unbounded on purpose: a token no
+  // read minted is refused there anyway, and a bound here would mark a box nothing renders.
+  kontakte_stand: z.string(),
 });
 export type FLPatchSaisonTeamKontaktePayload = z.infer<typeof FLPatchSaisonTeamKontaktePayloadSchema>;
 
@@ -89,5 +92,7 @@ export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.ext
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
+  // The token of the block this save left, which is the only precondition an undo of it can carry.
+  kontakte_stand: z.string(),
 });
 export type FLPatchSaisonTeamKontakteResponse = z.infer<typeof FLPatchSaisonTeamKontakteResponseSchema>;

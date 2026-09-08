@@ -678,12 +678,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SAISON_TEAMS,
         "kontakte",
-        # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: the two behave alike, and no state
-        # refuses either. What a replacement does to both is a clearing, never a refusal.
+        # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
+        # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
-        "against another club being personal data nobody there gave. No state refuses it",
+        "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
+        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`)",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(
@@ -1228,6 +1229,14 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.teams.services.find_replacement_refusal",
         tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheIncomingClubMustBeNewToTheSeason",
         multi_document=True,
+    ),
+    Rule(
+        code="REQ-KONTAKT-001",
+        operation="PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
+        aggregate="Saison",
+        summary="the contact block must still answer the token this save was composed against, or the whole save is refused rather than merged",
+        implemented_by="app.api.teams.services.find_kontakte_precondition_refusal",
+        tested_by="tests/api/test_saison_team_kontakte.py::TestAnErasureLandingMidSaveIsNotUndone",
     ),
     Rule(
         code="REQ-RETIRE-001",
