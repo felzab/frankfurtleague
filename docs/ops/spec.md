@@ -964,6 +964,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
   reason the three are set apart rather than by one toggle.
+- **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
+  else** — not `/api/*`, and not a server action's POST, for the reason §1.3 gives at I177. Two page
+  patterns cover the writes behind them because passing a navigation's challenge issues the
+  clearance the form's own POST then carries.
 - **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
   dashboard holds.
 

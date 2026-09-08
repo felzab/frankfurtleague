@@ -156,83 +156,61 @@ then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
 serves), then `--check` again.
 
-**A field that is RENAMED is the one case where the backfill cannot precede the validator, and the
-`aktionen` column `trace_id` is that case.** The validator is attached strict
-(`fl_backend/app/core/constraints.py :: _apply_validator`), and the previous one listed the old name
-under `required`, so a `$rename` run under it produces a document missing a required field and is
-refused for every row; the same strictness refuses an erasure's `$set` over a row the NEW validator
-finds invalid ([`../backend/spec.md`](../backend/spec.md) I42), which is why the rename cannot wait
-either. There is no migration runner in this repository; the steps are run by hand, from the same
-container recipe as `--check` above, in this order:
+**A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
+validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
+previous one lists the old name under `required`, so a `$rename` run under it produces a document
+missing a required field and is refused for every row; the same strictness refuses an erasure's
+`$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
+which is why the rename cannot wait either. **This repository holds no migration runner and no
+migration**: the command belongs to the change that needs it and is run by hand against the
+database, so what is written here is the order alone.
 
-1. `--check` from the new checkout while the old image still serves — every `aktionen` row is
-   reported as missing `trace_id`, which is the confirmation that the rename is owed rather than a
-   finding to fix.
+1. `--check` from the new checkout while the old image still serves. Every row is reported as
+   missing the new name, which is the confirmation that the rename is owed rather than a finding to
+   fix — and it is the count step 3 is read against.
 2. Deploy. The boot attaches the new validator before the image serves.
-3. **At once**, the rename — between this step and the previous one the log page's read fails on
-   every old row and an erasure over one is refused, so type it as the deploy reports healthy:
-
-   ```bash
-   docker run --rm --network <compose-network> \
-     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-     <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; print(db.aktionen.update_many({"correlation_id": {"$exists": True}}, {"$rename": {"correlation_id": "trace_id"}}).modified_count, "rows renamed")'
-   ```
-
-   The image carries pymongo and no `mongosh`, which is why this is a Python one-liner, and it builds
-   no `BackendConfig`, which is why only the two real values are passed; `$rename` is atomic per
-   document, so no row is ever seen holding both names or neither. A count below the rows step 1
-   reported means the update stopped at a row the new validator refuses for a reason of its own —
-   `update_many` is ordered — so repair the row the raised error names and run the same command
-   again, whose filter skips every row already renamed.
-
+3. **At once**, the rename. Between this step and the previous one every read of the renamed field
+   fails and an erasure over such a row is refused, so type it as the deploy reports healthy.
 4. `--check` again: clean.
-5. Drop the index the previous name held, by hand — `create_index` refuses a name held at different
-   options and creates nothing under a name it does not declare, so the boot leaves it standing
-   forever:
+5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
+   different options and creates nothing under a name it does not declare, so the boot leaves the old
+   one standing forever.
 
-   ```bash
-   docker run --rm --network <compose-network> \
-     -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-     <backend-image> python -c 'import os; from pymongo import MongoClient; MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]].aktionen.drop_index("aktionen_correlation_id")'
-   ```
+**Four things decide whether the command typed at step 3 is the right one.**
+
+- **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
+  one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
+  than `--check`'s seven.
+- **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
+- **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
+  new validator refuses for a reason of its own. Repair the row the raised error names and run again:
+  a filter on the old name's `$exists` skips every row already moved, which is what makes the command
+  re-runnable rather than a thing to get right once.
+- **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
+  whole document where a segment has to traverse a null —
+  `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
+  three `kontakte` seats moves rows until it meets the first club holding one seat and not another
+  and then stops, the earlier rows moved and the later ones not, inside the window step 3 exists to
+  keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
+  a document matching that filter necessarily holding the segment. Measured against a copy of
+  production, 2026-09-08.
 
 The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
 window for reads and erasures and opens a worse one: every recorded write of the still-serving old
 image is refused until the new image is up, because it writes the old name.
 
-**The contact seats' `erfasst_von` is that same case at a dotted path inside a fixed block.** The
-previous name sits under `required` in
-`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`, so the five steps above govern
-unchanged; three things differ, and each changes what is typed or what the window costs.
-
-- **One command covers both collections and reaches inside each seat.** A seat block holds fixed
-  keys rather than an array (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`), which is
-  what lets `$rename` address one at all. **A null slot, and a `saison_teams` row whose whole
-  `kontakte` block is null, are the case to confirm against the staging copy before this is typed at
-  production**: the source field does not resolve, which should pass the document over untouched,
-  and a `$rename` that instead refused the whole document would stop the ordered update at the first
-  retired club.
-- **No index holds the previous name**, so step 5 has no counterpart: nothing declares one over this
-  field, and the boot builds none.
-- **The window costs every ADMIN read of a contact block, which is wider than step 3's warning.**
-  `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the new name, so between
-  the deploy and the rename the contacts editor, a club's season panel and the whole application
-  queue answer 500 on every stored row — `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`
-  declares the same block. A junction contacts save over an already-confirmed seat raises too,
-  `fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A contact person's own confirmation link still OPENS**,
-  serving no contact record (`READ-BEWERBUNG-002`) -- but the answer behind its button is a write
-  over the same block and is refused with everything else, so a person who confirms or objects in
-  this window is told nothing landed. Every public club read keeps working, the junction join withholding the block
-  from the base tier ([`../backend/spec.md`](../backend/spec.md) I50).
-
-```bash
-docker run --rm --network <compose-network> \
-  -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-  <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; moves = {f"kontakte.{s}.einwilligung.erteilt_von": f"kontakte.{s}.einwilligung.erfasst_von" for s in ("ansprechperson", "stellvertretung", "trainer")}; print({c: db[c].update_many({"$or": [{k: {"$exists": True}} for k in moves]}, {"$rename": moves}).modified_count for c in ("saison_teams", "bewerbungen")}, "rows renamed")'
-```
-
-Both collections move in one invocation, so the two cannot be left half a deploy apart; the `$or`
-filter is what makes a re-run after a raised error skip the rows already moved, as step 3's does.
+**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says**, and
+what it costs is worth knowing before the deploy rather than during it.
+`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
+editor, a club's season panel and the whole application queue answer 500 on every stored row until
+the rename lands. A junction contacts save over an already-confirmed seat raises too,
+`fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
+contact person's own confirmation link still OPENS**, serving no contact record
+(`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
+refused with everything else, so a person who confirms or objects in that window is told nothing
+landed. Every public club read keeps working, the junction join withholding the block from the base
+tier ([`../backend/spec.md`](../backend/spec.md) I50).
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
