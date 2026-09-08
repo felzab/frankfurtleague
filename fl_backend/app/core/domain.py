@@ -985,6 +985,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_rules_refusal.py::TestAStartedKnockoutFreezesTheTiebreak",
     ),
     Rule(
+        code="REQ-RULES-013",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="the whole fixture list these rules imply must fit inside one season-scoped read",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_schedule.py::TestTheLargestLegalSeasonFitsInOneRead",
+    ),
+    Rule(
         code="REQ-RULES-006",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",

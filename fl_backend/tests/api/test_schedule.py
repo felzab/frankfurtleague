@@ -12,8 +12,9 @@ from app.api.saisons.schedule import (
     total_group_matches,
 )
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
-from app.api.saisons.services import with_schedule
+from app.api.saisons.services import RULES_FIXTURES_OVER_ONE_READ, find_rules_refusal, total_season_fixtures, with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
+from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -45,6 +46,12 @@ def widest_legal_rules() -> FLSaisonRules:
     groups = ceiling("number_of_groups")
 
     return rules(groups=groups, per_group=ceiling("teams_per_group"), qualifiers=MAX_QUALIFIERS // groups)
+
+
+def refusal_for(shape: FLSaisonRules) -> WriteRefusal | None:
+    """A create's reading of one shape, which is also the draw's: `stored=None`, nothing entered, no bracket slot wired."""
+
+    return find_rules_refusal(saison_status="future", stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)
 
 
 class TestThePhaseSet:
@@ -196,24 +203,58 @@ class TestTheWholeSeason:
 
 
 class TestTheLargestLegalSeasonFitsInOneRead:
-    """Why `teams_per_group` carries a ceiling at all.
+    """Why `REQ-RULES-013` refuses a shape the field bounds each accept.
 
     Past `LIST_LIMIT_DEFAULT` a season-scoped read is truncated, and every refusal `find_rules_refusal` computes over one would then be
     judging a partial season.
     """
 
-    def test_the_widest_season_the_bounds_allow_stays_inside_one_page(self):
-        """Every bound is read off the model, so raising one without raising the limit fails here rather than silently truncating a read."""
+    def test_the_widest_shape_the_field_bounds_admit_is_refused(self):
+        """The bounds are per field and this fault is a product of three, so nothing narrower than the whole shape can see it."""
 
-        fixtures = sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(widest_legal_rules()))
+        refusal = refusal_for(widest_legal_rules())
 
-        assert fixtures <= LIST_LIMIT_DEFAULT, f"the widest legal season plays {fixtures} fixtures, past a read of {LIST_LIMIT_DEFAULT}"
+        assert refusal is not None
+        assert refusal.error_code == RULES_FIXTURES_OVER_ONE_READ
 
     def test_the_widest_season_is_a_shape_a_season_can_actually_be_saved_in(self):
-        """Guards the case above: a product the bracket refuses would make the ceiling look safe by measuring a season nobody can create."""
+        """Guards the case above: a product the bracket refuses would answer with `REQ-RULES-001` and prove nothing about this one."""
 
         assert qualifier_count(widest_legal_rules()) == MAX_QUALIFIERS
         assert knockout_phases_for(MAX_QUALIFIERS) == KNOCKOUT_PHASES
+
+    def test_the_cap_bites_inside_the_field_bounds_rather_than_at_them(self):
+        """A rule refusing every wide shape would satisfy the sweep below and bound nothing; this is the step it actually bites at."""
+
+        widest = widest_legal_rules()
+        accepted = [
+            per_group
+            for per_group in range(2, ceiling("teams_per_group") + 1)
+            if refusal_for(widest.model_copy(update={"teams_per_group": per_group})) is None
+        ]
+
+        # A PREFIX: the count rises with the group size, so an accepted shape above a refused one
+        # would mean the sweep below is measuring something other than the season's own fixtures.
+        assert accepted == list(range(2, max(accepted) + 1))
+        assert max(accepted) < ceiling("teams_per_group")
+        assert refusal_for(widest.model_copy(update={"teams_per_group": max(accepted) + 1})) is not None
+
+    def test_no_shape_the_rules_accept_plays_past_one_page(self):
+        """Swept rather than argued: the count is quadratic in one bound and linear in another, so a widened bound fails here."""
+
+        accepted = 0
+        for groups in range(1, ceiling("number_of_groups") + 1):
+            for per_group in range(2, ceiling("teams_per_group") + 1):
+                # `REQ-RULES-007` refuses every qualifier count over the group's size, so the sweep
+                # stops there rather than at a bound `qualifiers_per_group` does not carry.
+                for qualifiers in range(1, per_group + 1):
+                    shape = rules(groups=groups, per_group=per_group, qualifiers=qualifiers)
+                    if refusal_for(shape) is None:
+                        accepted += 1
+                        assert total_season_fixtures(shape) <= LIST_LIMIT_DEFAULT
+
+        # A sweep refusing everything would satisfy the assertion above without proving anything.
+        assert accepted > 0
 
 
 class TestTheSeasonCarriesItsSchedule:

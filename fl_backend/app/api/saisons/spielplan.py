@@ -188,7 +188,7 @@ def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tupl
 
 
 def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
-    """Each offered group's clubs in entry order, the groups themselves in A-D order.
+    """Each offered group's clubs in entry order, the groups in the order the closed set names them.
 
     Raises rather than drawing what stands: a group off its size shortens one round robin while
     every matchday's `anzahl_spiele` goes on expecting the full one.

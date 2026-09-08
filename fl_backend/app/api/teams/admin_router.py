@@ -647,7 +647,7 @@ async def replace_saison_team(
         )
 
         # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
-        # stored `gruppe` outside A-D raises here and aborts the transaction rather than answering.
+        # stored `gruppe` outside the closed set raises here and aborts the transaction rather than answering.
         return FLReplaceSaisonTeamResponse(
             saison_id=saison_id,
             outgoing_team_id=team_id,

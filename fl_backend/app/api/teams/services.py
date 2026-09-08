@@ -720,10 +720,10 @@ def _placings(
 
 
 def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
-    """The four groups, each ordered by the competition's tiebreak chain.
+    """Every group the season offers.
 
-    Seeded with every group name, never from the teams present: a season with nobody in group D
-    would omit the key (`docs/backend/spec.md :: I10`).
+    Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
+    the closed set here would answer a smaller season groups it never ran (`docs/backend/spec.md :: I10`).
     """
 
     teams = list(teams)
@@ -733,12 +733,15 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
     by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
-    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_groups)}
     for team in teams:
-        # `model_construct` is the one way round `FLGruppenNames`. Tested against `grouped`, not for
-        # falsiness -- `not team.gruppe` lets "X" through to a KeyError.
+        # `model_construct` is one way round `FLGruppenNames`, a row in a group the season stopped
+        # offering the other. Membership, not falsiness: `not team.gruppe` lets "X" through to a
+        # KeyError, and a dropped club would go missing from a standing unnoticed.
         if team.gruppe not in grouped:
-            raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
+            raise ValueError(
+                f"Team {team.id} stands in group {team.gruppe}, which a season of {rules.number_of_groups} group(s) does not offer"
+            )
         grouped[team.gruppe].append(team)
 
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.

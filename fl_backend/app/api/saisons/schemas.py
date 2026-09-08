@@ -1,12 +1,13 @@
-from typing import Annotated, Literal, Self
+from datetime import date
+from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 # The three are imported rather than restated. Acyclic: none of these slices' MODELS imports this
 # file -- `teams/services.py` does, and no model there.
 from app.api.spiele.schemas import FLSaisonPhase
 from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLGruppenNames
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLGruppenNames
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
@@ -29,12 +30,11 @@ class FLSaisonForfeitErgebnis(BaseModel):
 # The three the fixture list is a function of. Named types because `FLSpielplanShape` carries the
 # same three, and a bound spelled at two sites is a bound that drifts.
 QualifiersPerGroup = Annotated[int, Field(gt=0)]
-# The season's capacity: a team enters only a group the season offers -- a prefix of the closed A-D
-# set -- and only while it has room.
-NumberOfGroups = Annotated[int, Field(gt=0, le=4)]
-# The floor stops a group phase generating no fixture at all; the ceiling keeps the largest legal
-# season inside `app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, past which a season-scoped
-# read truncates and its refusals cannot be trusted.
+# The season's capacity: a team enters only a group the season offers -- a prefix of the closed set
+# -- and only while it has room.
+NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
+# The floor stops a group phase generating no fixture at all; the ceiling bounds one GROUP, where
+# what a whole season may play is `REQ-RULES-013`, weighing every group and the bracket at once.
 TeamsPerGroup = Annotated[int, Field(ge=2, le=16)]
 
 
@@ -165,11 +165,40 @@ class FLSaisonsFilterParams(BaseModel):
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
+# The league's FIRST season, and the floor an id may not fall below. A LITERAL because it is a fact
+# about this league's own history; the ceiling below is a fact about the calendar and is computed.
+FIRST_SAISON_YEAR: Final = 2026
+
+
+def refuse_a_saison_year_outside_the_league(value: str) -> str:
+    """The half a four-digit pattern cannot express: an alternation over the legal years would be a literal somebody maintains."""
+
+    # Read PER VALIDATION: a ceiling computed at import pins the year the process started, so the
+    # first January after a long-running deploy would refuse next season's id.
+    newest = date.today().year + 1
+
+    # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
+    # rejected value into the log (`docs/logging/spec.md :: L9`).
+    if not FIRST_SAISON_YEAR <= int(value) <= newest:
+        # German, as `refuse_reversed_span` beside it is: the 422 answers a bare REQ-VAL-001, so
+        # this sentence reaches the log and any form mirroring it, never the response body.
+        raise ValueError(f"Die Saison-ID muss ein Jahr zwischen {FIRST_SAISON_YEAR} und {newest} sein.")
+
+    return value
+
+
 class FLPostSaisonPayload(_SaisonPayload):
     # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
     # the one create payload carrying an id -- and stripped first, a width counting CHARACTERS
     # otherwise creating a season keyed on spaces.
-    id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+
+    # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
+    # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
+    id: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]{4}$"),
+        AfterValidator(refuse_a_saison_year_outside_the_league),
+    ]
 
 
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no

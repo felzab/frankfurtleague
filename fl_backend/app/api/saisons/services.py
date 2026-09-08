@@ -7,6 +7,7 @@ from app.api.spiele.schemas import MAX_QUALIFIERS, SONDEREREIGNIS_WITHOUT_A_RESU
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
 def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -51,6 +52,7 @@ RULES_KADER_BELOW_USE = "REQ-RULES-009"
 RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
 RULES_SHAPE_AFTER_DRAW = "REQ-RULES-011"
 RULES_TIEBREAK_AFTER_KNOCKOUT = "REQ-RULES-012"
+RULES_FIXTURES_OVER_ONE_READ = "REQ-RULES-013"
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
@@ -69,6 +71,17 @@ SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_groups", "teams_per_group", "q
 # `teams_per_group`, so a redraw carrying either of the others is refused for the groups then off
 # their size; qualifiers touch no group's occupancy at all.
 REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group"
+
+
+def total_season_fixtures(rules: FLSaisonRules) -> int:
+    """Every match these rules imply, the bracket's rounds included.
+
+    Spelled ONCE because two readers weigh it against the same page: `REQ-RULES-013` refuses a shape
+    over `LIST_LIMIT_DEFAULT`, and `tests/api/test_schedule.py` asserts the widest shape the bounds
+    still admit stays under it. Two folds over `schedule_for` would drift the moment a phase moved.
+    """
+
+    return sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(rules))
 
 
 def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
@@ -204,6 +217,21 @@ def find_rules_refusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
+        )
+
+    # AFTER the bracket rule, which is narrower and answers first: a product with no bracket plays
+    # no knockout round, so a count taken over one measures a season the admin has not asked for.
+    fixtures = total_season_fixtures(proposed)
+    stored_fixtures = None if stored is None else total_season_fixtures(stored)
+    # The EXCESS, as `REQ-RULES-007` and `REQ-RULES-008` beside it: `rules` is required on the patch,
+    # so a dates-only edit resubmits a stored count unchanged and any step that shrinks one repairs
+    # the season (`docs/backend/spec.md :: I44`).
+    if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
+        return WriteRefusal(
+            error_code=RULES_FIXTURES_OVER_ONE_READ,
+            message=f"{proposed.number_of_groups} group(s) of {proposed.teams_per_group}, {proposed.qualifiers_per_group} "
+            f"qualifying from each, plays {fixtures} fixtures; one read of a season carries {LIST_LIMIT_DEFAULT}, and every "
+            "refusal this endpoint computes over a truncated read would be judging a partial season",
         )
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves

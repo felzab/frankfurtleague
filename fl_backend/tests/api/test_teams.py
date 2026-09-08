@@ -1,9 +1,12 @@
+from typing import get_args
+
 import pytest
 from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
+    FLGruppenNames,
     FLKontaktperson,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamKontaktePayload,
@@ -64,13 +67,14 @@ def test_accepts_an_empty_description(team):
 
 
 @pytest.mark.parametrize("gruppe", ["X", "", "a", "AB", "1"])
-def test_rejects_a_group_outside_a_to_d(team, gruppe):
+def test_rejects_a_group_outside_the_closed_set(team, gruppe):
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(gruppe=gruppe))
 
 
-@pytest.mark.parametrize("gruppe", ["A", "B", "C", "D"])
-def test_accepts_each_of_the_four_groups(team, gruppe):
+# Read off the set rather than listed, so widening it widens this rather than leaving the new names untried.
+@pytest.mark.parametrize("gruppe", get_args(FLGruppenNames))
+def test_accepts_every_group_the_closed_set_names(team, gruppe):
     """So the rejection test above cannot be passing for the wrong reason."""
     assert FLTeam.model_validate(team(gruppe=gruppe)).gruppe == gruppe
 
@@ -98,9 +102,9 @@ def test_rejects_a_shorthand_that_is_not_two_characters(team, shorthand):
 
 
 class TestFLGruppen:
-    """The frontend's `FLGruppenSchema` requires all four keys, so a map built from the teams present fails the parse."""
+    """The frontend's `FLGruppenSchema` is a subset of the closed set, so a map built from the teams present drops a group the season offers."""
 
-    def test_always_emits_all_four_groups(self, team):
+    def test_emits_every_group_the_season_offers(self, team):
         grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES)
 
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
@@ -112,13 +116,22 @@ class TestFLGruppen:
         assert len(grouped.root["A"]) == 1
         assert grouped.root["B"] == grouped.root["C"] == grouped.root["D"] == []
 
-    def test_returns_all_four_groups_for_no_teams_at_all(self):
+    def test_returns_them_for_no_teams_at_all(self):
         grouped = build_gruppen([], spiele=[], rules=RULES)
 
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
         assert all(members == [] for members in grouped.root.values())
 
-    def test_the_serialised_response_body_carries_all_four_groups(self, team):
+    def test_it_answers_the_groups_the_season_offers_and_no_others(self, team):
+        """The season's count decides the keys, not the set's size: a key past it is a standings column for a group nobody plays in."""
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=two_groups)
+
+        assert sorted(grouped.root) == ["A", "B"]
+        assert grouped.root["B"] == []
+
+    def test_the_serialised_response_body_carries_them_too(self, team):
         """The wire shape, not the Python object: the frontend parses the response body."""
         response = FLTeamsGroupedResponse(
             gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
@@ -164,7 +177,7 @@ class TestFLGruppen:
         """Fails loudly rather than dropping the team, which the frontend would discard from the table."""
         unplaceable = FLTeam.model_construct(**{**team(), "gruppe": gruppe})
 
-        with pytest.raises(ValueError, match="not one of A/B/C/D"):
+        with pytest.raises(ValueError, match="does not offer"):
             build_gruppen([unplaceable], spiele=[], rules=RULES)
 
 

@@ -660,7 +660,7 @@ async def swap_gruppen(
         )
 
         # Built BEFORE the junction writes and then written FROM: the model refuses a stored group
-        # outside A-D before anything lands, and the echo cannot disagree with what did.
+        # outside the closed set before anything lands, and the echo cannot disagree with what did.
         swapped = FLSwapGruppenResponse(
             saison_id=saison_id,
             team1_id=swap_data.team1_id,

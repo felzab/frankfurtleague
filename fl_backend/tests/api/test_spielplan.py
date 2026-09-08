@@ -333,6 +333,10 @@ SWEEP_CEILING = 50_000
 
 SWEPT_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(BRACKET_SEEDING) if sweep_size(*key) <= SWEEP_CEILING)
 
+# Derived from the WRITE PATH rather than from the reference table, so a widened rules bound gains its
+# second witness without anybody hand-writing a row for the shape it opened.
+SWEEPABLE_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(legal_combinations()) if sweep_size(*key) <= SWEEP_CEILING)
+
 # A one-group season has only the identity relabelling, so the symmetry test says nothing there.
 MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in SWEPT_KEYS if key[0] > 1)
 
@@ -441,9 +445,13 @@ class TestTheConstructionScoresTheBestThereIs:
 
         assert score(bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1])) == best_possible(*key)
 
-    @pytest.mark.parametrize("key", SWEPT_KEYS)
+    @pytest.mark.parametrize("key", SWEEPABLE_KEYS)
     def test_an_exhaustive_sweep_finds_that_same_bound(self, key: tuple[int, int]):
-        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula."""
+        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula.
+
+        Over the legal shapes and not the table's keys: the formula is what a widened bound leans on,
+        so the witness has to follow that widening rather than the rows somebody wrote.
+        """
 
         assert optimum(*key) == best_possible(*key)
 
@@ -465,9 +473,12 @@ class TestTheConstructionScoresTheBestThereIs:
             assert score(relabelled) == score(row)
 
     def test_the_ceiling_admits_every_key_the_closed_set_reaches_and_refuses_the_one_nothing_can_build(self):
-        """A ceiling that quietly emptied `SWEPT_KEYS` would leave `best_possible` as its own only witness."""
+        """A ceiling that quietly emptied either set would leave `best_possible` as its own only witness."""
 
         assert SWEPT_KEYS == tuple(sorted(BRACKET_SEEDING))
+        # Every reference row is a legal shape this sweep affords, so no row is left resting on the
+        # formula it exists to check.
+        assert set(SWEPT_KEYS) <= set(SWEEPABLE_KEYS)
         assert sweep_size(8, 2) <= SWEEP_CEILING < sweep_size(16, 1)
 
 
