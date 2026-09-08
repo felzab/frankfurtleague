@@ -283,7 +283,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture either list names arrives in `prior_paarungen` as it stood before this call.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -351,7 +351,7 @@
     "/api/v0/teams": {
       "get": {
         "summary": "List teams, flat or grouped",
-        "description": "List teams for a season.\n\n`in_gruppen=true` returns the four groups keyed A-D, otherwise a plain list; check `format`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.",
+        "description": "List teams for a season.\n\n`in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.",
         "operationId": "get_teams_api_v0_teams_get",
         "security": [
           {
@@ -386,7 +386,19 @@
                     "A",
                     "B",
                     "C",
-                    "D"
+                    "D",
+                    "E",
+                    "F",
+                    "G",
+                    "H",
+                    "I",
+                    "J",
+                    "K",
+                    "L",
+                    "M",
+                    "N",
+                    "O",
+                    "P"
                   ],
                   "type": "string"
                 },
@@ -1918,7 +1930,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee. `inactive_since` is set to null here and is not part of the payload.",
+        "description": "Create a referee. `inactive_since` and `anonymisiert_am` are set to null here and are on no payload.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -2007,7 +2019,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save putting a name or a contact detail back onto an anonymised referee is refused\n(`REQ-ANONYMISE-002`); the fee and the school stay editable, the erasure not reaching them.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save reaching a referee whose data were erased is refused (`REQ-ANONYMISE-002`): the payload\ncarries a name on every field it edits, so an erased row takes no edit at all.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2107,7 +2119,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`anzahl_je_status` counts every status over the season this request named and never over the\nstatuses it named, so a caller that narrowed to one still knows what asking for another would\nfetch. Repeating the parameter and comma-joining its values are one request; omitting it is every\nstatus, and sending it empty is too.",
+        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2129,6 +2141,15 @@
                 }
               ],
               "title": "Saison Id"
+            }
+          },
+          {
+            "name": "saisonbezug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Saisonbezug"
             }
           },
           {
@@ -2552,6 +2573,62 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/spiele/{spiel_id}/paarung": {
+      "patch": {
+        "summary": "Restore a Spiel's Paarung",
+        "description": "Put one Spiel's occupants and what they produced back, and resolve the season's bracket.\n\nThe body carries the four fields a bracket resolution can rewrite, and nothing else about the\nmatch moves: its date, its venue, its referee, its note and both `quelle`s are read from the\nstored document rather than from the request, so a value somebody moved since this fixture was\nrewritten survives. Every refusal, and the resolution itself, are `PATCH /spiele/{spiel_id}`'s.\n\nNo `dry_run`: what this body would move is what the save it undoes already reported.",
+        "operationId": "patch_spiel_paarung_api_v0_spiele__spiel_id__paarung_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielPaarungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSpielDataResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/teams/memberships": {
       "get": {
         "summary": "Every team with its season memberships",
@@ -2615,7 +2692,19 @@
                     "A",
                     "B",
                     "C",
-                    "D"
+                    "D",
+                    "E",
+                    "F",
+                    "G",
+                    "H",
+                    "I",
+                    "J",
+                    "K",
+                    "L",
+                    "M",
+                    "N",
+                    "O",
+                    "P"
                   ],
                   "type": "string"
                 },
@@ -3939,7 +4028,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nA referee whose data were erased is refused (`REQ-ANONYMISE-003`): the erasure retires them, and\nbringing them back would offer a nameless row for a new fixture, which is fresh personal data\nabout the person who asked to be left out.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -3985,7 +4074,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Anonymise a Schiedsrichter",
-        "description": "Replace the referee's name with a neutral label and null their telephone number and email address.\n\nWritten to the row, to every Spiel they officiated and to the log, in one transaction. The row\nitself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under\nthe erasure is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details may go\nwhile the referee still takes fixtures.",
+        "description": "Null the referee's name, school, telephone number and email address, and stamp the day it was done.\n\nWritten to the row, to every Spiel they officiated and to the log, in one transaction. The row\nitself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under\nthe erasure is refused (`REQ-ANONYMISE-001`).\n\n**It also retires the referee**, so they take no NEW fixture (`REQ-BOOKING-001`) and cannot be\nbrought back (`REQ-ANONYMISE-003`): a booking would create fresh personal data about the person who\nasked to be left out. A retirement already stamped keeps its own day. What a reader is shown in\nplace of the nulled name is the frontend's word, so no endpoint answers one.",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {
@@ -4031,7 +4120,7 @@
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
-        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it.\n\n`collection` and `operation` each take a comma-joined selection, or the parameter repeated, and\nboth narrow this read. `anzahl_je_collection` and `anzahl_je_operation` count the WHOLE log with\nthe other of the two applied and their own ignored, so a caller narrowed to one area still knows\nwhat asking for another would fetch; a value nothing was recorded under is absent rather than\nzero. `trace_id` selects one request's whole fan-out, which the log answers complete.",
+        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it.\n\n`collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter\nrepeated, and all three narrow this read. `herkunft` names no stored field: it is the category the\nactor's kind is filed under, `person` covering every kind that authenticates somebody.\n\n`anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`\nand `document_id` leave, with the other two facets applied and their own ignored, so a caller\nnarrowed to one area still knows what asking for another would fetch; a value nothing was recorded\nunder is absent rather than zero. While either of those two terms is in force the counts are that\ntrace's or that document's and not the log's.\n\n`trace_id` selects one request's whole fan-out, which this read serves under the same cap as any\nother; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every\nsuch write rather than one (`docs/glossary.md :: Vorgangsnummer`).",
         "operationId": "get_aktionen_api_v0_aktionen_get",
         "security": [
           {
@@ -4055,6 +4144,15 @@
             "schema": {
               "type": "string",
               "title": "Operation"
+            }
+          },
+          {
+            "name": "herkunft",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Herkunft"
             }
           },
           {
@@ -5595,6 +5693,13 @@
             },
             "type": "object",
             "title": "Anzahl Je Operation"
+          },
+          "anzahl_je_herkunft": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Anzahl Je Herkunft"
           }
         },
         "type": "object",
@@ -5602,7 +5707,8 @@
           "aktionen",
           "vollstaendig",
           "anzahl_je_collection",
-          "anzahl_je_operation"
+          "anzahl_je_operation",
+          "anzahl_je_herkunft"
         ],
         "title": "FLAktionenListResponse"
       },
@@ -5638,7 +5744,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -5713,7 +5831,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -7623,16 +7753,38 @@
             },
             "type": "object",
             "title": "Anzahl Je Status"
+          },
+          "anzahl_je_saisonbezug": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "diese_saison",
+                "andere_saison"
+              ]
+            },
+            "type": "object",
+            "title": "Anzahl Je Saisonbezug"
+          },
+          "dubletten_schluessel": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dubletten Schluessel"
           }
         },
         "type": "object",
         "required": [
           "bewerbungen",
           "vollstaendig",
-          "anzahl_je_status"
+          "anzahl_je_status",
+          "anzahl_je_saisonbezug",
+          "dubletten_schluessel"
         ],
         "title": "FLBewerbungenListResponse",
-        "description": "The queue, newest first, and whether that is the whole of it.\n\nThe list is served WHOLE by design -- the page marks duplicate submissions across it, and a\nsplit set would leave a pair unmarked with nothing saying so."
+        "description": "The queue, newest first, and whether that is the whole of it.\n\nA cut answer still marks a collision: `dubletten_schluessel` is taken over every open\napplication, so a pair the cap parted is named at both ends."
       },
       "FLBracketFaultGruppe": {
         "properties": {
@@ -7649,6 +7801,8 @@
             "type": "string",
             "enum": [
               "gruppe_too_small",
+              "gruppe_not_run",
+              "seed_past_the_opening_round",
               "tie_unresolved"
             ],
             "title": "Reason"
@@ -7659,7 +7813,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -7678,7 +7844,7 @@
           "platz"
         ],
         "title": "FLBracketFaultGruppe",
-        "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`gruppe_too_small` is a typo and the slot is left alone; `tie_unresolved` is a played-out group\nthe chain cannot separate, so the slot IS emptied."
+        "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,\nand a slot is never emptied over one."
       },
       "FLBracketFaultOccupant": {
         "properties": {
@@ -7769,7 +7935,9 @@
             "type": "string",
             "enum": [
               "spiel_missing",
-              "reference_cycle"
+              "reference_cycle",
+              "gruppenphase_feeder",
+              "feeder_not_played_first"
             ],
             "title": "Reason"
           },
@@ -7787,7 +7955,64 @@
           "quelle_spiel_nr"
         ],
         "title": "FLBracketFaultQuelle",
-        "description": "One bracket slot whose `spiel` reference names a match that cannot state an outcome.\n\nBoth leave the slot as it stands, and neither is reachable through the write path. A cycle is\nreported on every fixture it reaches."
+        "description": "One bracket slot whose `spiel` reference names a match that cannot feed it.\n\nEach leaves the slot as it stands, and a cycle is reported on every fixture it reaches."
+      },
+      "FLBracketFaultSlot": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "gruppenphase_fixture_wired",
+              "source_feeds_another_fixture"
+            ],
+            "title": "Reason"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Side"
+          },
+          "quelle": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+              }
+            ],
+            "title": "Quelle",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+              }
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "spiel_nr",
+          "reason",
+          "side",
+          "quelle"
+        ],
+        "title": "FLBracketFaultSlot",
+        "description": "One slot carrying a reference it must not carry, whatever that reference names.\n\nThe reference travels whole rather than decomposed: it groups the entries of a shared source, and\na toast arrives with no fixture to read it off."
       },
       "FLBracketFaultSpiel": {
         "properties": {
@@ -8010,12 +8235,24 @@
             "A",
             "B",
             "C",
-            "D"
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+            "N",
+            "O",
+            "P"
           ]
         },
         "type": "object",
         "title": "FLGruppen",
-        "description": "The four groups, always all four, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches."
+        "description": "Every group the SEASON offers, all of them and no other, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches."
       },
       "FLGruppenTeam": {
         "properties": {
@@ -8384,11 +8621,6 @@
             "pattern": "^([+]?[ 0-9\\-().]{3,20})$",
             "title": "Telefon"
           },
-          "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum"
-          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmePayload"
           }
@@ -8400,7 +8632,6 @@
           "nachname",
           "email",
           "telefon",
-          "geburtsdatum",
           "einwilligung"
         ],
         "title": "FLKontaktpersonPayload"
@@ -8629,7 +8860,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -8959,6 +9202,9 @@
                   "$ref": "#/components/schemas/FLBracketFaultSpiel"
                 },
                 {
+                  "$ref": "#/components/schemas/FLBracketFaultSlot"
+                },
+                {
                   "$ref": "#/components/schemas/FLBracketFaultOccupant"
                 },
                 {
@@ -8969,10 +9215,16 @@
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
                   "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
+                  "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+                  "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
+                  "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
+                  "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
+                  "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
                   "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
                   "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
                 }
@@ -8980,11 +9232,80 @@
             },
             "type": "array",
             "title": "Bracket Faults"
+          },
+          "prior_paarungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielPriorPaarung"
+            },
+            "type": "array",
+            "title": "Prior Paarungen"
           }
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
         "description": "What `patch_spiel_data` returns: every fixture it moved, and what that cost.\n\nBoth lists report writes the caller did not ask for, each carrying the result it destroyed."
+      },
+      "FLPatchSpielPaarungPayload": {
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "team1",
+          "team2",
+          "elfmeterschiessen",
+          "sonderereignis"
+        ],
+        "title": "FLPatchSpielPaarungPayload",
+        "description": "Restore one fixture's occupants and what they produced, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -9350,6 +9671,7 @@
             "type": "string",
             "maxLength": 4,
             "minLength": 4,
+            "pattern": "^[0-9]{4}$",
             "title": "Id"
           }
         },
@@ -9494,7 +9816,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           }
@@ -9796,7 +10130,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -10043,7 +10389,7 @@
           },
           "number_of_groups": {
             "type": "integer",
-            "maximum": 4.0,
+            "maximum": 16.0,
             "exclusiveMinimum": 0.0,
             "title": "Number Of Groups"
           },
@@ -10385,7 +10731,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -10528,8 +10886,15 @@
             "$ref": "#/components/schemas/FLKontakt"
           },
           "name": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "schule": {
@@ -10563,6 +10928,18 @@
               }
             ],
             "title": "Inactive Since"
+          },
+          "anonymisiert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anonymisiert Am"
           }
         },
         "type": "object",
@@ -10572,7 +10949,8 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "anonymisiert_am"
         ],
         "title": "FLSchiedsrichter"
       },
@@ -10646,6 +11024,10 @@
       },
       "FLSpielAdvancement": {
         "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
           "spiel_nr": {
             "type": "integer",
             "exclusiveMinimum": 0.0,
@@ -10694,6 +11076,7 @@
         },
         "type": "object",
         "required": [
+          "spiel_id",
           "spiel_nr",
           "voided_ergebnis",
           "voided_elfmeterschiessen",
@@ -11242,6 +11625,72 @@
         "title": "FLSpielOrtFieldPublic",
         "description": "The venue as a BASE-TIER read serves it: which ground, and where to find it.\n\nNo `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`)."
       },
+      "FLSpielPriorPaarung": {
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1",
+          "team2",
+          "elfmeterschiessen",
+          "sonderereignis",
+          "spiel_id"
+        ],
+        "title": "FLSpielPriorPaarung",
+        "description": "One fixture this write moved, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.\n\nOne entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once."
+      },
       "FLSpielQuelleGruppe": {
         "properties": {
           "type": {
@@ -11255,7 +11704,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -11306,6 +11767,10 @@
       },
       "FLSpielReleasedSide": {
         "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
           "spiel_nr": {
             "type": "integer",
             "exclusiveMinimum": 0.0,
@@ -11367,6 +11832,7 @@
         },
         "type": "object",
         "required": [
+          "spiel_id",
           "spiel_nr",
           "voided_ergebnis",
           "voided_elfmeterschiessen",
@@ -11384,8 +11850,15 @@
             "title": "Schiedsrichter Id"
           },
           "name": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "payment": {
@@ -11431,8 +11904,15 @@
             "title": "Schiedsrichter Id"
           },
           "name": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           }
         },
@@ -11558,6 +12038,9 @@
                   "$ref": "#/components/schemas/FLBracketFaultSpiel"
                 },
                 {
+                  "$ref": "#/components/schemas/FLBracketFaultSlot"
+                },
+                {
                   "$ref": "#/components/schemas/FLBracketFaultOccupant"
                 },
                 {
@@ -11568,10 +12051,16 @@
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
                   "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
+                  "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+                  "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
+                  "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
+                  "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
+                  "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
                   "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
                   "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
                 }
@@ -12237,7 +12726,7 @@
         "properties": {
           "number_of_groups": {
             "type": "integer",
-            "maximum": 4.0,
+            "maximum": 16.0,
             "exclusiveMinimum": 0.0,
             "title": "Number Of Groups"
           },
@@ -12450,7 +12939,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Team1 Gruppe"
           },
@@ -12464,7 +12965,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Team2 Gruppe"
           },
@@ -12551,7 +13064,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -12609,7 +13134,19 @@
               "A",
               "B",
               "C",
-              "D"
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P"
             ],
             "title": "Gruppe"
           },
@@ -12969,7 +13506,7 @@
           "qualifiers_per_group"
         ],
         "title": "FLTeamsGroupedResponse",
-        "description": "The four groups in standing order, and how many of each advance.\n\n`qualifiers_per_group` rides along rather than being fetched separately, so a page cannot mark a\ncutoff drawn from a different season than the table it marks."
+        "description": "The season's groups in standing order, and how many of each advance.\n\n`qualifiers_per_group` rides along rather than being fetched separately, so a page cannot mark a\ncutoff drawn from a different season than the table it marks."
       },
       "FLTeamsListResponse": {
         "properties": {
