@@ -79,6 +79,18 @@ describe("FLAddressPayloadSchema", () => {
     }
   });
 
+  // The API strips before its floor counts, so an untrimmed mirror takes what the endpoint refuses
+  // with a bare `REQ-VAL-001` carrying no field detail, leaving nothing to mark the box.
+  it("refuses a strasse or stadt of spaces alone, and sends a padded one stripped", () => {
+    for (const field of ["strasse", "stadt"] as const) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "   " }).success, false, `${field} spaces alone`);
+      // `.trim()` has to precede the floor: `.nonempty().trim()` type-checks, lints, and takes spaces alone.
+      const padded = FLAddressPayloadSchema.parse({ ...validAddress, [field]: `  ${validAddress[field]}  ` });
+
+      assert.equal(padded[field], validAddress[field], `${field} reaches the API padded`);
+    }
+  });
+
   // A venue can genuinely lack a house number or a district, so neither field carries a floor and a
   // redeclaration bounding its length must not turn it into a required one.
   it("keeps accepting an empty hausnummer or stadtteil", () => {

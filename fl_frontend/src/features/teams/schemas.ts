@@ -54,6 +54,15 @@ export type FLAustritt = z.infer<typeof FLAustrittSchema>;
 export type FLAustrittType = FLAustritt["type"];
 
 /**
+ * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: strip_austritt_grund`.
+ * Never on the read schema above: a stored blank must still parse, or one club's row fails the list
+ * it appears in (`docs/backend/spec.md :: I36`).
+ */
+const FLAustrittPayloadSchema = FLAustrittSchema.extend({
+  grund: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
+});
+
+/**
  * Mirrors `FLSchulform`. No German error: the club editor offers `Keine Angabe` beside the six, so an
  * unanswered picker is a null the field accepts rather than a refusal.
  */
@@ -128,6 +137,7 @@ export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // could name either would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
+    .trim()
     .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
@@ -166,7 +176,8 @@ export const FLKontaktpersonPayloadSchema = z.object({
     .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  geburtsdatum: CustomDateStringSchema,
+  // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
+  // person has not confirmed yet (`docs/backend/spec.md :: I141`).
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
@@ -312,15 +323,17 @@ const teamPayloadFields = {
   // The ceilings are the application's, so both tiers refuse alike.
   name: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib einen Namen ein." })
     .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
   // Exactly two characters, held unique across every club — retired ones included.
-  shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
+  shorthand: z.string().trim().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
   full_name: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib den vollständigen Namen ein." })
     .max(TEAM_FULL_NAME_MAX_LENGTH, {
       error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
@@ -451,7 +464,7 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   gruppe: FLGruppenNamesSchema,
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
-  austritt: FLAustrittSchema.nullable(),
+  austritt: FLAustrittPayloadSchema.nullable(),
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;

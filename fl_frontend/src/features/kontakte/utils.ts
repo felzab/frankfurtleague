@@ -172,8 +172,9 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         nachname: person.nachname,
         email: person.email,
         telefon: person.telefon,
-        // A date nobody entered stays the empty string the parse refuses, never one invented here.
-        geburtsdatum: person.geburtsdatum ?? "",
+        // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
+        // server carries the stored seat's forward and this editor may not name one at all
+        // (`docs/backend/spec.md :: I141`).
         einwilligung: {
           umfang: EINWILLIGUNG_UMFANG,
           text_version: person.einwilligung.text_version,

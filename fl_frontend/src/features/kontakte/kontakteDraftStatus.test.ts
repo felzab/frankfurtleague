@@ -33,7 +33,7 @@ const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>
 const EMPTY: FLKontakteDraftFields = { kontakte: null };
 
 describe("deriveKontakteDraftStatus", () => {
-  it("carries a row per seat, a row per confirmation, and one for the shared-seat claim", () => {
+  it("carries a row per seat, a row per Kenntnisnahme, and one for the shared-seat claim", () => {
     const stored = block();
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
@@ -111,17 +111,17 @@ describe("deriveKontakteDraftStatus", () => {
     );
   });
 
-  it("finds an unpicked confirmation under the confirmation's row, and renders it as still open", () => {
+  it("finds an unpicked Kenntnisnahme under the Kenntnisnahme's row, and renders it as still open", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
       draft: block({
         trainer: person({ einwilligung: { umfang: "kontaktdaten", erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null } }),
       }),
-      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Bestätigung erfasst wurde." },
+      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
-    assert.equal(row?.error, "Bitte gib an, wann die Bestätigung erfasst wurde.");
+    assert.equal(row?.error, "Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
     // All three fallbacks render rather than hiding: they are the mid-edit states the schema rejects
     // on save, and the change list is where the admin sees what is still missing.
     assert.equal(row?.draftText, "Noch offen, ohne Fassung (ohne Datum)");
@@ -153,11 +153,11 @@ describe("deriveKontakteDraftStatus", () => {
       status.fields.map((field) => [field.group, field.label]),
       [
         ["Ansprechperson", "Person"],
-        ["Ansprechperson", "Bestätigung"],
+        ["Ansprechperson", "Kenntnisnahme"],
         ["Stellvertretung", "Person"],
-        ["Stellvertretung", "Bestätigung"],
+        ["Stellvertretung", "Kenntnisnahme"],
         ["Trainer", "Person"],
-        ["Trainer", "Bestätigung"],
+        ["Trainer", "Kenntnisnahme"],
         ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
       ],
     );
@@ -215,10 +215,18 @@ describe("kontaktSeatPaths", () => {
       "kontakte.trainer.einwilligung.datum",
       "kontakte.trainer.einwilligung.text_version",
       "kontakte.trainer.email",
-      "kontakte.trainer.geburtsdatum",
       "kontakte.trainer.nachname",
       "kontakte.trainer.telefon",
       "kontakte.trainer.vorname",
     ]);
+  });
+
+  /* Spelled as its own case because the pair above holds either way: both sides would drop the path
+     together, and a list rebuilt from the read-only readout would then re-judge a box nobody types
+     in. `candidatePaths` keeps naming it, so this is the half that fails. */
+  it("leaves the birthdate out, no payload carrying one for a message to land on", () => {
+    for (const { value: rolle } of KONTAKT_ROLLEN) {
+      assert.ok(!kontaktSeatPaths(rolle).includes(`kontakte.${rolle}.geburtsdatum`), `${rolle} re-judges a path nothing reports under`);
+    }
   });
 });

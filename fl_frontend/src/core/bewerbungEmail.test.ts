@@ -883,7 +883,7 @@ const GELOESCHT = {
   rollenText: "Ansprechperson",
   ausstehend: AUSSTEHEND,
 } satisfies BewerbungGeloeschtData;
-const ABLEHNUNG = {
+const WIDERSPRUCH = {
   saisonId: "2627",
   origin: ORIGIN,
   rollenText: "Ansprechperson",
@@ -906,7 +906,7 @@ const WORKFLOW = [
   { name: "Eingang offen", build: () => buildBewerbungEingangOffenEmail(EINGANG_OFFEN), empfaenger: "einreichende" },
   { name: "Vollständig", build: () => buildBewerbungVollstaendigEmail(VOLLSTAENDIG), empfaenger: "einreichende" },
   { name: "Gelöscht", build: () => buildBewerbungGeloeschtEmail(GELOESCHT), empfaenger: "einreichende" },
-  { name: "Ablehnung", build: () => buildBewerbungWiderspruchEmail(ABLEHNUNG), empfaenger: "einreichende" },
+  { name: "Widerspruch", build: () => buildBewerbungWiderspruchEmail(WIDERSPRUCH), empfaenger: "einreichende" },
 ] as const;
 
 const alleWorkflow = () => WORKFLOW.map((meldung) => ({ ...meldung, mail: meldung.build(), footer: textFooter(meldung.empfaenger) }));
@@ -1255,14 +1255,14 @@ describe("buildBewerbungGeloeschtEmail", () => {
 
 describe("buildBewerbungWiderspruchEmail", () => {
   it("names the person and the role and takes no pronoun for either", () => {
-    const mail = buildBewerbungWiderspruchEmail(ABLEHNUNG);
-    const wer = `${ABLEHNUNG.abgelehnt.vorname} (${ABLEHNUNG.abgelehnt.rolleText})`;
+    const mail = buildBewerbungWiderspruchEmail(WIDERSPRUCH);
+    const wer = `${WIDERSPRUCH.abgelehnt.vorname} (${WIDERSPRUCH.abgelehnt.rolleText})`;
 
-    assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt League, Saison ${ABLEHNUNG.saisonId}`);
+    assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt League, Saison ${WIDERSPRUCH.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Nicht vollständig, eine Bestätigung fehlt"],
-      ["Saison", ABLEHNUNG.saisonId],
-      ["Eingetragen als", ABLEHNUNG.rollenText],
+      ["Saison", WIDERSPRUCH.saisonId],
+      ["Eingetragen als", WIDERSPRUCH.rollenText],
       ["Widerspruch von", wer],
     ]);
     for (const satz of [
@@ -1281,8 +1281,8 @@ describe("buildBewerbungWiderspruchEmail", () => {
   });
 
   it("offers the way to start again, as the deletion notice does", () => {
-    assert.deepEqual(steuerung(buildBewerbungWiderspruchEmail(ABLEHNUNG).html), [
-      { href: `${ORIGIN}/bewerbung/${ABLEHNUNG.saisonId}`, label: "Neu bewerben" },
+    assert.deepEqual(steuerung(buildBewerbungWiderspruchEmail(WIDERSPRUCH).html), [
+      { href: `${ORIGIN}/bewerbung/${WIDERSPRUCH.saisonId}`, label: "Neu bewerben" },
       { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
     ]);
   });
@@ -1331,7 +1331,7 @@ describe("the confirmation workflow's messages", () => {
       Gelöscht: `${auftakt}: Die Bewerbung wird jetzt gelöscht.`,
       // The one note stating the deletion outright: a Widerspruch empties a seat, so the condition
       // every other note carries is settled for this reader.
-      Ablehnung: `${auftakt}: Am ${FRIST} löschen wir die Bewerbung.`,
+      Widerspruch: `${auftakt}: Am ${FRIST} löschen wir die Bewerbung.`,
     };
 
     for (const { name, mail } of alleWorkflow()) {
@@ -1422,10 +1422,10 @@ describe("the confirmation workflow's messages", () => {
         mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, ausstehend: [{ vorname: "Mira", rolleText: gift }] }),
       },
       {
-        field: "Ablehnung.abgelehnt.vorname",
-        mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, abgelehnt: { vorname: gift, rolleText: "Stellvertretung" } }),
+        field: "Widerspruch.abgelehnt.vorname",
+        mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, abgelehnt: { vorname: gift, rolleText: "Stellvertretung" } }),
       },
-      { field: "Ablehnung.fristText", mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, fristText: gift }) },
+      { field: "Widerspruch.fristText", mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, fristText: gift }) },
     ];
 
     for (const { field, mail } of cases) {
@@ -1456,8 +1456,8 @@ describe("the confirmation workflow's messages", () => {
         empfaenger: "einreichende",
       },
       {
-        field: "Ablehnung.abgelehnt.vorname",
-        mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, abgelehnt: { vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" } }),
+        field: "Widerspruch.abgelehnt.vorname",
+        mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, abgelehnt: { vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" } }),
         empfaenger: "einreichende",
       },
     ] as const;
@@ -1527,7 +1527,7 @@ describe("the origin every message's links are built on", () => {
     { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, origin: SERVIERT, link: LINK }) },
     { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: SERVIERT }) },
     { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, origin: SERVIERT }) },
-    { name: "Ablehnung", mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, origin: SERVIERT }) },
+    { name: "Widerspruch", mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, origin: SERVIERT }) },
   ];
 
   /** Every absolute address a branch carries, the punctuation of the sentence it stands in cut off its tail. */

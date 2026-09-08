@@ -97,10 +97,12 @@ export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 export const FLAddressPayloadSchema = FLAddressSchema.extend({
   strasse: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib eine Straße ein." })
     .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
   stadt: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib eine Stadt ein." })
     .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
   // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload

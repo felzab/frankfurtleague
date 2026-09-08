@@ -31,26 +31,9 @@ import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
-import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-
-/** The stored block as a payload can spell it, seat by seat. */
-const replayableKontakte = (kontakte: FLSaisonTeamKontakte | null) =>
-  kontakte === null
-    ? null
-    : {
-        ...kontakte,
-        trainer: datierterSitz(kontakte.trainer),
-        ansprechperson: datierterSitz(kontakte.ansprechperson),
-        stellvertretung: datierterSitz(kontakte.stellvertretung),
-      };
-
-// A null `geburtsdatum` marks a seat whose contact has not confirmed. The editor never invents a
-// date for another person, so the empty string it maps to is refused at the save rather than
-// guessed at.
-const datierterSitz = (person: FLKontaktperson | null) => (person === null ? null : { ...person, geburtsdatum: person.geburtsdatum ?? "" });
 
 /**
  * The save answered without the token of what it left, so the undo has no precondition. One `Stand`
@@ -83,9 +66,9 @@ export function AdminKontakteEditForm({
   const [isPending, startTransition] = useTransition();
 
   const storedMembership = saison.membership;
-  // Mapped ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
+  // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
   // what the season holds.
-  const storedKontakte = replayableKontakte(storedMembership?.kontakte ?? null);
+  const storedKontakte = storedMembership?.kontakte ?? null;
   // The token the read served, echoed and never rebuilt here. A club outside the season has no row
   // and so no token, and the save that would carry the empty string is a 404 before it is judged.
   const kontakteStand = storedMembership?.kontakte_stand ?? "";

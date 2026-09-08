@@ -1154,3 +1154,68 @@ describe("which way the claim runs, at every site that reads it", () => {
     }
   });
 });
+
+describe("whose birthdate a seat holds, and who may put one there", () => {
+  /** The readout in ONE seat's card: it carries no `name`, and every seat renders the same label. */
+  const geburtsdatumBox = (html: string, rolle: string): string => {
+    const card = seatCards(html).find(({ body }) => body.includes(`id="feld-kontakte.${rolle}"`))?.body ?? "";
+
+    return /Geburtsdatum<\/label>[\s\S]*?<input[^>]*>/.exec(card)?.[0] ?? "";
+  };
+
+  /** One seat whose person has not confirmed: `geburtsdatum` null is what the read serves for one. */
+  const OHNE_DATUM: FLSaisonTeamKontakte = {
+    ...BLOCK,
+    trainer: {
+      ...seatPerson("Ada", "Byron", "ada@example.org"),
+      geburtsdatum: null,
+      einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+    },
+  };
+
+  /* An administrator entering it is the defect ruling 274 closes: a date typed on somebody's behalf
+     is the one field the published notice says only that person fills, and it is what the age floor
+     at the confirmation is there to judge. */
+  it("reads the stored date out and offers no box to type one into", () => {
+    const box = geburtsdatumBox(sectionMarkup(BLOCK), "trainer");
+
+    assert.notEqual(box, "", "the seat renders no birthdate at all");
+    assert.match(box, /readonly=""/i, "an administrator can type a date on another person's behalf");
+    assert.ok(box.includes('value="10.12.1990"'), "the stored date is not what the seat reads out");
+    assert.doesNotMatch(sectionMarkup(BLOCK), /name="kontakte\.[a-z]+\.geburtsdatum"/, "a birthdate box still reaches the payload by name");
+  });
+
+  /* `isReadOnly` and not `isDisabled`: a disabled control leaves the tab order and is announced as
+     unavailable, so the one reader who cannot see the value loses it entirely. */
+  it("leaves the readout reachable by keyboard and named by its label", () => {
+    const box = geburtsdatumBox(sectionMarkup(BLOCK), "trainer");
+
+    assert.match(box, /tabindex="0"/i, "the readout is out of the tab order, so a keyboard cannot reach the value");
+    assert.doesNotMatch(box, /\sdisabled/i, "the readout is disabled rather than read-only");
+    assert.match(box, /aria-labelledby="[^"]+"/, "the readout is announced without its label");
+  });
+
+  /* An empty box on a read-only field reads as a value that failed to load, and „noch offen“ reads as
+     something the administrator is expected to get round to. */
+  it("names who fills it where the seat holds none", () => {
+    const box = geburtsdatumBox(sectionMarkup(OHNE_DATUM), "trainer");
+
+    assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
+  });
+
+  /* THE defect: a seat whose person has not confirmed holds no date, the payload required one, and the
+     submit guard refused a body no administrator could repair — so the Kenntnisnahme, the address and
+     every other field on that seat were unsaveable with it. */
+  it("saves a seat whose birthdate is null", () => {
+    const payload = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload(OHNE_DATUM),
+      kontakte_stand: "9f2c",
+    };
+
+    assert.deepEqual(Object.keys(payload.kontakte?.trainer ?? {}).sort(), ["einwilligung", "email", "nachname", "telefon", "vorname"]);
+    assert.ok(FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload).success, "an unconfirmed seat cannot be saved at all");
+    assert.equal(describeUnrestorableKontakte(payload), null, "the undo is withheld over a seat nobody has confirmed");
+  });
+});

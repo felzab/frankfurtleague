@@ -47,6 +47,12 @@ import type { KontakteBanner } from "./banners";
 const NOCH_OFFEN = "Noch offen";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
+/**
+ * Names WHO fills it rather than reporting that nobody has: `NOCH_OFFEN` on a read-only box reads as
+ * a field the administrator is expected to get round to.
+ */
+const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
+
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
@@ -378,16 +384,15 @@ function KontaktpersonInputs({
       </div>
 
       <div className={FIELD_PAIR}>
-        <KontaktDatePicker
-          name={`kontakte.${rolle}.geburtsdatum`}
-          path={`kontakte.${rolle}`}
-          isReadOnly={isMirrored}
-          label="Geburtsdatum"
-          calendarLabel={`${label}: Geburtsdatum auswählen`}
-          value={person.geburtsdatum ?? ""}
-          onChange={(next) => onChange({ ...person, geburtsdatum: next })}
-          onFieldLeft={onFieldLeft}
-        />
+        {/* Read out and never picked: the date is the person's own to enter at their confirmation, and
+            the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
+        <TextField
+          isReadOnly
+          value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
+          onChange={() => undefined}>
+          <FieldLabel path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
+          <Input className={FIELD_INPUT} />
+        </TextField>
       </div>
 
       <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">

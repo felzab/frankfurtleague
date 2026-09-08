@@ -13,6 +13,7 @@ from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
+    FLKontaktpersonPayload,
     FLPatchSaisonTeamKontaktePayload,
     FLSaisonTeamKontakte,
     FLTeamMembership,
@@ -55,15 +56,19 @@ CONFIRMED_ON = "2026-03-15"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
+# On no payload: each person types their own on their confirmation page, so a seat only ever holds a
+# date the server carried over from the row.
+GEBURTSDATUM = "1990-05-17"
+
+
 def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
-    """One person as the editor SENDS them: the consent names its scope, wording and day, and no source or stamp."""
+    """One person as the editor SENDS them: the consent names its scope, wording and day, and no source, stamp or birthdate."""
 
     return {
         "vorname": vorname,
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": "+4915112345678",
-        "geburtsdatum": "1990-05-17",
         "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-03-01"},
     }
 
@@ -71,27 +76,44 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
 def stored_person(
     vorname: str, *, email: str | None = None, erfasst_von: str = "administrativ", bestaetigt_am: str | None = None
 ) -> dict[str, Any]:
-    """The same person as a row HOLDS them, provenance included."""
+    """The same person as a row HOLDS them, provenance and birthdate included."""
 
     sent = person(vorname, email=email)
 
-    return {**sent, "einwilligung": {**sent["einwilligung"], "erfasst_von": erfasst_von, "bestaetigt_am": bestaetigt_am}}
+    return {
+        **sent,
+        "geburtsdatum": GEBURTSDATUM,
+        "einwilligung": {**sent["einwilligung"], "erfasst_von": erfasst_von, "bestaetigt_am": bestaetigt_am},
+    }
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
-    """What the endpoint writes from a payload whose seats nobody has confirmed."""
+    """What the endpoint writes from a payload whose seats no row already holds."""
 
     return {
-        seat: {**value, "einwilligung": {**value["einwilligung"], **UNCONFIRMED_HERKUNFT}} if isinstance(value, dict) else value
+        seat: (
+            {**value, "geburtsdatum": None, "einwilligung": {**value["einwilligung"], **UNCONFIRMED_HERKUNFT}}
+            if isinstance(value, dict)
+            else value
+        )
         for seat, value in kontakte.items()
     }
 
 
-# The shape every row held before the stamp existed: `person` on each seat, and no stamp key at all.
+# The shape every row held before the stamp existed: a dated `person` on each seat, and no stamp key
+# at all.
 SEEDED_KONTAKTE: dict[str, Any] = {
-    "trainer": {**person("Ida"), "einwilligung": {**person("Ida")["einwilligung"], "erfasst_von": "person"}},
-    "ansprechperson": {**person("Jonas"), "einwilligung": {**person("Jonas")["einwilligung"], "erfasst_von": "person"}},
-    "stellvertretung": {**person("Klara"), "einwilligung": {**person("Klara")["einwilligung"], "erfasst_von": "person"}},
+    "trainer": {**person("Ida"), "geburtsdatum": GEBURTSDATUM, "einwilligung": {**person("Ida")["einwilligung"], "erfasst_von": "person"}},
+    "ansprechperson": {
+        **person("Jonas"),
+        "geburtsdatum": GEBURTSDATUM,
+        "einwilligung": {**person("Jonas")["einwilligung"], "erfasst_von": "person"},
+    },
+    "stellvertretung": {
+        **person("Klara"),
+        "geburtsdatum": GEBURTSDATUM,
+        "einwilligung": {**person("Klara")["einwilligung"], "erfasst_von": "person"},
+    },
     "trainer_ist_zugleich": None,
 }
 
@@ -125,6 +147,13 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "ansprechperson": person("Jonas"),
     "stellvertretung": person("Klara"),
     "trainer_ist_zugleich": None,
+}
+
+# The same three seats before any of them answered their own link: the state ruling 274's read-only
+# control shows, and the one the payload had made unsaveable.
+UNDATED_SEEDED: dict[str, Any] = {
+    **SEEDED_KONTAKTE,
+    **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
 }
 
 ERASED_SEAT = "ansprechperson"
@@ -296,6 +325,9 @@ class TestTheProvenanceIsTheServers:
         trainer = stored["kontakte"]["trainer"]
         assert trainer["vorname"] == "Ida-Marie"
         assert (trainer["einwilligung"]["erfasst_von"], trainer["einwilligung"]["bestaetigt_am"]) == ("person", CONFIRMED_ON)
+        # The date goes the same way, and by the same route: the payload names none, so a save that
+        # did not carry it over would leave a stamped seat with no birthdate at all (I141).
+        assert trainer["geburtsdatum"] == GEBURTSDATUM
         assert response.kontakte is not None and response.kontakte.trainer is not None
         assert response.kontakte.trainer.einwilligung.bestaetigt_am == CONFIRMED_ON
 
@@ -328,6 +360,8 @@ class TestTheProvenanceIsTheServers:
         stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         assert stored["kontakte"]["trainer"]["einwilligung"] == {**person("Ida")["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        # And the date with it: it is a fact about the person, and this seat now holds another one.
+        assert stored["kontakte"]["trainer"]["geburtsdatum"] is None
 
     def test_a_row_stored_before_the_stamp_is_written_as_unconfirmed(self, mongo_replica_set_url: str):
         """`person` with no stamp is the shape every row held before the stamp existed, and it is not a confirmation."""
@@ -457,7 +491,9 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored["kontakte"][ERASED_SEAT] == as_stored(RESAVED_AS_RENDERED)[ERASED_SEAT]
+        # The seeded row's own date rides along: the address is the same person's, and the payload
+        # names none for the composition to prefer.
+        assert stored["kontakte"][ERASED_SEAT] == {**as_stored(RESAVED_AS_RENDERED)[ERASED_SEAT], "geburtsdatum": GEBURTSDATUM}
 
 
 @pytest.mark.db
@@ -514,7 +550,7 @@ class TestTheReadsTokenIsWhatTheWriteAccepts:
 
 
 class TestWhatThePayloadRefuses:
-    """The two provenance fields are on no payload: a field the editor merely hid would still be a route an API caller has."""
+    """The provenance and the birthdate are on no payload: a field the editor merely hid would still be a route an API caller has."""
 
     @pytest.mark.parametrize(("field", "value"), [("erfasst_von", "person"), ("bestaetigt_am", CONFIRMED_ON)])
     def test_a_consent_naming_its_source_or_its_stamp_is_refused(self, field: str, value: str):
@@ -522,6 +558,15 @@ class TestWhatThePayloadRefuses:
             FLKontaktKenntnisnahmePayload.model_validate({**person("Ida")["einwilligung"], field: value})
 
         assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", field)]
+
+    @pytest.mark.parametrize("value", [pytest.param(GEBURTSDATUM, id="an adult's"), pytest.param("2015-01-01", id="a ten-year-old's")])
+    def test_a_seat_naming_a_birthdate_is_refused_whatever_the_date(self, value: str):
+        """Refused rather than bounded: an age floor here would still let an administrator enter a date the person alone may give."""
+
+        with pytest.raises(ValidationError) as failure:
+            FLKontaktpersonPayload.model_validate({**person("Ida"), "geburtsdatum": value})
+
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
 
     def test_the_whole_block_is_refused_on_one_seats_source(self):
         """Through the endpoint's own payload, so the refusal reaches the wire as a 422 rather than a stored claim."""
@@ -560,6 +605,7 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed is not None
         assert composed["trainer"]["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
@@ -572,6 +618,83 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed is not None
         assert composed["trainer_ist_zugleich"] == "ansprechperson"
+
+
+class TestTheDateRidesWithTheAddress:
+    """The pure half of ruling 274: the payload names no birthdate, so a save can only carry the row's own forward.
+
+    Keyed on the ADDRESS and not on the stamp beside it, the two answering different questions -- whose
+    record this is, and on whose word it is held.
+    """
+
+    def test_the_stored_date_is_carried_forward_for_the_same_address(self):
+        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
+
+        assert composed is not None
+        assert [composed[slot]["geburtsdatum"] for slot in ("trainer", "ansprechperson", "stellvertretung")] == [GEBURTSDATUM] * 3
+
+    def test_a_seat_handed_to_another_address_holds_no_date(self):
+        handed = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="another.ida@example.com")}
+        composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
+
+        assert composed is not None
+        assert composed["trainer"]["geburtsdatum"] is None
+
+    def test_a_date_under_no_stamp_survives_an_edit_to_the_seat(self):
+        """Every seat entered through this editor before the payload dropped the field: a date with no confirmation beside it.
+
+        Nulling one here would destroy it as a side effect of an edit to the telephone number, and
+        clearing them at all is a migration rather than a save.
+        """
+
+        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
+
+        assert composed is not None
+        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the seed is confirmed, so this case proves nothing"
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
+
+    def test_a_stored_blank_is_carried_forward_as_the_null_every_read_answers(self):
+        """Written back as it stands, the blank would be a value no reader can see and no token can tell from null."""
+
+        blank = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], "geburtsdatum": ""}}
+        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=blank)
+
+        assert composed is not None
+        assert composed["trainer"]["geburtsdatum"] is None
+
+    def test_every_seat_answers_the_key_whether_the_row_held_one_or_not(self):
+        """Spelled null rather than omitted, as the submission spells it: a missing key is a shape only some readers project."""
+
+        composed = compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=None)
+
+        assert composed is not None
+        for slot in ("trainer", "ansprechperson", "stellvertretung"):
+            assert "geburtsdatum" in composed[slot] and composed[slot]["geburtsdatum"] is None
+
+
+@pytest.mark.db
+class TestASeatNobodyHasConfirmedIsStillSaveable:
+    """The defect ruling 274 closes: the payload required a date the row does not hold, so the block was unsaveable whole.
+
+    Every field of the seat rides that one payload, so an unconfirmed seat's address, telephone number
+    and Kenntnisnahme were unsaveable with the date -- and the editor's own guard refused a body at a
+    path no administrator could legitimately fill.
+    """
+
+    def test_a_row_whose_seats_hold_no_date_takes_an_edit(self, mongo_replica_set_url: str):
+        renamed = {**RESAVED_AS_RENDERED, "trainer": person("Ida-Marie", email=str(RESAVED_AS_RENDERED["trainer"]["email"]))}
+
+        async def body(database: AsyncDatabase) -> Any:
+            response = await write_kontakte(database, renamed, stand=kontakte_stand_of(UNDATED_SEEDED))
+
+            return response, await row_now(database)
+
+        response, stored = on_a_league(mongo_replica_set_url, body, seeded=UNDATED_SEEDED)
+
+        assert stored["kontakte"]["trainer"]["vorname"] == "Ida-Marie"
+        assert stored["kontakte"]["trainer"]["geburtsdatum"] is None
+        assert response.kontakte is not None and response.kontakte.trainer is not None
+        assert response.kontakte.trainer.geburtsdatum is None
 
 
 class TestTheTokenNamesWhatTheEditorWasServed:

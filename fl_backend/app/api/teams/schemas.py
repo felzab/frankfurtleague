@@ -236,7 +236,8 @@ class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
 
 
 # Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
-# Pydantic cannot un-inherit a field: the application's payload takes no birthdate, so none is here.
+# Pydantic cannot un-inherit a field: no payload takes a birthdate, so none is here, and the two
+# below differ on the consent shape alone.
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -257,9 +258,9 @@ class _KontaktpersonWritablePayload(BaseModel):
 
 
 class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
-    # Required where the stored shape is nullable: the editor collects a whole person, and the one
-    # payload that takes no date is the application's (`docs/backend/spec.md :: I141`).
-    geburtsdatum: CustomDateString
+    # No birthdate, as the application's payload carries none: the date is the person's own to enter
+    # at their confirmation, where the age floor judges it, and a payload able to spell one is how an
+    # administrator's reaches it instead (`docs/backend/spec.md :: I141`).
     einwilligung: FLKontaktKenntnisnahmePayload
 
 

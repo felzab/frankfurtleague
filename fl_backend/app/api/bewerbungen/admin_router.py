@@ -30,9 +30,10 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.teams.services import find_club_entry_refusal, find_entry_refusal
+from app.api.teams.crud import refuse_a_full_gruppe
+from app.api.teams.services import find_club_entry_refusal
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -142,27 +143,19 @@ async def annehmen_bewerbung(
             # field is composed twice and differently.
             name, shorthand = new_club["name"], new_club["shorthand"]
 
-        occupied_rows = await pull_many_from_db(
-            collection=saison_teams_collection,
-            db_filter={"saison_id": saison_id, "gruppe": annahme_data.gruppe},
-            projection=["_id"],
+        # The helper rather than `find_entry_refusal` directly: the count it takes is a read, which no
+        # snapshot re-validates, so the group's capacity holds only where the season is written inside
+        # this transaction too.
+        await refuse_a_full_gruppe(
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            saison_id=saison_id,
+            gruppe=annahme_data.gruppe,
+            saison_status=str(saison_raw["status"]),
+            # Validated, not read raw: a season missing the capacity keys fails here rather than
+            # admitting a school against a bound nobody chose.
+            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
-        )
-
-        # REUSED, never restated: `REQ-ENTER-001` through `-003` are the season's own entry rules,
-        # and a second copy of them here would be the copy that drifts.
-        refuse(
-            find_entry_refusal(
-                saison_status=str(saison_raw["status"]),
-                gruppe=annahme_data.gruppe,
-                # Validated, not read raw: a season missing the capacity keys fails here rather than
-                # admitting a school against a bound nobody chose.
-                rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-                # The transaction does not close the cap this count feeds: two acceptances at once
-                # both pass it and contend on no shared document, which is declared rather than
-                # refused at `app/core/domain.py :: UNENFORCED`.
-                occupied=len(occupied_rows),
-            )
         )
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.

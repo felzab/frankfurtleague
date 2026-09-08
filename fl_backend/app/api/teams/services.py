@@ -841,19 +841,31 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
 
 
+def _seat_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
+    """The stored seat where it names the address being written, else `None`.
+
+    The mailbox and never the slot's position, on the erasure's case-insensitive terms
+    (`app/api/kontakte/services.py :: find_matching_slots`): the address IS the person here, so a seat
+    handed to another one carries nothing of whoever sat in it.
+    """
+
+    if not isinstance(stored_slot, Mapping):
+        return None
+
+    if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
+        return None
+
+    return stored_slot
+
+
 def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
     """The stored provenance where this slot holds a confirmation from the address being written, else `None`."""
 
-    if not isinstance(stored_slot, Mapping) or not isinstance(einwilligung := stored_slot.get("einwilligung"), Mapping):
+    held = _seat_held_by(stored_slot, email=email)
+    if held is None or not isinstance(einwilligung := held.get("einwilligung"), Mapping):
         return None
 
     if einwilligung.get("bestaetigt_am") is None:
-        return None
-
-    # The mailbox and never the seat, on the erasure's case-insensitive terms
-    # (`app/api/kontakte/services.py :: find_matching_slots`): a confirmation is what one address's
-    # owner clicked, so a seat handed to another address starts unconfirmed.
-    if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
         return None
 
     # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
@@ -861,11 +873,30 @@ def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] 
     return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
+def _geburtsdatum_held_by(stored_slot: Any, *, email: Any) -> str | None:
+    """The date this address already sits behind, or `None`.
+
+    Keyed on the address alone and never on the confirmation beside it: a seat can hold a date under
+    no stamp, one this save may not invent again, and nulling it here would destroy it as a side
+    effect of an edit to the telephone number. Clearing those is a migration rather than a save.
+    """
+
+    held = _seat_held_by(stored_slot, email=email)
+    if held is None:
+        return None
+
+    # A stored blank is a date every read already answers as none
+    # (`app/api/teams/schemas.py :: _project_seat`), so writing it back would keep a value no reader
+    # can see and no token can tell from null.
+    return str(held.get("geburtsdatum")) if held.get("geburtsdatum") else None
+
+
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's provenance, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
+    """Each seat's provenance and its birthdate, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
 
     A confirmed seat keeps its stamp through an edit; every other seat is recorded as entered on
-    somebody's behalf.
+    somebody's behalf. The date rides with the ADDRESS rather than with the stamp, the two answering
+    different questions: whose record this is, and on whose word it is held.
     """
 
     if kontakte is None:
@@ -879,8 +910,13 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if not isinstance(seat, Mapping):
             continue
 
-        herkunft = _confirmation_held_by(stored_block.get(slot), email=seat.get("email")) or UNCONFIRMED_HERKUNFT
-        composed[slot] = {**seat, "einwilligung": {**seat["einwilligung"], **herkunft}}
+        stored_slot = stored_block.get(slot)
+        herkunft = _confirmation_held_by(stored_slot, email=seat.get("email")) or UNCONFIRMED_HERKUNFT
+        composed[slot] = {
+            **seat,
+            "geburtsdatum": _geburtsdatum_held_by(stored_slot, email=seat.get("email")),
+            "einwilligung": {**seat["einwilligung"], **herkunft},
+        }
 
     return composed
 
