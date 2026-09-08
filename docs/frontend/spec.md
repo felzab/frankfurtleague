@@ -1263,6 +1263,12 @@ holds whether a conditional block renders or not
   is §1.12's.
 - **A hint rides in its control's own cell**, so a two-up row keeps each sentence under its own box
   and the neighbour may carry none.
+- **A picker always carries the value the record holds** — at its place in the order and closed with
+  whichever rule shuts it, so a stored value reads as a statement rather than an offer
+  (`fl_frontend/src/features/saisons/shapeOffer.ts :: countOptions`,
+  `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx`), swept
+  by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: keeps a stored count the universe does not carry`
+  and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/herkunftPick.test.ts :: keeps the stored placing on screen while it is closed`.
 - **A link inside text is `textLink`** (I43, I78, I79). A standalone action is a `ctaButton` link
   (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
   it sits on), never a text link; a whole box is pressable only as `card({ interactive: true })`
