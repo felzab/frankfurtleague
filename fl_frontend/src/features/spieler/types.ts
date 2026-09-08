@@ -96,6 +96,12 @@ export type SpielerTeamOption = {
    * a role the write path would refuse.
    */
   heldRollen?: Partial<Record<FLSpielerRolle, string>>;
+  /**
+   * **Absent means UNKNOWN and refuses nothing**, the opposite default to `heldRollen`: a write the
+   * endpoint may take stays on offer. Set, this team is at the season's `max_kadergroesse` bar the
+   * edited player's own row (`REQ-SQUAD-003`).
+   */
+  isSquadFull?: boolean;
 };
 
 /**

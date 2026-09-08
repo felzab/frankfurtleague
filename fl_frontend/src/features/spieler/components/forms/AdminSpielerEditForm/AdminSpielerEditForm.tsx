@@ -159,8 +159,10 @@ export function AdminSpielerEditForm({
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
 
-  // Read off the DRAFT's team: moving the picker moves who already leads.
+  // Read off the DRAFT's team: moving the picker moves who already leads, and moves which squad the
+  // save would be admitted to.
   const heldRollen = teams.find((team) => team.teamId === teamId)?.heldRollen ?? {};
+  const isSquadFull = teams.find((team) => team.teamId === teamId)?.isSquadFull === true;
   const heldBy = rolle === null ? undefined : heldRollen[rolle];
   // Only where SOMEBODY ELSE holds it. The current holder keeps the control so they can give it up.
   const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
@@ -181,6 +183,7 @@ export function AdminSpielerEditForm({
     isRowTeamInSaison,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
+    isSquadFull,
     blockedRolle,
   });
 

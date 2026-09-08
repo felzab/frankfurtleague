@@ -7,6 +7,7 @@ import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/Ad
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { orderStufen, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
+import { countLiveSquadRows } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -91,6 +92,19 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
 
   const teamById = new Map(teamsRes.teams.map((team) => [team.id, team]));
 
+  // Folded here and never in the table, which is handed a searched and faceted list: a count taken
+  // there would shrink as the admin types. No writer is named, the control it answers rendering on
+  // a retired row alone.
+  const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaisonId, exceptSpielerId: null });
+  // Absent where an id names no season, which refuses nothing: a squad nobody can count keeps the
+  // reactivate on offer rather than losing it to a cap the page cannot read.
+  const maxKadergroesse = saisons.find((saison) => saison.id === selectedSaisonId)?.rules.max_kadergroesse ?? null;
+
+  const saisonTeams: SpielerTeamOption[] = teamsInSaison(teamsRes.teams, selectedSaisonId).map((team) => ({
+    ...team,
+    isSquadFull: maxKadergroesse !== null && (liveSquadRows[team.teamId] ?? 0) >= maxKadergroesse,
+  }));
+
   const rows: AdminSpielerRow[] = membershipsRes.spieler.map((spieler) => {
     const selected = spieler.memberships.find((membership) => membership.saison_id === selectedSaisonId) ?? null;
     const team = selected === null ? undefined : teamById.get(selected.team_id);
@@ -124,10 +138,10 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   return (
     <AdminSpielerView
       spieler={rows}
-      // The facet's options and the gate on the row reactivate both read this: a filter naming
+      // The facet's options and both gates on the row reactivate read this: a filter naming
       // another season's club narrows to nothing, and a wider list would offer a reactivate
       // `REQ-SQUAD-001` refuses.
-      teams={teamsInSaison(teamsRes.teams, selectedSaisonId)}
+      teams={saisonTeams}
       selectedSaisonId={selectedSaisonId}
     />
   );

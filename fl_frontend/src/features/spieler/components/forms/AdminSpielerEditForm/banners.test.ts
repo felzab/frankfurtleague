@@ -17,6 +17,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isRowTeamInSaison: true,
     isNachgetragen: false,
     isTeamChanged: false,
+    isSquadFull: false,
     blockedRolle: null,
     ...overrides,
   });
@@ -97,6 +98,19 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.body, "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
   });
 
+  /* Both sides of the cap, because an id list asserted at the cap alone reads the same for a banner
+     that stands over every squad. `info`, so the save dialog never asks about a press it cannot let
+     through. */
+  it("raises the full squad at the cap and not below it, and names both ways out", () => {
+    const raised = build({ isSquadFull: true });
+
+    assert.deepEqual(ids(raised), ["spieler.kader-voll"]);
+    assert.deepEqual(ids(build({ isSquadFull: false })), [], "the banner stands over a squad that still has room");
+    assert.equal(raised[0]?.severity, "info");
+    assert.match(raised[0]?.body ?? "", /Trage dort zuerst einen Spieler aus/, "the nearer repair is gone");
+    assert.match(raised[0]?.body ?? "", /Saisonregeln/, "the reader is left with one way out where the season's rules are the other");
+  });
+
   it("names the role and its holder where the draft team has already given it away", () => {
     const banners = build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } });
 
@@ -125,6 +139,7 @@ describe("buildSpielerBanners", () => {
       ...build({ isRetired: true }),
       ...build({ isMember: false, saisonStatus: "active" }),
       ...build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false }),
+      ...build({ isSquadFull: true }),
     ];
 
     for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);

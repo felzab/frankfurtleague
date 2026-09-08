@@ -8,6 +8,7 @@ import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import {
   ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   NUMMER_MAX_LENGTH,
   NUMMER_MUST_BE_DIGITS,
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
@@ -38,6 +39,12 @@ const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "coll
 );
 /** The page that hands the panel its figures, collapsed for the same reason. */
 const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "[spieler_id]", "page.tsx"), "utf8").replace(
+  /\s+/g,
+  " ",
+);
+
+/** The list page, which folds the squad counts the table must not fold. Collapsed for the same reason. */
+const LIST_PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "page.tsx"), "utf8").replace(
   /\s+/g,
   " ",
 );
@@ -332,8 +339,13 @@ describe("the reactivate's gate on the list", () => {
     );
   });
 
-  it("gates the squad row's restore on it", () => {
-    assert.ok(rowActionSlice("Kadereintrag reaktivieren").includes("disabledReason={rowBlockedReason}"), "the row action is offered ungated");
+  /* Both refusals reach one control, in the endpoint's own order: `REQ-SQUAD-001` is asked first
+     there, a full squad being no fact worth reporting about a club the season does not hold. */
+  it("gates the squad row's restore on it, ahead of the cap", () => {
+    assert.ok(
+      rowActionSlice("Kadereintrag reaktivieren").includes("disabledReason={rowBlockedReason ?? rowSquadFullReason}"),
+      "the row action is offered ungated, or the two refusals reach it in the wrong order",
+    );
   });
 
   /* `stilllegen` and `austragen` are two subjects, and `POST /spieler/{id}/reactivate` refuses
@@ -347,6 +359,45 @@ describe("the reactivate's gate on the list", () => {
   it("says the refusal where the list's reader stands", () => {
     assert.notEqual(LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON, "the list borrowed the editor's sentence");
     assert.ok(!LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON.includes("oben"), "the list's sentence points at a place the list does not have");
+  });
+});
+
+describe("REQ-SQUAD-003 before the press", () => {
+  /* The editor offers the pick and then refuses the save, so the banner has to name the team the
+     DRAFT is on: keyed off the stored one it would go on standing through a transfer out of the
+     full squad. */
+  it("keys the editor's banner on the draft team, off a count the page took", () => {
+    assert.match(
+      EDIT_FORM,
+      /const isSquadFull = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.isSquadFull === true;/,
+      "the banner is derived from something other than the draft team's own answer",
+    );
+    assert.match(PAGE, /countLiveSquadRows\(\{/, "the page stopped supplying what the cap is judged against");
+  });
+
+  /* The table is handed `filteredSpieler`, so a count folded there would shrink under a search and
+     report room in a squad the endpoint refuses. */
+  it("folds the list's counts on the page, where no search has narrowed the memberships", () => {
+    assert.match(LIST_PAGE, /countLiveSquadRows\(\{/, "the list page stopped counting the season's live squad rows");
+    assert.ok(!TABLE.includes("countLiveSquadRows"), "the count moved into the component that only ever sees a filtered list");
+  });
+
+  /* The row's own club and no other: the count is per squad, and a gate reading the season's cap
+     against some other club's tally would refuse a return the endpoint takes. */
+  it("derives the list's cap gate from the row's stored club", () => {
+    assert.match(
+      TABLE,
+      /const rowSquadFullReason = saisonTeams\.find\(\(team\) => team\.teamId === row\?\.team_id\)\?\.isSquadFull === true \? LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
+      "the cap gate is derived from something other than the row's own club",
+    );
+  });
+
+  /* Two ways out and the list reaches neither: the reader is a page away from the squad and further
+     from the season's rules, so a sentence naming one of them strands them at the other. */
+  it("names both ways out of a full squad", () => {
+    assert.match(LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD, /Trage dort zuerst einen anderen Spieler aus/);
+    assert.match(LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD, /maximale Kadergröße in den Saisonregeln/);
+    assert.ok(!LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD.includes("oben"), "the list's sentence points at a place the list does not have");
   });
 });
 

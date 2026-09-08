@@ -97,3 +97,12 @@ export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
   "Das Team dieses Kadereintrags ist in dieser Saison nicht mehr dabei. Bearbeite den Spieler und weise den Eintrag " +
   "im Bereich „Kader“ einem Team dieser Saison zu.";
+
+/**
+ * `REQ-SQUAD-003` for the same reader as the sibling above. It opens on the sentence `actions.ts`
+ * toasts for the code, so a press that got past a stale gate reads as the state this control
+ * already showed.
+ */
+export const LIST_REACTIVATION_NEEDS_ROOM_IN_SQUAD =
+  "Der Kader dieses Teams ist für diese Saison voll. Trage dort zuerst einen anderen Spieler aus oder erhöhe die " +
+  "maximale Kadergröße in den Saisonregeln.";

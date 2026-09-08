@@ -11,6 +11,7 @@ type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
+  | "spieler.kader-voll"
   | "spieler.rolle-vergeben";
 
 type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
@@ -27,6 +28,7 @@ export function buildSpielerBanners({
   isRowTeamInSaison,
   isNachgetragen,
   isTeamChanged,
+  isSquadFull,
   blockedRolle,
 }: {
   isRetired: boolean;
@@ -39,6 +41,8 @@ export function buildSpielerBanners({
   isRowTeamInSaison: boolean;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
+  /** Whether the DRAFT's team is at the season's `max_kadergroesse`, read off the draft as `blockedRolle` is. */
+  isSquadFull: boolean;
   /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
   blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
@@ -121,6 +125,23 @@ export function buildSpielerBanners({
       raisedBy: "change",
       title: "Teamwechsel wirkt sofort",
       body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
+      inline: null,
+    });
+  }
+
+  // Above the role, the order all three write paths ask the two questions in
+  // (`fl_backend/app/api/spieler/admin_router.py :: _refuse_a_full_squad`).
+  if (isSquadFull) {
+    banners.push({
+      id: "spieler.kader-voll",
+      // A standing situation rather than this save's doing — the squad was full before the picker
+      // moved — which is also what keeps a press the endpoint refuses out of the save dialog.
+      severity: "info",
+      raisedBy: "state",
+      title: "Der Kader des gewählten Teams ist voll",
+      body: "Trage dort zuerst einen Spieler aus oder erhöhe die maximale Kadergröße in den Saisonregeln.",
+      // Rail-only, as the transfer's is: no spot stands beside the team picker, and the entry spot
+      // below is rendered in one branch alone where this banner is raised in both.
       inline: null,
     });
   }
