@@ -208,17 +208,6 @@ describe("what the erasure moves", () => {
     assert.ok(!/\$\{[^}]*\}/.test(ERASE_MUTATION), "the endpoint interpolates a value into the path");
   });
 
-  /* The admin tier is what `apiClient` sends `X-FL-Actor` on, so any other tier is refused 401 and
-     unattributable both. What is asserted is the tier every write DECLARES; a call would report one
-     request's outcome rather than the set. */
-  it("leaves at the admin tier and at no other", () => {
-    // Every request the module makes, not the writes alone: the reveal's read serves contact records
-    // too, and one sent at any other tier is refused 401 and unattributable both.
-    const tiers = [...MUTATIONS.matchAll(/authType: "(\w+)"/g)].map((match) => match[1]);
-
-    assert.deepEqual(tiers, ["admin", "admin", "admin"], `the module's requests are sent at: ${tiers.join(", ") || "no tier at all"}`);
-  });
-
   /* The response carries counts and no person, and nothing on this side may put one back. */
   it("reports counts and never the address", () => {
     assert.ok(!RESPONSE_SCHEMA.includes("email"), "the response mirror carries an address the endpoint withholds");

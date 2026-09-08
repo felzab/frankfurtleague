@@ -800,15 +800,8 @@ describe("the re-sent confirmation link", () => {
     }
   });
 
-  /* Both the application and the seat travel in the path, and the tier is `admin`: over-declaring a
-     tier fails loudly, while under-declaring one sends an admin write out unattributed. */
   it("addresses its own endpoint, with the seat in the path", () => {
     assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/einwilligung\/\$\{rolle\}\/erneut`/, "the re-send no longer addresses its own endpoint");
-    assert.match(
-      MUTATIONS,
-      /erneut`,\s*FLBewerbungEinwilligungErneutResponseSchema,\s*\{\s*method: "POST",\s*authType: "admin",/,
-      "the re-send is sent as something other than an admin-tier POST",
-    );
   });
 
   /* The token is minted and the deadline moved by the time the message is composed, so the read that

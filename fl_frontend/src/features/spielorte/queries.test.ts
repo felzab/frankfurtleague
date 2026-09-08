@@ -6,15 +6,15 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-/** Both reference reads, because the tier decision that moved them is one decision, not two. */
+/** Both reference reads, because the cache refusal covering them is one decision, not two. */
 const SPIELORTE_QUERIES = path.join(import.meta.dirname, "queries.ts");
 const SCHIEDSRICHTER_QUERIES = path.resolve(import.meta.dirname, "..", "schiedsrichter", "queries.ts");
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
 
-/** What the doubled client was asked for, and on what terms. */
-type RecordedCall = { endpoint: string; options: { authType?: string } };
+/** What the doubled client was asked for. */
+type RecordedCall = { endpoint: string };
 
 const calls: RecordedCall[] = [];
 const RECORDER = "__flReferenceReadCalls";
@@ -22,8 +22,8 @@ const RECORDER = "__flReferenceReadCalls";
 
 // Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.${RECORDER}.push({ endpoint, options });
+const API_DOUBLE = `export const apiClient = async (endpoint) => {
+  globalThis.${RECORDER}.push({ endpoint });
   return {};
 };`;
 
@@ -41,14 +41,6 @@ registerHooks({
 
 const { getSpielorte } = await import("./queries.ts");
 const { getSchiedsrichter } = await import("../schiedsrichter/queries.ts");
-
-/** The one call `endpoint` drew, failing rather than returning `undefined` if it drew none. */
-function callTo(endpoint: string): RecordedCall {
-  const matching = calls.filter((call) => call.endpoint === endpoint);
-  assert.equal(matching.length, 1, `expected exactly one call to ${endpoint}, saw ${matching.length}`);
-
-  return matching[0]!;
-}
 
 /**
  * Every directive prologue in `file`, which is where a `"use cache"` would sit.
@@ -91,14 +83,6 @@ describe("the two admin-tier reference reads", () => {
       calls.map((call) => call.endpoint),
       ["/spielorte", "/schiedsrichter"],
     );
-  });
-
-  it("asks for the venue list under the admin key, which is the only one the backend answers it on", () => {
-    assert.equal(callTo("/spielorte").options.authType, "admin");
-  });
-
-  it("asks for the referee list under the admin key, which is the only one the backend answers it on", () => {
-    assert.equal(callTo("/schiedsrichter").options.authType, "admin");
   });
 
   it('caches neither, because `"use cache"` keys on arguments and would make one admin read a shared slot', () => {

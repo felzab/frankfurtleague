@@ -114,7 +114,6 @@ deliverable.
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
-| `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
@@ -1777,46 +1776,6 @@ version it was written against.
 **Done when** the clause's first half reads as I57 does, and the stylesheet's toast comment, the
 block opening `THE TOAST, deliberately small:` and the one over-bound block in that file no pass has
 yet read, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
-
-### `ja32-9rpv` · A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
-
-| Tags                                                  | Status | Depends on |
-| ----------------------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, kontakte, spielorte | Open   | —          |
-
-**`fl_frontend/src/core/api.ts :: apiClient` takes the key tier as an option and defaults it to
-`base`, so a call naming no `authType` is authorized as the public app.** `getFetchHeaders` puts the
-base key on the request, and the actor header rides on the admin tier alone, so an omission also
-sends the call unattributed.
-
-**The omitting direction is loud.** An admin router is guarded whole by
-`fl_backend/app/core/security.py :: verify_access_admin`, so a base key reaching one is refused with
-`REQ-AUTH-004` and the read or the write fails outright rather than succeeding under-authorized, and
-`fl_backend/tests/api/test_admin_guard.py` holds that backend half by comparing guards by identity.
-**Nothing ships silently broken in this direction**: the cost of an omission is a failure an
-administrator meets, not data reaching somebody it should not.
-
-**The over-declaring direction is the silent one.** `authType: "admin"` on a call a public route
-would have answered succeeds exactly as the narrower tier would, and the only differences are the
-admin key on the wire and the actor header attached to a read that needed neither. Nothing reads a
-call site to say its tier is wider than the route requires, and `.claude/rules/frontend.md`'s ban on
-caching an admin-scoped read makes the tier a decision with consequences past authorization.
-
-**What exists is per-slice and hand-written.** `fl_frontend/src/features/bewerbungen/queries.test.ts`
-and `fl_frontend/src/features/spielorte/queries.test.ts` each assert the tier on a recorded call, and
-`fl_frontend/src/features/kontakte/actions.test.ts` matches `authType:` in its own mutations source;
-every other feature's queries and mutations declare their tiers with nothing reading them, measured
-2026-08-28. The two audit prompts that pair the halves end to end —
-`docs/_auditing/prompts/crosscut/1-contracts-and-seams.md` and
-`docs/_auditing/prompts/frontend/4-security.md` — do it by reading, on a schedule.
-
-**Done when** the decision is taken: whether a mechanical pairing is worth building against a failure
-mode that is loud in one direction and, in the other, costs a wider key on a request that would have
-succeeded anyway. **What makes a mechanical pairing non-trivial is that neither side publishes the
-tier** — `fl_backend/openapi.json` describes one `HTTPBearer` scheme and marks an operation as
-needing a bearer token or not, where which key it wants is a router-level dependency the document
-does not carry — so a check would have to derive the backend half from the routers themselves and the
-frontend half from the call sites, and **that derivation, not the comparison, is the work**.
 
 ### `jcs8-4ste` · An in-transaction read's session argument is held to its comment by nothing
 

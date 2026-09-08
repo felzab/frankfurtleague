@@ -8,14 +8,14 @@ import ts from "typescript";
 
 import { APIBadStatusError } from "@/core/errors";
 
-/** Every read in the module: the tier decision covering the triage's two is one decision, not two. */
+/** Every read in the module: the cache refusal covering the triage's two is one decision, not two. */
 const BEWERBUNGEN_QUERIES = path.join(import.meta.dirname, "queries.ts");
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
 
-/** What the doubled client was asked for, and on what terms. */
-type RecordedCall = { endpoint: string; options: { authType?: string } };
+/** What the doubled client was asked for. */
+type RecordedCall = { endpoint: string };
 
 const calls: RecordedCall[] = [];
 const RECORDER = "__flBewerbungReadCalls";
@@ -26,8 +26,8 @@ const THROWER = "__flBewerbungReadFailure";
 
 // Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.${RECORDER}.push({ endpoint, options });
+const API_DOUBLE = `export const apiClient = async (endpoint) => {
+  globalThis.${RECORDER}.push({ endpoint });
   const failure = globalThis.${THROWER};
   if (failure) throw failure;
   return {};
@@ -49,8 +49,8 @@ const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerz
   await import("./queries.ts");
 
 /**
- * Runs `read` against a client that throws, and leaves `calls` as it found it: `callTo` below asserts
- * a single call per endpoint, and a case that failed on purpose must not be counted as a second one.
+ * Runs `read` against a client that throws, and leaves `calls` as it found it: the cases below
+ * compare the recorded endpoints exactly, and a call that failed on purpose is not one of them.
  */
 async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
   const before = calls.length;
@@ -62,14 +62,6 @@ async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
     (globalThis as unknown as Record<string, unknown>)[THROWER] = undefined;
     calls.length = before;
   }
-}
-
-/** The one call `endpoint` drew, failing rather than returning `undefined` if it drew none. */
-function callTo(endpoint: string): RecordedCall {
-  const matching = calls.filter((call) => call.endpoint === endpoint);
-  assert.equal(matching.length, 1, `expected exactly one call to ${endpoint}, saw ${String(matching.length)}`);
-
-  return matching[0]!;
 }
 
 /**
@@ -117,14 +109,6 @@ describe("the two admin-tier triage reads", () => {
     );
   });
 
-  it("asks for the list under the admin key, which is the only one the backend answers it on", () => {
-    assert.equal(callTo("/bewerbungen").options.authType, "admin");
-  });
-
-  it("asks for the one application under the admin key too", () => {
-    assert.equal(callTo(`/bewerbungen/${ONE_ID}`).options.authType, "admin");
-  });
-
   /* An application is three people's contact details and the record of which schools were turned
      down. `"use cache"` keys on the arguments, not on the caller, so a cached read of it would be a
      shared slot of authorized personal data. */
@@ -169,14 +153,6 @@ describe("the four base-tier public reads", () => {
         calls.some((call) => call.endpoint === endpoint),
         `a path segment reached the client unencoded; expected ${endpoint}`,
       );
-    }
-  });
-
-  /* Over-declaring the tier succeeds silently, and a public page is exactly where that mistake is
-     available — the admin key would answer every one of these and nothing would say so. */
-  it("asks for each of them under the base key, which is the tier the endpoints are guarded at", () => {
-    for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
-      assert.equal(callTo(endpoint).options.authType, "base", `${endpoint} is asked for under another tier`);
     }
   });
 

@@ -643,6 +643,14 @@ undeclared query parameter is not refused but dropped, so a filter renamed on on
 nothing and the page still renders. It widens I17 by nothing, deliberately, the Zod mirror being
 hand-written (§4).
 
+**The tier each call declares is compared against the operation's own** (I191). Over-declaring
+succeeds silently — the admin key answers a base-tier route — so a call sent under the wrong key is
+the one defect here that no run reports and no page shows, and a per-slice assertion covers only the
+slices somebody wrote one for. A call naming no `authType` is compared under the client's own
+fallback, read off `fl_frontend/src/core/api.ts` rather than restated here, and every published
+operation has to name a tier the reader can spell: one that named none would leave the comparison
+holding of nothing.
+
 **`fl_frontend/src/core/apiRequests.test.ts` is blind to:**
 
 - a request made with bare `fetch`
@@ -1395,6 +1403,7 @@ holds whether a conditional block renders or not
 | I173 | **Every tab stop shows focus**: where the border-based indicator is suppressed, an outline replaces it (WCAG 2.4.7)                                                                                                                        | Review, against `fl_frontend/src/app/globals.css :: A frozen field and a closed picker`, at every suppressed border                                                                                                                                                                             |
 | I175 | **The privacy notice is linked from every public page's footer and from the public application form; the imprint from that footer**                                                                                                        | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
 | I186 | **A message's links stand on `AUTH_URL`'s origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`**: one variable behind both puts an environment-read origin before a crawler                                                           | `fl_frontend/src/core/emailShell.ts :: mailOrigin`; `fl_frontend/src/core/emailShell.test.ts` sweeps every builder's close and `fl_frontend/src/features/bewerbungen/bestaetigungLink.test.ts` every minter's origin                                                                            |
+| I191 | Every `apiClient` call declares the tier `fl_backend/openapi.json` publishes for the operation it reaches; over-declaring is accepted in silence                                                                                           | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                      |
 
 ## 3. Violation → remedy
 

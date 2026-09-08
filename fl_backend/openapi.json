@@ -21,7 +21,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "none"
       }
     },
     "/api/v0/system/is_ready": {
@@ -45,7 +46,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/system/info": {
@@ -69,7 +71,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/spiele": {
@@ -229,7 +232,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/spiele/{spiel_id}": {
@@ -274,7 +278,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Spiel",
@@ -339,7 +344,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams": {
@@ -531,7 +537,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a team",
@@ -573,7 +580,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}": {
@@ -648,7 +656,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
@@ -701,7 +710,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Retire a team (soft delete)",
@@ -744,7 +754,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage": {
@@ -864,7 +875,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/spieltage/{spieltag_id}": {
@@ -909,7 +921,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Re-date a Spieltag",
@@ -962,7 +975,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler": {
@@ -1071,7 +1085,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a Spieler",
@@ -1113,7 +1128,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}": {
@@ -1158,11 +1174,12 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Spieler's name",
-        "description": "Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document.",
+        "description": "Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
         "operationId": "patch_spieler_api_v0_spieler__spieler_id__patch",
         "security": [
           {
@@ -1211,7 +1228,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Retire a Spieler (soft delete)",
@@ -1254,7 +1272,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons": {
@@ -1352,7 +1371,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "post": {
         "summary": "Create a Saison",
@@ -1394,7 +1414,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/current": {
@@ -1418,7 +1439,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/saisons/{saison_id}": {
@@ -1463,7 +1485,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
@@ -1516,7 +1539,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte": {
@@ -1599,7 +1623,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Create a Spielort",
@@ -1641,7 +1666,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte/{spielort_id}": {
@@ -1686,7 +1712,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "patch": {
         "summary": "Update a Spielort and fan the change out",
@@ -1739,7 +1766,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Deactivate a Spielort (soft delete)",
@@ -1782,7 +1810,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter": {
@@ -1884,7 +1913,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Create a Schiedsrichter",
@@ -1926,7 +1956,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
@@ -1971,7 +2002,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
@@ -2024,7 +2056,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Deactivate a Schiedsrichter (soft delete)",
@@ -2067,7 +2100,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen": {
@@ -2177,7 +2211,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "post": {
         "summary": "Submit a Bewerbung",
@@ -2219,7 +2254,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
@@ -2264,7 +2300,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/list/admin": {
@@ -2424,7 +2461,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/action_required": {
@@ -2476,7 +2514,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spiele/{spiel_id}/admin": {
@@ -2521,7 +2560,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/memberships": {
@@ -2545,7 +2585,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/list/admin": {
@@ -2747,7 +2788,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/reactivate": {
@@ -2792,7 +2834,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons": {
@@ -2847,7 +2890,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
@@ -2911,7 +2955,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
@@ -2975,7 +3020,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
@@ -3039,7 +3085,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage/list/admin": {
@@ -3159,7 +3206,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieltage/{spieltag_id}/admin": {
@@ -3204,7 +3252,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/memberships": {
@@ -3228,7 +3277,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/reactivate": {
@@ -3273,7 +3323,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/erasure": {
@@ -3318,7 +3369,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons": {
@@ -3373,7 +3425,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
@@ -3437,7 +3490,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Remove a Spieler from a squad",
@@ -3489,7 +3543,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
@@ -3543,7 +3598,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/list/admin": {
@@ -3641,7 +3697,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/activate": {
@@ -3686,7 +3743,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
@@ -3741,7 +3799,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/saisons/{saison_id}/spielplan": {
@@ -3795,7 +3854,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
@@ -3838,7 +3898,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
@@ -3883,7 +3944,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
@@ -3928,7 +3990,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
@@ -3973,7 +4036,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/aktionen": {
@@ -4107,7 +4171,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/aktionen/{aktion_id}": {
@@ -4152,7 +4217,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
@@ -4207,7 +4273,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/ablehnen": {
@@ -4262,7 +4329,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
@@ -4316,7 +4384,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/kontakte/erasure/ansicht": {
@@ -4360,7 +4429,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/kontakte/erasure": {
@@ -4404,7 +4474,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "admin"
       }
     },
     "/api/v0/bewerbungen/fenster": {
@@ -4428,7 +4499,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/fenster/{saison_id}": {
@@ -4481,7 +4553,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/schulen": {
@@ -4505,7 +4578,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/kuerzel/{shorthand}": {
@@ -4550,7 +4624,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
@@ -4595,7 +4670,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/einwilligung/ansicht": {
@@ -4639,7 +4715,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/einwilligung": {
@@ -4683,7 +4760,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/sweep": {
@@ -4707,7 +4785,8 @@
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
@@ -4752,7 +4831,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
@@ -4807,7 +4887,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
       }
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
@@ -4862,7 +4943,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "system"
       }
     },
     "/": {
@@ -4879,7 +4961,8 @@
               }
             }
           }
-        }
+        },
+        "x-fl-tier": "none"
       }
     }
   },
