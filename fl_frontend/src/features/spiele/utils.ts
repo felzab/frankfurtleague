@@ -103,21 +103,23 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
 
 /**
  * The bracket's German vocabulary, derived from the reference and stored nowhere — this is the
- * only place it exists. Every placing reads as an ordinal, "1. der Gruppe A" and never
- * "Gruppensieger A", so two slots compare at a glance.
+ * only place it exists.
  */
 export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
   if (quelle === null) return null;
 
   // A source mid-edit holds NaN where its number is unpicked. NaN is a `number` and type-checks, so
-  // without this every consumer prints "Sieger NaN." while somebody chooses a feeder match.
+  // without this every consumer prints "Sieger von Spiel NaN" while somebody chooses a feeder match.
   if (!Number.isInteger(quelle.type === "gruppe" ? quelle.platz : quelle.spiel_nr)) return null;
 
   if (quelle.type === "gruppe") {
+    // An ordinal, "1. der Gruppe A" and never "Gruppensieger A", so two placings compare at a glance.
     return `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
   }
 
-  return `${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} ${quelle.spiel_nr}.`;
+  // What the number counts is spelled out, a match and not a rank: "Sieger 25." reads as the 25th
+  // winner, and puts a full stop mid-clause in every sentence embedding it.
+  return `${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} von Spiel ${quelle.spiel_nr}`;
 };
 
 /**
@@ -398,17 +400,18 @@ const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZus
 export const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
 
 /**
- * `formatQuelle` for a sentence: the label closes on the point the bracket prints, which mid-sentence
- * reads as the end of the sentence, and a placing takes the prose form the arms beside it use.
+ * `formatQuelle` for a sentence: a placing takes the prose form the arms beside it use, its ordinal
+ * point being what would otherwise close the sentence mid-clause.
  */
 const herkunftLabel = (quelle: FLSpielQuelle): string => {
+  const label = formatQuelle(quelle);
   // `formatQuelle`'s `null` is the `NaN` a form holds while a number is unpicked, so no served fault
   // reaches this fallback.
-  if (formatQuelle(quelle) === null) return "eine unlesbare Herkunft";
+  if (label === null) return "eine unlesbare Herkunft";
 
-  return quelle.type === "gruppe"
-    ? `Platz ${quelle.platz} der Gruppe ${quelle.gruppe}`
-    : `den ${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} von Spiel ${quelle.spiel_nr}`;
+  // The match form is taken rather than spelled again: one wording for the bracket and the sentence,
+  // so a change to it cannot leave the two naming one source two ways.
+  return quelle.type === "gruppe" ? `Platz ${quelle.platz} der Gruppe ${quelle.gruppe}` : `den ${label}`;
 };
 
 /**
@@ -423,7 +426,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     case "gruppe_not_run":
       return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, die es in dieser Saison nicht gibt`;
     case "seed_past_the_opening_round":
-      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist`;
+      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle`;
     case "tie_unresolved":
       return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${fault.spiel_nr} offen`;
     case "spiel_missing":
@@ -470,7 +473,7 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
     case "gruppe_not_run":
       return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, die es in dieser Saison nicht gibt.`;
     case "seed_past_the_opening_round":
-      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. Aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist.`;
+      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. Nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle.`;
     case "tie_unresolved":
       return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden. Dieses Spiel bleibt deshalb offen.`;
     case "spiel_missing":

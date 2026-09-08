@@ -263,12 +263,12 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle(null), null);
   });
 
-  it("names a match-fed slot by the match number, with the trailing period the bracket prints", () => {
-    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), "Sieger 25.");
+  it("names what a match-fed slot's number counts, so no trailing point reads it as a rank", () => {
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), "Sieger von Spiel 25");
   });
 
   it("distinguishes the losing side, which is how a third-place play-off is fed", () => {
-    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer von Spiel 29");
   });
 
   // One form for the whole set, so two slots compare at a glance and the picker reads as the
@@ -279,7 +279,7 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: 4 }), "4. der Gruppe B");
   });
 
-  // A source mid-edit drafts `NaN`, which every consumer printed as "Sieger NaN.".
+  // A source mid-edit drafts `NaN`, which every consumer would otherwise print as "Sieger von Spiel NaN".
   it("returns null while a match-fed slot's number is still unpicked", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: NaN, ausgang: "sieger" }), null);
   });
@@ -710,11 +710,11 @@ describe("formatBracketFault", () => {
   it("says a placing feeds the opening round alone", () => {
     assert.equal(
       formatBracketFault(gruppeFault("seed_past_the_opening_round", "A", 1)),
-      "Spiel 25 verweist auf Platz 1 der Gruppe A, doch aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist",
+      "Spiel 25 verweist auf Platz 1 der Gruppe A, doch nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle",
     );
     assert.equal(
       describeBracketFaultOnCard(gruppeFault("seed_past_the_opening_round", "A", 1)),
-      "Verweist auf Platz 1 der Gruppe A. Aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist.",
+      "Verweist auf Platz 1 der Gruppe A. Nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle.",
     );
   });
 
@@ -827,13 +827,22 @@ describe("every bracket fault reaches words", () => {
     for (const sentence of cards) assert.match(sentence, /\.$/);
   });
 
-  /* The end alone is not enough: `formatQuelle`'s label closes on a point, and a sentence that embeds
-     one reads „Sieger 25., obwohl“ — a full stop before a comma. */
+  /* The end alone is not enough: `formatQuelle`'s placing closes its ordinal on a point, so a sentence
+     embedding one reads „auf 1. der Gruppe A, obwohl“ and stops mid-clause. */
   it("carries a full stop only where a sentence ends", () => {
-    for (const sentence of [...toasts, ...cards]) {
-      // Spared: a card's own second sentence, which opens on a capital, and the points inside a date,
-      // which stand between digits.
-      assert.doesNotMatch(sentence, /\.(?!$|\d| [A-ZÄÖÜ])/u, `„${sentence}“ closes a sentence part-way through`);
+    // Wider than the record above: the placing is the only variant carrying a point, and both slot
+    // faults are fixtured there on a match reference.
+    const embedded = [
+      slotFault("gruppenphase_fixture_wired", { type: "gruppe", gruppe: "A", platz: 1 }),
+      slotFault("source_feeds_another_fixture", { type: "gruppe", gruppe: "A", platz: 1 }),
+    ];
+
+    for (const fault of [...faults, ...embedded]) {
+      for (const sentence of [formatBracketFault(fault), describeBracketFaultOnCard(fault)]) {
+        // Spared: a card's own second sentence, which opens on a capital, and the points inside a date,
+        // which stand between digits.
+        assert.doesNotMatch(sentence, /\.(?!$|\d| [A-ZÄÖÜ])/u, `„${sentence}“ closes a sentence part-way through`);
+      }
     }
   });
 });

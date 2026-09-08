@@ -131,8 +131,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Alle Spiele der Saison.",
           points: [
-            // Herkunft is searched as the label a reader sees — „Sieger 25.“ finds the fixture fed
-            // by match 25, which no other term here would.
+            // Herkunft is searched as the label a reader sees — „Sieger von Spiel 25“ finds the
+            // fixture fed by match 25, which no other term here would.
             { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
           ],
         },
