@@ -17,7 +17,7 @@ const { FormSchuleSection } = await import("./components/forms/BewerbungForm/For
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
-const { LIGA_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { FIELD_ERROR, FIELD_ERROR_SWITCH } = await import("@/shared/components/ui/formFieldStyles.ts");
 
@@ -262,7 +262,7 @@ describe("how the consent panel sits among the sections around it", () => {
   it("sets the stamped wording at the muted caption step, one recipe for all of it", () => {
     assert.equal(
       [...FORMULAR.matchAll(/<p class="muted-meta">/g)].length,
-      LIGA_EINWILLIGUNG.absaetze.length,
+      LIGA_KENNTNISNAHME.absaetze.length,
       "a stamped paragraph is set in something other than the panel's own muted recipe",
     );
   });

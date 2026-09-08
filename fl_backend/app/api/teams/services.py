@@ -759,7 +759,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 
 
 # What a seat holds until its person confirms it (`docs/backend/spec.md :: I142`).
-UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erteilt_von": "administrativ", "bestaetigt_am": None}
+UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
 
 
 def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
@@ -779,7 +779,7 @@ def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] 
 
     # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
     # narrower one.
-    return {"umfang": einwilligung["umfang"], "erteilt_von": einwilligung["erteilt_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
+    return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:

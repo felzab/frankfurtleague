@@ -95,7 +95,7 @@ def person(vorname: str) -> dict[str, Any]:
         "geburtsdatum": None,
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": None,
@@ -333,7 +333,7 @@ class TestWhatAConfirmationWrites:
         # The wording the CONFIRMING person saw, not the one the applicant ticked for them.
         assert trainer["einwilligung"] == {
             "umfang": "kontaktdaten_whatsapp",
-            "erteilt_von": "person",
+            "erfasst_von": "person",
             "text_version": "v4",
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,

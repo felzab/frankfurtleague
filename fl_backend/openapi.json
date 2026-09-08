@@ -2950,7 +2950,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrefusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A `past`\nseason's contacts stay correctable. Each seat's `erteilt_von` and `bestaetigt_am` are the\nserver's: a seat the same address confirmed keeps both, and every other seat is stored as entered\nadministratively.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrefusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A `past`\nseason's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the\nserver's: a seat the same address confirmed keeps both, and every other seat is stored as entered\nadministratively.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -6226,7 +6226,7 @@
           "erteilt"
         ],
         "title": "FLBewerbungEinwilligungPayload",
-        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erteilt_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a consent."
+        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a record."
       },
       "FLBewerbungEntscheidung": {
         "properties": {
@@ -7692,84 +7692,6 @@
         ],
         "title": "FLKontakt"
       },
-      "FLKontaktEinwilligung": {
-        "properties": {
-          "umfang": {
-            "type": "string",
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang"
-          },
-          "text_version": {
-            "type": "string",
-            "title": "Text Version"
-          },
-          "datum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum"
-          },
-          "erteilt_von": {
-            "type": "string",
-            "enum": [
-              "person",
-              "administrativ"
-            ],
-            "title": "Erteilt Von"
-          },
-          "bestaetigt_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Am"
-          }
-        },
-        "type": "object",
-        "required": [
-          "umfang",
-          "text_version",
-          "datum",
-          "erteilt_von"
-        ],
-        "title": "FLKontaktEinwilligung",
-        "description": "What this person agreed to, and which wording they agreed to.\n\nNOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be\nPUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it."
-      },
-      "FLKontaktEinwilligungPayload": {
-        "properties": {
-          "umfang": {
-            "type": "string",
-            "const": "kontaktdaten",
-            "title": "Umfang"
-          },
-          "text_version": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version"
-          },
-          "datum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "umfang",
-          "text_version",
-          "datum"
-        ],
-        "title": "FLKontaktEinwilligungPayload"
-      },
       "FLKontaktErasureAnsichtResponse": {
         "properties": {
           "acknowledged": {
@@ -7863,6 +7785,84 @@
         "title": "FLKontaktErasureResponse",
         "description": "What the erasure reached, and NOT an echo of the person.\n\n`app/api/spieler/schemas.py :: FLSpielerErasureResponse`'s reason, binding harder here: the\nrequest named an address, so echoing anything of theirs returns a copy of what was destroyed."
       },
+      "FLKontaktKenntnisnahme": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kontaktdaten",
+              "kontaktdaten_whatsapp"
+            ],
+            "title": "Umfang"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "erfasst_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erfasst Von"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "umfang",
+          "text_version",
+          "datum",
+          "erfasst_von"
+        ],
+        "title": "FLKontaktKenntnisnahme",
+        "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."
+      },
+      "FLKontaktKenntnisnahmePayload": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "const": "kontaktdaten",
+            "title": "Umfang"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "umfang",
+          "text_version",
+          "datum"
+        ],
+        "title": "FLKontaktKenntnisnahmePayload"
+      },
       "FLKontaktSitz": {
         "properties": {
           "saison_id": {
@@ -7930,7 +7930,7 @@
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktEinwilligung"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahme"
           }
         },
         "type": "object",
@@ -7977,7 +7977,7 @@
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktEinwilligungPayload"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmePayload"
           }
         },
         "additionalProperties": false,

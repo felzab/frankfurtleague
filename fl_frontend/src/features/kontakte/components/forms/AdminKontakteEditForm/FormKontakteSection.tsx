@@ -397,7 +397,7 @@ function KontaktpersonInputs({
               and the server preserves whatever a confirmation wrote here. */}
           <TextField
             isReadOnly
-            value={person.einwilligung.erteilt_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}
+            value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
             onChange={() => undefined}>
             <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erteilt</FieldLabel>
             <Input className={FIELD_INPUT} />

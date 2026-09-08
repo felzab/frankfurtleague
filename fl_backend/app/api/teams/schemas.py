@@ -113,9 +113,9 @@ def strip_austritt_grund(value: Any) -> Any:
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
-# both on every write path, and a payload declaring either is a route to a consent nobody gave
+# both on every write path, and a payload declaring either is a route to an answer nobody gave
 # (`docs/backend/spec.md :: I142`).
-class _KontaktEinwilligungWritable(BaseModel):
+class _KontaktKenntnisnahmeWritable(BaseModel):
     umfang: Literal["kontaktdaten"]
     # The version of the text they were shown. The text lives in the frontend and is versioned
     # there, so a later rewording never changes what a stored record claims.
@@ -123,19 +123,20 @@ class _KontaktEinwilligungWritable(BaseModel):
     datum: CustomDateString
 
 
-class FLKontaktEinwilligung(_KontaktEinwilligungWritable):
-    """What this person agreed to, and which wording they agreed to.
+class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
+    """Which wording this person was shown, and how the record came to be held.
 
-    NOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be
-    PUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it.
+    Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
+    `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
+    (`docs/glossary.md :: Einwilligung`).
     """
 
     # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
     # confirmation page, and a payload offering it would let an administrator transcribe one.
     umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
-    # Distinguishing the two is what stops an admin's transcription reading as a person's own
-    # consent. `person` is the confirmation link's to write and nobody else's.
-    erteilt_von: Literal["person", "administrativ"]
+    # Distinguishing the two is what stops an admin's transcription reading as the person's own
+    # answer. `person` is the confirmation link's to write and nobody else's.
+    erfasst_von: Literal["person", "administrativ"]
     # The day this person confirmed the seat themselves; null until they do. Defaulted for
     # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
     bestaetigt_am: CustomOptionalDateString = None
@@ -154,7 +155,7 @@ class FLKontaktperson(BaseModel):
     # Null until the person types it on their own confirmation page, so the public form never asks
     # for it (`docs/backend/spec.md :: I141`). Defaulted for `FLTeam.schulform`'s reason.
     geburtsdatum: CustomOptionalDateString = None
-    einwilligung: FLKontaktEinwilligung
+    einwilligung: FLKontaktKenntnisnahme
 
 
 class FLSaisonTeamKontakte(BaseModel):
@@ -193,7 +194,9 @@ def _project_seat(value: Any) -> Any:
     projected: dict[str, Any] = {field: parse_empty_string_to_none(value.get(field)) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
-        projected["einwilligung"] = {field: parse_empty_string_to_none(einwilligung.get(field)) for field in FLKontaktEinwilligung.model_fields}
+        projected["einwilligung"] = {
+            field: parse_empty_string_to_none(einwilligung.get(field)) for field in FLKontaktKenntnisnahme.model_fields
+        }
 
     return projected
 
@@ -217,7 +220,7 @@ def kontakte_stand_of(block: Any) -> str:
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
-class FLKontaktEinwilligungPayload(_KontaktEinwilligungWritable):
+class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Stripped before the floor counts it, as the names below are: a record whose wording version is
@@ -250,7 +253,7 @@ class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
     # Required where the stored shape is nullable: the editor collects a whole person, and the one
     # payload that takes no date is the application's (`docs/backend/spec.md :: I141`).
     geburtsdatum: CustomDateString
-    einwilligung: FLKontaktEinwilligungPayload
+    einwilligung: FLKontaktKenntnisnahmePayload
 
 
 class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):

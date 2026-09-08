@@ -73,8 +73,8 @@ _TRIKOT_FARBEN = [
     "grau",
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
-_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
-_KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
+_KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
+_KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
@@ -142,13 +142,13 @@ _EINWILLIGUNG = _object(
     },
 )
 
-# A CONTACT person's consent, and never `_EINWILLIGUNG` above: that one records what may be
+# A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
-_KONTAKT_EINWILLIGUNG = _object(
-    required=("umfang", "erteilt_von", "text_version", "datum"),
+_KONTAKT_KENNTNISNAHME = _object(
+    required=("umfang", "erfasst_von", "text_version", "datum"),
     properties={
-        "umfang": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_UMFANG},
-        "erteilt_von": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_QUELLEN},
+        "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
+        "erfasst_von": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_QUELLEN},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
         # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
@@ -158,7 +158,7 @@ _KONTAKT_EINWILLIGUNG = _object(
 )
 
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
-# set of details carrying no consent is one nobody agreed to be held.
+# set of details carrying no record is one nobody was told the league holds.
 _KONTAKTPERSON = _object(
     required=("vorname", "nachname", "email", "telefon", "einwilligung"),
     properties={
@@ -169,7 +169,7 @@ _KONTAKTPERSON = _object(
         # Nullable and out of `required`: the date arrives with the confirmation, and "required once
         # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-        "einwilligung": _KONTAKT_EINWILLIGUNG,
+        "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
 )
 

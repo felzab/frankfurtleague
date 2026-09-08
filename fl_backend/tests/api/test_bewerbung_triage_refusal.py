@@ -106,7 +106,7 @@ def seat(vorname: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,

@@ -99,7 +99,6 @@ deliverable.
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                          | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                            | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                           | FE, Ops, gate, admin                                                        | Open     |
-| `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`  | FE, BE, Docs, bewerbungen, teams                                            | Standing |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                        | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range         | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
@@ -948,39 +947,6 @@ figures predate this scheme, which moved them toward the floor without reaching 
 
 **Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
 rule stops being prose.
-
-### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
-
-| Tags                             | Status   | Depends on |
-| -------------------------------- | -------- | ---------- |
-| FE, BE, Docs, bewerbungen, teams | Standing | —          |
-
-**The product says confirmation and the schema says consent, about one record.** A contact person
-opens their own link, the application carries `bestaetigungsfrist` and a `bestaetigungen` block, and
-the seat is stamped `bestaetigt_am` — while the record holding that stamp is
-`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung`, the wording it cites is
-`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`, and the field saying how it was obtained
-is `erteilt_von`, written `administrativ` by
-`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung` and `person` by the endpoint
-that seat's own link reaches.
-
-**Why it is not cosmetic.** `erteilt_von` is a stored key on two collections and on every image the
-action log holds of them, so a rename is a migration rather than an edit, and it travels through a
-`$jsonSchema` validator, a Zod mirror and `fl_backend/openapi.json`. A reader meeting `Einwilligung`
-on a screen headed „Bestätigung“ reaches for the pupil vocabulary instead, where `erteilt_von`
-answers an entirely different question (`docs/glossary.md :: Einwilligung`).
-
-**The trigger is the legal basis, and it is not ours to pick.** The basis for holding a contact
-person's details is with the Datenschutzexperte (`docs/datenschutz.md` §11). Ruled as consent, the
-three names are right as they stand. Ruled as necessary processing, `bestaetigt_am` becomes an
-address-verification stamp, `erteilt_von` says who acknowledged a notice, and consent proper narrows
-to the optional WhatsApp channel — at which point the three describe the wrong thing on every screen
-that reads them. **No field here is named for a legal category**, which is what lets one schema
-survive either ruling and is the reason to rename nothing before the ruling lands.
-
-**Done when** the basis is ruled and the three names are settled against it: recorded as correct
-where the next reader meets them, or renamed together with the validator, the Zod mirror, the
-published document and the stored keys, in one migration rather than three edits.
 
 ### `ewf2-e2f3` · A confirmation or reminder link that bounces is written to the log and told to nobody
 
@@ -2186,7 +2152,7 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 a referee is entered by an administrator through
 `fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx`
 and is asked nothing. A team's contact person holds the opposite: a record on
-`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung` that only that person's own emailed
+`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` that only that person's own emailed
 link can stamp.
 
 **Ruled: referees get a consent record on the same terms as contact persons**
@@ -2203,7 +2169,7 @@ what is missing is the record, not a guard.
 block on the `bewerbungen` collection, a public router that resolves it, and a mail fan-out over
 three seats — so reaching a referee is a second collection, a second write path and a second message
 rather than a parameter, which is why this is an entry and not a fold-in. The vocabulary is a choice
-between the two that exist and never a third: `FLKontaktEinwilligung` says only that details may be
+between the two that exist and never a third: `FLKontaktKenntnisnahme` says only that details may be
 held and used, `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` says what may be published,
 and a referee is a pupil whose name is published on every fixture they officiate. And a referee's
 removal is an anonymisation rather than a deletion, so whoever adds the record decides whether it

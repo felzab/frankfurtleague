@@ -47,6 +47,10 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Everyone signs up for themselves through the website and gives their own consent there** —
   players, referees, contact persons, organisers and administrators alike. An administrator can
   neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
+  **A contact person is the one seat where that consent is not the record kept:** what such a person
+  answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(b)/(f) rather than an
+  Einwilligung, and the only consent their block holds is the optional WhatsApp scope
+  ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
 - **The minimum age is 16 for every role, and today it is judged for a contact person alone.**
   Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a

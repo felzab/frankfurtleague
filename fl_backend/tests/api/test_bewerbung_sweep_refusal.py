@@ -48,7 +48,7 @@ def person(vorname: str, *, email: str | None = None, bestaetigt_am: str | None 
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ" if bestaetigt_am is None else "person",
+            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,

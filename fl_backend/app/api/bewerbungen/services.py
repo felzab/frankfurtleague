@@ -248,13 +248,13 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
 
 
 def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
-    """The consent record the server writes.
+    """The contact seat's record as the server writes it.
 
     `administrativ` on every seat: one person ticked for three, and only a seat's own confirmation
     writes `person`. Named by no client, who could otherwise dress a transcription as a signature.
     """
 
-    return {"umfang": "kontaktdaten", "erteilt_von": "administrativ", "text_version": text_version, "datum": today, "bestaetigt_am": None}
+    return {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": text_version, "datum": today, "bestaetigt_am": None}
 
 
 # The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
@@ -262,7 +262,7 @@ KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
 
 
 def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
-    """The three people as `saison_teams` stores them, each consent recomposed here.
+    """The three people as `saison_teams` stores them, each seat's record recomposed here.
 
     Taken as the DUMPED payload rather than the model: this module composes documents, and every
     other function here takes one.
@@ -615,7 +615,7 @@ def compose_confirmation_update(*, seats: Sequence[str], geburtsdatum: str, toda
     for seat in seats:
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
         written[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = today
-        written[f"kontakte.{seat}.einwilligung.erteilt_von"] = "person"
+        written[f"kontakte.{seat}.einwilligung.erfasst_von"] = "person"
         written[f"kontakte.{seat}.einwilligung.text_version"] = text_version
         written[f"kontakte.{seat}.einwilligung.umfang"] = KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG
 

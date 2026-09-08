@@ -11,7 +11,7 @@ from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
-    FLKontaktEinwilligungPayload,
+    FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
     FLPatchSaisonTeamKontaktePayload,
     FLSaisonTeamKontakte,
@@ -69,13 +69,13 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
 
 
 def stored_person(
-    vorname: str, *, email: str | None = None, erteilt_von: str = "administrativ", bestaetigt_am: str | None = None
+    vorname: str, *, email: str | None = None, erfasst_von: str = "administrativ", bestaetigt_am: str | None = None
 ) -> dict[str, Any]:
     """The same person as a row HOLDS them, provenance included."""
 
     sent = person(vorname, email=email)
 
-    return {**sent, "einwilligung": {**sent["einwilligung"], "erteilt_von": erteilt_von, "bestaetigt_am": bestaetigt_am}}
+    return {**sent, "einwilligung": {**sent["einwilligung"], "erfasst_von": erfasst_von, "bestaetigt_am": bestaetigt_am}}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -89,9 +89,9 @@ def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
 
 # The shape every row held before the stamp existed: `person` on each seat, and no stamp key at all.
 SEEDED_KONTAKTE: dict[str, Any] = {
-    "trainer": {**person("Ida"), "einwilligung": {**person("Ida")["einwilligung"], "erteilt_von": "person"}},
-    "ansprechperson": {**person("Jonas"), "einwilligung": {**person("Jonas")["einwilligung"], "erteilt_von": "person"}},
-    "stellvertretung": {**person("Klara"), "einwilligung": {**person("Klara")["einwilligung"], "erteilt_von": "person"}},
+    "trainer": {**person("Ida"), "einwilligung": {**person("Ida")["einwilligung"], "erfasst_von": "person"}},
+    "ansprechperson": {**person("Jonas"), "einwilligung": {**person("Jonas")["einwilligung"], "erfasst_von": "person"}},
+    "stellvertretung": {**person("Klara"), "einwilligung": {**person("Klara")["einwilligung"], "erfasst_von": "person"}},
     "trainer_ist_zugleich": None,
 }
 
@@ -112,7 +112,7 @@ ONE_SLOT_FILLED: dict[str, Any] = {
 
 # One seat its person confirmed, beside two nobody has.
 PARTLY_CONFIRMED: dict[str, Any] = {
-    "trainer": stored_person("Ida", erteilt_von="person", bestaetigt_am=CONFIRMED_ON),
+    "trainer": stored_person("Ida", erfasst_von="person", bestaetigt_am=CONFIRMED_ON),
     "ansprechperson": stored_person("Jonas"),
     "stellvertretung": stored_person("Klara"),
     "trainer_ist_zugleich": None,
@@ -295,7 +295,7 @@ class TestTheProvenanceIsTheServers:
 
         trainer = stored["kontakte"]["trainer"]
         assert trainer["vorname"] == "Ida-Marie"
-        assert (trainer["einwilligung"]["erteilt_von"], trainer["einwilligung"]["bestaetigt_am"]) == ("person", CONFIRMED_ON)
+        assert (trainer["einwilligung"]["erfasst_von"], trainer["einwilligung"]["bestaetigt_am"]) == ("person", CONFIRMED_ON)
         assert response.kontakte is not None and response.kontakte.trainer is not None
         assert response.kontakte.trainer.einwilligung.bestaetigt_am == CONFIRMED_ON
 
@@ -310,7 +310,7 @@ class TestTheProvenanceIsTheServers:
         stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         for seat in ("ansprechperson", "stellvertretung"):
-            assert stored["kontakte"][seat]["einwilligung"]["erteilt_von"] == "administrativ"
+            assert stored["kontakte"][seat]["einwilligung"]["erfasst_von"] == "administrativ"
             assert stored["kontakte"][seat]["einwilligung"]["bestaetigt_am"] is None
 
     def test_a_confirmed_seat_handed_to_another_address_starts_unconfirmed(self, mongo_replica_set_url: str):
@@ -339,7 +339,7 @@ class TestTheProvenanceIsTheServers:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored["kontakte"]["trainer"]["einwilligung"]["erteilt_von"] == "administrativ"
+        assert stored["kontakte"]["trainer"]["einwilligung"]["erfasst_von"] == "administrativ"
 
 
 @pytest.mark.db
@@ -516,17 +516,17 @@ class TestTheReadsTokenIsWhatTheWriteAccepts:
 class TestWhatThePayloadRefuses:
     """The two provenance fields are on no payload: a field the editor merely hid would still be a route an API caller has."""
 
-    @pytest.mark.parametrize(("field", "value"), [("erteilt_von", "person"), ("bestaetigt_am", CONFIRMED_ON)])
+    @pytest.mark.parametrize(("field", "value"), [("erfasst_von", "person"), ("bestaetigt_am", CONFIRMED_ON)])
     def test_a_consent_naming_its_source_or_its_stamp_is_refused(self, field: str, value: str):
         with pytest.raises(ValidationError) as failure:
-            FLKontaktEinwilligungPayload.model_validate({**person("Ida")["einwilligung"], field: value})
+            FLKontaktKenntnisnahmePayload.model_validate({**person("Ida")["einwilligung"], field: value})
 
         assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", field)]
 
     def test_the_whole_block_is_refused_on_one_seats_source(self):
         """Through the endpoint's own payload, so the refusal reaches the wire as a 422 rather than a stored claim."""
 
-        block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", erteilt_von="person", bestaetigt_am=CONFIRMED_ON)}
+        block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", erfasst_von="person", bestaetigt_am=CONFIRMED_ON)}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": block, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)})
@@ -584,7 +584,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "7106b93d514bb421444039897baa2cc560794d899bc4548544502ffe025af6c3"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "01ec6d11e0df8edb7b016ac75de3e5eb1dab05df87833d9f2e4f8ff53bd9e428"
 
     def test_a_row_predating_the_optional_fields_answers_the_token_of_one_spelling_them_null(self):
         """The whole reason the token is not taken over the document: `SEEDED_KONTAKTE` carries no `bestaetigt_am` key at all."""

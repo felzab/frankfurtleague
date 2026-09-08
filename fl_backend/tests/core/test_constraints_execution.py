@@ -93,7 +93,7 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 69 1234567",
         "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
     }
 
 

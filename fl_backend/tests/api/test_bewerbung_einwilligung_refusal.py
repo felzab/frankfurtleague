@@ -63,7 +63,7 @@ def person(vorname: str, *, bestaetigt_am: str | None = None) -> dict[str, Any]:
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ" if bestaetigt_am is None else "person",
+            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
@@ -447,7 +447,7 @@ class TestWhatAConfirmationWrites:
             "$set": {
                 "kontakte.trainer.geburtsdatum": "1984-05-09",
                 "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
-                "kontakte.trainer.einwilligung.erteilt_von": "person",
+                "kontakte.trainer.einwilligung.erfasst_von": "person",
                 "kontakte.trainer.einwilligung.text_version": "v4",
                 "kontakte.trainer.einwilligung.umfang": "kontaktdaten",
             }

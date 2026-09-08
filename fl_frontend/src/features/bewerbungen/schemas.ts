@@ -308,7 +308,7 @@ export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSche
  * transcription or backdate a consent.
  */
 export const FLBewerbungEinwilligungPayloadSchema = z.object({
-  // Written by the form from `LIGA_EINWILLIGUNG` rather than typed: the wording lives in the
+  // Written by the form from `LIGA_KENNTNISNAHME` rather than typed: the wording lives in the
   // frontend and is versioned there, so a later rewording never changes what a stored record claims.
   text_version: z
     .string()

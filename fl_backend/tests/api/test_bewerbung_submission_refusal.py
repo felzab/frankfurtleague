@@ -391,7 +391,7 @@ class TestNoBirthdateOnThePublicPayload:
     def test_a_stored_contact_with_no_date_still_reads(self, stored: Mapping[str, Any]):
         """A seat is stored without one until its person confirms, so a required field here would 500 the triage over one."""
 
-        record = {**person(), **stored, "einwilligung": {**JUNCTION_EINWILLIGUNG, "erteilt_von": "administrativ"}}
+        record = {**person(), **stored, "einwilligung": {**JUNCTION_EINWILLIGUNG, "erfasst_von": "administrativ"}}
 
         assert FLKontaktperson.model_validate(record).geburtsdatum is None
 
@@ -537,7 +537,7 @@ class TestWhatTheServerComposes:
 
         assert composed == {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": TODAY,
             "bestaetigt_am": None,
@@ -548,7 +548,7 @@ class TestWhatTheServerComposes:
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert set(composed["trainer"]["einwilligung"]) == {"umfang", "erteilt_von", "text_version", "datum", "bestaetigt_am"}
+        assert set(composed["trainer"]["einwilligung"]) == {"umfang", "erfasst_von", "text_version", "datum", "bestaetigt_am"}
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_no_seat_carries_a_confirmation_or_a_birthdate_at_submission(self, seat: str):
@@ -556,7 +556,7 @@ class TestWhatTheServerComposes:
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert composed[seat]["einwilligung"]["erteilt_von"] == "administrativ"
+        assert composed[seat]["einwilligung"]["erfasst_von"] == "administrativ"
         assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
         assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
 
@@ -576,7 +576,7 @@ class TestWhatTheServerComposes:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": False}))
 
-    @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "erfasst_von", "datum", "bestaetigt_am"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
         """`extra="forbid"`: a body naming one of these could claim a person's own consent, or backdate or pre-confirm one."""
 
@@ -881,7 +881,7 @@ class TestNoCeilingReachesTheReadSide:
         long_name = "A" * (KONTAKT_NAME_MAX_LENGTH * 3)
         stored = {
             **person(vorname=long_name, nachname=long_name),
-            "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v3", "datum": TODAY},
+            "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v3", "datum": TODAY},
         }
 
         assert len(FLKontaktperson.model_validate(stored).vorname) == KONTAKT_NAME_MAX_LENGTH * 3

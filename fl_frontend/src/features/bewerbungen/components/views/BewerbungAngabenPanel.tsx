@@ -199,7 +199,7 @@ export function BewerbungAngabenPanel({
                         and its stored record is then the whole truth about that seat. */}
                     <Angabe label="Einwilligung">
                       {stand === null
-                        ? `${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
+                        ? `${einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
                         : stand.satz}
                       {/* Over a consent that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER agreed to, which

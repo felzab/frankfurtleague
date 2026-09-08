@@ -9,8 +9,8 @@ import {
   BESTAETIGUNG_EINWILLIGUNG,
   einwilligungFassung,
   fuelleFassung,
-  LIGA_EINWILLIGUNG,
-  LIGA_EINWILLIGUNGEN,
+  LIGA_KENNTNISNAHME,
+  LIGA_KENNTNISNAHMEN,
 } from "./einwilligung.ts";
 
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
@@ -41,9 +41,9 @@ function publishedVersionMaxLength(): number {
   return bound;
 }
 
-describe("LIGA_EINWILLIGUNGEN", () => {
+describe("LIGA_KENNTNISNAHMEN", () => {
   it("answers each label it holds with that label's own paragraphs and switch", () => {
-    for (const [textVersion, fassung] of Object.entries(LIGA_EINWILLIGUNGEN)) {
+    for (const [textVersion, fassung] of Object.entries(LIGA_KENNTNISNAHMEN)) {
       assert.deepEqual(einwilligungFassung(textVersion), fassung, `${textVersion} resolves to another version's wording`);
     }
   });
@@ -55,11 +55,11 @@ describe("LIGA_EINWILLIGUNGEN", () => {
     // is gone fails rather than standing over nothing.
     assert.deepEqual(
       Object.keys(ABSATZ_DIGESTS).sort(),
-      Object.keys(LIGA_EINWILLIGUNGEN).sort(),
+      Object.keys(LIGA_KENNTNISNAHMEN).sort(),
       "a label has no frozen digest, or the reverse",
     );
 
-    for (const [textVersion, fassung] of Object.entries(LIGA_EINWILLIGUNGEN)) {
+    for (const [textVersion, fassung] of Object.entries(LIGA_KENNTNISNAHMEN)) {
       assert.equal(
         absaetzeDigest(fassung.absaetze),
         ABSATZ_DIGESTS[textVersion],
@@ -69,7 +69,7 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   });
 
   it("holds the version the form stamps, and reads the current wording off that entry", () => {
-    const { textVersion, ...aktuell } = LIGA_EINWILLIGUNG;
+    const { textVersion, ...aktuell } = LIGA_KENNTNISNAHME;
 
     assert.deepEqual(einwilligungFassung(textVersion), aktuell, "the stamped version and the rendered wording have come apart");
   });
@@ -77,7 +77,7 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   /* The digests pin each label's words; nothing else pins WHICH label is live, and an earlier label
      states the fourteen days with no start, or with no carve-out for the reminder. */
   it("points both live labels at a wording naming when the fourteen days start and what does not restart them", () => {
-    for (const { textVersion, absaetze } of [LIGA_EINWILLIGUNG, BESTAETIGUNG_EINWILLIGUNG]) {
+    for (const { textVersion, absaetze } of [LIGA_KENNTNISNAHME, BESTAETIGUNG_EINWILLIGUNG]) {
       const text = absaetze.join(" ");
 
       assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
@@ -95,7 +95,7 @@ describe("LIGA_EINWILLIGUNGEN", () => {
 
   it("keeps the retired wording retired: the old label answers the old words and no newer ones", () => {
     const alt = einwilligungFassung("2026-08");
-    const neu = einwilligungFassung(LIGA_EINWILLIGUNG.textVersion);
+    const neu = einwilligungFassung(LIGA_KENNTNISNAHME.textVersion);
 
     assert.ok(alt !== null && neu !== null, "a label the record holds resolved to nothing");
     // The failure this registry exists to prevent: the 2026-08 switch consented to a stored birthdate, and the
@@ -106,7 +106,7 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   });
 
   it("carries no empty paragraph and no paragraph padded with whitespace", () => {
-    for (const [textVersion, fassung] of Object.entries(LIGA_EINWILLIGUNGEN)) {
+    for (const [textVersion, fassung] of Object.entries(LIGA_KENNTNISNAHMEN)) {
       assert.ok(fassung.absaetze.length > 0, `${textVersion} holds no paragraph at all`);
 
       for (const text of [...fassung.absaetze, fassung.schalter]) {
@@ -119,9 +119,9 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   /* The submission form's label is stamped on a record the applicant made and on one the admin
      editor made, and neither of those readers saw a word of the confirmation page. */
   it("gives the confirmation page a label of its own, sharing no paragraph with the submitted one", () => {
-    const eingereicht: readonly string[] = LIGA_EINWILLIGUNG.absaetze;
+    const eingereicht: readonly string[] = LIGA_KENNTNISNAHME.absaetze;
 
-    assert.notEqual(BESTAETIGUNG_EINWILLIGUNG.textVersion, LIGA_EINWILLIGUNG.textVersion, "both surfaces stamp one label");
+    assert.notEqual(BESTAETIGUNG_EINWILLIGUNG.textVersion, LIGA_KENNTNISNAHME.textVersion, "both surfaces stamp one label");
     assert.deepEqual(
       BESTAETIGUNG_EINWILLIGUNG.absaetze.filter((absatz) => eingereicht.includes(absatz)),
       [],
@@ -138,7 +138,7 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   it("labels every version within the length the API accepts for a stored one", () => {
     const bound = publishedVersionMaxLength();
 
-    for (const textVersion of Object.keys(LIGA_EINWILLIGUNGEN)) {
+    for (const textVersion of Object.keys(LIGA_KENNTNISNAHMEN)) {
       assert.ok(
         textVersion.length <= bound,
         `"${textVersion}" is ${String(textVersion.length)} characters, past the ${String(bound)} a record may cite`,

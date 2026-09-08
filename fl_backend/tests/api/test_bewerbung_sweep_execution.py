@@ -81,7 +81,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "geburtsdatum": None,
         "einwilligung": {
             "umfang": "kontaktdaten",
-            "erteilt_von": "administrativ",
+            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": None,

@@ -21,7 +21,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
   ...overrides,
 });
 
@@ -99,7 +99,7 @@ describe("applySeatPresence", () => {
 
     const opened = applySeatPresence(block({ trainer: null }), "trainer", true).next;
     assert.equal(opened.trainer?.vorname, "");
-    assert.equal(opened.trainer?.einwilligung.erteilt_von, null);
+    assert.equal(opened.trainer?.einwilligung.erfasst_von, null);
   });
 
   /* The switch moves ITS OWN seat and nothing else. The claim is honoured when the payload is
@@ -239,7 +239,7 @@ describe("teamPageHref", () => {
 
 describe("resolveTeamSaisonMembership", () => {
   /** The STORED shape, whose agreement has an origin: the draft's widened `null` is the editor's. */
-  const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erteilt_von: "person" } };
+  const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erfasst_von: "person" } };
 
   // The server derives the token and this side only carries it, so any value stands in for one here.
   const STAND = "9f2c";

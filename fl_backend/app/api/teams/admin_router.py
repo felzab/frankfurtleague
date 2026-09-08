@@ -475,7 +475,7 @@ async def patch_saison_team_kontakte(
     refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
     beside the block, and a row whose block answers to another token is refused rather than
     overwritten, an erasure between the caller's read and this write being what moves it. A `past`
-    season's contacts stay correctable. Each seat's `erteilt_von` and `bestaetigt_am` are the
+    season's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the
     server's: a seat the same address confirmed keeps both, and every other seat is stored as entered
     administratively.
     """

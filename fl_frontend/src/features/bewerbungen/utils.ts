@@ -1,6 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_EINWILLIGUNG, LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { BESTAETIGUNG_EINWILLIGUNG, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -258,7 +258,7 @@ export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft 
   email: "",
   telefon: "",
   // Stamped as the form opens, so what a record cites is the wording its reader was shown.
-  einwilligung: { text_version: LIGA_EINWILLIGUNG.textVersion, erteilt: false },
+  einwilligung: { text_version: LIGA_KENNTNISNAHME.textVersion, erteilt: false },
 });
 
 /** A blank new school, held from the moment the form opens so nothing typed into it can be dropped. */

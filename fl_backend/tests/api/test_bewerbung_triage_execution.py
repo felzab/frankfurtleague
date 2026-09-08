@@ -116,7 +116,7 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 69 1234567",
         "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
     }
 
 
@@ -563,7 +563,7 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
         block[slot]["geburtsdatum"] = "1980-05-04" if stamped else None
         block[slot]["einwilligung"] = {
             **block[slot]["einwilligung"],
-            "erteilt_von": "person" if stamped else "administrativ",
+            "erfasst_von": "person" if stamped else "administrativ",
             "bestaetigt_am": "2026-02-10" if stamped else None,
         }
 

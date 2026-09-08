@@ -344,8 +344,8 @@ def normalise_telefon(value: str) -> str:
 class FLBewerbungEinwilligungPayload(BaseModel):
     """What the applicant agreed to, and nothing about how the record of it is composed.
 
-    `umfang`, `erteilt_von` and `datum` are the SERVER's: a client offered them could claim an
-    administrative transcription, or backdate a consent.
+    `umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an
+    administrative transcription, or backdate a record.
     """
 
     model_config = ConfigDict(extra="forbid")

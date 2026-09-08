@@ -10,7 +10,7 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FLTeamMembershipSchema } from "@/features/teams/schemas";
@@ -68,7 +68,7 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -880,7 +880,7 @@ describe("what the editor says about a consent it may not write", () => {
     assert.ok(seiten.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
     assert.ok(seiten.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const feld of ["erteilt_von", "bestaetigt_am"]) {
+    for (const feld of ["erfasst_von", "bestaetigt_am"]) {
       assert.ok(!seiten.includes(`einwilligung.${feld}"`), `${feld} is still a named field, so a save can carry it`);
     }
     // The chips themselves, because a disabled group would still read as a question with an answer.
@@ -894,19 +894,23 @@ describe("which consent wording a record cites", () => {
   it("keeps a version and the wording it names, both filled in", () => {
     // That the two are one object is this file's type error; what no type can say is that neither
     // half is a placeholder.
-    assert.notEqual(LIGA_EINWILLIGUNG.textVersion, "", "the version is empty, so every record cites nothing");
-    assert.ok(LIGA_EINWILLIGUNG.absaetze.length > 0, "the version names no wording at all");
-    for (const absatz of LIGA_EINWILLIGUNG.absaetze) assert.notEqual(absatz, "", "the wording carries an empty paragraph");
-    assert.notEqual(LIGA_EINWILLIGUNG.schalter, "", "the wording carries no sentence for the switch to agree to");
+    assert.notEqual(LIGA_KENNTNISNAHME.textVersion, "", "the version is empty, so every record cites nothing");
+    assert.ok(LIGA_KENNTNISNAHME.absaetze.length > 0, "the version names no wording at all");
+    for (const absatz of LIGA_KENNTNISNAHME.absaetze) assert.notEqual(absatz, "", "the wording carries an empty paragraph");
+    assert.notEqual(LIGA_KENNTNISNAHME.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
   /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
      versions that disagree about which one a record cites. */
   it("stamps that one version on a new record from either surface", () => {
-    assert.equal(buildEmptyKontaktperson().einwilligung.text_version, LIGA_EINWILLIGUNG.textVersion, "the admin editor stamps its own version");
+    assert.equal(
+      buildEmptyKontaktperson().einwilligung.text_version,
+      LIGA_KENNTNISNAHME.textVersion,
+      "the admin editor stamps its own version",
+    );
     assert.equal(
       buildEmptyBewerbungKontaktperson().einwilligung.text_version,
-      LIGA_EINWILLIGUNG.textVersion,
+      LIGA_KENNTNISNAHME.textVersion,
       "the public form stamps its own version",
     );
     // The identifier as well as the value: a literal that happens to agree today drifts on the next bump.
@@ -915,7 +919,11 @@ describe("which consent wording a record cites", () => {
       ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
       ["the confirmation page", path.resolve(SRC, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx")],
     ] as const) {
-      assert.match(readFileSync(file, "utf8"), /(LIGA|BESTAETIGUNG)_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
+      assert.match(
+        readFileSync(file, "utf8"),
+        /LIGA_KENNTNISNAHME|BESTAETIGUNG_EINWILLIGUNG/,
+        `${name} spells the version rather than reading it`,
+      );
     }
   });
 

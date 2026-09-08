@@ -199,6 +199,39 @@ The alternative order — `--apply` and the rename from the checkout, THEN the d
 window for reads and erasures and opens a worse one: every recorded write of the still-serving old
 image is refused until the new image is up, because it writes the old name.
 
+**The contact seats' `erfasst_von` is that same case at a dotted path inside a fixed block.** The
+previous name sits under `required` in
+`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`, so the five steps above govern
+unchanged; three things differ, and each changes what is typed or what the window costs.
+
+- **One command covers both collections and reaches inside each seat.** A seat block holds fixed
+  keys rather than an array (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`), which is
+  what lets `$rename` address one at all. **A null slot, and a `saison_teams` row whose whole
+  `kontakte` block is null, are the case to confirm against the staging copy before this is typed at
+  production**: the source field does not resolve, which should pass the document over untouched,
+  and a `$rename` that instead refused the whole document would stop the ordered update at the first
+  retired club.
+- **No index holds the previous name**, so step 5 has no counterpart: nothing declares one over this
+  field, and the boot builds none.
+- **The window costs every ADMIN read of a contact block, which is wider than step 3's warning.**
+  `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the new name, so between
+  the deploy and the rename the contacts editor, a club's season panel and the whole application
+  queue answer 500 on every stored row — `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`
+  declares the same block. A junction contacts save over an already-confirmed seat raises too,
+  `fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
+  contact person's own confirmation link keeps working**, serving no contact record
+  (`READ-BEWERBUNG-002`), and so does every public club read, the junction join withholding the block
+  from the base tier ([`../backend/spec.md`](../backend/spec.md) I50).
+
+```bash
+docker run --rm --network <compose-network> \
+  -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+  <backend-image> python -c 'import os; from pymongo import MongoClient; db = MongoClient(os.environ["MONGODB_URI"])[os.environ["DB_BASE_NAME"]]; moves = {f"kontakte.{s}.einwilligung.erteilt_von": f"kontakte.{s}.einwilligung.erfasst_von" for s in ("ansprechperson", "stellvertretung", "trainer")}; print({c: db[c].update_many({"$or": [{k: {"$exists": True}} for k in moves]}, {"$rename": moves}).modified_count for c in ("saison_teams", "bewerbungen")}, "rows renamed")'
+```
+
+Both collections move in one invocation, so the two cannot be left half a deploy apart; the `$or`
+filter is what makes a re-run after a raised error skip the rows already moved, as step 3's does.
+
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
 (`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and

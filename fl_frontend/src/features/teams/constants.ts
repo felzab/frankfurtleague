@@ -1,4 +1,4 @@
-import type { FLAustrittType, FLGruppenNames, FLKontaktEinwilligung, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
+import type { FLAustrittType, FLGruppenNames, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -143,7 +143,7 @@ export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
 export const EINWILLIGUNG_UMFANG = "kontaktdaten" as const;
 
 type EinwilligungHerkunftOption = {
-  readonly value: FLKontaktEinwilligung["erteilt_von"];
+  readonly value: FLKontaktKenntnisnahme["erfasst_von"];
   readonly label: string;
 };
 
@@ -156,7 +156,7 @@ export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[
 ];
 
 /** What every surface renders for a stored agreement. */
-export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["erteilt_von"]): string {
+export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfasst_von"]): string {
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }
 

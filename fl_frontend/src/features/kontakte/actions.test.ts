@@ -60,7 +60,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */
