@@ -258,9 +258,8 @@ class _KontaktpersonWritablePayload(BaseModel):
 
 
 class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
-    # No birthdate, as the application's payload carries none: the date is the person's own to enter
-    # at their confirmation, where the age floor judges it, and a payload able to spell one is how an
-    # administrator's reaches it instead (`docs/backend/spec.md :: I141`).
+    # No birthdate on this payload or the public one: the date is the person's own to enter at their
+    # confirmation (`docs/backend/spec.md :: I141`, `:: I142`).
     einwilligung: FLKontaktKenntnisnahmePayload
 
 

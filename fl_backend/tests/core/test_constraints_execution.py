@@ -256,15 +256,9 @@ def valid_document(collection: str, **overrides: Any) -> dict[str, Any]:
 
 
 def _a_gruppe_past_the_closed_set() -> str:
-    """A group name no season can hold, derived rather than spelled.
-
-    Two names joined: every member is one letter, so a two-letter value is outside the set whatever
-    the set holds -- where the literal `"E"` this row used to carry stopped being outside it the day
-    the set was widened from four names to sixteen, leaving the row asserting a refusal the validator
-    had quietly stopped making.
-    """
-
     held = sorted(get_args(FLGruppenNames))
+    # Joined rather than spelled, while every member is one letter: a spelled letter goes legal the
+    # moment `FLGruppenNames` widens to reach it, and the case then asserts a refusal nothing makes.
     return f"{held[0]}{held[1]}"
 
 

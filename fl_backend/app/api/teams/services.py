@@ -842,16 +842,14 @@ UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "best
 
 
 def _seat_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
-    """The stored seat where it names the address being written, else `None`.
-
-    The mailbox and never the slot's position, on the erasure's case-insensitive terms
-    (`app/api/kontakte/services.py :: find_matching_slots`): the address IS the person here, so a seat
-    handed to another one carries nothing of whoever sat in it.
-    """
+    """The stored seat where it names the address being written, else `None`."""
 
     if not isinstance(stored_slot, Mapping):
         return None
 
+    # The mailbox and never the slot's position, on the erasure's case-insensitive terms
+    # (`app/api/kontakte/services.py :: find_matching_slots`): the address IS the person here, so a
+    # seat handed to another one carries nothing of whoever sat in it.
     if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
         return None
 
@@ -874,13 +872,10 @@ def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] 
 
 
 def _geburtsdatum_held_by(stored_slot: Any, *, email: Any) -> str | None:
-    """The date this address already sits behind, or `None`.
+    """The date this address already sits behind, or `None`."""
 
-    Keyed on the address alone and never on the confirmation beside it: a seat can hold a date under
-    no stamp, one this save may not invent again, and nulling it here would destroy it as a side
-    effect of an edit to the telephone number. Clearing those is a migration rather than a save.
-    """
-
+    # The address alone and never the confirmation beside it: a seat can hold a date under no stamp,
+    # and nulling one here would destroy it as a side effect of an edit to the telephone number.
     held = _seat_held_by(stored_slot, email=email)
     if held is None:
         return None
@@ -895,8 +890,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     """Each seat's provenance and its birthdate, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
 
     A confirmed seat keeps its stamp through an edit; every other seat is recorded as entered on
-    somebody's behalf. The date rides with the ADDRESS rather than with the stamp, the two answering
-    different questions: whose record this is, and on whose word it is held.
+    somebody's behalf.
     """
 
     if kontakte is None:

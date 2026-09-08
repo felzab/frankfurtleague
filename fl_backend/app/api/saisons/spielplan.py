@@ -188,11 +188,7 @@ def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tupl
 
 
 def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
-    """Each offered group's clubs in entry order, the groups in the order the closed set names them.
-
-    Raises rather than drawing what stands: a group off its size shortens one round robin while
-    every matchday's `anzahl_spiele` goes on expecting the full one.
-    """
+    """Each offered group's clubs in entry order, the groups in the order the closed set names them."""
 
     squads: dict[FLGruppenNames, list[EnteredTeam]] = {gruppe: [] for gruppe in offered_gruppen(rules.number_of_groups)}
     for team in sorted(entered, key=lambda row: row.row_id):
@@ -200,6 +196,8 @@ def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGrup
             raise ValueError(f"{team.name} stands in group {team.gruppe}, which a season of {rules.number_of_groups} group(s) does not offer")
         squads[team.gruppe].append(team)
 
+    # Raised rather than drawn as it stands: a group off its size shortens one round robin while
+    # every matchday's `anzahl_spiele` goes on expecting the full one.
     wrong = {gruppe: len(squad) for gruppe, squad in squads.items() if len(squad) != rules.teams_per_group}
     if wrong:
         raise ValueError(f"this season plays groups of {rules.teams_per_group}; these hold otherwise: {wrong}")

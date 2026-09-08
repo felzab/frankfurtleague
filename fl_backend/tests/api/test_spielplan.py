@@ -447,11 +447,7 @@ class TestTheConstructionScoresTheBestThereIs:
 
     @pytest.mark.parametrize("key", SWEEPABLE_KEYS)
     def test_an_exhaustive_sweep_finds_that_same_bound(self, key: tuple[int, int]):
-        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula.
-
-        Over the legal shapes and not the table's keys: the formula is what a widened bound leans on,
-        so the witness has to follow that widening rather than the rows somebody wrote.
-        """
+        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula."""
 
         assert optimum(*key) == best_possible(*key)
 

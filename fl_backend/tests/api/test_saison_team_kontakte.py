@@ -621,11 +621,7 @@ class TestTheCompositionDecidesFromItsArguments:
 
 
 class TestTheDateRidesWithTheAddress:
-    """The pure half of ruling 274: the payload names no birthdate, so a save can only carry the row's own forward.
-
-    Keyed on the ADDRESS and not on the stamp beside it, the two answering different questions -- whose
-    record this is, and on whose word it is held.
-    """
+    """The payload names no birthdate, so a save can only carry the row's own forward."""
 
     def test_the_stored_date_is_carried_forward_for_the_same_address(self):
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
@@ -641,11 +637,7 @@ class TestTheDateRidesWithTheAddress:
         assert composed["trainer"]["geburtsdatum"] is None
 
     def test_a_date_under_no_stamp_survives_an_edit_to_the_seat(self):
-        """Every seat entered through this editor before the payload dropped the field: a date with no confirmation beside it.
-
-        Nulling one here would destroy it as a side effect of an edit to the telephone number, and
-        clearing them at all is a migration rather than a save.
-        """
+        """Nulling the date would destroy it as a side effect of an edit to the telephone number."""
 
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
 
@@ -674,11 +666,10 @@ class TestTheDateRidesWithTheAddress:
 
 @pytest.mark.db
 class TestASeatNobodyHasConfirmedIsStillSaveable:
-    """The defect ruling 274 closes: the payload required a date the row does not hold, so the block was unsaveable whole.
+    """A required birthdate would make an unconfirmed seat unsaveable whole.
 
-    Every field of the seat rides that one payload, so an unconfirmed seat's address, telephone number
-    and Kenntnisnahme were unsaveable with the date -- and the editor's own guard refused a body at a
-    path no administrator could legitimately fill.
+    Every field of the seat rides that one payload, so its address, telephone number and
+    Kenntnisnahme would go with the date.
     """
 
     def test_a_row_whose_seats_hold_no_date_takes_an_edit(self, mongo_replica_set_url: str):

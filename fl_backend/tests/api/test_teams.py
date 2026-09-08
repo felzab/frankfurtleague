@@ -316,9 +316,9 @@ class TestAContactRecordReadsBackHoweverItWasStored:
 
     ACCEPTED = {"nachname": "Koerner", "email": "a.koerner@example.de", "telefon": "+49 170 1234567"}
 
-    # The person as the editor SENDS them. The consent's source and the birthdate are both the
-    # server's and on no payload (`docs/backend/spec.md :: I141`, `:: I142`), so a body carrying
-    # either would fail on that key rather than on the one each case below is about.
+    # The consent's source and the birthdate are the server's and on no payload
+    # (`docs/backend/spec.md :: I141`, `:: I142`), so a body carrying either would fail on that key
+    # rather than on the one each case below is about.
     SENT = {"vorname": "Anke", "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-01-15"}, **REFUSED}
 
     STORED = {

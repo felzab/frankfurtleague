@@ -907,9 +907,9 @@ async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: M
 
 
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
-    # Omitted rather than passed as `None` where a rule reaches every row: `create_index` cannot
-    # change a live index's options, so a full index that once shipped without the argument and a
-    # rebuild passing `partialFilterExpression=None` would be two different indexes under one name.
+    # Omitted rather than passed as `None` where a rule reaches every row: an omitted key and
+    # `partialFilterExpression=None` are different options under one name, and `create_index` refuses
+    # a name already held at different ones (`docs/ops/runbooks.md` §2).
     partial = {"partialFilterExpression": index.partial_filter} if index.partial_filter is not None else {}
 
     try:
@@ -981,9 +981,9 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
 async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     """Apply every validator, then every index, to `db`.
 
-    A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys or the
-    options under a name in use, so a redeclared one is refused here and dropped by hand -- which is
-    what narrowing a rule to a `partial_filter` costs. Raises the `Exception` declared first.
+    A validator is REPLACED, an index only ever ADDED: narrowing a rule to a `partial_filter` means
+    dropping the live index by hand first (`docs/ops/runbooks.md` §2). Raises the `Exception` declared
+    first.
     """
     # Two phases rather than one: building an index CREATES its collection implicitly and without a
     # validator, so an overlap would leave a collection nothing ever validates.
