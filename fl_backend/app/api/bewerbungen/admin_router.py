@@ -158,6 +158,9 @@ async def annehmen_bewerbung(
                 # Validated, not read raw: a season missing the capacity keys fails here rather than
                 # admitting a school against a bound nobody chose.
                 rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+                # The transaction does not close the cap this count feeds: two acceptances at once
+                # both pass it and contend on no shared document, which is declared rather than
+                # refused at `app/core/domain.py :: UNENFORCED`.
                 occupied=len(occupied_rows),
             )
         )

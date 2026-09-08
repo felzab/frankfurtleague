@@ -140,9 +140,9 @@ async def patch_spieltag(
         "beginn": {"$ne": None},
     }
     neighbour_fields = {"position": 1, "beginn": 1}
-    # Read-then-write, not transactional: two positions dated at once write different documents, so
-    # no session would conflict on the pair either, and losing the race leaves a phase dated out of
-    # order rather than corrupt data, on a single-admin surface.
+    # Two positions dated at once both pass against these neighbours, and that state is declared
+    # rather than refused (`fl_backend/app/core/domain.py :: UNENFORCED`), a session alone closing it
+    # nowhere.
     previous_raw = await spieltage_collection.find_one(
         {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, neighbour_fields, sort=[("position", -1)]
     )

@@ -325,8 +325,8 @@ async def post_saison_team(
     # group, so nobody should be handed a capacity figure to act on first.
     refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
 
-    # Count-then-insert, not transactional: losing the race costs one team over a planning bound
-    # rather than corrupt data, on a single-admin surface.
+    # Two entries at once both pass this count, and that state is declared rather than refused
+    # (`fl_backend/app/core/domain.py :: UNENFORCED`), a session alone closing it nowhere.
     occupied_rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_team_data.saison_id, "gruppe": saison_team_data.gruppe},
@@ -413,6 +413,8 @@ async def patch_saison_team(
         )
         refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
 
+        # Two moves into one group both pass this count, and that state is declared rather than
+        # refused (`fl_backend/app/core/domain.py :: UNENFORCED`), a session alone closing it nowhere.
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "gruppe": saison_team_data.gruppe},

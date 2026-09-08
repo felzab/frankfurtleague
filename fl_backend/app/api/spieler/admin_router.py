@@ -107,6 +107,8 @@ async def _refuse_a_full_squad(
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"])
+    # Two writes into one squad both pass this count, and that state is declared rather than refused
+    # (`fl_backend/app/core/domain.py :: UNENFORCED`), a session alone closing it nowhere.
     squad_size = await saison_spieler_collection.count_documents(
         build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id)
     )
@@ -327,7 +329,6 @@ async def post_saison_spieler(
     # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
     refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-    # Count-then-insert, not transactional, as `post_saison_team` is.
     await _refuse_a_full_squad(
         saison_spieler_collection=saison_spieler_collection,
         saisons_collection=saisons_collection,

@@ -1825,4 +1825,68 @@ UNENFORCED: tuple[Unenforced, ...] = (
         proven_by="tests/core/test_unenforced.py::TestAnAbandonedFixtureAndItsResult",
         surfaced_by="/admin/spiele/[spiel_id]",
     ),
+    Unenforced(
+        subject="a group holding more clubs than the season's capacity for it",
+        reason=(
+            "Two entries into one group each count it, each pass, and each insert a different document, so nothing "
+            "conflicts -- and a count is a READ, which no snapshot re-validates. "
+            "`app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school` settles that a session is not what is "
+            "missing: it counts and inserts inside one `with_transaction`, handing the session to both, and holds the cap "
+            "no better than the two sites that take none. What WOULD hold it is a genuine write to the season the count is "
+            "scoped by, made inside each writer's transaction so the two contend on that one document -- AND THAT FIX IS "
+            "THE MORE SILENT OF THE TWO, because every site reaching `find_entry_refusal` has to remember the write, and "
+            "one that forgets reopens the race while the declaration claims the cap holds. Nothing cheaper reaches it: a "
+            "validator sees one document (`docs/backend/spec.md :: I16`), and a unique index gives at-most-one row per key "
+            "rather than at-most-N. THE STATE BLOCKS THE DRAW RATHER THAN SITTING UNDER IT: `REQ-SPIELPLAN-004` refuses a "
+            "season whose group is off `teams_per_group` and names the group and its count, so an over-full group is read "
+            "before a fixture exists. The repair is a move on `/admin/teams`, an austritt freeing no place. A second person "
+            "editing one season plan at once, confirmed 2026-08-12, is what ends this."
+        ),
+        near=("REQ-ENTER-003",),
+        proven_by="tests/core/test_unenforced.py::TestAGroupOverItsCapacity",
+        surfaced_by="/admin/teams",
+    ),
+    Unenforced(
+        subject="a squad holding more players than the season's cap for it",
+        reason=(
+            "Two adds into one squad each count it, each pass, and each insert; a transfer and a return judge the same "
+            "figure the same way, all of them through `app/api/spieler/admin_router.py :: _refuse_a_full_squad`, so one "
+            "count answers three verbs and no two of those writes touch one document. What WOULD hold the cap is a "
+            "genuine write to the season inside each writer's transaction, and that fix is the more silent of the two: a "
+            "site that forgets the write reopens the race under a declaration claiming the cap holds. Nothing cheaper "
+            "reaches it either. A validator counts no collection (`docs/backend/spec.md :: I16`). A synthetic seat per row "
+            "under a unique index needs that index partial over `inactive_since: null`, a retired row giving its place "
+            "back -- and `reactivate_saison_spieler` revives a row rather than writing one, so it would re-enter the index "
+            "holding the seat it retired with, a number since taken, and a lawful return would answer a duplicate key "
+            "instead of `REQ-SQUAD-003`. `uniq_spieler_id_saison_id` bounds one row per player per season "
+            "(`docs/backend/spec.md :: I20`) and says nothing about how many rows a squad holds. The state is read where it "
+            "is made: `/admin/spieler` lists a squad against its cap, and the repair is a retirement, `READ-SQUAD-001` "
+            "filtering a squad by the ROW's own rather than the person's. A self-service path reaching this cap ends this -- "
+            "the only bound on a leaked link is the cap this race defeats."
+        ),
+        near=("REQ-SQUAD-003",),
+        proven_by="tests/core/test_unenforced.py::TestASquadOverItsCap",
+        surfaced_by="/admin/spieler",
+    ),
+    Unenforced(
+        subject="two matchdays of one phase dated at once into an order their positions refuse",
+        reason=(
+            "Each writer reads the neighbours of the position it is dating and judges its own STEP against them "
+            "(`docs/backend/spec.md :: I44`), so two writers dating two positions at once each pass against the day the "
+            "other is replacing -- while the same step judged against what the other LEFT is refused, which makes the pair "
+            "they commit a state this rule would have stopped. These two share no document at all: the neighbour reads are "
+            "the whole of what they have in common, and a read is what a transaction never re-validates. The one document "
+            "they could be given to contend on is the season, written genuinely inside each transaction, and that fix is "
+            "the more silent of the two: a "
+            "site that forgets the write reopens the race under a declaration claiming the order holds. A unique index over "
+            "a phase's `beginn` is not the cheap alternative it looks: the comparison is strict rather than inclusive, so "
+            "two matchdays of one phase may lawfully begin on one day, and the index would refuse that pair. "
+            "`/admin/spieltage` sections a season by phase with each span beside it, so a phase dated against its own "
+            "positions reads as dates running backwards down the page, and the repair is a re-date. A second person "
+            "editing one season's matchdays at once is what ends this."
+        ),
+        near=("REQ-DATE-008",),
+        proven_by="tests/core/test_unenforced.py::TestTwoMatchdaysDatedAtOnce",
+        surfaced_by="/admin/spieltage",
+    ),
 )
