@@ -1023,8 +1023,9 @@ rather than restating it. Where a rule should genuinely stop holding,
 | `FormRegelnSection.tsx` and `AdminCreateSaisonForm.tsx`        | Two hand-written `maxValue={4}` steppers, pinned by no test                                                                                                                                                                                                                                                     | Silent                                                                                                                         |
 | `fl_backend/app/api/spiele/admin_router.py` and `:: crud.py`   | Season-scoped fixture reads raise past `LIST_LIMIT_DEFAULT` (1024) as a 500 rather than a refusal. `fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup`'s comment states its ceiling of 16 was chosen to keep the largest legal season inside that limit, so raising the group cap makes that comment false | Loud, as a 500                                                                                                                 |
 
-Raising the group cap also adds seeding keys `fl_backend/app/api/saisons/spielplan.py :: BRACKET_SEEDING` does
-not hold, which the comment at that table states.
+Raising the group cap adds no seeding key: `fl_backend/app/api/saisons/spielplan.py ::
+bracket_seeding` constructs the arrangement for any legal shape, and the table it replaced at
+runtime is now the reference that construction is held to.
 
 **What is unexpectedly clean.** No layout anywhere is sized per group — every grid in
 `fl_frontend/src` is card responsiveness, no tab strip or filter row carries one entry per group,
@@ -1034,8 +1035,7 @@ one card per group and grows, which is a design question at sixteen groups rathe
 
 **Not verified.** Nothing here was seen rendering — no admin session is available to the sessions
 that read it — so every claim about a control is read off source and class strings. The legal-set
-arithmetic is derived from the rule functions rather than executed. `BRACKET_SEEDING` was not
-re-measured here.
+arithmetic is derived from the rule functions rather than executed.
 
 ### `f38s-y3hj` · A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing
 

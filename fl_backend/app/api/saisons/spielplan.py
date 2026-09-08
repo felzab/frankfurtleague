@@ -17,13 +17,8 @@ from app.api.spiele.schemas import FLSaisonPhase, FLSpielQuelleGruppe, FLSpielQu
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 
-# Pinned, not derived: pairing partnered groups fixes WHO meets in round one, never WHERE. Of the
-# placements it leaves open, 8 of 24 at 4x2 and 480 of 576 at 4x4 meet a same-group pair sooner.
-# `tests/api/test_spielplan.py` recounts all four.
-
-# Keyed by what the rules may save: `app/api/spiele/schemas.py :: MAX_QUALIFIERS` follows
-# `:: PHASE_ORDER`, so a phase added at its wide end doubles the legal qualifier count and owes
-# this table new rows.
+# The reference rows `tests/api/test_spielplan.py` holds `bracket_seeding` to. Read by no request: a
+# shape absent here is constructed, so widening the rules bounds owes this table nothing.
 BRACKET_SEEDING: Mapping[tuple[int, int], tuple[tuple[FLGruppenNames, int], ...]] = {
     (1, 2): (("A", 1), ("A", 2)),
     (1, 4): (("A", 1), ("A", 4), ("A", 2), ("A", 3)),
@@ -145,6 +140,53 @@ def circle_rounds(teams: int) -> tuple[tuple[tuple[int, int], ...], ...]:
     return tuple(rounds)
 
 
+def _seed_at_slot(field: int) -> tuple[int, ...]:
+    """The seed each slot of a `field`-slot bracket holds, left to right.
+
+    Folded rather than tabulated: the fold answers any size, where a table answers the sizes somebody
+    wrote rows for.
+    """
+
+    seeds = (1,)
+    while len(seeds) < field:
+        width = len(seeds) * 2
+        seeds = tuple(seed for half in seeds for seed in (half, width + 1 - half))
+
+    return seeds
+
+
+def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tuple[tuple[FLGruppenNames, int], ...]:
+    """Which qualifier stands in each slot of the first knockout round, left to right.
+
+    Constructed rather than searched: the placements grow factorially in the group count, so a search
+    cannot follow a widened `FLGruppenNames`.
+    """
+
+    field = number_of_groups * qualifiers_per_group
+    # The product alone settles both factors, every divisor of a power of two being one.
+    if field < 1 or field & (field - 1):
+        raise ValueError(
+            f"{number_of_groups} group(s) of {qualifiers_per_group} qualifier(s) is {field} teams; a knockout bracket has no shape for it"
+        )
+
+    offered = offered_gruppen(number_of_groups)
+    # `offered_gruppen` slices a closed set, so it answers short rather than raising, and a short
+    # answer would seed one group's qualifier into another group's slot.
+    if len(offered) != number_of_groups:
+        raise ValueError(f"a season of {number_of_groups} groups needs that many names, and the closed set holds {len(offered)}")
+
+    placing_at = _seed_at_slot(qualifiers_per_group)
+    # `max`, or the draw repeats one pair and leaves another out. A divisor that also fits scores the
+    # same and ships a different row, which is what `BRACKET_SEEDING` fixes.
+    shift_of = max(number_of_groups, qualifiers_per_group)
+
+    # One qualifier of every group per block of `number_of_groups` slots, the latest a bracket can
+    # push two qualifiers of one group into meeting (`docs/backend/spec.md :: I199`). Pairing
+    # partnered groups alone fixes who meets
+    # and not where (`tests/api/test_spielplan.py :: TestTheConstructionBeatsTheObviousRuntimeRule`).
+    return tuple((offered[(slot % number_of_groups) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_group]) for slot in range(field))
+
+
 def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
     """Each offered group's clubs in entry order, the groups themselves in A-D order.
 
@@ -264,10 +306,9 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
 
     remaining = qualifier_count(rules)
     knockout = knockout_phases_for(remaining)
-    # A bare subscript on purpose: `tests/api/test_spielplan.py :: test_it_holds_exactly_the_combinations_a_season_can_be_saved_in`
-    # derives the legal key set, so a widened `PHASE_ORDER` fails the gate before any request can
-    # reach a missing row.
-    seeding = BRACKET_SEEDING[(rules.number_of_groups, rules.qualifiers_per_group)] if knockout else ()
+    # Asked of the phases and not of the count: `knockout_phases_for` is what answers empty for a
+    # field no bracket halves, and `bracket_seeding` raises on one.
+    seeding = bracket_seeding(number_of_groups=rules.number_of_groups, qualifiers_per_group=rules.qualifiers_per_group) if knockout else ()
 
     # The round already drawn, left to right; empty before the first, which reads the standings
     # instead -- the one round whose sides no earlier fixture can name.
