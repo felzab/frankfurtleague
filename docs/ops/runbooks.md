@@ -217,14 +217,22 @@ evidence it landed: those indexes constrain nothing, so no stored document can b
 (`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
 either fails loudly if it cannot.
 
-**A changed RETENTION bound is the one index change that stops the deploy.** `create_index` refuses a
-name already held at different options rather than moving it, so `apply_constraints` raises and
-`fl_backend/app/core/db.py :: lifespan` fails the boot — the old bound still serving, which the
-refusal does not say. Move it at the keyboard first, from the same shell the `--check` above runs in:
+**Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
+held at different options rather than moving it, so `apply_constraints` raises and
+`fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
+refusal does not say. **A changed RETENTION bound** is moved at the keyboard first, from the same
+shell the `--check` above runs in:
 
 ```javascript
 db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
 ```
+
+**A uniqueness rule narrowed to a `partial_filter`** cannot be moved that way, `collMod` reaching an
+index's expiry alone: the live index is dropped by hand while the stack is down, and the boot that
+follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop
+is the whole procedure, and it belongs in the deploy's own window rather than ahead of it — between
+the stack coming down and the new build coming up, because the refusal above is what the boot answers
+with while the old index stands.
 
 Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
 is the smaller window, no read losing the index in between. `<new>` must equal
