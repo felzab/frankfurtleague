@@ -769,8 +769,11 @@ def next_saison_id(saison_id: str) -> str:
     successor, so an absent one stops both for ever with nothing in any log.
     """
 
-    if not (saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
-        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} digits, and this season's is not one")
+    # `isascii()` beside `isdigit()`, which alone is true of Arabic-Indic and fullwidth digits: `int`
+    # reads those as a year and returns an ASCII successor, naming a season the original cannot be
+    # matched to.
+    if not (saison_id.isascii() and saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
+        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} ASCII digits, and this season's is not one")
 
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
 

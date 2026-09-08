@@ -195,10 +195,47 @@ const saisonPayloadFields = {
   bewerbung: FLSaisonBewerbungSchema.nullable(),
 };
 
+/**
+ * Retyped from `fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_YEAR`, which
+ * `fl_frontend/src/features/saisons/saisonIdMirror.test.ts` holds it to. A literal on both sides, being a fact about this
+ * league's own history; the ceiling below is a fact about the calendar and is read from the clock.
+ */
+export const FIRST_SAISON_YEAR = 2026;
+
+/**
+ * Character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload` spells it, and compared to
+ * that spelling by `fl_frontend/src/features/saisons/saisonIdMirror.test.ts`: a form offering what the write path refuses
+ * is what the two sides drifting apart looks like.
+ */
+export const SAISON_ID_PATTERN = /^[0-9]{4}$/;
+
+/** Read PER PARSE: a ceiling taken once when the module loads pins the year the tab was opened, not the year it is now. */
+const newestSaisonYear = () => new Date().getFullYear() + 1;
+
+const yearTheLeagueCanPlay = (value: string) => {
+  const year = Number(value);
+
+  return year >= FIRST_SAISON_YEAR && year <= newestSaisonYear();
+};
+
+/**
+ * The one field that MINTS a season id, so the range binds here and nowhere else: every other id in
+ * this module references a season already stored, and narrowing those would refuse a stored row.
+ */
+const saisonIdField = z
+  .string()
+  // `abort` on both, as pydantic stops at the first failing constraint: without it one mistyped id
+  // raises three sentences at once and the range check is handed a `NaN`.
+  .length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2027.", abort: true })
+  .regex(SAISON_ID_PATTERN, { error: "Die Saison-ID ist ein Jahr aus den Ziffern 0 bis 9, z.B. 2027.", abort: true })
+  .refine(yearTheLeagueCanPlay, {
+    error: () => `Die Saison-ID muss ein Jahr zwischen ${String(FIRST_SAISON_YEAR)} und ${String(newestSaisonYear())} sein.`,
+  });
+
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2027." }),
+    id: saisonIdField,
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
