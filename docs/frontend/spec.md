@@ -259,7 +259,8 @@ with `:: spielplanBlockedReason` closing the panel outside the window rather tha
 season). The undraw is judged on the operation rather than on what there is to remove, so a season
 already undrawn is answered with zeros, graded `info`. **The three shape rules move with the draw
 rather than in the rules panel** (`REQ-RULES-011`), `qualifiers_per_group` riding the draw's own
-payload and the group shape repaired by the undraw; **the tie-break beside them is the panel's own
+payload and the group shape repaired by the undraw — **and both routes run in one window, so outside
+it the panel states the freeze rather than a repair**; **the tie-break beside them is the panel's own
 freeze** (`REQ-RULES-012`), `FormRegelnSection` being HANDED the count `FormGruppenSwapSection`
 closes on for `REQ-SWAP-002` rather than reading the fixtures again —
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/regelnFreeze.test.ts` pins

@@ -29,6 +29,7 @@ import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSaisonBanners } from "./banners";
+import { spielplanUndrawBlockedReason } from "./blockedReasons";
 import { FormBewerbungSection } from "./FormBewerbungSection";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
@@ -51,6 +52,8 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
+import type { UndrawControlInput } from "./blockedReasons";
+import type { SpielplanWindowState } from "./FormRegelnSection";
 
 /**
  * **One save bar over ONE endpoint**: `PATCH /saisons/{saison_id}` replaces the dates and all of
@@ -171,6 +174,19 @@ export function AdminSaisonEditForm({
     outgoingSaisonId: rollover.outgoingSaisonId,
     offeneSpieleCount: rollover.offeneSpiele.length,
   });
+
+  const undrawInput: UndrawControlInput = {
+    saisonStatus: saison.status,
+    hasSpielplan: spielplan.spielplan !== null,
+    hasDrawnSpiele,
+    spieltageCount: spielplan.spieltageCount,
+    erfassteSpieleCount: spielplan.bestand.erfasst,
+  };
+
+  // One expression for both repairs, through the undraw's own reason rather than beside it: the
+  // redraw the qualifiers ride is held to the same window (`blockedReasons.ts :: isReplaceWindowOpen`).
+  const spielplanWindow: SpielplanWindowState =
+    spielplanUndrawBlockedReason(undrawInput) === null ? "open" : saison.status === "future" ? "recorded" : "closed";
 
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
@@ -302,6 +318,7 @@ export function AdminSaisonEditForm({
             // both rules read a played knockout fixture, so one derivation keeps the two panels agreeing.
             isKnockoutStarted={swap.playedKnockoutSpiele > 0}
             isDrawnSaison={hasDrawnSpiele}
+            spielplanWindow={spielplanWindow}
             banners={banners}
           />
 

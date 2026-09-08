@@ -93,6 +93,9 @@ def find_rules_refusal(
     # The LARGEST count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
+    # Counted in the same pass as `drawn_fixtures`, and never left behind by a caller passing that
+    # one: a total weighed against an unmeasured record count composes a repair the undraw refuses.
+    recorded_fixtures: int = 0,
     # Counted over `app/api/teams/services.py :: has_taken_place`, as `REQ-SWAP-002`'s window is.
     played_knockout_fixtures: int = 0,
 ) -> WriteRefusal | None:
@@ -117,22 +120,43 @@ def find_rules_refusal(
     if stored is not None and drawn_fixtures > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
-            # Per field, the two repairs being different jobs: raising a pinned one needs clubs
-            # entered between the removal and the draw, and lowering one is refused by
-            # `REQ-RULES-002` or `REQ-RULES-003` while the clubs stand, withdrawn or not.
-            pinned = [field for field in redrawn if field != REDRAWABLE_SHAPE_FIELD]
+            # Both repairs below are writes on the Spielplan and run in one window, so a season
+            # outside it is named no repair rather than one `REQ-SPIELPLAN-005` and
+            # `REQ-SPIELPLAN-006` would each turn away.
+            if _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
+                # Per field, the two repairs being different jobs: raising a pinned one needs clubs
+                # entered between the removal and the draw, and lowering one is refused by
+                # `REQ-RULES-002` or `REQ-RULES-003` while the clubs stand, withdrawn or not.
+                pinned = [field for field in redrawn if field != REDRAWABLE_SHAPE_FIELD]
 
-            repairs: list[str] = []
-            if REDRAWABLE_SHAPE_FIELD in redrawn:
-                repairs.append(f"to move {REDRAWABLE_SHAPE_FIELD}, draw the Spielplan again with the new number")
-            if pinned:
-                repairs.append(
-                    f"the clubs entered fix {' and '.join(pinned)}, so undraw the Spielplan, change the entries, then draw the Spielplan again"
+                repairs: list[str] = []
+                if REDRAWABLE_SHAPE_FIELD in redrawn:
+                    repairs.append(f"to move {REDRAWABLE_SHAPE_FIELD}, draw the Spielplan again with the new number")
+                if pinned:
+                    repairs.append(
+                        f"the clubs entered fix {' and '.join(pinned)}, so undraw the Spielplan, change the entries, "
+                        "then draw the Spielplan again"
+                    )
+
+                repair = "; ".join(repairs)
+            elif saison_status == PLANNING_STATUS:
+                # A record can be cleared where a status cannot, so this half is worded as a state
+                # with a way out of it and never as the freeze below.
+                repair = (
+                    f"a draw or an undraw of the Spielplan is what moves {' and '.join(redrawn)}, and neither is open to every season: "
+                    + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
+                )
+            else:
+                # Nothing returns a season to `future` (`docs/backend/spec.md :: I18`), so this is
+                # the one branch that can call the numbers settled and be right about it.
+                repair = (
+                    f"nothing will move {' and '.join(redrawn)} for the rest of this season: a draw or an undraw of the "
+                    f"Spielplan is what moves them, and neither runs on a season that is {saison_status}"
                 )
 
             return WriteRefusal(
                 error_code=RULES_SHAPE_AFTER_DRAW,
-                message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {'; '.join(repairs)}",
+                message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {repair}",
             )
 
     # Compared by value, so a dates-only edit resubmitting the stored order passes
@@ -441,15 +465,32 @@ SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
 SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
 
 
-def _outside_the_planning_window(*, saison_status: str, recorded_fixtures: int) -> str:
-    """The window's second half in words, for the replace and the undraw alike.
+# The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
+# (`docs/backend/spec.md :: I18`) -- which is what makes a shape frozen outside it frozen for good.
+PLANNING_STATUS: FLSaisonStatus = "future"
 
-    Spelled ONCE: the sentence enumerates what `holds_a_recorded_fact` counts, and two copies of it
+
+def _planning_window_is_open(*, saison_status: str, recorded_fixtures: int) -> bool:
+    """Whether this season's Spielplan may still be replaced or removed.
+
+    ONE predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
+    write the product then turns away.
+    """
+
+    return saison_status == PLANNING_STATUS and recorded_fixtures == 0
+
+
+def _outside_the_planning_window(*, saison_status: str, recorded_fixtures: int) -> str:
+    """The window's second half in words, shared by the replace, the undraw and the shape freeze.
+
+    Spelled ONCE: the sentence enumerates what `holds_a_recorded_fact` counts, and two copies
     disagree the moment that predicate weighs one more field.
     """
 
+    # No CONNECTOR: the three callers lead into this sentence differently, and one fixed here reads
+    # as a second "and" in the shape freeze.
     return (
-        f"and this one is {saison_status} and holds {recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking, "
+        f"this one is {saison_status} and holds {recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking, "
         "a note or a side moved off the draw; it runs only on a planned season with nothing entered against it"
     )
 
@@ -474,7 +515,7 @@ def find_spielplan_refusal(
 
     # `REQ-SPIELPLAN-005`'s window, named here because `REQ-SPIELPLAN-001` is judged FIRST and would
     # otherwise offer a replace this refuses, sending an admin who confirms into a second 409.
-    replace_is_offered = saison_status == "future" and recorded_fixtures == 0
+    replace_is_offered = _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
 
     # What a confirmed replace is about to delete is no reason to turn it away, so `REQ-SPIELPLAN-001`
     # and `REQ-SPIELPLAN-002` step aside for one. `REQ-SPIELPLAN-005` below is what bounds it instead.
@@ -509,7 +550,7 @@ def find_spielplan_refusal(
     if replace and not replace_is_offered:
         return WriteRefusal(
             error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
-            message="a replace deletes every matchday and fixture the season holds, "
+            message="a replace deletes every matchday and fixture the season holds, and "
             + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),
         )
 
@@ -563,11 +604,11 @@ def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteR
     already undrawn is the state asked for, so it removes nothing rather than refusing.
     """
 
-    if saison_status == "future" and recorded_fixtures == 0:
+    if _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
         return None
 
     return WriteRefusal(
         error_code=SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
-        message="removing a Spielplan deletes every matchday and fixture the season holds, "
+        message="removing a Spielplan deletes every matchday and fixture the season holds, and "
         + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),
     )

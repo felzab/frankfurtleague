@@ -50,6 +50,7 @@ const PANEL: RegelnProps = {
   isFinishedSaison: false,
   isKnockoutStarted: false,
   isDrawnSaison: false,
+  spielplanWindow: "open",
   banners: [],
 };
 
@@ -109,5 +110,61 @@ describe("the rules panel's tiebreak freeze", () => {
       "a finished season is explained past its own banner",
     );
     assert.doesNotMatch(markup({ isKnockoutStarted: true, isFinishedSaison: true }), /Nach dem Beginn der KO-Runde/, "explained twice over");
+  });
+});
+
+/** The two repairs the open window offers, which are what a season past that window may not be sent on. */
+const REDRAW = /den Spielplan mit der neuen Zahl neu anlegst/;
+const UNDRAW = /nimmst Du den Spielplan zurück/;
+
+/* One per closed state, and they are asserted against each other: both close the same three fields,
+   so a case matching only "some closed sentence rendered" would pass on either. */
+const RECORDED = /Solange zu mindestens einem Spiel/;
+const FROZEN = /Damit sind diese drei Zahlen festgeschrieben/;
+
+describe("the rules panel's note on the frozen shape", () => {
+  /* The gate the three cases below cannot see, each holding the note to a state that renders one:
+     it explains a freeze, so a season nothing has frozen is told to redraw a Spielplan it has not
+     got. */
+  it("renders no note at all on a season that holds no draw", () => {
+    for (const pattern of [REDRAW, UNDRAW, RECORDED, FROZEN])
+      assert.doesNotMatch(markup({}), pattern, "an undrawn season is told how to unfreeze fields nothing has frozen");
+  });
+
+  it("offers both repairs while the Spielplan window is open", () => {
+    const open = markup({ isDrawnSaison: true, spielplanWindow: "open" });
+
+    assert.match(open, REDRAW, "the qualifiers' own repair is missing where it is on offer");
+    assert.match(open, UNDRAW, "the group shape's repair is missing where it is on offer");
+    assert.doesNotMatch(open, FROZEN, "an open window is described as a freeze");
+  });
+
+  /* Read before any save is attempted, which is what makes it worse than a refusal: an admin acts on
+     it without ever provoking the 409 that would have corrected them. */
+  it("offers neither repair on a running or finished season, and states the freeze instead", () => {
+    const closed = markup({ isDrawnSaison: true, spielplanWindow: "closed" });
+
+    assert.doesNotMatch(closed, UNDRAW, "a season past the window is sent to take the Spielplan back");
+    assert.doesNotMatch(closed, REDRAW, "a season past the window is sent to draw the Spielplan again");
+    assert.match(closed, FROZEN, "the closure is unexplained");
+  });
+
+  /* The state that makes this three sentences and not two: nothing returns a season to `future`,
+     while a recorded fact can be removed, so the freeze the case above states would be false here. */
+  it("names the condition on a planned season holding a recorded fact, rather than a freeze", () => {
+    const recorded = markup({ isDrawnSaison: true, spielplanWindow: "recorded" });
+
+    assert.match(recorded, RECORDED, "the condition that closed both repairs is unnamed");
+    assert.doesNotMatch(recorded, FROZEN, "a state the admin can leave is called final");
+    assert.doesNotMatch(recorded, UNDRAW, "a closed window is sent to take the Spielplan back");
+    assert.doesNotMatch(recorded, REDRAW, "a closed window is sent to draw the Spielplan again");
+  });
+
+  /* Read rather than rendered, for this file's own reason: the note is the same markup whichever
+     expression decided the state handed in. A flag decided beside that reason could confirm a
+     repair the control has closed. */
+  it("takes the window from the reason the undraw control is closed by", () => {
+    assert.match(EDIT_FORM, /spielplanUndrawBlockedReason\([^)]*\) === null/, "the edit form decides the window some other way");
+    assert.doesNotMatch(REGELN, /erfassteSpiele|saisonStatus/, "the rules panel reads the window itself");
   });
 });

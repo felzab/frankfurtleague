@@ -114,12 +114,17 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // in one panel, and one answering through field paths would split that into two mechanisms.
     case "REQ-RULES-011":
       return {
-        // Wrapped so the second repair reads as one run: `undrawSpielplan.test.ts` matches the verb
-        // this message sends an admin looking for against the control that carries it.
+        // The CONDITION rather than the window: this arm holds only the code, so a repair worded as
+        // available sends a season past it to a write
+        // `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` turns away. The verb is
+        // the undraw control's own.
         error:
-          "Für diese Saison sind schon Spiele angesetzt. Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl " +
-          "neu anlegst. Gruppen und Teams pro Gruppe hängen dagegen an den Teams, die in dieser Saison stehen: " +
-          "Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.",
+          "Für diese Saison sind schon Spiele angesetzt. Gruppen, Teams pro Gruppe und Qualifikanten bewegen sich nur zusammen " +
+          "mit dem Spielplan, und der lässt sich nur neu anlegen oder zurücknehmen, " +
+          "solange die Saison geplant ist und zu keinem Spiel etwas eingetragen ist. " +
+          "Trifft das noch zu, änderst Du die Qualifikanten, indem Du den Spielplan mit der neuen Zahl neu anlegst; " +
+          "für Gruppen und Teams pro Gruppe nimmst Du zuerst den Spielplan zurück, passt die Teams an und legst ihn danach neu an. " +
+          "Sonst stehen die drei Zahlen für den Rest dieser Saison fest. Im Abschnitt Spielplan siehst Du, was für diese Saison gilt.",
       };
     case "REQ-RULES-006":
       return {

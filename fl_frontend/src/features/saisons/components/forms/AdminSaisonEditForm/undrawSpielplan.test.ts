@@ -6,8 +6,15 @@ import { describe, it } from "node:test";
 /** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
-/** The action file, for the one claim that is about two sites agreeing rather than about this panel. */
+/** The action file, for the claims that are about two sites agreeing rather than about this panel. */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "actions.ts"), "utf8");
+
+/**
+ * Its string concatenations joined: Prettier moves a `+` break at will, so a sentence asserted as
+ * written would fail on a re-wrap that changed nothing a reader sees. Every assertion against the
+ * action file reads this, never `ACTIONS`.
+ */
+const ACTION_COPY = ACTIONS.replaceAll(/" \+\s*"/g, "");
 
 /**
  * JSX's line breaks and its `{" "}` joins collapsed. **Every copy assertion reads this and not the
@@ -110,9 +117,18 @@ describe("the undraw half of the Spielplan panel", () => {
   /* Two sites, one verb: `REQ-RULES-011`'s message tells an admin to take the Spielplan back, and
      this control is what they then go looking for. Rename either alone and this fails. */
   it("carries the verb the rules refusal sends the admin looking for", () => {
-    assert.match(ACTIONS, /Nimm dafür zuerst den Spielplan zurück/);
+    assert.match(ACTION_COPY, /nimmst Du zuerst den Spielplan zurück/);
     assert.match(SOURCE, /"Spielplan zurücknehmen"/);
     assert.match(SOURCE, /"Ja, Spielplan zurücknehmen"/);
+  });
+
+  /* The mapper holds only the refusal's code, so the sentence carries the condition and this panel
+     resolves it for the season in hand. Drop either half and a running season is sent to a control
+     it will find closed. */
+  it("states the window the repair it names runs in, and what holds outside it", () => {
+    assert.match(ACTION_COPY, /solange die Saison geplant ist und zu keinem Spiel etwas eingetragen ist/);
+    assert.match(ACTION_COPY, /für den Rest dieser Saison fest/);
+    assert.match(ACTION_COPY, /Im Abschnitt Spielplan/);
   });
 
   /* Leave the armed label at "Ja, zurücknehmen" and this fails: on a danger panel a bare verb is

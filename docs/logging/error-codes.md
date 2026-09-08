@@ -85,8 +85,10 @@ each set behave that way:
   judge the side whose source the save MOVES and leave a fixture already wired out of rule editable.
 
 **`REQ-RULES-011` composes a repair per field that moved**, the three fields it names not sharing one. The
-freeze is absolute on the patch and is not a dead end, and which route leads back for which field is
-[`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
+freeze is absolute on the patch, and **whether it is a dead end depends on the season**: both repairs run
+only while the season is planned and nothing is recorded against a fixture, so outside that window the
+refusal names the condition where it can still be met and the freeze where it cannot. Which route leads back
+for which field is [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
 
 **`Worded by` cites the module answering a code with German rather than quoting the sentence.** The
 meaning is already in the column beside it and in `fl_backend/app/core/domain.py :: RULES`, and several

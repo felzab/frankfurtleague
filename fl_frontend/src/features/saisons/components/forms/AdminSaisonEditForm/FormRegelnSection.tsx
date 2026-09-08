@@ -21,6 +21,27 @@ const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
 /** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const STUFEN_LABEL_ID = "erlaubte-stufen";
 
+/** Where a drawn season stands against the window the Spielplan's draw and its undraw both run in. */
+export type SpielplanWindowState = "open" | "recorded" | "closed";
+
+/**
+ * Three states and not two: the window shuts on a recorded fact and on the season starting, and only
+ * the first can be undone, so one sentence for both would be false about one of them.
+ */
+const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
+  // Two repairs and not one, as `find_rules_refusal` composes them per moved field: only the
+  // qualifiers move on a redraw, the other two standing on which clubs are entered.
+  open: "Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den Spielplan zurück, passt die Teams an und legst ihn danach neu an.",
+  // What counts as entered is the Spielplan panel's own list, stated there in full on exactly this
+  // state: a second copy would put one sentence on the page twice.
+  recorded:
+    "Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt. Im Abschnitt Spielplan steht, was dazu zählt.",
+  // The freeze stated rather than left conditional: nothing returns a season to `future`
+  // (`docs/backend/spec.md :: I18`), so a way out worded here would name one nobody can reach.
+  closed:
+    "Neu anlegen und zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist. Damit sind diese drei Zahlen festgeschrieben.",
+};
+
 /**
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
@@ -38,6 +59,7 @@ export function FormRegelnSection({
   isFinishedSaison,
   isKnockoutStarted,
   isDrawnSaison,
+  spielplanWindow,
   banners,
 }: {
   rules: FLSaisonRulesDraft;
@@ -62,6 +84,11 @@ export function FormRegelnSection({
    * over, and `qualifiers_per_group` is in both.
    */
   isDrawnSaison: boolean;
+  /**
+   * **Handed in, never derived here**: a state decided beside
+   * `blockedReasons.ts :: spielplanUndrawBlockedReason` could offer a repair that control has closed.
+   */
+  spielplanWindow: SpielplanWindowState;
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
@@ -252,15 +279,8 @@ export function FormRegelnSection({
           spot="regeln-status"
         />
 
-        {/* Panel-local: on the rail it would describe controls the reader cannot see. Two repairs and
-            not one, as `find_rules_refusal` composes them per moved field: only the qualifiers move
-            on a redraw, the other two standing on which clubs are entered. */}
-        {isDrawnSaison && (
-          <p className="fluid-xxs text-foreground-muted w-full font-medium">
-            Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den
-            Spielplan zurück, passt die Teams an und legst ihn danach neu an.
-          </p>
-        )}
+        {/* Panel-local: on the rail it would describe controls the reader cannot see. */}
+        {isDrawnSaison && <p className="fluid-xxs text-foreground-muted w-full font-medium">{SHAPE_NOTE[spielplanWindow]}</p>}
       </div>
     </section>
   );

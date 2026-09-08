@@ -116,7 +116,6 @@ deliverable.
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                    | FE, Docs, tests                                                             | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                   | FE, BE, Docs, tests, saisons                                                | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject              | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                              | FE, tests                                                                   | Open     |
@@ -1855,48 +1854,6 @@ here establishes that an SSR'd attribute the parser refused stays unapplied afte
 every overlay still positions under the strict policy; both are read off the react-dom and react-aria
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
-
-### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
-
-| Tags                         | Status | Depends on |
-| ---------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, saisons | Open   | —          |
-
-**`REQ-RULES-011` names an undraw whose window is narrower than the refusal's own.**
-`fl_backend/app/api/saisons/services.py :: find_rules_refusal` composes a repair per moved field, and the one
-for `number_of_groups` and `teams_per_group` tells an admin to undraw the Spielplan, change the entries, then
-draw it again. `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` permits that undraw only while
-the season is `future` and no fixture carries anything recorded against it; every other season is answered
-`REQ-SPIELPLAN-006`. **The refusal itself is under no such window** —
-`fl_backend/tests/api/test_rules_refusal.py :: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` pins it holding
-whatever the season is doing — so on a running season, and on a planned one carrying a result, the repair
-names a write nothing will perform. `REQ-RULES-012`'s own window sits inside that set and is not the size of
-it: a played knockout fixture is a recorded one, and so is a called-off group fixture in a season nobody has
-activated.
-
-**What an admin meets is a closed control rather than a second refusal.**
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanUndrawBlockedReason`
-mirrors the same window and answers _"Zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant
-ist."_, which contradicts the sentence that sent them there. [`docs/frontend/spec.md`](../frontend/spec.md)'s
-copy standard exempts the continuation of a repair a refusal has already started, on the ground that a loop
-broken at its second step leaves an admin exactly where the refusal sent them; **this is that loop broken at
-its second step.**
-
-**Ruled: narrow the refusal's sentence to the window in which the undraw it recommends is possible**
-(`docs/datenschutz.md` §10, 2026-09-02). A season past that window is told plainly that the two
-numbers are fixed for the rest of its life. **Widening the undraw instead is the rejected half** — a
-season that has drawn and recorded nothing being arguably still in setup whatever `status` says is a
-domain call about what an `active` season may become, and the ruling does not take it.
-
-**The claim is repeated where it is not owned**, so the narrowing moves those with it:
-[`docs/domain.md`](../domain.md)'s reading of what an undraw opens,
-[`docs/logging/error-codes.md`](../logging/error-codes.md)'s draw-freeze paragraph and
-[`docs/frontend/spec.md`](../frontend/spec.md)'s undraw loop each state it as the way back from a
-group shape guessed wrong — true in the planning window it was written for, and in no other.
-
-**The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
-`REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
-instruction.
 
 ### `suuz-dged` · Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
 

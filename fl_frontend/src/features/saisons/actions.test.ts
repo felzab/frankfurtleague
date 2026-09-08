@@ -50,7 +50,9 @@ describe("the saison actions against the backend's refusal register", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts each mapper out of the file before reading it", () => {
     assert.ok(RULES_MAP.includes('case "REQ-DATE-005":'), "the editor's switch is outside its slice");
-    assert.ok(!RULES_MAP.includes("REQ-SPIELPLAN"), "the editor's slice runs on into the draw's arms");
+    // The arm rather than the code: the draw's mapper opens on `case "REQ-SPIELPLAN-001":`, so an
+    // overrun still fails here, while a rules arm citing a draw refusal in prose passes.
+    assert.ok(!RULES_MAP.includes('case "REQ-SPIELPLAN'), "the editor's slice runs on into the draw's arms");
 
     assert.ok(SPIELPLAN_MAP.includes('case "REQ-SPIELPLAN-001":'), "the draw's switch is outside its slice");
     assert.ok(!SPIELPLAN_MAP.includes('"rules.qualifiers_per_group"'), "the draw's slice reaches the rules editor's arms");

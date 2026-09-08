@@ -20,6 +20,7 @@ from app.api.saisons.services import (
     SEEDING_RULES_FIELD,
     SHAPE_RULES_FIELDS,
     find_rules_refusal,
+    find_undraw_refusal,
 )
 from app.api.spiele.schemas import FLSaisonPhase
 from app.api.teams.schemas import FLGruppenNames
@@ -68,6 +69,7 @@ def judge(
     largest_squad: int = 0,
     attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
+    recorded: int = 0,
     played_knockout: int = 0,
 ) -> WriteRefusal | None:
     return find_rules_refusal(
@@ -79,6 +81,7 @@ def judge(
         largest_squad=largest_squad,
         attached_by_phase=attached,
         drawn_fixtures=drawn,
+        recorded_fixtures=recorded,
         played_knockout_fixtures=played_knockout,
     )
 
@@ -554,9 +557,9 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
 
     def test_the_refusal_names_drawing_the_season_again(self):
-        """The message an admin reads: naming the shape as unchangeable would send them looking for an edit that does not exist."""
+        """Inside the planning window: naming the shape unchangeable where the draw is open sends an admin looking for nothing."""
 
-        refusal = judge(stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+        refusal = judge(status="future", stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
         assert "draw the Spielplan again" in refusal.message
@@ -565,10 +568,10 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_the_refusal_names_the_repair_the_moved_field_has(self, field: str, changed: dict[str, Any], undraws: bool):
         """One repair for all three passes every other assertion in this class and sends an admin to a write the draw refuses.
 
-        `REQ-SPIELPLAN-004` asks every offered group for exactly `teams_per_group`, so a redraw cannot move the other two.
+        A redraw cannot move the other two: `REQ-SPIELPLAN-004` asks every offered group for exactly `teams_per_group`.
         """
 
-        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+        refusal = judge(status="future", stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
         assert DRAW_AGAIN in refusal.message
@@ -590,7 +593,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_a_step_moving_two_of_them_names_both(self, changed: dict[str, Any], named: tuple[str, ...]):
         """A dropped clause is a field the admin repairs on the next refusal instead of this one, and an undraw is not a step to repeat."""
 
-        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+        refusal = judge(status="future", stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
         assert UNDRAW_FIRST in refusal.message
@@ -639,6 +642,89 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
 
         assert refusal is not None
         assert refusal.error_code == RULES_SAISON_FINISHED
+
+
+# Every window state the repair has to survive. The verdict is asserted against `find_undraw_refusal`
+# rather than trusted here, so a row describing a window that has moved fails rather than passing
+# over it.
+UNDRAW_WINDOW_CASES: tuple[tuple[str, int, bool], ...] = (
+    ("future", 0, True),
+    ("future", 2, False),
+    ("active", 0, False),
+    ("past", 0, False),
+)
+
+# In case order: a row added above without one here fails `parametrize` rather than mislabelling a case.
+WINDOW_IDS: tuple[str, ...] = ("planned and untouched", "planned but carrying a record", "running", "finished")
+
+WINDOW_STATES: tuple[tuple[str, int], ...] = tuple((status, recorded) for status, recorded, _ in UNDRAW_WINDOW_CASES)
+
+# `past` dropped, and derived rather than retyped so a row added above reaches this set: `REQ-RULES-005`
+# freezes `qualifiers_per_group`, so a finished season is answered by that freeze instead of this rule.
+REDRAW_WINDOW_CASES = tuple(case for case in UNDRAW_WINDOW_CASES if case[0] != "past")
+REDRAW_WINDOW_IDS = tuple(label for label, case in zip(WINDOW_IDS, UNDRAW_WINDOW_CASES, strict=True) if case[0] != "past")
+
+
+class TestTheShapeRefusalRecommendsNoRepairTheSpielplanRefuses:
+    """`REQ-RULES-011`'s two repairs are both Spielplan writes, and one window holds both.
+
+    The freeze holds in every status and only the sentence narrows. Outside the window a repair
+    naming the undraw sends an admin to a write answered `REQ-SPIELPLAN-006`.
+    """
+
+    @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
+    def test_each_case_states_the_window_the_undraw_actually_holds(self, status: str, recorded: int, undraw_runs: bool):
+        """The floor: every case below reads its window off this table, so a table gone stale would pass them all."""
+
+        assert (find_undraw_refusal(saison_status=status, recorded_fixtures=recorded) is None) is undraw_runs
+
+    @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
+    def test_the_undraw_is_named_only_where_it_runs(self, status: str, recorded: int, undraw_runs: bool):
+        """`teams_per_group` is a pinned field, and undrawing is where its only repair starts."""
+
+        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert (UNDRAW_FIRST in refusal.message) is undraw_runs
+
+    @pytest.mark.parametrize(("status", "recorded", "redraw_runs"), REDRAW_WINDOW_CASES, ids=REDRAW_WINDOW_IDS)
+    def test_the_redraw_is_named_only_where_it_runs(self, status: str, recorded: int, redraw_runs: bool):
+        """`qualifiers_per_group`'s repair is a confirmed replace, which `REQ-SPIELPLAN-005` holds to the undraw's own window."""
+
+        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(qualifiers=4), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert (DRAW_AGAIN in refusal.message) is redraw_runs
+
+    @pytest.mark.parametrize(("status", "recorded"), WINDOW_STATES, ids=WINDOW_IDS)
+    def test_only_the_field_that_moved_is_named_in_any_window(self, status: str, recorded: int):
+        """A narrowed clause joining the whole tuple rather than what moved would lend a field standing still the freeze the clause carries."""
+
+        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert "teams_per_group" in refusal.message
+        assert [field for field in SHAPE_RULES_FIELDS if field != "teams_per_group" and field in refusal.message] == []
+
+    def test_a_season_past_the_window_is_told_the_numbers_are_settled(self):
+        """Nothing returns a season to `future` (`docs/backend/spec.md :: I18`), so a condition to meet would name a state nobody can reach."""
+
+        refusal = judge(status="active", stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert "for the rest of this season" in refusal.message
+
+    def test_a_planned_season_carrying_a_record_is_told_what_shut_the_window(self):
+        """The record half has a way back and the status half has none, so calling the numbers settled here denies a repair they hold."""
+
+        refusal = judge(status="future", recorded=2, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert "for the rest of this season" not in refusal.message
+        assert "2 fixture(s)" in refusal.message
+        assert "nothing entered against it" in refusal.message
 
 
 # A season whose bracket is under way: one knockout fixture has left a record. Its fixtures were

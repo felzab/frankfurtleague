@@ -128,7 +128,9 @@ being exactly the record the erasure exists to remove.
 fixtures, the three numbers those fixtures were drawn from move only with the fixtures they produced, because
 the shape and the draw are ONE fact. An `active` season is held to its shape and so is a `future` one.
 
-**The route back is an undraw**, and it is the whole reason `DELETE /saisons/{saison_id}/spielplan` exists:
+**The route back is an undraw, and it closes with the window below** — past that window there is no
+route back at all, and the three shape rules are fixed for the season's life. It is the whole reason
+`DELETE /saisons/{saison_id}/spielplan` exists:
 undraw, patch the rules, change the entries, draw again — with the group moves a drawn season locks
 (`REQ-ENTER-004`) open again in between. **Changing the entries can only mean adding them.** No endpoint
 takes a club back out of a season and an `austritt` leaves its row occupying the place, so a group's
