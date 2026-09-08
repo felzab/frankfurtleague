@@ -18,7 +18,7 @@ const FORMULARE: Record<string, string> = {
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
 const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
-const NICHT_ANGEKOMMEN = "Deine Anfrage ist gerade nicht angekommen. Warte einen Moment und versuche es dann noch einmal.";
+const KEINE_ANTWORT_VON_UNS = "Die Antwort auf Deine Anfrage kam nicht von uns. Warte einen Moment und versuche es dann noch einmal.";
 const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
 
 const ENVELOPE = { "content-type": "application/json" };
@@ -57,7 +57,7 @@ describe("what a public form is told when the answer was not this application's"
 
       const answered = await postPublicForm("/api/bewerbung", {});
 
-      assert.deepEqual(answered, { answered: false, error: NICHT_ANGEKOMMEN }, `the challenge answering ${body} reached the form`);
+      assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS }, `the challenge answering ${body} reached the form`);
     }
   });
 
@@ -68,7 +68,7 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bestaetigung", {});
 
-    assert.deepEqual(answered, { answered: false, error: NICHT_ANGEKOMMEN });
+    assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS });
   });
 
   /* JSON parses from anything that wrote JSON, this application included in nothing about it. Every
@@ -78,7 +78,7 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bewerbung", {});
 
-    assert.deepEqual(answered, { answered: false, error: NICHT_ANGEKOMMEN });
+    assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS });
   });
 
   /* A rejection reached no judgement, so the connection is the one thing worth naming and nothing

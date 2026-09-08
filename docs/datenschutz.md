@@ -52,13 +52,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
-- **The minimum age is 16 for every role, and today it is judged for a contact person alone.**
+- **The minimum age is 16 for every role, and today only one write judges it.**
   Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a
   person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
-  three. The contact person is reached without that flow:
-  that person types their own date on the confirmation page and
+  three. That write is the contact person's own confirmation:
+  they type their date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. The consent vocabulary's `volljaehrig`
+  written. **The junction contacts editor is not that write** -- it requires a birthdate of the
+  administrator and bounds it at neither tier, so a seat entered there can hold any date at all. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
@@ -70,7 +71,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   row until a backfill is run by hand, and an administrator making a date up at every squad entry
   until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED` carries the standing state and
   names what ends it — the next season's registration, at which the pupil rows standing today are
-  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)).
+  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
+  question about one arises**, which is what the published notice tells a reader; it gates no
+  read and no publication, and nothing judges it automatically. Ruled 2026-09-08.
 - **There is no guardian workflow.** The consent a registration composes today asserts a guardian
   (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`) while its only caller
   is an administrator; that path goes with the flow that replaces it, and the consent vocabulary

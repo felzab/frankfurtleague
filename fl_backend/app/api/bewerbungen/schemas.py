@@ -797,7 +797,7 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
 
-    # The six below compose the two outbound messages and are the frontend SERVER's alone; its
+    # The seven below compose the two outbound messages and are the frontend SERVER's alone; its
     # route handler answers the browser the four above.
 
     # The application this seat belongs to, so a message composed here can be tagged with it and the

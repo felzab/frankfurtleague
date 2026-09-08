@@ -11,12 +11,15 @@ from pymongo.errors import OperationFailure
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktor
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
+    FLBewerbungBestaetigung,
+    FLBewerbungBestaetigungen,
     FLBewerbungEntscheidung,
     FLBewerbungKader,
     FLBewerbungSchule,
     FLBewerbungStatus,
     FLBewerbungTrikot,
     FLBewerbungZustellstand,
+    FLBewerbungZustellung,
 )
 from app.api.saisons.schemas import (
     FLSaison,
@@ -159,6 +162,16 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BEWERBUNGEN, ("kontakte", "trainer", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    # The confirmation bookkeeping, one row per seat because the validator declares the block three
+    # times over. Its own enums are pinned beside it; without these rows nothing walked the field
+    # names, the bson types or `required` here at all.
+    (Collection.BEWERBUNGEN, ("bestaetigungen",), FLBewerbungBestaetigungen, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung"), FLBewerbungBestaetigung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
 ]
@@ -384,6 +397,11 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # opens: the triage renders an application's state from `bestaetigungen`, and a second date
     # beside it would be one an administrator can act on nowhere.
     (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
+    # The raw token's hashes are the whole credential and no model declares either, so the link
+    # cannot be recovered from any read.
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer")): frozenset({"token_hash", "token_hash_zuvor"}),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash", "token_hash_zuvor"}),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash", "token_hash_zuvor"}),
     # The pass's own clock rather than a fact about the season it is stored on: an operator asks
     # whether the sweep ran, and no page of a season is that question.
     (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),

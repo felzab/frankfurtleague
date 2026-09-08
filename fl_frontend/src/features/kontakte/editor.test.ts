@@ -621,6 +621,16 @@ describe("the editor's shape", () => {
 });
 
 describe("what the undo says when it cannot run", () => {
+  /* It is raised one press after the save's own „Kontakte gespeichert“, and a reload replaces the
+     block on screen with the one that save wrote: an imperative to reload destroys the very values
+     the sentence then asks for by hand. */
+  it("asks for the pre-save values without sending anybody through a reload first", () => {
+    const satz = sliceBetween(FORM_SOURCE, "const OHNE_NACHSTAND", "});");
+
+    assert.ok(satz.includes("von Hand ein"), "the refusal no longer asks for the pre-save values by hand");
+    assert.ok(!satz.includes("Lade die Seite neu"), "the refusal reloads away the values it then asks for");
+  });
+
   /* Backend I36 (`docs/backend/spec.md`) admits a malformed address on READ, and such a block is no
      legal write. The spine can only answer that body with a reload, so the caller — which alone
      holds the payload and the reason — diagnoses first. */
@@ -1078,6 +1088,13 @@ describe("what the two destructive controls do to the page", () => {
       /isDisabled=\{isPending \|\| \(isConfirming && ansicht\?\.status !== "read"\)\}/,
       "the write can be confirmed before the names it is confirmed over are on screen",
     );
+  });
+
+  /* A stored address the erasure payload refuses reaches the read as a field map, and the panel it
+     would mark a box on renders no box at all (`docs/backend/spec.md :: I104`). */
+  it("keeps a field message out of the refused read, whose panel has no field", () => {
+    assert.match(ERASURE, /res\.fieldErrors !== undefined \? undefined : res\.error/, "a field message lands under a panel with no field");
+    assert.ok(ERASURE.includes("Brich ab und starte das Löschen noch einmal."), "the refused read leaves the reader with nothing to do");
   });
 });
 

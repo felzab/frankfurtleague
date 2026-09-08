@@ -22,6 +22,7 @@ from app.api.bewerbungen.services import (
     zustellung_event_applies,
     zustellung_send_applies,
 )
+from app.api.bewerbungen.zustellung_router import ZUSTELLUNG_FIELDS
 
 BEWERBUNG_ID = "6890a1b2c3d4e5f607970001"
 
@@ -276,3 +277,19 @@ class TestTheTwoPayloads:
         """The frontend route drops an untagged event before this endpoint; an empty list here writes nothing all the same."""
 
         assert FLBewerbungZustellungEreignisPayload.model_validate(event_body(rollen=[])).rollen == []
+
+
+class TestTheProjectionResolvesEverySeat:
+    """§1.7's rule for a projection: a case naming every path it resolves.
+
+    A widening surfaces in no response model and no guard, so nothing else stands between the
+    block's three people and a read that carries them.
+    """
+
+    def test_it_names_one_delivery_path_per_seat_and_nothing_else(self):
+        assert set(ZUSTELLUNG_FIELDS) == {f"bestaetigungen.{seat}.zustellung" for seat in KONTAKT_SEATS}
+
+    def test_every_path_it_names_is_an_inclusion(self):
+        """`0` would widen it to everything else, an inclusion projection answering the whole document."""
+
+        assert set(ZUSTELLUNG_FIELDS.values()) == {1}

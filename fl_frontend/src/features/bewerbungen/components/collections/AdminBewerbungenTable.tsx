@@ -171,7 +171,6 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
               {renderHerkunft(bewerbung)}
               {renderDublette(bewerbung)}
               {renderUnerreichbar(bewerbung)}
-              {renderUnerreichbar(bewerbung)}
               {renderBestaetigung(bewerbung)}
               {/* Words rather than a pill: the season is the card's ordinary case, which the date
                   beside it already states in the same register. */}
@@ -272,6 +271,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                       <div className="flex flex-col items-start gap-1">
                         {renderHerkunft(bewerbung)}
                         {renderDublette(bewerbung)}
+                        {renderUnerreichbar(bewerbung)}
                       </div>
                     </Table.Cell>
 

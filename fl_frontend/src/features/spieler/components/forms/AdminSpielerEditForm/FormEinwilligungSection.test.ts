@@ -78,7 +78,35 @@ describe("the stored consent panel", () => {
     assert.ok(text.includes("keine Einwilligung"), "a person with no consent gets a panel saying nothing");
     // The read-only sentence renders on the other branch alone, so this one carries the missing
     // control itself: an empty panel among four editable ones is read as one still to be filled.
-    assert.ok(text.includes("Eintragen lässt sie sich hier nicht"), "an empty panel sends the reader looking for a control");
+    assert.ok(text.includes("Eintragen lässt sie sich nicht"), "an empty panel sends the reader looking for a control");
+    // The absence is the whole product's, so a scope word here would send the reader to hunt for the
+    // panel that does hold the control.
+    assert.ok(!text.includes("sich hier nicht"), "the sentence scopes the absence to this panel");
+  });
+
+  /* Half the league's squads are girls, and one panel calling the same person „dieser Spieler“ in one
+     sentence and „jeder Spielerin und jedes Spielers“ in the next is wrong about half of them. */
+  it("pairs the feminine form wherever it names a player at all", () => {
+    for (const [name, record] of [
+      ["a stored record", UEBERNOMMEN],
+      ["an empty panel", null],
+    ] as const) {
+      const text = words(record);
+      // `Spielers` counts as masculine and `Spielerin` does not, which is what makes the two runs
+      // comparable rather than one counting the other.
+      const maskulin = (text.match(/Spieler(?!in)/g) ?? []).length;
+
+      assert.ok(maskulin > 0, `${name}: no player noun at all, so this case judges nothing`);
+      assert.equal((text.match(/Spielerin/g) ?? []).length, maskulin, `${name}: a masculine player noun stands without its pair`);
+    }
+  });
+
+  /* The readout has no sentence beside it to qualify a gendered noun, so each origin is named
+     without one — and `bestandsuebernahme` stays the plain word a softened one would blur. */
+  it("names whoever gave a consent without a gendered noun", () => {
+    for (const [herkunft, label] of Object.entries(EINWILLIGUNG_HERKUNFT_LABELS)) {
+      assert.doesNotMatch(label, /Spieler/, `${herkunft} names the squad member's gender in a readout`);
+    }
   });
 
   it("refuses the publication reading on both branches, the record gating nothing", () => {

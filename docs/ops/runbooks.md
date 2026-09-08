@@ -219,9 +219,10 @@ unchanged; three things differ, and each changes what is typed or what the windo
   the deploy and the rename the contacts editor, a club's season panel and the whole application
   queue answer 500 on every stored row — `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`
   declares the same block. A junction contacts save over an already-confirmed seat raises too,
-  `fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
-  contact person's own confirmation link keeps working**, serving no contact record
-  (`READ-BEWERBUNG-002`), and so does every public club read, the junction join withholding the block
+  `fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A contact person's own confirmation link still OPENS**,
+  serving no contact record (`READ-BEWERBUNG-002`) -- but the answer behind its button is a write
+  over the same block and is refused with everything else, so a person who confirms or objects in
+  this window is told nothing landed. Every public club read keeps working, the junction join withholding the block
   from the base tier ([`../backend/spec.md`](../backend/spec.md) I50).
 
 ```bash

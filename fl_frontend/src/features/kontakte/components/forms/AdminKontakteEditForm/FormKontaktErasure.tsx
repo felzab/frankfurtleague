@@ -25,6 +25,9 @@ import type { FLKontaktErasureAnsichtResponse } from "@/features/kontakte/schema
 /** What the draft guard says here: the write lands on the server and this page re-reads after it. */
 const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
 
+/** The one repair this panel holds: arming it again is what reads the list a second time. */
+const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
+
 /**
  * What the arming press learned, carried WITH the address it asked about: this seat's own boxes stay
  * live while the panel is armed, so an answer read for one address must not stand under another.
@@ -47,7 +50,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
   if (ansicht?.status === "refused") {
     return (
       <p className="fluid-xxs text-foreground leading-normal font-medium">
-        Die Liste der betroffenen Einträge konnte nicht geladen werden. {ansicht.reason} Ohne sie wird hier nichts gelöscht.
+        Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. {ansicht.reason}
       </p>
     );
   }
@@ -88,7 +91,12 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
       return;
     }
 
-    setGelesen({ email, status: "refused", reason: (res.success ? undefined : res.error) ?? UNKNOWN_REFUSAL });
+    // A field map with no field to lay it on: the address came off the stored record, so
+    // `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` would send the reader to a
+    // box this panel does not render.
+    const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
+
+    setGelesen({ email, status: "refused", reason: gesagt ?? NOCH_EINMAL });
   };
 
   const handleErase = () => {

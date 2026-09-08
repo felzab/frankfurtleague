@@ -52,10 +52,15 @@ const replayableKontakte = (kontakte: FLSaisonTeamKontakte | null) =>
 // guessed at.
 const datierterSitz = (person: FLKontaktperson | null) => (person === null ? null : { ...person, geburtsdatum: person.geburtsdatum ?? "" });
 
-/** The save answered without the token of what it left, so the undo has no precondition and is refused unsent. */
+/**
+ * The save answered without the token of what it left, so the undo has no precondition. One `Stand`
+ * means the pre-save block, as in
+ * `fl_frontend/src/features/kontakte/utils.ts :: describeUnrestorableKontakte`: the token has no name
+ * a reader would know.
+ */
 const OHNE_NACHSTAND = buildRefusal({
-  reason: "Der gespeicherte Stand kam nicht zurück, und ohne ihn lässt sich die Rücknahme nicht sicher ausführen",
-  repair: "Lade die Seite neu und trage den vorherigen Stand bei Bedarf von Hand ein",
+  reason: "Die Kontakte sind gespeichert",
+  repair: "Trage den vorherigen Stand bei Bedarf von Hand ein",
 });
 
 /**

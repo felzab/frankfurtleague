@@ -1472,6 +1472,7 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
             " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
         ),
         aggregate="Bewerbung",
         summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
@@ -1556,7 +1557,10 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-011",
-        operation="POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut",
+        operation=(
+            "POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+            " · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email"
+        ),
         aggregate="Bewerbung",
         summary="a seat already confirmed or declined, or with nothing left to confirm, takes no second answer and no new link",
         implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
@@ -1730,7 +1734,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "squad entry an administrator makes today. `POST /spieler` takes the field nullable and the "
             "`spieler` validator leaves it out of `required`, so a person stored before it still writes. The "
             "league's threshold is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`, judged for a "
-            "contact person alone (`REQ-BEWERBUNG-012`), and `FLEinwilligung.erteilt_von`'s `volljaehrig` names "
+            "contact seat answering its own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
+            "`FLEinwilligung.erteilt_von`'s `volljaehrig` names "
             "who spoke rather than an age. THE TRIGGER IS THE NEXT SEASON'S REGISTRATION: every pupil row standing "
             "today is dropped once at the end of this season (`docs/datenschutz.md`), and from that registration "
             "on the field is required and the refusal below the threshold is built with it."

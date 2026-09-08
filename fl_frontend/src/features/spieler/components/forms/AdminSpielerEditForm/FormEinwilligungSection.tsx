@@ -43,7 +43,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           <Hint
             mode="reveal"
             label="Hinweis zur Einwilligung"
-            body={{ lead: "Was dieser Spieler für die Veröffentlichung zugesagt hat." }}
+            body={{ lead: "Was diese Spielerin oder dieser Spieler für die Veröffentlichung zugesagt hat." }}
           />
         </PanelHeading>
       </div>
@@ -52,7 +52,9 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
         {einwilligung === null ? (
           // The missing control belongs in the same breath: this panel stands among four editable
           // ones, so a reader meeting an empty one goes looking for the way to record a consent.
-          <p className="muted-hint">Für diesen Spieler ist keine Einwilligung festgehalten. Eintragen lässt sie sich hier nicht.</p>
+          <p className="muted-hint">
+            Für diese Spielerin oder diesen Spieler ist keine Einwilligung festgehalten. Eintragen lässt sie sich nicht.
+          </p>
         ) : (
           <>
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>

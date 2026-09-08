@@ -983,6 +983,22 @@ describe("the corrected contact address", () => {
     assert.ok(!KORREKTUR_ACTION.includes("success: false, error: zustellung.error"), "the correction takes the re-send's failure arm");
   });
 
+  /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
+     throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
+     written, with the seat's previous link already dead. */
+  it("catches a message that threw, the address being stored before it is composed", () => {
+    const gesendet = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
+    const gefangen = KORREKTUR_ACTION.indexOf("} catch (error) {", gesendet);
+
+    assert.notEqual(gesendet, -1, "the correction sends no message at all");
+    assert.notEqual(gefangen, -1, "a throw from the send escapes the correction as a write that did not happen");
+    assert.match(
+      KORREKTUR_ACTION.slice(gefangen),
+      /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/,
+      "the caught throw answers with something other than the correction standing and no link sent",
+    );
+  });
+
   /* Rulings 76 and 91: one press writes every seat the person holds, so the message names both or a
      reader goes looking for a second link that will never come. */
   it("names every seat of a mirrored pair in the message it sends", () => {

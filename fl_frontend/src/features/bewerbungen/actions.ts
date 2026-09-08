@@ -391,7 +391,7 @@ const KEIN_LINK_VERSCHICKT = buildRefusal({
 });
 
 /**
- * The token is minted and the deadline moved by the time this runs, so every arm reports a write
+ * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
  * that stands: a refused send is a message to try again rather than a write that did not happen.
  */
 async function sendeBestaetigungErneut({
@@ -536,10 +536,12 @@ function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?:
           repair: "Lade die Seite neu",
         }),
       };
+    // The pencil stands on a seat the page drew as outstanding, so the person answered under it: the
+    // correction is refused because their own answer named this address, not because a rule shut a box.
     case "REQ-BEWERBUNG-011":
       return {
         error: buildRefusal({
-          reason: "Für diese Rolle steht keine Bestätigung mehr aus, und eine bestätigte Adresse hat die Person selbst belegt",
+          reason: "Für diese Rolle hat die Person inzwischen selbst geantwortet, und danach wird ihre Adresse nicht mehr geändert",
           repair: "Lade die Seite neu",
         }),
       };
@@ -602,16 +604,30 @@ export async function kontaktEmailKorrigierenAction(
     // Nothing to invalidate, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    const zustellung = await sendeBestaetigungErneut({
-      bewerbungId: validated.data.id,
-      saisonId: bewerbung.saison_id,
-      // The address the write just stored, never the one the read still holds: the message the
-      // administrator asked for is the one going to the corrected mailbox.
-      person: { vorname: person.vorname, email: validated.data.email },
-      benanntesTeam: benanntesTeam,
-      sitze: gepaarteSitze(bewerbung, validated.data.rolle),
-      token: korrekturOperation.token,
-    });
+    let zustellung;
+    try {
+      zustellung = await sendeBestaetigungErneut({
+        bewerbungId: validated.data.id,
+        saisonId: bewerbung.saison_id,
+        // The address the write just stored, never the one the read still holds: the message the
+        // administrator asked for is the one going to the corrected mailbox.
+        person: { vorname: person.vorname, email: validated.data.email },
+        benanntesTeam: benanntesTeam,
+        sitze: gepaarteSitze(bewerbung, validated.data.rolle),
+        token: korrekturOperation.token,
+      });
+    } catch (error) {
+      // The address is stored by the time this runs, so a throw escaping here would answer a
+      // correction that stands with „nicht korrigiert“. Name only, never the error or the token
+      // (`docs/logging/spec.md :: L9`).
+      logger.error("bewerbung.mail_failed", undefined, {
+        error_code: "FE-MAIL-002",
+        name: error instanceof Error ? error.name : undefined,
+        operation: "kontaktEmailKorrigierenAction",
+      });
+
+      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+    }
 
     return zustellung.verschickt
       ? { success: true, verschickt: true, message: zustellung.message }

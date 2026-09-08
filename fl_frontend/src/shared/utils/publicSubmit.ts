@@ -25,10 +25,10 @@ const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment 
 const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
 
 /**
- * Every other answer that was not this application's, an edge challenge among them. It names no
- * cause, none being anything the visitor can act on, and it must not read as a submission received.
+ * Every other answer that was not this application's, an edge challenge among them. It claims
+ * nothing about the request: a challenge can answer a POST this application has already written.
  */
-const NICHT_ANGEKOMMEN = "Deine Anfrage ist gerade nicht angekommen. Warte einen Moment und versuche es dann noch einmal.";
+const KEINE_ANTWORT_VON_UNS = "Die Antwort auf Deine Anfrage kam nicht von uns. Warte einen Moment und versuche es dann noch einmal.";
 
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and
@@ -51,21 +51,21 @@ export async function postPublicForm<T extends PublicEnvelope>(endpoint: string,
   if (response.status === EDGE_RATE_LIMIT_STATUS) return { answered: false, error: ZU_VIELE_VERSUCHE };
 
   // The route answers 200 for every case it can report, so any other status was written by something
-  // the request never got past.
-  if (!response.ok) return { answered: false, error: NICHT_ANGEKOMMEN };
+  // standing in front of it.
+  if (!response.ok) return { answered: false, error: KEINE_ANTWORT_VON_UNS };
 
   let body: unknown;
   try {
     body = await response.json();
   } catch {
     // An interstitial served in the application's place carries markup and answers 200 doing it.
-    return { answered: false, error: NICHT_ANGEKOMMEN };
+    return { answered: false, error: KEINE_ANTWORT_VON_UNS };
   }
 
   // `success` is what every route's answer opens on, so a body without one is not an answer of this
   // application's however well it parsed.
   if (typeof body !== "object" || body === null || !("success" in body) || typeof body.success !== "boolean") {
-    return { answered: false, error: NICHT_ANGEKOMMEN };
+    return { answered: false, error: KEINE_ANTWORT_VON_UNS };
   }
 
   return { answered: true, body: body as T };

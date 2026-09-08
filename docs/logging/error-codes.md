@@ -94,7 +94,10 @@ codes are worded at more than one site, so words here would be a third statement
 of one. **Held is the citation and nothing behind it**: the named module still answers that code, while
 whether its German states what the backend refuses on is a reading no check makes. The cell names the
 write path that raises the code, never the undo route, which words a replayed refusal a second time
-([`docs/frontend/spec.md`](../frontend/spec.md#13-admin-mutations)). A row outside `RULES` carries `—`, an
+([`docs/frontend/spec.md`](../frontend/spec.md#13-admin-mutations)); **where a rule declares several
+operations the cell names the FIRST**, so a code gaining an endpoint gains no second cell and the
+choice is derivable rather than remembered. The check holds neither of those two: both are read by a
+person. A row outside `RULES` carries `—`, an
 authentication, validation, ObjectId or database failure reaching German chosen by HTTP status: a
 per-code sentence for a 500 would name a repair that does not exist.
 
