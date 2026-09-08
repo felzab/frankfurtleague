@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+
+// Every card below is reached with `await import`: this helper registers the JSX compile step as it
+// evaluates, and a static import beside it has already resolved (`docs/frontend/spec.md` §1.9).
+import { renderMarkup } from "../../shared/testing/renderTest.ts";
+import { FLSonderereignisSchema } from "./schemas.ts";
 import {
   adminSpielEditHref,
   buildUndoPayloads,
@@ -18,6 +23,7 @@ import {
   formatSpielUpdateMessage,
   formatUndoScopeWarning,
   groupBracketFaultsBySpielId,
+  isAbgesagt,
   isFirstKnockoutRound,
   listDependentSpiele,
   listFeederSpiele,
@@ -28,7 +34,15 @@ import {
 } from "./utils.ts";
 
 import type { FLAustrittType } from "../teams/schemas.ts";
-import type { FLBracketFault, FLSpiel, FLSpielAdmin, FLSpielAdvancement, FLSpielBooking } from "./schemas.ts";
+import type {
+  FLBracketFault,
+  FLSonderereignis,
+  FLSpiel,
+  FLSpielAdmin,
+  FLSpielAdvancement,
+  FLSpielBooking,
+  FLSpielWithDraftFields,
+} from "./schemas.ts";
 
 const TODAY = "2026-07-29";
 
@@ -85,6 +99,51 @@ describe("computeSpielStatus", () => {
   it("compares correctly across month and year boundaries", () => {
     assert.equal(computeSpielStatus({ datum: "2026-08-01", sonderereignis: null, today: "2026-07-31" }), "ausstehend");
     assert.equal(computeSpielStatus({ datum: "2025-12-31", sonderereignis: null, today: "2026-01-01" }), "vergangen");
+  });
+});
+
+/**
+ * What the cancellation set holds and what it refuses, written out here rather than read off the
+ * production literals: a symbol replacing four of them can widen or narrow the set silently.
+ */
+const ABGESAGT: Record<FLSonderereignis, boolean> = {
+  ausgefallen: true,
+  nichtantreten_team1: true,
+  nichtantreten_team2: true,
+  abgebrochen: false,
+  annulliert: true,
+};
+
+describe("isAbgesagt", () => {
+  // Two listings reached by different routes: this fails where a member is added to the mirror
+  // alone, and where `options` resolves to nothing, which would leave every sweep below vacuous.
+  it("answers for every event the read model accepts", () => {
+    assert.deepEqual([...FLSonderereignisSchema.options].sort(), Object.keys(ABGESAGT).sort());
+  });
+
+  it("holds the four events meaning the fixture never took place, and refuses `abgebrochen`", () => {
+    for (const sonderereignis of FLSonderereignisSchema.options) {
+      assert.equal(isAbgesagt(sonderereignis), ABGESAGT[sonderereignis], sonderereignis);
+    }
+  });
+
+  it("reads a fixture carrying no event as one that took place", () => {
+    assert.equal(isAbgesagt(null), false);
+  });
+
+  // The ORDER alone: `computeSpielStatus` calls the predicate, so both sides move together and only
+  // the order can fail — the call sinking below a date branch, where an undated cancelled fixture
+  // answers `unbekannt`. `ABGESAGT` above pins the set.
+  it("decides `computeSpielStatus`'s `abgesagt` above every date branch", () => {
+    for (const sonderereignis of [...FLSonderereignisSchema.options, null]) {
+      for (const datum of ["2020-01-01", TODAY, "2099-01-01", null]) {
+        assert.equal(
+          computeSpielStatus({ datum, sonderereignis, today: TODAY }) === "abgesagt",
+          isAbgesagt(sonderereignis),
+          `${String(sonderereignis)} dated ${String(datum)}`,
+        );
+      }
+    }
   });
 });
 
@@ -983,4 +1042,92 @@ describe("adminSpielEditHref", () => {
   it("carries the season the caller is showing", () => {
     assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932", "9999"), "/admin/spiele/6890a1b2c3d4e5f607182932?saison_id=9999");
   });
+});
+
+/** Both sides unoccupied, so no card mounts a popover and every case below turns on the score alone. */
+const CARD_SPIEL = {
+  id: "6890a1b2c3d4e5f607182934",
+  spieltag_id: "6890a1b2c3d4e5f607182935",
+  saison_id: "2027",
+  saison_phase: "gruppenphase",
+  spiel_nr: 7,
+  team1: null,
+  team2: null,
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: "2026-07-28",
+  uhrzeit: "18:30",
+  ort: null,
+  schiedsrichter: null,
+  ergebnis: null,
+  elfmeterschiessen: null,
+  sonderereignis: null,
+  notiz: null,
+} as FLSpiel;
+
+/** `SpielScore` is the one element a card renders with `font-numeric`, whatever the layout around it. */
+function scoreClasses(markup: string): string {
+  const found = /class="([^"]*font-numeric[^"]*)"/.exec(markup);
+
+  assert.ok(found, "the rendered card holds no score");
+
+  return found[1] ?? "";
+}
+
+const { SpielCard } = await import("./components/ui/SpielCard.tsx");
+const { SpielCardCompact } = await import("./components/ui/SpielCardCompact.tsx");
+const { SpielCardUltraCompact } = await import("./components/ui/SpielCardUltraCompact.tsx");
+const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
+
+/** Every surface painting a score, each spelling the three tints in its own vocabulary. */
+const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => string }[] = [
+  { name: "SpielCard", markup: (spiel) => renderMarkup(SpielCard, { spielData: spiel, onOpenInfoModal: () => undefined, today: TODAY }) },
+  { name: "SpielCardCompact", markup: (spiel) => renderMarkup(SpielCardCompact, { spielData: spiel }) },
+  { name: "SpielCardUltraCompact", markup: (spiel) => renderMarkup(SpielCardUltraCompact, { spielData: spiel, onPress: () => undefined }) },
+  {
+    name: "SpielDraftPreview",
+    markup: (spiel) => renderMarkup(SpielDraftPreview, { previewSpiel: spiel as FLSpielWithDraftFields, today: TODAY, isDirty: false }),
+  },
+];
+
+describe("the tint a score carries", () => {
+  for (const { name, markup } of SCORE_SURFACES) {
+    /* Rendered rather than matched over the source: a regex reading the file passes on markup saying
+       the opposite, and on a component nothing renders at all (`docs/frontend/spec.md` §1.9). */
+    it(`${name} paints a called-off fixture carrying no result as danger`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "ausgefallen" }));
+
+      assert.match(classes, /text-danger-strong/);
+      assert.doesNotMatch(classes, /text-warning-strong/);
+    });
+
+    it(`${name} leaves a fixture that is merely unplayed pending`, () => {
+      const classes = scoreClasses(markup(CARD_SPIEL));
+
+      assert.match(classes, /text-warning-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+
+    /* The member no cancellation set holds: the match was played until it stopped, so its result is
+       still owed and the placeholder has to read as pending. */
+    it(`${name} leaves an abandoned fixture pending`, () => {
+      assert.match(scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "abgebrochen" })), /text-warning-strong/);
+    });
+
+    it(`${name} paints an entered result as played`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, ergebnis: "3:1" }));
+
+      assert.match(classes, /text-success-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+
+    /* A no-show is cancelled AND carries the awarded score, so the result has to outrank the event
+       — the reverse order would strike a figure the Saisontabelle counts off the card showing it. */
+    it(`${name} paints a forfeit's awarded result as played`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "nichtantreten_team1", ergebnis: "3:0" }));
+
+      assert.match(classes, /text-success-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+  }
 });

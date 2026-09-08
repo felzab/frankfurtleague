@@ -1,4 +1,4 @@
-import { deriveSlotHerkunft } from "@/features/spiele/utils";
+import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
@@ -98,15 +98,10 @@ export function categorizeActionRequired<
     // fixture still feeds whatever sits under it.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
 
-    // **This set is the triage list's alone**, and `abgebrochen` is deliberately absent: an
-    // abandoned fixture happened and may still owe a result, so it falls through and is chased like
-    // any other.
-    if (
-      spiel.sonderereignis === "ausgefallen" ||
-      spiel.sonderereignis === "nichtantreten_team1" ||
-      spiel.sonderereignis === "nichtantreten_team2" ||
-      spiel.sonderereignis === "annulliert"
-    ) {
+    // `isAbgesagt` rather than a second spelling of the four events: two lists of them are invisible
+    // until they part, and this list would then disagree with the card about whether a fixture
+    // happened.
+    if (isAbgesagt(spiel.sonderereignis)) {
       categorized.abgesagt.push(spiel);
       continue;
     }

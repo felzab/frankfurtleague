@@ -7,6 +7,7 @@ import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { schiedsrichterFacetValue } from "@/features/spiele/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -91,10 +92,11 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => (
     <RowActions>
-      {/* `schiedsrichter` as `buildSpielFacets` declares it, and admin-only there: the public
-          Spielsuche declares no such facet, so the same link would filter nothing. */}
+      {/* The value is `schiedsrichterFacetValue`'s, never the id: an anonymised referee shares one
+          merged option, and an unoffered value is dropped rather than refused. Admin-only — the
+          public Spielsuche declares no such facet, so the same link would filter nothing. */}
       <RowActionLink
-        href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
+        href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichterFacetValue(schiedsrichter)}`)}
         label="Einsätze anzeigen"
         ariaLabel={`Einsätze von ${schiedsrichter.name} anzeigen`}>
         <Magnifier

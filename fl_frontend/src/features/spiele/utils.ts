@@ -22,6 +22,17 @@ import type {
 } from "./schemas";
 
 /**
+ * **The four events meaning the fixture never took place**, written once for every surface grading a
+ * fixture. `abgebrochen` is out: an abandoned match was played until it stopped, so it reads by its
+ * date like any other.
+ */
+export const isAbgesagt = (sonderereignis: FLSonderereignis | null): boolean =>
+  sonderereignis === "ausgefallen" ||
+  sonderereignis === "nichtantreten_team1" ||
+  sonderereignis === "nichtantreten_team2" ||
+  sonderereignis === "annulliert";
+
+/**
  * A label, not the server's filter: a fixture that did not happen outranks the date and today is its
  * own status. The two definitions are `docs/glossary.md` — spiel_status.
  */
@@ -34,17 +45,9 @@ export const computeSpielStatus = ({
   sonderereignis: FLSonderereignis | null;
   today: string;
 }): FLSpielStatus => {
-  // **This set is this chip's alone** and is written here rather than shared: the four members below
-  // are the ones a reader should see as off. `abgebrochen` falls THROUGH — the match happened, so it
-  // reads by date like any other fixture.
-  if (
-    sonderereignis === "ausgefallen" ||
-    sonderereignis === "nichtantreten_team1" ||
-    sonderereignis === "nichtantreten_team2" ||
-    sonderereignis === "annulliert"
-  ) {
-    return "abgesagt";
-  }
+  // Above the null check as well as the comparisons: an undated fixture that was called off is
+  // called off rather than merely undated.
+  if (isAbgesagt(sonderereignis)) return "abgesagt";
 
   if (datum === null) return "unbekannt";
   if (datum > today) return "ausstehend";

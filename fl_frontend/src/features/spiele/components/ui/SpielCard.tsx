@@ -9,7 +9,7 @@ import { Button } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
-import { computeSpielStatus, formatSpielDisplay } from "../../utils";
+import { computeSpielStatus, formatSpielDisplay, isAbgesagt } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
 import { SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
@@ -50,6 +50,12 @@ export function SpielCard({
     sonderereignis: spielData.sonderereignis,
     today,
   });
+
+  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
+  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
+  // than a result still owed.
+  const ergebnisTint =
+    spielData.ergebnis !== null ? "text-success-strong" : isAbgesagt(spielData.sonderereignis) ? "text-danger-strong" : "text-warning-strong";
 
   return (
     <div
@@ -112,7 +118,7 @@ export function SpielCard({
         <SpielScore
           ergebnis={spielErgebnis}
           elfmeterschiessen={spielElfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-warning-strong"}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ergebnisTint}`}
         />
 
         <span className="flex min-w-0 justify-start">

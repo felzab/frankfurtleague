@@ -80,7 +80,8 @@ export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichter
 /**
  * What the retire, the reactivate and the anonymisation echo: one backend model for the three.
  *
- * The anonymisation answers with the referee still standing — cleared `kontakt`, `name` untouched.
+ * The anonymisation answers with the referee still standing: `kontakt` cleared and `name` replaced
+ * by the erasure's own label, which is what every fixture then carries.
  */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,

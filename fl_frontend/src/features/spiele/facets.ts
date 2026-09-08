@@ -21,6 +21,25 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
   label: SONDEREREIGNIS_LABELS[event],
 }));
 
+/**
+ * The label `fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_NAME` writes over an
+ * anonymised referee's name. It doubles as the merged option's value, which no referee id can
+ * collide with, an id being an ObjectId string.
+ */
+const ANONYMISED_SCHIEDSRICHTER_NAME = "anonym";
+
+/**
+ * The erasure leaves every anonymised referee reading `anonym`, so an option keyed on the id offers
+ * that one word once per person: identical to read, and selectable one at a time.
+ */
+export function schiedsrichterFacetValue({ id, name }: { id: string; name: string }): string {
+  return name === ANONYMISED_SCHIEDSRICHTER_NAME ? ANONYMISED_SCHIEDSRICHTER_NAME : id;
+}
+
+function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
+  return schiedsrichterFacetValue({ id: schiedsrichter.schiedsrichter_id, name: schiedsrichter.name });
+}
+
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
 function distinct(spiele: readonly FLSpiel[], read: (spiel: FLSpiel) => { id: string; label: string } | null): FacetOption[] {
   const byId = new Map<string, string>();
@@ -158,9 +177,9 @@ export function buildSpielFacets({
     param: "schiedsrichter",
     label: "Schiedsrichter",
     options: distinct(spiele, (spiel) =>
-      spiel.schiedsrichter ? { id: spiel.schiedsrichter.schiedsrichter_id, label: spiel.schiedsrichter.name } : null,
+      spiel.schiedsrichter ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: spiel.schiedsrichter.name } : null,
     ),
-    read: (spiel) => (spiel.schiedsrichter === null ? [] : [spiel.schiedsrichter.schiedsrichter_id]),
+    read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
   };
 
   // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The

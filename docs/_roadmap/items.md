@@ -131,7 +131,6 @@ deliverable.
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject              | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                              | FE, tests                                                                   | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                | FE, Ops, gate                                                               | Open     |
-| `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                               | FE, BE, spiele                                                              | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                             | FE, Ops, Docs, edge                                                         | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                   | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
@@ -139,7 +138,6 @@ deliverable.
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                | FE, Docs, ci, tests, saisons                                                | Standing |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                         | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
-| `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                  | FE, admin, spiele                                                           | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
@@ -2449,26 +2447,6 @@ decoration from 1.4.11, and it does not exempt a state.
 **Done when** each of the three is either measured by a `PAIRS` row that passes, or recorded as
 decoration with the argument in the commit that records it.
 
-### `txef-hz2b` · Two referees reduced to one published name are one option in the fixture facet
-
-| Tags           | Status | Depends on |
-| -------------- | ------ | ---------- |
-| FE, BE, spiele | Open   | —          |
-
-**`fl_frontend/src/features/spiele/facets.ts` labels a referee option with the name the read served
-and keys it on `schiedsrichter_id`**, so two referees the base tier reduces to one string give a
-public visitor two options reading alike. The keys differ, so both filter correctly; only the label
-is ambiguous, and a visitor cannot tell which is which.
-
-**An anonymised referee makes it certain rather than unlikely.** Every one of them publishes the same
-label, so a season with two reads as two identical options on every public fixture page.
-
-**Widening the reduction is refused here**: `fl_backend/app/api/spiele/schemas.py :: public_referee_name`
-exists to keep the surname off the base tier (`READ-REFEREE-001`), and a disambiguator built from
-the surname publishes what the rule withholds.
-
-**Done when** the facet's options are distinguishable without it.
-
 ### `uayf-u7g4` · The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 | Tags                | Status   | Depends on |
@@ -2728,32 +2706,6 @@ inside the construct it governs is one the next reader breaks.
 **Done when** the reader finds a tag's real close rather than its first `>` — comments and attribute
 values skipped, so attribute order carries nothing — and has been driven against a control whose
 arrow function is written first.
-
-### `w9tq-4bnd` · A missing result and a cancelled one are one colour, because the card reads the result and never the status
-
-| Tags              | Status | Depends on |
-| ----------------- | ------ | ---------- |
-| FE, admin, spiele | Open   | —          |
-
-**Four components paint a null `ergebnis` from the field alone**, so every fixture without a result
-wears one colour whatever the reason: `fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`,
-`fl_frontend/src/features/spiele/components/ui/SpielCardCompact.tsx`,
-`fl_frontend/src/features/spiele/components/ui/SpielCardUltraCompact.tsx` and
-`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx`.
-A fixture merely not yet played and a fixture called off are the same null.
-
-**Today that colour is the warning grade, which is right for the pending case and wrong for the
-cancelled one.** It was the danger grade until the palette work, where four of seven bracket slots
-rendered as red placeholders with nothing wrong and a Halbfinale card put a red score over a chip
-reading `Ausstehend`. Warning is the smaller error of the two and matches how the admin queue
-already grades a missing result
-(`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: results`),
-but a called-off fixture now shows a warning placeholder beneath a danger chip.
-
-**Done looks like the placeholder branching on the status rather than on the field**, which
-`fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` already derives and
-`SpielStatusChip` already renders beside it. The chip and the score would then agree, which is the
-whole of the defect: two elements on one card grading the same fact from two different inputs.
 
 ### `wszt-rpmy` · Wiring the write path refuses stands unreported once it is in storage
 
