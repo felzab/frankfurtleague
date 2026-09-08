@@ -8,8 +8,9 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueStatus } from "./facets.ts";
+import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueFacetCounts, bewerbungenQueueTerms } from "./facets.ts";
 
+import type { Facet } from "@/shared/utils/facets.ts";
 import type { FLBewerbungStatus } from "./schemas.ts";
 import type { AdminBewerbungRow } from "./types.ts";
 
@@ -45,9 +46,12 @@ const ROWS = [row("6890a1b2c3d4e5f607190011", true), row("6890a1b2c3d4e5f6071900
 
 describe("the season facet on the triage list", () => {
   /* First: a facet the cut no longer finds would leave every assertion below reading `undefined`. */
-  it("offers the season as a facet at all", () => {
+  it("offers the season as a facet at all, and marks it as one the read narrows on", () => {
     assert.ok(SAISON_FACET, "no facet reads the season parameter");
     assert.equal(SAISON_FACET.label, "Saison");
+    // Without the mark the read covers every season while the bar shows one, so a status counted
+    // over the whole archive is offered, pressed, and lands on an empty page.
+    assert.equal(SAISON_FACET.narrowsTheRead, true);
     assert.deepEqual(
       SAISON_FACET.options.map((option) => option.label),
       ["In dieser Saison", "Nicht in dieser Saison"],
@@ -198,24 +202,115 @@ describe("what the triage bar draws once the server has narrowed", () => {
   });
 });
 
+/** The season the shell resolved, which the relation below is asked against. */
+const GEWAEHLTE_SAISON = "2627";
+
 describe("what the queue asks the endpoint to narrow to", () => {
+  /* The state the defect lived in: nobody has chosen anything, and the season facet's default is
+     already selecting one season while the read covers every one of them. */
+  it("carries the season relation and its reference on a first visit", () => {
+    assert.deepEqual(bewerbungenQueueTerms({}, GEWAEHLTE_SAISON), {
+      saison_id: GEWAEHLTE_SAISON,
+      saisonbezug: "diese_saison",
+      status: "eingereicht",
+    });
+  });
+
+  it("forwards the other seasons where the reader picks them", () => {
+    assert.equal(bewerbungenQueueTerms({ [SAISONBEZUG_PARAM]: "andere_saison" }, GEWAEHLTE_SAISON).saisonbezug, "andere_saison");
+  });
+
+  it("asks for no relation once the parameter is emptied, which is every season", () => {
+    assert.equal(bewerbungenQueueTerms({ [SAISONBEZUG_PARAM]: "" }, GEWAEHLTE_SAISON).saisonbezug, undefined);
+  });
+
+  /* The shell reaches the queue with no season where none is running and the URL names none, and the
+     endpoint reads the relation only beside a reference — so the queue mixes seasons rather than
+     emptying. */
+  it("names no season where the shell resolved none", () => {
+    assert.equal(bewerbungenQueueTerms({}, undefined).saison_id, undefined);
+  });
+
   it("opens on the undecided applications while the URL names no status", () => {
-    assert.equal(bewerbungenQueueStatus({}), "eingereicht");
+    assert.equal(bewerbungenQueueTerms({}, GEWAEHLTE_SAISON).status, "eingereicht");
   });
 
   it("asks for nothing at all once the parameter is emptied, which is the archive", () => {
-    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "" }), undefined);
+    assert.equal(bewerbungenQueueTerms({ [BEWERBUNGEN_STATUS_PARAM]: "" }, GEWAEHLTE_SAISON).status, undefined);
   });
 
   it("carries a two-state selection, which is the whole reason the parameter is a list", () => {
-    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,abgelehnt" }), "angenommen,abgelehnt");
+    assert.equal(
+      bewerbungenQueueTerms({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,abgelehnt" }, GEWAEHLTE_SAISON).status,
+      "angenommen,abgelehnt",
+    );
   });
 
   it("falls back to the queue rather than sending a value the endpoint would refuse with a 422", () => {
     // A pasted or hand-edited link is the live case: forwarding `erfunden` reaches the endpoint's
     // closed set and answers 422, which the page has nothing to render.
-    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "erfunden" }), "eingereicht");
-    assert.equal(bewerbungenQueueStatus({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,erfunden" }), "angenommen");
+    assert.equal(bewerbungenQueueTerms({ [BEWERBUNGEN_STATUS_PARAM]: "erfunden" }, GEWAEHLTE_SAISON).status, "eingereicht");
+    assert.equal(bewerbungenQueueTerms({ [BEWERBUNGEN_STATUS_PARAM]: "angenommen,erfunden" }, GEWAEHLTE_SAISON).status, "angenommen");
+    assert.equal(bewerbungenQueueTerms({ [SAISONBEZUG_PARAM]: "erfunden" }, GEWAEHLTE_SAISON).saisonbezug, "diese_saison");
+  });
+});
+
+/** What the endpoint answers for the season the bar opens on: every accepted application sits elsewhere. */
+const IN_DIESER_SAISON: Record<string, number> = { eingereicht: 2, angenommen: 0, abgelehnt: 4 };
+
+/** The relation's own counts beside them, the other seasons holding the nine rows this page cannot show. */
+const ANZAHL_JE_SAISONBEZUG: Record<string, number> = { diese_saison: 2, andere_saison: 9 };
+
+describe("what a first visit is offered before anybody has chosen anything", () => {
+  const opening = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams());
+
+  /* Rendered rather than reasoned about: `isDisabled` is decided inside `FacetCell`, and what a
+     reader can press is the only form of that decision anyone meets. Which of the two maps below the
+     endpoint really answers is
+     `fl_backend/tests/api/test_bewerbungen_read.py :: TestTheSeasonRelationIsATermTheReadNarrowsOn`. */
+  const bar = (anzahlJeStatus: Record<string, number>, shown: Facet<AdminBewerbungRow>): string =>
+    renderMarkup(FilterPanelBody<AdminBewerbungRow>, {
+      facets: BEWERBUNGEN_FACETS,
+      shown: [shown],
+      items: [...NUR_EINGEREICHT],
+      facetCounts: bewerbungenQueueFacetCounts({ anzahl_je_status: anzahlJeStatus, anzahl_je_saisonbezug: ANZAHL_JE_SAISONBEZUG }),
+      selection: opening,
+      onSelect: () => undefined,
+      onClear: () => undefined,
+    });
+
+  it("narrows to one season with nothing in the URL, which is where the counts have to answer", () => {
+    assert.deepEqual(opening[SAISONBEZUG_PARAM], ["diese_saison"]);
+    assert.deepEqual(opening[BEWERBUNGEN_STATUS_PARAM], ["eingereicht"]);
+  });
+
+  it("leaves out a state whose rows all sit in a season this page is not showing", () => {
+    assert.deepEqual(pressable(bar(IN_DIESER_SAISON, STATUS_FACET!)), ["eingereicht", "abgelehnt"]);
+  });
+
+  /* Non-vacuity, and the defect itself: counted over every season, that state is offered, pressed,
+     and lands on a page holding nothing. */
+  it("offers it where the counts are taken over every season instead", () => {
+    assert.deepEqual(pressable(bar(ANZAHL_JE_STATUS, STATUS_FACET!)), ["eingereicht", "angenommen", "abgelehnt"]);
+  });
+
+  it("keeps the other seasons reachable while the page holds none of their rows", () => {
+    // Non-vacuity: the read narrows on the season too, so counted off the rows served — the way
+    // `herkunft` still is — the way out of this season reads zero and goes dead.
+    assert.equal(countFacetOptions([...NUR_EINGEREICHT], BEWERBUNGEN_FACETS, opening, SAISON_FACET!).andere_saison, 0);
+
+    assert.deepEqual(pressable(bar(IN_DIESER_SAISON, SAISON_FACET!)), ["diese_saison", "andere_saison"]);
+  });
+
+  /* A facet absent from the map is counted off the rows served (`FilterPanel :: FilterPanelBody`),
+     which is the cap counting rather than the endpoint. */
+  it("hands the panel a told map for every facet the read narrows on", () => {
+    const told = bewerbungenQueueFacetCounts({ anzahl_je_status: ANZAHL_JE_STATUS, anzahl_je_saisonbezug: ANZAHL_JE_SAISONBEZUG });
+
+    assert.deepEqual(
+      BEWERBUNGEN_FACETS.filter((facet) => facet.narrowsTheRead === true && told[facet.param] === undefined).map((facet) => facet.param),
+      [],
+    );
   });
 });
 

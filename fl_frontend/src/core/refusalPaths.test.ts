@@ -244,7 +244,7 @@ const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the pat
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
 
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
-const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
+const ONE_SCOPE = "the Kenntnisnahme's only scope, written by the panel rather than picked";
 
 /**
  * Sound because the three cannot be refused apart: one press writes all three, so the named control

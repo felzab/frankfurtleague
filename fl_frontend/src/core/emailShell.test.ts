@@ -39,13 +39,13 @@ registerHooks({
 });
 
 const {
-  buildBewerbungAblehnungEmail,
   buildBewerbungAbsageEmail,
   buildBewerbungBestaetigungEmail,
   buildBewerbungEingangOffenEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
   buildBewerbungVollstaendigEmail,
+  buildBewerbungWiderspruchEmail,
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
@@ -160,8 +160,8 @@ const FIXTUREN: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
     }),
-  buildBewerbungAblehnungEmail: (origin) =>
-    buildBewerbungAblehnungEmail({
+  buildBewerbungWiderspruchEmail: (origin) =>
+    buildBewerbungWiderspruchEmail({
       saisonId: "2627",
       origin: origin,
       rollenText: "Ansprechperson",

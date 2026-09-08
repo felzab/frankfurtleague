@@ -68,7 +68,7 @@ const ignorierSatzEintragMehrere = (frist: string): string =>
 const ignorierSatzBewerbung = (frist: string): string => `${IGNORIER_VOR}: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie.`;
 /* Unconditional, unlike the sentence above it: a Widerspruch empties a seat, so completion is out
    of reach and the condition the other notes state is settled before the reader meets it. */
-const ignorierSatzAbgelehnt = (frist: string): string => `${IGNORIER_VOR}: Am ${frist} löschen wir die Bewerbung.`;
+const ignorierSatzWiderspruch = (frist: string): string => `${IGNORIER_VOR}: Am ${frist} löschen wir die Bewerbung.`;
 const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: Die Bewerbung wird jetzt gelöscht.`;
 
 /**
@@ -870,7 +870,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, aus
  * What the submitter is told when a contact refuses the seat. `abgelehnt` is composed before that
  * seat's details are cleared, the first name being what the message exists to hand over.
  */
-export interface BewerbungAblehnungData {
+export interface BewerbungWiderspruchData {
   saisonId: string;
   origin: string;
   rollenText: string;
@@ -879,7 +879,13 @@ export interface BewerbungAblehnungData {
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungAblehnungEmail({ saisonId, origin, rollenText, abgelehnt, fristText }: BewerbungAblehnungData): BewerbungEmail {
+export function buildBewerbungWiderspruchEmail({
+  saisonId,
+  origin,
+  rollenText,
+  abgelehnt,
+  fristText,
+}: BewerbungWiderspruchData): BewerbungEmail {
   const site = mailOrigin(origin);
   const frist = einzeilig(fristText);
   const wer = seatName(abgelehnt);
@@ -897,7 +903,7 @@ export function buildBewerbungAblehnungEmail({ saisonId, origin, rollenText, abg
     ],
     aktionen: neuBewerbenAktionen(site, saisonId),
     textAktionen: neuBewerbenZeilen(site, saisonId),
-    ignorierSatz: ignorierSatzAbgelehnt(frist),
+    ignorierSatz: ignorierSatzWiderspruch(frist),
   };
 
   const html = renderHtml(nachricht, [

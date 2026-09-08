@@ -15,6 +15,7 @@ import {
 import {
   DESCRIPTION_MAX_LENGTH,
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+  GRUPPEN_OPTIONS,
   KONTAKT_NAME_MAX_LENGTH,
   TEAM_FULL_NAME_MAX_LENGTH,
   TEAM_NAME_MAX_LENGTH,
@@ -32,7 +33,7 @@ export const OptionalExternalUrlSchema = ExternalUrlSchema.nullable();
  * Mirrors `FLGruppenNames` — a closed set, so a group outside it is a malformed response. German
  * error because the group picker binds this schema too, and an untouched picker submits null.
  */
-export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte wähle eine Gruppe." });
+export const FLGruppenNamesSchema = z.enum(GRUPPEN_OPTIONS, { error: "Bitte wähle eine Gruppe." });
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
@@ -106,7 +107,7 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  * the one-member literal.
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
-  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Einwilligung gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
+  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
   erfasst_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
@@ -122,12 +123,12 @@ export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema
 export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
-  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
+  umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
   // No `erfasst_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
   // could name either would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
-    .nonempty({ error: "Bitte gib an, welche Fassung unterschrieben wurde." })
+    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
@@ -269,17 +270,13 @@ export const FLGruppenTeamSchema = z.object({
 export type FLGruppenTeam = z.infer<typeof FLGruppenTeamSchema>;
 
 /**
- * All four keys are required: the backend seeds every group, and an omitted one fails this parse.
+ * A SUBSET of the closed set: the backend seeds the groups one season offers, so a key per name
+ * would fail every season running fewer than the set holds.
  *
  * Each list arrives in STANDING order. **Never re-sort one here** — the same ordering seeds the
  * playoff bracket.
  */
-export const FLGruppenSchema = z.object({
-  A: z.array(FLGruppenTeamSchema),
-  B: z.array(FLGruppenTeamSchema),
-  C: z.array(FLGruppenTeamSchema),
-  D: z.array(FLGruppenTeamSchema),
-});
+export const FLGruppenSchema = z.partialRecord(FLGruppenNamesSchema, z.array(FLGruppenTeamSchema));
 export type FLGruppen = z.infer<typeof FLGruppenSchema>;
 
 export const FLTeamsListResponseSchema = BaseAPIResponseSchema.extend({

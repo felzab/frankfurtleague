@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import {
   BESTAETIGUNG_ABSAETZE,
-  BESTAETIGUNG_EINWILLIGUNG,
+  BESTAETIGUNG_KENNTNISNAHME,
   einwilligungFassung,
   fuelleFassung,
   LIGA_KENNTNISNAHME,
@@ -37,7 +37,7 @@ function publishedVersionMaxLength(): number {
   };
   const bound = document.components?.schemas?.FLBewerbungEinwilligungPayload?.properties?.text_version?.maxLength;
 
-  assert.ok(typeof bound === "number", `no maxLength on the submitted consent's text_version — regenerate with: ${REGENERATE}`);
+  assert.ok(typeof bound === "number", `no maxLength on the submitted Kenntnisnahme's text_version — regenerate with: ${REGENERATE}`);
   return bound;
 }
 
@@ -77,7 +77,7 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   /* The digests pin each label's words; nothing else pins WHICH label is live, and an earlier label
      states the fourteen days with no start, or with no carve-out for the reminder. */
   it("points both live labels at a wording naming when the fourteen days start and what does not restart them", () => {
-    for (const { textVersion, absaetze } of [LIGA_KENNTNISNAHME, BESTAETIGUNG_EINWILLIGUNG]) {
+    for (const { textVersion, absaetze } of [LIGA_KENNTNISNAHME, BESTAETIGUNG_KENNTNISNAHME]) {
       const text = absaetze.join(" ");
 
       assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
@@ -121,9 +121,9 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   it("gives the confirmation page a label of its own, sharing no paragraph with the submitted one", () => {
     const eingereicht: readonly string[] = LIGA_KENNTNISNAHME.absaetze;
 
-    assert.notEqual(BESTAETIGUNG_EINWILLIGUNG.textVersion, LIGA_KENNTNISNAHME.textVersion, "both surfaces stamp one label");
+    assert.notEqual(BESTAETIGUNG_KENNTNISNAHME.textVersion, LIGA_KENNTNISNAHME.textVersion, "both surfaces stamp one label");
     assert.deepEqual(
-      BESTAETIGUNG_EINWILLIGUNG.absaetze.filter((absatz) => eingereicht.includes(absatz)),
+      BESTAETIGUNG_KENNTNISNAHME.absaetze.filter((absatz) => eingereicht.includes(absatz)),
       [],
       "a paragraph answers under both labels, so one of the two records cites words nobody read",
     );
@@ -132,7 +132,7 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   /* The page reads its paragraphs by name and stamps the label beside them; resolved apart, the
      record would cite a version whose words the page had stopped rendering. */
   it("resolves the confirmation label to the very paragraphs the page reads", () => {
-    assert.deepEqual(einwilligungFassung(BESTAETIGUNG_EINWILLIGUNG.textVersion)?.absaetze, Object.values(BESTAETIGUNG_ABSAETZE));
+    assert.deepEqual(einwilligungFassung(BESTAETIGUNG_KENNTNISNAHME.textVersion)?.absaetze, Object.values(BESTAETIGUNG_ABSAETZE));
   });
 
   it("labels every version within the length the API accepts for a stored one", () => {

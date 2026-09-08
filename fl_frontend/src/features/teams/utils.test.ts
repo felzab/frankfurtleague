@@ -504,15 +504,15 @@ describe("what a website box reports upward", () => {
   });
 });
 
-describe("what a new consent cites", () => {
+describe("what a new Kenntnisnahme cites", () => {
   /* Stamped from the one constant, never typed and never left blank: the version NAMES the wording,
-     so a record citing nothing, or citing a value somebody keyed in, claims agreement to a text the
+     so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a text the
      league cannot identify. */
   it("stamps the league's current wording version", () => {
     const frisch = buildEmptyKontaktperson().einwilligung;
 
-    assert.equal(frisch.text_version, LIGA_KENNTNISNAHME.textVersion, "a new consent cites a version the league did not stamp");
-    assert.notEqual(frisch.text_version, "", "a new consent cites no wording at all");
+    assert.equal(frisch.text_version, LIGA_KENNTNISNAHME.textVersion, "a new Kenntnisnahme cites a version the league did not stamp");
+    assert.notEqual(frisch.text_version, "", "a new Kenntnisnahme cites no wording at all");
   });
 });
 

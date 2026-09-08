@@ -1,6 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_EINWILLIGUNG, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { BESTAETIGUNG_KENNTNISNAHME, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -171,7 +171,7 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
 // Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
 // is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
 export function stampEinwilligungFassung<T extends object>(payload: T): T & { text_version: string } {
-  return { ...payload, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
+  return { ...payload, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
 }
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */

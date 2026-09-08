@@ -238,7 +238,7 @@ describe("teamPageHref", () => {
 });
 
 describe("resolveTeamSaisonMembership", () => {
-  /** The STORED shape, whose agreement has an origin: the draft's widened `null` is the editor's. */
+  /** The STORED shape, whose Kenntnisnahme has an origin: the draft's widened `null` is the editor's. */
   const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erfasst_von: "person" } };
 
   // The server derives the token and this side only carries it, so any value stands in for one here.

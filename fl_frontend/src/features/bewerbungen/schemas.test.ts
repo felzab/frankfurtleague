@@ -224,9 +224,9 @@ describe("two spellings of one telephone number are one number", () => {
   });
 });
 
-describe("the consent each person gives", () => {
+describe("the Kenntnisnahme each seat carries", () => {
   /* `z.literal(true)` and not a boolean: an untouched switch submits `false`, and a payload carrying
-     that would record the absence of consent as an answer to the question. */
+     that would record the absence of an acknowledgement as an answer to the question. */
   it("refuses an unticked box on the seat that left it unticked", () => {
     const ohne = gueltig({
       kontakte: { ...gueltig().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", erteilt: false } }) },
@@ -235,9 +235,9 @@ describe("the consent each person gives", () => {
     assert.deepEqual(refusedPaths(ohne), ["kontakte.stellvertretung.einwilligung.erteilt"]);
   });
 
-  /* The version is what a stored record cites. Without it the record claims consent to wording
+  /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
      nobody can identify afterwards. */
-  it("refuses a consent citing no wording version", () => {
+  it("refuses a Kenntnisnahme citing no wording version", () => {
     const ohne = gueltig({
       kontakte: { ...gueltig().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", erteilt: true } }) },
     });

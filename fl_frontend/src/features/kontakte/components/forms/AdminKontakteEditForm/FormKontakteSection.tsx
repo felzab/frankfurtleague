@@ -41,8 +41,8 @@ import type { ReactNode } from "react";
 import type { KontakteBanner } from "./banners";
 
 /**
- * What the two read-only consent facts say where the record holds neither yet. Spelled here rather
- * than left blank: an empty box on a read-only field reads as a value that failed to load.
+ * What the two read-only Kenntnisnahme facts say where the record holds neither yet. Spelled here
+ * rather than left blank: an empty box on a read-only field reads as a value that failed to load.
  */
 const NOCH_OFFEN = "Noch offen";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
@@ -53,9 +53,9 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /**
- * The three seats a season holds for one club, each with the agreement its details are kept under.
- * A seat switched on demands a whole person; a seat switched off holds nobody, the state the payload
- * accepts and an erasure leaves.
+ * The three seats a season holds for one club, each with the Kenntnisnahme its details are kept
+ * under. A seat switched on demands a whole person; a seat switched off holds nobody, the state the
+ * payload accepts and an erasure leaves.
  */
 export function FormKontakteSection({
   value,
@@ -211,8 +211,9 @@ const SEAT_HINT: Record<KontaktRolle, ReactNode> = {
 };
 
 /**
- * One seat: its own switch, and beneath it the person and the agreement, or nothing. Empty renders as
- * the switch alone — the record says a seat holds nobody, never why, so no wording here may either.
+ * One seat: its own switch, and beneath it the person and the Kenntnisnahme, or nothing. Empty
+ * renders as the switch alone — the record says a seat holds nobody, never why, so no wording here
+ * may either.
  */
 function KontaktpersonFields({
   rolle,
@@ -390,11 +391,11 @@ function KontaktpersonInputs({
       </div>
 
       <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-        <h4 className={FORM_SECTION_HEADING}>Bestätigung</h4>
+        <h4 className={FORM_SECTION_HEADING}>Kenntnisnahme</h4>
 
         <div className={FIELD_PAIR}>
-          {/* Read out and never picked: an administrator may not record a confirmation as the person's
-              own, and the server preserves whatever a confirmation wrote here. */}
+          {/* Read out and never picked: an administrator may not record a Kenntnisnahme as the person's
+              own, and the server preserves whatever the seat's own Bestätigung wrote here. */}
           <TextField
             isReadOnly
             value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
@@ -432,7 +433,7 @@ function KontaktpersonInputs({
             path={`kontakte.${rolle}.einwilligung`}
             isReadOnly={isMirrored}
             label="Erfasst am"
-            calendarLabel={`${label}: Datum der Bestätigung auswählen`}
+            calendarLabel={`${label}: Datum der Kenntnisnahme auswählen`}
             value={person.einwilligung.datum}
             onChange={(next) => setEinwilligung({ datum: next })}
             onFieldLeft={onFieldLeft}

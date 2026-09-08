@@ -210,6 +210,16 @@ export const FLBewerbungenListResponseSchema = BaseAPIResponseSchema.extend({
    * narrowed on — so the triage bar can offer a state whose rows this answer does not carry.
    */
   anzahl_je_status: z.record(FLBewerbungStatusSchema, z.number().int().nonnegative()),
+  /**
+   * The same for the season relation, counted over everything but that relation — so the bar can offer the way
+   * out of the season the read narrowed to.
+   */
+  anzahl_je_saisonbezug: z.record(z.enum(["diese_saison", "andere_saison"]), z.number().int().nonnegative()),
+  /**
+   * Which collision keys two or more OPEN applications share, counted by the server over the whole
+   * queue — the only place a pair the read's cap parted is visible.
+   */
+  dubletten_schluessel: z.array(z.string()),
 });
 export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponseSchema>;
 
@@ -329,9 +339,9 @@ export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
 export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungEinwilligungPayload`. The public form submits WHAT was agreed to and that it
+ * Mirrors `FLBewerbungEinwilligungPayload`. The public form submits WHAT was acknowledged and that it
  * was; the server composes the stored record around it, so no visitor can claim an administrative
- * transcription or backdate a consent.
+ * transcription or backdate a Kenntnisnahme.
  */
 export const FLBewerbungEinwilligungPayloadSchema = z.object({
   // Written by the form from `LIGA_KENNTNISNAHME` rather than typed: the wording lives in the
@@ -339,13 +349,13 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
   text_version: z
     .string()
     .trim()
-    .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
+    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-  // `true` alone, never a boolean: an unticked box is a consent nobody gave, and a payload carrying
-  // `false` would record the absence as an answer.
-  erteilt: z.literal(true, { error: "Ohne diese Bestätigung können wir die Bewerbung nicht annehmen." }),
+  // `true` alone, never a boolean: an unticked box is an acknowledgement nobody made, and a payload
+  // carrying `false` would record the absence as an answer.
+  erteilt: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
@@ -354,7 +364,7 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
 
 /**
  * Mirrors `FLBewerbungKontaktpersonPayload` — the four fields the applicant types, with the
- * confirmation the form gathers for all three seats at once.
+ * Kenntnisnahme the form gathers for all three seats at once.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
@@ -410,8 +420,9 @@ function normalisiereTelefon(value: string): string {
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
-// By value, because `einwilligung` is an object and two equal consents are two objects. One level of
-// nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison is total.
+// By value, because `einwilligung` is an object and two equal acknowledgements are two objects. One
+// level of nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison
+// is total.
 const gleicherWert = (a: unknown, b: unknown): boolean =>
   typeof a === "object" && a !== null && typeof b === "object" && b !== null
     ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())

@@ -5,12 +5,12 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import type {
-  BewerbungAblehnungData,
   BewerbungAbsageData,
   BewerbungBestaetigungData,
   BewerbungEingangOffenData,
   BewerbungGeloeschtData,
   BewerbungVollstaendigData,
+  BewerbungWiderspruchData,
   BewerbungZusageData,
 } from "./bewerbungEmail.ts";
 
@@ -25,13 +25,13 @@ registerHooks({
 });
 
 const {
-  buildBewerbungAblehnungEmail,
   buildBewerbungAbsageEmail,
   buildBewerbungBestaetigungEmail,
   buildBewerbungEingangOffenEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
   buildBewerbungVollstaendigEmail,
+  buildBewerbungWiderspruchEmail,
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -889,7 +889,7 @@ const ABLEHNUNG = {
   rollenText: "Ansprechperson",
   abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
   fristText: FRIST,
-} satisfies BewerbungAblehnungData;
+} satisfies BewerbungWiderspruchData;
 
 /** „Jonas und Mira“ as both branches print a seat list, so an order change fails rather than reading oddly. */
 const OFFEN_LISTE = "Jonas (Trainerin oder Trainer) und Mira (Stellvertretung)";
@@ -906,7 +906,7 @@ const WORKFLOW = [
   { name: "Eingang offen", build: () => buildBewerbungEingangOffenEmail(EINGANG_OFFEN), empfaenger: "einreichende" },
   { name: "Vollständig", build: () => buildBewerbungVollstaendigEmail(VOLLSTAENDIG), empfaenger: "einreichende" },
   { name: "Gelöscht", build: () => buildBewerbungGeloeschtEmail(GELOESCHT), empfaenger: "einreichende" },
-  { name: "Ablehnung", build: () => buildBewerbungAblehnungEmail(ABLEHNUNG), empfaenger: "einreichende" },
+  { name: "Ablehnung", build: () => buildBewerbungWiderspruchEmail(ABLEHNUNG), empfaenger: "einreichende" },
 ] as const;
 
 const alleWorkflow = () => WORKFLOW.map((meldung) => ({ ...meldung, mail: meldung.build(), footer: textFooter(meldung.empfaenger) }));
@@ -1253,9 +1253,9 @@ describe("buildBewerbungGeloeschtEmail", () => {
   });
 });
 
-describe("buildBewerbungAblehnungEmail", () => {
+describe("buildBewerbungWiderspruchEmail", () => {
   it("names the person and the role and takes no pronoun for either", () => {
-    const mail = buildBewerbungAblehnungEmail(ABLEHNUNG);
+    const mail = buildBewerbungWiderspruchEmail(ABLEHNUNG);
     const wer = `${ABLEHNUNG.abgelehnt.vorname} (${ABLEHNUNG.abgelehnt.rolleText})`;
 
     assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt League, Saison ${ABLEHNUNG.saisonId}`);
@@ -1281,7 +1281,7 @@ describe("buildBewerbungAblehnungEmail", () => {
   });
 
   it("offers the way to start again, as the deletion notice does", () => {
-    assert.deepEqual(steuerung(buildBewerbungAblehnungEmail(ABLEHNUNG).html), [
+    assert.deepEqual(steuerung(buildBewerbungWiderspruchEmail(ABLEHNUNG).html), [
       { href: `${ORIGIN}/bewerbung/${ABLEHNUNG.saisonId}`, label: "Neu bewerben" },
       { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
     ]);
@@ -1423,9 +1423,9 @@ describe("the confirmation workflow's messages", () => {
       },
       {
         field: "Ablehnung.abgelehnt.vorname",
-        mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, abgelehnt: { vorname: gift, rolleText: "Stellvertretung" } }),
+        mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, abgelehnt: { vorname: gift, rolleText: "Stellvertretung" } }),
       },
-      { field: "Ablehnung.fristText", mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, fristText: gift }) },
+      { field: "Ablehnung.fristText", mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, fristText: gift }) },
     ];
 
     for (const { field, mail } of cases) {
@@ -1457,7 +1457,7 @@ describe("the confirmation workflow's messages", () => {
       },
       {
         field: "Ablehnung.abgelehnt.vorname",
-        mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, abgelehnt: { vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" } }),
+        mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, abgelehnt: { vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" } }),
         empfaenger: "einreichende",
       },
     ] as const;
@@ -1527,7 +1527,7 @@ describe("the origin every message's links are built on", () => {
     { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, origin: SERVIERT, link: LINK }) },
     { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, origin: SERVIERT }) },
     { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, origin: SERVIERT }) },
-    { name: "Ablehnung", mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, origin: SERVIERT }) },
+    { name: "Ablehnung", mail: buildBewerbungWiderspruchEmail({ ...ABLEHNUNG, origin: SERVIERT }) },
   ];
 
   /** Every absolute address a branch carries, the punctuation of the sentence it stands in cut off its tail. */

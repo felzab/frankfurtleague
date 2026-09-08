@@ -1,11 +1,11 @@
 import hashlib
 import secrets
 from datetime import date, timedelta
-from typing import Any, Mapping, Sequence, cast, get_args
+from typing import Any, Final, Mapping, Sequence, cast, get_args
 
 from pydantic import ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLKontaktRolle, refuse_age_outside_the_bounds
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerbungSaisonbezug, FLKontaktRolle, refuse_age_outside_the_bounds
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -987,6 +987,39 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
+def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[str, dict[str, Any]]:
+    """Each relation's own term, for the count its option is told.
+
+    A request naming no season is answered against `None`, which no application carries, so every row
+    falls under `andere_saison` -- where
+    `fl_frontend/src/features/bewerbungen/utils.ts :: buildBewerbungRows` files those same rows.
+    """
+
+    return {"diese_saison": {"saison_id": saison_id}, "andere_saison": {"saison_id": {"$ne": saison_id}}}
+
+
+def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequence[str] | None) -> dict[str, Any]:
+    """Which seasons the read covers, as the bar's relation to the season the caller named.
+
+    A relation rather than the id alone, the bar offering a complement no `saison_id` can express.
+    """
+
+    if saison_id is None:
+        return {}
+
+    # The parameter's older meaning, kept: a caller naming no relation asked for that season's queue.
+    if saisonbezug is None:
+        return {"saison_id": saison_id}
+
+    picked = [relation for relation in get_args(FLBewerbungSaisonbezug) if relation in saisonbezug]
+
+    # Every relation picked is every season, and so the facet turned off.
+    if len(picked) != 1:
+        return {}
+
+    return build_bewerbungen_saisonbezug_terms(saison_id=saison_id)[picked[0]]
+
+
 def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
     """`$in` rather than an equality, so a facet that offers all three has a request expressing any two of them.
 
@@ -1010,3 +1043,66 @@ def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]
     direction = 1 if order == "asc" else -1
 
     return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
+
+
+# One `$group` over the raw fields a collision is decided on, and never a `$match` on the count
+# beside it: two groups parted by a Kürzel's case are one collision, which only
+# `dubletten_schluessel_of`'s fold can see.
+DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
+    {
+        "$group": {
+            "_id": {"saison_id": "$saison_id", "team_id": "$team_id", "shorthand": "$schule.shorthand"},
+            "anzahl": {"$sum": 1},
+        }
+    },
+)
+
+
+def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Every open application the request's other terms leave, grouped and never bounded.
+
+    Named rather than inline so both test tiers assert on what the endpoint actually sends
+    (`fl_backend/tests/api/test_bewerbungen_read.py :: TestTheCollisionSurvivesTheReadsCap`).
+    """
+
+    # `eingereicht` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
+    # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.
+    return [{"$match": {**beyond_status, "status": "eingereicht"}}, *DUBLETTEN_TALLY]
+
+
+def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
+    """One application's collision key, `None` where it names neither a club nor a Kürzel.
+
+    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: dublettenSchluessel`
+    composes a served row's, which is the comparison that marks the row.
+    """
+
+    team_id = gruppe.get("team_id")
+
+    if team_id is not None:
+        return f"{gruppe.get('saison_id')} team {team_id}"
+
+    kuerzel = str(gruppe.get("shorthand") or "").strip().upper()
+
+    return None if kuerzel == "" else f"{gruppe.get('saison_id')} kuerzel {kuerzel}"
+
+
+def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Which keys more than one open application holds, over every row the tally covered.
+
+    `.strip().upper()` and never a collation: this has to fold as the served row's key does in
+    `fl_frontend/src/features/bewerbungen/duplicates.ts`, or a marked pair loses one half.
+    """
+
+    gehalten: dict[str, int] = {}
+
+    for cell in cells:
+        schluessel = _dublette_schluessel(cell["_id"])
+
+        if schluessel is None:
+            continue
+
+        gehalten[schluessel] = gehalten.get(schluessel, 0) + cell["anzahl"]
+
+    # Sorted, so an unchanged queue answers the same list twice.
+    return sorted(schluessel for schluessel, anzahl in gehalten.items() if anzahl > 1)

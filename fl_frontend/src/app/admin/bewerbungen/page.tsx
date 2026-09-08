@@ -43,13 +43,10 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
   const richtung = parseLeserichtung(params);
 
-  const [bewerbungenRes, teamsRes, saisonsRes] = await Promise.all([
-    // Narrowed by the status the bar selects rather than after the read, so a decided application
-    // stops spending the endpoint's cap while staying one click away. Reversing `order` swaps which
-    // end of a flooded queue survives that cap.
-    getBewerbungenQueue(params, richtung),
+  const [teamsRes, saisonsRes] = await Promise.all([
     // The clubs, because a picked one is stored as an id.
     getTeamMemberships(),
+    // Memoized per render pass, so `resolveSaisonId` above and this pay one round trip between them.
     getAdminSaisons(),
   ]);
 
@@ -57,10 +54,16 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   // while the header's selector names another.
   const selectedSaisonId = requestedSaisonId ?? saisonsRes.saisons.find((saison) => saison.status === "active")?.id;
 
+  // After the season rather than beside it: the bar's season facet narrows the READ, so the request
+  // cannot be composed before the season it is relative to is known.
+  const bewerbungenRes = await getBewerbungenQueue(params, richtung, selectedSaisonId);
+
   return (
     <AdminBewerbungenView
       bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
       anzahlJeStatus={bewerbungenRes.anzahl_je_status}
+      anzahlJeSaisonbezug={bewerbungenRes.anzahl_je_saisonbezug}
+      dublettenSchluessel={bewerbungenRes.dubletten_schluessel}
       richtung={richtung}
       unvollstaendig={
         bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }

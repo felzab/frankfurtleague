@@ -122,7 +122,7 @@ const BESTAETIGUNGSSEITE_ABSAETZE_2026_09_2 = [
 
 // A stored record cites its label alone, so an entry here is never reworded or removed: either
 // leaves a record claiming words nobody was shown. Spelling the league's name is not a rewording:
-// the agreed words do not move.
+// the stamped words do not move.
 export const LIGA_KENNTNISNAHMEN = {
   "2026-08": {
     absaetze: [
@@ -209,14 +209,14 @@ export const LIGA_KENNTNISNAHME = {
 } as const;
 
 /** The confirming person's own wording and label, read off the record for `LIGA_KENNTNISNAHME`'s reason. */
-export const BESTAETIGUNG_EINWILLIGUNG = {
+export const BESTAETIGUNG_KENNTNISNAHME = {
   textVersion: AKTUELLE_BESTAETIGUNG,
   ...LIGA_KENNTNISNAHMEN[AKTUELLE_BESTAETIGUNG],
 } as const;
 
 /**
  * Answers the words a stored label cites, and never a fallback: the current wording under an old
- * label is a record claiming agreement to a text its person never read.
+ * label is a record claiming acknowledgement of a text its person never read.
  */
 export function einwilligungFassung(textVersion: string): EinwilligungFassung | null {
   const fassungen: Readonly<Record<string, EinwilligungFassung>> = LIGA_KENNTNISNAHMEN;

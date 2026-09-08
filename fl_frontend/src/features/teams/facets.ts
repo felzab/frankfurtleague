@@ -91,8 +91,10 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
     read: (row) => [kontakteBesetzung(row.besetzt)],
   },
   {
+    // `param` is a URL query key a bookmarked link carries, so it keeps the stored key's spelling
+    // while the label reads the seat's own word.
     param: "einwilligung",
-    label: "Einwilligung",
+    label: "Kenntnisnahme",
     options: EINWILLIGUNG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
     /* Across all three seats, because the row is now the club: a club answers every herkunft one of
        its people gave. Seats holding nobody answer with none, so no herkunft claims them. */

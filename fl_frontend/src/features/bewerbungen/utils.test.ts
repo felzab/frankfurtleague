@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
+import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 
 import { declaredCodes } from "../../core/refusalRegister.ts";
@@ -553,7 +553,7 @@ describe("the confirmation's refusals against the backend's register", () => {
   });
 });
 
-describe("which consent wording an answer is stored under", () => {
+describe("which stamped wording an answer is stored under", () => {
   const FREMD = {
     token: "kein-echtes-token",
     antwort: "erteilt" as const,
@@ -565,10 +565,10 @@ describe("which consent wording an answer is stored under", () => {
   /* The label names which words were on screen, and only this server knows that. Taken from the
      body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
   it("replaces whatever label the request carried with the registry's own", () => {
-    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.notEqual(
       FREMD.text_version,
-      BESTAETIGUNG_EINWILLIGUNG.textVersion,
+      BESTAETIGUNG_KENNTNISNAHME.textVersion,
       "the fixture already carries the label, so this compares nothing",
     );
   });

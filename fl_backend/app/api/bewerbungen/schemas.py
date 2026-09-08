@@ -51,6 +51,11 @@ from app.shared.schemas.responses import BaseAPIResponse
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
 FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
+# Which seasons a read covers, RELATIVE to the `saison_id` beside it and never a season of its own:
+# the triage bar asks about the season an administrator came here about, and no stored field carries
+# that answer.
+FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
+
 # One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
@@ -262,6 +267,9 @@ class FLBewerbungenFilterParams(BaseModel):
     """What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one."""
 
     saison_id: str | None = None
+    # A list for `status`'s reason below, the facet offering these being multi-select. What each
+    # value narrows to is published at `app/api/bewerbungen/router.py :: get_bewerbungen`.
+    saisonbezug: Annotated[list[FLBewerbungSaisonbezug] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
     # A LIST, because the facet offering these is multi-select and a two-status selection has no
     # other request that expresses it. Published as the STRING it arrives as: an array parameter is
     # one `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
@@ -310,8 +318,8 @@ class FLAblehnenBewerbungPayload(BaseModel):
 class FLBewerbungenListResponse(BaseAPIResponse):
     """The queue, newest first, and whether that is the whole of it.
 
-    The list is served WHOLE by design -- the page marks duplicate submissions across it, and a
-    split set would leave a pair unmarked with nothing saying so.
+    A cut answer still marks a collision: `dubletten_schluessel` is taken over every open
+    application, so a pair the cap parted is named at both ends.
     """
 
     bewerbungen: list[FLBewerbung]
@@ -322,6 +330,13 @@ class FLBewerbungenListResponse(BaseAPIResponse):
     # counting the rows it was served reads zero for each one the server hid and would offer no way
     # back to them.
     anzahl_je_status: dict[FLBewerbungStatus, int]
+    # The same, for the season relation the read narrows on: the side it left out has no rows here,
+    # and a caller counting what it holds would strand an administrator in one season.
+    anzahl_je_saisonbezug: dict[FLBewerbungSaisonbezug, int]
+    # KEYS and never the colliding applications' ids: one school submitting for hours is ONE group,
+    # and `$push` over it answers past the 16MB a document may hold -- a 500 an anonymous form could
+    # time.
+    dubletten_schluessel: list[str]
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):

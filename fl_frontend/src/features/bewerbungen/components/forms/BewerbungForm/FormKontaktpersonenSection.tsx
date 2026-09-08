@@ -231,8 +231,8 @@ function mitDatenschutzLink(absatz: string): ReactNode {
 
 /**
  * **One switch and not three**: it asserts that the three people know of their entry, where three
- * consents would claim what two absent people cannot give. Each person's consent comes through their
- * own link.
+ * acknowledgements would claim what two absent people cannot give. Each person's own Bestätigung
+ * comes through their own link.
  */
 export function FormEinwilligungSection({
   erteilt,
@@ -251,7 +251,7 @@ export function FormEinwilligungSection({
             it, so it is announced at the level they are rather than as a group inside one of them. */}
         <PanelHeading
           className={panel.heading()}
-          title="Bestätigung"
+          title="Kenntnisnahme"
         />
       </div>
 

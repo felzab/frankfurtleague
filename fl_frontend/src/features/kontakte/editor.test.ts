@@ -346,7 +346,7 @@ describe("what the contacts write moves", () => {
     assert.match(PATCH_ACTION, /Nothing to invalidate/, "the absent invalidation is left unexplained");
   });
 
-  /* The whole block or nothing. A partial send would leave the row holding one half of a confirmation,
+  /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,
      which is why the field is required with no default on either side. */
   it("sends the block whole, nullable, and with no default", () => {
     assert.ok(!PAYLOAD_SCHEMA.includes(".optional()"), "the block may be omitted, which leaves the stored one standing unannounced");
@@ -417,7 +417,7 @@ describe("the editor's shape", () => {
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SECTION, /onBlur=\{\(\) => onFieldLeft\(\[`kontakte\.\$\{rolle\}\.vorname`\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SECTION_SOURCE), "a change handler judges a seat's field between keystrokes");
-    // The claim is the one pick this panel still offers: the confirmation's origin is the server's to
+    // The claim is the one pick this panel still offers: the Kenntnisnahme's origin is the server's to
     // compose, so nothing here judges it.
     assert.match(SECTION, /if \(revalidate\) revalidateSeats\(next\);/, "a pick that resolves what a seat holds is judged elsewhere");
   });
@@ -472,7 +472,7 @@ describe("the editor's shape", () => {
     ] as const) {
       for (const claim of CLAIMS) assert.ok(!html.includes(claim), `the editor says „${claim}“ at ${wo}, which the row records no field for`);
     }
-    // Nothing beneath the switch: an empty seat renders no sub-heading of its own, the confirmation's included.
+    // Nothing beneath the switch: an empty seat renders no sub-heading of its own, the Kenntnisnahme's included.
     assert.deepEqual(headings(sectionMarkup(BLOCK_LEER), "h4"), [], "an empty seat renders something beneath its switch");
 
     const seats = [
@@ -878,14 +878,14 @@ describe("how the editor asks which person the Trainer is", () => {
   });
 });
 
-describe("what the editor says about a confirmation it may not write", () => {
+describe("what the editor says about a Kenntnisnahme it may not write", () => {
   /* The server composes both fields. A control offering either would let an administrator record a
-     confirmation as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
+     Kenntnisnahme as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
      surface would show afterwards. */
   it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
     const seiten = sectionMarkup(BLOCK);
 
-    assert.match(seiten, />Erfasst</, "the confirmation's origin is no longer shown at all");
+    assert.match(seiten, />Erfasst</, "the Kenntnisnahme's origin is no longer shown at all");
     assert.match(seiten, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
     assert.ok(seiten.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
     assert.ok(seiten.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
@@ -910,7 +910,7 @@ describe("which wording a record cites", () => {
     assert.notEqual(LIGA_KENNTNISNAHME.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
-  /* Both surfaces gather the SAME confirmation, so a copy per feature is two texts that drift and two
+  /* Both surfaces gather the SAME Kenntnisnahme, so a copy per feature is two texts that drift and two
      versions that disagree about which one a record cites. */
   it("stamps that one version on a new record from either surface", () => {
     assert.equal(
@@ -931,14 +931,14 @@ describe("which wording a record cites", () => {
     ] as const) {
       assert.match(
         readFileSync(file, "utf8"),
-        /LIGA_KENNTNISNAHME|BESTAETIGUNG_EINWILLIGUNG/,
+        /LIGA_KENNTNISNAHME|BESTAETIGUNG_KENNTNISNAHME/,
         `${name} spells the version rather than reading it`,
       );
     }
   });
 
   /* Typed by hand, the version is a value nobody decided stored as though somebody had — and an edit
-     to a STORED one would rewrite which text that person agreed to, which is history. */
+     to a STORED one would rewrite which text that person was shown, which is history. */
   it("never lets the version be typed, on a new record or a stored one", () => {
     const box = /<input[^>]*name="kontakte\.trainer\.einwilligung\.text_version"[^>]*>/.exec(sectionMarkup(BLOCK))?.[0] ?? "";
 
@@ -956,7 +956,7 @@ describe("which wording a record cites", () => {
 
 describe("how the editor divides one person from the next", () => {
   /* Two depths drawn the same way is the defect: a rule between two people looked like the rule
-     between a person's details and their confirmation, so neither read as a boundary. */
+     between a person's details and their Kenntnisnahme, so neither read as a boundary. */
   it("gives every seat its own panel rather than a rule inside one", () => {
     const panel = formPanel();
     const cards = seatCards(sectionMarkup(BLOCK));
@@ -1013,18 +1013,18 @@ describe("how the editor divides one person from the next", () => {
   });
 
   /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
-     confirmation. One depth, one drawing. */
-  it("keeps exactly one rule inside a seat, for the confirmation", () => {
+     Kenntnisnahme. One depth, one drawing. */
+  it("keeps exactly one rule inside a seat, for the Kenntnisnahme", () => {
     /* No address in any seat, so none offers the person's erasure: that control draws its own rule
        from its own file, and what this case is about is the division inside one person. */
     for (const { body } of seatCards(sectionMarkup(BLOCK_OHNE_ADRESSE))) {
       const regeln = [...body.matchAll(/class="[^"]*\bborder-t pt-\d[^"]*"/g)].map((found) => found[0]);
 
-      assert.equal(regeln.length, 1, `the seat draws ${String(regeln.length)} rules where the confirmation needs one`);
+      assert.equal(regeln.length, 1, `the seat draws ${String(regeln.length)} rules where the Kenntnisnahme needs one`);
       assert.match(
         body.split(regeln[0] ?? "")[1] ?? "",
-        /^><h4[^>]*>Bestätigung</,
-        "the seat's one rule opens something other than the confirmation",
+        /^><h4[^>]*>Kenntnisnahme</,
+        "the seat's one rule opens something other than the Kenntnisnahme",
       );
     }
     /* Counted over the file as well: a rule drawn BETWEEN the cards sits inside no seat's body, so
