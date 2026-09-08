@@ -102,7 +102,6 @@ deliverable.
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                      | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                              | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                       | FE, tests                                                                   | Open     |
@@ -1260,51 +1259,6 @@ and [`docs/frontend/spec.md`](../frontend/spec.md) §1.9 is right that a sweep i
 held. **The line to draw is the authority, not the mechanism** — a sweep that compares the tree
 against something outside itself is sound, and one that compares it against a literal in the same
 commit is a note about intent wearing a test's clothes.
-
-### `fha5-k95h` · A projection and the predicate reading it are coupled in one direction, and the open one fails quietly
-
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| BE, tests, saisons | Open   | —          |
-
-**`fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS` is the projection that decides whether a
-season's draw may be destroyed, and the couplings around it are guarded unevenly.** Two of the three are held:
-every field the fixture patch writes is in the projection or named as no record
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryFieldAPatchWritesIsWeighedOrNamed`, against
-`:: NOT_A_RECORD`), and every path in the projection is read by the predicate
-(`fl_backend/tests/api/test_spielplan_refusal.py :: TestWhatCountsAsRecordedAgainstAFixture`, a case per
-projected path). **Nothing holds every key the predicate reads to being fetched by the projection.**
-
-**The open direction is the one that fails silently, and it fails toward destruction.** A predicate
-that began reading a key the projection does not fetch would see `None` on every fixture every time —
-in production the driver returns the projected keys and nothing else, and in the test the fixture
-_is_ a projection document — so no assertion fails, the branch never fires, the author believes the
-window closes on that field, and what stands on the far side of the window is a replace that deletes
-every matchday and fixture the season holds. The guarded direction's failure is the harmless one by
-comparison: a projected field nobody reads costs a wasted fetch.
-
-**The obvious guard is refused, and that refusal is the whole difficulty.** The mechanism available
-is an AST sweep of the two functions for the string constants they subscript, which is the technique
-`fl_backend/tests/core/test_write_shapes.py :: _model_copy_keys` already uses — and its limitation is
-the one that bites here, that it sees `ast.Constant` and nothing else.
-`fl_backend/app/api/saisons/services.py :: _a_side_is_off_the_draw` composes both bracket-source keys
-as `f"{slot}_quelle"`, so a constant sweep misses both and needs an allowlist to compensate. **An
-allowlist is exactly the fragility the guarded direction was built without** — that test's fixture is
-the projection document, so it needs no second list to stay true — and adding one here would trade a
-guard that cannot go stale for one that can, which is worse than the gap it closes.
-
-**Done when** one of two answers is taken. The clean closure is to stop composing those two keys —
-spell them as constants beside the projection, and a sweep needs no allowlist at all — which is **a
-small edit to production code made to serve a test, and a trade worth stating out loud rather than
-making quietly**. The alternative is to accept the direction as open and say so in the predicate's
-own docstring, so the next author reads the constraint where the code is rather than inferring it
-from the guards around it.
-
-**The gap is not overstated.** `fl_backend/tests/core/test_write_shapes.py :: NOT_A_RECORD` names
-`datum` and `uhrzeit` as what a save may move while nothing counts as recorded, so those two are
-covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` and
-`:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
-holding them to it.
 
 ### `gbjj-9wfh` · A test fixture asserts its own type, and the assertion is the only thing holding it to the model
 

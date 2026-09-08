@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from app.api.bewerbungen.services import parse_new_club
-from app.api.saisons.services import RECORDED_FACT_FIELDS
+from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import apply_payload_to_spiel
 from app.api.teams.admin_router import post_team
@@ -18,6 +18,7 @@ from tests.core.app_source import (
     READ_HELPERS,
     REMOVAL_HELPERS,
     WRITE_HELPERS,
+    app_declares,
     crud_helpers_taking_a_session,
     declared,
     driver_reads_named_by_the_crud_header,
@@ -45,6 +46,10 @@ SESSION_TAKING_HELPERS = WRITE_HELPERS | REMOVAL_HELPERS
 # what a replace and an undraw are FOR, and `delete_many_from_db` keeps both in the images it logs.
 NOT_A_RECORD: frozenset[str] = frozenset({"datum", "uhrzeit"})
 
+# The whole of what the recorded-fact window reads, the private helper included: the floor below is
+# what holds the pair complete, a third helper taking its own reads out of every clause here.
+RECORDED_FACT_PREDICATES: tuple[Callable[..., Any], ...] = (holds_a_recorded_fact, _a_side_is_off_the_draw)
+
 # Every package under `app/api/` declaring a services module, pinned beside the glob that finds
 # them: a glob narrowing to nothing would pass every clause below over no module at all.
 # `app/api/system/` declares none.
@@ -69,6 +74,19 @@ def _model_dump_keywords(function: Callable[..., Any]) -> list[frozenset[tuple[s
         for call in ast.walk(declared(function))
         if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "model_dump"
     ]
+
+
+def _subscripted_constants(functions: tuple[Callable[..., Any], ...]) -> set[str]:
+    """Every key these functions name in a literal, read off the `get` calls they make."""
+
+    return {
+        argument.value
+        for function in functions
+        for call in ast.walk(declared(function))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "get"
+        for argument in call.args
+        if isinstance(argument, ast.Constant) and isinstance(argument.value, str)
+    }
 
 
 def _model_copy_keys(function: Callable[..., Any]) -> set[str]:
@@ -276,6 +294,37 @@ class TestEveryFieldAPatchWritesIsWeighedOrNamed:
         weighed = {path.split(".")[0] for path in RECORDED_FACT_FIELDS}
 
         assert sorted(NOT_A_RECORD & weighed) == []
+
+
+class TestThePredicateReadsNoKeyItsProjectionMisses:
+    """That the recorded-fact window names no key `RECORDED_FACT_FIELDS` leaves unfetched.
+
+    An unfetched key reads `None` on every fixture, so the window stops closing on the fact it was
+    added to weigh and every other test stays green.
+    """
+
+    def test_the_swept_pair_is_the_whole_window_and_both_slots_are_spelled_out(self):
+        """The floor: a third helper under the predicate, or either slot read through a variable, empties the clause below.
+
+        A key built into an f-string reaches this sweep as no constant, which is what the spelled-out
+        slots buy.
+        """
+
+        handed_off = {
+            call.func.id for call in ast.walk(declared(holds_a_recorded_fact)) if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        } & app_declares()
+
+        assert handed_off == {_a_side_is_off_the_draw.__name__}
+
+        assert {"team1", "team2", "team1_quelle", "team2_quelle"} <= _subscripted_constants(RECORDED_FACT_PREDICATES)
+
+    def test_every_key_the_window_names_is_projected(self):
+        """Read one field the projection misses and this fails; nothing else moves, the key reading `None` on every fixture."""
+
+        # Every SEGMENT, so `team1.tore` answers for the two names the predicate reaches it by.
+        projected = {segment for path in RECORDED_FACT_FIELDS for segment in path.split(".")}
+
+        assert sorted(_subscripted_constants(RECORDED_FACT_PREDICATES) - projected) == []
 
 
 class TestEveryWriteInsideATransactionCarriesIt:

@@ -335,16 +335,16 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     # widen the window it decides.
     is_bracket = spiel.get("saison_phase") != DRAWN_HOLDING_ITS_SIDES
 
-    for slot in ("team1", "team2"):
-        occupied = (spiel.get(slot) or {}).get("team_id") is not None
-        wired = spiel.get(f"{slot}_quelle") is not None
+    # Both directions in ONE comparison against the phase: "holds a side" alone is true of every
+    # group fixture the draw wrote, and would shut the window on every drawn season.
+    as_drawn = (not is_bracket, is_bracket)
 
-        # Both directions in ONE comparison against the phase: "holds a side" alone is true of every
-        # group fixture the draw wrote, and would shut the window on every drawn season.
-        if (occupied, wired) != (not is_bracket, is_bracket):
-            return True
+    # Spelled slot by slot rather than looped: a slot reached through a variable, and a quelle through
+    # an f-string, reach `tests/core/test_write_shapes.py :: _subscripted_constants` as no key at all.
+    team1 = ((spiel.get("team1") or {}).get("team_id") is not None, spiel.get("team1_quelle") is not None)
+    team2 = ((spiel.get("team2") or {}).get("team_id") is not None, spiel.get("team2_quelle") is not None)
 
-    return False
+    return team1 != as_drawn or team2 != as_drawn
 
 
 def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
@@ -363,7 +363,9 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if spiel.get("elfmeterschiessen") is not None:
         return True
 
-    if any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2")):
+    # Both slots spelled out, as `_a_side_is_off_the_draw` above is: a key reached through a variable
+    # is invisible to the sweep holding this predicate to its projection.
+    if (spiel.get("team1") or {}).get("tore") is not None or (spiel.get("team2") or {}).get("tore") is not None:
         return True
 
     if _a_side_is_off_the_draw(spiel):
