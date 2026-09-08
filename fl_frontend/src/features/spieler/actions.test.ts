@@ -423,9 +423,20 @@ describe("REQ-SQUAD-003 before the press", () => {
   /* Two ways out and neither reader reaches either: the list is a page from the squad and the editor
      is a page from the season's rules, so a sentence naming one of them strands somebody at the other. */
   it("names both ways out of a full squad", () => {
-    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /Trage dort zuerst einen anderen Spieler aus/);
+    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /trage zuerst einen anderen Spieler aus/);
     assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /maximale Kadergröße in den Saisonregeln/);
     assert.ok(!REACTIVATION_NEEDS_ROOM_IN_SQUAD.includes("oben"), "the sentence points within a page that does not hold the repair");
+  });
+
+  /* Both stand over one club on page load — the rail banner off the DRAFT team, this sentence off
+     the STORED one — so a second wording leaves the reader deciding whether one obstacle is two. */
+  it("toasts the sentence this control shows, in one wording", () => {
+    const branch = squadBranch("REQ-SQUAD-003");
+    // Split rather than spelled again: a third copy of these two literals is a third thing to drift.
+    const [reason, repair] = REACTIVATION_NEEDS_ROOM_IN_SQUAD.replace(/\.$/, "").split(". ");
+
+    assert.ok(branch.includes(`reason: "${reason ?? ""}"`), "the toast opens on a state this control words differently");
+    assert.ok(branch.includes(`repair: "${repair ?? ""}"`), "the toast names the two ways out in another wording or another order");
   });
 
   /* The picker offers every write path its team, so a full squad barred here is barred on the create,

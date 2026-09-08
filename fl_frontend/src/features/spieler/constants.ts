@@ -101,9 +101,9 @@ export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 // One sentence for both readers, where the club refusal above needed one each: the repair is another
 // player's page or the season's rules, so neither the list nor the editor could point within itself.
 /**
- * `REQ-SQUAD-003` in German. It opens on the sentence `actions.ts` toasts for the code, so a press
- * that got past a stale gate reads as the state this control already showed.
+ * `REQ-SQUAD-003` in German, word for word the sentence `actions.ts` toasts for the code, so a
+ * press that got past a stale gate reads as the state this control already showed.
  */
 export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
-  "Der Kader dieses Teams ist für diese Saison voll. Trage dort zuerst einen anderen Spieler aus oder erhöhe die " +
-  "maximale Kadergröße in den Saisonregeln.";
+  "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln oder trage " +
+  "zuerst einen anderen Spieler aus.";

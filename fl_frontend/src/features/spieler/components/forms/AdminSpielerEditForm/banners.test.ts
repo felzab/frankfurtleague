@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "../../../constants.ts";
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "../../../constants.ts";
 import { buildSpielerBanners } from "./banners.ts";
 
 import type { SpielerBanner } from "./banners.ts";
@@ -107,8 +107,15 @@ describe("buildSpielerBanners", () => {
     assert.deepEqual(ids(raised), ["spieler.kader-voll"]);
     assert.deepEqual(ids(build({ isSquadFull: false })), [], "the banner stands over a squad that still has room");
     assert.equal(raised[0]?.severity, "info");
-    assert.match(raised[0]?.body ?? "", /Trage dort zuerst einen Spieler aus/, "the nearer repair is gone");
+    assert.match(raised[0]?.body ?? "", /trage zuerst einen anderen Spieler aus/, "the nearer repair is gone");
     assert.match(raised[0]?.body ?? "", /Saisonregeln/, "the reader is left with one way out where the season's rules are the other");
+  });
+
+  /* One wording for one rule: this banner and the disabled reason can stand over one club at once. */
+  it("states the cap in the wording every other surface uses", () => {
+    const raised = build({ isSquadFull: true })[0];
+
+    assert.equal(`${raised?.title ?? ""}. ${raised?.body ?? ""}`, REACTIVATION_NEEDS_ROOM_IN_SQUAD);
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {

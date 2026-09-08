@@ -138,8 +138,8 @@ export function buildSpielerBanners({
       // moved — which is also what keeps a press the endpoint refuses out of the save dialog.
       severity: "info",
       raisedBy: "state",
-      title: "Der Kader des gewählten Teams ist voll",
-      body: "Trage dort zuerst einen Spieler aus oder erhöhe die maximale Kadergröße in den Saisonregeln.",
+      title: "Der Kader dieses Teams ist für diese Saison voll",
+      body: "Erhöhe die maximale Kadergröße in den Saisonregeln oder trage zuerst einen anderen Spieler aus.",
       // Rail-only, as the transfer's is: no spot stands beside the team picker, and the entry spot
       // below is rendered in one branch alone where this banner is raised in both.
       inline: null,
