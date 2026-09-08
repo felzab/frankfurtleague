@@ -312,24 +312,24 @@ prove in one place.
 
 Rules: INC-9, COR-5, INC-1.
 
-In `fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`:
+In `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`, on the bar's own `className`:
 
 ```typescript
-// Derived from the WHOLE list and never from the filtered one: a search or a facet hiding one half
-// of a pair would take the mark off the half still on screen. Memoized so the table's own `memo`
-// still holds — a fresh Map every render defeats it.
-const dubletten = useMemo(() => findBewerbungDubletten(bewerbungen), [bewerbungen]);
+      // The `sm` cap is room kept for the trigger beside it. With no trigger the row is the bar's alone, so the bar takes
+      // the shell's column and lines up with the table under it — `--container-page`, not the `--container-toolbar` a
+      // public toolbar caps at.
+      className={attachEnd ? "min-w-0 flex-1 sm:max-w-md" : "w-full min-w-0"}
 ```
 
 **The block is over INC-9's bound and stays exactly as it is.** Each of that rule's three questions
 answers here:
 
-- **No invariant row would hold it.** It constrains what this one call is given, not anything a
-  caller of this view may rely on.
-- **Both sentences have an answer.** Cut the first and someone narrows the argument to the filtered
-  list, which silently half-marks a pair; cut the second and someone unwraps the `useMemo`, which
-  silently defeats the table's own memo.
-- **There is no second line to send half of it to.** Both sentences are about the single expression
+- **No invariant row would hold it.** It constrains the two class strings this one attribute picks
+  between, not anything a caller of this bar may rely on.
+- **Both sentences have an answer.** Cut the first and someone widens the `sm` cap, taking the room
+  kept for the trigger beside it; cut the second and someone caps the trigger-less arm at
+  `--container-toolbar`, which takes the bar out of line with the table below it.
+- **There is no second line to send half of it to.** Both sentences are about the single ternary
   underneath.
 
 A block that answers all three and is still over the bound cannot be made smaller without losing one
