@@ -28,7 +28,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons";
-import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
+import { describeShapeRows, readShape, SHAPE_FIELDS, shapeCeiling } from "./spielplanShape";
 
 import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
 import type { SaisonSpielplanContext } from "@/features/saisons/types";
@@ -304,21 +304,31 @@ export function FormSpielplanSection({
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
             <div className={FIELD_TRIO}>
-              {SHAPE_FIELDS.map(({ key: shapeKey, label, minValue, maxValue }) => (
-                <SaisonRuleNumberField
-                  key={shapeKey}
-                  // The payload's own path, so a refusal naming one of the three reaches the box that
-                  // holds it. Nothing on the season's save bar spells a `shape.` path, so neither form
-                  // can render the other's message.
-                  name={`shape.${shapeKey}`}
-                  label={<Label className={FIELD_LABEL}>{label}</Label>}
-                  minValue={minValue}
-                  maxValue={maxValue}
-                  isReadOnly={isConfirming || isWriting}
-                  value={shape[shapeKey]}
-                  onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
-                />
-              ))}
+              {SHAPE_FIELDS.map((field) => {
+                // Destructured to `shapeKey` and kept there: `fl_frontend/src/core/refusalPaths.test.ts`
+                // binds that identifier to the three paths this template renders, and a rename drops
+                // all three from the sweep without failing anything.
+                const { key: shapeKey, label, minValue } = field;
+
+                return (
+                  <SaisonRuleNumberField
+                    key={shapeKey}
+                    // The payload's own path, so a refusal naming one of the three reaches the box that
+                    // holds it. Nothing on the season's save bar spells a `shape.` path, so neither form
+                    // can render the other's message.
+                    name={`shape.${shapeKey}`}
+                    label={<Label className={FIELD_LABEL}>{label}</Label>}
+                    minValue={minValue}
+                    // Against the DRAFT the boxes hold, so lowering one lowers what the next may
+                    // reach: the three are judged together, and a bound read off the stored season
+                    // would keep offering a product this press no longer accepts.
+                    maxValue={shapeCeiling(field, shape)}
+                    isReadOnly={isConfirming || isWriting}
+                    value={shape[shapeKey]}
+                    onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
