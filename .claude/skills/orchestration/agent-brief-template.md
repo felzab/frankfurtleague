@@ -116,9 +116,14 @@ did the reasonable thing in their absence.
                 to RECONCILE against that copy rather than restore from it, a restore being a
                 silent revert wearing a safety measure's clothes that discards whatever the file's
                 other writer did in the window you held it.
-                Write ONE unpolished paragraph for the commit message to the scratch path -- what
-                changed and why -- and spend no more on it: I assemble and word every commit
-                message myself, and a polished draft is work neither of us keeps.
+                Write the COMPLETE commit message -- subject, blank second line, body -- to
+                `<scratch path>/<your agent name>/commit-message.txt` in `docs/_git/templates.md`'s
+                form, and validate it yourself with
+                `python scripts/checks/check_commits.py --message-file <that path>`, reporting the
+                real exit code in section 14. A body-only paragraph costs me the whole message,
+                which is why every message on this branch was retyped; a validated file costs me one
+                read against your diff, and that read is the part I cannot delegate. Write no
+                `Closes:` trailer -- which entries a commit retires depends on what I stage.
                 The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
                 a run over a tree the fleet is writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.

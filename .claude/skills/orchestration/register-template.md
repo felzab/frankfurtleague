@@ -204,9 +204,10 @@ it a row, mark it estimated, and mechanise it rather than try to shorten it by h
 
 <Assembly of the last wave; the audit its last commit dispatches in the same action, and the fix
 round that audit feeds, neither of which belongs to the wave and both of which the ending owes;
-the gate at <scope>; the draft pull request; every started check's conclusion; the handoff and its
-independent audit; the starter prompt. Once one wave plus this list is what remains, dispatch
-nothing new.>
+the plan reconciled against the branch, every slice ticked to a landed commit and every enumerated
+row inside a closed entry ticked too; the gate at <scope>; the draft pull request; every started
+check's conclusion; the handoff and its independent audit; the starter prompt. Once one wave plus
+this list is what remains, dispatch nothing new.>
 
 ## Decisions taken by the owner, and where each was routed
 
