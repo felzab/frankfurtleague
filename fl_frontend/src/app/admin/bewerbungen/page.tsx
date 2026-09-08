@@ -4,13 +4,14 @@ import { connection } from "next/server";
 import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/AdminBewerbungenView";
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
 import { getBewerbungenQueue } from "@/features/bewerbungen/queries";
-import { buildBewerbungRows, leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils";
+import { buildBewerbungRows } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
+import { leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "@/shared/utils/leserichtung";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -60,7 +61,10 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
     <AdminBewerbungenView
       bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
       anzahlJeStatus={bewerbungenRes.anzahl_je_status}
-      unvollstaendig={bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHref(params, richtung) }}
+      richtung={richtung}
+      unvollstaendig={
+        bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+      }
     />
   );
 }

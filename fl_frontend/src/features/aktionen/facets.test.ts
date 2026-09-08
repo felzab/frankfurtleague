@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
-import { AKTIONEN_COLLECTION_PARAM, AKTIONEN_FACETS, AKTIONEN_OPERATION_PARAM, aktionenLeserichtung, aktionenLogFacetTerms } from "./facets.ts";
+import { AKTIONEN_COLLECTION_PARAM, AKTIONEN_FACETS, AKTIONEN_OPERATION_PARAM, aktionenLogFacetTerms } from "./facets.ts";
 import { FLAktorSchema } from "./schemas.ts";
 
 import type { FLAktor } from "./schemas.ts";
@@ -173,56 +172,5 @@ describe("the counts the area facet is told", () => {
      so about — the told counts are what tells those two cases apart. */
   it("still refuses an area the log really is empty of", () => {
     assert.deepEqual(pressableAreas({ teams: 40, spielorte: 0 }, ["teams"]), ["teams"]);
-  });
-});
-
-/** The URL shapes this log writes, each carrying something a reversal must not drop. */
-const LOG_URLS: Record<string, string | string[]>[] = [
-  {},
-  { [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" },
-  { [AKTIONEN_OPERATION_PARAM]: "insert", saison_id: "2026" },
-  { document_id: "68c1f0a2b3c4d5e6f7a8b9c0", order: "asc" },
-  { q: "name@beispiel.de", [HERKUNFT_PARAM]: ["system", "public"] },
-];
-
-/** One URL shape as a query string, repeated keys and all. */
-function asSearch(params: Record<string, string | string[]>): URLSearchParams {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) for (const single of Array.isArray(value) ? value : [value]) search.append(key, single);
-
-  return search;
-}
-
-describe("the read-order control this log offers", () => {
-  it("turns the newest-first default around", () => {
-    assert.equal(aktionenLeserichtung(new URLSearchParams()).umkehrHref, "?order=asc");
-  });
-
-  it("returns a reversed log to the newest first, and says which end it holds", () => {
-    const gedreht = aktionenLeserichtung(new URLSearchParams("order=asc"));
-
-    assert.equal(gedreht.richtung, "asc");
-    assert.equal(gedreht.umkehrHref, "?order=desc");
-  });
-
-  /* The applications queue's own builder and never a second one: two implementations drift on
-     exactly the parameters only one of the two surfaces has. */
-  it("writes the href the applications queue's own caller writes", () => {
-    for (const params of LOG_URLS) {
-      assert.equal(aktionenLeserichtung(asSearch(params)).umkehrHref, leserichtungHref(params, parseLeserichtung(params)));
-    }
-  });
-
-  it("keeps every narrowing the bar wrote, so reversing the log never drops a filter", () => {
-    for (const params of LOG_URLS) {
-      const { richtung, umkehrHref } = aktionenLeserichtung(asSearch(params));
-      const reversed = new URLSearchParams(umkehrHref.slice(1));
-
-      for (const [key, value] of Object.entries(params)) {
-        if (key === "order") continue;
-        assert.deepEqual(reversed.getAll(key), Array.isArray(value) ? value : [value], `\`${key}\` was dropped by the reversal`);
-      }
-      assert.equal(reversed.get("order"), richtung === "desc" ? "asc" : "desc");
-    }
   });
 });

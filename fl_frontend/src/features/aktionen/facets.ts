@@ -1,10 +1,8 @@
-import { leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils";
 import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS } from "./constants";
 import { herkunftOfAktor } from "./utils";
 
-import type { Leserichtung } from "@/features/bewerbungen/utils";
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminAktionRow } from "./types";
 
@@ -64,23 +62,4 @@ export function aktionenLogFacetTerms(params: Readonly<Record<string, string | s
     collection: selection[AKTIONEN_COLLECTION_PARAM]?.join(","),
     operation: selection[AKTIONEN_OPERATION_PARAM]?.join(","),
   };
-}
-
-// `leserichtungHref` and never a second builder: the applications queue offers the same control, and
-// two implementations drift on the parameters only one of the two surfaces has.
-/**
- * Read from the LIVE query string rather than the route's: the origin facet narrows no read, so
- * picking one writes history without a navigation, and a server-built href would drop it.
- */
-export function aktionenLeserichtung(search: URLSearchParams): { richtung: Leserichtung; umkehrHref: string } {
-  const roh: Record<string, string | string[]> = {};
-  for (const key of new Set(search.keys())) {
-    // A repeated key survives as the array `leserichtungHref` re-appends; a single one stays a string.
-    const values = search.getAll(key);
-    roh[key] = values.length > 1 ? values : values[0]!;
-  }
-
-  const richtung = parseLeserichtung(roh);
-
-  return { richtung: richtung, umkehrHref: leserichtungHref(roh, richtung) };
 }

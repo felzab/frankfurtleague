@@ -11,6 +11,7 @@ import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendig
 
 import type { FLBewerbungenListResponse } from "@/features/bewerbungen/schemas";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
+import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { BewerbungenUnvollstaendig } from "../ui/BewerbungenUnvollstaendigNotice";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
@@ -31,11 +32,14 @@ const SEARCH_KEYS = [
 export function AdminBewerbungenView({
   bewerbungen,
   anzahlJeStatus,
+  richtung,
   unvollstaendig = null,
 }: {
   bewerbungen: AdminBewerbungRow[];
   /** The endpoint's own per-status count. `bewerbungen` holds only what the status facet selected, so it cannot answer for the rest. */
   anzahlJeStatus: FLBewerbungenListResponse["anzahl_je_status"];
+  /** Required whether or not the read was cut short: the bar offers the other end of a complete queue too. */
+  richtung: Leserichtung;
   /** Present only where the endpoint answered with part of the queue, and then carrying the ways out of it. */
   unvollstaendig?: BewerbungenUnvollstaendig | null;
 }) {
@@ -53,6 +57,7 @@ export function AdminBewerbungenView({
         searchKeys={SEARCH_KEYS}
         facets={BEWERBUNGEN_FACETS}
         facetCounts={{ [BEWERBUNGEN_STATUS_PARAM]: anzahlJeStatus }}
+        leserichtung={richtung}
         renderTable={({ filteredItems, emptiness }) => (
           <AdminBewerbungenTable
             filteredBewerbungen={filteredItems}

@@ -308,13 +308,17 @@ from the page. Treat duplicate marking as unreliable for as long as the notice s
 loaded rows alone, so a zero means zero among what came back rather than zero in the queue; the status counts
 come from the server and hold whatever the read was cut to.
 
-**Reversing the read is the recovery the page offers, and the only one.** The default order is newest first,
-so what a cut-short answer keeps is the newest rows and what it drops is the oldest — which is exactly where
-applications submitted before a flood sit. The notice names which end is loaded and links to the other, the
-link reading `die ältesten zuerst laden` on a default view
-(`fl_frontend/src/features/bewerbungen/utils.ts :: leserichtungHref`, with `:: parseLeserichtung` reading the
-`order` parameter back and treating anything unexpected as the default). The page sends `order` and the status the
-bar selects (`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`).
+**Reversing the read is the recovery the page offers, and the only one; the page offers it by two
+routes.** The default order is newest first, so what a cut-short answer keeps is the newest rows and
+what it drops is the oldest — which is exactly where applications submitted before a flood sit. The
+filter bar's read-order control paints the loaded end and lists the other on every view, cut short or
+not (`fl_frontend/src/shared/components/ui/FilterLeiste.tsx :: LeserichtungSelect`); the notice above
+it names that end in a sentence and links the act, reading `Lade die ältesten zuerst` on a default
+view. Both write one URL through one builder
+(`fl_frontend/src/shared/utils/leserichtung.ts :: leserichtungHref`, with `:: parseLeserichtung`
+reading the `order` parameter back and treating anything unexpected as the default), so either route
+lands on the identical page. The page sends `order` and the status the bar selects
+(`fl_frontend/src/features/bewerbungen/facets.ts :: bewerbungenQueueStatus`).
 
 **The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
 Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not

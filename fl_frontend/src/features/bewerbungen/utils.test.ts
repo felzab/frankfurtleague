@@ -23,12 +23,10 @@ import {
   KUERZEL_UNGEPRUEFT,
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
-  leserichtungHref,
   mapBewerbungSubmitRefusal,
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
-  parseLeserichtung,
   stampEinwilligungFassung,
 } from "./utils.ts";
 
@@ -502,15 +500,6 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
   });
 });
 
-describe("parseLeserichtung", () => {
-  it("keeps the newest end unless the URL asks for the other one", () => {
-    for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
-      assert.equal(parseLeserichtung(params), "desc");
-    }
-    assert.equal(parseLeserichtung({ order: "asc" }), "asc");
-  });
-});
-
 describe("the confirmation's refusals against the backend's register", () => {
   /* As above: a loop over an operation the register does not name runs zero times and proves
      nothing. */
@@ -613,20 +602,5 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   it("leaves anything that is not a refusal to the caller", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
-  });
-});
-
-describe("leserichtungHref", () => {
-  it("offers the opposite end from either end", () => {
-    assert.equal(leserichtungHref({}, "desc"), "?order=asc");
-    assert.equal(leserichtungHref({ order: "asc" }, "asc"), "?order=desc");
-  });
-
-  it("rebuilds `order` rather than appending beside the old one", () => {
-    assert.equal(leserichtungHref({ order: "asc", q: "x" }, "asc"), "?q=x&order=desc");
-  });
-
-  it("carries every other parameter across, repeated keys included", () => {
-    assert.equal(leserichtungHref({ saison_id: "2025", status: ["a", "b"] }, "desc"), "?saison_id=2025&status=a&status=b&order=asc");
   });
 });

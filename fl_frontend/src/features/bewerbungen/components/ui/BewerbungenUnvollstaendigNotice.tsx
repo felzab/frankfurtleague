@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import type { Leserichtung } from "@/features/bewerbungen/utils";
+import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 /**
  * What a cut-short answer offers: which end of the queue is loaded, and the link to the other one.

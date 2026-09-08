@@ -12,6 +12,7 @@ import { PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet, FacetCounts } from "../../utils/facets";
+import type { Leserichtung } from "../../utils/leserichtung";
 
 /** A stable stand-in for a resource with no facets: a fresh `[]` default would miss every memo below. */
 const NO_FACETS: readonly never[] = [];
@@ -37,6 +38,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   searchKeys,
   facets = NO_FACETS,
   facetCounts,
+  leserichtung,
   isCollection = true,
   renderTable,
   renderDeleteModal,
@@ -51,6 +53,11 @@ export function AdminCrudView<TItem extends { id: string }>({
    * facet selects, so every other option would count zero against the rows on hand and be offered as unreachable.
    */
   facetCounts?: FacetCounts;
+  /**
+   * The direction the page fetched under, for a list served from one end of a capped read. Undefined on every other
+   * surface, which then draws no read-order control; a surface passing one needs facets, the control riding in the bar.
+   */
+  leserichtung?: Leserichtung;
   /** Whether `renderTable` returns a react-aria collection, which is what has an empty first pass to cover. */
   isCollection?: boolean;
   /**
@@ -85,6 +92,7 @@ export function AdminCrudView<TItem extends { id: string }>({
         facets={facets}
         items={items}
         facetCounts={facetCounts}
+        leserichtung={leserichtung}
       />
 
       {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}

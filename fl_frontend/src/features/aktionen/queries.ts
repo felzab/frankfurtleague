@@ -1,18 +1,19 @@
 import { apiClient } from "@/core/api";
-import { parseLeserichtung } from "@/features/bewerbungen/utils";
+import { parseLeserichtung } from "@/shared/utils/leserichtung";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { aktionenLogFacetTerms } from "./facets";
 import { FLAktionenListResponseSchema } from "./schemas";
 
-import type { Leserichtung } from "@/features/bewerbungen/utils";
+import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { FLAktionenListResponse } from "./schemas";
 
 /** The single-row narrowings a row's own actions write, `null` where the URL names neither. */
 export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string | null };
 
 // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the whole
-// log rather than 404ing — `parseLeserichtung`'s rule, one queue over.
+// log rather than 404ing — the rule the read order keeps too
+// (`fl_frontend/src/shared/utils/leserichtung.ts :: parseLeserichtung`).
 const einzeln = (value: string | string[] | undefined): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /**

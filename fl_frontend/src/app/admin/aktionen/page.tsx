@@ -7,6 +7,7 @@ import { getAktionenLog, readAktionenLogSubjekt } from "@/features/aktionen/quer
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
+import { parseLeserichtung } from "@/shared/utils/leserichtung";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -45,6 +46,9 @@ async function AktionenTable({ searchParams }: { searchParams: NextPageProps["se
       anzahlJeOperation={aktionenRes.anzahl_je_operation}
       dokumentId={dokumentId}
       vorgangId={vorgangId}
+      // Re-read here as the narrowings are, so the rows served and the control naming their end
+      // cannot answer one query string differently.
+      richtung={parseLeserichtung(params)}
     />
   );
 }
