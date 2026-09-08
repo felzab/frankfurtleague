@@ -805,8 +805,9 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 
-/** Every season's id: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier, and that is the status an open application's season holds. */
+/** Every season's id, and the day the sweep last ran: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
 export const FLBewerbungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
   saison_ids: z.array(z.string()),
+  sweep_gelaufen_am: CustomDateStringSchema.nullable(),
 });
 export type FLBewerbungSweepSaisonsResponse = z.infer<typeof FLBewerbungSweepSaisonsResponseSchema>;

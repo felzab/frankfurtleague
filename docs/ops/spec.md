@@ -74,7 +74,10 @@ so a redeploy, a restart and a double-arm each cost nothing; the deletion notice
 floor, a crash between a delivery and its stamp repeating that one notice once
 ([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
 production build (§1.5); a `next dev` process arms nothing whatever that switch says, its default
-being on.
+being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep` is what
+tells one from a pass that found nothing to do: it answers the day the last pass ran, null where
+none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). [`runbooks.md`](runbooks.md) §9
+is the call.
 
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the

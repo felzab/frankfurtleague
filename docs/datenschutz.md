@@ -212,9 +212,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **A timer in the frontend process is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` per season). A pass that reminds
-  nobody and deletes nothing writes nothing, so an armed sweep and an absent one read alike from
-  outside; `docs/_roadmap/items.md :: 6mch-qx2c` is where that stands, and until it is answered a
-  claim that a period was honoured rests on reading the data rather than on a report.
+  nobody and deletes nothing records the day it ran exactly as a busy one does, and
+  `GET /bewerbungen/sweep` answers that day (`docs/backend/spec.md :: I189`), so a claim that a
+  period was honoured rests on a date rather than on reading the data.
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the

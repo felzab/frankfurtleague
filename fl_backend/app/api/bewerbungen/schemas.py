@@ -828,6 +828,9 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."""
+    """Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."""
 
     saison_ids: list[str]
+    # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
+    # once (`docs/backend/spec.md :: I189`). Null means no pass has ever run here.
+    sweep_gelaufen_am: CustomDateString | None

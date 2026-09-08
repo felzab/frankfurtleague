@@ -4692,7 +4692,7 @@
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
         "operationId": "get_sweep_saisons_api_v0_bewerbungen_sweep_get",
         "responses": {
           "200": {
@@ -4716,7 +4716,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.",
+        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -6922,14 +6922,27 @@
             },
             "type": "array",
             "title": "Saison Ids"
+          },
+          "sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sweep Gelaufen Am"
           }
         },
         "type": "object",
         "required": [
-          "saison_ids"
+          "saison_ids",
+          "sweep_gelaufen_am"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
-        "description": "Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."
+        "description": "Every season's id, for the caller to sweep one by one, and the day the sweep last ran anywhere in this database."
       },
       "FLBewerbungSweepSeat": {
         "properties": {

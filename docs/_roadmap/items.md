@@ -91,7 +91,6 @@ deliverable.
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                         | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
-| `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                  | FE, Docs, bewerbungen                                                       | Open     |
 | `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states              | FE, Docs, tests                                                             | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                   | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
@@ -674,37 +673,6 @@ ships today and nothing about what would. Per-component coverage was confirmed o
 pickers, table and overlays and taken from index pages for the rest; whether Mantine can emit its
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
-
-### `6mch-qx2c` · A retention sweep that never runs looks exactly like one that found nothing
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
-
-**The sweep writes a line only where a pass fails.**
-`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep` walks the seasons, and
-`fl_frontend/src/features/bewerbungen/sweep.ts :: logSweepFailure` is the only thing on that path
-which reaches the log at all (`FE-SWEEP-001`). A pass that reminds nobody and deletes nothing writes
-nothing, and that is the ordinary case — so silence is what a healthy sweep and an absent one both
-produce, and no operator can tell them apart.
-
-**Three ways it can be absent, and none of them shows.** `fl_frontend/src/core/config.ts` reads
-`BEWERBUNG_SWEEP`, so a server setting it off arms no timer at all;
-`fl_frontend/src/instrumentation.ts :: register` is what arms it, so a deployment where that hook
-does not run arms nothing; and the timer lives in the process that serves the site
-(`docs/ops/spec.md :: I149`), so a process restarting before its first pass restarts the delay with
-it. Each is a deadline nobody chases and an unconfirmed application nobody deletes, found when a
-school asks why it heard nothing.
-
-**Two answers, weighed and neither taken.** One info line per completed pass, carrying what the pass
-did, makes the absence visible in the stream the failure already uses, at the cost of a line an hour
-in production whose only reader is somebody already suspicious. An observable the system tier answers
-on demand — when the last pass completed — costs a route and a caller, and is read only by somebody
-who thinks to ask. The choice is which of those two costs is worth paying, not whether the gap is
-real.
-
-**Done when** an operator can tell a sweep that ran and did nothing from a sweep that did not run,
-without reading the container's environment.
 
 ### `6zuv-9tkx` · Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states
 

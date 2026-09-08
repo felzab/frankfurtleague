@@ -412,6 +412,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # together: a switch with no span cannot say when the window closes, and a span with
                 # no switch cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
+                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
+                # null both read as a database no retention pass has ever run against.
+                "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },

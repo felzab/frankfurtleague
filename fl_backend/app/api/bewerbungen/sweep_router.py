@@ -34,6 +34,7 @@ from app.api.bewerbungen.services import (
     season_after_has_ended,
     vorname_of,
 )
+from app.api.saisons.cache import invalidate_saison_cache
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -96,17 +97,28 @@ async def _redact(
 @router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbungSweepSaisonsResponse:
     """
-    Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
+    Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day the sweep last ran.
 
     System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
     and the two clocks that matter run over exactly those seasons.
+
+    Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
+    nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
     """
 
     seasons = await pull_many_from_db(
-        collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_MAX
+        collection=saisons_collection,
+        db_filter={},
+        projection=["_id", "sweep_gelaufen_am"],
+        sort_by=[("_id", 1)],
+        limit=LIST_LIMIT_MAX,
     )
 
-    return FLBewerbungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
+    # The newest day any season carries rather than one season's: a season created since the last
+    # pass carries none, and reading that one would answer `never` for a sweep that ran yesterday.
+    gelaufen = max((str(season["sweep_gelaufen_am"]) for season in seasons if season.get("sweep_gelaufen_am")), default=None)
+
+    return FLBewerbungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons], sweep_gelaufen_am=gelaufen)
 
 
 @router.post("/{saison_id}", response_model=FLBewerbungSweepResponse, summary="Run one season's retention clocks")
@@ -134,6 +146,9 @@ async def sweep_saison(
     A season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a
     successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
     would leave both stopped for ever with nothing anywhere saying so.
+
+    One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
+    answers it. So a day's first call records the day and the rest of that day's calls record nothing.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -269,6 +284,32 @@ async def sweep_saison(
 
         return erased, len(cleared), redacted
 
+    async def stamp_the_run(session: AsyncClientSession) -> int:
+        """One fan-out over every season today has not reached. Everything judged is read in-session, so a retry re-judges it."""
+
+        stale = await pull_many_from_db(
+            collection=saisons_collection,
+            db_filter={"sweep_gelaufen_am": {"$ne": today}},
+            projection=["_id"],
+            limit=LIST_LIMIT_MAX,
+            session=session,
+        )
+        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
+        # matching nothing included, and this runs hourly against every season.
+        if not stale:
+            return 0
+
+        result = await patch_many_in_db(
+            collection=saisons_collection,
+            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            # The whole PASS's day, on every stale season at once: it says when the sweep last ran
+            # and never when this season was visited.
+            update={"$set": {"sweep_gelaufen_am": today}},
+            session=session,
+        )
+
+        return result.modified_count
+
     async with db.start_session() as session:
         erinnerungen = await session.with_transaction(remind)
 
@@ -306,6 +347,13 @@ async def sweep_saison(
     if season_after_has_ended(next_saison_status=next_saison_status):
         async with db.start_session() as session:
             angenommene, geleert, redacted_accepted = await session.with_transaction(erase_accepted_and_clear_the_block)
+
+    async with db.start_session() as session:
+        gestempelt = await session.with_transaction(stamp_the_run)
+
+    # Nothing cached reads the day; dropped anyway, so the rule stays "every season write drops it".
+    if gestempelt:
+        invalidate_saison_cache()
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,

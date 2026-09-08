@@ -378,6 +378,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # opens: the triage renders an application's state from `bestaetigungen`, and a second date
     # beside it would be one an administrator can act on nowhere.
     (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
+    # The pass's own clock rather than a fact about the season it is stored on: an operator asks
+    # whether the sweep ran, and no page of a season is that question.
+    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
 }
 
 

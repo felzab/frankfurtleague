@@ -19,7 +19,7 @@ from app.api.saisons.cache import (
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud
 from app.core.exceptions import DocumentNotFoundException
-from app.main import WRITE_ROUTERS
+from app.main import SYSTEM_WRITE_ROUTERS, WRITE_ROUTERS
 
 RULES = {
     "win_points": 3,
@@ -289,14 +289,16 @@ def _drops_the_cache(tree: ast.AST) -> bool:
 
 
 def _season_write_handlers() -> dict[str, ast.AST]:
-    """Every write endpoint across the admin routers whose body writes a season, by function name.
+    """Every write endpoint that writes a season, by function name, whichever tier serves it.
 
     Scoped to the writers, not to every write endpoint: a handler touching only the junction rows or
     the fixtures changes nothing the cached projection carries.
     """
 
     handlers: dict[str, ast.AST] = {}
-    for router in WRITE_ROUTERS:
+    # Both tiers, the rule being about writing a season rather than about who may: the retention
+    # sweep stamps every season from a router of its own, which an admin-only walk cannot see.
+    for router in (*WRITE_ROUTERS, *SYSTEM_WRITE_ROUTERS):
         for route in router.routes:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:

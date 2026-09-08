@@ -16,6 +16,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
 | [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
 | [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
+| [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                   | The one call that answers it, and what each answer means       |
 
 ---
 
@@ -647,3 +648,23 @@ That path restores IMAGES, and what would be wrong here is the topology: only th
 puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
 applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
 for it to restore in any case (§1).
+
+## 9. Checking that the retention sweep has run
+
+**One call answers it**, on the system key, against the origin rather than through the tunnel:
+
+    curl -s -H "x-api-key: $INTERNAL_API_KEY_SYSTEM" http://localhost:8000/api/v0/bewerbungen/sweep
+
+**`sweep_gelaufen_am` is the day the last pass ran, and it is today or yesterday on a healthy
+stack.** A pass that reminds nobody and deletes nothing records it exactly as a busy one does
+([`spec.md`](spec.md) §1.1), so the date is the answer and the absence of log lines is not.
+
+**Null means no pass has ever run against this database**, which on production is one of the ways
+[`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off, `fl_frontend/src/instrumentation.ts :: register` not reached, or
+a build that is not a production one. Check the frontend container's environment and its startup
+before looking at the backend.
+
+**A date more than a day old means the timer stopped**: the frontend process holds it
+([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
+frontend service arms a fresh one, and the clocks are date-selected, so the pass that follows does
+whatever the missed days owed.

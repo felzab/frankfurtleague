@@ -7,7 +7,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  | { kind: "api"; endpoint: string; method: string; authType?: string; params?: Record<string, string>; body?: string }
+  | { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string }
   | { kind: "mail"; to: string; subject: string; text: string };
 
 const events: SweepEvent[] = [];
@@ -23,7 +23,7 @@ recorders.__flSweepAnswer = () => ({});
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  const call = { kind: "api", endpoint, method: options.method ?? "GET", authType: options.authType, params: options.params, body: options.body };
+  const call = { kind: "api", endpoint, method: options.method ?? "GET", params: options.params, body: options.body };
   globalThis.__flSweepEvents.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
@@ -100,7 +100,7 @@ function sweepAnswers({
 }): void {
   answerWith((call) => {
     const saisonId = saisonOf(call);
-    if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds };
+    if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds, sweep_gelaufen_am: null };
     if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
     if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
 
@@ -287,13 +287,12 @@ describe("what register arms", () => {
 });
 
 describe("one pass of the sweep", () => {
-  it("calls the backend once per season, as the system", async () => {
+  it("calls the backend once per season", async () => {
     sweepAnswers({ saisonIds: ["2526", "2627"] });
 
     await runBewerbungSweep();
 
     assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
-    assert.deepEqual(new Set(apiCalls().map((call) => call.authType)), new Set(["system"]));
   });
 
   it("stamps the reminder before it mails it, so a refused address costs one reminder rather than a daily one", async () => {
@@ -430,7 +429,7 @@ describe("one pass of the sweep", () => {
 
   it("carries on to the next season when one throws", async () => {
     answerWith((call) => {
-      if (call.method === "GET") return { acknowledged: 1, saison_ids: ["2526", "2627"] };
+      if (call.method === "GET") return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null };
       if (saisonOf(call) === "2526") throw new Error("the backend refused this season");
       return {
         acknowledged: 1,
