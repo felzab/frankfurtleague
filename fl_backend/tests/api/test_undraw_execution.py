@@ -259,6 +259,7 @@ async def call_entry(database: AsyncDatabase, *, gruppe: FLGruppenNames = "A") -
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        db=database.client,
     )
 
 

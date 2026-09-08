@@ -158,6 +158,7 @@ async def enter(database: AsyncDatabase, team_id: ObjectId, gruppe: str = "A") -
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        db=database.client,
     )
 
 

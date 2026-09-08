@@ -168,6 +168,7 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str
         spieltage_collection=database.spieltage,
         saisons_collection=database.saisons,
         spiele_collection=database.spiele,
+        db=database.client,
     )
 
 

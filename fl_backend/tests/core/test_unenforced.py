@@ -39,12 +39,11 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     resolve_bracket,
 )
-from app.api.spieler.admin_router import _refuse_a_full_squad, delete_saison_spieler, delete_spieler, post_spieler, reactivate_saison_spieler
+from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler, post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
-from app.api.spieler.services import SQUAD_FULL, find_squad_capacity_refusal, find_squad_refusal
-from app.api.spieltage.admin_router import patch_spieltag
-from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
-from app.api.teams.admin_router import patch_saison_team, post_saison_team
+from app.api.spieler.services import find_squad_refusal
+from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
+from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import ENTRY_GRUPPE_FULL, find_entry_refusal, find_gruppe_swap_refusal, offered_gruppen
 from app.core.collections import Collection
@@ -56,7 +55,6 @@ from tests.core.app_source import (
     app_calls,
     callee,
     calls_in,
-    carries_session,
     declared,
     module_of,
     parsed,
@@ -386,7 +384,13 @@ class TestAMatchdayOffItsImpliedCount:
     def test_the_matchday_write_refuses_on_its_dates_alone(self):
         """Matched on the suffix rather than the `find_` prefix, which the driver's own reads share: what is pinned is the refusals."""
 
-        assert {call for call in _calls_of(patch_spieltag) if call.endswith("_refusal")} == {
+        # Every depth under the endpoint, where `_calls_of` reads its top scope alone: the span
+        # refusal sits in the transactional callback and the order refusal in the helper beside it.
+        reached = {callee(call) for _, call in calls_in(declared(patch_spieltag), patch_spieltag.__name__)} | _calls_of(
+            _refuse_an_out_of_order_beginn
+        )
+
+        assert {call for call in reached if call.endswith("_refusal")} == {
             "find_spieltag_span_refusal",
             "find_spieltag_order_refusal",
         }
@@ -580,10 +584,13 @@ class TestAPersonWithNoSquadRow:
         # The REACTIVATE for the same reason as the other two: a club replacement retires the
         # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
         # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
+
+        # Named by the CALLBACK each endpoint runs its transaction over, which is the innermost
+        # scope around the call and so the scope this sweep attributes it to.
         assert _callers_of(module_of(post_spieler), find_squad_refusal.__name__) == {
-            "post_saison_spieler",
-            "patch_saison_spieler",
-            "reactivate_saison_spieler",
+            "add_the_player",
+            "move_the_player",
+            "bring_the_player_back",
         }
 
 
@@ -706,7 +713,7 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
         keyed_on = {
             key.value: ast.unparse(value)
-            for node in ast.walk(declared(patch_spieltag))
+            for node in ast.walk(declared(_refuse_an_out_of_order_beginn))
             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
             for key, value in zip(node.value.keys, node.value.values, strict=True)
             if isinstance(key, ast.Constant)
@@ -846,44 +853,25 @@ class TestAnAbandonedFixtureAndItsResult:
 def _app_callers_of(called: str) -> set[str]:
     """Every function under `app/` calling `called`.
 
-    Whole-tree rather than `_callers_of`'s one file: two of the three refusals below are reached
-    from more than one package, and one file's sweep would pass over the other in silence.
+    Whole-tree rather than `_callers_of`'s one file: the refusal below is reached from two packages,
+    and one file's sweep would pass over the other in silence.
     """
 
     return {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) == called}
 
 
-def _session_flags(function: Callable[..., Any], called: str) -> list[bool]:
-    """Whether each call to `called` inside `function` hands a session along, in source order."""
-
-    name = function.__name__
-
-    return [carries_session(call) for scope, call in calls_in(declared(function), name) if scope == name and callee(call) == called]
-
-
-# Every site reaching `find_entry_refusal`. Pinned rather than counted, because what reopens this
-# race is a site added without the write that would close it, and a count names none of them.
+# Every site reaching `find_entry_refusal`, which is one more than the sites reaching the write that
+# closes the race. Pinned rather than counted, because what this entry declares is exactly the
+# difference between the two sets.
 ENTRY_SITES = frozenset(
     {
-        "app/api/teams/admin_router.py :: post_saison_team",
-        "app/api/teams/admin_router.py :: patch_saison_team",
+        "app/api/teams/crud.py :: refuse_a_full_gruppe",
         "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
     }
 )
 
-# The one entry site already inside a transaction, which is what parts "no session" from "a session
-# would not help".
-ACCEPTANCE_CALLBACK = "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school"
-
-SQUAD_SITES = frozenset(
-    {
-        "app/api/spieler/admin_router.py :: post_saison_spieler",
-        "app/api/spieler/admin_router.py :: patch_saison_spieler",
-        "app/api/spieler/admin_router.py :: reactivate_saison_spieler",
-    }
-)
-
-DATE_SITES = frozenset({"app/api/spieltage/admin_router.py :: patch_spieltag"})
+# The choke point, and so the whole of what the entry endpoints reach the rule through.
+ENTRY_CHOKE_POINT = "app/api/teams/crud.py :: refuse_a_full_gruppe"
 
 
 def _draw(rules: FLSaisonRules, occupancy_by_gruppe: Mapping[FLGruppenNames, int]):
@@ -902,7 +890,7 @@ def _draw(rules: FLSaisonRules, occupancy_by_gruppe: Mapping[FLGruppenNames, int
 
 
 class TestAGroupOverItsCapacity:
-    """That two entries into one group each pass the capacity rule, and that the season they leave is one the draw refuses."""
+    """That two writers holding one count both enter a group with one place left, and that the season they leave is one the draw refuses."""
 
     def test_two_writers_holding_one_count_both_enter_a_group_with_one_place_left(self):
         """The figure is the CALLER's, so two callers hold the same one and the rule answers each on its own."""
@@ -930,23 +918,13 @@ class TestAGroupOverItsCapacity:
 
         assert refusal is not None and refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
 
-    def test_the_count_is_read_outside_any_session_where_no_transaction_stands(self):
-        assert _session_flags(post_saison_team, "pull_many_from_db") == [False]
-        assert _session_flags(patch_saison_team, "pull_many_from_db") == [False]
-
-    def test_the_site_that_counts_inside_a_transaction_holds_the_cap_no_better(self):
-        """A session is not what is missing: the acceptance counts and inserts in one, and a count is a read a snapshot re-validates nowhere."""
-
-        acceptance = [entry for entry in transactional_callbacks(WRITE_HELPERS) if entry.where == ACCEPTANCE_CALLBACK]
-
-        assert len(acceptance) == 1, f"{ACCEPTANCE_CALLBACK} is run by {len(acceptance)} transactions"
-        assert ("pull_many_from_db", True) in acceptance[0].reads
-        assert ("post_one_to_db", True) in acceptance[0].writes
-
-    def test_every_site_reaching_the_rule_is_one_this_entry_answers_for(self):
-        """The fix's own failure mode as a check: an anchor write closes the race only where every site takes it."""
+    def test_the_acceptance_is_the_one_site_reaching_the_rule_past_the_write_that_closes_it(self):
+        """The pair this entry is about, as a set difference: every other site judges the count behind the season's own write."""
 
         assert _app_callers_of("find_entry_refusal") == ENTRY_SITES
+        assert _app_callers_of("find_entry_refusal") - {ENTRY_CHOKE_POINT} == {
+            "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school"
+        }
 
     def test_no_index_reaches_the_group(self):
         """A cap of N is beyond a unique index, which delivers at-most-one row per key."""
@@ -958,109 +936,3 @@ class TestAGroupOverItsCapacity:
         covering = [index.name for index in UNIQUE_INDEXES if "gruppe" in index.keys]
 
         assert not covering, f"{covering} would make the capacity a database guarantee, and this entry claims it is not"
-
-
-class TestASquadOverItsCap:
-    """That two writes into one squad each pass the cap, and that the seat a unique index would need cannot survive a return."""
-
-    def test_two_writers_holding_one_count_both_land_in_a_squad_with_one_place_left(self):
-        cap = _rules().max_kadergroesse
-        before = cap - 1
-
-        for _ in range(2):
-            assert find_squad_capacity_refusal(squad_size=before, max_kadergroesse=cap) is None
-
-        refusal = find_squad_capacity_refusal(squad_size=before + 2, max_kadergroesse=cap)
-
-        assert refusal is not None and refusal.error_code == SQUAD_FULL
-
-    def test_one_count_answers_three_verbs(self):
-        """The cap belongs to the DESTINATION squad, so the create, the transfer and the return all judge the figure this helper takes."""
-
-        assert _app_callers_of("_refuse_a_full_squad") == SQUAD_SITES
-        assert _session_flags(_refuse_a_full_squad, "count_documents") == [False]
-
-    def test_the_places_counted_are_the_live_ones(self):
-        """What makes the RE-CLAIM the race: a retired row gives its place back, so two returns compete for one freed place."""
-
-        assert "build_live_squad_filter" in _calls_of(_refuse_a_full_squad)
-
-    def test_the_return_writes_no_row_at_all(self):
-        """Why a stored seat under a partial index is unsound: a revived row re-enters that index holding the seat it retired with."""
-
-        revives = _calls_of(reactivate_saison_spieler)
-
-        assert "set_inactive_since" in revives
-        assert not {"insert_live", "post_one_to_db"} & revives
-
-    def test_no_index_reaches_the_squad(self):
-        # The floor, as above: the collection carries a unique index, so this listing answers something.
-        assert "uniq_spieler_id_saison_id" in {index.name for index in UNIQUE_INDEXES}
-
-        covering = [index.name for index in UNIQUE_INDEXES if index.collection == Collection.SAISON_SPIELER and "team_id" in index.keys]
-
-        assert not covering, f"{covering} would make the cap a database guarantee, and this entry claims it is not"
-
-
-# One phase, two dated positions, and the two days each writer replaces. Named so a case states the
-# move it is about rather than four dates.
-STANDING_FIRST = DatedNeighbour(position=1, beginn="2026-03-01")
-STANDING_SECOND = DatedNeighbour(position=2, beginn="2026-03-20")
-POSTPONED_FIRST = "2026-03-15"
-ADVANCED_SECOND = "2026-03-10"
-PHASE_END = "2026-03-31"
-
-
-def _order(*, beginn: str, stored_beginn: str | None, previous: DatedNeighbour | None, following: DatedNeighbour | None):
-    """One matchday's re-dating as the endpoint judges it, `ende` running to the end of the phase so no span rule fires."""
-
-    return find_spieltag_order_refusal(beginn=beginn, ende=PHASE_END, stored_beginn=stored_beginn, previous=previous, following=following)
-
-
-class TestTwoMatchdaysDatedAtOnce:
-    """That each writer's step passes against the day the other is replacing, and that the pair they leave is one the rule refuses."""
-
-    def test_each_step_passes_against_the_day_the_other_is_replacing(self):
-        """Two positions are two documents, so neither writer's judgement sees the other's."""
-
-        assert _order(beginn=POSTPONED_FIRST, stored_beginn=STANDING_FIRST.beginn, previous=None, following=STANDING_SECOND) is None
-        assert _order(beginn=ADVANCED_SECOND, stored_beginn=STANDING_SECOND.beginn, previous=STANDING_FIRST, following=None) is None
-
-    def test_either_step_judged_against_what_the_other_left_is_refused(self):
-        """The state, executed: the pair the two writers commit is one this rule would have refused either of them for."""
-
-        second_in = _order(
-            beginn=ADVANCED_SECOND,
-            stored_beginn=STANDING_SECOND.beginn,
-            previous=DatedNeighbour(position=STANDING_FIRST.position, beginn=POSTPONED_FIRST),
-            following=None,
-        )
-        first_in = _order(
-            beginn=POSTPONED_FIRST,
-            stored_beginn=STANDING_FIRST.beginn,
-            previous=None,
-            following=DatedNeighbour(position=STANDING_SECOND.position, beginn=ADVANCED_SECOND),
-        )
-
-        for refusal in (second_in, first_in):
-            assert refusal is not None and refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
-
-    def test_two_matchdays_of_one_phase_may_lawfully_begin_on_one_day(self):
-        """Which is what makes a unique index over the ordering day unsound: it would refuse a pair this rule permits."""
-
-        shared = STANDING_SECOND.beginn
-        neighbour = DatedNeighbour(position=STANDING_FIRST.position, beginn=shared)
-
-        assert _order(beginn=shared, stored_beginn=None, previous=neighbour, following=None) is None
-
-    def test_the_neighbour_reads_are_the_whole_of_what_the_two_writers_share(self):
-        assert _app_callers_of("find_spieltag_order_refusal") == DATE_SITES
-        assert _session_flags(patch_spieltag, "find_one") == [False, False]
-
-    def test_no_index_orders_a_phase_by_its_dates(self):
-        """The key the collection is indexed by carries the position, and a position states nothing about a day."""
-
-        keys = next(index.keys for index in UNIQUE_INDEXES if index.name == "uniq_saison_id_saison_phase_position")
-
-        assert "position" in keys
-        assert not [index.name for index in UNIQUE_INDEXES if "beginn" in index.keys]
