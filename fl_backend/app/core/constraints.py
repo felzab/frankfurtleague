@@ -728,6 +728,11 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISON_SPIELER, "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
     UniqueIndex(Collection.SPIELE, "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
     UniqueIndex(Collection.TEAMS, "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
+    # Retired rows included, as `uniq_shorthand` includes them, and refused at the CREATE because
+    # nothing merges two of these: a second row under one name would be a state only a person could
+    # undo, by renaming one.
+    UniqueIndex(Collection.SPIELORTE, "uniq_spielort_name", ("name",), "a name identifies exactly one venue"),
+    UniqueIndex(Collection.SCHIEDSRICHTER, "uniq_schiedsrichter_name", ("name",), "a name identifies exactly one referee"),
     # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
     # holds several matchdays numbered 1.
     UniqueIndex(
@@ -773,6 +778,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "aktionen_target",
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
+    ),
+    # Every key `FACET_TALLY` groups on, in its `$sort`'s order: a group key missing here leaves that
+    # sort blocking in memory, and where no other index serves the match, scanning the whole log,
+    # images and all (`app/api/aktionen/admin_router.py :: FACET_TALLY`).
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_facets",
+        (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
+        "the counts the log page's three facets are told, over every recorded row",
     ),
     # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
     # key unindexed every request scans the collection and sorts it in memory, which is work
