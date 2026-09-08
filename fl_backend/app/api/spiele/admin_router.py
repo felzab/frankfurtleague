@@ -1,7 +1,9 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, Query
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.spiele.crud import (
@@ -12,12 +14,14 @@ from app.api.spiele.crud import (
     pull_booked_venue,
     pull_saison_membership,
     release_spieltag_sides,
+    report_prior_paarungen,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
+    FLPatchSpielPaarungPayload,
     FLSpiel,
     FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
@@ -191,26 +195,20 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
-@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
-async def patch_spiel_data(
-    spiel_id: CustomRouteObjectId,
-    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
-    db: DBClient,
-    spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spieltage_collection: SpieltageCollection,
-    spielorte_collection: SpielorteCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
+async def _write_spiel_data(
+    spiel_id: CustomObjectId,
+    submitted: FLPatchSpielDataPayload | FLPatchSpielPaarungPayload,
+    db: AsyncMongoClient,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    spieltage_collection: AsyncCollection,
+    spielorte_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+    dry_run: bool,
 ) -> FLPatchSpielDataResponse:
-    """
-    Update one Spiel and resolve the season's bracket.
-
-    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
-    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
-    """
+    """One implementation behind both write routes, so a narrowed restore meets every rule a wholesale save does."""
 
     # `saison_id` alone: everything the judgement and the normalisation read comes from the season
     # slice below, and this read is what answers 404 for an id no fixture holds.
@@ -242,6 +240,15 @@ async def patch_spiel_data(
 
         season = FLSpielListAdapter.validate_python(season_raw)
 
+        # Ahead of every refusal rather than beside the date rule: the narrowed route names four
+        # fields, and a rule reading a fifth has to see what the fixture holds rather than nothing.
+        # From this slice for `docs/backend/spec.md :: I108`'s reason.
+        stored = stored_in_slice(spiel_id, season)
+
+        # Completed HERE and never at the write, so the refusals, the composed result and the
+        # resolution below all judge the one shape they were written against.
+        spiel_data = submitted if isinstance(submitted, FLPatchSpielDataPayload) else submitted.completed_with(stored)
+
         # First, and on the payload alone: the event the admin just chose is what the rest of this
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
         refuse(find_state_refusal(spiel_data))
@@ -258,10 +265,6 @@ async def patch_spiel_data(
 
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
-
-        # The same slice the refusals above judged (`docs/backend/spec.md :: I108`), so this read
-        # cannot quietly skip the date rule over a fixture they already stood on.
-        stored = stored_in_slice(spiel_id, season)
 
         # `find_one` directly, because `pull_one_from_db` raises on a miss and this branches on one.
         # The session is what makes a matchday widened by a concurrent write visible.
@@ -359,13 +362,18 @@ async def patch_spiel_data(
             patched=patched,
             releases=releases,
         )
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+        return FLPatchSpielDataResponse(
+            advanced_to=advanced_to,
+            released_sides=released_sides,
+            bracket_faults=bracket_faults,
+            prior_paarungen=report_prior_paarungen(spiel_id, season, advanced_to, released_sides),
+        )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry.
     async def write_result_and_resolve_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
-        _, releases, patched = await judge(session=session)
+        season, releases, patched = await judge(session=session)
 
         # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
         # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
@@ -390,7 +398,92 @@ async def patch_spiel_data(
             session=session,
         )
 
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+        return FLPatchSpielDataResponse(
+            advanced_to=advanced_to,
+            released_sides=released_sides,
+            bracket_faults=bracket_faults,
+            # `season` and not a read of its own: it is the slice this transaction judged on, so a
+            # fixture the two writes above both reached is reported as it stood before either.
+            prior_paarungen=report_prior_paarungen(spiel_id, season, advanced_to, released_sides),
+        )
 
     async with db.start_session() as session:
         return await session.with_transaction(write_result_and_resolve_bracket)
+
+
+@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
+async def patch_spiel_data(
+    spiel_id: CustomRouteObjectId,
+    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
+    db: DBClient,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
+) -> FLPatchSpielDataResponse:
+    """
+    Update one Spiel and resolve the season's bracket.
+
+    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
+    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
+    and every fixture either list names arrives in `prior_paarungen` as it stood before this call.
+    """
+
+    return await _write_spiel_data(
+        spiel_id=spiel_id,
+        submitted=spiel_data,
+        db=db,
+        spiele_collection=spiele_collection,
+        teams_collection=teams_collection,
+        saisons_collection=saisons_collection,
+        saison_teams_collection=saison_teams_collection,
+        spieltage_collection=spieltage_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        dry_run=dry_run,
+    )
+
+
+# A static suffix under the id, for `GET /{spiel_id}/admin`'s reason, and its own route rather than a
+# mode on the patch above: a tagged body would make every existing caller send the tag.
+@router.patch(f"{by_id('spiel_id')}/paarung", response_model=FLPatchSpielDataResponse, summary="Restore a Spiel's Paarung")
+async def patch_spiel_paarung(
+    spiel_id: CustomRouteObjectId,
+    spiel_paarung: Annotated[FLPatchSpielPaarungPayload, Body()],
+    db: DBClient,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+) -> FLPatchSpielDataResponse:
+    """
+    Put one Spiel's occupants and what they produced back, and resolve the season's bracket.
+
+    The body carries the four fields a bracket resolution can rewrite, and nothing else about the
+    match moves: its date, its venue, its referee, its note and both `quelle`s are read from the
+    stored document rather than from the request, so a value somebody moved since this fixture was
+    rewritten survives. Every refusal, and the resolution itself, are `PATCH /spiele/{spiel_id}`'s.
+
+    No `dry_run`: what this body would move is what the save it undoes already reported.
+    """
+
+    return await _write_spiel_data(
+        spiel_id=spiel_id,
+        submitted=spiel_paarung,
+        db=db,
+        spiele_collection=spiele_collection,
+        teams_collection=teams_collection,
+        saisons_collection=saisons_collection,
+        saison_teams_collection=saison_teams_collection,
+        spieltage_collection=spieltage_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        dry_run=False,
+    )

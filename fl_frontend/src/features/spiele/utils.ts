@@ -12,7 +12,6 @@ import type {
   FLSpiel,
   FLSpielAdmin,
   FLSpielAdvancement,
-  FLSpielBooking,
   FLSpielQuelle,
   FLSpielReleasedSide,
   FLSpielStatus,
@@ -247,9 +246,9 @@ export const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPa
   side === null ? null : { team_id: side.team_id, tore: side.tore };
 
 /**
- * One stored fixture as the payload restoring it, the loaded page being the only place the old
- * values still exist. Every field is listed rather than spread: the write path `$set`s wholesale,
- * so one omitted is overwritten with nothing.
+ * The EDITED fixture as the payload restoring it — every other fixture a save moved comes back in
+ * `prior_paarungen`. Every field is listed rather than spread: the write path `$set`s wholesale, so
+ * one omitted is overwritten with nothing.
  */
 export const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one
@@ -290,52 +289,6 @@ const toEditorSeed = (spiel: FLSpielAdmin) => ({
  * was seeded with until a reload.
  */
 export const spielStateKey = (spiel: FLSpielAdmin): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
-
-/** The fixtures a save moved, which the undo has to restore alongside the one that was edited. */
-export const listMovedSpiele = (
-  edited: { id: string },
-  saisonSpiele: readonly FLSpiel[],
-  affectedSpielNummern: readonly number[],
-): FLSpiel[] => {
-  const affected = new Set(affectedSpielNummern);
-  return saisonSpiele.filter((spiel) => spiel.id !== edited.id && affected.has(spiel.spiel_nr));
-};
-
-/**
- * **Order is the whole correctness argument.** The edited fixture goes first, so the resolution
- * puts the occupants back before each voided result is written. A fixture whose booking never came
- * back is left out: a guess would be stored as the real rent.
- */
-export const buildUndoPayloads = (
-  edited: FLSpielAdmin,
-  moved: readonly FLSpiel[],
-  bookings: ReadonlyMap<string, FLSpielBooking>,
-): FLPatchSpielDataPayload[] => {
-  const restorable = moved.flatMap((spiel) => {
-    const booking = bookings.get(spiel.id);
-    if (booking === undefined) return [];
-
-    // The season list holds the fixture as it stood BEFORE the save, which is what the undo puts
-    // back; the booking comes from the read beside it, the resolution rewriting slots and results
-    // and never a ground or a referee.
-    return [toPatchPayload({ ...spiel, ...booking })];
-  });
-
-  return [toPatchPayload(edited), ...restorable];
-};
-
-/**
- * What an undo will NOT put back. A FAILED booking read leaves every moved fixture without one,
- * which `buildUndoPayloads` cannot tell from a fixture that is gone — so the caller, which can,
- * says so rather than letting the toast promise a whole one.
- */
-export const formatUndoScopeWarning = (moved: readonly { spiel_nr: number }[]): string => {
-  if (moved.length === 0) return "";
-
-  const subject = moved.length === 1 ? `von Spiel ${joinSpiele(moved)}` : `der Spiele ${joinSpiele(moved)}`;
-
-  return `Spielort und Schiedsrichter ${subject} konnten nicht gelesen werden; „Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her`;
-};
 
 /**
  * The one spelling of the route. The season is REQUIRED, never optional: an optional one is what a
@@ -445,10 +398,18 @@ const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZus
 export const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
 
 /**
- * `formatQuelle` for a sentence rather than a slot's label. Its `null` is the `NaN` a form holds
- * while a number is unpicked, so no served fault reaches the fallback.
+ * `formatQuelle` for a sentence: the label closes on the point the bracket prints, which mid-sentence
+ * reads as the end of the sentence, and a placing takes the prose form the arms beside it use.
  */
-const herkunftLabel = (quelle: FLSpielQuelle): string => formatQuelle(quelle) ?? "eine unlesbare Herkunft";
+const herkunftLabel = (quelle: FLSpielQuelle): string => {
+  // `formatQuelle`'s `null` is the `NaN` a form holds while a number is unpicked, so no served fault
+  // reaches this fallback.
+  if (formatQuelle(quelle) === null) return "eine unlesbare Herkunft";
+
+  return quelle.type === "gruppe"
+    ? `Platz ${quelle.platz} der Gruppe ${quelle.gruppe}`
+    : `den ${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} von Spiel ${quelle.spiel_nr}`;
+};
 
 /**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match
@@ -471,16 +432,20 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
       return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann`;
     case "gruppenphase_feeder":
       return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase, doch in den KO-Baum führt nur die Gruppentabelle`;
+    // The ROUND rather than the dates: the rule compares phase ranks (`feedsInto`), and two fixtures
+    // of one round can be dated so that the source really is played first.
     case "feeder_not_played_first":
-      return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht vor diesem Spiel gespielt wird`;
+      return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht aus einer früheren Runde stammt`;
     case "same_team":
       return `In Spiel ${fault.spiel_nr} führen beide Seiten zum selben Team`;
     // The seat is named for `fielded_twice`'s reason, one entry standing per SLOT rather than per
     // fixture, and the reference because the admin decides between its two users.
     case "gruppenphase_fixture_wired":
       return `In Spiel ${fault.spiel_nr} verweist ${sideLabel(fault.side)} auf ${herkunftLabel(fault.quelle)}, obwohl der Spielplan die Seiten eines Gruppenspiels setzt`;
+    // Active, as the arm above it is: „ist auf X verwiesen“ reads in German as having been AWARDED
+    // X, which in a product whose sources are placings is a sentence saying the slot is settled.
     case "source_feeds_another_fixture":
-      return `In Spiel ${fault.spiel_nr} ist ${sideLabel(fault.side)} auf ${herkunftLabel(fault.quelle)} verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel`;
+      return `In Spiel ${fault.spiel_nr} verweist ${sideLabel(fault.side)} auf ${herkunftLabel(fault.quelle)}, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel`;
     // Not a bracket fault: what makes it one is the order of the two dates, and the fixture's own
     // may be missing — so the sentence names both rather than a reference.
     case "departed_occupant":
@@ -512,16 +477,18 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
       return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt.`;
     case "reference_cycle":
       return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
+    // One sentence, the restriction inside the relative clause: split off, „In den KO-Baum führt nur
+    // die Gruppentabelle“ denies the match reference that feeds every later round.
     case "gruppenphase_feeder":
-      return `Verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase. In den KO-Baum führt nur die Gruppentabelle.`;
+      return `Verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase, aus der nur die Gruppentabelle in den KO-Baum führt.`;
     case "feeder_not_played_first":
-      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht vor diesem Spiel gespielt wird.`;
+      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht aus einer früheren Runde stammt.`;
     case "same_team":
       return "Beide Seiten führen zum selben Team.";
     case "gruppenphase_fixture_wired":
       return `${sideLabel(fault.side)} verweist auf ${herkunftLabel(fault.quelle)}, obwohl der Spielplan die Seiten dieses Gruppenspiels setzt.`;
     case "source_feeds_another_fixture":
-      return `${sideLabel(fault.side)} ist auf ${herkunftLabel(fault.quelle)} verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.`;
+      return `${sideLabel(fault.side)} verweist auf ${herkunftLabel(fault.quelle)}, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.`;
     case "departed_occupant":
       return fault.spiel_datum === null
         ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`

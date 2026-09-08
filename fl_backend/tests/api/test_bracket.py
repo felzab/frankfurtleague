@@ -1,8 +1,18 @@
 from typing import Any, Callable, Mapping, get_args
 
 import pytest
+from bson import ObjectId
 
-from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSonderereignis, FLSpielListAdapter
+from app.api.spiele.crud import report_advancement, report_prior_paarungen
+from app.api.spiele.schemas import (
+    FLBracketFaultQuelle,
+    FLBracketFaultSlot,
+    FLPatchSpielPaarungPayload,
+    FLSonderereignis,
+    FLSpielListAdapter,
+    FLSpielPriorPaarung,
+    FLSpielReleasedSide,
+)
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
@@ -46,6 +56,40 @@ def faults(documents: list[dict[str, Any]], standings: Standings | None = None) 
     resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), standings or {})
 
     return [(fault.spiel_nr, fault.reason) for fault in resolution.bracket_faults]
+
+
+def priors(
+    documents: list[dict[str, Any]],
+    released: list[FLSpielReleasedSide] | None = None,
+    edited: int = 25,
+) -> list[FLSpielPriorPaarung]:
+    """Every fixture the resolution moves, as the slice it was judged on holds it.
+
+    `documents` is both the season and the pre-write slice here, and the releases are handed in
+    because no bracket resolution produces one.
+    """
+
+    season = FLSpielListAdapter.validate_python(documents)
+    resolution = resolve_bracket(season, {})
+
+    return report_prior_paarungen(
+        ObjectId(MATCH_ID.format(edited)),
+        season,
+        [report_advancement(advancement) for advancement in resolution.advancements],
+        released or [],
+    )
+
+
+def a_release_of(spiel_nr: int, ergebnis: str | None = None) -> FLSpielReleasedSide:
+    return FLSpielReleasedSide(
+        spiel_id=ObjectId(MATCH_ID.format(spiel_nr)),
+        spiel_nr=spiel_nr,
+        side="team1",
+        team_name="Team 1",
+        voided_ergebnis=ergebnis,
+        voided_elfmeterschiessen=None,
+        voided_sonderereignis=None,
+    )
 
 
 @pytest.fixture
@@ -686,3 +730,81 @@ class TestReportingAFault:
         ]
 
         assert faults(spiele) == []
+
+
+class TestPuttingBackWhatTheResolutionDestroyed:
+    """The undo's whole input. `TestNamingWhatWasVoided`'s report says what went; this one says what it takes to put it back."""
+
+    def moved_by_a_corrected_feeder(self, fixture_at: FixtureFactory, side: SideFactory, **overrides: Any) -> list[dict[str, Any]]:
+        """Spiel 29 holds seed 1 while its source hands it seed 2, which is the disagreement a resolution rewrites."""
+
+        return [
+            fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
+            fixture_at(29, team1=side(1, 2), team2=side(3, 0), ergebnis="2:0", quelle1=sieger(25), **overrides),
+        ]
+
+    def test_a_replaced_occupant_is_named_with_the_goals_it_scored(self, fixture_at: FixtureFactory, side: SideFactory):
+        """Both sides, never the one that moved: the rewrite takes the counterpart's goals with the scoreline."""
+
+        (prior,) = priors(self.moved_by_a_corrected_feeder(fixture_at, side))
+
+        assert str(prior.spiel_id) == MATCH_ID.format(29)
+        assert prior.team1 is not None and prior.team2 is not None
+        assert (str(prior.team1.team_id), prior.team1.tore) == (BRACKET_TEAM_ID.format(1), 2)
+        assert (str(prior.team2.team_id), prior.team2.tore) == (BRACKET_TEAM_ID.format(3), 0)
+
+    def test_an_event_the_rewrite_leaves_standing_travels_back_all_the_same(self, fixture_at: FixtureFactory, side: SideFactory):
+        """`voided_sonderereignis` is null here, so a restore built from that field alone would clear an abandonment nobody touched."""
+
+        (prior,) = priors(self.moved_by_a_corrected_feeder(fixture_at, side, sonderereignis="abgebrochen"))
+
+        assert prior.sonderereignis == "abgebrochen"
+
+    def test_a_shoot_out_travels_back_beside_the_goals_that_needed_it(self, fixture_at: FixtureFactory, side: SideFactory):
+        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
+        spiele[1] |= {"team2": side(3, 2), "ergebnis": "2:2", "elfmeterschiessen": {"team1": 4, "team2": 3}}
+
+        (prior,) = priors(spiele)
+
+        assert prior.elfmeterschiessen is not None
+        assert (prior.elfmeterschiessen.team1, prior.elfmeterschiessen.team2) == (4, 3)
+
+    def test_a_fixture_both_reports_name_is_reported_once(self, fixture_at: FixtureFactory, side: SideFactory):
+        """A release is written before the resolution reads, so two entries would restore the fixture twice and the later one would win."""
+
+        reported = priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(29, ergebnis="2:0")])
+
+        assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(29)]
+
+    def test_a_slice_missing_a_moved_fixture_is_refused(self, fixture_at: FixtureFactory, side: SideFactory):
+        """A restore silently short of one fixture is the failure this refusal exists for -- `docs/backend/spec.md :: I108`'s reading."""
+
+        with pytest.raises(ValueError, match="does not hold every fixture"):
+            priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(31)])
+
+    def test_the_fixture_the_request_named_is_left_out(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The caller holds its own before-state, and a second entry for it would write that fixture twice on one undo."""
+
+        assert priors(self.moved_by_a_corrected_feeder(fixture_at, side), edited=29) == []
+
+    def test_completing_a_restore_leaves_every_field_the_rewrite_never_reached(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The narrowing itself: a note somebody added after the save survives the undo, where a wholesale payload would revert it."""
+
+        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
+        (prior,) = priors(spiele)
+
+        stored = next(spiel for spiel in FLSpielListAdapter.validate_python(spiele) if spiel.spiel_nr == 29)
+        # The fixture as the save left it, plus a note written since: the slot emptied, the scoreline gone.
+        now = stored.model_copy(update={"team1": None, "ergebnis": None, "notiz": "Platz getauscht"})
+
+        payload = FLPatchSpielPaarungPayload(
+            team1=prior.team1, team2=prior.team2, elfmeterschiessen=prior.elfmeterschiessen, sonderereignis=prior.sonderereignis
+        ).completed_with(now)
+
+        assert payload.team1 is not None and str(payload.team1.team_id) == BRACKET_TEAM_ID.format(1)
+        assert payload.notiz == "Platz getauscht"
+        assert (payload.datum, payload.uhrzeit) == (now.datum, now.uhrzeit)
+        assert payload.team1_quelle == now.team1_quelle
+        assert now.ort is not None and payload.ort is not None and payload.ort.mietpreis == now.ort.mietpreis
+        assert now.schiedsrichter is not None and payload.schiedsrichter is not None
+        assert payload.schiedsrichter.payment == now.schiedsrichter.payment

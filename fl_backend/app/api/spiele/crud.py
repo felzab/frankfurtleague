@@ -12,9 +12,11 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielPriorPaarung,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
     FLSpielTeamField,
+    FLSpielTeamFieldPayload,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -359,6 +361,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
     """One advancement as the response reports it -- the one mapping to the wire shape, so save and preview report alike."""
 
     return FLSpielAdvancement(
+        spiel_id=advancement.spiel_id,
         spiel_nr=advancement.spiel_nr,
         voided_ergebnis=advancement.voided_ergebnis,
         voided_elfmeterschiessen=advancement.voided_elfmeterschiessen,
@@ -370,6 +373,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     """One released side as the response reports it, for the same reason `report_advancement` exists."""
 
     return FLSpielReleasedSide(
+        spiel_id=release.spiel_id,
         spiel_nr=release.spiel_nr,
         side=release.side,
         team_name=release.team_name,
@@ -377,6 +381,46 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
     )
+
+
+def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | None:
+    """One stored side as a payload names it. The display copies stay behind: the server composes them (`docs/backend/spec.md :: I3`)."""
+
+    return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
+
+
+def report_prior_paarungen(
+    edited: CustomObjectId,
+    season: Sequence[FLSpiel],
+    advanced_to: Sequence[FLSpielAdvancement],
+    released_sides: Sequence[FLSpielReleasedSide],
+) -> list[FLSpielPriorPaarung]:
+    """Every OTHER fixture this write moved, off the slice it was judged on.
+
+    Not either report's own view: the releases land before the resolution reads, so a fixture both
+    name would report an occupant one write out of date.
+    """
+
+    # `edited` is out because the resolution can advance the fixture the request named, and the
+    # caller holds that one's before-state already -- restoring it twice writes it twice.
+    moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
+    stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
+
+    # `docs/backend/spec.md :: I108`'s reading: a restore silently short of one fixture leaves it
+    # holding exactly what the admin asked to undo.
+    if len(stored) != len(moved):
+        raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")
+
+    return [
+        FLSpielPriorPaarung(
+            spiel_id=spiel.id,
+            team1=_payload_side(spiel.team1),
+            team2=_payload_side(spiel.team2),
+            elfmeterschiessen=spiel.elfmeterschiessen,
+            sonderereignis=spiel.sonderereignis,
+        )
+        for spiel in stored
+    ]
 
 
 def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:

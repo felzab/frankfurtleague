@@ -238,13 +238,6 @@ export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
 };
 
 /**
- * One fixture's ground and referee as the admin tier serves them. A base-tier read carries neither
- * figure, so a fixture the editor never opened reaches a write payload only with this supplied
- * beside it.
- */
-export type FLSpielBooking = Pick<FLSpielAdmin, "ort" | "schiedsrichter">;
-
-/**
  * The read counterpart to `FLPatchSpielDataPayloadDraft`, and admin-tier: a cleared money field is
  * `null` while the admin types, and declaring otherwise takes a cast that type-checks while the
  * value travels (`docs/frontend/spec.md` I33).
@@ -434,6 +427,9 @@ export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
  * anything destroyed" is a null check.
  */
 export const FLSpielAdvancementSchema = z.object({
+  // Beside the number, as a bracket fault carries it: a message names the fixture by `spiel_nr`, and
+  // a client matching that number against a list it read before the save can match the wrong one.
+  spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   voided_ergebnis: z
     .string()
@@ -452,6 +448,7 @@ export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
  * refused, emptying it being undone by the next resolution.
  */
 export const FLSpielReleasedSideSchema = z.object({
+  spiel_id: FLSpielAdvancementSchema.shape.spiel_id,
   spiel_nr: z.int().positive(),
   side: z.enum(["team1", "team2"]),
   team_name: z.string().nonempty(),
@@ -466,6 +463,26 @@ export const FLSpielReleasedSideSchema = z.object({
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
 /**
+ * One fixture a save moved, as it stood before that save — everything an undo of it has to put back,
+ * and nothing else, so a date or a note somebody moved in between survives the undo.
+ */
+export const FLSpielPriorPaarungSchema = z.object({
+  spiel_id: CustomObjectIdStringSchema,
+  team1: FLSpielTeamFieldPayloadSchema.nullable(),
+  team2: FLSpielTeamFieldPayloadSchema.nullable(),
+  elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
+  sonderereignis: FLSonderereignisSchema.nullable(),
+});
+export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
+
+/**
+ * **The report above IS the body the restore sends**, `spiel_id` becoming the path segment: naming
+ * the shape twice is what would let one end gain a field the other never carries.
+ */
+export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
+export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
+
+/**
  * **`dry_run=true` answers with this same shape**, one schema being what stops a preview parsing
  * differently to the save it previews. **Declared rather than left to `BaseAPIResponseSchema`**,
  * since `strip` drops an undeclared key silently.
@@ -476,6 +493,10 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   advanced_to: z.array(FLSpielAdvancementSchema),
   released_sides: z.array(FLSpielReleasedSideSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
+
+  // The three above are what an admin READS; this is what the undo SENDS. One entry per fixture, so
+  // a fixture both of the first two name is restored once rather than twice.
+  prior_paarungen: z.array(FLSpielPriorPaarungSchema),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;

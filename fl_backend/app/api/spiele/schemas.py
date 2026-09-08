@@ -14,6 +14,7 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
+    CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalTimeString,
@@ -189,12 +190,16 @@ class FLSpielOrtField(FLSpielOrtFieldPublic):
     mietpreis: int = Field(ge=0)
 
 
-def public_referee_name(name: str) -> str:
+def public_referee_name(name: str | None) -> str | None:
     """`READ-REFEREE-001`, over the one free-text field a referee's name is.
 
     Partitioned on the FIRST space rather than the last: `Ada van der Berg` would otherwise serve as
-    `Ada van der B.`, publishing the particle.
+    `Ada van der B.`, publishing the particle. `None` is an erased referee, and stays `None`: an
+    initial composed for a name nobody holds would read as a name.
     """
+
+    if name is None:
+        return None
 
     vorname, separator, nachname = name.partition(" ")
 
@@ -213,7 +218,10 @@ class _SpielSchiedsrichterBooking(BaseModel):
 # The name sits on a shared private base rather than on the served shape, so the stored shape below
 # can carry it without inheriting the reduction the served one applies.
 class _SpielSchiedsrichterBooked(_SpielSchiedsrichterBooking):
-    name: str = Field(min_length=1)
+    # Nullable, unlike the venue's: a referee is a person, and their erasure nulls this copy on every
+    # fixture they officiated. The word a reader is shown instead is the frontend's
+    # (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
+    name: CustomNonEmptyString | None
 
 
 class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
@@ -232,7 +240,7 @@ class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooked):
 
     @field_validator("name", mode="after")
     @classmethod
-    def _reduce_the_surname(cls, name: str) -> str:
+    def _reduce_the_surname(cls, name: str | None) -> str | None:
         # On the model and not in the pipeline: one aggregation feeds both tiers, so a stage
         # reducing there would reduce the admin editor's read with it.
         return public_referee_name(name)
@@ -439,6 +447,61 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
+# Private, so the request and the report below state these four fields once and neither publishes a
+# component of its own for them.
+class _SpielPaarung(BaseModel):
+    """The whole of what a bracket resolution can rewrite on a fixture it was not asked about."""
+
+    team1: FLSpielTeamFieldPayload | None
+    team2: FLSpielTeamFieldPayload | None
+
+    # Named rather than derived from the goals: a rewrite clears the record along with the scoreline
+    # that needed it, so putting a level score back does not bring the record back with it.
+    elfmeterschiessen: FLSpielElfmeterschiessen | None
+
+    # The STORED event rather than the cleared one: only a no-show is ever cleared, so a fixture that
+    # was abandoned keeps its event through the rewrite and has to be re-sent unchanged.
+    sonderereignis: FLSonderereignis | None
+
+
+class FLPatchSpielPaarungPayload(_SpielPaarung):
+    """Restore one fixture's occupants and what they produced, leaving every other field as stored.
+
+    Its own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    def completed_with(self, stored: "FLSpiel") -> FLPatchSpielDataPayload:
+        """This request as the wholesale payload, the stored fixture answering every field it omits.
+
+        Completed rather than written field by field, so the refusals, the composed `ergebnis` and
+        the resolution run on the one shape they were written for.
+        """
+
+        return FLPatchSpielDataPayload(
+            sonderereignis=self.sonderereignis,
+            team1=self.team1,
+            team2=self.team2,
+            team1_quelle=stored.team1_quelle,
+            team2_quelle=stored.team2_quelle,
+            elfmeterschiessen=self.elfmeterschiessen,
+            datum=stored.datum,
+            uhrzeit=stored.uhrzeit,
+            # Read off the document rather than taken from the request: a restore that carried the
+            # rent would have to have been served it first (`READ-MONEY-001`).
+            ort=None if stored.ort is None else FLSpielOrtFieldPayload(spielort_id=stored.ort.spielort_id, mietpreis=stored.ort.mietpreis),
+            schiedsrichter=(
+                None
+                if stored.schiedsrichter is None
+                else FLSpielSchiedsrichterFieldPayload(
+                    schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id, payment=stored.schiedsrichter.payment
+                )
+            ),
+            notiz=stored.notiz,
+        )
+
+
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
 # in OPPOSITE directions, the stored one adding the two money fields and the served one each side's
 # joined season state.
@@ -576,6 +639,9 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
 
 # Private for `_BracketFault`'s reason: the reports state the destroyed result once.
 class _VoidedResult(BaseModel):
+    # Beside the number, as a bracket fault carries it: a message names a fixture by `spiel_nr`, and
+    # a caller matching that number against a list it read BEFORE the save can match the wrong one.
+    spiel_id: CustomObjectId
     spiel_nr: CustomSpielNr
     voided_ergebnis: CustomErgebnisString | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
@@ -604,6 +670,15 @@ class FLSpielReleasedSide(_VoidedResult):
     team_name: str = Field(min_length=1)
 
 
+class FLSpielPriorPaarung(_SpielPaarung):
+    """One fixture this write moved, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.
+
+    One entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once.
+    """
+
+    spiel_id: CustomObjectId
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """What `patch_spiel_data` returns: every fixture it moved, and what that cost.
 
@@ -613,3 +688,7 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
+
+    # The lists above are what an admin READS; this is what an undo SENDS, and the two cannot be one
+    # list -- a fixture both of them name is restored once, and neither reports the sides at all.
+    prior_paarungen: list[FLSpielPriorPaarung] = Field(default_factory=list)

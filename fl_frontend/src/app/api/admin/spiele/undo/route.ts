@@ -3,14 +3,19 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { APIBadStatusError } from "@/core/errors";
-import { patchAdminSpielData } from "@/features/spiele/mutations";
-import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
+import { patchAdminSpielData, patchAdminSpielPaarung } from "@/features/spiele/mutations";
+import { FLPatchSpielDataPayloadSchema, FLPatchSpielPaarungPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
 import { handleUndoRequest } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
+/**
+ * Two shapes rather than one list, and the edited fixture is the one written wholesale: only it was
+ * opened, so only it may have changed in a field the bracket resolution never touches.
+ */
 const UndoRequestSchema = z.object({
-  payloads: z.array(FLPatchSpielDataPayloadSchema).nonempty(),
+  edited: FLPatchSpielDataPayloadSchema,
+  moved: z.array(FLPatchSpielPaarungPayloadSchema),
   saison_id: FLSpielSchema.shape.saison_id,
 });
 
@@ -29,7 +34,9 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-ELIGIBILITY-002": "Ein ursprünglich aufgestelltes Team nimmt nicht mehr an dieser Saison teil.",
   "REQ-RESULT-001": "Ein Spiel ist inzwischen gewertet, und der ursprüngliche Stand lässt eine Seite ohne Team.",
   "REQ-SPIELTAG-001": "Ein ursprünglich aufgestelltes Team spielt am selben Spieltag inzwischen schon in einem anderen Spiel.",
-  "REQ-SPIELTAG-002": "Ein ursprüngliches Ergebnis würde den KO-Baum ein Team zweimal am selben Spieltag aufstellen lassen.",
+  // The restored STATE and never a result: the refusal is raised by the resolution the replay would
+  // run, which a restored Herkunft moves as readily as a restored scoreline.
+  "REQ-SPIELTAG-002": "Mit dem ursprünglichen Stand würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen.",
   "REQ-STATE-002": "Ein Spiel mit dem ursprünglichen Sonderereignis wird nicht gewertet und darf keine Tore tragen.",
   "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams, und im ursprünglichen Stand ist ein Platz offen.",
   "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",
@@ -44,12 +51,17 @@ export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSpielEdit",
     schema: UndoRequestSchema,
-    restore: async ({ payloads }) => {
+    // **Order is the whole correctness argument.** The edited fixture goes first, so the resolution
+    // has put each moved occupant back before the results below are written over them.
+    restore: async ({ edited, moved }) => {
+      const total = moved.length + 1;
+      const writes = [() => patchAdminSpielData(edited), ...moved.map((paarung) => () => patchAdminSpielPaarung(paarung))];
+
       let restored = 0;
-      for (const payload of payloads) {
+      for (const write of writes) {
         let operation;
         try {
-          operation = await patchAdminSpielData(payload);
+          operation = await write();
         } catch (error) {
           const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
           // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
@@ -57,13 +69,13 @@ export async function POST(request: NextRequest) {
           if (refusal === undefined) throw error;
 
           // The count, not `CHANGE_STANDS`, once a fixture is back: the change stands only in part.
-          const outcome = restored === 0 ? CHANGE_STANDS : `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen.`;
+          const outcome = restored === 0 ? CHANGE_STANDS : `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen.`;
           return `${refusal} ${outcome}`;
         }
 
         if (!operation.acknowledged) {
           // Some fixtures are written and some are not, so the caches are stale either way and the count is what the admin needs.
-          return `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen. Prüfe die betroffenen Spiele.`;
+          return `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen. Prüfe die betroffenen Spiele.`;
         }
         restored += 1;
       }

@@ -12,7 +12,7 @@ import {
   quelleKey,
   toStoredSide,
 } from "@/features/spiele/utils";
-import { austrittZustand } from "@/features/teams/constants";
+import { austrittZustand, GRUPPEN_OPTIONS } from "@/features/teams/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
@@ -51,11 +51,8 @@ type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
  */
 const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders ? "sieger" : "gruppe");
 
-/** `gruppe` is a required enum with no empty member to start from. */
-const DEFAULT_GRUPPE: FLGruppenNames = "A";
-
-/** The closed set, of which a season runs the first `number_of_groups`. */
-const ALL_GRUPPEN = ["A", "B", "C", "D"] satisfies FLGruppenNames[];
+/** `gruppe` is a required enum with no empty member to start from, and a season always runs its first group. */
+const [DEFAULT_GRUPPE] = GRUPPEN_OPTIONS;
 
 /**
  * The placings offered when the team list cannot say, which needs a season mismatch between the
@@ -448,15 +445,17 @@ export function FormTeamPicker({
                 {/* The season's own count bounds the offer, as `REQ-WIRING-003` bounds the save. The
                     current selection keeps its row, so a fixture wired past the count reads
                     truthfully and re-sending it unchanged stays a save the write path takes. */}
-                {ALL_GRUPPEN.filter((name, index) => index < (numberOfGroups ?? ALL_GRUPPEN.length) || name === quelle.gruppe).map((name) => (
-                  <ListBox.Item
-                    key={name}
-                    id={name}
-                    textValue={`Gruppe ${name}`}
-                    className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
-                    Gruppe {name}
-                  </ListBox.Item>
-                ))}
+                {GRUPPEN_OPTIONS.filter((name, index) => index < (numberOfGroups ?? GRUPPEN_OPTIONS.length) || name === quelle.gruppe).map(
+                  (name) => (
+                    <ListBox.Item
+                      key={name}
+                      id={name}
+                      textValue={`Gruppe ${name}`}
+                      className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
+                      Gruppe {name}
+                    </ListBox.Item>
+                  ),
+                )}
               </ListBox>
             </Autocomplete.Popover>
             <FieldError className={FIELD_ERROR} />
