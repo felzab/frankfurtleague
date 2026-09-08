@@ -10,7 +10,14 @@ export type PublicEnvelope = { success: boolean; error?: string; fieldErrors?: F
  * Whether this application answered at all. Nothing standing in front of it produces a field error,
  * so the refused arm carries a sentence and no map for a form to lay over its controls.
  */
-export type PublicAnswer<T> = { answered: true; body: T } | { answered: false; error: string };
+export type PublicAnswer<T> =
+  | { answered: true; body: T }
+  | {
+      answered: false;
+      /** The one refusal that rules the write out; `EDGE_RATE_LIMIT_STATUS` carries why. */
+      wroteNothing: boolean;
+      error: string;
+    };
 
 /**
  * The edge's rate limit, generated before any route handler runs: the body is nginx's own HTML
@@ -45,27 +52,27 @@ export async function postPublicForm<T extends PublicEnvelope>(endpoint: string,
       body: JSON.stringify(payload),
     });
   } catch {
-    return { answered: false, error: KEINE_VERBINDUNG };
+    return { answered: false, wroteNothing: false, error: KEINE_VERBINDUNG };
   }
 
-  if (response.status === EDGE_RATE_LIMIT_STATUS) return { answered: false, error: ZU_VIELE_VERSUCHE };
+  if (response.status === EDGE_RATE_LIMIT_STATUS) return { answered: false, wroteNothing: true, error: ZU_VIELE_VERSUCHE };
 
   // The route answers 200 for every case it can report, so any other status was written by something
   // standing in front of it.
-  if (!response.ok) return { answered: false, error: KEINE_ANTWORT_VON_UNS };
+  if (!response.ok) return { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS };
 
   let body: unknown;
   try {
     body = await response.json();
   } catch {
     // An interstitial served in the application's place carries markup and answers 200 doing it.
-    return { answered: false, error: KEINE_ANTWORT_VON_UNS };
+    return { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS };
   }
 
   // `success` is what every route's answer opens on, so a body without one is not an answer of this
   // application's however well it parsed.
   if (typeof body !== "object" || body === null || !("success" in body) || typeof body.success !== "boolean") {
-    return { answered: false, error: KEINE_ANTWORT_VON_UNS };
+    return { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS };
   }
 
   return { answered: true, body: body as T };

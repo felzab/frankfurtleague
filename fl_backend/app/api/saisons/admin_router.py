@@ -415,8 +415,8 @@ async def patch_saison(
         )
 
         # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
-        # squad write, a matchday re-date and a knockout result raise no conflict and no retry
-        # (I53). One landing after this read still slips through.
+        # knockout result raises no conflict, where a squad entry or a matchday re-dating advances
+        # `bounded_writes` and does (I53). One landing after this read still slips.
         judge(await movable_figures(None))
 
         return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))

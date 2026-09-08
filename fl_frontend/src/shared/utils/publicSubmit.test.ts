@@ -46,7 +46,7 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bewerbung", {});
 
-    assert.deepEqual(answered, { answered: false, error: ZU_VIELE_VERSUCHE });
+    assert.deepEqual(answered, { answered: false, wroteNothing: true, error: ZU_VIELE_VERSUCHE });
   });
 
   /* A challenge reaching a POST at all is the edge misconfigured (`docs/ops/spec.md :: I177`), so
@@ -57,7 +57,11 @@ describe("what a public form is told when the answer was not this application's"
 
       const answered = await postPublicForm("/api/bewerbung", {});
 
-      assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS }, `the challenge answering ${body} reached the form`);
+      assert.deepEqual(
+        answered,
+        { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS },
+        `the challenge answering ${body} reached the form`,
+      );
     }
   });
 
@@ -68,7 +72,7 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bestaetigung", {});
 
-    assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS });
+    assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS });
   });
 
   /* JSON parses from anything that wrote JSON, this application included in nothing about it. Every
@@ -78,7 +82,7 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bewerbung", {});
 
-    assert.deepEqual(answered, { answered: false, error: KEINE_ANTWORT_VON_UNS });
+    assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_ANTWORT_VON_UNS });
   });
 
   /* A rejection reached no judgement, so the connection is the one thing worth naming and nothing
@@ -88,7 +92,28 @@ describe("what a public form is told when the answer was not this application's"
 
     const answered = await postPublicForm("/api/bestaetigung", {});
 
-    assert.deepEqual(answered, { answered: false, error: KEINE_VERBINDUNG });
+    assert.deepEqual(answered, { answered: false, wroteNothing: false, error: KEINE_VERBINDUNG });
+  });
+
+  /* nginx refuses the REQUEST, so the write is ruled out and the form may say so; a challenge and a
+     dead transport each leave a POST that may already have been written. */
+  it("rules the write out on the edge's limit and on neither other refusal", async () => {
+    for (const [name, arrange, wroteNothing] of [
+      [
+        "the rate limit",
+        () => antwortet("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }),
+        true,
+      ],
+      ["the challenge", () => antwortet("<html>challenge</html>", { status: 403, headers: { "cf-mitigated": "challenge" } }), false],
+      ["the dead transport", () => transportiert(() => Promise.reject(new TypeError("Failed to fetch"))), false],
+    ] as const) {
+      arrange();
+
+      const answered = await postPublicForm("/api/bewerbung", {});
+
+      assert.ok(!answered.answered, `${name}: the answer was taken for this application's`);
+      assert.equal(answered.wroteNothing, wroteNothing, `${name}: what a form may tell a visitor about the write is wrong`);
+    }
   });
 
   /* The refused arm carries a sentence and no map: a form laying field errors over its controls from

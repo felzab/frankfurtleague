@@ -260,7 +260,7 @@ async def call_patch_rules(
 
 
 async def call_add_a_player(database: AsyncDatabase) -> Any:
-    """The rival write: one more player into the seeded squad, through the route, outside any transaction."""
+    """The rival write: one more player into the seeded squad, through the route and so inside its own transaction."""
 
     return await post_saison_spieler(
         spieler_id=ObjectId(f"6890a1b2c3d4e5f6075{SEEDED_SQUAD:05d}"),
@@ -345,8 +345,8 @@ async def live_squad_now(database: AsyncDatabase) -> int:
 class TestAPlayerAddedMidPatchIsJudgedAgain:
     """Two administrators on one season: the squad is at the proposed cap when the patch judges, and over it when it writes.
 
-    The rival writes `saison_spieler`, which the callback only reads: no conflict, no retry;
-    the out-of-session re-judgement refuses.
+    The rival's squad-capacity refusal writes `saisons` in its own transaction, which this callback
+    writes too (`docs/backend/spec.md :: I53`).
     """
 
     def test_the_narrowing_is_refused_on_the_player_added_under_it(self, mongo_replica_set_url: str):
@@ -366,11 +366,12 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
         refusal, season_reads, stored, squad = on_a_seeded_saison(mongo_replica_set_url, body)
 
         # `REQ-RULES-009` weighs the largest live squad, and it stood AT the proposed cap when this
-        # request first judged: the refusal can only come from the re-judgement after the write.
+        # request first judged: the refusal cannot be that first judgement's.
         assert refusal.error_code == RULES_KADER_BELOW_USE
-        # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
-        # makes -- the refusal lands after the write, so the write's own re-read has happened.
-        assert season_reads == 2, "a third read means the write conflicted and the retry re-entered the callback"
+        # TWO reads and no more: the judgement's, then the retry's. The rival's own season write
+        # conflicts with this callback's, so the callback re-enters once and the second judgement
+        # refuses before any write.
+        assert season_reads == 2, "a third read means the retry itself conflicted"
 
         assert stored["rules"]["max_kadergroesse"] == 18, "the narrowing landed on top of the rival's insert"
         assert squad == SEEDED_SQUAD + 1, "the rival's insert was lost, so the refusal above had nothing to refuse"
