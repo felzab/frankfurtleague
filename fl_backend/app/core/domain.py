@@ -1579,6 +1579,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),
     Rule(
+        code="REQ-BEWERBUNG-014",
+        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email",
+        aggregate="Bewerbung",
+        summary="a corrected contact address is not one another contact person on the same application is already reached at",
+        implemented_by="app.api.bewerbungen.services.find_kontakt_email_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestCorrectingOneContactAddress",
+    ),
+    Rule(
         code="REQ-PURGE-001",
         operation="DELETE /spieler/{spieler_id}/erasure",
         aggregate="Spieler",

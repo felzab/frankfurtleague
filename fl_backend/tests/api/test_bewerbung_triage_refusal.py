@@ -9,12 +9,15 @@ from bson import ObjectId
 from app.api.bewerbungen.schemas import FLBewerbungSchule
 from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
+    BEWERBUNG_KONTAKT_EMAIL_TAKEN,
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SUBJECT_UNRESOLVED,
     compose_bestaetigungen,
+    compose_kontakt_email_update,
     compose_new_club,
     find_acceptance_subject_refusal,
+    find_kontakt_email_refusal,
     find_new_club_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
@@ -161,6 +164,74 @@ class TestEverySeatIsConfirmedBeforeAcceptance:
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
         assert refusal.message.endswith(outstanding)
+
+
+class TestCorrectingOneContactAddress:
+    """The one field of a submitted application an administrator may rewrite, held to the rule the submission was accepted under."""
+
+    def test_an_address_no_other_seat_holds_is_written(self):
+        assert find_kontakt_email_refusal(kontakte=seats(), seats=("ansprechperson",), email="neu@example.com") is None
+
+    def test_the_address_another_person_is_reached_at_is_refused(self):
+        """Storing it would leave two people on one mailbox, which the submission itself refuses and the erasure could not tell apart."""
+
+        refusal = find_kontakt_email_refusal(kontakte=seats(), seats=("ansprechperson",), email="stellan@example.com")
+
+        assert refusal is not None and refusal.error_code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+
+    @pytest.mark.parametrize("email", ["STELLAN@example.com", "stellan@EXAMPLE.com"])
+    def test_another_spelling_of_that_address_is_the_same_mailbox(self, email: str):
+        """Case-insensitively over the WHOLE address, as `FLBewerbungKontaktePayload` compares it: a third rule parts the two tiers."""
+
+        assert find_kontakt_email_refusal(kontakte=seats(), seats=("ansprechperson",), email=email) is not None
+
+    def test_the_seats_this_correction_writes_do_not_collide_with_themselves(self):
+        """One person on two seats moves to one new address, and comparing them against each other would refuse every such correction."""
+
+        mirrored = {**seats(), "trainer": seat("Ansgar", bestaetigt_am=None), "trainer_ist_zugleich": "ansprechperson"}
+
+        assert find_kontakt_email_refusal(kontakte=mirrored, seats=("trainer", "ansprechperson"), email="neu@example.com") is None
+        assert find_kontakt_email_refusal(kontakte=mirrored, seats=("trainer", "ansprechperson"), email="ansgar@example.com") is None
+
+    def test_an_emptied_seat_holds_no_address_to_collide_with(self):
+        emptied = {**seats(), "stellvertretung": None}
+
+        assert find_kontakt_email_refusal(kontakte=emptied, seats=("trainer",), email="stellan@example.com") is None
+
+    def test_the_write_is_one_set_carrying_the_address_and_the_fresh_entry(self):
+        """Two writes would leave the corrected address beside the link the old one was mailed, which is a live credential."""
+
+        update = compose_kontakt_email_update(
+            seats=("trainer", "ansprechperson"),
+            email="neu@example.com",
+            token_hash="frisch",
+            today="2026-03-20",
+            bestaetigungsfrist="2026-04-03",
+        )
+
+        assert set(update) == {"$set"}
+        assert update["$set"]["kontakte.trainer.email"] == "neu@example.com"
+        assert update["$set"]["kontakte.ansprechperson.email"] == "neu@example.com"
+        assert update["$set"]["bestaetigungsfrist"] == "2026-04-03"
+
+    @pytest.mark.parametrize("seat_name", ["trainer", "ansprechperson"])
+    def test_the_whole_entry_is_replaced_so_the_old_delivery_state_goes_with_it(self, seat_name: str):
+        """A refusal recorded against the address just replaced would hold the application for ever."""
+
+        update = compose_kontakt_email_update(
+            seats=("trainer", "ansprechperson"),
+            email="neu@example.com",
+            token_hash="frisch",
+            today="2026-03-20",
+            bestaetigungsfrist="2026-04-03",
+        )
+
+        assert update["$set"][f"bestaetigungen.{seat_name}"] == {
+            "token_hash": "frisch",
+            "verschickt_am": "2026-03-20",
+            "erinnert_am": None,
+            "abgelehnt_am": None,
+        }
 
 
 ADDRESS: Mapping[str, Any] = {

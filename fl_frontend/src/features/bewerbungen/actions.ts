@@ -16,17 +16,29 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
-import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung } from "./mutations";
+import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
-import { FLAblehnenBewerbungPayloadSchema, FLAnnehmenBewerbungPayloadSchema, FLEinwilligungErneutPayloadSchema } from "./schemas";
+import {
+  FLAblehnenBewerbungPayloadSchema,
+  FLAnnehmenBewerbungPayloadSchema,
+  FLBewerbungKontaktEmailPayloadSchema,
+  FLEinwilligungErneutPayloadSchema,
+} from "./schemas";
 import { bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungBetreff } from "./notifications";
-import type { FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbung, FLEinwilligungErneutPayload } from "./schemas";
+import type {
+  FLAblehnenBewerbungPayload,
+  FLAnnehmenBewerbungPayload,
+  FLBewerbung,
+  FLBewerbungKontaktEmailPayload,
+  FLEinwilligungErneutPayload,
+} from "./schemas";
 
 /** Where a club is created and reactivated, named as the sidemenu entry reads. */
 const TEAMS_PAGE = "Teams";
@@ -60,8 +72,7 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
         }),
       };
     // The application's own validator asserts no more than `docs/backend/spec.md :: I16`, while `teams`
-    // reads a club through a stricter model, so a school's details can make no club. Which field fails
-    // stays off the wire, and no edit path exists.
+    // reads a club through a stricter model, so a school's details can make no club. Nothing edits them.
     case "REQ-BEWERBUNG-003":
       return {
         error: buildRefusal({
@@ -100,8 +111,8 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
     case "REQ-ENTER-003":
       return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
     // A new school's club is created with the Kürzel the school typed, and a club's only unique key
-    // is that Kürzel, so this 409 IS the collision. The generic conflict message names no way out,
-    // and an application cannot be edited.
+    // is that Kürzel, so this 409 IS the collision. The generic conflict names no way out, and
+    // nothing edits a school's details.
     case "DB-COMMON-002":
       return {
         error: buildRefusal({
@@ -367,8 +378,8 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
 
-/** No repair, because the administration has none: an application is what three people submitted, and nothing edits it. */
-const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Ein Link kann an niemanden gehen.";
+/** The correction beside this control is the repair, so the sentence sends the administrator there rather than nowhere. */
+const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine ein.";
 
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
@@ -388,15 +399,15 @@ async function sendeBestaetigungErneut({
   saisonId,
   person,
   benanntesTeam,
-  sitzeText,
+  sitze,
   token,
 }: {
   bewerbungId: string;
   saisonId: string;
   person: { vorname: string; email: string };
   benanntesTeam: string;
-  /** Every seat this one link answers for, already one German phrase. */
-  sitzeText: string;
+  /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
+  sitze: readonly KontaktRolle[];
   token: string;
 }): Promise<{ verschickt: true; message: string } | { verschickt: false; error: string }> {
   let frist: string | null;
@@ -427,9 +438,14 @@ async function sendeBestaetigungErneut({
   const fristText = formatSpielDatum(frist);
   const origin = frontend_config.AUTH_URL;
 
+  const sitzeText = rollenText(sitze);
+
   const outcome = await sendBewerbungMail({
     operation: "einwilligungErneutSendenAction",
-    recipients: [{ address: person.email, rollenText: sitzeText }],
+    // No idempotency key: the token in this message is minted per press, and a key reused over a
+    // changed body is refused rather than collapsed.
+    auftrag: { bewerbungId: bewerbungId, anlass: "erneut" },
+    recipients: [{ address: person.email, rollen: sitze, rollenText: sitzeText }],
     buildMail: () =>
       buildBewerbungBestaetigungEmail({
         saisonId: saisonId,
@@ -500,10 +516,105 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       saisonId: bewerbung.saison_id,
       person: person,
       benanntesTeam: benanntesTeam,
-      sitzeText: rollenText(gepaarteSitze(bewerbung, validated.data.rolle)),
+      sitze: gepaarteSitze(bewerbung, validated.data.rolle),
       token: erneutOperation.token,
     });
 
     return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
+  });
+}
+
+/** A correction 409 as the message it should render, or `null` when the code is none of these. */
+function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-BEWERBUNG-001":
+      return {
+        error: buildRefusal({
+          reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
+          repair: "Lade die Seite neu",
+        }),
+      };
+    case "REQ-BEWERBUNG-011":
+      return {
+        error: buildRefusal({
+          reason: "Für diese Rolle steht keine Bestätigung mehr aus, und eine bestätigte Adresse hat die Person selbst belegt",
+          repair: "Lade die Seite neu",
+        }),
+      };
+    // Under the field rather than over the panel: the box holding the refused address is the one
+    // thing to change, and the submission words the same collision the same way.
+    case "REQ-BEWERBUNG-014":
+      return { fieldErrors: { email: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen." } };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Rewrites one contact person's e-mail address and sends a fresh link to it. **The write stands
+ * whatever the message did**, so a refused send is a link to try again rather than a correction that
+ * did not happen.
+ */
+export async function kontaktEmailKorrigierenAction(
+  rawPayload: FLBewerbungKontaktEmailPayload,
+): Promise<ActionResult<{ verschickt?: boolean }>> {
+  return runAdminMutation("kontaktEmailKorrigierenAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // BEFORE the write, as the re-send reads: nothing has been rewritten yet, so a throw here costs
+    // a report rather than the seat's live link spent on a message this press could never compose.
+    const gelesen = await getBewerbungById(validated.data.id);
+
+    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
+
+    const { bewerbung } = gelesen;
+    const person = bewerbung.kontakte[validated.data.rolle];
+
+    if (person === null) return { success: false, error: SITZ_LEER };
+
+    const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
+
+    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+
+    let korrekturOperation;
+    try {
+      korrekturOperation = await korrigierenKontaktEmail(validated.data);
+    } catch (error) {
+      const refusal = mapKontaktEmailRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
+    if (!korrekturOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
+    }
+
+    // Nothing to invalidate, as on the decline: this moves the application's own contact block and
+    // its confirmation entry, and no cached read holds an application.
+
+    const zustellung = await sendeBestaetigungErneut({
+      bewerbungId: validated.data.id,
+      saisonId: bewerbung.saison_id,
+      // The address the write just stored, never the one the read still holds: the message the
+      // administrator asked for is the one going to the corrected mailbox.
+      person: { vorname: person.vorname, email: validated.data.email },
+      benanntesTeam: benanntesTeam,
+      sitze: gepaarteSitze(bewerbung, validated.data.rolle),
+      token: korrekturOperation.token,
+    });
+
+    return zustellung.verschickt
+      ? { success: true, verschickt: true, message: zustellung.message }
+      : { success: true, verschickt: false, message: zustellung.error };
   });
 }

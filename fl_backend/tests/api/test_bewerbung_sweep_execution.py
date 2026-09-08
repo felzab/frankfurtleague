@@ -15,9 +15,12 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungSweepAngekuendigtPayload,
     FLBewerbungSweepLoeschenPayload,
+    FLBewerbungZustellungAngenommenPayload,
+    FLBewerbungZustellungEreignisPayload,
 )
 from app.api.bewerbungen.services import BEWERBUNG_TOKEN_UNKNOWN, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.api.bewerbungen.sweep_router import angekuendigt_bewerbungen, get_sweep_saisons, loeschen_bewerbungen, sweep_saison
+from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -280,6 +283,44 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
 
 async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
+
+
+# One message id and the two instants around it, so the delivery state below arrives the way the
+# provider's own does rather than being written into the document by hand.
+MESSAGE_ID = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
+ACCEPTED_AT = "2026-03-29T10:00:00Z"
+REFUSED_AT = "2026-03-29T10:05:00Z"
+
+
+async def refuse_the_submitters_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
+    """Send to the mailbox that would read the deletion notice, and have the provider refuse it.
+
+    Through the endpoints rather than a hand-written state: what the clock reads has to be what a
+    real event leaves.
+    """
+
+    seats = ["trainer", "ansprechperson"]
+    await angenommen_zustellung(
+        angenommen_data=FLBewerbungZustellungAngenommenPayload.model_validate(
+            {"bewerbung_id": str(bewerbung_id), "rollen": seats, "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
+    await post_zustellung(
+        ereignis_data=FLBewerbungZustellungEreignisPayload.model_validate(
+            {
+                "bewerbung_id": str(bewerbung_id),
+                "rollen": seats,
+                "nachricht_id": MESSAGE_ID,
+                "stand": "unzustellbar",
+                "grund": "NoEmail",
+                "am": REFUSED_AT,
+            }
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+    )
 
 
 class TestTheReminderClock:
@@ -573,6 +614,61 @@ class TestTheFourteenDayClock:
             return spaeter.angekuendigt, document["loeschung_angekuendigt_am"] if document else None
 
         assert on_a_league(mongo_replica_set_url, body) == (0, TODAY)
+
+
+class TestAnApplicationWhoseNoticeCannotArrive:
+    """Held past the deadline for an administrator, never erased on a notice the provider skipped.
+
+    Without the delivery state the stamp says a message went out, the erasure follows, and the school
+    hears nothing.
+    """
+
+    def test_the_pass_offers_it_to_nobody_and_neither_call_takes_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_submitters_address(database, client, DELETE_OID)
+            pass_response = await sweep(database, client)
+            stamped = await announce(database, client, [DELETE_OID])
+            erased = await erase(database, client, [DELETE_OID])
+
+            return pass_response, stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
+
+        pass_response, stamped, erased, document = on_a_league(mongo_replica_set_url, body)
+
+        assert [entry.bewerbung_id for entry in pass_response.loeschungen] == []
+        assert (stamped, erased) == (0, 0)
+        assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
+        assert document.get("loeschung_angekuendigt_am") is None
+
+    def test_a_notice_that_bounced_after_it_was_stamped_stops_the_erasure(self, mongo_replica_set_url: str):
+        """The stamp lands as soon as the provider accepts, and the refusal arrives minutes later.
+
+        Re-judging on every call makes that harmless: the id is skipped rather than erased.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            stamped = await announce(database, client, [DELETE_OID])
+            await refuse_the_submitters_address(database, client, DELETE_OID)
+            erased = await erase(database, client, [DELETE_OID])
+
+            return stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
+
+        stamped, erased, document = on_a_league(mongo_replica_set_url, body)
+
+        assert (stamped, erased) == (1, 0)
+        assert document is not None
+        # The stamp stands: a message really was accepted, and a later pass must not compose a second.
+        assert document["loeschung_angekuendigt_am"] == TODAY
+
+    def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
+        """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_submitters_address(database, client, REMIND_OID)
+            response = await sweep(database, client)
+
+            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen]
+
+        assert on_a_league(mongo_replica_set_url, body) == [("bramblewick@example.com", [["stellvertretung"]])]
 
 
 class TestTheOneMonthClock:

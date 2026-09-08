@@ -25,6 +25,7 @@ BEWERBUNG_TOKEN_EXPIRED = "REQ-BEWERBUNG-010"
 BEWERBUNG_SEAT_ALREADY_ANSWERED = "REQ-BEWERBUNG-011"
 BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
 BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
+BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -640,9 +641,120 @@ def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, 
     the replaced address's link alive through `paired_seat`.
     """
 
+    # The WHOLE entry, so the delivery state of the message the old link went out in goes with it: a
+    # refusal recorded against a replaced address would hold the fresh link's application for ever.
     written: dict[str, Any] = {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today) for seat in seats}
 
     return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist}}
+
+
+def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
+    """Why this address cannot be the seat's, or `None`.
+
+    The submission's own distinctness rule asked again -- two DIFFERENT people are not reachable at
+    one mailbox -- because a correction is the one path that could put them there afterwards.
+    """
+
+    slots = kontakte if isinstance(kontakte, Mapping) else {}
+    # The seats this correction writes are left out: they are one person, and their blocks are equal
+    # by the submission's own rule.
+    others = [slots.get(seat) for seat in KONTAKT_SEATS if seat not in seats]
+    # Case-INSENSITIVELY over the whole address, as `FLBewerbungKontaktePayload` compares it: a third
+    # spelling of "one mailbox" here would refuse where the form accepted, or the reverse.
+    held = {str(slot.get("email") or "").casefold() for slot in others if isinstance(slot, Mapping)}
+
+    if email.casefold() in held:
+        return WriteRefusal(
+            error_code=BEWERBUNG_KONTAKT_EMAIL_TAKEN,
+            message="another contact person on this application is reached at this address; two different people share no mailbox",
+        )
+
+    return None
+
+
+def compose_kontakt_email_update(
+    *, seats: Sequence[str], email: str, token_hash: str, today: str, bestaetigungsfrist: str
+) -> Mapping[str, Any]:
+    """The corrected address and a fresh link, in ONE `$set`.
+
+    Never two writes: between them the seat would hold the new address beside the link the old one
+    was mailed, which is the live credential the correction exists to retire.
+    """
+
+    erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+
+    return {"$set": {**{f"kontakte.{seat}.email": email for seat in seats}, **erneut["$set"]}}
+
+
+# --- The ZUSTELLSTAND: what became of the last message to one seat. Written by the two system-tier
+# endpoints alone, and read by the reminder clock and the fourteen-day clock below.
+
+
+def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
+    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
+
+    return entry if isinstance(entry, Mapping) else None
+
+
+# The states a clock reads: the provider will not carry a message to that address, however it says
+# so. `verzoegert` is not one -- a delayed message still arrives -- and neither is `zugestellt`.
+ZUSTELLUNG_ABGEWIESEN = frozenset({"unzustellbar", "unterdrueckt", "beschwerde"})
+
+
+def seat_zustellung(*, bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
+    """What is known about the last message to this seat, or `None` where nothing is."""
+
+    entry = _entry_of(bestaetigungen, seat)
+    stored = entry.get("zustellung") if entry is not None else None
+
+    return stored if isinstance(stored, Mapping) else None
+
+
+def seat_is_unreachable(*, bestaetigungen: Any, seat: str) -> bool:
+    """Whether the provider refused the last message to this seat's address."""
+
+    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
+
+    return stored is not None and stored.get("stand") in ZUSTELLUNG_ABGEWIESEN
+
+
+def zustellung_event_applies(*, bestaetigungen: Any, seat: str, nachricht_id: str, am: str) -> bool:
+    """Whether this event is about the message this seat still holds, and is news.
+
+    The whole of the idempotency, and why no `svix-id` store sits beside it: a repeat carries the
+    stamp it first did.
+    """
+
+    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
+    if stored is None or stored.get("nachricht_id") != nachricht_id:
+        return False
+
+    # STRICTLY later, on two stamps `app/api/bewerbungen/schemas.py :: normalise_zustellzeitpunkt`
+    # spelled: equal is the same event again, and earlier is a delivery overtaking a bounce.
+    return str(stored.get("am") or "") < am
+
+
+def zustellung_send_applies(*, bestaetigungen: Any, seat: str, am: str) -> bool:
+    """Whether this accepted send is news for a seat that still stands.
+
+    No id comparison: the send MINTS the id, so it is the first thing known about a message and
+    nothing stored can match it.
+    """
+
+    if _entry_of(bestaetigungen, seat) is None:
+        return False
+
+    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
+
+    return stored is None or str(stored.get("am") or "") < am
+
+
+def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand: str, grund: str | None, am: str) -> Mapping[str, Any]:
+    """The whole block per seat, never a field of it: a state carrying another message's `grund` reads as a refusal that never happened."""
+
+    written = {f"bestaetigungen.{seat}.zustellung": {"nachricht_id": nachricht_id, "stand": stand, "grund": grund, "am": am} for seat in seats}
+
+    return {"$set": written}
 
 
 # --- The retention SWEEP. Five clocks, each a pure predicate over one document and `today`, so
@@ -676,14 +788,8 @@ def one_month_after(*, day: str) -> str:
     return date(year, month, min(start.day, last_day.day)).isoformat()
 
 
-def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
-    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
-
-    return entry if isinstance(entry, Mapping) else None
-
-
 def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str) -> bool:
-    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago.
+    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
 
     A re-sent seat carries a later `verschickt_am` and reaches its mark on its own; one already
     reminded never is again.
@@ -694,6 +800,11 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
         return False
 
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
+        return False
+
+    # A seat gets ONE chase, and spending it on an address the provider has already refused spends
+    # it on nobody; a correction is what makes the seat due again, by writing a fresh entry.
+    if seat_is_unreachable(bestaetigungen=bestaetigungen, seat=seat):
         return False
 
     return days_after(day=entry["verschickt_am"], days=BEWERBUNG_ERINNERUNG_TAGE) <= today
@@ -765,8 +876,18 @@ def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any,
     return {"$set": written}
 
 
+def announcement_is_undeliverable(*, bewerbung_raw: Mapping[str, Any]) -> bool:
+    """Whether the deletion notice cannot reach the submitter: the provider refused the last message to that seat.
+
+    An EMPTY Ansprechperson slot is not this case: no mailbox is left to tell, and the deadline takes
+    the application unannounced.
+    """
+
+    return seat_is_unreachable(bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat="ansprechperson")
+
+
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the fourteen-day clock takes this application: still submitted, past its deadline, a seat still outstanding.
+    """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
 
     STRICTLY past: the link answers on the deadline's own day, so the deletion waits a day. An
     emptied seat is outstanding.
@@ -777,6 +898,11 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
 
     frist = bewerbung_raw.get("bestaetigungsfrist")
     if not isinstance(frist, str) or frist >= today:
+        return False
+
+    # HELD rather than erased, and held by dropping out of the clock every path here reads: an
+    # administrator corrects the address, and the correction's fresh entry makes it due again.
+    if announcement_is_undeliverable(bewerbung_raw=bewerbung_raw):
         return False
 
     return bool(ausstehende_seats(kontakte=bewerbung_raw.get("kontakte")))

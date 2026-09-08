@@ -10,13 +10,17 @@ from app.api.bewerbungen.schemas import (
     FLAnnehmenBewerbungResponse,
     FLBewerbung,
     FLBewerbungEinwilligungErneutResponse,
+    FLBewerbungKontaktEmailPayload,
+    FLBewerbungKontaktEmailResponse,
 )
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,
     compose_erneut_update,
+    compose_kontakt_email_update,
     compose_new_club,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
+    find_kontakt_email_refusal,
     find_new_club_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
@@ -311,3 +315,76 @@ async def erneut_einwilligung(
         raise
 
     return FLBewerbungEinwilligungErneutResponse(token=raw, rolle=rolle, bestaetigungsfrist=bestaetigungsfrist)
+
+
+@router.post(
+    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
+    response_model=FLBewerbungKontaktEmailResponse,
+    summary="Correct one contact person's email address and re-send their link",
+)
+async def korrigiere_kontakt_email(
+    bewerbung_id: CustomRouteObjectId,
+    seat: str,
+    email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
+    bewerbungen_collection: BewerbungenCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungKontaktEmailResponse:
+    """
+    Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
+
+    The ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link
+    the mail provider will not carry: everything else the school typed stays the record the decision is taken
+    against. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation
+    deadline restarts from today exactly as a re-send restarts it.
+
+    The seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day
+    deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
+    for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already
+    confirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an
+    address another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is
+    a 404.
+    """
+
+    async def correct_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
+        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
+
+        db_filter = {"_id": bewerbung_id}
+        bewerbung_raw = await pull_one_from_db(
+            collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"], session=session
+        )
+
+        # A 404 rather than a 422, as the re-send's is: the segment names no seat any application has.
+        rolle = seat_named(seat)
+        if rolle is None:
+            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+
+        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
+        refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
+        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+
+        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
+        seats = (rolle,) if other is None else (rolle, other)
+
+        # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
+        # together is not refused for sharing it with itself.
+        refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
+
+        raw, token_hash = mint_token()
+        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+
+        await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            update=compose_kontakt_email_update(
+                seats=seats, email=email_data.email, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist
+            ),
+            session=session,
+        )
+
+        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+
+    # A transaction where the re-send beside it takes none: this write moves an address as well as a
+    # credential, so a decision landing mid-request must leave neither half standing.
+    async with db.start_session() as session:
+        return await session.with_transaction(correct_and_mint)

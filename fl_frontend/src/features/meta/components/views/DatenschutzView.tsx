@@ -103,7 +103,7 @@ const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
     frist:
-      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht",
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet; die angekündigte Löschung ginge sonst an niemanden",
   },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
@@ -247,6 +247,16 @@ export function DatenschutzView() {
             Resend speichert diese Daten in den Vereinigten Staaten. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf die
             Standardvertragsklauseln der Europäischen Kommission nach Art. 46 Abs. 2 lit. c DSGVO, die Bestandteil des
             Auftragsverarbeitungsvertrags mit Resend sind.
+          </p>
+          <p className={ABSATZ}>
+            Wir messen nicht, ob eine E-Mail geöffnet oder ob ein Link darin angeklickt wird. Unsere Nachrichten enthalten dafür weder ein
+            Zählpixel noch umgeschriebene Links.
+          </p>
+          <p className={ABSATZ}>
+            Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
+            wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
+            wir bei der Kontaktperson, an die die Nachricht ging, damit die Verwaltung sieht, wen sie nicht erreicht. Er wird zusammen mit der
+            Bewerbung gelöscht.
           </p>
         </LegalSection>
 

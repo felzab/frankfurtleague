@@ -63,6 +63,8 @@ const HINWEIS_QUELLE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen"
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
 const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
 const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "route.ts"), "utf8");
+/** The provider's delivery webhook, the one session-less route that takes neither spine. */
+const ZUSTELLUNG_ROUTE = readFileSync(path.join(APP_DIR, "api", "mail", "zustellung", "route.ts"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
 const ACTIONS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "actions.ts"), "utf8");
 const CONFIRM_PANEL = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx"), "utf8");
@@ -790,6 +792,51 @@ describe("what stands in for a session on the session-less routes", () => {
   it("does not borrow the admin spine", () => {
     assert.doesNotMatch(POST_ROUTE, /runAdminMutation/, "a session-less route runs through the admin mutation spine");
     assert.match(POST_ROUTE, /handlePublicRequest\(request, \{/, "the route no longer runs through the public spine");
+  });
+
+  /* The one session-less route that takes NEITHER spine. `handlePublicRequest` always answers 200
+     with the outcome in the body, which tells a provider that retries on non-200 that a forgery and
+     an unreachable backend were both accepted. */
+  it("keeps the delivery webhook off both spines, and off a session it has no caller for", () => {
+    // The comments are cut first: this route's own doc block names both spines in order to say why
+    // it takes neither, so a sweep over the whole file would read the argument as the defect.
+    const code = ZUSTELLUNG_ROUTE.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+    assert.doesNotMatch(code, /handlePublicRequest/, "the webhook answers every failure 200 through the public spine");
+    assert.doesNotMatch(code, /getAdminSession|runAdminMutation/, "the webhook checks a session no provider holds");
+    assert.match(ZUSTELLUNG_ROUTE, /status: 400/, "an unverifiable request is not refused with a status the provider stops retrying on");
+    assert.match(ZUSTELLUNG_ROUTE, /status: 503/, "an unreachable backend is reported as an event the provider need not send again");
+  });
+
+  /* Parsing first and re-serialising changes key order and whitespace, and every real event then
+     verifies as a forgery. */
+  it("verifies the delivery webhook over the bytes the provider signed", () => {
+    const roh = ZUSTELLUNG_ROUTE.indexOf("await request.text()");
+    const geprueft = ZUSTELLUNG_ROUTE.indexOf(".verify(");
+
+    assert.notEqual(roh, -1, "the webhook reads something other than the raw request body");
+    assert.ok(roh < geprueft, "the body is parsed before it is verified");
+    assert.ok(ZUSTELLUNG_ROUTE.indexOf("JSON.parse") > geprueft, "an unverified body is parsed");
+  });
+});
+
+describe("what one of the workflow's messages says about itself", () => {
+  /* The tag block is what routes a delivery event back to the seat it belongs to; without it an
+     event carries a message id this side has stored against nothing. */
+  it("names the application every message of the workflow is about", () => {
+    assert.equal(
+      (POST_ROUTE.match(/auftrag: \{ bewerbungId: eingang\.created_id/g) ?? []).length,
+      2,
+      "one of the submission's two fan-outs goes out untagged",
+    );
+    assert.match(CONFIRM_ROUTE, /auftrag: \{ bewerbungId: antwort\.bewerbung_id/, "the confirmation's own message goes out untagged");
+  });
+
+  /* Both messages here carry a link minted for this one submission, so no second send can compose
+     the same body: a key over a changed body is refused rather than collapsed. */
+  it("passes no idempotency key with a message carrying a freshly minted token", () => {
+    assert.doesNotMatch(POST_ROUTE, /idempotenzTag/, "the submission's link messages pass a key over a body that cannot repeat");
+    assert.doesNotMatch(CONFIRM_ROUTE, /idempotenzTag/, "the confirmation's notice passes a key a second answer would be refused over");
   });
 });
 

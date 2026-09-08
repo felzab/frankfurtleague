@@ -47,7 +47,12 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
 
   await sendBewerbungMail({
     operation: "postEinwilligung",
-    recipients: [{ address: antwort.ansprechperson_email, rollenText: rollenText(antwort.ansprechperson_rollen) }],
+    // The token is spent by the time this runs, so the same body cannot be composed twice: the key
+    // guards nothing here and would refuse a genuine second answer from the paired seat.
+    auftrag: { bewerbungId: antwort.bewerbung_id, anlass: vollstaendig ? "vollstaendig" : "widerspruch" },
+    recipients: [
+      { address: antwort.ansprechperson_email, rollen: antwort.ansprechperson_rollen, rollenText: rollenText(antwort.ansprechperson_rollen) },
+    ],
     buildMail: (rollen) =>
       vollstaendig
         ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, origin: origin, rollenText: rollen })

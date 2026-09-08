@@ -17,6 +17,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
 | [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
 | [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                   | The one call that answers it, and what each answer means       |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
 
 ---
 
@@ -701,3 +702,24 @@ before looking at the backend.
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
 frontend service arms a fresh one, and the clocks are date-selected, so the pass that follows does
 whatever the missed days owed.
+
+## 10. The mail provider's dashboard
+
+**None of this is in the repository**, and the webhook is inert until it is done. Every step below
+is taken by hand in the mail provider's own console.
+
+1. Create an endpoint at `https://<the league's domain>/api/mail/zustellung`.
+2. Subscribe exactly six events -- `email.delivered`, `email.bounced`, `email.complained`,
+   `email.suppressed`, `email.failed` and `email.delivery_delayed` -- and **neither `email.opened`
+   nor `email.clicked`**, which the published notice promises are not measured
+   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
+3. Copy the signing secret into the frontend's environment as `RESEND_WEBHOOK_SECRET`. **It begins
+   `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
+   the boot check does not, deliberately -- refusing at start beats answering 400 to every event.
+4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
+   step 2.
+
+**The failure mode is silent and then abrupt.** About thirty-two hours of non-200 answers disables
+the endpoint and notifies the account; nothing in the product reports it, and re-enabling is done
+here by hand. A frontend that boots without the secret crash-loops rather than answering, which is
+the boot check doing its job.

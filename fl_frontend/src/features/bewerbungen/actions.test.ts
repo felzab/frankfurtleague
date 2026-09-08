@@ -75,8 +75,17 @@ const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefus
 const erneutSatz = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
 /** What the re-send runs after its own write, which is where the minted token is spent. */
 const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
-/* The re-send is the last declaration in the module, so its slice runs to the end of the file. */
-const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", null);
+const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
+
+const KORREKTUR_MAPPER = sliceBetween(ACTIONS, "function mapKontaktEmailRefusal", "export async function kontaktEmailKorrigierenAction");
+/* The correction is the last declaration in the module, so its slice runs to the end of the file. */
+const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", null);
+
+/** The one field of a submitted application an administrator may move, in the backend's own spelling. */
+const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
+
+/** Every code the correction answers, read off its own switch rather than the re-send's. */
+const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 /**
  * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
@@ -722,19 +731,26 @@ describe("a message that cannot be sent", () => {
       node.forEachChild(walk);
     });
 
-    // The exact count rather than a floor: each of the two is judged by its own rule below, and a
-    // third reader is a path whose side of the write nobody has decided.
-    assert.equal(reads.length, 2, `expected two club-name readers, found ${String(reads.length)}`);
+    // The exact count rather than a floor: each reader is judged by its own rule below, and a
+    // further one is a path whose side of the write nobody has decided.
+    assert.equal(reads.length, 3, `expected three club-name readers, found ${String(reads.length)}`);
 
     const nachDemSchreiben = reads.find((read) => read.holder === "notifyBewerbung");
     assert.ok(nachDemSchreiben?.guarded, "a failed club read reports a committed decision as one that did not happen");
 
-    const vorDemMint = reads.find((read) => read.holder === "einwilligungErneutSendenAction");
-    assert.ok(vorDemMint, "the re-send reads the club's name outside the action that mints, where a throw costs a link");
-    assert.ok(
-      vorDemMint.at < ACTIONS.indexOf("await erneutSendenEinwilligung("),
-      "the re-send reads the club's name after spending the seat's link on a message it may not be able to compose",
-    );
+    // Both of the two that mint: each reads before its own write, where a throw has cost nothing.
+    for (const [holder, schreiben] of [
+      ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
+      ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
+    ] as const) {
+      const vorDemMint = reads.find((read) => read.holder === holder);
+
+      assert.ok(vorDemMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
+      assert.ok(
+        vorDemMint.at < ACTIONS.indexOf(schreiben),
+        `${holder} reads the club's name after spending the seat's link on a message it may not be able to compose`,
+      );
+    }
   });
 
   /* What the administrator is left with: the decision is taken, nobody was written to, and the only
@@ -920,5 +936,134 @@ describe("the re-sent confirmation link", () => {
   it("invalidates nothing, and says why", () => {
     assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
     assert.match(ERNEUT_ACTION, /Nothing to invalidate/, "the re-send no longer says why it invalidates nothing");
+  });
+});
+
+describe("the corrected contact address", () => {
+  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
+     green, and this endpoint's operation string is the backend's to spell. */
+  it("finds rules declared against the endpoint it addresses", () => {
+    assert.ok(declaredCodes(KORREKTUR_OPERATION).length > 0, `no rule is declared against ${KORREKTUR_OPERATION}`);
+  });
+
+  it("maps every code the correction declares", () => {
+    for (const code of declaredCodes(KORREKTUR_OPERATION)) {
+      assert.ok(korrekturCodes.includes(code), `${code} is declared against the correction and reaches the admin unmapped`);
+    }
+  });
+
+  it("maps no code the backend does not declare at all", () => {
+    for (const code of korrekturCodes) {
+      assert.ok(
+        DECLARED_RULES.some((rule) => rule.code === code),
+        `${code} is mapped by the correction and declared by no rule`,
+      );
+    }
+  });
+
+  it("addresses its own endpoint, with the seat in the path and the address in the body", () => {
+    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}\/email`/, "the correction no longer addresses its own endpoint");
+    assert.match(MUTATIONS, /body: JSON\.stringify\(\{ email: email \}\)/, "the correction sends something other than the address alone");
+  });
+
+  /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
+     address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
+  it("mails the address the write stored, never the one the read still holds", () => {
+    assert.match(
+      KORREKTUR_ACTION,
+      /email: validated\.data\.email/,
+      "the correction composes its message against the address the application held before the write",
+    );
+  });
+
+  /* The address IS corrected whatever the message did, so a failure arm here would tell the
+     administrator to try a correction that has already happened. */
+  it("reports a corrected address whose message did not go as a correction that stands", () => {
+    assert.match(KORREKTUR_ACTION, /success: true, verschickt: false/, "a refused send reports the correction as one that did not happen");
+    assert.ok(!KORREKTUR_ACTION.includes("success: false, error: zustellung.error"), "the correction takes the re-send's failure arm");
+  });
+
+  /* Rulings 76 and 91: one press writes every seat the person holds, so the message names both or a
+     reader goes looking for a second link that will never come. */
+  it("names every seat of a mirrored pair in the message it sends", () => {
+    assert.match(
+      KORREKTUR_ACTION,
+      /sitze: gepaarteSitze\(bewerbung, validated\.data\.rolle\)/,
+      "the correction names one seat of a mirrored pair",
+    );
+  });
+
+  it("invalidates nothing, and says why", () => {
+    assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
+    assert.match(KORREKTUR_ACTION, /Nothing to invalidate/, "the correction no longer says why it invalidates nothing");
+  });
+
+  /* The sentence stood when nothing edited an application. With the control beside it there is a way
+     out, and a refusal naming none sends the administrator to another channel for nothing. */
+  it("sends the administrator to the correction where a seat carries no address at all", () => {
+    assert.match(erneutSatz("KEINE_ADRESSE"), /Trage zuerst eine ein/, "the empty-address refusal still names no way out");
+  });
+});
+
+/* Read rather than rendered, for the reason `STRIP`'s own declaration above gives: this component
+   holds a `useRouter`, which the test runner has no router for. */
+describe("the seat row's correction control", () => {
+  /* One condition for both, because the correction ends in a re-sent link: a seat no link can reach
+     has nothing to correct towards, and a second condition would arm one of the two alone. */
+  it("stands under the re-send's own condition, and closes while a send is in flight", () => {
+    assert.match(STRIP, /hatAngebot=\{isOpen && angebot\.has\(sitz\.rolle\)\}/, "the two controls no longer share one condition");
+    assert.equal(STRIP.match(/hatAngebot && !bearbeitet &&/g)?.length, 2, "the pencil and the re-send no longer stand under one gate");
+    assert.match(STRIP, /aria-label=\{`E-Mail-Adresse von \$\{sitz\.nameSatz\} korrigieren`\}/, "the pencil names nobody it edits");
+  });
+
+  /* `docs/frontend/spec.md :: I66` gives a panel one action row, and a second open editor would put
+     two: three rows each holding a draft is three ways to leave one unsaved. */
+  it("is one editor for the whole strip rather than one per row", () => {
+    assert.match(STRIP, /useState<KontaktRolle \| null>\(null\)/, "the strip holds something other than one editor slot");
+    assert.match(STRIP, /\{bearbeitet && \(/, "the editor is mounted whether or not its row is the open one");
+  });
+
+  /* A press that corrects nothing is a re-send wearing another name, and the re-send has its own
+     control; the hint beneath says what opens it (`docs/frontend/spec.md` §1.12). */
+  it("closes the press until the address has actually moved", () => {
+    assert.match(STRIP, /gleicheAdresse\(email, gespeicherteAdresse \?\? ""\)/, "the press is open on the address the row already shows");
+    assert.match(STRIP, /Gib zuerst eine andere E-Mail-Adresse ein\./, "the closed press names nothing that would open it");
+    assert.match(STRIP, /aria-describedby=\{unveraendert \? hinweisId : undefined\}/, "the closed press points at no reason");
+  });
+
+  /* `.claude/rules/frontend.md` **forms**: a message between two keystrokes describes a value nobody
+     finished entering, so the field is judged when it is left and at the press. */
+  it("judges the typed address on blur and at the press, through the shared mechanism", () => {
+    assert.match(STRIP, /useDraftFieldErrors\(\{/, "the editor judges its field with something other than the shared hook");
+    assert.match(
+      STRIP,
+      /onBlur=\{\(\) => \{\s*validatePaths\("korrektur", payload, \["email"\]\);/,
+      "the field is no longer judged when it is left",
+    );
+    assert.match(STRIP, /guardSubmit\(\{ korrektur: payload \}, \(\) => void schreibe\(\)\)/, "the press writes without the submit gate");
+  });
+
+  /* Refused by the backend regardless; judged here so the administrator is told at the field rather
+     than by a round trip, and the mirrored pair is excepted as the submission excepts it. */
+  it("refuses an address another seat of the application holds", () => {
+    assert.match(
+      STRIP,
+      /belegteAdressen\.some\(\(belegt\) => gleicheAdresse\(email, belegt\)\)/,
+      "an address another person holds reaches the write",
+    );
+    assert.match(STRIP, /!sindEinePerson\(andere, sitz\)/, "the mirrored pair is refused its own address");
+  });
+
+  /* A keyboard user whose focused input has just unmounted is otherwise dropped on the document
+     body, with nothing announcing where focus went. */
+  it("returns focus to the pencil when the editor closes", () => {
+    assert.match(STRIP, /stiftRef\.current\?\.focus\(\)/, "focus is left wherever the unmounted field was");
+  });
+
+  /* Ruling 78: a grey chip on a coloured row reads as a control that has been switched off, and this
+     one is the row's most actionable fact. */
+  it("grades a refused delivery with a tone rather than leaving it neutral", () => {
+    assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
+    assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");
   });
 });

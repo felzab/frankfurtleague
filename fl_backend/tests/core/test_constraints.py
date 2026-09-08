@@ -16,6 +16,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchule,
     FLBewerbungStatus,
     FLBewerbungTrikot,
+    FLBewerbungZustellstand,
 )
 from app.api.saisons.schemas import (
     FLSaison,
@@ -305,6 +306,11 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Nullable for a reason the two above do not share: holding no role is the ordinary state, and
     # a row predating the field carries no key at all.
     (Collection.SAISON_SPIELER, (), "rolle", get_args(FLSpielerRolle), True),
+    # One row per seat, as the confirmation block's own enums are: the validator declares the state
+    # three times over, and a sub-schema shared in Python is still three paths to the drift walk.
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
 ]
 
 

@@ -2,7 +2,7 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLBewerbung } from "./schemas";
+import type { FLBewerbung, FLBewerbungZustellung } from "./schemas";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
 type BewerbungSitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;
@@ -23,8 +23,15 @@ export type SitzBestaetigung = {
   name: string | null;
   /** The person in the seat, or how it came to be empty — the two ways differ in what the league did. */
   nameSatz: string;
+  /** The address the seat's links go to, and the one field of a submitted application an administrator may correct. */
+  email: string | null;
   zugleichTrainer: boolean;
   stand: Stand;
+  /**
+   * What became of the last message to this seat, `null` while nothing is known. **Beside `stand`
+   * and never inside it**: a seat can be `bestaetigt` and have had an earlier link bounce.
+   */
+  zustellung: FLBewerbungZustellung | null;
   /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
   satz: string;
 };
@@ -68,8 +75,12 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze): SitzBestaetigung[
       label: label,
       name: name,
       nameSatz: name ?? leerSatz(stand),
+      // The empty string is what the form stores where nobody typed one, and a row cannot offer to
+      // correct or re-send against it: both surfaces read `null` as "no address at all".
+      email: person === null || person.email === "" ? null : person.email,
       zugleichTrainer: kontakte.trainer_ist_zugleich === value,
       stand: stand,
+      zustellung: verlauf?.zustellung ?? null,
       satz: standSatz(stand),
     };
   });
@@ -129,6 +140,14 @@ export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
   const gepaart = wartend.some((sitz) => sitz.rolle === "trainer");
 
   return new Set(wartend.filter((sitz) => !(gepaart && sitz.zugleichTrainer)).map((sitz) => sitz.rolle));
+}
+
+/**
+ * Whether two seats are one person, read off the claim `trainer_ist_zugleich` records. The one
+ * exception the submission's duplicate-address rule makes, and so the one this side must make too.
+ */
+export function sindEinePerson(a: SitzBestaetigung, b: SitzBestaetigung): boolean {
+  return (a.rolle === "trainer" && b.zugleichTrainer) || (b.rolle === "trainer" && a.zugleichTrainer);
 }
 
 /**

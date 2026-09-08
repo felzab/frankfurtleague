@@ -200,7 +200,18 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   (`:: compose_erinnerung_update`), so the period runs from the last replacement rather than from
   the submission. This is the period the published notice shows a visitor
   (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this section: every
-  figure in it is a hand-checked mirror of the clocks recorded here.
+  figure in it is a hand-checked mirror of the clocks recorded here. **An application whose deletion notice the
+  provider refuses is held past that window rather than erased** (ruling 182,
+  `docs/backend/spec.md :: I196`): the provider accepts a send to a suppressed address and skips
+  it, so erasing on a stamp saying the notice went out is erasing somebody who was told nothing,
+  which is what ruling 87 refuses. It stands until an administrator enters a reachable address or
+  decides the application. Ruled 2026-09-08.
+- **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
+  reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
+  six delivery events are subscribed and `email.opened` and `email.clicked` are not
+  ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
+  half of that). The delivery state is stored beside the seat it was sent to and is erased with the
+  application (`docs/glossary.md :: Zustellstand`). Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks

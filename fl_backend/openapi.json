@@ -4376,6 +4376,71 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
+      "post": {
+        "summary": "Correct one contact person's email address and re-send their link",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe ONE field of a submitted application an administrator may rewrite, and the only repair there is for a link\nthe mail provider will not carry: everything else the school typed stays the record the decision is taken\nagainst. Where one person holds two seats both are corrected, as a re-send replaces both, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on a seat already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm (`REQ-BEWERBUNG-011`), and on an\naddress another contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is\na 404.",
+        "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungKontaktEmailPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/kontakte/erasure/ansicht": {
       "post": {
         "summary": "Show whom an erasure would reach",
@@ -4780,7 +4845,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -4826,7 +4891,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
       "post": {
         "summary": "Stamp the candidates whose notice was delivered",
-        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. 404 where no season has the id. An empty list answers zero.",
+        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this\ncall is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty\nlist answers zero.",
         "operationId": "angekuendigt_bewerbungen_api_v0_bewerbungen_sweep__saison_id__angekuendigt_post",
         "security": [
           {
@@ -4882,7 +4947,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
       "post": {
         "summary": "Erase the notified deletion candidates",
-        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding AND carrying the\nannouncement stamp is erased, so an application confirmed and accepted between the calls survives, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.",
+        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the\nmail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between\nthe calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.",
         "operationId": "loeschen_bewerbungen_api_v0_bewerbungen_sweep__saison_id__loeschen_post",
         "security": [
           {
@@ -4932,6 +4997,96 @@
             }
           }
         },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/bewerbungen/zustellung/angenommen": {
+      "post": {
+        "summary": "Record the message the provider accepted for these seats",
+        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than what the seat already holds, so a call retried after a\nlater one landed writes nothing. A seat the application does not hold -- erased, or never mailed -- is skipped\nrather than refused, and the answer names the seats that were written. 404 where no application has the id.",
+        "operationId": "angenommen_zustellung_api_v0_bewerbungen_zustellung_angenommen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/bewerbungen/zustellung": {
+      "post": {
+        "summary": "Apply one delivery event to the seats its message was sent to",
+        "description": "Record what the mail provider reported about one message, on every seat that message was sent to.\n\nApplied only where the event names the message the seat still holds AND is stamped strictly later than the state\nit holds: a re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or\nan event overtaken by a later one changes nothing. Both are answered with the seats written -- none, where nothing\nqualified -- rather than with a refusal, because the provider retries anything but a success and would resend a\nsettled event for hours.\n\n404 where no application has the id, which an application erased between the send and the event is: a caller that\nmust not retry maps it rather than repeating the call.",
+        "operationId": "post_zustellung_api_v0_bewerbungen_zustellung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungZustellungEreignisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "x-fl-tier": "system"
       }
     },
@@ -5763,7 +5918,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: only `status`, `entscheidung` and `team_id` move, and only\nthrough the two triage endpoints."
+        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a seat's `email` through\n`app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` alone."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -5839,6 +5994,16 @@
               }
             ],
             "title": "Abgelehnt Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -6104,6 +6269,10 @@
             "type": "boolean",
             "title": "Whatsapp"
           },
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -6156,6 +6325,7 @@
           "ausstehend",
           "geburtsdatum",
           "whatsapp",
+          "bewerbung_id",
           "saison_id",
           "rolle",
           "vorname",
@@ -6374,6 +6544,70 @@
         ],
         "title": "FLBewerbungKeinFensterResponse",
         "description": "A season that records no application window: its id, and nothing else about it.\n\n`docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps."
+      },
+      "FLBewerbungKontaktEmailPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLBewerbungKontaktEmailPayload",
+        "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten."
+      },
+      "FLBewerbungKontaktEmailResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "rollen",
+          "token",
+          "bestaetigungsfrist"
+        ],
+        "title": "FLBewerbungKontaktEmailResponse",
+        "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."
       },
       "FLBewerbungKontaktePayload": {
         "properties": {
@@ -7174,6 +7408,191 @@
           "wunschfarbe"
         ],
         "title": "FLBewerbungTrikotPayload"
+      },
+      "FLBewerbungZustellung": {
+        "properties": {
+          "nachricht_id": {
+            "type": "string",
+            "title": "Nachricht Id"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "angenommen",
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
+          "am": {
+            "type": "string",
+            "title": "Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nachricht_id",
+          "stand",
+          "grund",
+          "am"
+        ],
+        "title": "FLBewerbungZustellung",
+        "description": "What became of the last message to one seat.\n\nInside the seat's block rather than a collection of its own: an erasure empties that block, so\nthis goes with the person it is about."
+      },
+      "FLBewerbungZustellungAngenommenPayload": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "nachricht_id",
+          "am"
+        ],
+        "title": "FLBewerbungZustellungAngenommenPayload",
+        "description": "One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state."
+      },
+      "FLBewerbungZustellungEreignisPayload": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "nachricht_id",
+          "am",
+          "stand",
+          "grund"
+        ],
+        "title": "FLBewerbungZustellungEreignisPayload",
+        "description": "One delivery event about a message this application's seats were sent."
+      },
+      "FLBewerbungZustellungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angewendet": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Angewendet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angewendet"
+        ],
+        "title": "FLBewerbungZustellungResponse",
+        "description": "Which seats the write reached, empty where the event was about a message no seat still holds.\n\nEmpty rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
       },
       "FLBewerbungenListResponse": {
         "properties": {

@@ -237,6 +237,9 @@ const UNDRAW_HAS_NO_FIELDS =
  */
 const RECORD_ITSELF = "the record's own path: refusable only on a shape the typed payload cannot build";
 
+/** The row's own identity, travelling in the path as the re-send's does; the surface renders one input. */
+const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the path rather than typed";
+
 /** Opaque to this side: the page carries it from the read to the save and never composes one. */
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
 
@@ -265,6 +268,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
   FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
+  FLBewerbungKontaktEmailPayloadSchema: { id: THE_ROWS_OWN_IDENTITY, rolle: THE_ROWS_OWN_IDENTITY },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },

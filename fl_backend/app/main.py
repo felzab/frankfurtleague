@@ -9,6 +9,7 @@ from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwil
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
+from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
@@ -62,7 +63,7 @@ WRITE_ROUTERS = (
 PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
 # Its own group for the same reason: system-tier writes, made by the application to itself, which
 # neither tuple above describes.
-SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router,)
+SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).

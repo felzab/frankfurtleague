@@ -137,9 +137,12 @@ async def sweep_saison(
     Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
 
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
-    person one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only
+    person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
+    mail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only
     LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
-    delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The
+    delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
+    Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
+    correct the address, because erasing it would destroy a school's application with nobody told. The
     declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
     404 where no season has the id. Idempotent per day: a second run finds nothing left to do.
 
@@ -381,7 +384,9 @@ async def angekuendigt_bewerbungen(
     Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
 
     The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
-    already carrying a stamp keeps the day it has. 404 where no season has the id. An empty list answers zero.
+    already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this
+    call is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty
+    list answers zero.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -432,8 +437,9 @@ async def loeschen_bewerbungen(
     """
     Erase the applications whose deletion notice went out, and redact every log row naming them.
 
-    The ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding AND carrying the
-    announcement stamp is erased, so an application confirmed and accepted between the calls survives, and an id from another
+    The ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the
+    mail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between
+    the calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another
     season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
     """
 

@@ -94,6 +94,28 @@ export const FLBewerbungEntscheidungSchema = z.object({
 export type FLBewerbungEntscheidung = z.infer<typeof FLBewerbungEntscheidungSchema>;
 
 /**
+ * Mirrors `FLBewerbungZustellstand`. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
+ * can have confirmed from an address an earlier link bounced at, and folding the two would lose it.
+ */
+export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
+  error: "Diesen Zustellstand gibt es nicht.",
+});
+export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
+
+/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
+export const FLBewerbungZustellungSchema = z.object({
+  // The provider's own id for that message. An event naming another one is about a message a
+  // re-send has already replaced, and marking this seat from it would grade the wrong link.
+  nachricht_id: z.string(),
+  stand: FLBewerbungZustellstandSchema,
+  // The provider's stable token, never its prose, which quotes the recipient's address.
+  grund: z.string().nullable(),
+  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
+  am: z.string(),
+});
+export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
+
+/**
  * Mirrors one seat's confirmation history. No `token_hash`: the credential is written as a raw
  * document key and read only by the confirm query, so no read model carries it and neither may this.
  */
@@ -101,6 +123,9 @@ export const FLBewerbungBestaetigungSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   erinnert_am: CustomDateStringSchema.nullable(),
   abgelehnt_am: CustomDateStringSchema.nullable(),
+  // Null on a seat no message has been accepted for, which is every seat stored before this block
+  // shipped: an absent state is "nothing is known", never "delivered".
+  zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLBewerbungBestaetigung = z.infer<typeof FLBewerbungBestaetigungSchema>;
 
@@ -113,8 +138,9 @@ export const FLBewerbungBestaetigungenSchema = z.object({
 export type FLBewerbungBestaetigungen = z.infer<typeof FLBewerbungBestaetigungenSchema>;
 
 /**
- * Mirrors `FLBewerbung` — one school's application to play one season, as it is stored. The submission
- * is never rewritten: only `status`, `entscheidung` and `team_id` move, through the two triage endpoints.
+ * Mirrors `FLBewerbung` — one school's application to play one season, as it is stored. What the
+ * school typed stands, bar four fields: `status`, `entscheidung` and `team_id` through the triage,
+ * and a contact seat's `email` through the correction beside the re-send.
  */
 export const FLBewerbungSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -354,7 +380,7 @@ const KONTAKT_PAARE = [
 ] as const;
 
 /** A person retyping their own address is the same person, whatever the case and the surrounding space. */
-const gleicheAdresse = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase() && a.trim() !== "";
+export const gleicheAdresse = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase() && a.trim() !== "";
 
 // Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 // start with `49` -- so the order carries nothing.
@@ -697,9 +723,10 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
-  // The five below are the route handler's alone: `fl_frontend/src/app/api/bestaetigung/route.ts`
+  // The seven below are the route handler's alone: `fl_frontend/src/app/api/bestaetigung/route.ts`
   // composes the two outbound messages from them and answers the browser the four above, so no
   // contact person is handed another one's address.
+  bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rolle: FLKontaktRolleSchema,
   vorname: z.string(),
@@ -724,6 +751,64 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungKontaktEmailPayload` — the one field of a submitted application an
+ * administrator may rewrite. `id` and `rolle` travel in the path, as the re-send's do.
+ */
+export const FLBewerbungKontaktEmailPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  rolle: FLKontaktRolleSchema,
+  // The submission's own two sentences, so one address is judged alike wherever it is typed.
+  email: z
+    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
+    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+});
+export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
+
+/**
+ * Mirrors `FLBewerbungKontaktEmailResponse`. **`rollen` and not the re-send's `rolle`**: one
+ * correction moves every seat that mailbox holds, and the one message has to name all of them.
+ */
+export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.extend({
+  email: z.string(),
+  rollen: z.array(FLKontaktRolleSchema),
+  token: z.string(),
+  bestaetigungsfrist: CustomDateStringSchema,
+});
+export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
+ * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
+ */
+export const FLBewerbungZustellungAngenommenPayloadSchema = z.object({
+  bewerbung_id: CustomObjectIdStringSchema,
+  // Plural because one message answers a mirrored pair, and both seats' links stand or fall with it.
+  rollen: z.array(FLKontaktRolleSchema).min(1),
+  nachricht_id: z.string(),
+  am: z.string(),
+});
+export type FLBewerbungZustellungAngenommenPayload = z.infer<typeof FLBewerbungZustellungAngenommenPayloadSchema>;
+
+/** Mirrors `FLBewerbungZustellungEreignisPayload` — one event the provider sent about a message already recorded. */
+export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
+  bewerbung_id: CustomObjectIdStringSchema,
+  rollen: z.array(FLKontaktRolleSchema).min(1),
+  nachricht_id: z.string(),
+  // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
+  // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
+  stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
+  grund: z.string().nullable(),
+  am: z.string(),
+});
+export type FLBewerbungZustellungEreignisPayload = z.infer<typeof FLBewerbungZustellungEreignisPayloadSchema>;
+
+/** Which seats the write reached. An empty list is a superseded message or an event already answered, and is not a refusal. */
+export const FLBewerbungZustellungResponseSchema = BaseAPIResponseSchema.extend({
+  angewendet: z.array(FLKontaktRolleSchema),
+});
+export type FLBewerbungZustellungResponse = z.infer<typeof FLBewerbungZustellungResponseSchema>;
 
 /** One LINK a reminder carries. The token is raw and lives in that response and the message alone. */
 export const FLBewerbungSweepSeatSchema = z.object({

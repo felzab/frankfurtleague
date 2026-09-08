@@ -197,6 +197,25 @@ _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, prop
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
+# The six a seat's delivery state may read. `angenommen` is the provider ACCEPTING the request,
+# which is all a send ever learns; the other five are what a delivery event reports.
+_BEWERBUNG_ZUSTELLSTAENDE = ["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+
+# What became of the last message to one seat. Required TOGETHER as `_EINWILLIGUNG` is: the write
+# condition is an ordering, and a state carrying no stamp orders against nothing.
+_BEWERBUNG_ZUSTELLUNG = _object(
+    nullable=True,
+    required=("nachricht_id", "stand", "grund", "am"),
+    properties={
+        "nachricht_id": {"bsonType": "string"},
+        "stand": {"bsonType": "string", "enum": _BEWERBUNG_ZUSTELLSTAENDE},
+        "grund": {"bsonType": _STRING_OR_NULL},
+        # An INSTANT where every other stamp here is a date: two events about one message share a
+        # day, and only sub-day ordering makes a redelivery a no-op.
+        "am": {"bsonType": "string"},
+    },
+)
+
 # One seat's confirmation bookkeeping. `token_hash` is here and on NO model: a raw document key the
 # confirm query alone reads. Nullable per seat, as the slot beside it is: an erasure empties the one
 # naming the person.
@@ -211,6 +230,9 @@ _BEWERBUNG_BESTAETIGUNG = _object(
         "verschickt_am": {"bsonType": "string"},
         "erinnert_am": {"bsonType": _STRING_OR_NULL},
         "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `token_hash_zuvor`'s reason: the first mint knows nothing yet about
+        # the message its link goes out in, and a re-send writes a fresh entry carrying none.
+        "zustellung": _BEWERBUNG_ZUSTELLUNG,
     },
 )
 

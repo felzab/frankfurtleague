@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { bestaetigungsStand, endstand, gepaarteSitze, istOffen, linkAngebot, zusageHindernis } from "./bestaetigungStand.ts";
+import { bestaetigungsStand, endstand, gepaarteSitze, istOffen, linkAngebot, sindEinePerson, zusageHindernis } from "./bestaetigungStand.ts";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
-import type { FLBewerbung, FLBewerbungBestaetigung } from "./schemas.ts";
+import type { FLBewerbung, FLBewerbungBestaetigung, FLBewerbungZustellstand } from "./schemas.ts";
 
 type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;
 type Person = FLBewerbung["kontakte"]["trainer"];
@@ -31,8 +31,14 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
 /** A club the application names, so a case about seats is not answered by the club rule ahead of them. */
 const TEAM = "Lessing-Kolleg";
 
-const OFFEN: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null };
-const ABGELEHNT: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: "2026-09-04" };
+const OFFEN: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const ABGELEHNT: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: "2026-09-04", zustellung: null };
+
+/** What the last message to a seat reached, as the provider's events leave it. */
+const zugestellt = (stand: FLBewerbungZustellstand): FLBewerbungBestaetigung => ({
+  ...OFFEN,
+  zustellung: { nachricht_id: "56761188-7520-42d8-8898-ff6fc54ce618", stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" },
+});
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
 function sitze({
@@ -297,6 +303,55 @@ describe("the two seats one person holds", () => {
 
   it("are one seat where no claim was made", () => {
     assert.deepEqual(gepaarteSitze(sitze(), "trainer"), ["trainer"]);
+  });
+
+  /* The correction refuses an address another PERSON holds, and the pair is one person: refusing it
+     there would leave the mirrored seats unable to move to a new address at all. */
+  it("are the one pair the duplicate-address rule excepts", () => {
+    const staende = staendeOf(PAAR);
+    const [ansprechperson, stellvertretung, trainer] = ["ansprechperson", "stellvertretung", "trainer"].map((rolle) =>
+      sitzOf(staende, rolle as KontaktRolle),
+    );
+
+    assert.equal(sindEinePerson(ansprechperson!, trainer!), true);
+    assert.equal(sindEinePerson(trainer!, ansprechperson!), true);
+    assert.equal(sindEinePerson(stellvertretung!, trainer!), false);
+    assert.equal(sindEinePerson(ansprechperson!, stellvertretung!), false);
+  });
+});
+
+describe("what became of the last message to a seat", () => {
+  /* `Stand` is what the PERSON did and this is what the provider did, so a seat that confirmed from
+     an address an earlier link bounced at has to be able to say both. Folded into one, it cannot. */
+  it("stands beside the seat's own answer rather than inside it", () => {
+    const bestaetigtNachBounce = sitze({
+      ansprechperson: person("Anna", "2026-09-02"),
+      bestaetigungen: { ansprechperson: zugestellt("unzustellbar"), stellvertretung: OFFEN, trainer: OFFEN },
+    });
+
+    const sitz = sitzOf(staendeOf(bestaetigtNachBounce), "ansprechperson");
+
+    assert.equal(sitz.stand.art, "bestaetigt");
+    assert.equal(sitz.zustellung?.stand, "unzustellbar");
+  });
+
+  it("is null on a seat no message has been accepted for", () => {
+    assert.equal(sitzOf(staendeOf(sitze()), "ansprechperson").zustellung, null);
+  });
+
+  /* The address is the value the correction control edits and the thing the delivery chip is about,
+     so the row reads it off the seat rather than off a second read of the application. */
+  it("carries the address the seat's links go to", () => {
+    assert.equal(sitzOf(staendeOf(sitze()), "ansprechperson").email, "anna@schule.example");
+  });
+
+  /* The form stores the empty string where nobody typed an address, and a row offering to re-send
+     against one would arm a control that cannot succeed. */
+  it("reads an address nobody typed as none at all", () => {
+    const leer = sitze({ ansprechperson: { ...person("Anna", null)!, email: "" } });
+
+    assert.equal(sitzOf(staendeOf(leer), "ansprechperson").email, null);
+    assert.equal(sitzOf(staendeOf(ERASED), "ansprechperson").email, null);
   });
 });
 

@@ -197,6 +197,15 @@ write may happen ([`docs/backend/spec.md`](../backend/spec.md) §1.1). The confi
 credential is the emailed token, sent in the body: the link's GET writes nothing, because a mail
 scanner's GET and a reader's are one request to the same-origin guard.
 
+**The provider's delivery webhook (`fl_frontend/src/app/api/mail/zustellung/route.ts`) takes neither
+spine, and is the one route handler here that answers a status a caller reads.**
+`handlePublicRequest` always answers 200 with the outcome in the body, which is right for a browser
+form and wrong for a caller that retries on non-200 — it would tell the provider that a forgery and
+an unreachable backend were both accepted. Its `sec-fetch-site` guard means nothing for a
+server-to-server POST besides. Its own credential is the Svix signature over the raw bytes, which is
+why the handler reads `request.text()` rather than `request.json()`: the signature is over the exact
+bytes and a re-serialised body verifies against nothing.
+
 **What puts a public write in a route handler is the answer it has to tell apart, never the absent
 session**: `handleSignIn` authorizes nobody either and stays a server action, one neutral sentence
 being its whole answer, so an unreadable one costs it nothing. A public write owes two answers: a
@@ -480,6 +489,7 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                          |
 | `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                 |
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
+| `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                            |
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
@@ -1405,6 +1415,7 @@ holds whether a conditional block renders or not
 | I186 | **A message's links stand on `AUTH_URL`'s origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`**: one variable behind both puts an environment-read origin before a crawler                                                           | `fl_frontend/src/core/emailShell.ts :: mailOrigin`; `fl_frontend/src/core/emailShell.test.ts` sweeps every builder's close and `fl_frontend/src/features/bewerbungen/bestaetigungLink.test.ts` every minter's origin                                                                            |
 | I191 | Every `apiClient` call declares the tier `fl_backend/openapi.json` publishes for the operation it reaches; over-declaring is accepted in silence                                                                                           | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                      |
 | I194 | A facet marked `narrowsTheRead` navigates on a change and is given the server's counts, so an option the server left out stays pressable                                                                                                   | `fl_frontend/src/shared/utils/facets.ts :: Facet` and `:: isFacetOptionReachable`; `fl_frontend/src/shared/utils/facets.test.ts :: the counts a server-narrowed facet is told` sweeps every hop                                                                                                 |
+| I197 | The delivery webhook answers 400 for a signature it cannot verify, 503 where the backend is unreachable, and 200 for all else                                                                                                              | `fl_frontend/src/app/api/mail/zustellung/route.ts`; `fl_frontend/src/features/bewerbungen/zustellung.test.ts` drives each of the three                                                                                                                                                          |
 
 ## 3. Violation → remedy
 

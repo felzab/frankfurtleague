@@ -99,7 +99,6 @@ deliverable.
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                          | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                            | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                           | FE, Ops, gate, admin                                                        | Open     |
-| `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                        | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range         | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing            | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
@@ -947,47 +946,6 @@ figures predate this scheme, which moved them toward the floor without reaching 
 
 **Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
 rule stops being prose.
-
-### `ewf2-e2f3` · A confirmation or reminder link that bounces is written to the log and told to nobody
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
-
-**A refused send leaves a line that names no address, deliberately.**
-`fl_frontend/src/features/bewerbungen/notifications.ts :: settleFanOut` settles every recipient and
-writes `FE-MAIL-002` per failure carrying the operation and the error's name alone, because
-`docs/logging/spec.md :: L9` keeps a submitted value off the stream. The address is meant to reach a
-person by the other route:
-`fl_frontend/src/features/bewerbungen/notifications.ts :: describeBewerbungMail` names who was not
-reached, in the sentence an admin action appends to its report.
-
-**The link messages have nobody standing at that route.** The submission's links go out from
-`fl_frontend/src/app/api/bewerbung/route.ts` to a member of the public, the confirmation's two from
-`fl_frontend/src/app/api/bestaetigung/route.ts` to a contact person, and the reminder from
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung`, which returns nothing at all. Each
-discards the outcome, so a seat whose mailbox refuses its link stays outstanding for the whole span
-and is then deleted with the application it belongs to — and the first anyone hears of it is a school
-asking why nothing arrived.
-
-**A reminder is spent whether or not it arrives.** `docs/backend/spec.md :: I152` stamps
-`erinnert_am` and mints the fresh link before the caller mails, deliberately: mailing first would
-re-send to a refusing address every day the sweep runs. The cost that ordering accepts is one person
-one reminder — and because
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung` answers `void`, that cost is
-uncountable as well as unreported. The clock will not chase that seat again, the seat is outstanding
-still, and the deadline deletes the application on time.
-
-**The counter-example is in the same file.**
-`fl_frontend/src/features/bewerbungen/sweep.ts :: mailLoeschung` reads whether the deletion notice
-was delivered and withholds the erasure where it was not, because erasing somebody who was never told
-is the failure that clock exists to prevent. Nothing weighs a link mail the same way, and a seat
-nobody can reach is the same kind of loss one step earlier.
-
-**Done when** two things hold: an unreachable contact address reaches an administrator, the
-application's own admin page being where the triage already stands; and a reminder whose send was
-refused does not count as the one chase that seat gets. Neither is answerable by a log line, which
-L9 forbids naming the address in.
 
 ### `ex2m-qjkg` · The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range
 

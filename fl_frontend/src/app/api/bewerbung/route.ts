@@ -92,6 +92,9 @@ export async function POST(request: NextRequest) {
       // others theirs. The raw token reaches these two calls and no log line.
       await sendBewerbungLinkMail({
         operation: "postBewerbung",
+        // No idempotency key on either fan-out here: both messages carry links minted for this one
+        // submission, so no second send can ever compose the same body.
+        auftrag: { bewerbungId: eingang.created_id, anlass: "eingang" },
         recipients: verlinkt,
         buildMail: (seats) =>
           buildBewerbungBestaetigungEmail({
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
 
       await sendBewerbungMail({
         operation: "postBewerbung",
+        auftrag: { bewerbungId: eingang.created_id, anlass: "empfang" },
         // The Ansprechperson alone: this message names every seat still outstanding, and the
         // submitter is the one person who can ask a colleague in the corridor.
         recipients: collectBewerbungEingangEmpfaenger(kontakte),
