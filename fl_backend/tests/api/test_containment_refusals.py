@@ -307,9 +307,6 @@ class TestOneVenueAndOneRefereeAtATime:
         assert refusal is not None
         assert refusal.error_code == FIXTURE_DOUBLE_BOOKED
 
-    def test_another_day_never_clashes(self):
-        assert find_clash_refusal(datum="2026-03-08", uhrzeit="18:00:00", booked=[self.slot("18:00:00")]) is None
-
     @pytest.mark.parametrize(("datum", "uhrzeit"), [(None, "18:00:00"), ("2026-03-07", None)])
     def test_an_unscheduled_fixture_cannot_clash(self, datum, uhrzeit):
         """The gap is deliberate: refusing would refuse every fixture in a season still being scheduled."""

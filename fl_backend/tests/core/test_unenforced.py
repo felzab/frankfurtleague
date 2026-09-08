@@ -1,7 +1,7 @@
 import ast
 import inspect
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
 import pytest
 from bson import ObjectId
@@ -10,8 +10,8 @@ from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
-from app.api.saisons.services import SPIELPLAN_GRUPPEN_OFF_RULES, find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
+from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiel_paarung
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -44,8 +44,7 @@ from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
-from app.api.teams.schemas import FLGruppenNames
-from app.api.teams.services import ENTRY_GRUPPE_FULL, find_entry_refusal, find_gruppe_swap_refusal, offered_gruppen
+from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
 from tests.core.app_source import (
@@ -791,15 +790,28 @@ class TestAFutureSeasonHoldingRecordedResults:
         """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
 
         named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
-        # Nested scopes included: the endpoint runs most of these inside its transaction callback,
-        # and a sweep stopping at the outer body would find none of them and pass on emptiness.
+        # The shared writer rather than either route, and nested scopes included: both routes delegate
+        # their whole body to it, so a sweep over a route's own would find none of these and pass on
+        # emptiness -- which is what it did until the paarung route split the body out.
         run = {
             callee(call)
-            for _, call in calls_in(declared(patch_spiel_data), patch_spiel_data.__name__)
+            for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)
             if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
         }
 
         assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
+
+    def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
+        """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
+
+        for route in (patch_spiel_data, patch_spiel_paarung):
+            judged = {
+                callee(call)
+                for _, call in calls_in(declared(route), route.__name__)
+                if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
+            }
+
+            assert not judged, f"{route.__name__} judges {sorted(judged)} outside {_write_spiel_data.__name__}, where the sweep reads"
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
         """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
@@ -848,91 +860,3 @@ class TestAnAbandonedFixtureAndItsResult:
 
         assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
         assert "abgebrochen" not in SONDEREREIGNIS_WITHOUT_A_RESULT
-
-
-def _app_callers_of(called: str) -> set[str]:
-    """Every function under `app/` calling `called`.
-
-    Whole-tree rather than `_callers_of`'s one file: the refusal below is reached from two packages,
-    and one file's sweep would pass over the other in silence.
-    """
-
-    return {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) == called}
-
-
-# Every site reaching `find_entry_refusal`, which is one more than the sites reaching the write that
-# closes the race. Pinned rather than counted, because what this entry declares is exactly the
-# difference between the two sets.
-ENTRY_SITES = frozenset(
-    {
-        "app/api/teams/crud.py :: refuse_a_full_gruppe",
-        "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
-    }
-)
-
-# The choke point, and so the whole of what the entry endpoints reach the rule through.
-ENTRY_CHOKE_POINT = "app/api/teams/crud.py :: refuse_a_full_gruppe"
-
-
-def _draw(rules: FLSaisonRules, occupancy_by_gruppe: Mapping[FLGruppenNames, int]):
-    """A first draw of a season with everything but its group sizes in order, so a case names the occupancy alone."""
-
-    return find_spielplan_refusal(
-        saison_status="future",
-        fixtures_drawn=0,
-        spieltage_held=0,
-        watermark=None,
-        rules=rules,
-        occupancy_by_gruppe=occupancy_by_gruppe,
-        replace=False,
-        recorded_fixtures=0,
-    )
-
-
-class TestAGroupOverItsCapacity:
-    """That two writers holding one count both enter a group with one place left, and that the season they leave is one the draw refuses."""
-
-    def test_two_writers_holding_one_count_both_enter_a_group_with_one_place_left(self):
-        """The figure is the CALLER's, so two callers hold the same one and the rule answers each on its own."""
-
-        rules = _rules()
-        before = rules.teams_per_group - 1
-
-        for _ in range(2):
-            assert find_entry_refusal(saison_status="future", gruppe="A", rules=rules, occupied=before) is None
-
-        refusal = find_entry_refusal(saison_status="future", gruppe="A", rules=rules, occupied=before + 2)
-
-        assert refusal is not None and refusal.error_code == ENTRY_GRUPPE_FULL
-
-    def test_the_draw_refuses_the_season_the_pair_leaves(self):
-        """Why the over-count is not silent: it is read as a refusal naming the group before a fixture exists."""
-
-        rules = _rules()
-        at_size: dict[FLGruppenNames, int] = {gruppe: rules.teams_per_group for gruppe in offered_gruppen(rules.number_of_groups)}
-        oversold: dict[FLGruppenNames, int] = {**at_size, "A": rules.teams_per_group + 1}
-
-        assert _draw(rules, at_size) is None
-
-        refusal = _draw(rules, oversold)
-
-        assert refusal is not None and refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
-
-    def test_the_acceptance_is_the_one_site_reaching_the_rule_past_the_write_that_closes_it(self):
-        """The pair this entry is about, as a set difference: every other site judges the count behind the season's own write."""
-
-        assert _app_callers_of("find_entry_refusal") == ENTRY_SITES
-        assert _app_callers_of("find_entry_refusal") - {ENTRY_CHOKE_POINT} == {
-            "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school"
-        }
-
-    def test_no_index_reaches_the_group(self):
-        """A cap of N is beyond a unique index, which delivers at-most-one row per key."""
-
-        # The floor: `saison_teams` DOES carry a unique index, so the listing this reads answers
-        # something. Without it an emptied `UNIQUE_INDEXES` would pass the claim below over nothing.
-        assert "uniq_saison_id_team_id" in {index.name for index in UNIQUE_INDEXES}
-
-        covering = [index.name for index in UNIQUE_INDEXES if "gruppe" in index.keys]
-
-        assert not covering, f"{covering} would make the capacity a database guarantee, and this entry claims it is not"

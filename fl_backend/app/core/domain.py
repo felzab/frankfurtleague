@@ -1789,23 +1789,4 @@ UNENFORCED: tuple[Unenforced, ...] = (
         proven_by="tests/core/test_unenforced.py::TestAnAbandonedFixtureAndItsResult",
         surfaced_by="/admin/spiele/[spiel_id]",
     ),
-    Unenforced(
-        subject="a group taken over its capacity by an acceptance landing beside an entry",
-        reason=(
-            "A count is a READ, which no snapshot re-validates, so two writers judging one group pass one figure unless "
-            "something puts them in one write set. `app/api/teams/crud.py :: refuse_a_full_gruppe` is that write: it takes "
-            "the season's `bounded_writes` inside the caller's transaction, so the second entry conflicts, retries and "
-            "counts what the first left. `app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school` reaches "
-            "`app/api/teams/services.py :: find_entry_refusal` without going through it, and that ONE pair -- an acceptance "
-            "beside an entry or a group move -- is what this entry now covers; two entries, or two moves, are refused. "
-            "Nothing cheaper reaches it: a validator sees one document (`docs/backend/spec.md :: I16`), and a unique index "
-            "gives at-most-one row per key rather than at-most-N. THE STATE BLOCKS THE DRAW RATHER THAN SITTING UNDER IT: "
-            "`REQ-SPIELPLAN-004` refuses a season whose group is off `teams_per_group` and names the group and its count, "
-            "so an over-full group is read before a fixture exists. The repair is a move on `/admin/teams`, an austritt "
-            "freeing no place."
-        ),
-        near=("REQ-ENTER-003",),
-        proven_by="tests/core/test_unenforced.py::TestAGroupOverItsCapacity",
-        surfaced_by="/admin/teams",
-    ),
 )

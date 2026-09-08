@@ -17,6 +17,12 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..",
 const ACTION_COPY = ACTIONS.replaceAll(/" \+\s*"/g, "");
 
 /**
+ * The Regeln panel beside this one, read the same way. It holds the copy the refusal used to spell
+ * out, so the claims below span three files rather than two.
+ */
+const REGELN_COPY = readFileSync(path.resolve(import.meta.dirname, "FormRegelnSection.tsx"), "utf8").replaceAll(/" \+\s*"/g, "");
+
+/**
  * JSX's line breaks and its `{" "}` joins collapsed. **Every copy assertion reads this and not the
  * raw file**: Prettier rewraps a text node at will, so a sentence asserted as written would fail on a
  * reformat that changed nothing a reader sees.
@@ -114,21 +120,23 @@ describe("the undraw half of the Spielplan panel", () => {
     assert.match(HINWEIS, /über die Teamseite/);
   });
 
-  /* Two sites, one verb: `REQ-RULES-011`'s message tells an admin to take the Spielplan back, and
-     this control is what they then go looking for. Rename either alone and this fails. */
+  /* Three sites, one verb: `REQ-RULES-011`'s message sends an admin to the reloaded Regeln panel,
+     that panel names taking the Spielplan back, and this control is what they then go looking for.
+     Rename any one alone and the chain stops without a reader noticing. */
   it("carries the verb the rules refusal sends the admin looking for", () => {
-    assert.match(ACTION_COPY, /nimmst Du zuerst den Spielplan zurück/);
+    assert.match(ACTION_COPY, /im Abschnitt Regeln steht dann/);
+    assert.match(REGELN_COPY, /nimmst Du den Spielplan zurück/);
     assert.match(SOURCE, /"Spielplan zurücknehmen"/);
     assert.match(SOURCE, /"Ja, Spielplan zurücknehmen"/);
   });
 
-  /* The mapper holds only the refusal's code, so the sentence carries the condition and this panel
-     resolves it for the season in hand. Drop either half and a running season is sent to a control
-     it will find closed. */
+  /* The mapper holds only the refusal's code, so the Regeln panel resolves the window for the season
+     in hand and states whichever of its three cases holds. Drop the middle or the last case and a
+     running season is sent to a control it will find closed, with nothing on the page saying why. */
   it("states the window the repair it names runs in, and what holds outside it", () => {
-    assert.match(ACTION_COPY, /solange die Saison geplant ist und zu keinem Spiel etwas eingetragen ist/);
-    assert.match(ACTION_COPY, /für den Rest dieser Saison fest/);
-    assert.match(ACTION_COPY, /Im Abschnitt Spielplan/);
+    assert.match(REGELN_COPY, /lässt sich der Spielplan weder neu anlegen noch zurücknehmen/);
+    assert.match(REGELN_COPY, /nur, solange die Saison geplant ist/);
+    assert.match(REGELN_COPY, /Im Abschnitt Spielplan steht/);
   });
 
   /* Leave the armed label at "Ja, zurücknehmen" and this fails: on a danger panel a bare verb is

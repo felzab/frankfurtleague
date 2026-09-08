@@ -23,6 +23,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-RULES-010": "Diese Saison spielt eine KO-Runde, und das ursprüngliche Ergebnis für ein Nichtantreten bringt niemanden weiter.",
   "REQ-RULES-011": "Für diese Saison sind inzwischen Spiele angesetzt, deshalb stehen Gruppen, Teams pro Gruppe und Qualifikanten fest.",
   "REQ-RULES-012": "Die KO-Runde dieser Saison hat inzwischen begonnen, deshalb ist der Tiebreak festgeschrieben.",
+  "REQ-RULES-013":
+    "Aus den ursprünglichen Zahlen für Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann.",
 };
 
 /** The second half of every refusal above: a cause alone leaves the admin unsure what the season now holds. */

@@ -15,7 +15,7 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "u
 const HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
 const CREATE_OPERATION = "POST /saisons";
-const CREATE_CODES = ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010"];
+const CREATE_CODES = ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"];
 
 /* Several rules codes are answered TWICE in this file, once per mapper, so a search over the whole
    source is satisfied by whichever function happens to carry the arm. Every assertion below reads
@@ -123,6 +123,7 @@ describe("the saison actions against the backend's refusal register", () => {
       "REQ-RULES-010",
       "REQ-RULES-011",
       "REQ-RULES-012",
+      "REQ-RULES-013",
     ]);
     for (const code of declared) assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic conflict`);
   });
@@ -146,6 +147,7 @@ describe("the saison actions against the backend's refusal register", () => {
       "REQ-RULES-007",
       "REQ-RULES-008",
       "REQ-RULES-010",
+      "REQ-RULES-013",
       "REQ-SPIELPLAN-001",
       "REQ-SPIELPLAN-002",
       "REQ-SPIELPLAN-003",

@@ -76,9 +76,9 @@ it is never on its own proof that the document is absent.
 each set behave that way:
 
 - **A season patch replaces `rules` wholesale**, so `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
-  `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`, `REQ-RULES-011` and `REQ-RULES-012`
-  arrive on the edit that introduces or worsens the violation and let a resubmission of the stored values
-  through.
+  `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`, `REQ-RULES-011`, `REQ-RULES-012`
+  and `REQ-RULES-013` arrive on the edit that introduces or worsens the violation and let a resubmission
+  of the stored values through.
 - **A matchday patch carries `beginn` and `ende` together**, so an `ende`-only edit resubmits the stored
   `beginn` and `REQ-DATE-008` judges the pair.
 - **A match patch carries both `quelle` fields**, so `REQ-WIRING-001`, `REQ-WIRING-002` and `REQ-WIRING-003`
@@ -86,9 +86,13 @@ each set behave that way:
 
 **`REQ-RULES-011` composes a repair per field that moved**, the three fields it names not sharing one. The
 freeze is absolute on the patch, and **whether it is a dead end depends on the season**: both repairs run
-only while the season is planned and nothing is recorded against a fixture, so outside that window the
-refusal names the condition where it can still be met and the freeze where it cannot. Which route leads back
-for which field is [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
+only while the season is planned and nothing is recorded against a fixture. **The German an admin sees
+carries neither the window nor the repair**, and deliberately: the 409 arm holds only the code, so a
+sentence worded there could offer the reader a condition to evaluate and nothing more.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx :: SHAPE_NOTE`
+states whichever of the three cases holds for the season in hand, and the toast sends the reader there.
+Which route leads back for which field is
+[`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
 
 **`Worded by` cites the module answering a code with German rather than quoting the sentence.** The
 meaning is already in the column beside it and in `fl_backend/app/core/domain.py :: RULES`, and several
@@ -122,8 +126,9 @@ per-code sentence for a 500 would name a repair that does not exist.
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                                         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                                         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                                      | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
-| `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from; the refusal names the repair each moved field has            | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
+| `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from                                                               | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-012`       | 409    | A season patch moved `tiebreak_order` with a knockout fixture already played, abandoned, forfeited, holding a goal count or a stored shoot-out         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
+| `REQ-RULES-013`       | 409    | A step made the whole fixture list these rules imply larger than one season-scoped read holds                                                          | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                                       | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from                            | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                                      | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |

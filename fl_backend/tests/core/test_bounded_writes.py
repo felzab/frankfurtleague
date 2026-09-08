@@ -38,13 +38,7 @@ CHOKE_POINTS: tuple[tuple[Callable[..., Any], str, frozenset[str]], ...] = (
     (
         refuse_a_full_gruppe,
         "find_entry_refusal",
-        frozenset(
-            {
-                "app/api/teams/crud.py :: refuse_a_full_gruppe",
-                # The one site outside the helper, which `app/core/domain.py :: UNENFORCED` declares.
-                "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
-            }
-        ),
+        frozenset({"app/api/teams/crud.py :: refuse_a_full_gruppe"}),
     ),
     (
         _refuse_a_full_squad,
@@ -61,7 +55,15 @@ CHOKE_POINTS: tuple[tuple[Callable[..., Any], str, frozenset[str]], ...] = (
 # Every scope calling a choke point, each of which is the callback an endpoint runs its transaction
 # over -- so the session it hands on is a transaction's rather than a bare session's.
 CALLERS: dict[str, frozenset[str]] = {
-    "refuse_a_full_gruppe": frozenset({"app/api/teams/admin_router.py :: enter_the_club", "app/api/teams/admin_router.py :: move_the_club"}),
+    # The acceptance sits here rather than beside the helper: it used to reach the rule with a figure of
+    # its own, which is the shape `app/core/domain.py :: UNENFORCED` declared and this set now denies.
+    "refuse_a_full_gruppe": frozenset(
+        {
+            "app/api/teams/admin_router.py :: enter_the_club",
+            "app/api/teams/admin_router.py :: move_the_club",
+            "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
+        }
+    ),
     "_refuse_a_full_squad": frozenset(
         {
             "app/api/spieler/admin_router.py :: add_the_player",

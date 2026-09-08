@@ -391,8 +391,9 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     # group fixture the draw wrote, and would shut the window on every drawn season.
     as_drawn = (not is_bracket, is_bracket)
 
-    # Spelled slot by slot rather than looped: a slot reached through a variable, and a quelle through
-    # an f-string, reach `tests/core/test_write_shapes.py :: _subscripted_constants` as no key at all.
+    # Spelled slot by slot rather than looped: a key composed at run time reaches
+    # `tests/core/test_write_shapes.py :: _read_paths` as a path no projection can answer for, so the
+    # sweep refuses it rather than passing over a field it never saw fetched.
     team1 = ((spiel.get("team1") or {}).get("team_id") is not None, spiel.get("team1_quelle") is not None)
     team2 = ((spiel.get("team2") or {}).get("team_id") is not None, spiel.get("team2_quelle") is not None)
 
@@ -415,8 +416,8 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if spiel.get("elfmeterschiessen") is not None:
         return True
 
-    # Both slots spelled out, as `_a_side_is_off_the_draw` above is: a key reached through a variable
-    # is invisible to the sweep holding this predicate to its projection.
+    # Both slots spelled out, as `_a_side_is_off_the_draw` above is, and refused by the same sweep:
+    # a key reached through a variable names a path the projection cannot be asked about.
     if (spiel.get("team1") or {}).get("tore") is not None or (spiel.get("team2") or {}).get("tore") is not None:
         return True
 
