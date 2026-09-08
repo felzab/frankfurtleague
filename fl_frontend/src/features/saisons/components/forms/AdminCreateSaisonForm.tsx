@@ -5,10 +5,16 @@ import { parseDate } from "@internationalized/date";
 import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSaisonAction } from "@/features/saisons/actions";
-import { SaisonDateField, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
+import {
+  SaisonCountSelect,
+  SaisonDateField,
+  SaisonRuleNumberField,
+  SaisonTiebreakSelect,
+} from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
+import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
@@ -185,31 +191,36 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
 
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
-            {/* Bounds mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`,
-                which says why each one is where it is: a stepper offering a number the submit refuses
-                is one that wasted the trip. */}
+            {/* The season editor's own offer, from `fl_frontend/src/features/saisons/shapeOffer.ts`: this
+                dialog creates a season the editor then edits, so the two may not disagree about which
+                shapes exist. */}
             <div className={FIELD_TRIO}>
-              <SaisonRuleNumberField
+              <SaisonCountSelect
                 name="rules.number_of_groups"
+                ariaLabel="Gruppen"
                 label={<Label className={FIELD_LABEL}>Gruppen</Label>}
-                minValue={1}
-                maxValue={4}
                 value={draft.rules.number_of_groups}
+                options={groupCountOptions({ groups: draft.rules.number_of_groups, qualifiers: draft.rules.qualifiers_per_group })}
                 onChange={(number_of_groups) => setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_groups } }))}
               />
               <SaisonRuleNumberField
                 name="rules.teams_per_group"
                 label={<Label className={FIELD_LABEL}>Teams pro Gruppe</Label>}
-                minValue={2}
-                maxValue={16}
+                minValue={teamsPerGroupFloor({ qualifiers: draft.rules.qualifiers_per_group, held: draft.rules.teams_per_group })}
+                maxValue={MAX_TEAMS_PER_GROUP}
                 value={draft.rules.teams_per_group}
                 onChange={(teams_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, teams_per_group } }))}
               />
-              <SaisonRuleNumberField
+              <SaisonCountSelect
                 name="rules.qualifiers_per_group"
-                label={<Label className={FIELD_LABEL}>Qualifikanten</Label>}
-                minValue={1}
+                ariaLabel="Qualifikanten pro Gruppe"
+                label={<Label className={FIELD_LABEL}>Qualifikanten pro Gruppe</Label>}
                 value={draft.rules.qualifiers_per_group}
+                options={qualifierCountOptions({
+                  groups: draft.rules.number_of_groups,
+                  qualifiers: draft.rules.qualifiers_per_group,
+                  teams: draft.rules.teams_per_group,
+                })}
                 onChange={(qualifiers_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, qualifiers_per_group } }))}
               />
             </div>

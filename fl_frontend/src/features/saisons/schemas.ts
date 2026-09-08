@@ -49,11 +49,14 @@ export const FLSaisonRulesSchema = z.object({
   qualifiers_per_group: z
     .int({ error: "Bitte gib die Zahl der Qualifikanten ein." })
     .positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
-  // The season runs the first `number_of_groups` of the closed A-D set, hence the `.max(4)`.
+  // The season runs the first `number_of_groups` of the closed name set, so the set's own size is the
+  // ceiling: a literal under it is a group count no season can be created with.
   number_of_groups: z
     .int({ error: "Bitte gib die Zahl der Gruppen ein." })
     .positive({ error: "Eine Saison braucht mindestens 1 Gruppe." })
-    .max(4, { error: "Es gibt höchstens 4 Gruppen." }),
+    .max(FLGruppenNamesSchema.options.length, {
+      error: `Es gibt höchstens ${String(FLGruppenNamesSchema.options.length)} Gruppen.`,
+    }),
   // The floor stops a group phase that generates no fixture at all; the ceiling keeps the largest
   // legal season inside the list read's cap, past which a season-scoped read is truncated.
   teams_per_group: z

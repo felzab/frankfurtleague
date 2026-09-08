@@ -2,8 +2,9 @@
 
 import { Label, Separator } from "@heroui/react";
 
-import { SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
+import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
+import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -201,40 +202,43 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
-          {/* Bounds mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`,
-              which says why each one is where it is: a stepper offering a number the submit refuses
-              is one that wasted the trip. */}
+          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `REQ-RULES-001`
+              leaves the two counts a set that SKIPS, which no floor-and-ceiling can state, and the
+              stepper between them takes its floor from whichever count stands beside it. */}
           <div className={FIELD_TRIO}>
-            <SaisonRuleNumberField
+            <SaisonCountSelect
               name="rules.number_of_groups"
-              isReadOnly={isDrawnSaison}
+              isDisabled={isDrawnSaison}
+              ariaLabel="Gruppen"
               label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
-              minValue={1}
-              maxValue={4}
               value={rules.number_of_groups}
+              options={groupCountOptions({ groups: rules.number_of_groups, qualifiers: rules.qualifiers_per_group })}
               onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
-              onBlur={() => onFieldLeft(["rules.number_of_groups"])}
             />
             <SaisonRuleNumberField
               name="rules.teams_per_group"
               isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
-              minValue={2}
-              maxValue={16}
+              minValue={teamsPerGroupFloor({ qualifiers: rules.qualifiers_per_group, held: rules.teams_per_group })}
+              maxValue={MAX_TEAMS_PER_GROUP}
               value={rules.teams_per_group}
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
               onBlur={() => onFieldLeft(["rules.teams_per_group"])}
             />
             {/* The one field both freezes reach: the table is scored from it and the fixtures were
                 drawn from it, so either condition alone closes it. */}
-            <SaisonRuleNumberField
+            <SaisonCountSelect
               name="rules.qualifiers_per_group"
-              isReadOnly={isFinishedSaison || isDrawnSaison}
-              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten</FieldLabel>}
-              minValue={1}
+              isDisabled={isFinishedSaison || isDrawnSaison}
+              ariaLabel="Qualifikanten pro Gruppe"
+              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
               value={rules.qualifiers_per_group}
+              options={qualifierCountOptions({
+                groups: rules.number_of_groups,
+                qualifiers: rules.qualifiers_per_group,
+                teams: rules.teams_per_group,
+              })}
               onChange={(qualifiers_per_group) => onRulesChange({ ...rules, qualifiers_per_group })}
-              onBlur={() => onFieldLeft(["rules.qualifiers_per_group"])}
             />
           </div>
 

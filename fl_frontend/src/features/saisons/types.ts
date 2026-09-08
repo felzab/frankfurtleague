@@ -208,12 +208,10 @@ export type SaisonReplacementContext = {
  */
 export type FLSaisonRulesDraft = Omit<
   FLSaisonRules,
-  "win_points" | "draw_points" | "qualifiers_per_group" | "number_of_groups" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
+  "win_points" | "draw_points" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
 > & {
   win_points: number | null;
   draw_points: number | null;
-  qualifiers_per_group: number | null;
-  number_of_groups: number | null;
   teams_per_group: number | null;
   max_kadergroesse: number | null;
   forfeit_ergebnis: { sieger_tore: number | null; verlierer_tore: number | null };

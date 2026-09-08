@@ -29,7 +29,7 @@ export function buildSaisonBanners({
 }: {
   saisonStatus: FLSaisonStatus;
   isEndBeforeStart: boolean;
-  qualifiersPerGroup: number | null;
+  qualifiersPerGroup: number;
   teamsPerGroup: number | null;
   /** Whether the draft moves a rule under which every played fixture is scored again. */
   isRescoringChanged: boolean;
@@ -78,9 +78,9 @@ export function buildSaisonBanners({
     });
   }
 
-  // Both entered or nothing said: an unanswered count cannot over-qualify, and a banner about a rule
-  // nobody has typed yet reads as a fault the admin caused.
-  if (qualifiersPerGroup !== null && teamsPerGroup !== null && qualifiersPerGroup > teamsPerGroup) {
+  // Entered or nothing said: an unanswered team count cannot be over-qualified, and a banner about a
+  // rule nobody has typed yet reads as a fault the admin caused.
+  if (teamsPerGroup !== null && qualifiersPerGroup > teamsPerGroup) {
     banners.push({
       id: "saison.qualifiers-overflow",
       severity: "danger",

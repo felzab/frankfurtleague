@@ -99,6 +99,16 @@ const gelesen = (props: Partial<SpielplanProps>): string =>
 /** The three shape boxes, counted by the payload path each writes rather than by the label above it. */
 const shapeFieldCount = (props: Partial<SpielplanProps>): number => (markup(props).match(/name="shape\.[a-z_]+"/g) ?? []).length;
 
+/** The opening tag of the `<select>` react-aria mirrors one count picker into, named by its payload path. */
+const shapeSelectTag = (path: string, props: Partial<SpielplanProps>): string =>
+  new RegExp(`<select [^>]*name="shape\\.${path}"[^>]*>`).exec(markup(props))?.[0] ?? "";
+
+/**
+ * The stepper's own root, which is where a read-only state is legible: react-aria puts a number
+ * field's `name` on a hidden input, and a hidden input carries no `readonly`.
+ */
+const shapeStepperTag = (props: Partial<SpielplanProps>): string => /<div [^>]*data-slot="number-field"[^>]*>/.exec(markup(props))?.[0] ?? "";
+
 describe("the draw half of the Spielplan panel", () => {
   /* First, and half the assertions below are `doesNotMatch`, which an empty slice passes silently. */
   it("cuts the armed alert, its scope section and the handler out of the file before reading them", () => {
@@ -139,9 +149,21 @@ describe("the draw half of the Spielplan panel", () => {
   });
 
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would
-     move between the two presses, and the second press sends whatever the fields hold then. */
+     move between the two presses, and the second press sends whatever the fields hold then. Arming
+     is a press, so the render says the three stand open and the source says what shuts them. */
   it("freezes the three numbers once the control is armed", () => {
-    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isWriting\}/);
+    for (const path of ["number_of_groups", "qualifiers_per_group"]) {
+      const tag = shapeSelectTag(path, DRAWN);
+
+      assert.notEqual(tag, "", `${path} renders no picker at all`);
+      assert.doesNotMatch(tag, /\sdisabled=""/, `${path} is shut before the panel is armed`);
+    }
+    assert.doesNotMatch(shapeStepperTag(DRAWN), /data-readonly="true"/, "the team stepper is shut before the panel is armed");
+
+    // ONE expression, spelled twice because `Select` carries no read-only state: a control naming a
+    // freeze of its own would stay live under a confirmation that has already read the numbers.
+    assert.match(SOURCE, /const isShapeFrozen = isConfirming \|\| isWriting;/);
+    assert.equal((SOURCE.match(/is(?:ReadOnly|Disabled)=\{isShapeFrozen\}/g) ?? []).length, 2);
   });
 
   /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws

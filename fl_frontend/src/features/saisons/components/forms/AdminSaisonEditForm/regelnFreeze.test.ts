@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { GROUP_COUNT_UNIVERSE, groupCountOptions, SHAPE_COUNT_UNIVERSE } from "@/features/saisons/shapeOffer.ts";
+import { pickIfOffered } from "@/shared/components/ui/refusableOption.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -58,11 +60,26 @@ const markup = (props: Partial<RegelnProps>): string =>
   renderTree(h(DraftStatusProvider, { status: STATUS, children: h(FormRegelnSection, { ...PANEL, ...props }) }));
 
 /**
- * The opening tag of the `<select>` react-aria mirrors the tiebreak picker into, named by the payload
- * path it writes: the panel's other closed controls wear the same attribute, so a count would answer
+ * The opening tag of the `<select>` react-aria mirrors a picker into, named by the payload path it
+ * writes: the panel's closed controls all wear the same attribute, so an unnamed one would answer
  * for whichever of them moved.
  */
-const tiebreakTag = (props: Partial<RegelnProps>): string => /<select [^>]*name="rules\.tiebreak_order"[^>]*>/.exec(markup(props))?.[0] ?? "";
+const selectTag = (path: string, props: Partial<RegelnProps>): string =>
+  new RegExp(`<select [^>]*name="${path.replaceAll(".", "\\.")}"[^>]*>`).exec(markup(props))?.[0] ?? "";
+
+const tiebreakTag = (props: Partial<RegelnProps>): string => selectTag("rules.tiebreak_order", props);
+
+/** Every count the mirrored `<select>` carries for one path, and which of them the season stands on. */
+function offeredCounts(path: string, props: Partial<RegelnProps>): { counts: number[]; selected: number | null } {
+  const list = new RegExp(`<select [^>]*name="${path.replaceAll(".", "\\.")}"[^>]*>(.*?)</select>`, "s").exec(markup(props))?.[1] ?? "";
+  const rows = [...list.matchAll(/<option value="(\d+)"([^>]*)>/g)];
+  const selected = rows.find(([, , attributes]) => attributes?.includes("selected"))?.[1];
+
+  return {
+    counts: rows.flatMap(([, value]) => (value === undefined ? [] : [Number(value)])),
+    selected: selected === undefined ? null : Number(selected),
+  };
+}
 
 describe("the rules panel's tiebreak freeze", () => {
   /* The floor for every case below: half of them are `doesNotMatch`, which a panel that rendered no
@@ -110,6 +127,72 @@ describe("the rules panel's tiebreak freeze", () => {
       "a finished season is explained past its own banner",
     );
     assert.doesNotMatch(markup({ isKnockoutStarted: true, isFinishedSaison: true }), /Nach dem Beginn der KO-Runde/, "explained twice over");
+  });
+});
+
+describe("the rules panel's shape offer", () => {
+  /* The entry's own instance: `REQ-RULES-001` admits only a power of two, so three groups is refused
+     at every qualifier count there is. A stepper cannot state a set that skips, and the mirrored
+     `<select>` is where the absence is legible. */
+  it("generates no group count the write path refuses", () => {
+    const { counts } = offeredCounts("rules.number_of_groups", {});
+
+    assert.deepEqual(counts, [...GROUP_COUNT_UNIVERSE]);
+    assert.ok(!counts.includes(3), "the picker offers three groups, which no season can be saved with");
+  });
+
+  it("generates the qualifier counts the offer holds and no others", () => {
+    assert.deepEqual(offeredCounts("rules.qualifiers_per_group", {}).counts, [...SHAPE_COUNT_UNIVERSE]);
+  });
+
+  /* A season stored before these rules holds a count the offer no longer carries. Clear the field and
+     the save sends a number nobody chose; the row stands instead, at its place and selected. */
+  it("keeps a stored count the offer does not carry, and leaves the season standing on it", () => {
+    const stored = { rules: { ...PANEL.rules, number_of_groups: 3 } };
+    const { counts, selected } = offeredCounts("rules.number_of_groups", stored);
+
+    assert.deepEqual(
+      counts,
+      [...GROUP_COUNT_UNIVERSE, 3].sort((first, second) => first - second),
+    );
+    assert.equal(selected, 3, "the season's own count is not what the picker stands on");
+  });
+
+  /* The mirrored `<select>` renders a closed row as a plain option, so the disabled flag is not what
+     stops the pick: `pickIfOffered` re-reads the refusal, and the panel drops a key it answers null. */
+  it("hands back nothing for a pick on a closed row", () => {
+    const options = groupCountOptions({ groups: 2, qualifiers: 2 });
+
+    assert.equal(pickIfOffered(options, "16"), null, "sixteen groups qualifying two is a bracket of 32, and the picker takes it");
+    assert.equal(pickIfOffered(options, "4"), "4");
+  });
+
+  /* Two selects around one stepper where three steppers stood: react-aria's `Select` has no read-only
+     state, so each freeze is spelled twice and a control left off either spelling takes a value the
+     save throws away. */
+  it("closes each count where its own freeze reaches it", () => {
+    assert.doesNotMatch(selectTag("rules.number_of_groups", {}), /\sdisabled=""/, "the groups are closed on a season nothing has frozen");
+    assert.doesNotMatch(selectTag("rules.qualifiers_per_group", {}), /\sdisabled=""/, "the qualifiers are closed on a season nothing froze");
+
+    assert.match(selectTag("rules.number_of_groups", { isDrawnSaison: true }), /\sdisabled=""/, "a drawn season still offers its groups");
+    assert.match(
+      selectTag("rules.qualifiers_per_group", { isDrawnSaison: true }),
+      /\sdisabled=""/,
+      "a drawn season still offers its qualifiers",
+    );
+
+    // The qualifiers alone are in the finished season's freeze: the table is scored from them, and
+    // `REQ-RULES-005` names them where it names no group count.
+    assert.doesNotMatch(
+      selectTag("rules.number_of_groups", { isFinishedSaison: true }),
+      /\sdisabled=""/,
+      "a finished season freezes its groups",
+    );
+    assert.match(
+      selectTag("rules.qualifiers_per_group", { isFinishedSaison: true }),
+      /\sdisabled=""/,
+      "a finished season still offers its qualifiers",
+    );
   });
 });
 

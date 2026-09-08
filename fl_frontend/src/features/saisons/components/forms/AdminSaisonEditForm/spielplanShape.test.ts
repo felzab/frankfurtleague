@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { FLPostSaisonPayloadSchema, FLSpielplanShapeSchema } from "@/features/saisons/schemas";
-
-import { describeShapeRows, readShape, SHAPE_FIELDS, shapeCeiling } from "./spielplanShape.ts";
+import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape.ts";
 
 import type { FLSaisonRules, FLSpielplanShape } from "@/features/saisons/schemas";
 
@@ -25,30 +23,6 @@ const shape = (overrides: Partial<FLSpielplanShape> = {}): FLSpielplanShape => (
 const rowFor = (key: keyof FLSpielplanShape, next: FLSpielplanShape) =>
   describeShapeRows(readShape(STORED), next).find((row) => row.key === key);
 
-/**
- * The field this table's ceiling is a function of the other two for. Read back rather than assumed:
- * a reordering of the table would otherwise hand every case below the wrong row.
- */
-const QUALIFIERS = SHAPE_FIELDS.find((field) => field.key === "qualifiers_per_group");
-const GROUPS = SHAPE_FIELDS.find((field) => field.key === "number_of_groups");
-
-/**
- * Whether a whole create carrying this shape parses. The PAYLOAD and not `FLSpielplanShapeSchema`:
- * `REQ-RULES-001` and `REQ-RULES-007` read two of the three numbers each, so they are refinements on
- * the season rather than bounds on a field, and the offer has to be held to them and not to itself.
- */
-const saves = (next: FLSpielplanShape): boolean =>
-  FLPostSaisonPayloadSchema.safeParse({
-    id: "2026",
-    start_date: "2025-09-01",
-    end_date: "2026-06-30",
-    bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
-    rules: { ...STORED, ...next },
-  }).success;
-
-/** Every count the field offers, so a case reads the offer rather than a list beside it. */
-const upTo = (ceiling: number): number[] => Array.from({ length: ceiling }, (_, index) => index + 1);
-
 describe("readShape", () => {
   /* Reach for the whole `rules` object instead and this fails: the draw's payload carries these
      three alone, and the rest of the rules shaped no fixture and have `PATCH` as their only writer. */
@@ -64,86 +38,6 @@ describe("SHAPE_FIELDS", () => {
     assert.deepEqual(
       SHAPE_FIELDS.map((field) => field.key),
       ["number_of_groups", "teams_per_group", "qualifiers_per_group"],
-    );
-  });
-
-  /* Drift either bound and this fails. The field is what an admin can reach, so a floor below the
-     schema's offers a number the parse refuses, and a ceiling above it hides nothing but does let
-     the box display a value snapped off the one the payload carries. */
-  it("bounds each field exactly where the schema does", () => {
-    for (const { key, minValue, maxValue } of SHAPE_FIELDS) {
-      const parse = (value: number) => FLSpielplanShapeSchema.safeParse({ ...shape(), [key]: value }).success;
-
-      assert.equal(parse(minValue), true, `${key}: the field's floor is refused by the schema`);
-      assert.equal(parse(minValue - 1), false, `${key}: the schema accepts a value below the field's floor`);
-      assert.equal(parse(maxValue), true, `${key}: the field's ceiling is refused by the schema`);
-      assert.equal(parse(maxValue + 1), false, `${key}: the schema accepts a value above the field's ceiling`);
-    }
-  });
-});
-
-describe("shapeCeiling", () => {
-  /* The two fields no other number bounds. Cut either against a second rule here and the panel would
-     hide a season that saves, which is the same defect as offering one that does not. */
-  it("leaves a field the schema alone bounds where the schema put it", () => {
-    for (const field of SHAPE_FIELDS.filter((entry) => entry.key !== "qualifiers_per_group")) {
-      assert.equal(shapeCeiling(field, shape()), field.maxValue, field.key);
-    }
-  });
-
-  /* The entry's own clearest instance. Return the schema's bound here and the stepper walks upward
-     into a refusal an admin meets only after the press: what caps a qualifier count is the PRODUCT
-     `REQ-RULES-001` judges and the group size `REQ-RULES-007` does, never the field's own ceiling. */
-  it("offers the largest qualifier count the write path takes, and no more", () => {
-    assert.ok(QUALIFIERS !== undefined && GROUPS !== undefined, "the table no longer names both counts");
-
-    for (const groups of upTo(GROUPS.maxValue)) {
-      for (const teams of [2, 3, 4, 8, 16]) {
-        const held = shape({ number_of_groups: groups, teams_per_group: teams, qualifiers_per_group: 1 });
-        const ceiling = shapeCeiling(QUALIFIERS, held);
-
-        // A group count no product reaches -- `REQ-RULES-001` admits only the powers of two -- has no
-        // legal qualifier count at all, so the ceiling is judged only where one exists.
-        if (!upTo(QUALIFIERS.maxValue).some((count) => saves({ ...held, qualifiers_per_group: count }))) continue;
-
-        assert.equal(saves({ ...held, qualifiers_per_group: ceiling }), true, `${groups} groups of ${teams}: the ceiling is refused`);
-        assert.equal(saves({ ...held, qualifiers_per_group: ceiling + 1 }), false, `${groups} groups of ${teams}: one past the ceiling saves`);
-      }
-    }
-  });
-
-  /* Never below the value the draft holds: react-stately snaps a controlled value into the range
-     before rendering it and calls no handler, so the box would show a figure the payload does not
-     carry. A stored excess re-sent unchanged is a save the write path takes. */
-  it("keeps a stored excess reachable rather than snapping the box off it", () => {
-    assert.ok(QUALIFIERS !== undefined, "the table no longer names the qualifier count");
-
-    const excessive = shape({ number_of_groups: 4, teams_per_group: 2, qualifiers_per_group: 9 });
-
-    assert.equal(shapeCeiling(QUALIFIERS, excessive), 9);
-  });
-
-  /* The claim a stepper cannot state: the legal group counts SKIP, so a floor and a ceiling describe
-     them only by admitting values between them that no season can be saved with. */
-  it("stands over a group offer that is not an interval", () => {
-    assert.ok(QUALIFIERS !== undefined && GROUPS !== undefined, "the table no longer names both counts");
-
-    const reachable = upTo(GROUPS.maxValue).filter((groups) =>
-      upTo(QUALIFIERS.maxValue).some((count) =>
-        saves(shape({ number_of_groups: groups, teams_per_group: QUALIFIERS.maxValue, qualifiers_per_group: count })),
-      ),
-    );
-
-    assert.ok(reachable.length > 0, "no group count at all can be saved");
-    // Exactly the powers of two, every other factor of a product being one that cannot cancel.
-    assert.deepEqual(
-      reachable,
-      upTo(Math.max(...reachable)).filter((groups) => (groups & (groups - 1)) === 0),
-    );
-    // Named so the gap is asserted and not merely implied: it stands between two counts on offer.
-    assert.deepEqual(
-      [2, 3, 4].map((groups) => reachable.includes(groups)),
-      [true, false, true],
     );
   });
 });
