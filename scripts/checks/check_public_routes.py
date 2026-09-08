@@ -75,7 +75,7 @@ class Reason:
 # handlers would be a second copy of the route tree, stale the day a directory is renamed.
 REASONS: Final[tuple[Reason, ...]] = (
     Reason("/api/admin/", "page-owned undo handlers, each authorizing itself behind the admin guard"),
-    Reason("/api/auth", "Auth.js's catch-all, whose outbound-email trigger is metered at /api/auth/signin"),
+    Reason("/api/auth", "Auth.js's catch-all, every path of it metered by a prefix because a dynamic segment names no exact match"),
 )
 
 

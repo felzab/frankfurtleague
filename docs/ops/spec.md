@@ -107,13 +107,15 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
 | Location                   | Upstream        | Notes                                                                                                                                                                                                |
 | -------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                | `frontend:3000` | Auth.js's catch-all route handler                                                                                                                                                                    |
+| `/api/auth`                | `frontend:3000` | Auth.js's remaining actions, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                                                                  |
 | `/api/auth/signin`         | `frontend:3000` | Auth.js's own sign-in POST, metered on `signin`/`signin48` — a PREFIX, so no trailing-slash twin                                                                                                     |
+| `/api/auth/callback`       | `frontend:3000` | The magic link's landing — a PREFIX, and deliberately unmetered, since a refusal's error line carries the token this path's query string holds                                                       |
 | `= /api/client-error`      | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
 | `= /api/bewerbung`         | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel` | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
 | `= /api/bestaetigung`      | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
-| the five `/` twins         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
+| `= /api/mail/zustellung`   | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
+| the `/` twins              | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
@@ -165,10 +167,10 @@ fallback to the connector's own address is marked rather than silent**: the acce
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
 address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL` (§1.6).
 
-**Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
-`limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
-IS a GET, so keyed there it would read as limited and be unlimited; its zones key on the network
-maps unconditionally, at a rate well above the submission's.
+**A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
+`limit_req` — so `signin`, `clienterr`, `bewerbung`, `bestaetigung` and `zustellung` reach POSTs alone.
+**The zones over a GET key on the network maps unconditionally**: the Kürzel check, and the pair
+under `/api/auth`, would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
 `nginx/prod.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr

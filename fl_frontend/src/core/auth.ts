@@ -46,9 +46,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user }) {
       return isUserAdmin(user?.email);
     },
+    // Built fresh, never the argument returned whole: under the database strategy that argument is
+    // the adapter's session row, and returning it serves the `httpOnly` cookie's own value
+    // (`docs/frontend/spec.md :: I198`).
     async session({ session, user }) {
-      session.user.role = isUserAdmin(user?.email) ? "admin" : "user";
-      return session;
+      return {
+        expires: session.expires,
+        user: {
+          name: user?.name,
+          email: user?.email,
+          image: user?.image,
+          role: isUserAdmin(user?.email) ? "admin" : "user",
+        },
+      };
     },
   },
   // Auth.js's built-in sign-in FORM, which this replaces. It does not move the POST that mails
