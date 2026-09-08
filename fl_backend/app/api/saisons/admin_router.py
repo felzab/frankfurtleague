@@ -64,6 +64,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -721,8 +722,14 @@ async def generate_spielplan(
             # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
             # and `teams` may since have been renamed (`docs/backend/spec.md :: I19`).
             projection=["team_id", "gruppe", "name", "shorthand"],
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated entry
+        # list draws a season short of teams and weighs a group occupancy no group holds.
+        if len(entered_rows) > LIST_LIMIT_DEFAULT:
+            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
         occupancy: dict[FLGruppenNames, int] = {}
         for row in entered_rows:
@@ -739,8 +746,17 @@ async def generate_spielplan(
             # venue, a referee or an admin's note is work a replace would destroy, and
             # `REQ-SPIELPLAN-005`'s window closes on one exactly as on a result.
             projection=list(RECORDED_FACT_FIELDS),
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
+        # counts fewer records than the season holds, and `REQ-SPIELPLAN-005`'s window opens on work a
+        # replace would then destroy.
+        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
+            raise ValueError(
+                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
+            )
 
         refuse(
             find_spielplan_refusal(
@@ -806,6 +822,9 @@ async def generate_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
+            # NOT extracted, though `undraw_spielplan` repeats it: a shared helper takes both removals
+            # out of `tests/core/app_source.py :: transactional_callbacks`, which reads a callback's
+            # own lexical body, and a `session=` dropped inside it then stays green.
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -887,8 +906,17 @@ async def undraw_spielplan(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id},
             projection=list(RECORDED_FACT_FIELDS),
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
+        # counts fewer records than the season holds, and `REQ-SPIELPLAN-006`'s window opens on a
+        # result the removals below would destroy.
+        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
+            raise ValueError(
+                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"
+            )
 
         refuse(
             find_undraw_refusal(

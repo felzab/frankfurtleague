@@ -228,6 +228,26 @@ class TestWhatARemovalFilterMayName:
         assert preserved == []
 
 
+class TestTheTwoSeasonRemovalsRunInOneOrder:
+    """That the draw's replace and the undraw take the same collections in the same order.
+
+    The two are written apart on purpose (`app/api/saisons/admin_router.py :: draw_the_whole_season`),
+    so nothing but this holds the second to the first.
+    """
+
+    def test_the_replace_removes_in_the_same_order_as_the_undraw(self):
+        """Reverse either pair and this fails: fixtures go first, so no log row or restore holds a fixture whose matchday is gone."""
+
+        found = removals()
+        drawn = [(removal.helper, removal.collection) for removal in found if removal.scope == "draw_the_whole_season"]
+        undrawn = [(removal.helper, removal.collection) for removal in found if removal.scope == "undraw_the_whole_season"]
+
+        # Both non-empty, or a renamed callback passes this by comparing two empty lists.
+        assert drawn and undrawn, f"the draw contributes {len(drawn)} removals and the undraw {len(undrawn)}"
+
+        assert drawn == undrawn
+
+
 class TestEveryFieldAPatchWritesIsWeighedOrNamed:
     """That no field the fixture patch writes reaches a fixture unseen by the window a replace and an undraw run in.
 

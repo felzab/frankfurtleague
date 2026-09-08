@@ -176,6 +176,9 @@ class Removal:
 
     helper: str
     collection: str
+    #: The INNERMOST function around the call, so a removal moved into a nested helper is attributed
+    #: there rather than to the callback holding it.
+    scope: str
     #: The filter's top-level keys, each compared to a VALUE. A key whose value is a dict of
     #: operators names the field and bounds nothing, so it is not among these.
     keyed_on: frozenset[str]
@@ -211,6 +214,7 @@ def removals() -> list[Removal]:
             Removal(
                 helper=callee(call),
                 collection=named,
+                scope=scope,
                 keyed_on=frozenset(
                     key.value
                     for key, value in zip(db_filter.keys, db_filter.values, strict=True)
