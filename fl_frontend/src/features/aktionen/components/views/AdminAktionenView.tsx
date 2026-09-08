@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { AKTIONEN_COLLECTION_PARAM, AKTIONEN_FACETS, AKTIONEN_OPERATION_PARAM } from "@/features/aktionen/facets";
+import { AKTIONEN_FACETS, aktionenLogFacetCounts } from "@/features/aktionen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -28,18 +28,20 @@ export function AdminAktionenView({
   vollstaendig,
   anzahlJeCollection,
   anzahlJeOperation,
+  anzahlJeHerkunft,
   dokumentId,
   vorgangId,
   richtung,
 }: {
   aktionen: AdminAktionRow[];
   vollstaendig: boolean;
-  /** The endpoint's own counts. `aktionen` holds only what the two narrowing facets selected, so it cannot answer for the rest. */
+  /** The endpoint's own counts, one map per facet: `aktionen` holds only what the narrowing selected, so it cannot answer for the rest. */
   anzahlJeCollection: FLAktionenListResponse["anzahl_je_collection"];
   anzahlJeOperation: FLAktionenListResponse["anzahl_je_operation"];
+  anzahlJeHerkunft: FLAktionenListResponse["anzahl_je_herkunft"];
   /** The one document the list is narrowed to, or null for the whole log — set by a row's history action. */
   dokumentId: string | null;
-  /** The one Vorgang the list is narrowed to, or null — set by a row's copy action, and answered whole. */
+  /** The one Vorgang the list is narrowed to, or null — set by a row's copy action, and served under the same cap. */
   vorgangId: string | null;
   /** The end the rows below were served from, so the notice and the bar's control cannot name different ones. */
   richtung: Leserichtung;
@@ -70,7 +72,8 @@ export function AdminAktionenView({
         <Callout
           severity="info"
           title="Nur ein Vorgang">
-          Angezeigt werden alle Zeilen des Vorgangs <span className="font-mono break-all">{vorgangId}</span>, vollständig.{" "}
+          Angezeigt werden die Zeilen des Vorgangs <span className="font-mono break-all">{vorgangId}</span>
+          {vollstaendig && ", vollständig"}.{" "}
           <Link
             href={withSaisonId("/admin/aktionen", selectedFromUrl)}
             className={textLink()}>
@@ -87,7 +90,8 @@ export function AdminAktionenView({
           severity="warning"
           title="Das Protokoll ist unvollständig">
           Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen; die übrigen stehen nicht auf dieser Seite. Auch
-          die Suche erfasst nur die geladenen Zeilen. Die Zahlen an den Filtern „Bereich“ und „Art“ zählen dagegen das ganze Protokoll.
+          die Suche erfasst nur die geladenen Zeilen. Die Zahlen an den Filtern zählen dagegen{" "}
+          {dokumentId !== null || vorgangId !== null ? "alle Zeilen der oben genannten Auswahl" : "das ganze Protokoll"}.
         </Callout>
       )}
 
@@ -95,7 +99,11 @@ export function AdminAktionenView({
         items={aktionen}
         searchKeys={SEARCH_KEYS}
         facets={AKTIONEN_FACETS}
-        facetCounts={{ [AKTIONEN_COLLECTION_PARAM]: anzahlJeCollection, [AKTIONEN_OPERATION_PARAM]: anzahlJeOperation }}
+        facetCounts={aktionenLogFacetCounts({
+          anzahl_je_collection: anzahlJeCollection,
+          anzahl_je_operation: anzahlJeOperation,
+          anzahl_je_herkunft: anzahlJeHerkunft,
+        })}
         leserichtung={richtung}
         renderTable={({ filteredItems, emptiness }) => (
           <AdminAktionenTable

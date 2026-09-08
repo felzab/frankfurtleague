@@ -44,6 +44,7 @@ async function AktionenTable({ searchParams }: { searchParams: NextPageProps["se
       vollstaendig={aktionenRes.vollstaendig}
       anzahlJeCollection={aktionenRes.anzahl_je_collection}
       anzahlJeOperation={aktionenRes.anzahl_je_operation}
+      anzahlJeHerkunft={aktionenRes.anzahl_je_herkunft}
       dokumentId={dokumentId}
       vorgangId={vorgangId}
       // Re-read here as the narrowings are, so the rows served and the control naming their end

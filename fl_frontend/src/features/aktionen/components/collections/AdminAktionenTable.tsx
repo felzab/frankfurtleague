@@ -63,11 +63,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
     const copied = await copyTextToClipboard(aktion.trace_id);
 
-    if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Die Liste zeigt jetzt jede Zeile dieses Vorgangs." });
+    if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Die Liste zeigt jetzt nur noch diesen Vorgang." });
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
 
-    // Navigated rather than searched, which is what makes the sentence above true: the endpoint
-    // answers a `trace_id` whole, where the search reaches only the rows the cap left.
+    // Navigated rather than searched: the endpoint narrows on `trace_id` itself, where the search
+    // reaches only the rows the cap left. Still one capped read, so neither sentence here claims the
+    // Vorgang whole; the page's incompleteness callout reports the cut.
     router.push(withSaisonId(`/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
   };
 
@@ -198,7 +199,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       )}
       <RowActionCopy
         label="Vorgangsnummer kopieren und den Vorgang anzeigen"
-        ariaLabel={`Vorgangsnummer der Änderung vom ${zeitpunktLabel(aktion)} kopieren und alle Zeilen des Vorgangs anzeigen`}
+        ariaLabel={`Vorgangsnummer der Änderung vom ${zeitpunktLabel(aktion)} kopieren und den Vorgang anzeigen`}
         onPress={() => handleCopyVorgang(aktion)}
       />
     </RowActions>

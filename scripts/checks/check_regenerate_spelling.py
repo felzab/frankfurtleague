@@ -60,6 +60,7 @@ SITES: Final[tuple[str, ...]] = (
     "fl_frontend/src/core/apiContract.test.ts",
     "fl_frontend/src/core/apiRequests.test.ts",
     "fl_frontend/src/core/einwilligung.test.ts",
+    "fl_frontend/src/features/aktionen/facets.test.ts",
 )
 
 # How much of the line in front of the command a finding quotes. A site's line can be a whole

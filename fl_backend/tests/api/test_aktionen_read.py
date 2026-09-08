@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 import pytest
 from bson import ObjectId
@@ -148,6 +148,19 @@ class _LogCells:
         return self.cells if length is None else self.cells[:length]
 
 
+def _plain_terms(match: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Refused rather than answered: a term matching nothing would read as a facet the log recorded no rows under.
+
+    Judged whole and before any comparison, or whether the refusal fires depends on the rows a case seeded.
+    """
+
+    for field, value in match.items():
+        if field.startswith("$") or isinstance(value, (Mapping, list)):
+            raise AssertionError(f"the tally's $match carries {field}={value!r}, which this double answers with equality alone")
+
+    return match
+
+
 class _LogCollection:
     """One collection, called as `pull_many_from_db` calls the driver: `find`, `sort`, `limit`, `to_list`."""
 
@@ -163,13 +176,17 @@ class _LogCollection:
         self.requested_pipeline: Any = None
 
     async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _LogCells:
+        """The `$match` is read; the `$group` beside it is not, so the cells below are this double's shape rather than the pipeline's.
+
+        Which is why the group keys and the accumulator are pinned against a real server instead
+        (`fl_backend/tests/api/test_aktionen_tally_execution.py`).
+        """
+
         self.requested_pipeline = list(pipeline)
-        match: dict[str, Any] = self.requested_pipeline[0].get("$match", {})
+        match = _plain_terms(self.requested_pipeline[0].get("$match", {}))
         tally: dict[tuple[str, str], int] = {}
 
         for document in self.population:
-            # Equality alone, which is every term the tally's `$match` can carry: the two facet terms
-            # are the ones it leaves out.
             if any(document.get(field) != value for field, value in match.items()):
                 continue
             cell = (str(document["collection"]), str(document["operation"]))
@@ -376,3 +393,31 @@ class TestTheAreaAndOperationTermsCarryASelection:
         run_list(log, collection="teams", operation="patch_one", trace_id="9f2c1b7e4a6d8c3f")
 
         assert log.requested_pipeline[0]["$match"] == {"trace_id": "9f2c1b7e4a6d8c3f"}
+
+
+class TestTheDoubleRefusesAMatchItCannotAnswer:
+    """The double reads the `$match` and answers equality alone, so an operator term must fail rather than match nothing.
+
+    Answering nothing instead would read as a facet the log recorded no rows under, which this
+    endpoint legally answers.
+    """
+
+    def test_an_operator_term_is_refused_rather_than_matching_nothing(self):
+        with pytest.raises(AssertionError, match="equality alone"):
+            _plain_terms({"document_id": {"$in": [ObjectId("6890a1b2c3d4e5f607200010")]}})
+
+    def test_a_logical_operator_is_refused_too(self):
+        with pytest.raises(AssertionError, match="equality alone"):
+            _plain_terms({"$and": [{"trace_id": "9f2c1b7e4a6d8c3f"}]})
+
+    def test_a_term_beside_a_refused_one_does_not_excuse_it(self):
+        """The whole `$match`, so whether the refusal fires cannot depend on which rows a case seeded."""
+
+        with pytest.raises(AssertionError, match="equality alone"):
+            _plain_terms({"trace_id": "9f2c1b7e4a6d8c3f", "redacted_at": {"$eq": None}})
+
+    def test_the_terms_the_tally_really_carries_are_passed_through(self):
+        """Non-vacuity: a guard refusing everything would pass every case above and answer each tally empty."""
+
+        assert _plain_terms({"trace_id": "9f2c1b7e4a6d8c3f"}) == {"trace_id": "9f2c1b7e4a6d8c3f"}
+        assert _plain_terms({"document_id": ObjectId("6890a1b2c3d4e5f607200010")}) == {"document_id": ObjectId("6890a1b2c3d4e5f607200010")}

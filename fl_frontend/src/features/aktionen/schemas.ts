@@ -50,10 +50,11 @@ export const FLAktionenListResponseSchema = BaseAPIResponseSchema.extend({
   /** False where the endpoint's cap cut the answer short — and a year of recorded writes reaches that cap without a flood. */
   vollstaendig: z.boolean(),
   /**
-   * Open keys, as the backend's are: these count the WHOLE log, so a stored value no option names
-   * would take the page down rather than going uncounted. An absent key reads as zero.
+   * Open keys: a stored value no option names would take the page down rather than going uncounted, and an absent
+   * key reads as zero. Counted over the rows a trace or document narrowing leaves, never the whole log.
    */
   anzahl_je_collection: z.record(z.string(), z.int().nonnegative()),
   anzahl_je_operation: z.record(z.string(), z.int().nonnegative()),
+  anzahl_je_herkunft: z.record(z.string(), z.int().nonnegative()),
 });
 export type FLAktionenListResponse = z.infer<typeof FLAktionenListResponseSchema>;

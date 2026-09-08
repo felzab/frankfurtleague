@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal, Mapping
+from typing import Annotated, Any, Final, Literal, Mapping, get_args
 
 from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
@@ -29,11 +29,41 @@ def _stringify_oids(value: Any) -> Any:
     return value
 
 
+# One alias for the row and the categoriser below, which is exhaustive over it: a kind added here
+# without a category is a recorded write the log's origin filter cannot reach.
+FLAktorKind = Literal["admin_session", "system", "public"]
+
+# What the origin filter narrows on, and no stored value: `person` is the category a stronger sign-in
+# scheme records a new kind under, so the categories outlive the kinds they are derived from.
+FLAktionHerkunft = Literal["person", "system", "public"]
+
+
 class FLAktor(BaseModel):
     """Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."""
 
-    kind: Literal["admin_session", "system", "public"]
+    kind: FLAktorKind
     email: str
+
+
+def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
+    """A `match` with no fallback branch: a kind added beside these fails the type check here rather than falling in with the signed-in people.
+
+    `fl_frontend/src/features/aktionen/constants.ts :: AKTOR_HERKUNFT` files a row the same way, and
+    the two move together.
+    """
+
+    match kind:
+        case "admin_session":
+            return "person"
+        case "system":
+            return "system"
+        case "public":
+            return "public"
+
+
+# Keyed by the stored value, which the tally reads raw: a kind no category names is absent here, and
+# an absent one counts for its area and under no origin.
+HERKUNFT_JE_KIND: Final[Mapping[str, FLAktionHerkunft]] = {kind: herkunft_of_kind(kind) for kind in get_args(FLAktorKind)}
 
 
 class FLAktionRequest(BaseModel):
@@ -141,6 +171,9 @@ class FLAktionenFilterParams(BaseModel):
     # `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
     collection: Annotated[list[str] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
     operation: Annotated[list[FLAktionOperation] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
+    # A term of its own rather than the kinds it stands for: the bar offers the categories, and a
+    # caller sending kinds would have to know a mapping this endpoint owns.
+    herkunft: Annotated[list[FLAktionHerkunft] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
     trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
@@ -158,11 +191,11 @@ class FLAktionenListResponse(BaseAPIResponse):
     # log takes a row per recorded write and keeps it twelve months, so this read reaches the cap
     # by ordinary use.
     vollstaendig: bool
-    # Open maps rather than the bar's closed sets: these count the WHOLE log, so a stored value no
-    # option names would refuse a response the page can otherwise serve. An absent key is a value
-    # nothing was recorded under.
+    # Open maps rather than the bar's closed sets: a stored value no option names would refuse a
+    # response the page can otherwise serve, and an absent key is a value nothing was recorded under.
     anzahl_je_collection: dict[str, int]
     anzahl_je_operation: dict[str, int]
+    anzahl_je_herkunft: dict[str, int]
 
 
 class FLAktionSingleResponse(BaseAPIResponse):
