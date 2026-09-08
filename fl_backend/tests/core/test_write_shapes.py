@@ -19,6 +19,7 @@ from tests.core.app_source import (
     REMOVAL_HELPERS,
     WRITE_HELPERS,
     app_declares,
+    callee,
     carries_session,
     crud_helpers_taking_a_session,
     declared,
@@ -50,6 +51,10 @@ NOT_A_RECORD: frozenset[str] = frozenset({"datum", "uhrzeit"})
 # The whole of what the recorded-fact window reads, the private helper included. A helper outside this
 # tuple takes its own reads out of every clause below, which is what the closure clause holds it to.
 RECORDED_FACT_PREDICATES: tuple[Callable[..., Any], ...] = (holds_a_recorded_fact, _a_side_is_off_the_draw)
+
+# What a key composed at run time becomes in a path: the projection clause can say nothing about
+# such a key, so it lands in that clause's failure list rather than dropping out of the sweep.
+COMPOSED_KEY = "<composed at run time>"
 
 # Every package under `app/api/` declaring a services module, pinned beside the glob that finds
 # them: a glob narrowing to nothing would pass every clause below over no module at all.
@@ -90,12 +95,92 @@ def _subscripted_constants(functions: tuple[Callable[..., Any], ...]) -> set[str
     }
 
 
-def _application_calls(function: Callable[..., Any]) -> set[str]:
-    """Every function of the application's own that one function hands off to, by the name at the call site."""
+def _fallback_free(node: ast.expr) -> ast.expr:
+    """One receiver with its `or {}` guard stripped, which is how the window reaches a slot inside a side."""
 
-    return {
-        call.func.id for call in ast.walk(declared(function)) if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-    } & app_declares()
+    return node.values[0] if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or) and node.values else node
+
+
+def _key_read(node: ast.AST) -> tuple[ast.expr, ast.expr] | None:
+    """One key read as its receiver and the expression naming the key: `x.get("k")` and `x["k"]` alike."""
+
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" and node.args:
+        return node.func.value, node.args[0]
+
+    if isinstance(node, ast.Subscript):
+        return node.value, node.slice
+
+    return None
+
+
+def _read_chain(node: ast.AST) -> tuple[ast.expr, tuple[str, ...]] | None:
+    """One key read as the expression it bottoms out on and the keys named along the way, or `None` where it reads no key."""
+
+    read = _key_read(node)
+    if read is None:
+        return None
+
+    receiver, key = read
+    named = key.value if isinstance(key, ast.Constant) and isinstance(key.value, str) else COMPOSED_KEY
+    beneath = _fallback_free(receiver)
+    under = _read_chain(beneath)
+
+    return (beneath, (named,)) if under is None else (under[0], (*under[1], named))
+
+
+def _statement_nodes(node: ast.AST) -> Iterator[ast.AST]:
+    """Every node under one statement, an annotation's own subtree left out: `Mapping[str, Any]` is a subscript that reads nothing."""
+
+    for child in ast.iter_child_nodes(node):
+        if isinstance(node, ast.AnnAssign) and child is node.annotation:
+            continue
+
+        yield child
+        yield from _statement_nodes(child)
+
+
+def _read_paths(functions: tuple[Callable[..., Any], ...]) -> set[str]:
+    """Every dotted path these functions read off the fixture they are handed.
+
+    Rooted rather than flattened: `team1.tore` is fetched where a top-level `tore` is not, and a
+    sweep over the segments alone reads the two as one key.
+    """
+
+    paths: set[str] = set()
+    for function in functions:
+        declaration = declared(function)
+        fixture = declaration.args.args[0].arg
+
+        # The BODY alone, so the signature's own annotations are no part of what the predicate reads.
+        for statement in declaration.body:
+            for node in (statement, *_statement_nodes(statement)):
+                chain = _read_chain(node)
+                if chain is None:
+                    continue
+
+                bottom, named = chain
+                path = ".".join(named)
+                # A chain bottoming out anywhere but that argument keeps its receiver in the path, so
+                # a read this sweep cannot place fails the clause below rather than dropping out of it.
+                paths.add(path if isinstance(bottom, ast.Name) and bottom.id == fixture else f"{ast.unparse(bottom)}.{path}")
+
+    return paths
+
+
+def _projected_paths() -> frozenset[str]:
+    """Every path the projection fetches, each prefix of one beside it: a side is read whole to reach the slot inside it."""
+
+    return frozenset(".".join(path.split(".")[: depth + 1]) for path in RECORDED_FACT_FIELDS for depth in range(len(path.split("."))))
+
+
+def _application_calls(function: Callable[..., Any]) -> set[str]:
+    """Every function of the application's own that one function hands off to, by the name at the call site.
+
+    A bare `ast.Name` would miss a helper reached through its module, taking its reads out of the
+    closure.
+    """
+
+    return {callee(call) for call in ast.walk(declared(function)) if isinstance(call, ast.Call)} & app_declares()
 
 
 def _model_copy_keys(function: Callable[..., Any]) -> set[str]:
@@ -324,17 +409,22 @@ class TestThePredicateReadsNoKeyItsProjectionMisses:
         # matcher that matched something.
         assert handed_off, "no hand-off is seen inside the window, so the closure clause below is vacuous"
 
+        # The name at the CALL SITE, so a helper reached through a variable or a `getattr` is still
+        # invisible here; following one would take a call graph rather than a sweep.
         assert sorted(handed_off - {predicate.__name__ for predicate in RECORDED_FACT_PREDICATES}) == []
 
+        # Both slots by literal name, which is what the window is written slot by slot for
+        # (`app/api/saisons/services.py :: _a_side_is_off_the_draw`).
         assert {"team1", "team2", "team1_quelle", "team2_quelle"} <= _subscripted_constants(RECORDED_FACT_PREDICATES)
 
-    def test_every_key_the_window_names_is_projected(self):
-        """Read one field the projection misses and this fails; nothing else moves, the key reading `None` on every fixture."""
+    def test_every_path_the_window_reads_is_projected(self):
+        """Read one field the projection misses and this fails; nothing else moves, the key reading `None` on every fixture.
 
-        # Every SEGMENT, so `team1.tore` answers for the two names the predicate reaches it by.
-        projected = {segment for path in RECORDED_FACT_FIELDS for segment in path.split(".")}
+        A top-level `tore` counts as missed while `team1.tore` is fetched, so the two must not
+        collapse onto one name.
+        """
 
-        assert sorted(_subscripted_constants(RECORDED_FACT_PREDICATES) - projected) == []
+        assert sorted(_read_paths(RECORDED_FACT_PREDICATES) - _projected_paths()) == []
 
 
 class TestEveryWriteInsideATransactionCarriesIt:

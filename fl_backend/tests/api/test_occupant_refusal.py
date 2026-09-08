@@ -1,11 +1,14 @@
 import ast
-from typing import Any, Callable
+import asyncio
+from typing import Any, Callable, NoReturn, cast
 
 import pytest
 from bson import ObjectId
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.admin_router import _write_spiel_data
 from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
@@ -48,13 +51,17 @@ from app.api.spiele.services import (
     find_state_refusal,
     judge_spieltag_occupancy,
 )
-from app.core.exceptions import WriteRefusal
-from tests.core.app_source import callee, calls_in, declared
+from app.core.exceptions import DocumentConflictException, WriteRefusal
+from tests.core.app_source import declared
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
 SPIELTAG_TWO = "6890a1b2c3d4e5f607210002"
+
+# Must match what `tests/conftest.py :: spiel` stores: a season-scoped read given any other value
+# answers an empty corpus.
+SAISON_ID = "2026"
 
 # Four clubs, so a clash needs no reuse of the id standing for the team under test.
 ADLER = "6890a1b2c3d4e5f607220001"
@@ -229,7 +236,7 @@ def patched_spiel(
     resolved: ResolvedReferences | None = None,
     **overrides: Any,
 ) -> FLSpiel:
-    """The fixture as this patch leaves it — the one function `patch_spiel_data` applies for the save and for the `dry_run` preview alike."""
+    """The fixture as this patch leaves it — the one function `_write_spiel_data` applies for the save and for the `dry_run` preview alike."""
 
     stored = FLSpiel.model_validate(stored_spiel(season_docs, nr))
 
@@ -945,7 +952,7 @@ def joined(
         "spiel_nr": nr,
         "sonderereignis": sonderereignis,
         "saison_phase": saison_phase,
-        "saison_id": "2026",
+        "saison_id": SAISON_ID,
     }
 
 
@@ -1191,6 +1198,88 @@ def unresolved_slot_beside_a_hand_set_one(fixture_at: Callable[..., dict[str, An
     ]
 
 
+@pytest.fixture
+def club_row(address: PayloadFactory) -> Callable[[str, str], dict[str, Any]]:
+    """One club as `build_team_pipeline` serves it, carrying no `statistik`: the resolution replaces it with figures of its own."""
+
+    def make(team_id: str, gruppe: str) -> dict[str, Any]:
+        # An `ObjectId` and never its text: the derived figures are keyed on the id a fixture's side
+        # carries, so a string leaves every club unplayed and no placing decided.
+        return {
+            "_id": ObjectId(team_id),
+            "name": CLUBS[team_id],
+            "shorthand": CLUBS[team_id][:2].upper(),
+            "gruppe": gruppe,
+            "description": "",
+            "full_name": f"{CLUBS[team_id]}-Schule",
+            "schulform": "gymnasium_g9",
+            "website_url": None,
+            "address": address(),
+            "austritt": None,
+            "inactive_since": None,
+        }
+
+    return make
+
+
+@pytest.fixture
+def gruppe_a(club_row: Callable[[str, str], dict[str, Any]]) -> list[dict[str, Any]]:
+    """The two clubs the season below plays in Gruppe A: a placing is decided only where a club has a match behind it."""
+
+    return [club_row(ADLER, "A"), club_row(BIEBER, "A")]
+
+
+@pytest.fixture
+def a_decided_gruppe_seating_its_winner_twice(fixture_at: Callable[..., dict[str, Any]]) -> list[dict[str, Any]]:
+    """Gruppe A played out, and its first place wired into the Spieltag its winner already stands on.
+
+    The result decides the placing: an undecided one empties the slot rather than seating anybody,
+    leaving nothing to refuse.
+    """
+
+    return [
+        fixture_at(1, "gruppenphase", SPIELTAG_ONE, team1=team(ADLER, "Adler", tore=3), team2=team(BIEBER, "Bieber", tore=1), ergebnis="3:1"),
+        fixture_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),
+        fixture_at(30, "halbfinale", SPIELTAG_TWO, team1=None, team2=None, team1_quelle={"type": "gruppe", "gruppe": "A", "platz": 1}),
+    ]
+
+
+class _TeamPipelineCollection:
+    """The club read as `aggregate_many_from_db` issues it: an awaited `aggregate`, then a cursor."""
+
+    def __init__(self, clubs: list[dict[str, Any]]) -> None:
+        self.clubs = clubs
+
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_TeamPipelineCollection":
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return self.clubs
+
+
+class _SeasonCollection:
+    """The season read as `pull_many_from_db` issues it, over a collection that refuses every write.
+
+    The occupancy refusal is asked before the first write, so a resolution reaching one here has
+    part-advanced a season no later save reproduces.
+    """
+
+    def __init__(self, spiele: list[dict[str, Any]]) -> None:
+        self.spiele = spiele
+
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_SeasonCollection":
+        return self
+
+    def limit(self, count: int) -> "_SeasonCollection":
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return self.spiele
+
+    async def find_one_and_update(self, **arguments: Any) -> NoReturn:
+        raise AssertionError(f"the resolution wrote {arguments['filter']} before the occupancy refusal was asked")
+
+
 class TestTheResolutionNeverFieldsAClubTwice:
     """`REQ-SPIELTAG-002`. The advance fields its own sides from the wiring, and `judge_spieltag_occupancy` sees only what a REQUEST fields."""
 
@@ -1229,17 +1318,42 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         assert SPIELTAG_OCCUPIED_BY_THE_RESOLUTION != SPIELTAG_OCCUPIED
 
-    def test_both_resolution_paths_consult_it(self):
+    def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
+        """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
+
+        with pytest.raises(DocumentConflictException) as refused:
+            asyncio.run(
+                advance_bracket_winners(
+                    spiele_collection=cast(AsyncCollection, _SeasonCollection(a_decided_gruppe_seating_its_winner_twice)),
+                    teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
+                    saison_id=SAISON_ID,
+                    rules=RULES,
+                    session=cast(AsyncClientSession, object()),
+                )
+            )
+
+        assert refused.value.error_code == SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+
+    def test_the_preview_refuses_what_the_save_would(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """A preview reporting a resolution the save refuses would invite an edit that 409s on the button beside it."""
 
-        consulting = {
-            scope
-            for path in (advance_bracket_winners, preview_bracket_after_patch)
-            for scope, call in calls_in(declared(path), path.__name__)
-            if callee(call) == find_advancement_occupancy_refusal.__name__
-        }
+        season = FLSpielListAdapter.validate_python(a_decided_gruppe_seating_its_winner_twice)
 
-        assert consulting == {"advance_bracket_winners", "preview_bracket_after_patch"}
+        with pytest.raises(DocumentConflictException) as refused:
+            asyncio.run(
+                preview_bracket_after_patch(
+                    teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
+                    saison_id=SAISON_ID,
+                    rules=RULES,
+                    season=season,
+                    # The group result is the save that decides the placing, so it is the payload a
+                    # preview would be asked about.
+                    patched=next(spiel for spiel in season if spiel.spiel_nr == 1),
+                    releases=[],
+                )
+            )
+
+        assert refused.value.error_code == SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
 
 class TestTheClashComparesRealTime:
@@ -1281,10 +1395,10 @@ class TestTheClashComparesRealTime:
     def test_the_booking_read_is_keyed_on_that_window(self):
         """Narrow this read back to the payload's own date and the rule above goes quiet rather than red, handed no neighbour to refuse."""
 
-        # Every `datum` the endpoint writes into a literal, the projection's own `1` among them.
+        # Every `datum` the write path puts in a literal, the projection's own `1` among them.
         keyed_on = {
             ast.unparse(value)
-            for node in ast.walk(declared(patch_spiel_data))
+            for node in ast.walk(declared(_write_spiel_data))
             if isinstance(node, ast.Dict)
             for key, value in zip(node.keys, node.values, strict=True)
             if isinstance(key, ast.Constant) and key.value == "datum"
@@ -1299,11 +1413,11 @@ class TestTheClashComparesRealTime:
         assert days_a_clash_can_reach("2026-03-01") == ["2026-02-28", "2026-03-01", "2026-03-02"]
 
     def test_the_clash_block_is_entered_only_where_the_payload_keeps_its_slot(self):
-        """Read off the router's guard: a fixture called off frees the ground, and judging it would make the admin move the fixture first."""
+        """Read off the write path's guard: a fixture called off frees the ground, and judging it would make the admin move it first."""
 
         guards = [
             ast.unparse(node.test)
-            for node in ast.walk(declared(patch_spiel_data))
+            for node in ast.walk(declared(_write_spiel_data))
             if isinstance(node, ast.If) and "sonderereignis" in ast.unparse(node.test)
         ]
 
