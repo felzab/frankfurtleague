@@ -16,9 +16,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { formatEuro } from "@/shared/utils/format";
 
-/** What an empty field reads as, matching the erasure panel's own readout. */
-const NOT_RECORDED = "Nicht hinterlegt";
-
 /**
  * The referee page once the erasure has run. **Read-only, and that is the point**: the write path
  * refuses every save reaching an erased row (`REQ-ANONYMISE-002`), so an editor here would offer an
@@ -27,14 +24,12 @@ const NOT_RECORDED = "Nicht hinterlegt";
 export function AdminSchiedsrichterGeloeschtView({
   anonymisiertAm,
   inactiveSince,
-  schule,
   defaultPayment,
 }: {
   /** `null` only for a row a hand-write left nameless without stamping it: no date is invented for one. */
   anonymisiertAm: string | null;
-  /** Retirement is a separate state, and an erased referee may still be taking fixtures. */
+  /** It may PREDATE the erasure: a referee retired last season keeps the day they retired. */
   inactiveSince: string | null;
-  schule: string | null;
   defaultPayment: number;
 }) {
   const router = useRouter();
@@ -83,8 +78,9 @@ export function AdminSchiedsrichterGeloeschtView({
 
         <div className={panel.body()}>
           <p className="muted-hint">
-            Name, E-Mail und Telefonnummer wurden auf Wunsch dieser Person gelöscht, in der Verwaltung und auf jedem Spiel. Die Spiele selbst
-            bleiben erhalten, mit dem damals vereinbarten Honorar. Zurückholen lässt sich das nicht.
+            Name, Schule, E-Mail und Telefonnummer wurden auf Wunsch dieser Person gelöscht, in der Verwaltung und auf jedem Spiel. Der Eintrag
+            ist stillgelegt und wird für neue Spiele nicht mehr angeboten. Die Spiele selbst bleiben erhalten, mit dem damals vereinbarten
+            Honorar. Zurückholen lässt sich das nicht.
           </p>
 
           <dl className="flex w-full flex-col gap-y-1">
@@ -94,11 +90,8 @@ export function AdminSchiedsrichterGeloeschtView({
                 value={anonymisiertAm}
               />
             )}
-            {/* The two the erasure never reached, so the page says plainly what still stands. */}
-            <ConfirmReadoutRow
-              label="Schule / Verein"
-              value={schule ?? NOT_RECORDED}
-            />
+            {/* The one figure the erasure never reached, so the page says plainly what still stands: it
+                is the league's own rate rather than anything about this person. */}
             <ConfirmReadoutRow
               label="Standard-Honorar"
               value={formatEuro(defaultPayment)}

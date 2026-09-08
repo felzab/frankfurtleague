@@ -142,10 +142,19 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
-  repeated and nobody is told a person's details are gone while they stand. A save putting the name
-  or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
+  repeated and nobody is told a person's details are gone while they stand. A save putting the name,
+  the school or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
   `docs/backend/spec.md :: I184`), closed seasons' fixtures included: an erasure a routine edit
   undoes is not an erasure, and the snapshot window is the only route back.
+- **A referee's erasure also ends their engagement, and the school goes with the name.** Booking a
+  person after they asked to be erased creates fresh personal data about them, with no lawful basis
+  standing for it, so the erasure retires the row — `REQ-BOOKING-001` then refuses it every new
+  fixture — and the reactivation that would undo that is refused in turn (`REQ-ANONYMISE-003`). A
+  retirement the row already carried keeps its own day: a referee who stopped officiating last season
+  is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
+  the person, and beside a fixture list that never expires it narrows them to the few referees one
+  school ever sent; `default_payment` stays, being the league's rate for the job. A person who
+  officiates again is entered as a new referee.
 - **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
   are one subject to the match, so every seat the address holds is listed for confirmation before the
   write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather

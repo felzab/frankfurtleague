@@ -33,11 +33,14 @@ const NOT_RECORDED = "Nicht hinterlegt";
 export function FormAnonymisierenSection({
   schiedsrichterId,
   name,
+  schule,
   kontakt,
   onBeforeAnonymise,
 }: {
   schiedsrichterId: string;
   name: string;
+  /** The STORED school, for `kontakt`'s reason: the readout names what this press clears, not what is typed. */
+  schule: string | null;
   /**
    * The STORED contact record, never the draft: this write clears what is saved. Read for the
    * readout alone — an emptied field is not an empty log, so an empty record still has work to do.
@@ -89,10 +92,11 @@ export function FormAnonymisierenSection({
 
       <div className={panel.body()}>
         <p className="muted-hint">
-          Das Löschen entfernt Name, E-Mail und Telefonnummer von <strong>{name}</strong> — in der Verwaltung und auf jedem Spiel steht dann nur
-          noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die ihn betrifft.
-          Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt lesbar. Der Eintrag selbst bleibt
-          bestehen, damit die Spiele auflösbar sind; bearbeiten lässt er sich danach nicht mehr.
+          Das Löschen entfernt Name, Schule, E-Mail und Telefonnummer von <strong>{name}</strong> — in der Verwaltung und auf jedem Spiel steht
+          dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die ihn
+          betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt lesbar. Der Eintrag
+          selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht mehr angeboten, und
+          bearbeiten lässt er sich danach nicht mehr.
         </p>
 
         {isConfirming && (
@@ -105,6 +109,12 @@ export function FormAnonymisierenSection({
                 <ConfirmReadoutRow
                   label="Name"
                   value={`${name} — danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                />
+                {/* The school goes with the name: beside a fixture list that never expires it narrows the
+                    person to the few referees one school ever sent. */}
+                <ConfirmReadoutRow
+                  label="Schule / Verein"
+                  value={schule ?? NOT_RECORDED}
                 />
                 <ConfirmReadoutRow
                   label="E-Mail"

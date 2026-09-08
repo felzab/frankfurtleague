@@ -15,10 +15,12 @@ from app.api.schiedsrichter.schemas import (
 from app.api.schiedsrichter.services import (
     ANONYMISED_SCHIEDSRICHTER,
     ANONYMISIERT_AM,
-    anonymisation_stamp,
+    build_booked_image_filter,
     find_anonymisation_refusal,
     find_anonymisation_undo_refusal,
+    find_reactivation_refusal,
     find_referee_retire_refusal,
+    first_stamped,
     holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
@@ -169,7 +171,26 @@ async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
 ) -> FLSchiedsrichterWriteResponse:
-    """Clear `inactive_since`, putting the referee back into the picker and every default read."""
+    """Clear `inactive_since`, putting the referee back into the picker and every default read.
+
+    A referee whose data were erased is refused (`REQ-ANONYMISE-003`): the erasure retires them, and
+    bringing them back would offer a nameless row for a new fixture, which is fresh personal data
+    about the person who asked to be left out.
+    """
+
+    # Outside a transaction, unlike the anonymisation's own guard: this refusal reads a field this
+    # write does not touch, so there is no write set for a rival erasure to conflict on.
+    refuse(
+        find_reactivation_refusal(
+            anonymisiert_am=(
+                await pull_one_from_db(
+                    collection=schiedsrichter_collection,
+                    db_filter={"_id": schiedsrichter_id},
+                    projection={ANONYMISIERT_AM: 1},
+                )
+            ).get(ANONYMISIERT_AM)
+        )
+    )
 
     updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=None)
 
@@ -190,13 +211,16 @@ async def anonymise_schiedsrichter(
     germany_now: datetime = Depends(get_germany_now),
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterWriteResponse:
-    """Null the referee's name, telephone number and email address, and stamp the day it was done.
+    """Null the referee's name, school, telephone number and email address, and stamp the day it was done.
 
     Written to the row, to every Spiel they officiated and to the log, in one transaction. The row
     itself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under
-    the erasure is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details may go
-    while the referee still takes fixtures. What a reader is shown in place of the nulled name is the
-    frontend's word, so no endpoint answers one.
+    the erasure is refused (`REQ-ANONYMISE-001`).
+
+    **It also retires the referee**, so they take no NEW fixture (`REQ-BOOKING-001`) and cannot be
+    brought back (`REQ-ANONYMISE-003`): a booking would create fresh personal data about the person who
+    asked to be left out. A retirement already stamped keeps its own day. What a reader is shown in
+    place of the nulled name is the frontend's word, so no endpoint answers one.
     """
 
     async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
@@ -209,7 +233,7 @@ async def anonymise_schiedsrichter(
             return await pull_one_from_db(
                 collection=schiedsrichter_collection,
                 db_filter={"_id": schiedsrichter_id},
-                projection={"kontakt": 1, "name": 1, ANONYMISIERT_AM: 1},
+                projection={"kontakt": 1, "name": 1, "schule": 1, "inactive_since": 1, ANONYMISIERT_AM: 1},
                 session=read_session,
             )
 
@@ -218,10 +242,19 @@ async def anonymise_schiedsrichter(
         stored = await stored_referee(session)
         rewrites_nothing = not holds_an_anonymisable_value(stored) and stored.get(ANONYMISIERT_AM) is not None
 
+        # Not `set_inactive_since` for the retirement: its own `patch_one_in_db` would file a second
+        # log row holding the values this write is clearing. ONE `$set` describes the state the row is
+        # left in.
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            update={"$set": {**ANONYMISED_SCHIEDSRICHTER, ANONYMISIERT_AM: anonymisation_stamp(stored=stored, today=today)}},
+            update={
+                "$set": {
+                    **ANONYMISED_SCHIEDSRICHTER,
+                    "inactive_since": first_stamped(stored=stored, field="inactive_since", today=today),
+                    ANONYMISIERT_AM: first_stamped(stored=stored, field=ANONYMISIERT_AM, today=today),
+                }
+            },
             session=session,
         )
 
@@ -238,12 +271,25 @@ async def anonymise_schiedsrichter(
         # The fan-out above needs no arm of its own: `patch_many_in_db` records a filter and a count
         # and no pre-image, so its row names nobody (`docs/backend/spec.md :: I40`).
 
+        # ONE stamp for both passes, so a row cannot say which of the two reached it.
+        stamp = log_stamp(germany_now)
+
         # AFTER the referee patch, so it reaches the row that patch itself just wrote -- the one
         # holding the values being cleared. Redacting first would leave exactly that copy behind.
         await patch_many_in_db(
             collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+            update=build_redaction_update(at=stamp),
+            session=session,
+        )
+
+        # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the
+        # name, so each edit to one filed an image carrying it, under that fixture's id rather than
+        # the referee's.
+        await patch_many_in_db(
+            collection=aktionen_collection,
+            db_filter=build_booked_image_filter(schiedsrichter_id),
+            update=build_redaction_update(at=stamp),
             session=session,
         )
 

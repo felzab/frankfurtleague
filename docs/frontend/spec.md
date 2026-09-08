@@ -284,7 +284,7 @@ the other refuses.
 | `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                                                       |
 | `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                                                    |
 | `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                                                    |
-| `anonymiseSchiedsrichterAction`  | schiedsrichter | `spiele` — the label lands on every fixture the referee officiated, as a rename does           |
+| `anonymiseSchiedsrichterAction`  | schiedsrichter | `spiele` — the nulled name lands on every fixture the referee officiated, as a rename does     |
 | `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
 | `patchTeamAction`                | teams          | `teams`, `spiele`                                                                              |
 | `deleteTeamAction`               | teams          | `teams`                                                                                        |

@@ -47,7 +47,6 @@ export function AdminSchiedsrichterEditView({
       <AdminSchiedsrichterGeloeschtView
         anonymisiertAm={anonymisiertAm}
         inactiveSince={inactiveSince}
-        schule={schiedsrichter.schule}
         defaultPayment={schiedsrichter.default_payment}
       />
     );

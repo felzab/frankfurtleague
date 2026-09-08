@@ -604,7 +604,8 @@ class BookedVenue:
 class BookedReferee:
     """The `schiedsrichter` row a fixture's referee reference names."""
 
-    name: str
+    #: `None` once the erasure has nulled it, which is the one way a stored referee has no name.
+    name: str | None
     inactive_since: str | None
 
 
@@ -956,9 +957,15 @@ def find_booking_refusal(
             )
 
         if row.inactive_since is not None:
+            # An erased referee is retired by the erasure and has no name to print, and the
+            # reactivation this sentence would otherwise offer is itself refused
+            # (`REQ-ANONYMISE-003`), so the erased arm names neither.
+            named = f"{resource} {row.name}" if row.name is not None else f"the {resource} chosen"
+            way_back = "reactivate it or pick another" if row.name is not None else "their data were deleted on request; pick another"
+
             return WriteRefusal(
                 error_code=BOOKING_UNKNOWN_RESOURCE,
-                message=f"{resource} {row.name} retired on {row.inactive_since} and takes no new fixtures; reactivate it or pick another",
+                message=f"{named} retired on {row.inactive_since} and takes no new fixtures; {way_back}",
             )
 
     return None

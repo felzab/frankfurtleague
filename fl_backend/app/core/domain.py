@@ -271,6 +271,8 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, as the venue beside it is, and refused where no row holds it or "
             "the row it holds is retired; retiring the referee is refused from the other side for the reason the "
             "venue's is (`REQ-RETIRE-004`). "
+            "The anonymisation retires the row itself, so an erased referee is refused a NEW fixture by the same rule "
+            "and is never reactivated (`REQ-ANONYMISE-003`). "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -888,7 +890,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it, and the retirement is refused while an unplayed fixture still names this referee",
+        "`DELETE` and the anonymisation both stamp it, the erasure keeping a day the row already carries, and "
+        "`POST /reactivate` clears it unless the erasure has run (`REQ-ANONYMISE-003`); the retirement is refused "
+        "while an unplayed fixture still names this referee",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
 )
@@ -1399,6 +1403,14 @@ RULES: tuple[Rule, ...] = (
         summary="a name or a contact detail may not be written back onto an anonymised referee",
         implemented_by="app.api.schiedsrichter.services.find_anonymisation_undo_refusal",
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused",
+    ),
+    Rule(
+        code="REQ-ANONYMISE-003",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/reactivate",
+        aggregate="Schiedsrichter",
+        summary="a referee whose data were erased on request may not be brought back",
+        implemented_by="app.api.schiedsrichter.services.find_reactivation_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestBringingAnErasedRefereeBackIsRefused",
     ),
     Rule(
         code="REQ-SQUAD-001",

@@ -1,3 +1,5 @@
+import { PLACEHOLDER } from "@/shared/utils/format";
+
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SCHIEDSRICHTER_CRUD_COPY = {
   searchLabel: "Schiedsrichter suchen",
@@ -21,4 +23,15 @@ export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
  */
 export function schiedsrichterAnzeigename(name: string | null): string {
   return name ?? SCHIEDSRICHTER_ANONYM_LABEL;
+}
+
+/**
+ * The word a FIXTURE's referee cell shows.
+ *
+ * One helper because the obvious spelling reads both absences through one chain —
+ * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which shows „nicht zugewiesen“ for an erased referee
+ * the fixture does hold.
+ */
+export function spielSchiedsrichterAnzeige(schiedsrichter: { name: string | null } | null): string {
+  return schiedsrichter === null ? PLACEHOLDER.entity : schiedsrichterAnzeigename(schiedsrichter.name);
 }

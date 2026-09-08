@@ -1,5 +1,6 @@
 "use client";
 
+import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatQuelle, formatSpielDisplay, isAbgesagt } from "../../../utils";
@@ -73,7 +74,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
         </div>
         <div className="flex flex-row items-baseline justify-between gap-x-3">
           <dt className="fluid-xxs text-foreground-muted font-bold">Schiedsrichter</dt>
-          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{previewSpiel.schiedsrichter?.name ?? PLACEHOLDER.entity}</dd>
+          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</dd>
         </div>
       </dl>
     </div>

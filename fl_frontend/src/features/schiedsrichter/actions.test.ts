@@ -52,6 +52,16 @@ const EDIT_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const EDIT_CODES = ["REQ-ANONYMISE-002"];
 /* The first mapper in the module, so its slice ends where the retirement's begins. */
 const EDIT_MAP = sliceBetween(ACTIONS, "function mapEditRefusal", "function mapRetireRefusal");
+
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
+const REACTIVATE_CODES = ["REQ-ANONYMISE-003"];
+/* Read per slice for the anonymisation's reason: three mappers live here now. */
+const REACTIVATE_MAP = sliceBetween(ACTIONS, "function mapReactivateRefusal", "function mapAnonymiseRefusal");
+const REACTIVATE_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function reactivateSchiedsrichterAction",
+  "export async function anonymiseSchiedsrichterAction",
+);
 const UNDO_ROUTE = readFileSync(
   path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
   "utf8",
@@ -67,8 +77,12 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
 
-    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's call is outside its slice");
+    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
     assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
+
+    assert.ok(REACTIVATE_MAP.includes("serverErrorCode"), "the reactivation's arms are outside its slice");
+    assert.ok(!REACTIVATE_MAP.includes("REQ-ANONYMISE-001"), "the reactivation's slice runs on into the anonymisation's mapper");
+    assert.ok(REACTIVATE_ACTION.includes("reactivateSchiedsrichter(validated.data)"), "the reactivation's call is outside its slice");
   });
 
   /* A re-entry landing mid-anonymisation is the one refusal here, and it needs a sentence: the write
@@ -107,6 +121,28 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
     assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
+
+  /* The erasure retires the referee, so this endpoint refuses one whose data are gone. It has no undo
+     route: the replay wording of `route.ts` covers the save alone. */
+  it("maps the refusal the reactivation declares", () => {
+    const declared = declaredCodes(REACTIVATE_OPERATION);
+
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
+    assert.deepEqual(declared, REACTIVATE_CODES);
+    for (const code of declared)
+      assert.ok(REACTIVATE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+
+    assert.ok(REACTIVATE_ACTION.includes("mapReactivateRefusal(error)"), "the reactivation consults no mapper at all");
+    assert.ok(!REACTIVATE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a reactivation");
+  });
+
+  /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
+     back: nothing in the system can restore the deleted values. */
+  it("words the reactivation's refusal without offering an undo", () => {
+    assert.match(REACTIVATE_MAP, /Daten löschen lassen/, "the refusal does not say why the entry is stilled");
+    assert.match(REACTIVATE_MAP, /neuen Schiedsrichter/, "the refusal names no way forward for a person who officiates again");
+    assert.doesNotMatch(REACTIVATE_MAP, /wiederherstell|zurückhol|rückgängig/i, "the refusal offers a restore no endpoint can honour");
+  });
 });
 
 describe("what the anonymisation moves", () => {
@@ -130,6 +166,25 @@ describe("what the anonymisation moves", () => {
 });
 
 describe("the anonymisation's copy", () => {
+  /* The school goes with the name, and both surfaces have to say so: an administrator who reads only
+     „Name und Kontaktdaten“ tells the person their school is still on the record. */
+  it("names the school among what goes, on the confirmation and on the page that replaces the form", () => {
+    const geloescht = readFileSync(
+      path.resolve(import.meta.dirname, "components", "views", "AdminSchiedsrichterGeloeschtView.tsx"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+
+    for (const [source, where] of [
+      [PANEL, "the confirmation"],
+      [geloescht, "the page that replaces the form"],
+      [ACTIONS, "the action's report"],
+    ] as const) {
+      assert.match(source, /Name, Schule, E-Mail und Telefonnummer/, `${where} does not name the school among what goes`);
+    }
+
+    assert.doesNotMatch(geloescht, /Schule \/ Verein/, "the erased page still reads the school out as something that survives");
+  });
+
   it("says the name and the contact details go, in the row and in the log", () => {
     assert.match(PANEL, /E-Mail und Telefonnummer/, "the confirmation does not name what is deleted");
     assert.match(PANEL, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
@@ -145,7 +200,14 @@ describe("the anonymisation's copy", () => {
     assert.match(PANEL, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
     assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
-    assert.ok(!PANEL.includes("stillgelegt"), "the copy confuses the deletion with a retirement");
+  });
+
+  /* Next to the deletion rather than instead of it: an administrator told only that the entry is
+     stilled reports a retirement to the person who asked to be erased. */
+  it("names the retirement beside the deletion rather than in place of it", () => {
+    assert.match(PANEL, /stillgelegt/, "the confirmation does not say the entry stops taking fixtures");
+    assert.match(PANEL, /für neue Spiele nicht mehr angeboten/, "the confirmation does not say what the retirement costs");
+    assert.match(PANEL, /Zurückholen lässt sich das nicht/, "a copy naming only the retirement would read as reversible");
   });
 
   /* The word is a frontend constant so it can be reworded without touching a stored document; typed

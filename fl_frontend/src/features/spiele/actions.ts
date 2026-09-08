@@ -53,13 +53,15 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     };
   }
   // One code covers both references and the failure body names neither, so the message names both.
-  // Only a NEWLY chosen one is judged, so the remedy is to reactivate the retired entry or reload
-  // and pick another.
+
+  // A reactivation is one of two ways out rather than the way out: an erased referee cannot be
+  // reactivated (`REQ-ANONYMISE-003`), and a repair promising one sends a teacher into a second
+  // refusal.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
       error: buildRefusal({
         reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
-        repair: "Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen",
+        repair: "Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist",
       }),
     };
   }

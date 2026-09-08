@@ -117,6 +117,12 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const einsatzLabel = zusammengefasst ? "Einsätze aller anonymisierten Schiedsrichter anzeigen" : "Einsätze anzeigen";
     const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
 
+    // An erased referee gets NEITHER state control below: the erasure retired them, and
+    // `REQ-ANONYMISE-003` refuses the reactivation, so offering one is a refusal the reader could not
+    // have avoided.
+    const isErased = schiedsrichter.anonymisiert_am !== null;
+    const isRetired = schiedsrichter.inactive_since !== null;
+
     return (
       <RowActions>
         {/* Admin-only: the public Spielsuche declares no such facet, so the same link would filter nothing. */}
@@ -146,13 +152,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             height={18}
           />
         </RowActionLink>
-        {schiedsrichter.inactive_since !== null ? (
+        {!isErased && isRetired && (
           <RowActionRestore
             label="Reaktivieren"
             ariaLabel={`Schiedsrichter ${angezeigt} reaktivieren`}
             onPress={() => handleReactivate(schiedsrichter)}
           />
-        ) : (
+        )}
+        {!isErased && !isRetired && (
           <RowActionDelete
             label="Stilllegen"
             ariaLabel={`Schiedsrichter ${angezeigt} stilllegen`}

@@ -60,6 +60,23 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
   return null;
 }
 
+/** `null` where the 409 is something else; it lands on no field, the reactivation being a row control. */
+function mapReactivateRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-ANONYMISE-003") {
+    return {
+      error: buildRefusal({
+        // The repair names a NEW entry rather than a route back: nothing can undo the deletion, and a
+        // sentence hinting at one sends a teacher looking for a button that is not there.
+        reason: "Diese Person hat ihre Daten löschen lassen, deshalb bleibt der Eintrag stillgelegt",
+        repair: "Wenn sie wieder Spiele leitet, lege sie als neuen Schiedsrichter an",
+      }),
+    };
+  }
+  return null;
+}
+
 /**
  * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
  * control is a dialog rather than a form.
@@ -199,7 +216,7 @@ export async function deleteSchiedsrichterAction(
 
 /**
  * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
- * document carries. The endpoint refuses nothing — a referee coming back carries no fixtures.
+ * document carries. It refuses `REQ-ANONYMISE-003` alone — an erased referee stays retired.
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
@@ -219,7 +236,16 @@ export async function reactivateSchiedsrichterAction(
       };
     }
 
-    const reactivateOperation = await reactivateSchiedsrichter(validated.data);
+    // The refusal belongs on the control that asked, not on the error page.
+    let reactivateOperation;
+    try {
+      reactivateOperation = await reactivateSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapReactivateRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
@@ -233,9 +259,9 @@ export async function reactivateSchiedsrichterAction(
 }
 
 /**
- * Nulls the name on the row and on every match, clears the two contact fields, stamps the day, and
- * empties every log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001`
- * alone, and the row survives so every fixture booking still resolves.
+ * Nulls the name and the school, clears the two contact fields, retires the referee, and empties every
+ * log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and the
+ * row survives so every fixture booking still resolves.
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
@@ -277,7 +303,8 @@ export async function anonymiseSchiedsrichterAction(
       success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
-        `Name, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
+        `Name, Schule, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
+        "Der Eintrag ist stillgelegt und nimmt keine neuen Spiele mehr an. " +
         "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diesen Schiedsrichter betrifft.",
     };
   });
