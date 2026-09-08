@@ -766,7 +766,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
         """A 422, like every shape rule about the body: the person answered, and one of the two fields contradicts the answer."""
 
         if self.antwort == "erteilt" and self.geburtsdatum is None:
-            raise ValueError("Zur Einwilligung gehört das eigene Geburtsdatum.")
+            raise ValueError("Zur Bestätigung gehört das eigene Geburtsdatum.")
 
         if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
             raise ValueError("Ein Widerspruch speichert kein Geburtsdatum.")

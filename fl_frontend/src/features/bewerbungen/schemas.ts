@@ -339,7 +339,7 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
   text_version: z
     .string()
     .trim()
-    .nonempty({ error: "Die Einwilligung nennt keine Fassung. Lade die Seite neu." })
+    .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
@@ -684,7 +684,7 @@ export const FLBewerbungEinwilligungAntwortPayloadSchema = z
     text_version: z
       .string()
       .trim()
-      .nonempty({ error: "Die Einwilligung nennt keine Fassung. Lade die Seite neu." })
+      .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
       .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
         error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
       }),

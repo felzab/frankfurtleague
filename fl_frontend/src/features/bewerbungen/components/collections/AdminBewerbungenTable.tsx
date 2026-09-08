@@ -225,7 +225,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                   Ansprechperson
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Einwilligungen
+                  Bestätigungen
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Status

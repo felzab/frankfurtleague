@@ -197,11 +197,11 @@ export function BewerbungAngabenPanel({
                     {/* One record, one fact, and no `Leer`: an outstanding seat has a state rather
                         than a gap. An application from before the workflow reaches no state at all,
                         and its stored record is then the whole truth about that seat. */}
-                    <Angabe label="Einwilligung">
+                    <Angabe label="Bestätigung">
                       {stand === null
                         ? `${einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
                         : stand.satz}
-                      {/* Over a consent that has been given and no other: the version an
+                      {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER agreed to, which
                           naming here would file against the person who has not answered yet. */}
                       {(stand === null || stand.stand.art === "bestaetigt") &&

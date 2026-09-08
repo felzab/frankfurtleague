@@ -92,7 +92,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.ansprechperson.einwilligung",
-    label: "Einwilligung",
+    label: "Bestätigung",
     group: "Ansprechperson",
     read: readEinwilligung("ansprechperson"),
     errorPaths: einwilligungErrorPaths("kontakte.ansprechperson.einwilligung"),
@@ -106,7 +106,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.stellvertretung.einwilligung",
-    label: "Einwilligung",
+    label: "Bestätigung",
     group: "Stellvertretung",
     read: readEinwilligung("stellvertretung"),
     errorPaths: einwilligungErrorPaths("kontakte.stellvertretung.einwilligung"),
@@ -120,7 +120,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.trainer.einwilligung",
-    label: "Einwilligung",
+    label: "Bestätigung",
     group: "Trainer",
     read: readEinwilligung("trainer"),
     errorPaths: einwilligungErrorPaths("kontakte.trainer.einwilligung"),

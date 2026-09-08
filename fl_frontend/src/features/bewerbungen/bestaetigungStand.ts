@@ -188,6 +188,7 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, tea
   }
 
   // The rule rather than who is outstanding today: the strip above names every seat and its state,
-  // so a second list here is the same fact from the other side (my wording, 2026-09-04).
-  return "Eine Zusage ist ohne alle Einwilligungen nicht möglich.";
+  // so a second list here is the same fact from the other side (my wording, 2026-09-04 and
+  // 2026-09-08).
+  return "Eine Zusage ist ohne alle Bestätigungen nicht möglich.";
 }

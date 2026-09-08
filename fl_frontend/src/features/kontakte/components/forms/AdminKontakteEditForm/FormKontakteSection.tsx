@@ -390,16 +390,16 @@ function KontaktpersonInputs({
       </div>
 
       <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-        <h4 className={FORM_SECTION_HEADING}>Einwilligung</h4>
+        <h4 className={FORM_SECTION_HEADING}>Bestätigung</h4>
 
         <div className={FIELD_PAIR}>
-          {/* Read out and never picked: an administrator may not record a consent as the person's own,
-              and the server preserves whatever a confirmation wrote here. */}
+          {/* Read out and never picked: an administrator may not record a confirmation as the person's
+              own, and the server preserves whatever a confirmation wrote here. */}
           <TextField
             isReadOnly
             value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
             onChange={() => undefined}>
-            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erteilt</FieldLabel>
+            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
             <Input className={FIELD_INPUT} />
           </TextField>
 
@@ -419,10 +419,10 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>
-            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Unterschriebene Fassung</FieldLabel>
-            {/* Read-only in BOTH directions: a new consent is stamped with the current wording's version,
-                and a stored one keeps the version it was given, or the record would claim agreement to a
-                text this person never saw. */}
+            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
+            {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
+                and a stored one keeps the version it was given, or the record would cite a text this
+                person never saw. */}
             <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -431,8 +431,8 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.datum`}
             path={`kontakte.${rolle}.einwilligung`}
             isReadOnly={isMirrored}
-            label="Erteilt am"
-            calendarLabel={`${label}: Datum der Einwilligung auswählen`}
+            label="Erfasst am"
+            calendarLabel={`${label}: Datum der Bestätigung auswählen`}
             value={person.einwilligung.datum}
             onChange={(next) => setEinwilligung({ datum: next })}
             onFieldLeft={onFieldLeft}

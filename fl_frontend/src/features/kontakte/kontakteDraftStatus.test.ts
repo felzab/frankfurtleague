@@ -33,7 +33,7 @@ const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>
 const EMPTY: FLKontakteDraftFields = { kontakte: null };
 
 describe("deriveKontakteDraftStatus", () => {
-  it("carries a row per seat, a row per agreement, and one for the shared-seat claim", () => {
+  it("carries a row per seat, a row per confirmation, and one for the shared-seat claim", () => {
     const stored = block();
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
@@ -47,7 +47,7 @@ describe("deriveKontakteDraftStatus", () => {
   });
 
   /* The rows are unconditional: keyed on `kontakte` itself, every row reporting the loss would be
-     filtered out before the comparison, and a withdrawn consent could not be executed at all. */
+     filtered out before the comparison, and a withdrawal could not be executed at all. */
   it("reports the block switched off as a change on every row that held something", () => {
     const status = deriveKontakteDraftStatus({ stored: block(), draft: EMPTY, fieldErrors: {} });
 
@@ -111,17 +111,17 @@ describe("deriveKontakteDraftStatus", () => {
     );
   });
 
-  it("finds an unpicked agreement under the agreement's row, and renders it as still open", () => {
+  it("finds an unpicked confirmation under the confirmation's row, and renders it as still open", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
       draft: block({
         trainer: person({ einwilligung: { umfang: "kontaktdaten", erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null } }),
       }),
-      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Einwilligung erteilt wurde." },
+      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Bestätigung erfasst wurde." },
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
-    assert.equal(row?.error, "Bitte gib an, wann die Einwilligung erteilt wurde.");
+    assert.equal(row?.error, "Bitte gib an, wann die Bestätigung erfasst wurde.");
     // All three fallbacks render rather than hiding: they are the mid-edit states the schema rejects
     // on save, and the change list is where the admin sees what is still missing.
     assert.equal(row?.draftText, "Noch offen, ohne Fassung (ohne Datum)");
@@ -153,11 +153,11 @@ describe("deriveKontakteDraftStatus", () => {
       status.fields.map((field) => [field.group, field.label]),
       [
         ["Ansprechperson", "Person"],
-        ["Ansprechperson", "Einwilligung"],
+        ["Ansprechperson", "Bestätigung"],
         ["Stellvertretung", "Person"],
-        ["Stellvertretung", "Einwilligung"],
+        ["Stellvertretung", "Bestätigung"],
         ["Trainer", "Person"],
-        ["Trainer", "Einwilligung"],
+        ["Trainer", "Bestätigung"],
         ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
       ],
     );
@@ -208,7 +208,7 @@ describe("kontaktSeatPaths", () => {
 
   /* The floor under the case above: a filter matching nothing would make both sides empty and the
      comparison would hold over a helper that clears nothing at all. */
-  it("names the agreement's own paths beside the person's", () => {
+  it("names the confirmation's own paths beside the person's", () => {
     assert.deepEqual([...kontaktSeatPaths("trainer")].sort(), [
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
