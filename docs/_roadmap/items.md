@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                         | Tags                                                                        | Status   |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                    | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | A colliding pair split across the read's cap is marked at neither end                                                        | FE, BE, Ops, Docs, edge, bewerbungen                                        | Open     |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                       | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Open     |
@@ -93,7 +92,6 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                   | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                              | FE, Ops, gate, tests                                                        | Open     |
-| `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                          | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                     | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                          | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                            | FE, meta                                                                    | Open     |
@@ -112,7 +110,6 @@ deliverable.
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                             | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                               | FE, BE, tests                                                               | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                  | FE, Docs                                                                    | Open     |
-| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                           | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                 | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
@@ -131,41 +128,11 @@ deliverable.
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                | FE, Docs, ci, tests, saisons                                                | Standing |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                         | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                        | FE, tests, spieler                                                          | Open     |
-| `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
 | `zp46-yt3p` | No exact placing is available above the certainty walk's fixture limit                                                       | BE, Docs, saisons, teams                                                    | Standing |
 
 ## The items
-
-### `2qae-xcut` · A rule declared multi-document reads only the row its own endpoint writes
-
-| Tags       | Status | Depends on |
-| ---------- | ------ | ---------- |
-| BE, spiele | Open   | —          |
-
-**`fl_backend/app/core/domain.py :: Rule.multi_document` is true where a rule needs more than the
-payload and its own document, and `REQ-RESULT-001` declares it while reading one row.**
-`fl_backend/app/api/spiele/services.py :: find_result_removal_refusal` takes the season's whole
-fixture set, resolves the row `spiel_id` names out of it through `:: stored_in_slice`, and judges
-that row's two stored sides against the payload. It reads no other fixture. `REQ-STATE-002` and
-`REQ-STATE-003` sit on the same endpoint, decide on the payload alone and declare `False`, so what
-the endpoint may write is not what carries the value.
-
-**Which unit decides the value is the open half.** Read as what the rule itself consumes, the row is
-`False`. Read as what its caller must fetch to feed it, the season slice makes it `True` — and that
-slice is assembled for `:: judge_spieltag_occupancy` and `:: find_wiring_refusal`, which need every
-fixture, so the feed answers a question about the endpoint rather than about this rule. The commit
-declaring `REQ-RESULT-001` argues the refusal and says nothing about the flag, so no decision is
-being reopened here.
-
-**Why it matters.** Nothing reads the field, so a wrong row costs nothing until somebody derives
-from it — and a reader taking `REQ-RESULT-001` as the precedent declares `True` for every rule whose
-caller happens to hold a set, which is most of them.
-
-**Done when** `REQ-RESULT-001` carries the value that
-`fl_backend/app/core/domain.py :: Rule.multi_document` gives it, and the unit that decides — the
-rule's own reads, or its caller's — is written where the next declaration meets it.
 
 ### `2rz3-a754` · A colliding pair split across the read's cap is marked at neither end
 
@@ -702,55 +669,6 @@ block's declared token count, which `scripts/checks/docs_gate/scheme.py` already
 gate — so that the two blocks are compared with each other rather than with a literal.
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
-
-### `anh6-etwn` · States the domain declaration reaches from neither of its two lists
-
-| Tags                                                   | Status | Depends on |
-| ------------------------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, tests, spiele, spieler, spieltage, teams | Open   | —          |
-
-**`fl_backend/app/core/domain.py` is the answer to "may this happen?", in two lists.** `RULES` names
-every refusal the application implements, each pointing at the function that implements it and the
-test that covers it; `UNENFORCED` names every state the application permits **and has decided to
-permit**, each with the reason. `fl_backend/tests/core/test_domain.py` resolves `RULES` in both
-directions — a refusal with no row fails, and a row naming no refusal fails.
-
-**The gaps that sit in neither list:**
-
-| The gap                                                                                                                                                                                                                                                                                                                                                                             | Where                                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                                                                                                                                                                                               | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                                                     |
-| A fixture given a **`sonderereignis` that frees its slot** is still judged against `REQ-CLASH-001`, so recording one on a fixture that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read matches `SONDEREREIGNIS_KEEPING_ITS_SLOT`, so a fixture called off, forfeited or annulled frees the ground and the referee | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone                                       |
-| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the resolution can create a Spieltag fielding one club twice. The state itself is declared, and every appearance of it is reported on `/admin/action_required` as a `fielded_twice` fault; what neither list reaches is the write that creates it, which consults no rule        | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only                                     |
-| `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                                                                                                                                                                                                 | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                                                         |
-| `REQ-DATE-008`'s neighbour read is not transactional either, so two matchdays of one phase dated at once can each pass against the other's absence and leave the phase out of order. Unlike the entry above, a session would not help: the two writes touch different documents, so nothing conflicts                                                                               | `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag`, at the two `find_one` neighbour reads                                                                |
-| `REQ-SQUAD-003`'s count-then-insert is not transactional either, and it is reached from three endpoints while one of them carries the concession: a create, a transfer and a return to a squad each judge the season's `max_kadergroesse` from a count taken outside any session                                                                                                    | `fl_backend/app/api/spieler/admin_router.py :: _refuse_a_full_squad`, shared by `:: post_saison_spieler`, `:: patch_saison_spieler` and `:: reactivate_saison_spieler` |
-| Two venues or two referees sharing a name. No unique index reaches either collection's `name` and no refusal covers it, so the state is reachable and declared nowhere. It is the one gap here still waiting on something that does not exist — a way to merge two rows — rather than on a decision                                                                                 | `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`, which names neither collection                                                                                 |
-
-**The concession with a date on it is recorded at more than one call site, and the date is this
-year.** `fl_backend/app/api/teams/admin_router.py :: post_saison_team` accepts its race in a comment
-at the count it reads: the single-admin surface makes the race a non-concern, and losing it costs
-one team over a planning bound rather than corrupt data.
-`fl_backend/app/api/spieler/admin_router.py :: post_saison_spieler` accepts the squad cap's race in
-the same words and names that line for them, so the two stand or fall together. That reasoning is
-sound and it rests entirely on there being one writer. A second person will be writing in the season
-plan this year (confirmed 2026-08-12), and a self-registration page would put the squad cap's race
-in front of strangers rather than colleagues — the only bound on a leaked registration link is the
-cap that race defeats. When either lands the justification is gone and only the code is left, and
-nothing joins the two: the concession lives at the call site rather than in `UNENFORCED`, where a
-reader looking for what this system tolerates would find it.
-
-**The declaration's own machinery is not what is left.** An entry in `UNENFORCED` is checked in full
-from the day it is written — the refusal codes it sits near, the test that executes the state it
-claims, and the surface it says a person can see it on, all resolved against the code and the
-frontend tree ([`docs/domain.md`](../domain.md)). What no check can reach is the decision nobody
-took, and that is the whole of this entry: a state permitted because somebody weighed it and a state
-permitted because nobody looked still read identically until one of them is written down.
-
-**Done is one of two answers per state: refuse it, or write it into `UNENFORCED` with the reason.**
-Both are cheap, and choosing is the work — which is why they are one entry rather than one apiece.
-The precedent is set: the duplicate squad number in one team and season was answered by declaring
-it, because the live data already holds the state and refusing it would make those rows uneditable.
 
 ### `buut-5cyw` · An undo restores a whole stored fixture from a list read before the save
 
@@ -1686,40 +1604,6 @@ weight and a fallback that is the only sentence naming what did not happen read 
 states its own reason for one — the diagnosis is already in the server log, and what an admin needs
 is whether retrying can help.
 
-### `nr85-vwnj` · A rule declares whether it reads a second document, and nothing resolves the claim
-
-| Tags                                  | Status  | Depends on  |
-| ------------------------------------- | ------- | ----------- |
-| BE, Docs, tests, bewerbungen, saisons | Blocked | `2qae-xcut` |
-
-**`fl_backend/app/core/domain.py :: Rule.multi_document` is read by no code in the repository.** The
-identifier appears in that module and in no other — no application code, no test. Every sibling
-claim on the same dataclass is resolved: `fl_backend/tests/core/test_domain.py ::
-test_every_rule_is_implemented_where_it_says` holds `implemented_by` to the constant carrying the
-code, and `:: test_every_rule_is_tested_where_it_says` holds `tested_by` to a class asserting on it.
-A row can be given either value and the whole default tier stays green.
-
-**What a check would have to do.** Derive each rule's document reach from `fl_backend/app/api`
-rather than from the declaration (`docs/_standard/standard.md :: PRE-4`), which means reading the
-endpoint that calls the refusal, following which of its collection reads reach the arguments the
-rule's own branch consumes, and comparing that against the collection the endpoint addresses.
-
-**Three control-flow shapes defeat a reader that attributes arguments to a rule by its refusal's
-enclosing tests alone, and any attempt starts by handling all three.** A guard returning `None`
-before the refusal is part of that refusal's condition and its inputs belong to the rule
-(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`); a guard returning a
-_different_ refusal is another rule's and its inputs do not, which matters because twelve rules share
-`fl_backend/app/api/saisons/services.py :: find_rules_refusal` and four of them are declared
-`False` while sitting after guards that read the season's fixtures; and a refusal built inside a
-`try`/`except` reaches its inputs through the exception rather than through a parameter
-(`fl_backend/app/api/bewerbungen/services.py :: find_new_club_refusal`). Forty-three of the rules
-share a refusal function with another rule, so a check that skips shared functions covers a minority
-of the table.
-
-**Done when** a check in `fl_backend/tests/core/test_domain.py` reads every rule, derives the reach
-from `fl_backend/app/api` source, states in its own docstring which rules it does not reach and what
-that makes permanent, and has been driven red against a row flipped in place.
-
 ### `pa6f-ksu4` · A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure
 
 | Tags                               | Status | Depends on |
@@ -2393,51 +2277,6 @@ inside the construct it governs is one the next reader breaks.
 **Done when** the reader finds a tag's real close rather than its first `>` — comments and attribute
 values skipped, so attribute order carries nothing — and has been driven against a control whose
 arrow function is written first.
-
-### `wszt-rpmy` · Wiring the write path refuses stands unreported once it is in storage
-
-| Tags                              | Status | Depends on |
-| --------------------------------- | ------ | ---------- |
-| FE, BE, DB, Docs, saisons, spiele | Open   | —          |
-
-**I27's shapes and I28's faults do not line up, and the difference is what nothing states.**
-`fl_backend/app/api/spiele/services.py :: find_wiring_refusal` judges each side on the source the
-save moves, which is what keeps a fixture wired out of rule editable in every other respect — and it
-leaves the read path as the only thing that could name a shape already in storage.
-`fl_backend/app/api/spiele/services.py :: resolve_bracket` derives a fault for two of I27's shapes: a
-`spiel` source naming no match in the season, and a chain of references that closes on itself.
-
-**What falls between them.** A `quelle` on a Gruppenphase fixture, a `spiel` source naming a
-Gruppenphase match, and a group placing seeding a round past the one this season's bracket opens on
-each resolve cleanly, so the walk reaches no fault and the triage page has nothing to show. Two more
-are covered only in part: a source not strictly earlier in the running order is named only where it
-closes a cycle, and one outcome feeding two slots only where both slots sit on one fixture — and
-then as `same_team`, which states that two sources resolve to one club
-(`fl_backend/app/api/spiele/schemas.py :: FLBracketFaultSpiel`) rather than that one source is read
-twice. One shape is faulted and misnamed: a placing in a group the season does not run reaches
-`gruppe_too_small`, true of the arithmetic — an unrun group stands nobody — and wrong about the
-cause, which is that the group is not in the season at all.
-
-**Only a hand edit puts a fixture in that state, and that is what bounds the cost.** The draw
-composes its wiring from the bracket's own shape rather than from a caller
-(`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`), and a save that INTRODUCES a shape is
-refused, so neither product path reaches one. What stands in the gap is a row written into the
-database directly — the route [`docs/backend/spec.md`](../backend/spec.md) §4 already assumes when
-it asks for `python -m app.core.constraints --check` after a hand edit to `spiele`, and the case an
-operator repairing by hand has the least help with.
-
-**A variant costs more than a `reason` string.** A fault is a member of
-`fl_backend/app/api/spiele/schemas.py :: FLBracketFault`, a case in
-`fl_backend/app/api/spiele/services.py :: _fault_order`, a mirror in
-`fl_frontend/src/features/spiele/schemas.ts` that `.claude/rules/cross-surface.md` holds to
-hand-writing, a published property in `fl_backend/openapi.json`, and a German sentence in each of
-`fl_frontend/src/features/spiele/utils.ts :: formatBracketFault` and `:: describeBracketFaultOnCard`.
-**Both switches are exhaustive, so the compiler names them; nothing names the German.** I28's own
-enumeration moves in the same commit.
-
-**Done is the two lists agreeing** — every shape the write path refuses either reported by the read
-path or written down as one it deliberately does not report — with `gruppe_too_small`'s misnaming
-corrected at the same time.
 
 ### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
 

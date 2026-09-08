@@ -29,6 +29,7 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-ELIGIBILITY-002": "Ein ursprünglich aufgestelltes Team nimmt nicht mehr an dieser Saison teil.",
   "REQ-RESULT-001": "Ein Spiel ist inzwischen gewertet, und der ursprüngliche Stand lässt eine Seite ohne Team.",
   "REQ-SPIELTAG-001": "Ein ursprünglich aufgestelltes Team spielt am selben Spieltag inzwischen schon in einem anderen Spiel.",
+  "REQ-SPIELTAG-002": "Ein ursprüngliches Ergebnis würde den KO-Baum ein Team zweimal am selben Spieltag aufstellen lassen.",
   "REQ-STATE-002": "Ein Spiel mit dem ursprünglichen Sonderereignis wird nicht gewertet und darf keine Tore tragen.",
   "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams, und im ursprünglichen Stand ist ein Platz offen.",
   "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",

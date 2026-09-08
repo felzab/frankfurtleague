@@ -301,24 +301,35 @@ class _BracketFault(BaseModel):
 class FLBracketFaultGruppe(_BracketFault):
     """One bracket slot whose `gruppe` reference names a placing no standing will hand it.
 
-    `gruppe_too_small` is a typo and the slot is left alone; `tie_unresolved` is a played-out group
-    the chain cannot separate, so the slot IS emptied.
+    `tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,
+    and a slot is never emptied over one.
     """
 
-    reason: Literal["gruppe_too_small", "tie_unresolved"]
+    reason: Literal["gruppe_too_small", "gruppe_not_run", "seed_past_the_opening_round", "tie_unresolved"]
     gruppe: FLGruppenNames
     platz: int = Field(gt=0)
 
 
 class FLBracketFaultQuelle(_BracketFault):
-    """One bracket slot whose `spiel` reference names a match that cannot state an outcome.
+    """One bracket slot whose `spiel` reference names a match that cannot feed it.
 
-    Both leave the slot as it stands, and neither is reachable through the write path. A cycle is
-    reported on every fixture it reaches.
+    Each leaves the slot as it stands, and a cycle is reported on every fixture it reaches.
     """
 
-    reason: Literal["spiel_missing", "reference_cycle"]
+    reason: Literal["spiel_missing", "reference_cycle", "gruppenphase_feeder", "feeder_not_played_first"]
     quelle_spiel_nr: CustomSpielNr
+
+
+class FLBracketFaultSlot(_BracketFault):
+    """One slot carrying a reference it must not carry, whatever that reference names.
+
+    The reference travels whole rather than decomposed: it groups the entries of a shared source, and
+    a toast arrives with no fixture to read it off.
+    """
+
+    reason: Literal["gruppenphase_fixture_wired", "source_feeds_another_fixture"]
+    side: Literal["team1", "team2"]
+    quelle: FLSpielQuelle
 
 
 class FLBracketFaultSpiel(_BracketFault):
@@ -366,9 +377,10 @@ class FLBracketFaultSpieltag(_BracketFault):
     team_name: str = Field(min_length=1)
 
 
-# Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`.
+# Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`. Every reason the
+# write path refuses too reaches a stored document by hand edit alone.
 FLBracketFault = Annotated[
-    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultOccupant | FLBracketFaultSpieltag,
+    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag,
     Field(discriminator="reason"),
 ]
 

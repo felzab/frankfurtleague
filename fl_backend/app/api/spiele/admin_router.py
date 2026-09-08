@@ -36,6 +36,7 @@ from app.api.spiele.services import (
     build_spiele_filter,
     build_spiele_pipeline,
     build_spiele_sort,
+    days_a_clash_can_reach,
     find_booking_refusal,
     find_clash_refusal,
     find_eligibility_refusal,
@@ -300,7 +301,11 @@ async def patch_spiel_data(
         refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved))
 
         # No `saison_id` in the query below: a double booking crosses competitions.
-        if spiel_data.datum is not None:
+
+        # The same partition the read below filters on, asked of THIS payload: an event that frees
+        # the slot cannot double-book anything, and judging it would make the admin move the fixture
+        # before recording that it was called off.
+        if spiel_data.datum is not None and spiel_data.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT:
             claims: list[BookedSlot] = []
             # Annotated rather than inferred: a bare tuple literal widens `resource` to `str`, which
             # `BookedSlot` then refuses.
@@ -321,7 +326,10 @@ async def patch_spiel_data(
                     await spiele_collection.find(
                         {
                             field: chosen,
-                            "datum": spiel_data.datum,
+                            # The neighbouring days too: `REQ-CLASH-001` measures a real interval, so
+                            # a fixture at 00:30 is refused against one at 23:30 the evening before,
+                            # and a read scoped to the payload's own date would never fetch it.
+                            "datum": {"$in": days_a_clash_can_reach(spiel_data.datum)},
                             "uhrzeit": {"$ne": None},
                             "_id": {"$ne": spiel_id},
                             # An abandoned match used the ground and the referee; the rest freed both.

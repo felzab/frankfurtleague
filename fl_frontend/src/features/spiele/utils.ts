@@ -445,6 +445,12 @@ const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZus
 export const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
 
 /**
+ * `formatQuelle` for a sentence rather than a slot's label. Its `null` is the `NaN` a form holds
+ * while a number is unpicked, so no served fault reaches the fallback.
+ */
+const herkunftLabel = (quelle: FLSpielQuelle): string => formatQuelle(quelle) ?? "eine unlesbare Herkunft";
+
+/**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match
  * number. Only states no further result can fix reach here. Beside a card, use
  * `describeBracketFaultOnCard`.
@@ -453,14 +459,28 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
       return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch so weit reicht diese Gruppe nicht`;
+    case "gruppe_not_run":
+      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, die es in dieser Saison nicht gibt`;
+    case "seed_past_the_opening_round":
+      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist`;
     case "tie_unresolved":
       return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${fault.spiel_nr} offen`;
     case "spiel_missing":
       return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt`;
     case "reference_cycle":
       return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann`;
+    case "gruppenphase_feeder":
+      return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase, doch in den KO-Baum führt nur die Gruppentabelle`;
+    case "feeder_not_played_first":
+      return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht vor diesem Spiel gespielt wird`;
     case "same_team":
       return `In Spiel ${fault.spiel_nr} führen beide Seiten zum selben Team`;
+    // The seat is named for `fielded_twice`'s reason, one entry standing per SLOT rather than per
+    // fixture, and the reference because the admin decides between its two users.
+    case "gruppenphase_fixture_wired":
+      return `In Spiel ${fault.spiel_nr} verweist ${sideLabel(fault.side)} auf ${herkunftLabel(fault.quelle)}, obwohl der Spielplan die Seiten eines Gruppenspiels setzt`;
+    case "source_feeds_another_fixture":
+      return `In Spiel ${fault.spiel_nr} ist ${sideLabel(fault.side)} auf ${herkunftLabel(fault.quelle)} verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel`;
     // Not a bracket fault: what makes it one is the order of the two dates, and the fixture's own
     // may be missing — so the sentence names both rather than a reference.
     case "departed_occupant":
@@ -482,14 +502,26 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
       return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. So viele Plätze hat diese Gruppe nicht.`;
+    case "gruppe_not_run":
+      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, die es in dieser Saison nicht gibt.`;
+    case "seed_past_the_opening_round":
+      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. Aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist.`;
     case "tie_unresolved":
       return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden. Dieses Spiel bleibt deshalb offen.`;
     case "spiel_missing":
       return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt.`;
     case "reference_cycle":
       return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
+    case "gruppenphase_feeder":
+      return `Verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase. In den KO-Baum führt nur die Gruppentabelle.`;
+    case "feeder_not_played_first":
+      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht vor diesem Spiel gespielt wird.`;
     case "same_team":
       return "Beide Seiten führen zum selben Team.";
+    case "gruppenphase_fixture_wired":
+      return `${sideLabel(fault.side)} verweist auf ${herkunftLabel(fault.quelle)}, obwohl der Spielplan die Seiten dieses Gruppenspiels setzt.`;
+    case "source_feeds_another_fixture":
+      return `${sideLabel(fault.side)} ist auf ${herkunftLabel(fault.quelle)} verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.`;
     case "departed_occupant":
       return fault.spiel_datum === null
         ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`

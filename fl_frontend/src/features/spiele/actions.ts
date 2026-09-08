@@ -66,6 +66,16 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       }),
     };
   }
+  // Mapped here rather than beside `REQ-SPIELTAG-001` in the shared fallback: that sentence points at
+  // the team the admin just picked, and this refusal is about a slot the KO-Baum fills by itself.
+  if (error.serverErrorCode === "REQ-SPIELTAG-002") {
+    return {
+      error: buildRefusal({
+        reason: "Durch dieses Ergebnis würde der KO-Baum ein Team zweimal am selben Spieltag aufstellen",
+        repair: "Nimm das von Hand gesetzte Team aus dem anderen Spiel, oder gib dessen Platz eine andere Herkunft",
+      }),
+    };
+  }
   return null;
 }
 

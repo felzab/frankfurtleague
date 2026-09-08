@@ -36,11 +36,15 @@ import {
 import type { FLAustrittType } from "../teams/schemas.ts";
 import type {
   FLBracketFault,
+  FLBracketFaultGruppe,
+  FLBracketFaultQuelle,
+  FLBracketFaultSlot,
   FLSonderereignis,
   FLSpiel,
   FLSpielAdmin,
   FLSpielAdvancement,
   FLSpielBooking,
+  FLSpielQuelle,
   FLSpielWithDraftFields,
 } from "./schemas.ts";
 
@@ -464,8 +468,17 @@ function departedFault(austritt_type: FLAustrittType): FLBracketFault {
 }
 
 /** The id is read only as a key, so any valid one will do. */
-function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
+function gruppeFault(reason: FLBracketFaultGruppe["reason"], gruppe: FLBracketFaultGruppe["gruppe"], platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
+}
+
+function quelleFault(reason: FLBracketFaultQuelle["reason"], quelleSpielNr: number): FLBracketFault {
+  return { reason, spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, quelle_spiel_nr: quelleSpielNr };
+}
+
+/** The seat is `team1` throughout: which one it is only has to reach the wording. */
+function slotFault(reason: FLBracketFaultSlot["reason"], quelle: FLSpielQuelle): FLBracketFault {
+  return { reason, spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, side: "team1", quelle };
 }
 
 /** One appearance of a club that stands more than once on its Spieltag; the callers vary only the seat. */
@@ -756,6 +769,126 @@ describe("formatBracketFault", () => {
       assert.doesNotMatch(formatBracketFault(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
       assert.doesNotMatch(describeBracketFaultOnCard(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
     }
+  });
+
+  it("names the group a season does not run as that, rather than as a table too short", () => {
+    assert.equal(
+      formatBracketFault(gruppeFault("gruppe_not_run", "C", 1)),
+      "Spiel 25 verweist auf Platz 1 der Gruppe C, die es in dieser Saison nicht gibt",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(gruppeFault("gruppe_not_run", "C", 1)),
+      "Verweist auf Platz 1 der Gruppe C, die es in dieser Saison nicht gibt.",
+    );
+  });
+
+  it("says a placing feeds the opening round alone", () => {
+    assert.equal(
+      formatBracketFault(gruppeFault("seed_past_the_opening_round", "A", 1)),
+      "Spiel 25 verweist auf Platz 1 der Gruppe A, doch aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(gruppeFault("seed_past_the_opening_round", "A", 1)),
+      "Verweist auf Platz 1 der Gruppe A. Aus der Gruppentabelle wird nur die erste KO-Runde der Saison gespeist.",
+    );
+  });
+
+  it("says a group match feeds no bracket slot", () => {
+    assert.equal(
+      formatBracketFault(quelleFault("gruppenphase_feeder", 1)),
+      "Spiel 29 verweist auf Spiel 1 aus der Gruppenphase, doch in den KO-Baum führt nur die Gruppentabelle",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(quelleFault("gruppenphase_feeder", 1)),
+      "Verweist auf Spiel 1 aus der Gruppenphase. In den KO-Baum führt nur die Gruppentabelle.",
+    );
+  });
+
+  it("says a source is not played first, without claiming a loop", () => {
+    assert.equal(
+      formatBracketFault(quelleFault("feeder_not_played_first", 31)),
+      "Spiel 29 verweist auf Spiel 31, das nicht vor diesem Spiel gespielt wird",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(quelleFault("feeder_not_played_first", 31)),
+      "Verweist auf Spiel 31, das nicht vor diesem Spiel gespielt wird.",
+    );
+  });
+
+  it("names the seat and the reference on a wired group fixture", () => {
+    const fault = slotFault("gruppenphase_fixture_wired", { type: "spiel", spiel_nr: 25, ausgang: "sieger" });
+
+    assert.equal(
+      formatBracketFault(fault),
+      "In Spiel 29 verweist Team 1 auf Sieger 25., obwohl der Spielplan die Seiten eines Gruppenspiels setzt",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(fault),
+      "Team 1 verweist auf Sieger 25., obwohl der Spielplan die Seiten dieses Gruppenspiels setzt.",
+    );
+  });
+
+  // The reference is what pairs the two entries of one shared source, so both wordings carry it.
+  it("names the shared reference on each slot it feeds", () => {
+    const fault = slotFault("source_feeds_another_fixture", { type: "gruppe", gruppe: "A", platz: 1 });
+
+    assert.equal(
+      formatBracketFault(fault),
+      "In Spiel 29 ist Team 1 auf 1. der Gruppe A verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(fault),
+      "Team 1 ist auf 1. der Gruppe A verwiesen, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.",
+    );
+  });
+});
+
+// Every fixture of a variant carries the same placing and the same number, or two reasons sharing
+// one wording still render apart and the distinctness sweep below passes.
+/**
+ * One fault per reason, as a `Record` over the union: a reason the mirror gains with no fixture here
+ * fails to compile, so the sweeps below reach every one of them.
+ */
+const ONE_PER_REASON: Record<FLBracketFault["reason"], FLBracketFault> = {
+  gruppe_too_small: gruppeFault("gruppe_too_small", "A", 1),
+  gruppe_not_run: gruppeFault("gruppe_not_run", "A", 1),
+  seed_past_the_opening_round: gruppeFault("seed_past_the_opening_round", "A", 1),
+  tie_unresolved: gruppeFault("tie_unresolved", "A", 1),
+  spiel_missing: quelleFault("spiel_missing", 30),
+  reference_cycle: quelleFault("reference_cycle", 30),
+  gruppenphase_feeder: quelleFault("gruppenphase_feeder", 30),
+  feeder_not_played_first: quelleFault("feeder_not_played_first", 30),
+  same_team: { reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 },
+  gruppenphase_fixture_wired: slotFault("gruppenphase_fixture_wired", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }),
+  source_feeds_another_fixture: slotFault("source_feeds_another_fixture", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }),
+  departed_occupant: departedFault("rueckzug"),
+  fielded_twice: fieldedTwice("team1"),
+};
+
+// **The one defect no type checker can see.** A missing `case` fails to compile in both functions;
+// an arm returning nothing readable, or one reason's sentence under another's name, does not.
+describe("every bracket fault reaches words", () => {
+  const faults = Object.values(ONE_PER_REASON);
+  const toasts = faults.map(formatBracketFault);
+  const cards = faults.map(describeBracketFaultOnCard);
+
+  it("says something, and nothing a template left behind", () => {
+    for (const sentence of [...toasts, ...cards]) {
+      assert.notEqual(sentence.trim(), "");
+      assert.doesNotMatch(sentence, /undefined|null|NaN|\[object|\$\{/);
+    }
+  });
+
+  it("gives each reason a wording of its own", () => {
+    assert.equal(new Set(toasts).size, toasts.length);
+    assert.equal(new Set(cards).size, cards.length);
+  });
+
+  it("closes a card's note and leaves a toast's sentence open", () => {
+    // `formatSpielUpdateMessage` joins with ". ", so a toast sentence carrying its own point renders
+    // "..", and `formatQuelle`'s label ends in one — which is why no sentence ends on the reference.
+    for (const sentence of toasts) assert.doesNotMatch(sentence, /\.$/);
+    for (const sentence of cards) assert.match(sentence, /\.$/);
   });
 });
 

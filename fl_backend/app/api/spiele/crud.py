@@ -24,13 +24,22 @@ from app.api.spiele.services import (
     SlotAdvancement,
     SpieltagRelease,
     build_spiele_pipeline,
+    find_advancement_occupancy_refusal,
     find_departed_occupants,
     find_double_entries,
+    find_gruppen_not_run,
     resolve_bracket,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
-from app.api.teams.services import ZERO_STATISTIK, DecidedStanding, build_decided_standings, build_statistik_by_team, build_team_pipeline
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
+from app.api.teams.services import (
+    ZERO_STATISTIK,
+    DecidedStanding,
+    build_decided_standings,
+    build_statistik_by_team,
+    build_team_pipeline,
+    offered_gruppen,
+)
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, refuse
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -52,8 +61,12 @@ async def _resolve_one_saison(
         quelle.gruppe for spiel in spiele for quelle in (spiel.team1_quelle, spiel.team2_quelle) if isinstance(quelle, FLSpielQuelleGruppe)
     }
 
+    # The groups the season RUNS alone: a standing built for any other would have the walk report a
+    # reference to it as a table too short, where `find_gruppen_not_run` names the group.
+    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_groups))
+
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
-    if referenced_gruppen:
+    if gruppen_to_decide:
         # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a hidden club must not hold a placing the bracket honours.
         # `rules=None` asks it for the ROWS alone.
@@ -80,10 +93,15 @@ async def _resolve_one_saison(
             teams=FLTeamListAdapter.validate_python([{**team, "statistik": by_team.get(team["_id"], ZERO_STATISTIK)} for team in teams_raw]),
             spiele=gruppenphase,
             rules=rules,
-            gruppen=referenced_gruppen,
+            gruppen=gruppen_to_decide,
         )
 
-    return resolve_bracket(spiele, standings)
+    resolution = resolve_bracket(spiele, standings)
+
+    return BracketResolution(
+        advancements=resolution.advancements,
+        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_groups=rules.number_of_groups)],
+    )
 
 
 async def find_bracket_faults(
@@ -245,12 +263,17 @@ async def preview_bracket_after_patch(
         current = substituted.get(release.spiel_id) or next(spiel for spiel in season if spiel.id == release.spiel_id)
         substituted[release.spiel_id] = apply_release_to_spiel(current, release)
 
+    would_hold = [substituted.get(spiel.id, spiel) for spiel in season]
     resolution = await _resolve_one_saison(
         teams_collection=teams_collection,
         saison_id=saison_id,
         rules=rules,
-        spiele=[substituted.get(spiel.id, spiel) for spiel in season],
+        spiele=would_hold,
     )
+
+    # Raised here as well as at the save, so the preview cannot report a resolution the save refuses:
+    # the rail would then invite an edit that 409s on the button beside it.
+    refuse(find_advancement_occupancy_refusal(would_hold, resolution.advancements))
 
     return (
         [report_advancement(advancement) for advancement in resolution.advancements],
@@ -304,6 +327,10 @@ async def advance_bracket_winners(
         spiele=spiele,
         session=session,
     )
+
+    # Before the first write, so the whole transaction goes back: a resolution refused halfway would
+    # leave the season part-advanced, which no later save reproduces and nothing reports as unfinished.
+    refuse(find_advancement_occupancy_refusal(spiele, resolution.advancements))
 
     for advancement in resolution.advancements:
         # The result goes with the occupant (`docs/backend/spec.md :: I25b`): what was scored here

@@ -330,12 +330,12 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
 };
 
 /**
- * `gruppe_too_small` is a typo and the slot keeps what it holds; `tie_unresolved` the tiebreak chain
- * cannot settle, so the slot IS emptied and needs a person. A group still being played is in
- * neither: an undecided placing is not one to show an admin.
+ * `tie_unresolved` empties the slot and needs a person; every other reason leaves it alone, naming
+ * wiring the season cannot hold. A group still being played is in none: an undecided placing is not
+ * one to show an admin.
  */
 export const FLBracketFaultGruppeSchema = z.object({
-  reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
+  reason: z.enum(["gruppe_too_small", "gruppe_not_run", "seed_past_the_opening_round", "tie_unresolved"]),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   gruppe: FLGruppenNamesSchema,
@@ -348,12 +348,25 @@ export type FLBracketFaultGruppe = z.infer<typeof FLBracketFaultGruppeSchema>;
  * none of them being derivable.
  */
 export const FLBracketFaultQuelleSchema = z.object({
-  reason: z.enum(["spiel_missing", "reference_cycle"]),
+  reason: z.enum(["spiel_missing", "reference_cycle", "gruppenphase_feeder", "feeder_not_played_first"]),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   quelle_spiel_nr: z.int().positive(),
 });
 export type FLBracketFaultQuelle = z.infer<typeof FLBracketFaultQuelleSchema>;
+
+/**
+ * The seat and its reference, where what is wrong is the seat carrying that reference at all. The
+ * reference travels whole because it is what groups the entries of a shared source.
+ */
+export const FLBracketFaultSlotSchema = z.object({
+  reason: z.enum(["gruppenphase_fixture_wired", "source_feeds_another_fixture"]),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  side: z.enum(["team1", "team2"]),
+  quelle: FLSpielQuelleSchema,
+});
+export type FLBracketFaultSlot = z.infer<typeof FLBracketFaultSlotSchema>;
 
 /** One fixture whose two references resolve to the same club, so it would be a team against itself. */
 export const FLBracketFaultSpielSchema = z.object({
@@ -409,6 +422,7 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultGruppeSchema,
   FLBracketFaultQuelleSchema,
   FLBracketFaultSpielSchema,
+  FLBracketFaultSlotSchema,
   FLBracketFaultOccupantSchema,
   FLBracketFaultSpieltagSchema,
 ]);

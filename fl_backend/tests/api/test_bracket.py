@@ -1,9 +1,11 @@
-from typing import Any, Callable, get_args
+from typing import Any, Callable, Mapping, get_args
 
 import pytest
 
-from app.api.spiele.schemas import FLBracketFaultQuelle, FLSonderereignis, FLSpielListAdapter
-from app.api.spiele.services import resolve_bracket
+from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSonderereignis, FLSpielListAdapter
+from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
+from app.api.teams.schemas import FLGruppenNames
+from app.api.teams.services import DecidedStanding
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 BRACKET_TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
@@ -19,10 +21,17 @@ def sieger(spiel_nr: int) -> dict[str, Any]:
     return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "sieger"}
 
 
-def resolved(documents: list[dict[str, Any]]) -> dict[int, tuple[str | None, str | None]]:
-    """No standings, so every case here is match-fed; seeding from a group placing is `test_standings.py`'s."""
+def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
+    return {"type": "gruppe", "gruppe": gruppe, "platz": platz}
 
-    resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), {})
+
+Standings = Mapping[FLGruppenNames, DecidedStanding]
+
+
+def resolved(documents: list[dict[str, Any]], standings: Standings | None = None) -> dict[int, tuple[str | None, str | None]]:
+    """Match-fed unless a case hands in a standing; which team a placing resolves to is `test_standings.py`'s."""
+
+    resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), standings or {})
 
     return {
         advancement.spiel_nr: (
@@ -33,8 +42,10 @@ def resolved(documents: list[dict[str, Any]]) -> dict[int, tuple[str | None, str
     }
 
 
-def faults(documents: list[dict[str, Any]]) -> list[tuple[int, str]]:
-    return [(fault.spiel_nr, fault.reason) for fault in resolve_bracket(FLSpielListAdapter.validate_python(documents), {}).bracket_faults]
+def faults(documents: list[dict[str, Any]], standings: Standings | None = None) -> list[tuple[int, str]]:
+    resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), standings or {})
+
+    return [(fault.spiel_nr, fault.reason) for fault in resolution.bracket_faults]
 
 
 @pytest.fixture
@@ -47,6 +58,19 @@ def side(spiel_team_field: PayloadFactory) -> SideFactory:
     return make
 
 
+def drawn_phase(nr: int) -> str:
+    """The round a real draw gives this number.
+
+    `spiel_nr` ascends through the rounds, so a feeder numbered below its slot is in a strictly
+    earlier one -- which is what an edge into a bracket slot must be.
+    """
+
+    if nr <= 28:
+        return "viertelfinale"
+
+    return "halbfinale" if nr <= 30 else "finale"
+
+
 @pytest.fixture
 def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
     def make(
@@ -57,14 +81,15 @@ def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
         quelle1: dict[str, Any] | None = None,
         quelle2: dict[str, Any] | None = None,
         ergebnis: str | None = None,
-        # Declared, not left to `**overrides`: that would pass `saison_phase` twice.
-        saison_phase: str = "viertelfinale",
+        # Declared, not left to `**overrides`: that would pass `saison_phase` twice. A case about the
+        # phase rule itself passes one, and every other takes the round its number was drawn into.
+        saison_phase: str | None = None,
         **overrides: Any,
     ) -> dict[str, Any]:
         return spiel(
             _id=MATCH_ID.format(nr),
             spiel_nr=nr,
-            saison_phase=saison_phase,
+            saison_phase=saison_phase or drawn_phase(nr),
             team1=team1,
             team2=team2,
             team1_quelle=quelle1,
@@ -276,7 +301,7 @@ class TestResolveBracket:
     def test_a_group_seeded_slot_is_left_alone_with_no_standings(self, fixture_at: FixtureFactory, side: SideFactory):
         """Distinct from a standing that has not decided the placing, which does empty the slot — `test_standings.py`'s."""
 
-        spiele = [fixture_at(25, team1=side(1), quelle1={"type": "gruppe", "gruppe": "A", "platz": 1})]
+        spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("A", 1))]
 
         assert resolved(spiele) == {}
 
@@ -383,7 +408,7 @@ class TestResolveBracket:
             fixture_at(31, team1=side(1), quelle1=sieger(29), saison_phase="finale"),
         ]
 
-        gruppen_quelle = {"type": "gruppe", "gruppe": "A", "platz": 1}
+        gruppen_quelle = gruppenplatz("A", 1)
         match mistake:
             case "dangling":
                 spiele[2] = semi(sieger(99))
@@ -567,6 +592,88 @@ class TestReportingAFault:
         """Widening this would fill a list an admin reads as being about references."""
 
         assert faults([fixture_at(29, team1=side(1), team2=side(1))]) == []
+
+    def test_a_reference_on_a_group_fixture_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """Following it would rewrite the sides of a match the schedule drew and void its result."""
+
+        spiele = [
+            fixture_at(1, team1=side(1, 1), team2=side(2, 0), ergebnis="1:0", quelle1=sieger(25), saison_phase="gruppenphase"),
+            fixture_at(25, team1=side(3, 2), team2=side(4, 1), ergebnis="2:1"),
+        ]
+
+        assert faults(spiele) == [(1, "gruppenphase_fixture_wired")]
+        assert resolved(spiele) == {}
+
+        # The variant carries the seat and the reference whole, which is what a toast has to name.
+        reported = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).bracket_faults[0]
+        assert isinstance(reported, FLBracketFaultSlot)
+        assert (reported.side, reported.quelle.model_dump()) == ("team1", sieger(25))
+
+    def test_a_source_in_the_group_phase_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """A decided group match names a winner, so this seeds a bracket slot from the table's own answer."""
+
+        spiele = [
+            fixture_at(1, team1=side(1, 2), team2=side(2, 0), ergebnis="2:0", saison_phase="gruppenphase"),
+            fixture_at(29, team1=side(3), quelle1=sieger(1)),
+        ]
+
+        assert faults(spiele) == [(29, "gruppenphase_feeder")]
+        assert resolved(spiele) == {}
+
+    @pytest.mark.parametrize("feeder_nr", [30, 31], ids=["same-round", "later-round"])
+    def test_a_source_not_played_first_is_reported(self, fixture_at: FixtureFactory, side: SideFactory, feeder_nr: int):
+        """Both arms of the comparison, outside a cycle: the feeder references nothing back, so `reference_cycle` cannot cover either."""
+
+        spiele = [
+            fixture_at(29, team1=side(1), quelle1=sieger(feeder_nr)),
+            fixture_at(feeder_nr, team1=side(2, 3), team2=side(3, 1), ergebnis="3:1"),
+        ]
+
+        assert faults(spiele) == [(29, "feeder_not_played_first")]
+        assert resolved(spiele) == {}
+
+    def test_a_source_feeding_two_fixtures_is_reported_on_both(self, fixture_at: FixtureFactory, side: SideFactory):
+        """One entry per slot, as `fielded_twice` keeps: which fixture the outcome belongs to is a competition decision."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, team1=side(5), quelle1=sieger(25)),
+            fixture_at(30, team1=side(6), quelle1=sieger(25)),
+        ]
+
+        assert faults(spiele) == [(29, "source_feeds_another_fixture"), (30, "source_feeds_another_fixture")]
+        assert resolved(spiele) == {}
+
+    def test_a_placing_seeding_a_later_round_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The season holds an earlier round, so this Finale slot is one a match feeds rather than a table."""
+
+        spiele = [
+            fixture_at(25, team1=side(1), team2=side(2)),
+            fixture_at(31, team1=side(3), quelle1=gruppenplatz("A", 1)),
+        ]
+        standings: Standings = {"A": DecidedStanding(eligible=2, is_complete=False, by_platz={})}
+
+        assert faults(spiele, standings) == [(31, "seed_past_the_opening_round")]
+        assert resolved(spiele, standings) == {}
+
+    def test_a_group_the_season_does_not_run_is_reported_as_that(self, fixture_at: FixtureFactory, side: SideFactory):
+        """Never as a table too short: the repair is the reference, where a short table's is the group's entrants."""
+
+        spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("C", 1))]
+        reported = find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_groups=2)
+
+        assert [(fault.spiel_nr, fault.reason, fault.gruppe) for fault in reported] == [(25, "gruppe_not_run", "C")]
+
+        # The division of labour: no standing reaches the walk for such a group, so nothing there can
+        # report a size it was never given.
+        assert faults(spiele) == []
+
+    def test_a_group_inside_the_seasons_count_is_reported_by_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The bound is the season's own count rather than the closed letter set, so C on a four-group season is wired legally."""
+
+        spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("C", 1))]
+
+        assert find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_groups=4) == []
 
     def test_a_season_at_rest_reports_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
         spiele = [

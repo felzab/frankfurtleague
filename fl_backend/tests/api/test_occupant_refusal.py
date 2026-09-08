@@ -1,32 +1,46 @@
+import ast
 from typing import Any, Callable
 
 import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.crud import apply_release_to_spiel
+from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielTeamField,
 )
 from app.api.spiele.services import (
     BOOKING_UNKNOWN_RESOURCE,
+    CLASH_BUFFER_MINUTES,
+    CLASH_REACH_DAYS,
     ELIGIBILITY_DISQUALIFIED,
     ELIGIBILITY_NO_MEMBERSHIP,
+    FIXTURE_DOUBLE_BOOKED,
+    MINUTES_PER_DAY,
     RESULT_SIDE_EMPTIED,
     SPIELTAG_OCCUPIED,
+    SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
     STATE_NO_SHOW_WITHOUT_TWO_SIDES,
     STATE_RESULT_ON_A_NON_EVENT,
     BookedReferee,
+    BookedSlot,
     BookedVenue,
     ResolvedReferences,
     SaisonMembership,
+    SlotAdvancement,
     SpieltagRelease,
     apply_payload_to_spiel,
+    days_a_clash_can_reach,
+    find_advancement_occupancy_refusal,
     find_booking_refusal,
+    find_clash_refusal,
     find_departed_occupants,
     find_double_entries,
     find_eligibility_refusal,
@@ -35,6 +49,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.exceptions import WriteRefusal
+from tests.core.app_source import callee, calls_in, declared
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -1134,6 +1149,168 @@ class TestTheClubFieldedTwiceFault:
         )
 
         assert [fault.spiel_nr for fault in faults] == [2, 7]
+
+
+def advancement(
+    season_docs: list[dict[str, Any]], nr: int, *, team1: dict[str, Any] | None = None, team2: dict[str, Any] | None = None
+) -> SlotAdvancement:
+    """One fixture as the resolution would leave it. The three voided fields are the write path's, and no occupancy rule reads them."""
+
+    stored = stored_spiel(season_docs, nr)
+
+    return SlotAdvancement(
+        spiel_id=ObjectId(stored["_id"]),
+        spiel_nr=nr,
+        team1=None if team1 is None else FLSpielTeamField.model_validate(team1),
+        team2=None if team2 is None else FLSpielTeamField.model_validate(team2),
+        voided_ergebnis=None,
+        voided_elfmeterschiessen=None,
+        voided_sonderereignis=None,
+    )
+
+
+def advancement_refusal(season_docs: list[dict[str, Any]], *advancements: SlotAdvancement) -> WriteRefusal | None:
+    return find_advancement_occupancy_refusal(FLSpielListAdapter.validate_python(season_docs), list(advancements))
+
+
+@pytest.fixture
+def unresolved_slot_beside_a_hand_set_one(fixture_at: Callable[..., dict[str, Any]]) -> list[dict[str, Any]]:
+    """The shape the refusal is reachable through: nothing refuses Adler on Spiel 29 while Spiel 30's group placing holds nobody yet."""
+
+    return [
+        fixture_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None, team1_quelle=None, team2_quelle=None),
+        fixture_at(
+            30,
+            "halbfinale",
+            SPIELTAG_TWO,
+            team1=None,
+            team2=None,
+            team1_quelle={"type": "gruppe", "gruppe": "A", "platz": 1},
+            team2_quelle=None,
+        ),
+    ]
+
+
+class TestTheResolutionNeverFieldsAClubTwice:
+    """`REQ-SPIELTAG-002`. The advance fields its own sides from the wiring, and `judge_spieltag_occupancy` sees only what a REQUEST fields."""
+
+    def test_a_resolution_seating_a_club_beside_itself_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+        """Gruppe A's first place settles on Adler, which the slot then seats on the Spieltag Adler already stands on."""
+
+        season = unresolved_slot_beside_a_hand_set_one
+        refusal = advancement_refusal(season, advancement(season, 30, team1=team(ADLER, "Adler")))
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+        assert "Adler" in refusal.message
+        # Both fixtures, because either is a place the correction could be made.
+        assert "29" in refusal.message and "30" in refusal.message
+
+    def test_a_resolution_that_creates_no_pair_is_permitted(self, unresolved_slot_beside_a_hand_set_one):
+        """The same slot settling on anybody else, which is the ordinary case the refusal must not reach."""
+
+        season = unresolved_slot_beside_a_hand_set_one
+
+        assert advancement_refusal(season, advancement(season, 30, team1=team(CRONBERG, "Cronberg"))) is None
+
+    def test_a_pair_the_season_already_holds_is_left_to_be_repaired(self, fixture_at):
+        """`REQ-SWAP-005`'s line, at this write: refusing over a standing fault would block every edit that could clear it."""
+
+        stored = [
+            fixture_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),
+            fixture_at(30, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),
+        ]
+        filling_the_open_side = advancement(stored, 30, team1=team(ADLER, "Adler"), team2=team(BIEBER, "Bieber"))
+
+        assert advancement_refusal(stored, filling_the_open_side) is None
+
+    def test_the_code_is_not_the_one_a_payload_s_own_clash_carries(self):
+        """Nothing this save named is at fault, so the two refusals send the admin to different controls."""
+
+        assert SPIELTAG_OCCUPIED_BY_THE_RESOLUTION != SPIELTAG_OCCUPIED
+
+    def test_both_resolution_paths_consult_it(self):
+        """A preview reporting a resolution the save refuses would invite an edit that 409s on the button beside it."""
+
+        consulting = {
+            scope
+            for path in (advance_bracket_winners, preview_bracket_after_patch)
+            for scope, call in calls_in(declared(path), path.__name__)
+            if callee(call) == find_advancement_occupancy_refusal.__name__
+        }
+
+        assert consulting == {"advance_bracket_winners", "preview_bracket_after_patch"}
+
+
+class TestTheClashComparesRealTime:
+    """`REQ-CLASH-001` across a date boundary, and the read that has to fetch the fixtures the comparison now reaches."""
+
+    def slot(self, datum: str, uhrzeit: str, nr: int = 3) -> BookedSlot:
+        return BookedSlot(spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource="Spielort")
+
+    def test_two_bookings_either_side_of_midnight_clash(self):
+        """An hour apart on the clock and a day apart on the calendar: the pair a comparison scoped by date never sees."""
+
+        refusal = find_clash_refusal(datum="2026-03-08", uhrzeit="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
+
+        assert refusal is not None and refusal.error_code == FIXTURE_DOUBLE_BOOKED
+        assert "60 minutes away" in refusal.message
+
+    def test_the_same_hour_a_day_apart_still_passes(self):
+        """The other direction of the same change: a whole day's separation must not become a clash."""
+
+        assert find_clash_refusal(datum="2026-03-08", uhrzeit="18:00:00", booked=[self.slot("2026-03-07", "18:00:00")]) is None
+
+    def test_the_offender_named_is_the_earliest_across_the_window(self):
+        """Sorted by day and then by clock, so the message names the earliest offender rather than whichever the read returned first."""
+
+        refusal = find_clash_refusal(
+            datum="2026-03-08",
+            uhrzeit="00:30:00",
+            booked=[self.slot("2026-03-08", "03:00:00", nr=9), self.slot("2026-03-07", "23:30:00", nr=4)],
+        )
+
+        assert refusal is not None and "spiel_nr 4" in refusal.message
+
+    def test_the_read_fetches_every_day_the_buffer_reaches(self):
+        """A day the rule compares and the read never fetches is a clash nothing sees, so one number has to bound both."""
+
+        assert days_a_clash_can_reach("2026-03-08") == ["2026-03-07", "2026-03-08", "2026-03-09"]
+        assert CLASH_REACH_DAYS * MINUTES_PER_DAY >= CLASH_BUFFER_MINUTES
+
+    def test_the_booking_read_is_keyed_on_that_window(self):
+        """Narrow this read back to the payload's own date and the rule above goes quiet rather than red, handed no neighbour to refuse."""
+
+        # Every `datum` the endpoint writes into a literal, the projection's own `1` among them.
+        keyed_on = {
+            ast.unparse(value)
+            for node in ast.walk(declared(patch_spiel_data))
+            if isinstance(node, ast.Dict)
+            for key, value in zip(node.keys, node.values, strict=True)
+            if isinstance(key, ast.Constant) and key.value == "datum"
+        }
+
+        assert "{'$in': days_a_clash_can_reach(spiel_data.datum)}" in keyed_on
+        assert "spiel_data.datum" not in keyed_on, "the booking read is scoped to the payload's own date again"
+
+    def test_the_window_is_calendar_arithmetic_rather_than_string_work(self):
+        """A month boundary is where a day counted off the text of a date goes wrong."""
+
+        assert days_a_clash_can_reach("2026-03-01") == ["2026-02-28", "2026-03-01", "2026-03-02"]
+
+    def test_the_clash_block_is_entered_only_where_the_payload_keeps_its_slot(self):
+        """Read off the router's guard: a fixture called off frees the ground, and judging it would make the admin move the fixture first."""
+
+        guards = [
+            ast.unparse(node.test)
+            for node in ast.walk(declared(patch_spiel_data))
+            if isinstance(node, ast.If) and "sonderereignis" in ast.unparse(node.test)
+        ]
+
+        assert guards == ["spiel_data.datum is not None and spiel_data.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT"]
+        # What the guard rests on: an ordinary fixture is judged, and one called off is not.
+        assert None in SONDEREREIGNIS_KEEPING_ITS_SLOT
+        assert "ausgefallen" not in SONDEREREIGNIS_KEEPING_ITS_SLOT
 
 
 class TestRemovingATeamFromAPlayedFixture:

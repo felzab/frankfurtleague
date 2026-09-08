@@ -1,5 +1,7 @@
+import math
 from collections import Counter
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from app.api.saisons.schemas import FLSaisonRules
@@ -12,6 +14,7 @@ from app.api.spiele.schemas import (
     FLBracketFaultGruppe,
     FLBracketFaultOccupant,
     FLBracketFaultQuelle,
+    FLBracketFaultSlot,
     FLBracketFaultSpiel,
     FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
@@ -254,11 +257,60 @@ class BracketResolution:
     bracket_faults: list[FLBracketFault]
 
 
+@dataclass(frozen=True)
+class _BracketWalk:
+    """One resolution pass: the season's facts, and the two collections it fills as it goes.
+
+    Frozen binds the members rather than their contents -- `memo` makes a fixture reached twice
+    resolve once, `faults` makes it report once.
+    """
+
+    by_nr: Mapping[int, FLSpielCommon]
+    standings: Mapping[FLGruppenNames, DecidedStanding]
+    tainted: frozenset[int]
+    opening_round_rank: int | None
+    shared_sources: frozenset[tuple[Any, ...]]
+    memo: dict[int, ResolvedSides]
+    faults: list[FLBracketFault]
+
+
+def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
+    """The round this season's bracket opens on, or `None` where it plays none.
+
+    Off the rounds the season HOLDS rather than a phase name (`docs/backend/spec.md :: I27`): four
+    qualifiers open at the Halbfinale, two at the Finale.
+    """
+
+    ranks = [PHASE_RANK[spiel.saison_phase] for spiel in spiele if spiel.saison_phase != "gruppenphase"]
+
+    return min(ranks) if ranks else None
+
+
+def _sources_feeding_two_fixtures(spiele: Iterable[FLSpielCommon]) -> frozenset[tuple[Any, ...]]:
+    """Every source whose slots span more than one fixture (`docs/backend/spec.md :: I27`).
+
+    A source feeding both sides of ONE fixture is `same_team`'s, so widening this would report one
+    slot twice.
+    """
+
+    fixtures_by_source: dict[tuple[Any, ...], set[int]] = {}
+    for spiel in spiele:
+        # A reference on a Gruppenphase fixture is followed by nobody, so counting it would freeze a
+        # knockout slot whose own wiring is right.
+        if spiel.saison_phase == "gruppenphase":
+            continue
+
+        for quelle in (spiel.team1_quelle, spiel.team2_quelle):
+            if quelle is not None:
+                fixtures_by_source.setdefault(_quelle_key(quelle), set()).add(spiel.spiel_nr)
+
+    return frozenset(key for key, spiel_nrs in fixtures_by_source.items() if len(spiel_nrs) > 1)
+
+
 def _seed_from_gruppe(
     spiel: FLSpielCommon,
     quelle: FLSpielQuelleGruppe,
-    standings: Mapping[FLGruppenNames, DecidedStanding],
-    faults: list[FLBracketFault],
+    walk: _BracketWalk,
 ) -> tuple[FLSpielTeamField | None, bool]:
     """The team a group placing seeds in, and whether that maintains the slot.
 
@@ -266,15 +318,25 @@ def _seed_from_gruppe(
     back the moment a result stops supporting it.
     """
 
-    standing = standings.get(quelle.gruppe)
+    standing = walk.standings.get(quelle.gruppe)
     if standing is None:
-        # No standing supplied for this season. Not a group with no teams, which arrives as a
-        # standing holding none.
+        # Not a group with no teams, which arrives as a standing holding none: a group the season
+        # does not run is given none, and `find_gruppen_not_run` names it rather than this walk
+        # judging it on a size nothing states.
+        return None, False
+
+    # Only the round the bracket opens on is fed by a placing, so a slot below it keeps what it holds.
+    if walk.opening_round_rank is not None and walk.opening_round_rank < PHASE_RANK[spiel.saison_phase]:
+        walk.faults.append(
+            FLBracketFaultGruppe(
+                reason="seed_past_the_opening_round", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz
+            )
+        )
         return None, False
 
     # A placing this group can never produce reads as a typo, so the slot keeps what it holds.
     if quelle.platz > standing.eligible:
-        faults.append(
+        walk.faults.append(
             FLBracketFaultGruppe(
                 reason="gruppe_too_small", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz
             )
@@ -288,7 +350,7 @@ def _seed_from_gruppe(
     # Played out and still level on every criterion: naming either team would be a guess, so the
     # slot is emptied and the way past it is to clear the `quelle` by hand.
     if standing.is_complete:
-        faults.append(
+        walk.faults.append(
             FLBracketFaultGruppe(reason="tie_unresolved", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz)
         )
 
@@ -297,13 +359,10 @@ def _seed_from_gruppe(
 
 def _occupant_of(
     spiel: FLSpielCommon,
+    side: Literal["team1", "team2"],
     stored: FLSpielTeamField | None,
     quelle: FLSpielQuelle | None,
-    by_nr: Mapping[int, FLSpielCommon],
-    standings: Mapping[FLGruppenNames, DecidedStanding],
-    tainted: frozenset[int],
-    memo: dict[int, ResolvedSides],
-    faults: list[FLBracketFault],
+    walk: _BracketWalk,
 ) -> tuple[FLSpielTeamField | None, bool]:
     """Who one slot should hold. `False` leaves the slot as it stands; `(None, True)` empties it."""
 
@@ -311,44 +370,83 @@ def _occupant_of(
     if quelle is None:
         return stored, False
 
-    if isinstance(quelle, FLSpielQuelleGruppe):
-        return _seed_from_gruppe(spiel, quelle, standings, faults)
-
-    # Neither a dangling number nor a cycle states an outcome, so neither removes a team -- and both
-    # are reported, because a slot nothing mentions is one an admin cannot discover.
-    if quelle.spiel_nr not in by_nr:
-        faults.append(FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr))
-        return stored, False
-
-    if quelle.spiel_nr in tainted:
-        faults.append(
-            FLBracketFaultQuelle(reason="reference_cycle", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
+    # The schedule draws a group fixture's sides, so following a reference stored on one would
+    # rewrite a match that was played.
+    if spiel.saison_phase == "gruppenphase":
+        walk.faults.append(
+            FLBracketFaultSlot(reason="gruppenphase_fixture_wired", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
         )
         return stored, False
 
-    return _outcome_of(quelle.spiel_nr, quelle.ausgang, by_nr, standings, tainted, memo, faults), True
+    if isinstance(quelle, FLSpielQuelleSpiel):
+        # Neither a dangling number nor a cycle states an outcome, so neither removes a team -- and
+        # both are reported, because a slot nothing mentions is one an admin cannot discover.
+        if quelle.spiel_nr not in walk.by_nr:
+            walk.faults.append(
+                FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
+            )
+            return stored, False
+
+        if quelle.spiel_nr in walk.tainted:
+            walk.faults.append(
+                FLBracketFaultQuelle(reason="reference_cycle", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
+            )
+            return stored, False
+
+        source = walk.by_nr[quelle.spiel_nr]
+
+        # A group match is no bracket edge (`docs/backend/spec.md :: I27`): its winner is the table's
+        # answer, and a group draw states no winner at all.
+        if source.saison_phase == "gruppenphase":
+            walk.faults.append(
+                FLBracketFaultQuelle(reason="gruppenphase_feeder", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
+            )
+            return stored, False
+
+        # Every edge points at a strictly earlier round, which is also what makes a cycle
+        # inexpressible through the write path (`docs/backend/spec.md :: I27`).
+        if PHASE_RANK[source.saison_phase] >= PHASE_RANK[spiel.saison_phase]:
+            walk.faults.append(
+                FLBracketFaultQuelle(
+                    reason="feeder_not_played_first", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr
+                )
+            )
+            return stored, False
+
+    # After a `spiel` reference's own shape: a chain that closes is where the sharing downstream of it
+    # comes FROM, and reporting the sharing would leave the loop itself unnamed.
+    if _quelle_key(quelle) in walk.shared_sources:
+        walk.faults.append(
+            FLBracketFaultSlot(reason="source_feeds_another_fixture", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
+        )
+        return stored, False
+
+    if isinstance(quelle, FLSpielQuelleGruppe):
+        return _seed_from_gruppe(spiel, quelle, walk)
+
+    return _outcome_of(quelle.spiel_nr, quelle.ausgang, walk), True
 
 
-def _resolve_sides(
-    spiel_nr: int,
-    by_nr: Mapping[int, FLSpielCommon],
-    standings: Mapping[FLGruppenNames, DecidedStanding],
-    tainted: frozenset[int],
-    memo: dict[int, ResolvedSides],
-    faults: list[FLBracketFault],
-) -> ResolvedSides:
+def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
     """The two sides one fixture should hold. The STORED side is kept where it is correct, so its goals survive."""
 
-    if spiel_nr in memo:
-        return memo[spiel_nr]
+    if spiel_nr in walk.memo:
+        return walk.memo[spiel_nr]
 
-    spiel = by_nr[spiel_nr]
+    spiel = walk.by_nr[spiel_nr]
     sides: list[FLSpielTeamField | None] = []
     an_occupant_changed = False
     a_side_is_maintained = False
 
-    for stored, quelle in ((spiel.team1, spiel.team1_quelle), (spiel.team2, spiel.team2_quelle)):
-        occupant, is_maintained = _occupant_of(spiel, stored, quelle, by_nr, standings, tainted, memo, faults)
+    # Annotated rather than inferred: a bare tuple literal widens each side's name to `str`, which
+    # `_occupant_of` then refuses.
+    seats: tuple[tuple[Literal["team1", "team2"], FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
+        ("team1", spiel.team1, spiel.team1_quelle),
+        ("team2", spiel.team2, spiel.team2_quelle),
+    )
+
+    for side, stored, quelle in seats:
+        occupant, is_maintained = _occupant_of(spiel, side, stored, quelle, walk)
         a_side_is_maintained = a_side_is_maintained or is_maintained
 
         if not is_maintained or _is_same_team(occupant, stored):
@@ -363,30 +461,22 @@ def _resolve_sides(
     # Reported even where nothing moves: a fixture already holding the club its source resolves to
     # stores the contradiction rather than producing it, and the write path cannot refuse that.
     if both_sides_one_club and a_side_is_maintained:
-        faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
+        walk.faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
 
     # Recorded as NOT maintained: claiming a change would void this result and the whole subtree's.
     if an_occupant_changed and both_sides_one_club:
-        memo[spiel_nr] = (spiel.team1, spiel.team2, False)
-        return memo[spiel_nr]
+        walk.memo[spiel_nr] = (spiel.team1, spiel.team2, False)
+        return walk.memo[spiel_nr]
 
-    memo[spiel_nr] = (sides[0], sides[1], an_occupant_changed)
-    return memo[spiel_nr]
+    walk.memo[spiel_nr] = (sides[0], sides[1], an_occupant_changed)
+    return walk.memo[spiel_nr]
 
 
-def _outcome_of(
-    spiel_nr: int,
-    ausgang: str,
-    by_nr: Mapping[int, FLSpielCommon],
-    standings: Mapping[FLGruppenNames, DecidedStanding],
-    tainted: frozenset[int],
-    memo: dict[int, ResolvedSides],
-    faults: list[FLBracketFault],
-) -> FLSpielTeamField | None:
+def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamField | None:
     """The side that came out of one match as `ausgang`. `sonderereignis` is not consulted (`docs/backend/spec.md :: I1a`)."""
 
-    spiel = by_nr[spiel_nr]
-    team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, faults)
+    spiel = walk.by_nr[spiel_nr]
+    team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, walk)
 
     # The stored result was scored by a side no longer in the fixture, so it is void for this whole
     # pass -- which is what carries a corrected quarter-final through to the final.
@@ -421,6 +511,8 @@ def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:
         return (fault.spiel_nr, fault.reason, fault.gruppe, fault.platz)
     if isinstance(fault, FLBracketFaultQuelle):
         return (fault.spiel_nr, fault.reason, "", fault.quelle_spiel_nr)
+    if isinstance(fault, FLBracketFaultSlot):
+        return (fault.spiel_nr, fault.reason, fault.side, 0)
     return (fault.spiel_nr, fault.reason, "", 0)
 
 
@@ -428,14 +520,20 @@ def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppe
     """Every fixture whose slots disagree with its wiring. Pass ONE season: `spiel_nr` repeats across seasons."""
 
     by_nr = {spiel.spiel_nr: spiel for spiel in spiele}
-    tainted = _fixtures_depending_on_a_cycle(by_nr)
-    memo: dict[int, ResolvedSides] = {}
-    faults: list[FLBracketFault] = []
+    walk = _BracketWalk(
+        by_nr=by_nr,
+        standings=standings,
+        tainted=_fixtures_depending_on_a_cycle(by_nr),
+        opening_round_rank=_opening_round_rank(by_nr.values()),
+        shared_sources=_sources_feeding_two_fixtures(by_nr.values()),
+        memo={},
+        faults=[],
+    )
 
     advancements: list[SlotAdvancement] = []
     for spiel_nr in sorted(by_nr):
         spiel = by_nr[spiel_nr]
-        team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, faults)
+        team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, walk)
         if not an_occupant_changed:
             continue
 
@@ -454,9 +552,30 @@ def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppe
         )
 
     # Bracket order, not the order the recursion happened to reach each fixture.
-    faults.sort(key=_fault_order)
+    walk.faults.sort(key=_fault_order)
 
-    return BracketResolution(advancements=advancements, bracket_faults=faults)
+    return BracketResolution(advancements=advancements, bracket_faults=walk.faults)
+
+
+def find_gruppen_not_run(spiele: Iterable[FLSpielCommon], *, number_of_groups: int) -> list[FLBracketFaultGruppe]:
+    """Every bracket slot seeded from a group this season does not run.
+
+    Beside `resolve_bracket` rather than inside it: that walk is handed no standing here, so nothing
+    there tells one from a group whose table is short.
+    """
+
+    offered = offered_gruppen(number_of_groups)
+    faults = [
+        FLBracketFaultGruppe(reason="gruppe_not_run", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz)
+        for spiel in spiele
+        # A reference on a Gruppenphase fixture is followed by nobody, and `resolve_bracket` reports
+        # it as the fault it is; naming the group as well would fill the list twice over.
+        if spiel.saison_phase != "gruppenphase"
+        for quelle in (spiel.team1_quelle, spiel.team2_quelle)
+        if isinstance(quelle, FLSpielQuelleGruppe) and quelle.gruppe not in offered
+    ]
+
+    return sorted(faults, key=lambda fault: (fault.spiel_nr, fault.gruppe, fault.platz))
 
 
 @dataclass(frozen=True)
@@ -672,6 +791,11 @@ ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
 SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
 
+# Its own code beside `SPIELTAG_OCCUPIED`, because the repair differs and no side of this save named
+# the club: a resend answers the same, and the way out is the wiring the resolution followed or a
+# result that changes who advances.
+SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = "REQ-SPIELTAG-002"
+
 
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
@@ -749,6 +873,12 @@ BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 # ground, so this spaces them rather than banning the pairing.
 CLASH_BUFFER_MINUTES = 4 * 60
 
+MINUTES_PER_DAY = 24 * 60
+
+# Derived rather than assumed to be one: widen the buffer past a day and the read below has to widen
+# with it, or the rule silently stops seeing the fixtures it now reaches.
+CLASH_REACH_DAYS = math.ceil(CLASH_BUFFER_MINUTES / MINUTES_PER_DAY)
+
 
 def _minutes_into_day(uhrzeit: str) -> int:
     """`HH:MM:SS` as minutes past midnight. Seconds are dropped: nothing is scheduled to the second."""
@@ -756,6 +886,18 @@ def _minutes_into_day(uhrzeit: str) -> int:
     hours, minutes, _ = uhrzeit.split(":")
 
     return int(hours) * 60 + int(minutes)
+
+
+def _minutes_of(datum: str, uhrzeit: str) -> int:
+    """Minutes past midnight alone put 23:30 and 00:30 twenty-three hours apart when they are one apart."""
+
+    return date.fromisoformat(datum).toordinal() * MINUTES_PER_DAY + _minutes_into_day(uhrzeit)
+
+
+def days_a_clash_can_reach(datum: str) -> list[str]:
+    """Every day a fixture dated `datum` can clash into, this one included -- the days a booking read has to fetch."""
+
+    return [str(date.fromisoformat(datum) + timedelta(days=offset)) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
 def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None, spieltag_ende: str | None) -> WriteRefusal | None:
@@ -838,12 +980,9 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
     if datum is None or uhrzeit is None:
         return None
 
-    start = _minutes_into_day(uhrzeit)
+    start = _minutes_of(datum, uhrzeit)
     for slot in sorted(booked, key=lambda entry: (entry.datum, entry.uhrzeit, entry.spiel_nr)):
-        if slot.datum != datum:
-            continue
-
-        gap = abs(_minutes_into_day(slot.uhrzeit) - start)
+        gap = abs(_minutes_of(slot.datum, slot.uhrzeit) - start)
         if gap < CLASH_BUFFER_MINUTES:
             return WriteRefusal(
                 error_code=FIXTURE_DOUBLE_BOOKED,
@@ -1032,6 +1171,45 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
     return SpieltagVerdict(refusal=None, releases=releases)
 
 
+def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancements: Sequence[SlotAdvancement]) -> WriteRefusal | None:
+    """Why resolving the bracket must be refused, or `None`.
+
+    `judge_spieltag_occupancy` sees only the sides a REQUEST fields, so the sides the resolution
+    fills from the wiring reach no rule at all.
+    """
+
+    moved = {advancement.spiel_id: advancement for advancement in advancements}
+    resolved = [
+        spiel.model_copy(update={"team1": moved[spiel.id].team1, "team2": moved[spiel.id].team2}) if spiel.id in moved else spiel
+        for spiel in season
+    ]
+
+    # `find_double_entries` on both sides, never a second reading of it: what counts as one club
+    # standing twice is decided in one place, and the fault the report shows is this one.
+    standing = {(fault.spieltag_id, fault.team_id) for fault in find_double_entries(season)}
+
+    # A pair already stored is skipped, as `REQ-SWAP-005` skips a Spieltag already broken: refusing
+    # over a standing fault would block every edit that could repair it.
+    broken: dict[tuple[CustomObjectId, CustomObjectId], list[FLBracketFaultSpieltag]] = {}
+    for fault in find_double_entries(resolved):
+        key = (fault.spieltag_id, fault.team_id)
+        if key not in standing:
+            broken.setdefault(key, []).append(fault)
+
+    appearances = next(iter(broken.values()), None)
+    if appearances is None:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
+        message=(
+            f"resolving the bracket would field {appearances[0].team_name} on Spiele "
+            f"{', '.join(str(fault.spiel_nr) for fault in appearances)}, which share a Spieltag; "
+            "clear the side that was set by hand, or wire the other slot to a different outcome"
+        ),
+    )
+
+
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     """One source as a hashable identity, so 'the same outcome feeding two slots' is a set lookup."""
 
@@ -1089,6 +1267,8 @@ def find_wiring_refusal(
     # side the admin moved.
     used |= {_quelle_key(quelle) for _, _, quelle, stored_quelle in sides if quelle is not None and quelle == stored_quelle}
 
+    opening_round_rank = _opening_round_rank(season)
+
     for label, _, quelle, stored_quelle in sides:
         # The payload replaces the fixture wholesale, so a rule reading it alone would latch every
         # later edit of a fixture already wired this way (`docs/backend/spec.md :: I44`).
@@ -1120,12 +1300,7 @@ def find_wiring_refusal(
                 message=f"{label}_quelle names Gruppe {quelle.gruppe}, a group this season does not run",
             )
 
-        # Which round the bracket opens on comes off the rounds the season HOLDS, never a phase name
-        # (`docs/backend/spec.md :: I27`): a bracket of four opens at the Halbfinale and one of two
-        # at the Finale.
-        if isinstance(quelle, FLSpielQuelleGruppe) and any(
-            other.saison_phase != "gruppenphase" and PHASE_RANK[other.saison_phase] < PHASE_RANK[stored.saison_phase] for other in season
-        ):
+        if isinstance(quelle, FLSpielQuelleGruppe) and opening_round_rank is not None and opening_round_rank < PHASE_RANK[stored.saison_phase]:
             return WriteRefusal(
                 error_code=WIRING_SEED_PAST_THE_OPENING_ROUND,
                 message=(
