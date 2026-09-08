@@ -714,12 +714,14 @@ stays honest in both directions. A compose construct outside the reader's parsed
 refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
 with it**, which is why I1 is held by a check of its own over both files rather than by that list.
 
-**Two arms reach across the boundary on purpose**, both in `scripts/gate/scope_map.sh`:
-`fl_backend/openapi.json` selects the **frontend** scope alongside the backend ones, because the
-frontend scope holds the Zod-mirror comparison; and the frontend modules that retype a mirrored
-bound by hand select the **backend** scopes, because `fl_backend/tests/shared/test_frontend_mirrors.py`
-is what compares the two sides. Without either arm, a change to one side would never run the check
-that exists to catch it.
+**An arm reaches across the package boundary wherever one package's suite reads the other's file as
+source text**, and what makes it necessary is that the assertion sits on the far side: a scope
+confined to the changed file's own package never runs the check written to catch that change, so the
+finding waits for the push to main. Three couplings take that shape — the generated contract both
+packages hold, the backend modules a frontend suite reads off disk, and the one frontend module a
+backend suite cuts a refusal's German out of. Which paths those are is in
+`scripts/gate/scope_map.sh`, and `scripts/tests/test_scope_decisions.py` is what holds each arm to
+the scopes it must select.
 
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the

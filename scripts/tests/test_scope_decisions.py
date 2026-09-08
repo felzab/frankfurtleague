@@ -441,6 +441,31 @@ def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:
     assert {name for name, selected in answered.items() if selected} == {"images", "docs"}, repr(answered)
 
 
+def test_a_module_the_other_package_reads_selects_that_package_s_scopes() -> None:
+    """A set comparison rather than a `SELECTED` row, whose scopes are read as a subset.
+
+    An arm widened to `images` would refuse every later run naming no image build; one below its
+    own package's arm is shadowed.
+    """
+    scope = _fixture().scope
+    read_by_a_frontend_suite = {"backend", "db", "frontend", "docs"}
+    for path, expected in (
+        ("fl_backend/app/core/domain.py", read_by_a_frontend_suite),
+        ("fl_backend/app/core/recording.py", read_by_a_frontend_suite),
+        ("fl_backend/app/core/exception_handlers.py", read_by_a_frontend_suite),
+        ("fl_backend/app/shared/schemas/bounds.py", read_by_a_frontend_suite),
+        ("fl_backend/app/shared/schemas/custom.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/bewerbungen/admin_router.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/saisons/services.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/schiedsrichter/services.py", read_by_a_frontend_suite),
+        # `format` rides along with every TypeScript path, prettier having a parser for it.
+        ("fl_frontend/src/features/saisons/actions.ts", {"backend", "db", "frontend", "docs", "format"}),
+    ):
+        answered = scope.scope_map([path])
+        assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+        assert {name for name, selected in answered.items() if selected} == expected, (path, answered)
+
+
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:
     """`scope_map.sh` in its base-ref mode, the one CI runs and no case above reaches.
 

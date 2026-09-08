@@ -116,6 +116,14 @@ else
       # The published API surface. It selects the frontend scope too, or a change confined to
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
+      # Each is read as source text by the frontend suites as they load, domain.py through
+      # `fl_frontend/src/core/refusalRegister.ts`, so a change confined to fl_backend/ would
+      # otherwise reach the assertions over it no earlier than the push to main.
+      fl_backend/app/core/domain.py|fl_backend/app/core/recording.py| \
+      fl_backend/app/core/exception_handlers.py|fl_backend/app/shared/schemas/bounds.py| \
+      fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \
+      fl_backend/app/api/saisons/services.py|fl_backend/app/api/schiedsrichter/services.py)
+        backend=true; db=true; frontend=true; docs=true ;;
       # prettier's configuration and its ignore file decide what the format scope proves, so a change
       # to either is a change to that scope — and to nothing else, the build reading neither.
       .prettierignore|*/.prettierignore|.prettierrc.json|*/.prettierrc.json) format=true ;;
@@ -125,6 +133,10 @@ else
       fl_frontend/src/shared/schemas.ts|fl_frontend/src/features/bewerbungen/constants.ts| \
       fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts)
         frontend=true; backend=true; db=true; docs=true ;;
+      # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
+      # module below and asserts over the German inside, so a renamed refusal code or a reworded
+      # phrase would reach that comparison no earlier than the push to main.
+      fl_frontend/src/features/saisons/actions.ts) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats
