@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -136,15 +137,23 @@ describe("the anonymisation's copy", () => {
     assert.ok(!PANEL.includes("Rückgängig"), "the panel offers an undo, and no endpoint can honour one");
   });
 
-  /* The name is replaced on every match and the ROW survives — every fixture embeds the id. Copy
-     saying the row goes, or that the name stays, describes an operation the backend does not run. */
-  it("says the name becomes the label on every match, and the referee survives", () => {
+  /* The name is nulled on every match and the ROW survives — every fixture embeds the id. Copy saying
+     the row goes, or that the name stays, describes an operation the backend does not run. */
+  it("says the name goes from every match, and the row survives with nothing left to edit", () => {
     assert.match(PANEL, /auf jedem Spiel/, "the confirmation does not say the matches are reached");
-    assert.match(PANEL, /anonym/, "the confirmation does not name the label the referee is published under");
-    assert.match(PANEL, /bleibt als Schiedsrichter bestehen/, "the confirmation does not say the referee survives");
+    assert.match(PANEL, /Der Eintrag bleibt mit allen Spielen bestehen/, "the confirmation does not say the row survives");
+    assert.match(PANEL, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
     assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
     assert.ok(!PANEL.includes("stillgelegt"), "the copy confuses the deletion with a retirement");
+  });
+
+  /* The word is a frontend constant so it can be reworded without touching a stored document; typed
+     into the copy instead, a rewording would leave the panel promising a word nothing renders. */
+  it("names the displayed word by reading the constant rather than typing it", () => {
+    assert.match(PANEL, /SCHIEDSRICHTER_ANONYM_LABEL/, "the panel does not read the label from its one declaration");
+    assert.ok(!/„anonym|"anonym|>anonym/.test(PANEL), "the panel types the label as text, so rewording it leaves this copy behind");
+    assert.equal(SCHIEDSRICHTER_ANONYM_LABEL, "anonym");
   });
 
   it("arms before it writes", () => {

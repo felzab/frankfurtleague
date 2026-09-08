@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
@@ -25,7 +26,7 @@ export function AdminDeleteSchiedsrichterModal({
       onClose={onClose}
       heading="Schiedsrichter stilllegen"
       entityLabel="den Schiedsrichter"
-      entityName={schiedsrichter.name}
+      entityName={schiedsrichterAnzeigename(schiedsrichter.name)}
       consequence="Schon eingetragene Spiele behalten diesen Schiedsrichter. Er steht künftig nur nicht mehr zur Auswahl."
       successMessage="Schiedsrichter stillgelegt"
       onConfirm={() => deleteSchiedsrichterAction({ id: schiedsrichter.id })}

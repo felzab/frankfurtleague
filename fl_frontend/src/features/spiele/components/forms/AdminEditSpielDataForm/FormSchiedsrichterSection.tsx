@@ -1,6 +1,7 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
@@ -12,6 +13,7 @@ import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
 /** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
@@ -26,8 +28,16 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
+  // The DISPLAY name, so an erased referee still shows in the trigger of a fixture that already
+  // books them: dropping them from the list instead would leave that fixture's picker blank. Nothing
+  // written comes from here — `toSpielDataPayload` sends the id and the fee alone.
+  const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
+    ...candidate,
+    name: schiedsrichterAnzeigename(candidate.name),
+  }));
+
   // The resolved record, as in `FormSpielortSection`: `name` arrives already parsed.
-  const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
+  const handleSchiedsrichterChange = (resolved: FLSchiedsrichterAngezeigt | null) => {
     onSchiedsrichterChange(
       resolved
         ? {
@@ -61,11 +71,11 @@ export function FormSchiedsrichterSection({
 
   return (
     <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <PickOrCreateAutocomplete<FLSchiedsrichter>
+      <PickOrCreateAutocomplete<FLSchiedsrichterAngezeigt>
         label="Schiedsrichter"
         fieldPath="schiedsrichter.schiedsrichter_id"
         placeholder="z.B. Pierluigi Collina"
-        items={schiedsrichter}
+        items={offered}
         selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
         onSelect={handleSchiedsrichterChange}
         createLabel="Neuen Schiedsrichter anlegen"

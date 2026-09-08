@@ -373,7 +373,9 @@ _SPIEL_SCHIEDSRICHTER_FIELD = _object(
     required=("schiedsrichter_id", "name", "payment"),
     properties={
         "schiedsrichter_id": {"bsonType": "objectId"},
-        "name": {"bsonType": "string"},
+        # Null where the referee's data were erased, the block itself surviving: the booking and the
+        # fee are the fixture's own record and outlive the name it copied.
+        "name": {"bsonType": _STRING_OR_NULL},
         "payment": {"bsonType": "int"},
     },
 )
@@ -608,14 +610,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SCHIEDSRICHTER: {
         "$jsonSchema": _object(
-            required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since"),
+            required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since", "anonymisiert_am"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                "name": {"bsonType": "string"},
+                # Null once the erasure has run. Required all the same, so a row carries the key
+                # whichever state it is in and `uniq_schiedsrichter_name`'s filter can read it.
+                "name": {"bsonType": _STRING_OR_NULL},
                 "schule": {"bsonType": _STRING_OR_NULL},
                 "default_payment": {"bsonType": "int"},
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
+                "anonymisiert_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -721,6 +726,9 @@ class UniqueIndex:
     name: str
     keys: tuple[str, ...]
     rule: str
+    # Which rows the rule reaches. `report_duplicates` matches on it too, or `--check` would name a
+    # duplicate group the index never indexed and stop a boot the index would have allowed.
+    partial_filter: Mapping[str, Any] | None = None
 
 
 UNIQUE_INDEXES: Sequence[UniqueIndex] = (
@@ -732,7 +740,15 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # nothing merges two of these: a second row under one name would be a state only a person could
     # undo, by renaming one.
     UniqueIndex(Collection.SPIELORTE, "uniq_spielort_name", ("name",), "a name identifies exactly one venue"),
-    UniqueIndex(Collection.SCHIEDSRICHTER, "uniq_schiedsrichter_name", ("name",), "a name identifies exactly one referee"),
+    # Erased rows are OUT, where the venue index above takes every row: their name is null, and an
+    # index covering them would refuse the SECOND person ever to ask for their data to be erased.
+    UniqueIndex(
+        Collection.SCHIEDSRICHTER,
+        "uniq_schiedsrichter_name",
+        ("name",),
+        "a name identifies exactly one referee whose data stand",
+        partial_filter={"anonymisiert_am": None},
+    ),
     # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
     # holds several matchdays numbered 1.
     UniqueIndex(
@@ -891,8 +907,13 @@ async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: M
 
 
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
+    # Omitted rather than passed as `None` where a rule reaches every row: `create_index` cannot
+    # change a live index's options, so a full index that once shipped without the argument and a
+    # rebuild passing `partialFilterExpression=None` would be two different indexes under one name.
+    partial = {"partialFilterExpression": index.partial_filter} if index.partial_filter is not None else {}
+
     try:
-        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
+        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True, **partial)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
 
@@ -960,8 +981,9 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
 async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     """Apply every validator, then every index, to `db`.
 
-    A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
-    name in use, so a renamed one stays until dropped by hand. Raises the `Exception` declared first.
+    A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys or the
+    options under a name in use, so a redeclared one is refused here and dropped by hand -- which is
+    what narrowing a rule to a `partial_filter` costs. Raises the `Exception` declared first.
     """
     # Two phases rather than one: building an index CREATES its collection implicitly and without a
     # validator, so an overlap would leave a collection nothing ever validates.
@@ -1039,6 +1061,9 @@ async def report_duplicates(db: AsyncDatabase) -> list[DuplicateReport]:
 
     for index in UNIQUE_INDEXES:
         offenders: list[Mapping[str, Any]] = [
+            # The index's own reach, ahead of the grouping: without it two erased referees group as a
+            # duplicate the boot would refuse, and an operator is sent to rename a row that has no name.
+            *([{"$match": dict(index.partial_filter)}] if index.partial_filter is not None else []),
             {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
             {"$match": {"n": {"$gt": 1}}},
         ]

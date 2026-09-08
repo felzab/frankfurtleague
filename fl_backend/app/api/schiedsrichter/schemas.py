@@ -38,11 +38,18 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # Nullable on the READ side alone, as `schule` is: the erasure nulls it, and a read model
+    # refusing that stored row would answer 500 for the whole list over one erased person. The floor
+    # stays on the string branch, an empty one being the sentinel this design exists to remove.
+    name: CustomNonEmptyString | None
     # Redeclared without the payload's empty-string coercion: a read answers with the value as
     # stored, never a repaired copy of it.
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
+    # On no payload either, and the row's only record that the erasure ran: whoever renders the
+    # referee reads the word „anonym" off this rather than out of the name column.
+    anonymisiert_am: CustomOptionalDateString
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])

@@ -1,4 +1,5 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
 import { computeSpielStatus } from "./utils";
@@ -22,18 +23,19 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
 }));
 
 /**
- * The label `fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_NAME` writes over an
- * anonymised referee's name. It doubles as the merged option's value, which no referee id can
- * collide with, an id being an ObjectId string.
+ * The merged option's value, in the URL and never on screen: no referee id collides with it, an id
+ * being an ObjectId string. Its own word rather than the label
+ * `fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`, so
+ * rewording what a reader sees does not change what a saved link selects.
  */
-const ANONYMISED_SCHIEDSRICHTER_NAME = "anonym";
+export const ANONYMISED_SCHIEDSRICHTER_VALUE = "anonymisiert";
 
 /**
- * The erasure leaves every anonymised referee reading `anonym`, so an option keyed on the id offers
- * that one word once per person: identical to read, and selectable one at a time.
+ * The erasure nulls the name on the row and on every fixture, so an option keyed on the id would
+ * offer one wordless entry per erased person: identical to read, and selectable one at a time.
  */
-export function schiedsrichterFacetValue({ id, name }: { id: string; name: string }): string {
-  return name === ANONYMISED_SCHIEDSRICHTER_NAME ? ANONYMISED_SCHIEDSRICHTER_NAME : id;
+export function schiedsrichterFacetValue({ id, name }: { id: string; name: string | null }): string {
+  return name === null ? ANONYMISED_SCHIEDSRICHTER_VALUE : id;
 }
 
 function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
@@ -177,7 +179,9 @@ export function buildSpielFacets({
     param: "schiedsrichter",
     label: "Schiedsrichter",
     options: distinct(spiele, (spiel) =>
-      spiel.schiedsrichter ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: spiel.schiedsrichter.name } : null,
+      spiel.schiedsrichter
+        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: schiedsrichterAnzeigename(spiel.schiedsrichter.name) }
+        : null,
     ),
     read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
   };

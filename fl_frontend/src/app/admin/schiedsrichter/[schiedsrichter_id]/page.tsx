@@ -44,6 +44,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         default_payment: schiedsrichter.default_payment,
       }}
       inactiveSince={schiedsrichter.inactive_since}
+      anonymisiertAm={schiedsrichter.anonymisiert_am}
     />
   );
 }

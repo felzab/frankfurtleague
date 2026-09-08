@@ -6,18 +6,19 @@ from app.shared.schemas.kontakt import FLKontakt
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
+# Not a boolean: a person asking later when their erasure ran is answered by the row, their own
+# request having redacted the log that would otherwise say (`docs/glossary.md :: inactive_since`).
+ANONYMISIERT_AM = "anonymisiert_am"
+
 # Dotted keys, so `kontakt` itself survives: `app/core/constraints.py :: _KONTAKT` types it required
 # and non-nullable, its members string-or-null. Read off the model, so a contact field added later is
 # cleared rather than silently left behind.
 ANONYMISED_KONTAKT: dict[str, None] = {f"kontakt.{field}": None for field in FLKontakt.model_fields}
 
-# Not a first name, which beside a date and a club still identifies one person in a league this
-# size, and not „Schiedsrichter", which reads oddly in a column already headed with it.
-ANONYMISED_NAME = "anonym"
-
-# One mapping, so nothing can clear the details while leaving the person named
-# (`docs/backend/spec.md :: 1.1`, the anonymisation's row).
-ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {**ANONYMISED_KONTAKT, "name": ANONYMISED_NAME}
+# One mapping, so nothing can clear the details while leaving the person named. Null and never a
+# label: one word standing for every erased person is a second row `uniq_schiedsrichter_name`
+# refuses (`docs/backend/spec.md :: 1.1`).
+ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {**ANONYMISED_KONTAKT, "name": None}
 
 # An erasure beats the last writer: a detail re-entered mid-anonymisation is a person's data
 # the answer would report gone, and clearing it again is one more click.
@@ -51,6 +52,14 @@ def holds_an_anonymisable_value(schiedsrichter: Mapping[str, Any]) -> bool:
     return any(_stored_at(schiedsrichter, path) != value for path, value in ANONYMISED_SCHIEDSRICHTER.items())
 
 
+def anonymisation_stamp(*, stored: Mapping[str, Any], today: str) -> str:
+    """The day the row already carries where it carries one: a run repeated against a re-entry would otherwise move the date the person was given."""
+
+    stamped = stored.get(ANONYMISIERT_AM)
+
+    return today if stamped is None else str(stamped)
+
+
 def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
     """Why this anonymisation must be refused, or `None`.
 
@@ -73,11 +82,12 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
 def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mapping[str, Any]) -> WriteRefusal | None:
     """Why this edit must be refused, or `None`.
 
-    Both sides through `holds_an_anonymisable_value`, so the mapping deciding what an anonymisation
-    writes is the same one deciding what counts as putting it back.
+    The stored side reads the erasure's own stamp rather than weighing values: a row holding no name
+    because nobody has typed one is not a row somebody asked to be erased from, and nothing but the
+    stamp tells the two apart.
     """
 
-    if holds_an_anonymisable_value(stored) or not holds_an_anonymisable_value(patched):
+    if stored.get(ANONYMISIERT_AM) is None or not holds_an_anonymisable_value(patched):
         return None
 
     return WriteRefusal(

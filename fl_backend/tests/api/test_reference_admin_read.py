@@ -120,6 +120,7 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "default_payment": LOWER_PAYMENT,
             "kontakt": {"telefon": TELEFON, "email": "ada@example.com"},
             "inactive_since": None,
+            "anonymisiert_am": None,
         },
         {
             "_id": SECOND_SCHIEDSRICHTER_ID,
@@ -128,6 +129,7 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "default_payment": HIGHER_PAYMENT,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
+            "anonymisiert_am": None,
         },
     ]
 

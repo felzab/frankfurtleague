@@ -8,6 +8,7 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
 import { anonymiseSchiedsrichter, deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
 import {
   FLAnonymiseSchiedsrichterPayloadSchema,
@@ -34,7 +35,7 @@ function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldEr
   if (error.serverErrorCode === "REQ-ANONYMISE-002") {
     return {
       error: buildRefusal({
-        reason: "Name und Kontaktdaten dieser Person wurden gelöscht, und dieses Speichern würde sie wieder eintragen",
+        reason: "Die Daten dieser Person wurden gelöscht, und jedes Speichern würde einen Namen wieder eintragen",
         // No route back is named here: the deletion panel on this same page already refuses one
         // (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx`).
         repair: "Lade die Seite neu",
@@ -232,9 +233,9 @@ export async function reactivateSchiedsrichterAction(
 }
 
 /**
- * Labels the name on the row and on every match, clears the two contact fields, and empties every
- * log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and
- * the row survives so every fixture booking still resolves.
+ * Nulls the name on the row and on every match, clears the two contact fields, stamps the day, and
+ * empties every log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001`
+ * alone, and the row survives so every fixture booking still resolves.
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
@@ -276,8 +277,8 @@ export async function anonymiseSchiedsrichterAction(
       success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
-        "Name, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „anonym“. Im Änderungsprotokoll ist " +
-        "der gesicherte Stand jeder Zeile gelöscht, die diesen Schiedsrichter betrifft.",
+        `Name, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
+        "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diesen Schiedsrichter betrifft.",
     };
   });
 }

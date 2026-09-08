@@ -386,6 +386,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "default_payment": DEFAULT_PAYMENT,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": inactive_since,
+            "anonymisiert_am": None,
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]

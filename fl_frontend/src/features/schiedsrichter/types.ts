@@ -1,4 +1,11 @@
-import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "./schemas";
+import type { FLPostSchiedsrichterPayload, FLSchiedsrichter, FLSchiedsrichterPayloadDraft } from "./schemas";
+
+/**
+ * A referee whose `name` is the word on screen rather than the stored one, so a control that must
+ * show something — a picker's list, its trigger — takes an erased referee without a null reaching it.
+ * Built through `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+ */
+export type FLSchiedsrichterAngezeigt = FLSchiedsrichter & { name: string };
 
 /**
  * Derived from the payload schema the action validates, never restated; the widening at the fee is

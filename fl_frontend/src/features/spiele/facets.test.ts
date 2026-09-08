@@ -1,23 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { buildSpielFacets, schiedsrichterFacetValue } from "./facets.ts";
+import { ANONYMISED_SCHIEDSRICHTER_VALUE, buildSpielFacets, schiedsrichterFacetValue } from "./facets.ts";
 
 import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const SCHIEDSRICHTER_SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "schiedsrichter", "services.py"), "utf8");
-
-/**
- * The label the erasure writes over a referee's name, read where that write is defined: the facet
- * merges on this exact string, so a spelling changed on one side alone would leave the merge
- * quietly doing nothing.
- */
-const ANONYMISED_NAME = /ANONYMISED_NAME = "([^"]*)"/.exec(SCHIEDSRICHTER_SERVICES)?.[1] ?? "";
 
 const TODAY = "2026-07-29";
 
@@ -60,8 +49,9 @@ function spiel(spielNr: number, over: Partial<FLSpiel> = {}): FLSpiel {
   };
 }
 
-const ANONYMISIERT_A = spiel(1, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_EINS, name: ANONYMISED_NAME } });
-const ANONYMISIERT_B = spiel(2, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_ZWEI, name: ANONYMISED_NAME } });
+/* The erasure nulls the embedded name; no fixture ever stores a word standing for it. */
+const ANONYMISIERT_A = spiel(1, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_EINS, name: null } });
+const ANONYMISIERT_B = spiel(2, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_ZWEI, name: null } });
 const NAMED = spiel(3, { schiedsrichter: { schiedsrichter_id: COLLINA, name: "Pierluigi Collina" } });
 const UNASSIGNED = spiel(4);
 
@@ -79,21 +69,27 @@ const ADMIN_FACETS = buildSpielFacets({ spiele: SEASON, today: TODAY, isAdmin: t
 const SCHIEDSRICHTER_PARAM = "schiedsrichter";
 
 const SCHIEDSRICHTER_FACET = ADMIN_FACETS.find((facet) => facet.param === SCHIEDSRICHTER_PARAM);
-const MERGED_OPTION = SCHIEDSRICHTER_FACET?.options.find((option) => option.label === ANONYMISED_NAME);
+const MERGED_OPTION = SCHIEDSRICHTER_FACET?.options.find((option) => option.value === ANONYMISED_SCHIEDSRICHTER_VALUE);
 
 describe("the referee facet an administrator is offered", () => {
-  /* First: every assertion below asserts nothing where the cut finds no facet, or where the backend
-     spells the label some other way. */
+  /* First: every assertion below asserts nothing where the cut finds no facet. */
   it("offers the referee as a facet at all", () => {
-    assert.notEqual(ANONYMISED_NAME, "", "the anonymisation's label was not found where the backend writes it");
     assert.ok(SCHIEDSRICHTER_FACET, "no facet reads the referee parameter");
     assert.equal(SCHIEDSRICHTER_FACET.label, "Schiedsrichter");
   });
 
   it("offers one option for all the anonymised referees together", () => {
-    const merged = SCHIEDSRICHTER_FACET?.options.filter((option) => option.label === ANONYMISED_NAME) ?? [];
+    const merged = SCHIEDSRICHTER_FACET?.options.filter((option) => option.value === ANONYMISED_SCHIEDSRICHTER_VALUE) ?? [];
 
-    assert.equal(merged.length, 1, `${String(merged.length)} options read „${ANONYMISED_NAME}“, which an administrator cannot tell apart`);
+    assert.equal(merged.length, 1, `${String(merged.length)} options merge the anonymised referees, which an administrator cannot tell apart`);
+  });
+
+  /* The option a reader picks says a word; the value the URL carries says none of it, so rewording
+     the label leaves every saved link selecting the same fixtures. */
+  it("labels that one option with the erasure's displayed word and keys it on neither a name nor an id", () => {
+    assert.equal(MERGED_OPTION?.label, SCHIEDSRICHTER_ANONYM_LABEL);
+    assert.notEqual(MERGED_OPTION?.value, SCHIEDSRICHTER_ANONYM_LABEL);
+    assert.notEqual(MERGED_OPTION?.value, ANONYMISIERT_EINS);
   });
 
   it("narrows to the fixtures of every anonymised referee under that one option", () => {
@@ -105,7 +101,7 @@ describe("the referee facet an administrator is offered", () => {
   /* The referee table's „Einsätze anzeigen“ builds its link from a referee ROW, which the erasure
      leaves standing under its own id — so what that link carries has to reach the merged option. */
   it("resolves a link built from an anonymised referee's own id to every anonymised referee's fixtures", () => {
-    const linked = schiedsrichterFacetValue({ id: ANONYMISIERT_EINS, name: ANONYMISED_NAME });
+    const linked = schiedsrichterFacetValue({ id: ANONYMISIERT_EINS, name: null });
     const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${linked}`));
 
     assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [ANONYMISIERT_A, ANONYMISIERT_B]);

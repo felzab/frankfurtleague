@@ -173,6 +173,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "default_payment": SEEDED_DEFAULT_PAYMENT,
         "kontakt": dict(KONTAKT),
         "inactive_since": None,
+        "anonymisiert_am": None,
     }
 
 

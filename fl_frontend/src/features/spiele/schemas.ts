@@ -98,7 +98,10 @@ export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsric
 /** The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason. */
 export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
+  // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
+  // list over one erased person; what a reader is shown instead is
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  name: z.string().nonempty().nullable(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
@@ -109,7 +112,7 @@ export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrich
  */
 export const FLSpielSchiedsrichterFieldSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
+  name: FLSpielSchiedsrichterFieldPublicSchema.shape.name,
   payment: FLSpielSchiedsrichterFieldPayloadSchema.shape.payment,
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;

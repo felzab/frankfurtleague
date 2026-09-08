@@ -46,8 +46,8 @@ export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayloa
   });
 }
 
-// Clears `kontakt.telefon` and `kontakt.email` on the row, and every log row's whole saved
-// pre-image, in one transaction. The row and its `name` stay: every Spiel embeds the pair.
+// Nulls `name`, `kontakt.telefon` and `kontakt.email` on the row, stamps `anonymisiert_am`, and
+// empties every log row's saved pre-image, in one transaction. The row stays: every Spiel embeds its id.
 export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterPayload): Promise<FLSchiedsrichterWriteResponse> {
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",

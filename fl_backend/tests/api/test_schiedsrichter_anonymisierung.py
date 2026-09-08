@@ -6,22 +6,23 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
 from app.api.schiedsrichter.services import (
     ANONYMISATION_UNDONE_BY_AN_EDIT,
     ANONYMISED_KONTAKT,
-    ANONYMISED_NAME,
     ANONYMISED_SCHIEDSRICHTER,
+    ANONYMISIERT_AM,
     KONTAKT_RE_ENTERED_MID_ANONYMISATION,
+    anonymisation_stamp,
     find_anonymisation_undo_refusal,
     holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import FLSpielSchiedsrichterField, FLSpielSchiedsrichterFieldPublic
 from app.core.collections import Collection
-from app.core.constraints import SUPPORT_INDEXES
+from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.exceptions import DocumentConflictException
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
@@ -65,6 +66,15 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
+
+# `get_german_date_str`'s answer for `NOW`, spelled out for `REDACTED_AT`'s reason.
+TODAY = "2026-04-01"
+
+# A day the endpoint is never handed, so a stamp found unmoved cannot be the one it would have written.
+AN_EARLIER_ERASURE = "2026-03-02"
+
+# Read off the declaration, so renaming the index fails here rather than leaving these cases asserting nothing.
+NAME_INDEX = next(index for index in UNIQUE_INDEXES if index.collection == Collection.SCHIEDSRICHTER)
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
 TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.AKTIONEN and "document_id" in dict(index.keys))
@@ -112,6 +122,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": dict(FORMER_KONTAKT[schiedsrichter_id]),
         "inactive_since": None,
+        ANONYMISIERT_AM: None,
     }
 
 
@@ -183,14 +194,14 @@ async def an_archived_fixture(database: AsyncDatabase) -> None:
 
 
 def a_patch(**overrides: Any) -> dict[str, Any]:
-    """A whole payload as the endpoint hands it over, defaulting to the values an anonymisation writes.
+    """A whole payload as the endpoint hands it over, defaulting to the referee's own values.
 
     Built through the model rather than as a literal, so no case can pass over a shape the endpoint
-    cannot receive.
+    cannot receive -- which is what pins that the payload has no way to spell a nulled name.
     """
 
     fields: dict[str, Any] = {
-        "name": ANONYMISED_NAME,
+        "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
         "schule": SCHULE,
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": FLKontakt(**A_CLEARED_KONTAKT),
@@ -225,17 +236,23 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
     def test_the_name_rides_in_the_same_mapping_as_the_details(self):
         """Two `$set`s could land apart, and a transaction retrying between them is what leaves a person named."""
 
-        assert ANONYMISED_SCHIEDSRICHTER == {**ANONYMISED_KONTAKT, "name": ANONYMISED_NAME}
+        assert ANONYMISED_SCHIEDSRICHTER == {**ANONYMISED_KONTAKT, "name": None}
 
-    def test_the_label_survives_the_base_tiers_reduction(self):
-        """A two-word label would reach a fixture card as a forename and an initial, which reads as somebody's name.
+    def test_the_erasure_writes_no_word_into_the_name_column(self):
+        """A word there is one value for every erased person, which `uniq_schiedsrichter_name` refuses the second of.
 
-        So the label is chosen against `READ-REFEREE-001`'s read rather than against the stored row.
+        Asserted over the values rather than on the name alone, so a label smuggled into a contact
+        member fails here too.
         """
 
-        booking = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": ANONYMISED_NAME}
+        assert set(ANONYMISED_SCHIEDSRICHTER.values()) == {None}
 
-        assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name == ANONYMISED_NAME
+    def test_a_nulled_name_reaches_the_base_tier_as_a_null_and_not_as_an_initial(self):
+        """`READ-REFEREE-001`'s reduction composes a forename and an initial, and one composed from nothing would read as a name."""
+
+        booking = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": None}
+
+        assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
 
 
 class TestTheGuardWeighsTheNameBesideTheDetails:
@@ -248,48 +265,70 @@ class TestTheGuardWeighsTheNameBesideTheDetails:
     def test_a_name_standing_over_an_empty_contact_block_is_work_to_do(self):
         assert holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": REFEREE_NAMES[SCHIEDSRICHTER_OID]})
 
-    def test_the_label_over_the_same_block_is_not(self):
+    def test_a_nulled_name_over_the_same_block_is_not(self):
         """The control: a predicate answering `True` for every row would pass the case above."""
 
-        assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": ANONYMISED_NAME})
+        assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": None})
 
 
 # The row as the anonymisation leaves it, which is the only state the undo guard has anything to say about.
-ANONYMISED_ROW: dict[str, Any] = {"kontakt": dict(A_CLEARED_KONTAKT), "name": ANONYMISED_NAME}
+ANONYMISED_ROW: dict[str, Any] = {"kontakt": dict(A_CLEARED_KONTAKT), "name": None, ANONYMISIERT_AM: AN_EARLIER_ERASURE}
 
-A_NAMED_ROW: dict[str, Any] = {"kontakt": dict(KONTAKT[SCHIEDSRICHTER_OID]), "name": REFEREE_NAMES[SCHIEDSRICHTER_OID]}
+A_NAMED_ROW: dict[str, Any] = {
+    "kontakt": dict(KONTAKT[SCHIEDSRICHTER_OID]),
+    "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
+    ANONYMISIERT_AM: None,
+}
+
+
+class TestTheErasureStampSurvivesEveryLaterRun:
+    """The stamp is the date a person was given, so a repeat has to leave it where it is.
+
+    A second run happens whenever a re-entry refuses the first (`REQ-ANONYMISE-001`), which is
+    exactly when moving the date would be least visible.
+    """
+
+    def test_a_row_already_stamped_keeps_its_own_day(self):
+        assert anonymisation_stamp(stored=ANONYMISED_ROW, today=TODAY) == AN_EARLIER_ERASURE
+
+    def test_a_row_never_erased_takes_today(self):
+        """The control: a stamp reading the row unconditionally would leave a first erasure unstamped, and the index covering it."""
+
+        assert anonymisation_stamp(stored=A_NAMED_ROW, today=TODAY) == TODAY
 
 
 class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
     """Each half alone gets a case wrong.
 
-    The payload alone refuses the ordinary rename this endpoint exists for, and the row alone freezes
-    an anonymised referee whose fee must stay editable while they take fixtures.
+    The payload alone refuses the ordinary rename this endpoint exists for, and the values alone
+    cannot tell an erased row from one nobody has named yet.
     """
 
     def test_a_name_put_back_onto_an_anonymised_row_is_refused(self):
-        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(name=REFEREE_NAMES[SCHIEDSRICHTER_OID]))
+        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch())
 
         assert refusal is not None
         assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
 
-    def test_a_contact_detail_put_back_is_refused_with_the_label_left_standing(self):
-        """The details are as much of the erasure as the label is, and a guard reading the name alone lets them back."""
+    def test_a_contact_detail_put_back_is_refused_with_the_name_left_out(self):
+        """The details are as much of the erasure as the name is, and a guard reading the name alone lets them back."""
 
         refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(kontakt=FLKontakt(**KONTAKT[SCHIEDSRICHTER_OID])))
 
         assert refusal is not None
         assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
 
-    def test_an_edit_leaving_what_the_anonymisation_wrote_alone_passes(self):
-        """The fee and the school are outside the erasure, and an anonymised referee still takes fixtures."""
+    def test_a_row_holding_nulls_that_nobody_erased_still_takes_an_edit(self):
+        """The stamp is what the refusal keys on: a row whose values happen to be empty is not a row somebody asked to leave."""
 
-        assert find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(default_payment=DEFAULT_PAYMENT + 5)) is None
+        never_erased = {**ANONYMISED_ROW, ANONYMISIERT_AM: None}
+
+        assert find_anonymisation_undo_refusal(stored=never_erased, patched=a_patch()) is None
 
     def test_the_same_restoring_payload_against_a_row_still_naming_them_passes(self):
         """The control: without it a guard reading the payload alone would refuse every rename."""
 
-        assert find_anonymisation_undo_refusal(stored=A_NAMED_ROW, patched=a_patch(name=REFEREE_NAMES[SCHIEDSRICHTER_OID])) is None
+        assert find_anonymisation_undo_refusal(stored=A_NAMED_ROW, patched=a_patch()) is None
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -334,14 +373,17 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def call_anonymisation(database: AsyncDatabase, client: AsyncMongoClient) -> FLSchiedsrichterWriteResponse:
+async def call_anonymisation(
+    database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
+) -> FLSchiedsrichterWriteResponse:
     return await anonymise_schiedsrichter(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         germany_now=NOW,
+        today=TODAY,
     )
 
 
@@ -433,14 +475,28 @@ def test_nulling_the_whole_block_is_what_the_validator_refuses(mongo_replica_set
 
 
 @pytest.mark.db
-def test_the_referees_name_becomes_the_label_and_every_other_field_survives(mongo_replica_set_url: str):
+def test_the_referees_name_is_nulled_and_every_other_field_survives(mongo_replica_set_url: str):
     """Kills a write that stops at `kontakt`, and one that widens past the name onto the school or the fee."""
 
     _, referees, _ = after_anonymising(mongo_replica_set_url)
     stored = referees[SCHIEDSRICHTER_OID]
 
-    assert stored["name"] == ANONYMISED_NAME
+    assert stored["name"] is None
     assert (stored["schule"], stored["default_payment"], stored["inactive_since"]) == (SCHULE, DEFAULT_PAYMENT, None)
+
+
+@pytest.mark.db
+def test_the_row_carries_the_day_the_erasure_ran(mongo_replica_set_url: str):
+    """Kills nulling the fields and leaving the flag alone: the row would then read as one nobody had ever named.
+
+    Which is also the state `uniq_schiedsrichter_name`'s filter still indexes, so the erasure after
+    this one collides.
+    """
+
+    _, referees, _ = after_anonymising(mongo_replica_set_url)
+
+    assert referees[SCHIEDSRICHTER_OID][ANONYMISIERT_AM] == TODAY
+    assert referees[OTHER_SCHIEDSRICHTER_OID][ANONYMISIERT_AM] is None
 
 
 def fixtures_after_anonymising(url: str) -> dict[Any, Mapping[str, Any]]:
@@ -453,8 +509,8 @@ def fixtures_after_anonymising(url: str) -> dict[Any, Mapping[str, Any]]:
 
 
 @pytest.mark.db
-def test_every_fixture_they_officiated_carries_the_label(mongo_replica_set_url: str):
-    """Kills a label reaching the row alone: a fixture stores its own copy of the name.
+def test_every_fixture_they_officiated_loses_the_name(mongo_replica_set_url: str):
+    """Kills an erasure reaching the row alone: a fixture stores its own copy of the name.
 
     Both of their fixtures, so a fan-out modifying one row and stopping fails here rather than
     passing on whichever row it reached.
@@ -462,7 +518,7 @@ def test_every_fixture_they_officiated_carries_the_label(mongo_replica_set_url: 
 
     fixtures = fixtures_after_anonymising(mongo_replica_set_url)
 
-    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [ANONYMISED_NAME] * 2
+    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [None] * 2
 
 
 @pytest.mark.db
@@ -476,7 +532,7 @@ def test_the_other_referees_fixture_keeps_their_name(mongo_replica_set_url: str)
 
 
 @pytest.mark.db
-def test_the_booking_and_the_fee_survive_beside_the_label(mongo_replica_set_url: str):
+def test_the_booking_and_the_fee_survive_the_nulled_name(mongo_replica_set_url: str):
     """Kills a fan-out that `$set`s the whole `schiedsrichter` block: the reference is what makes the fixture resolvable."""
 
     fixtures = fixtures_after_anonymising(mongo_replica_set_url)
@@ -497,19 +553,22 @@ def test_a_referee_whose_contact_block_is_already_empty_is_not_a_no_op(mongo_rep
 
     echoed, fixtures = on_a_league(mongo_replica_set_url, body)
 
-    assert echoed == ANONYMISED_NAME
-    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [ANONYMISED_NAME] * 2
+    assert echoed is None
+    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [None] * 2
 
 
 @pytest.mark.db
-def test_the_written_fixture_reads_as_the_label_at_both_tiers(mongo_replica_set_url: str):
-    """The stored row through the two models a fixture read answers with, so nothing between the write and the wire restores a name."""
+def test_the_written_fixture_is_read_back_by_both_tiers_rather_than_refused(mongo_replica_set_url: str):
+    """A read model refusing what the erasure stored would answer 500 for a whole season's fixture list over one erased referee.
+
+    Both models, because the base tier reduces the surname where the admin tier serves it whole.
+    """
 
     fixtures = fixtures_after_anonymising(mongo_replica_set_url)
     booking = fixtures[SPIEL_OIDS[SCHIEDSRICHTER_OID][0]]["schiedsrichter"]
 
-    assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name == ANONYMISED_NAME
-    assert FLSpielSchiedsrichterField.model_validate(booking).name == ANONYMISED_NAME
+    assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
+    assert FLSpielSchiedsrichterField.model_validate(booking).name is None
 
 
 @pytest.mark.db
@@ -529,7 +588,8 @@ def test_the_echo_carries_the_referee_as_they_now_stand(mongo_replica_set_url: s
     referee = response.updated_document
 
     assert referee.id == SCHIEDSRICHTER_OID
-    assert referee.name == ANONYMISED_NAME
+    assert referee.name is None
+    assert referee.anonymisiert_am == TODAY
     assert (referee.kontakt.telefon, referee.kontakt.email) == (None, None)
 
 
@@ -717,6 +777,7 @@ async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hoo
         aktionen_collection=aktionen,
         db=client,
         germany_now=NOW,
+        today=TODAY,
     )
 
 
@@ -770,6 +831,24 @@ class TestAReEntryLandingMidAnonymisationIsRefused:
         assert (echoed.telefon, echoed.email) == (None, None)
         assert stored == {"telefon": None, "email": None}
 
+    @pytest.mark.db
+    def test_a_repeat_leaves_the_day_the_person_was_given_where_it_is(self, mongo_replica_set_url: str):
+        """The date is what a later request for it is answered with, and the log holding the first run was redacted by that run."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await anonymise_under(database, client, None)
+            # Backdated between the runs, so the second run is handed a stamp no clock here could have written.
+            await database[Collection.SCHIEDSRICHTER].update_one(
+                {"_id": SCHIEDSRICHTER_OID}, {"$set": {ANONYMISIERT_AM: AN_EARLIER_ERASURE}}
+            )
+            response = await anonymise_under(database, client, None)
+
+            return response.updated_document.anonymisiert_am, (await stored_referees(database))[SCHIEDSRICHTER_OID][ANONYMISIERT_AM]
+
+        echoed, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (echoed, stored) == (AN_EARLIER_ERASURE, AN_EARLIER_ERASURE)
+
 
 def after_editing_the_details_back_in(url: str) -> tuple[str, Mapping[str, Any], Mapping[str, Any]]:
     """The outcome, the row and the archived fixture together: one seeded database serves all three."""
@@ -798,15 +877,15 @@ class TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused:
     """
 
     @pytest.mark.db
-    def test_the_edit_is_refused_and_the_row_keeps_the_label(self, mongo_replica_set_url: str):
+    def test_the_edit_is_refused_and_the_row_keeps_its_nulls(self, mongo_replica_set_url: str):
         outcome, referee, _ = after_editing_the_details_back_in(mongo_replica_set_url)
 
         assert outcome == ANONYMISATION_UNDONE_BY_AN_EDIT
-        assert referee["name"] == ANONYMISED_NAME
+        assert referee["name"] is None
         assert referee["kontakt"] == {"telefon": None, "email": None}
 
     @pytest.mark.db
-    def test_the_closed_seasons_fixture_keeps_the_label_too(self, mongo_replica_set_url: str):
+    def test_the_closed_seasons_fixture_keeps_its_null_too(self, mongo_replica_set_url: str):
         """The archive is what an unrefused edit re-names.
 
         A referee's fan-out carries no `past` bound where a club's stops (`docs/backend/spec.md :: I13`).
@@ -815,4 +894,55 @@ class TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused:
         _, _, archived = after_editing_the_details_back_in(mongo_replica_set_url)
 
         assert archived["saison_id"] == PAST_SAISON_ID, "the archived fixture was seeded into the open season"
-        assert archived["schiedsrichter"]["name"] == ANONYMISED_NAME
+        assert archived["schiedsrichter"]["name"] is None
+
+
+class TestASecondPersonsErasureLandsAndTwoLiveNamesakesStillDoNot:
+    """`uniq_schiedsrichter_name` covers the rows whose data stand and no others.
+
+    An index over every row refuses the SECOND erasure the league ever performs, because the nulled
+    names collide; one over none lets two live referees be created under one name, which nothing
+    merges and only a person can undo.
+    """
+
+    @pytest.mark.db
+    def test_both_referees_are_erased_in_succession(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_anonymisation(database, client, SCHIEDSRICHTER_OID)
+            await call_anonymisation(database, client, OTHER_SCHIEDSRICHTER_OID)
+
+            return await stored_referees(database)
+
+        referees = on_a_league(mongo_replica_set_url, body)
+
+        assert [referees[oid]["name"] for oid in REFEREE_NAMES] == [None, None]
+        assert all(referees[oid][ANONYMISIERT_AM] == TODAY for oid in REFEREE_NAMES)
+
+    @pytest.mark.db
+    def test_the_index_is_built_narrowed_rather_than_dropped(self, mongo_replica_set_url: str):
+        """The case above also passes where the rule is gone altogether, so the built index is read back."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return {
+                row["name"]: row.get("partialFilterExpression")
+                async for row in await database[Collection.SCHIEDSRICHTER].list_indexes()
+            }
+
+        built = on_a_league(mongo_replica_set_url, body)
+
+        assert NAME_INDEX.name in built, f"the name rule is not built at all: {sorted(built)}"
+        assert built[NAME_INDEX.name] == NAME_INDEX.partial_filter
+
+    @pytest.mark.db
+    def test_a_second_live_referee_under_one_name_is_still_refused(self, mongo_replica_set_url: str):
+        """The half the narrowing must not take with it: two people the league can still write to, under one name."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            namesake = {**referee_document(SCHIEDSRICHTER_OID), "_id": ObjectId()}
+            try:
+                await database[Collection.SCHIEDSRICHTER].insert_one(namesake)
+            except DuplicateKeyError:
+                return "refused"
+            return "accepted"
+
+        assert on_a_league(mongo_replica_set_url, body) == "refused"
