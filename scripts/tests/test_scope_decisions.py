@@ -11,16 +11,21 @@ finding from every other scope. Stdlib only, the type checker reading scripts/ w
 
 from __future__ import annotations
 
+import ast
+import functools
 import importlib
 import os
+import re
 import shutil
 import sys
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Final
 
-from conftest import REPO_ROOT, configure, copy_scripts, git, new_root, run_shell, withdraw, write
+from conftest import REPO_ROOT, configure, copy_scripts, git, new_root, run_shell, withdraw, write, write_shell
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -504,3 +509,354 @@ def test_the_two_lists_of_scope_names_agree() -> None:
     answered = scope.scope_map([])
     assert answered is not None
     assert set(answered) == set(scope.SCOPES)
+
+
+# --- the arms that reach across the package boundary -------------------------------------------------
+
+FRONTEND: Final = "fl_frontend"
+BACKEND: Final = "fl_backend"
+
+# A path in one package must select the scope the OTHER package's suites run in. `db` is emitted
+# wherever `backend` is, so `backend` answers for that pair.
+FAR_SCOPE: Final[dict[str, str]] = {BACKEND: "frontend", FRONTEND: "backend"}
+
+# How each language spells a path into the other package. TypeScript hands `path.resolve` one segment
+# per argument, so the package name is a whole segment; python joins a `Path` with `/`.
+TS_CALL: Final = re.compile(r"path\.(?:resolve|join)\([^()]*\)")
+TS_SEGMENTS: Final = re.compile(r'"' + BACKEND + r'"((?:\s*,\s*"[^"\\\n]+")+)')
+TS_QUOTED: Final = re.compile(r'"([^"\\\n]+)"')
+
+# Every shell token that could be a path. WHICH of them the mapping carries across is settled by
+# running it below, so a token this misses narrows that question and can raise no finding of its own.
+SHELL_TOKEN: Final = re.compile(r"[A-Za-z0-9_./-]+")
+
+# An arm matches a path, so a suite walking a whole tree can be carried by none. Declared rather
+# than derived: what a new row owes the mapping is a judgement, and a row here is that question.
+UNNAMEABLE: Final[tuple[tuple[str, str], ...]] = (
+    ("fl_backend/tests/core/test_domain.py", "fl_frontend/src"),
+    ("fl_backend/tests/shared/test_frontend_mirrors.py", "fl_frontend/src"),
+)
+
+
+@dataclass(frozen=True)
+class Crossings:
+    """Each key below is a path in the package that the OTHER one reads it from."""
+
+    reads: dict[str, set[str]]
+    # A module against the TREE it reaches into, no file in it being named.
+    reaches: set[tuple[str, str]]
+    declared: set[str]
+    # `declared` and every read alike, so a derived path is never missing here.
+    selected: dict[str, set[str]]
+
+
+def _file_or_tree(root: Path, reader: str, path: str, package: str, reads: dict[str, set[str]], reaches: set[tuple[str, str]]) -> None:
+    """One reach filed by what an arm could match: the file it names, or the tree it reaches into."""
+    if path and (root / path).is_file():
+        reads.setdefault(path, set()).add(reader)
+    elif path and (root / path).is_dir():
+        reaches.add((reader, path))
+    else:
+        # A path composed at run time, or one spelled in a shape this reader could not resolve: its
+        # directory part is as much as any arm could be held to.
+        reaches.add((reader, path.rsplit("/", 1)[0] if "/" in path else package))
+
+
+def _widest(reaches: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    """One module's reach inside another reach of its own, dropped: the wider one already covers it."""
+    return {
+        (reader, prefix)
+        for reader, prefix in reaches
+        if not any(other == reader and prefix.startswith(wider + "/") for other, wider in reaches)
+    }
+
+
+def _frontend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
+    """Every backend path a frontend module builds, and every reach that resolves to no file.
+
+    A path call rather than any mention of the package: comments across this tree cite a backend
+    module by path, and a citation is prose.
+    """
+    reads: dict[str, set[str]] = {}
+    reaches: set[tuple[str, str]] = set()
+    for rel in files:
+        text = (root / rel).read_text(encoding="utf-8")
+        if BACKEND not in text:
+            continue
+        for call in TS_CALL.findall(text):
+            if BACKEND not in call:
+                continue
+            found = TS_SEGMENTS.search(call)
+            path = "/".join([BACKEND, *TS_QUOTED.findall(found[1])]) if found is not None else ""
+            _file_or_tree(root, rel, path, BACKEND, reads, reaches)
+    return reads, _widest(reaches)
+
+
+def _divided(node: ast.expr) -> list[ast.expr]:
+    """One `root / "a" / "b"` chain flattened, leftmost operand first."""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        return [*_divided(node.left), node.right]
+    return [node]
+
+
+def _literal(node: ast.expr) -> str | None:
+    """One path segment as its source fixes it -- a string, or the fixed opening of an f-string."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.JoinedStr) and node.values:
+        return _literal(node.values[0])
+    return None
+
+
+def _backend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
+    """Every frontend path a backend module builds, and every reach that resolves to no file.
+
+    A `/` chain rather than any string naming the package: a docstring citing a frontend module is
+    prose.
+    """
+    reads: dict[str, set[str]] = {}
+    reaches: set[tuple[str, str]] = set()
+    for rel in files:
+        text = (root / rel).read_text(encoding="utf-8")
+        if FRONTEND not in text:
+            continue
+        # Named, so a module this suite cannot parse fails saying which one rather than `<unknown>`.
+        tree = ast.parse(text, filename=rel)
+        divisions = [node for node in ast.walk(tree) if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)]
+        # A chain's own left operand is a division too, and read on its own it answers for a prefix
+        # of the path -- `root / "fl_frontend"` where the chain names a module inside it.
+        nested = {node.left for node in divisions}
+        for node in (division for division in divisions if division not in nested):
+            segments: list[str] = []
+            for part in _divided(node):
+                literal = _literal(part)
+                opens = literal is not None and (literal == FRONTEND or literal.startswith(FRONTEND + "/"))
+                if literal is None or (not segments and not opens):
+                    if segments:
+                        break
+                    continue
+                segments.append(literal)
+            if segments:
+                _file_or_tree(root, rel, "/".join(segments).rstrip("/"), FRONTEND, reads, reaches)
+    return reads, _widest(reaches)
+
+
+def _package_paths(mapping: Path, root: Path) -> set[str]:
+    """Every path in either package the mapping names, read by token rather than from its arms.
+
+    WHICH of them it carries across is settled by running it, so parsing the `case` would buy
+    nothing and be more fragile.
+    """
+    return {
+        token
+        for token in SHELL_TOKEN.findall(mapping.read_text(encoding="utf-8"))
+        # A glob arm falls out here, `fl_frontend/*` tokenising to a name no file has: swept in, it
+        # would be probed as a path nothing reads.
+        if token.startswith((FRONTEND + "/", BACKEND + "/")) and (root / token).is_file()
+    }
+
+
+def _selected(scope: ModuleType, paths: Iterable[str]) -> dict[str, set[str]]:
+    """The scopes the mapping selects for each of these paths, one run of it per path.
+
+    Concurrent for `scripts/checks/check_scope.py :: images_culprits`'s reason: the mapping answers
+    for a list and says nothing about which member asked for what.
+    """
+    ordered = sorted(paths)
+    with ThreadPoolExecutor() as pool:
+        answers = list(pool.map(lambda path: scope.scope_map([path]), ordered))
+    chosen: dict[str, set[str]] = {}
+    for path, answered in zip(ordered, answers, strict=True):
+        assert answered is not None, "scripts/gate/scope_map.sh could not be run for " + path
+        chosen[path] = {name for name, on in answered.items() if on}
+    return chosen
+
+
+@functools.cache
+def _crossings() -> Crossings:
+    """This repository's two populations and the arms, read once.
+
+    The mapping is the fixture's copy of it, that being the file `scope_map` runs; the two packages
+    are read where they live, no fixture holding either.
+    """
+    listing = git(REPO_ROOT, "-c", "core.quotepath=false", "ls-files", "--cached", "--others", "--exclude-standard")
+    files = listing.splitlines()
+    frontend_modules = [rel for rel in files if rel.startswith(FRONTEND + "/") and rel.endswith((".ts", ".tsx", ".mts", ".cts"))]
+    backend_modules = [rel for rel in files if rel.startswith(BACKEND + "/") and rel.endswith(".py")]
+    reads, reaches = _frontend_reaches(REPO_ROOT, frontend_modules)
+    further, more = _backend_reaches(REPO_ROOT, backend_modules)
+    for path, readers in further.items():
+        reads.setdefault(path, set()).update(readers)
+    fixture = _fixture()
+    declared = _package_paths(fixture.root / SCRIPTS_COPY / "gate" / "scope_map.sh", REPO_ROOT)
+    return Crossings(reads, reaches | more, declared, _selected(fixture.scope, declared | set(reads)))
+
+
+def _carried(crossings: Crossings) -> set[str]:
+    """Every path the mapping names whose arm selects the scope the other package's suites run in."""
+    return {path for path in crossings.declared if FAR_SCOPE[path.split("/")[0]] in crossings.selected[path]}
+
+
+def _unarmed(crossings: Crossings) -> list[str]:
+    """A file the other package reads that no arm carries across -- the repair is to widen an arm."""
+    return [
+        path + " is read by " + ", ".join(sorted(readers)) + ", and no arm carries it into --" + FAR_SCOPE[path.split("/")[0]]
+        for path, readers in sorted(crossings.reads.items())
+        if FAR_SCOPE[path.split("/")[0]] not in crossings.selected[path]
+    ]
+
+
+def _stale(crossings: Crossings) -> list[str]:
+    """An arm carrying a file nothing reads, the repair being to narrow that arm.
+
+    A path under a tree the far side walks whole is spared: no arm could be held to a file a walk
+    never names.
+    """
+    walked = tuple(prefix + "/" for _, prefix in crossings.reaches)
+    return [
+        path + " is carried into --" + FAR_SCOPE[path.split("/")[0]] + ", and nothing there reads it"
+        for path in sorted(_carried(crossings) - set(crossings.reads))
+        if not path.startswith(walked)
+    ]
+
+
+def test_every_file_the_other_package_reads_is_carried_across_by_an_arm() -> None:
+    """The arms are hand-kept lists, and this is what holds each to the reads it exists for.
+
+    Non-emptiness first, and per direction: a set comparison whose derived side came out empty
+    passes and guards nothing.
+    """
+    crossings = _crossings()
+    for package, reader in ((BACKEND, "fl_frontend/"), (FRONTEND, "fl_backend/")):
+        found = {path for path in crossings.reads if path.startswith(package + "/")}
+        assert found, "no file in " + package + " was found read from " + reader + ": that reader went inert"
+    assert not (missing := _unarmed(crossings)), "name the path in its arm in scripts/gate/scope_map.sh:\n" + "\n".join(missing)
+
+
+def test_every_arm_reaching_across_the_boundary_names_a_file_the_other_package_reads() -> None:
+    """The other direction of the same equality: an arm carrying a file nothing on the far side reads.
+
+    `test_a_reach_that_names_no_single_file_is_one_this_check_declares` holds the list of walked
+    trees that `_stale` spares, which is why this case can rest on it.
+    """
+    crossings = _crossings()
+    # Two inert states, and a reader acts on which: no path read out of the mapping at all, against
+    # paths read out of it that no arm carries across.
+    assert crossings.declared, "no path in either package was read out of scripts/gate/scope_map.sh: that reader went inert"
+    assert _carried(crossings), "no arm in scripts/gate/scope_map.sh was read as reaching across the boundary"
+    assert not (stale := _stale(crossings)), "drop the path from its arm in scripts/gate/scope_map.sh:\n" + "\n".join(stale)
+
+
+def test_a_reach_that_names_no_single_file_is_one_this_check_declares() -> None:
+    """What the equality above cannot reach: a suite that walks the far tree.
+
+    Only a person can say what the mapping owes a walk, and every path under one is spared above,
+    so this list moving is a failure.
+    """
+    crossings = _crossings()
+    assert crossings.reaches == set(UNNAMEABLE), (
+        "the trees one package's suites reach into without naming a file have changed.\n"
+        "derived:  " + repr(sorted(crossings.reaches)) + "\ndeclared: " + repr(sorted(UNNAMEABLE))
+    )
+
+
+# Two packages in miniature, shaped like the real reads. The real trees are no place to plant one,
+# and neither is `scripts/gate/scope_map.sh`, which this suite does not own.
+PLANTED_TREE: Final[dict[str, str]] = {
+    "fl_backend/app/core/domain.py": "RULES = ()\n",
+    "fl_backend/tests/test_mirror.py": (
+        "from pathlib import Path\n\nROOT = Path(__file__).resolve().parents[2]\n"
+        'ACTIONS = (ROOT / "fl_frontend" / "src" / "actions.ts").read_text(encoding="utf-8")\n'
+        'EVERY = sorted((ROOT / "fl_frontend" / "src").rglob("*.ts"))\n'
+    ),
+    "fl_frontend/src/actions.ts": "export const total = 1;\n",
+    "fl_frontend/src/register.ts": 'const RULES = readFileSync(path.resolve(ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");\n',
+    "fl_frontend/src/opaque.ts": 'const RULES = readFileSync(path.resolve(ROOT, "fl_backend/app/core/domain.py"), "utf8");\n',
+}
+
+# The mapping's own shape: a continuation, a comment between arms, a glob arm and a literal one.
+PLANTED_MAPPING: Final = (
+    '    case "$f" in\n'
+    "      # A comment naming fl_backend/app/core/domain.py, which is an arm's path either way.\n"
+    "      fl_backend/app/core/domain.py|fl_backend/tests/test_mirror.py| \\\n"
+    "      fl_frontend/src/actions.ts) backend=true; frontend=true ;;\n"
+    "      fl_frontend/*) frontend=true ;;\n"
+    "      */.prettierignore) format=true ;;\n"
+    "      *) all ;;\n"
+    "    esac\n"
+)
+
+
+def _planted() -> Path:
+    root = new_root("cross-boundary-fixture-")
+    for rel, text in PLANTED_TREE.items():
+        write(root, rel, text)
+    return root
+
+
+def test_each_reader_finds_a_file_the_other_package_reads_and_a_reach_it_cannot_place() -> None:
+    """Both directions over a planted tree, which the three cases above cannot be.
+
+    Those compare sets over this repository, where a reader resolving nothing would pass every one.
+    """
+    root = _planted()
+    # The second module of each pair is the shape that must not read as a named file.
+    reads, reaches = _frontend_reaches(root, ["fl_frontend/src/register.ts", "fl_frontend/src/opaque.ts"])
+    assert reads == {"fl_backend/app/core/domain.py": {"fl_frontend/src/register.ts"}}, repr(reads)
+    assert reaches == {("fl_frontend/src/opaque.ts", BACKEND)}, repr(reaches)
+
+    reads, reaches = _backend_reaches(root, ["fl_backend/tests/test_mirror.py"])
+    assert reads == {"fl_frontend/src/actions.ts": {"fl_backend/tests/test_mirror.py"}}, repr(reads)
+    assert reaches == {("fl_backend/tests/test_mirror.py", "fl_frontend/src")}, repr(reaches)
+
+
+def test_the_arm_reader_takes_a_literal_path_and_leaves_a_glob() -> None:
+    """A glob is no cross-boundary arm, and swept in as one it would be probed as a path nothing reads."""
+    root = _planted()
+    mapping = write_shell(root / "scope_map.sh", PLANTED_MAPPING)
+    assert _package_paths(mapping, root) == {
+        "fl_backend/app/core/domain.py",
+        "fl_backend/tests/test_mirror.py",
+        "fl_frontend/src/actions.ts",
+    }, repr(_package_paths(mapping, root))
+
+
+# One population carrying every shape at once, the repository holding only the shape that passes.
+PLANTED_CROSSINGS: Final = Crossings(
+    reads={
+        "fl_backend/app/core/domain.py": {"fl_frontend/src/register.ts"},
+        "fl_frontend/src/actions.ts": {"fl_backend/tests/test_mirror.py"},
+    },
+    reaches={("fl_backend/tests/test_mirror.py", "fl_frontend/src")},
+    # `recording.py` and `next.config.ts` are a stale arm, one per direction; `constants.ts` is the
+    # arm a walked tree spares, which must not swallow `next.config.ts` with it.
+    declared={
+        "fl_backend/app/core/domain.py",
+        "fl_backend/app/core/recording.py",
+        "fl_frontend/src/actions.ts",
+        "fl_frontend/src/constants.ts",
+        "fl_frontend/next.config.ts",
+    },
+    selected={
+        "fl_backend/app/core/domain.py": {"backend", "db", "docs"},
+        "fl_backend/app/core/recording.py": {"backend", "db", "frontend", "docs"},
+        "fl_frontend/src/actions.ts": {"frontend", "backend", "db", "docs"},
+        "fl_frontend/src/constants.ts": {"frontend", "backend", "db", "docs"},
+        "fl_frontend/next.config.ts": {"frontend", "backend", "db", "docs"},
+    },
+)
+
+
+def test_the_two_repairs_are_reported_apart() -> None:
+    """Widening an arm and narrowing one are different edits, and a reader acts on which it was told.
+
+    Planted because the repository is in neither state, and the arm one would name is not this
+    suite's to edit.
+    """
+    assert _unarmed(PLANTED_CROSSINGS) == [
+        "fl_backend/app/core/domain.py is read by fl_frontend/src/register.ts, and no arm carries it into --frontend"
+    ], repr(_unarmed(PLANTED_CROSSINGS))
+    assert _stale(PLANTED_CROSSINGS) == [
+        "fl_backend/app/core/recording.py is carried into --frontend, and nothing there reads it",
+        "fl_frontend/next.config.ts is carried into --backend, and nothing there reads it",
+    ], repr(_stale(PLANTED_CROSSINGS))

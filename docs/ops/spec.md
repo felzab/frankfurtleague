@@ -720,8 +720,13 @@ confined to the changed file's own package never runs the check written to catch
 finding waits for the push to main. Three couplings take that shape — the generated contract both
 packages hold, the backend modules a frontend suite reads off disk, and the one frontend module a
 backend suite cuts a refusal's German out of. Which paths those are is in
-`scripts/gate/scope_map.sh`, and `scripts/tests/test_scope_decisions.py` is what holds each arm to
-the scopes it must select.
+`scripts/gate/scope_map.sh`, and `scripts/tests/test_scope_decisions.py` holds each arm both to the
+scopes it must select and to the reads that earn it: it derives what each package reads of the other
+from the two trees and probes the mapping itself, so an arm short of a read and an arm outliving one
+are each a red branch. **A suite that discovers its subjects by walking the far tree is outside that
+equality**, an arm matching a path and a walk naming none, so those reaches are declared in that
+module and every path under one is spared — which is why a change anywhere in `fl_frontend/src` can
+still reach a backend assertion no arm carries.
 
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the
@@ -1009,6 +1014,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                               |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 a name its schema does not declare; every value stays the boot gate's                     | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key set `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/check-environment-names.test.mjs`                                     |
 | I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                               |
+| I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                  |
 
 ## 3. Violation → remedy
 
