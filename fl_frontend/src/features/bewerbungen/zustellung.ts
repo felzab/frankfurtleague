@@ -2,7 +2,13 @@ import z from "zod";
 
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { FLBewerbungZustellungEreignisPayloadSchema, FLKontaktRolleSchema } from "./schemas";
+import {
+  FLBewerbungZustellungEreignisPayloadSchema,
+  FLKontaktRolleSchema,
+  ZUSTELLUNG_GRUND_MAX_LENGTH,
+  ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
+  ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
+} from "./schemas";
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
@@ -54,17 +60,6 @@ const ZustellEreignisSchema = z.object({
 });
 
 type ZustellEreignis = z.infer<typeof ZustellEreignisSchema>;
-
-/**
- * The ceilings `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungZustellungEreignisPayload`
- * states, paired with it by
- * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_MODEL_BOUNDS`. Applied here because
- * the endpoint answers 422 past one and `fl_frontend/src/app/api/mail/zustellung/route.ts` answers
- * that 200: a value over a ceiling is a bounce nothing records.
- */
-const ZUSTELLUNG_GRUND_MAX_LENGTH = 128;
-const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
-const ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH = 64;
 
 // Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`, which the endpoint applies
 // to `grund`. A third spelling — `fl_frontend/src/features/bewerbungen/schemas.ts` carries the

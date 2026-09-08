@@ -211,7 +211,7 @@ const WRITTEN_NOT_PICKED = "the form writes it from a constant, so no control of
 const THE_SCHOOL_ITSELF = "the picker writes `team_id` or the new-school block; the object itself has no control";
 const A_STUFE_ROW = "the picker renders the whole set under one name, so a refusal on a single member has no control of its own";
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
-const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
+const THE_PAGE_SEASON = "the page's selected season, parsed at `SAISON_ID_LENGTH` before the control renders";
 
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
 

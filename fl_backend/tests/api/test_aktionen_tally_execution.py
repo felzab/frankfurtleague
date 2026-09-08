@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktionenFilterParams, FLAktionenListResponse
 from app.core.collections import Collection
+from app.core.recording import PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -31,12 +32,25 @@ PATCHED_TEAMS = LIST_LIMIT_DEFAULT
 CREATED_TEAMS = 3
 CREATED_VENUES = 5
 
+# One kind per block and never one per row: `herkunft` is a CATEGORY over `actor.kind`, so a block
+# whose kinds were mixed would leave every count below agreeing with either mapping of the two.
+ACTOR_EMAIL_JE_KIND = {"admin_session": "admin@example.invalid", "system": SYSTEM_ACTOR_EMAIL, "public": PUBLIC_ACTOR_EMAIL}
 
-def log_row(index: int, *, collection: str, operation: str, at: str, document_id: Any, trace_id: str | None = None) -> dict[str, Any]:
+
+def log_row(
+    index: int,
+    *,
+    collection: str,
+    operation: str,
+    at: str,
+    document_id: Any,
+    kind: str = "admin_session",
+    trace_id: str | None = None,
+) -> dict[str, Any]:
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f607{index:06d}"),
         "at": at,
-        "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
+        "actor": {"kind": kind, "email": ACTOR_EMAIL_JE_KIND[kind]},
         # Distinct per row unless a caller shares one, so a narrowing on a trace selects what it seeded.
         "trace_id": trace_id or f"{index:032x}",
         "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
@@ -70,6 +84,7 @@ def seeded_log() -> list[dict[str, Any]]:
             operation="insert",
             at="2025-03-15T09:30:00+00:00",
             document_id=TARGET_OID,
+            kind="system",
             trace_id=FANOUT_TRACE_ID,
         )
         for index in range(CREATED_TEAMS)
@@ -81,6 +96,7 @@ def seeded_log() -> list[dict[str, Any]]:
             operation="insert",
             at="2025-03-14T09:30:00+00:00",
             document_id=ObjectId(f"6890a1b2c3d4e5f609{index:06d}"),
+            kind="public",
         )
         for index in range(CREATED_VENUES)
     ]
@@ -93,6 +109,7 @@ def seeded_log() -> list[dict[str, Any]]:
             operation="patch_one",
             at="2025-03-13T09:30:00+00:00",
             document_id=SAISON_ID,
+            kind="system",
             trace_id=FANOUT_TRACE_ID,
         )
     ]
@@ -104,6 +121,9 @@ def seeded_log() -> list[dict[str, Any]]:
 # seeded list itself would compare one reading of it against another.
 EVERY_AREA = {"teams": PATCHED_TEAMS + CREATED_TEAMS, "spielorte": CREATED_VENUES, "saisons": 1}
 EVERY_OPERATION = {"patch_one": PATCHED_TEAMS + 1, "insert": CREATED_TEAMS + CREATED_VENUES}
+# The third dimension, and the one no stored field holds: each key is the category a block's kind is
+# filed under, so a mapping either tier moved alone lands a count under a name the other never sends.
+EVERY_HERKUNFT = {"person": PATCHED_TEAMS, "system": CREATED_TEAMS + 1, "public": CREATED_VENUES}
 
 
 def answered(mongo_url: str, **filters: Any) -> FLAktionenListResponse:
@@ -122,7 +142,7 @@ def answered(mongo_url: str, **filters: Any) -> FLAktionenListResponse:
 
 
 def test_the_tally_counts_every_area_the_cut_page_never_carries(mongo_url: str):
-    """Both maps in full and never a membership: a renamed group key leaves the reader taking a key that is not there.
+    """All three maps in full and never a membership: a renamed group key leaves the reader taking a key that is not there.
 
     The one failure a double answering cells of its own shape can never have.
     """
@@ -135,12 +155,14 @@ def test_the_tally_counts_every_area_the_cut_page_never_carries(mongo_url: str):
     assert log.vollstaendig is False
     assert {row.collection for row in log.aktionen} == {"teams"}
     assert {row.operation for row in log.aktionen} == {"patch_one"}
+    assert {row.actor.kind for row in log.aktionen} == {"admin_session"}
 
     assert log.anzahl_je_collection == EVERY_AREA
     assert log.anzahl_je_operation == EVERY_OPERATION
+    assert log.anzahl_je_herkunft == EVERY_HERKUNFT
 
 
-def test_an_areas_count_ignores_its_own_selection_and_keeps_the_other(mongo_url: str):
+def test_an_areas_count_ignores_its_own_selection_and_keeps_the_others(mongo_url: str):
     """A dimension counted under its own selection offers the picked option and kills every other."""
 
     log = answered(mongo_url, collection="spielorte")
@@ -149,15 +171,43 @@ def test_an_areas_count_ignores_its_own_selection_and_keeps_the_other(mongo_url:
     assert log.vollstaendig is True
     assert log.anzahl_je_collection == EVERY_AREA
     assert log.anzahl_je_operation == {"insert": CREATED_VENUES}
+    assert log.anzahl_je_herkunft == {"public": CREATED_VENUES}
 
 
-def test_an_operation_selection_narrows_the_areas_it_leaves(mongo_url: str):
+def test_an_operation_selection_narrows_the_areas_and_origins_it_leaves(mongo_url: str):
     """The crossed pair is what this reaches: `teams` counts its creations alone while its patches stay out."""
 
     log = answered(mongo_url, operation="insert")
 
     assert log.anzahl_je_collection == {"teams": CREATED_TEAMS, "spielorte": CREATED_VENUES}
     assert log.anzahl_je_operation == EVERY_OPERATION
+    assert log.anzahl_je_herkunft == {"system": CREATED_TEAMS, "public": CREATED_VENUES}
+
+
+def test_an_origin_selects_the_kinds_it_is_filed_under_and_keeps_its_own_count(mongo_url: str):
+    """`herkunft` names no stored field, so this is the term `HERKUNFT_JE_KIND` compiles rather than one MongoDB matches.
+
+    A category resolved to the wrong kinds fetches somebody else's rows and answers 200.
+    """
+
+    log = answered(mongo_url, herkunft="system")
+
+    assert {row.actor.kind for row in log.aktionen} == {"system"}
+    assert len(log.aktionen) == CREATED_TEAMS + 1
+    assert log.anzahl_je_collection == {"teams": CREATED_TEAMS, "saisons": 1}
+    assert log.anzahl_je_operation == {"insert": CREATED_TEAMS, "patch_one": 1}
+    assert log.anzahl_je_herkunft == EVERY_HERKUNFT
+
+
+def test_the_signed_in_origin_selects_the_kind_it_stands_for(mongo_url: str):
+    """`person` is the category over `admin_session`, and it is the one whose two names differ — a fold dropped here serves nothing."""
+
+    log = answered(mongo_url, herkunft="person")
+
+    assert {row.actor.kind for row in log.aktionen} == {"admin_session"}
+    assert len(log.aktionen) == PATCHED_TEAMS
+    assert log.anzahl_je_collection == {"teams": PATCHED_TEAMS}
+    assert log.anzahl_je_herkunft == EVERY_HERKUNFT
 
 
 def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
@@ -168,16 +218,29 @@ def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
     assert len(log.aktionen) == CREATED_VENUES + 1
     assert {row.collection for row in log.aktionen} == {"spielorte", "saisons"}
     assert log.anzahl_je_operation == {"insert": CREATED_VENUES, "patch_one": 1}
+    assert log.anzahl_je_herkunft == {"public": CREATED_VENUES, "system": 1}
 
 
-def test_a_trace_narrows_the_page_and_the_tally_alike(mongo_url: str):
-    """`trace_id` is no facet, so it stays in the tally's own filter — and this trace spans both dimensions."""
+def test_a_two_origin_selection_reaches_the_read_as_one_term(mongo_url: str):
+    """Two categories over three kinds, so the compiled `$in` is longer than the selection — which an equality could not express."""
+
+    log = answered(mongo_url, herkunft="system,public")
+
+    assert {row.actor.kind for row in log.aktionen} == {"system", "public"}
+    assert len(log.aktionen) == CREATED_TEAMS + CREATED_VENUES + 1
+    assert log.anzahl_je_collection == {"teams": CREATED_TEAMS, "spielorte": CREATED_VENUES, "saisons": 1}
+    assert log.anzahl_je_herkunft == EVERY_HERKUNFT
+
+
+def test_a_trace_narrows_the_page_and_every_tally_alike(mongo_url: str):
+    """`trace_id` is no facet, so it stays in the tally's own filter — and this trace spans all three dimensions."""
 
     log = answered(mongo_url, trace_id=FANOUT_TRACE_ID)
 
     assert len(log.aktionen) == CREATED_TEAMS + 1
     assert log.anzahl_je_collection == {"teams": CREATED_TEAMS, "saisons": 1}
     assert log.anzahl_je_operation == {"insert": CREATED_TEAMS, "patch_one": 1}
+    assert log.anzahl_je_herkunft == {"system": CREATED_TEAMS + 1}
 
 
 def test_a_document_id_stored_as_an_objectid_selects_its_own_rows(mongo_url: str):
@@ -188,6 +251,7 @@ def test_a_document_id_stored_as_an_objectid_selects_its_own_rows(mongo_url: str
     assert [row.document_id for row in log.aktionen] == [str(TARGET_OID)] * CREATED_TEAMS
     assert log.anzahl_je_collection == {"teams": CREATED_TEAMS}
     assert log.anzahl_je_operation == {"insert": CREATED_TEAMS}
+    assert log.anzahl_je_herkunft == {"system": CREATED_TEAMS}
 
 
 def test_a_document_id_stored_as_a_season_string_selects_its_row(mongo_url: str):
@@ -198,3 +262,4 @@ def test_a_document_id_stored_as_a_season_string_selects_its_row(mongo_url: str)
     assert [row.collection for row in log.aktionen] == ["saisons"]
     assert log.anzahl_je_collection == {"saisons": 1}
     assert log.anzahl_je_operation == {"patch_one": 1}
+    assert log.anzahl_je_herkunft == {"system": 1}

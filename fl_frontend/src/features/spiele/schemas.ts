@@ -4,6 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLAustrittSchema, FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
+import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { NOTIZ_MAX_LENGTH } from "./constants";
 
@@ -211,7 +212,7 @@ export const FLSpielSchema = z.object({
   saison_phase: FLSaisonPhaseSchema,
   // Declared because zod's default strip mode discards an undeclared field silently, which is how
   // the patch action once lost the season id its granular cache tag needs.
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(SAISON_ID_LENGTH),
 
   // Nullable but never absent: a stored document may lack the key, but the backend fills its
   // default and serializes it on every response.

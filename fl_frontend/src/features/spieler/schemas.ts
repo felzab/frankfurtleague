@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
@@ -169,7 +170,7 @@ const saisonSpielerPayloadFields = {
 export const FLPostSaisonSpielerPayloadSchema = z.object({
   // In the PATH on the wire; carried here because the form has to know which player it is entering.
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPayloadSchema>;
@@ -177,7 +178,7 @@ export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPaylo
 export const FLPatchSaisonSpielerPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPayloadSchema>;
@@ -185,7 +186,7 @@ export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPay
 /** The junction row's natural key, for the two endpoints that carry no body. */
 export const FLSaisonSpielerKeyPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
 });
 export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayloadSchema>;
 
@@ -199,7 +200,7 @@ export const FLCreateSpielerFormPayloadSchema = z.object({
   // Required here and nullable everywhere else: imported squads hold surnameless rows, but a player
   // entered through this form always has one.
   nachname: PersonNameSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPayloadSchema>;

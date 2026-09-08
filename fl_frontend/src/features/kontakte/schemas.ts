@@ -4,6 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
 // other response of this API publishes.
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
 import { CustomObjectIdStringSchema, KONTAKT_EMAIL_MAX_LENGTH } from "@/shared/schemas";
 
@@ -73,7 +74,7 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
   // are carried here because the form has to know which club's season it is writing.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: `Die Saison-ID besteht aus genau ${String(SAISON_ID_LENGTH)} Zeichen.` }),
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),

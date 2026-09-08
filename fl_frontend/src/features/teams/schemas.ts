@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -371,7 +372,7 @@ export type FLReactivateTeamPayload = z.infer<typeof FLReactivateTeamPayloadSche
  */
 export const FLCreateTeamFormPayloadSchema = z.object({
   ...teamPayloadFields,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
 });
 export type FLCreateTeamFormPayload = z.infer<typeof FLCreateTeamFormPayloadSchema>;
@@ -446,7 +447,7 @@ export type FLTeamWriteResponse = z.infer<typeof FLTeamWriteResponseSchema>;
 export const FLPostSaisonTeamPayloadSchema = z.object({
   // In the PATH on the wire; carried here because the form has to know which club it is entering.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
 });
 export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSchema>;
@@ -458,7 +459,7 @@ export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSche
 export const FLPatchSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
@@ -474,7 +475,7 @@ export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSc
 export const FLReplaceSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the row being handed over is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
   // from the incoming club, so a client-supplied name could only disagree with it.
   incoming_team_id: CustomObjectIdStringSchema,

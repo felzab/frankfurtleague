@@ -194,10 +194,10 @@ def public_referee_name(name: str | None) -> str | None:
     """`READ-REFEREE-001`, over the one free-text field a referee's name is.
 
     Partitioned on the FIRST space rather than the last: `Ada van der Berg` would otherwise serve as
-    `Ada van der B.`, publishing the particle. `None` is an erased referee, and stays `None`: an
-    initial composed for a name nobody holds would read as a name.
+    `Ada van der B.`, publishing the particle.
     """
 
+    # An erased referee stays erased: an initial composed for a name nobody holds would read as a name.
     if name is None:
         return None
 
@@ -207,6 +207,8 @@ def public_referee_name(name: str | None) -> str | None:
         return name
 
     # Sliced on a `str`, which is by code point as `$substrCP` is: a byte slice halves `Öztürk`.
+    # The reduction IS the privacy measure, so two referees whose names reduce to one string are
+    # indistinguishable on the public page deliberately: a disambiguator would undo it.
     return f"{vorname} {nachname[:1]}."
 
 

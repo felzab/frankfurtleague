@@ -22,6 +22,8 @@ const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts")
 const BOUNDS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "bounds.py"), "utf8");
 /** The endpoint itself, which is what says which of the season's services an acceptance reaches. */
 const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
+/** The season's entry write, which the acceptance reaches the group rule through rather than calling it. */
+const TEAMS_CRUD = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "teams", "crud.py"), "utf8");
 /** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
@@ -58,8 +60,15 @@ const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/e
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
-/** The season's entry services, which `annehmen_bewerbung` calls rather than restating. */
+/** The season's entry services, which `annehmen_bewerbung` reaches rather than restating. */
 const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
+
+/**
+ * The group rule is reached through this helper rather than called, because the count it judges is a
+ * READ: only the helper's own write on the season puts a second writer in one write set
+ * (`docs/backend/spec.md :: I53`), so the acceptance passing its own figure would race an entry.
+ */
+const ENTRY_CHOKE_POINT = "refuse_a_full_gruppe";
 
 /** The entry rules those services implement, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
@@ -182,9 +191,12 @@ describe("the triage's refusals against the backend's register", () => {
   /* Pinned through the SERVICES, not the operation strings: `REQ-ENTER-005` writes its operations
      as a parenthesised literal, which `refusalRegister.ts`'s single-literal parse reads as none. */
   it("maps the entry rules the acceptance reuses", () => {
-    for (const service of REUSED_SERVICES) {
-      assert.ok(ADMIN_ROUTER.includes(`${service}(`), `the acceptance no longer calls ${service}, so its codes cannot reach it`);
-    }
+    assert.ok(
+      ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
+      `the acceptance no longer reaches ${ENTRY_CHOKE_POINT}, so the group rules cannot refuse it`,
+    );
+    assert.ok(TEAMS_CRUD.includes("find_entry_refusal("), `${ENTRY_CHOKE_POINT} no longer judges the group's own rule`);
+    assert.ok(ADMIN_ROUTER.includes("find_club_entry_refusal("), "the acceptance no longer judges the club's own entry");
 
     for (const code of REUSED_ENTRY_CODES) {
       const rule = DECLARED_RULES.find((declared) => declared.code === code);

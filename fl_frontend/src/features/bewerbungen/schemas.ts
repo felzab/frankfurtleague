@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -602,7 +603,7 @@ export type FLBewerbungKaderPayload = z.infer<typeof FLBewerbungKaderPayloadSche
  */
 export const FLPostBewerbungPayloadSchema = z
   .object({
-    saison_id: z.string().trim().length(4, { error: "Diese Bewerbung nennt keine Saison. Lade die Seite neu." }),
+    saison_id: z.string().trim().length(SAISON_ID_LENGTH, { error: "Diese Bewerbung nennt keine Saison. Lade die Seite neu." }),
     team_id: CustomObjectIdStringSchema.nullable(),
     schule: FLBewerbungSchulePayloadSchema.nullable(),
     kontakte: FLBewerbungKontaktePayloadSchema,
@@ -790,28 +791,55 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
- * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
+ * The ceilings the two delivery writes state at their shared base, paired with that base's own by
+ * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_MODEL_BOUNDS`. Retyped here rather
+ * than left off: both endpoints answer 422 past one, and no caller of either retries.
  */
-export const FLBewerbungZustellungAngenommenPayloadSchema = z.object({
+export const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
+export const ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH = 64;
+export const ZUSTELLUNG_GRUND_MAX_LENGTH = 128;
+
+/**
+ * What both delivery writes name, mirroring the one private base they share on the backend. Spelled
+ * once for the reason the base exists: two copies would let the acceptance and the event judge one
+ * provider's message differently.
+ */
+const zustellungMeldungFields = {
   bewerbung_id: CustomObjectIdStringSchema,
   // Plural because one message answers a mirrored pair, and both seats' links stand or fall with it.
   rollen: z.array(FLKontaktRolleSchema).min(1),
-  nachricht_id: z.string(),
-  am: z.string(),
-});
+  // `.trim()` ahead of the floor, as `strip_whitespace=True` puts it there: a value of spaces alone
+  // is what the endpoint refuses and a bare `min(1)` would send.
+  nachricht_id: z
+    .string()
+    .trim()
+    // German though no reader meets one: this server composes both writes, and a refusal reaches the
+    // log rather than a box. `fl_frontend/src/core/schemaGerman.test.ts` holds every payload to it.
+    .min(1, { error: "Diese Meldung nennt keine Nachricht." })
+    .max(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH, { error: "Diese Nachrichten-ID ist zu lang." }),
+  am: z
+    .string()
+    .trim()
+    .min(1, { error: "Diese Meldung nennt keinen Zeitpunkt." })
+    .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
+};
+
+/**
+ * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
+ * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
+ */
+export const FLBewerbungZustellungAngenommenPayloadSchema = z.object(zustellungMeldungFields);
 export type FLBewerbungZustellungAngenommenPayload = z.infer<typeof FLBewerbungZustellungAngenommenPayloadSchema>;
 
 /** Mirrors `FLBewerbungZustellungEreignisPayload` — one event the provider sent about a message already recorded. */
 export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
-  bewerbung_id: CustomObjectIdStringSchema,
-  rollen: z.array(FLKontaktRolleSchema).min(1),
-  nachricht_id: z.string(),
+  ...zustellungMeldungFields,
   // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
   // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
   stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
-  grund: z.string().nullable(),
-  am: z.string(),
+  // No floor beside the ceiling, unlike the two above: the endpoint takes an empty reason and a
+  // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
+  grund: z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }).nullable(),
 });
 export type FLBewerbungZustellungEreignisPayload = z.infer<typeof FLBewerbungZustellungEreignisPayloadSchema>;
 

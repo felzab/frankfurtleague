@@ -9,7 +9,7 @@ from pydantic import BaseModel, StringConstraints
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
-from app.shared.schemas.custom import PHONE_REGEX
+from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
@@ -50,6 +50,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "KONTAKT_NAME_MAX_LENGTH", "KONTAKT_NAME_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
+    Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
 )
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
@@ -144,19 +145,19 @@ class ModelBound(NamedTuple):
 # field stating each. Read off the model's metadata, so a constraint respelled there still pairs.
 MIRRORED_MODEL_BOUNDS: Final = (
     ModelBound(
-        "features/bewerbungen/zustellung.ts",
+        "features/bewerbungen/schemas.ts",
         "ZUSTELLUNG_GRUND_MAX_LENGTH",
         bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
         "grund",
     ),
     ModelBound(
-        "features/bewerbungen/zustellung.ts",
+        "features/bewerbungen/schemas.ts",
         "ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH",
         bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
         "nachricht_id",
     ),
     ModelBound(
-        "features/bewerbungen/zustellung.ts",
+        "features/bewerbungen/schemas.ts",
         "ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH",
         bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
         "am",
@@ -178,7 +179,7 @@ def _model_max_length(model: type[BaseModel], field: str) -> int:
     return stated[0]
 
 
-@pytest.mark.parametrize("mirror", MIRRORED_MODEL_BOUNDS, ids=lambda mirror: f"{mirror.model.__name__}.{mirror.field}->{mirror.typescript}")
+@pytest.mark.parametrize("mirror", MIRRORED_MODEL_BOUNDS, ids=lambda mirror: f"{mirror.model.__name__}.{mirror.field}->{mirror.module}")
 def test_every_model_bound_agrees_with_its_frontend_constant(mirror: ModelBound):
     """The webhook fills these from a provider's envelope, and its route answers a 422 with 200, so a looser mirror loses the event."""
 
@@ -286,6 +287,56 @@ def test_each_declared_pattern_pair_accepts_the_same_values(pattern: Pattern):
     assert accepted, f"{pattern.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), f"{pattern.python} accepts every probe, so agreeing with it proves nothing"
     assert accepted == _accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+
+
+# The delivery screen's copy of `SINGLE_LINE_PATTERN`, one of four spellings of that one rule.
+# `MIRRORED_PATTERNS` cannot take it: `MODELLED_ESCAPES` covers no codepoint escape.
+SINGLE_LINE_SCREEN: Final = ("features/bewerbungen/zustellung.ts", "EINZEILIG")
+
+# `m` is the flag that would change what this class accepts, `$` then standing at every line break --
+# which is the whole rule. Neither `u` nor the bare spelling moves a BMP-only class.
+SINGLE_LINE_FLAGS: Final = ("", "u")
+
+CODEPOINT_ESCAPE: Final = re.compile(r"\\(?:x(?P<narrow>[0-9A-Fa-f]{2})|u(?P<wide>[0-9A-Fa-f]{4})|(?P<named>[nrtvf0]))")
+
+NAMED_ESCAPE: Final = {"n": "\n", "r": "\r", "t": "\t", "v": "\v", "f": "\f", "0": "\0"}
+
+
+def _spelled_codepoints(pattern: str) -> set[str]:
+    """Every codepoint the pattern SPELLS as an escape, decoded to the character itself.
+
+    The class names U+2028 and carries none, so an alphabet built from the characters present would
+    never probe the ones at issue.
+    """
+
+    spelled: set[str] = set()
+    for found in CODEPOINT_ESCAPE.finditer(pattern):
+        narrow, wide, named = found["narrow"], found["wide"], found["named"]
+        spelled.add(chr(int(narrow or wide, 16)) if named is None else NAMED_ESCAPE[named])
+
+    return spelled
+
+
+def test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses():
+    """A copy admitting one character more composes a reason the endpoint answers 422 to.
+
+    The event's route answers the provider 200, so the bounce is lost rather than retried.
+    """
+
+    module, name = SINGLE_LINE_SCREEN
+    found = re.search(rf"^const {name} = /(?P<source>.+?)/(?P<flags>[a-z]*);$", _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer spells {name} as one regular-expression literal on one line"
+    assert found["flags"] in SINGLE_LINE_FLAGS, f"{name} carries the flags '{found['flags']}', which change what the class accepts"
+
+    alphabet = sorted(_spelled_codepoints(SINGLE_LINE_PATTERN) | _spelled_codepoints(found["source"]) | PROBE_CONTROLS)
+    probes = [*alphabet, *(f"Goethe{character}Startgeld" for character in alphabet)]
+
+    accepted = _accepted(SINGLE_LINE_PATTERN, probes)
+
+    assert accepted, f"SINGLE_LINE_PATTERN accepts none of {len(probes)} probes, so agreeing with it proves nothing"
+    assert len(accepted) < len(probes), "SINGLE_LINE_PATTERN accepts every probe, so agreeing with it proves nothing"
+    assert accepted == _accepted(found["source"], probes), f"{name} and SINGLE_LINE_PATTERN accept different values"
 
 
 ANSWER_PAYLOAD: Final = Path(bewerbungen_schemas.__file__)
