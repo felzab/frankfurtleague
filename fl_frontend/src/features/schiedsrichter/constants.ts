@@ -6,14 +6,11 @@ export const SCHIEDSRICHTER_CRUD_COPY = {
   searchPlaceholder: "z.B. Pierluigi Collina oder Goethe-Gymnasium",
 } as const;
 
+// Not a first name, which beside a date and a club still identifies one person in a league this
+// size, and not „Schiedsrichter“, which reads oddly in a column already headed with it.
 /**
  * What a reader is shown where the erasure nulled the name. It lives here and in no stored document,
- * so rewording it reaches every surface at once and moves no data — and never becomes a value
- * anything matches on: the facet's merged option carries
- * `fl_frontend/src/features/spiele/facets.ts :: ANONYMISED_SCHIEDSRICHTER_VALUE` instead.
- *
- * Not a first name, which beside a date and a club still identifies one person in a league this
- * size, and not „Schiedsrichter“, which reads oddly in a column already headed with it.
+ * so rewording it reaches every surface at once and moves no data.
  */
 export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
 

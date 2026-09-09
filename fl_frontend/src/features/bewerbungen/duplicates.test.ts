@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { sliceBetween } from "../../core/refusalRegister.ts";
-import { markBewerbungDubletten } from "./duplicates.ts";
+import { BEWERBUNG_DUBLETTE_LABEL, markBewerbungDubletten } from "./duplicates.ts";
 
 import type { FLBewerbung } from "./schemas.ts";
 
@@ -155,6 +155,22 @@ describe("applications a triage has to decide between", () => {
     );
 
     assert.deepEqual([...dubletten.keys()], ["a", "b", "c"]);
+  });
+});
+
+describe("what the queue calls each collision", () => {
+  /* Each chip names the record its key is composed from, so the pair reads as two different clashes:
+     one club picked twice, and two strangers asking for one code. */
+  it("names the record each key is keyed on", () => {
+    assert.equal(BEWERBUNG_DUBLETTE_LABEL.team, "Team doppelt");
+    assert.equal(BEWERBUNG_DUBLETTE_LABEL.kuerzel, "Kürzel doppelt");
+  });
+
+  /* The school is the applicant rather than either key: a chip naming it sends an administrator to
+     the school's own details for a clash the club id carries. */
+  it("names neither collision after the applicant", () => {
+    for (const [art, label] of Object.entries(BEWERBUNG_DUBLETTE_LABEL))
+      assert.doesNotMatch(label, /Schule/, `the ${art} chip reads „${label}“`);
   });
 });
 

@@ -15,6 +15,13 @@ import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
 /**
+ * What the picker offers and what a pick writes back, which is every field of a venue this section
+ * reads. Narrower than `FLSpielort` so the held record below can be built from the fixture, which
+ * carries no address.
+ */
+type SpielortAngebot = Pick<FLSpielort, "id" | "name" | "maps_link" | "default_mietpreis">;
+
+/**
  * The price is subordinate to the choice rather than its peer, hence 2fr/1fr. Prefilled from the
  * venue's `default_mietpreis` and then editable, what a fixture cost being the fixture's property.
  */
@@ -29,9 +36,25 @@ export function FormSpielortSection({
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
+  // The venue this fixture ALREADY holds, where the list offers it nowhere: the default read drops
+  // every retired row, so without this the trigger renders blank on a fixture that HAS a venue.
+  const held: SpielortAngebot[] =
+    ortPayload === null || spielorte.some((candidate) => candidate.id === ortPayload.spielort_id)
+      ? []
+      : [
+          {
+            id: ortPayload.spielort_id,
+            name: ortPayload.name,
+            maps_link: ortPayload.maps_link,
+            // The fixture's own agreed rent, never a default this list has no row to read one from:
+            // re-picking the held venue must not silently reprice the fixture.
+            default_mietpreis: ortPayload.mietpreis ?? 0,
+          },
+        ];
+
   // The picker hands over the resolved record: looking it up against `spielorte` would miss one
   // just created in the modal, a silent failure behind a success toast.
-  const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
+  const handleOrtChange = (resolvedOrt: SpielortAngebot | null) => {
     onOrtChange(
       resolvedOrt
         ? {
@@ -63,11 +86,11 @@ export function FormSpielortSection({
 
   return (
     <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <PickOrCreateAutocomplete<FLSpielort>
+      <PickOrCreateAutocomplete<SpielortAngebot>
         label="Spielort"
         fieldPath="ort.spielort_id"
         placeholder="z.B. Sportpark Nord"
-        items={spielorte}
+        items={[...held, ...spielorte]}
         selectedId={ortPayload?.spielort_id ?? null}
         onSelect={handleOrtChange}
         createLabel="Neuen Spielort anlegen"

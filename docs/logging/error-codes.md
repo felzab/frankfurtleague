@@ -103,9 +103,12 @@ write path that raises the code, never the undo route, which words a replayed re
 ([`docs/frontend/spec.md`](../frontend/spec.md#13-admin-mutations)); **where a rule declares several
 operations the cell names the FIRST**, so a code gaining an endpoint gains no second cell and the
 choice is derivable rather than remembered. The check holds neither of those two: both are read by a
-person. A row outside `RULES` carries `—`, an
-authentication, validation, ObjectId or database failure reaching German chosen by HTTP status: a
-per-code sentence for a 500 would name a repair that does not exist.
+person. A row outside `RULES` carries `—`, which
+`scripts/checks/docs_gate/error_codes.py :: _check_wording` refuses to see filled: an authentication,
+validation or ObjectId failure reaches German chosen by HTTP status, and a per-code sentence for a 500
+would name a repair that does not exist. **`DB-COMMON-002` is the one such code a slice words per
+code** — a unique index refusing a value a form can point at — so its German is found at the arm and
+never through this column.
 
 | Code                  | Status | Meaning                                                                                                                                                | Worded by                                                                    |
 | --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |

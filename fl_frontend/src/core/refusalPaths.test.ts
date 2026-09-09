@@ -614,11 +614,7 @@ describe("every path a refusal mapper emits", () => {
    * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and no
    * way out of the sweep: a listed file that assigns `fieldErrors` at all fails below.
    */
-  const BANNER_ONLY: Record<string, string> = {
-    "features/schiedsrichter/actions.ts":
-      "retiring is refused for fixtures still needing a result — a fact about the season, and no control on the form is at fault",
-    "features/spielorte/actions.ts": "the same refusal for a venue, and the fixtures it names are on another page entirely",
-  };
+  const BANNER_ONLY: Record<string, string> = {};
 
   /** What a module offers by name, so its callers are found rather than listed. */
   function exportedSymbols(text: string): string[] {

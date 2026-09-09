@@ -2,8 +2,8 @@ import type { FLPostSchiedsrichterPayload, FLSchiedsrichter, FLSchiedsrichterPay
 
 /**
  * A referee whose `name` is the word on screen rather than the stored one, so a control that must
- * show something — a picker's list, its trigger — takes an erased referee without a null reaching it.
- * Built through `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+ * show something takes an erased referee without a null reaching it. Built through
+ * `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
  */
 export type FLSchiedsrichterAngezeigt = FLSchiedsrichter & { name: string };
 

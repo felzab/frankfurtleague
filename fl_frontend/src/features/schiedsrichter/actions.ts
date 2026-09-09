@@ -28,6 +28,20 @@ import type {
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
 
+/**
+ * `null` where the 409 is something else. It lands on the NAME box: `uniq_schiedsrichter_name` is this
+ * collection's only unique index, so the code can be about no other value the create or the edit sent.
+ */
+function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
+  if (error.serverErrorCode === "DB-COMMON-002") {
+    return { fieldErrors: { name: "Diesen Namen gibt es schon." } };
+  }
+  return null;
+}
+
 /** `null` where the 409 is something else; it lands on no field, three boxes each triggering it alone. */
 function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -114,7 +128,16 @@ export async function postSchiedsrichterAction(
       };
     }
 
-    const postOperation = await postSchiedsrichter(validated.data);
+    // The refusal belongs on the box that holds the name, not on the error page.
+    let postOperation;
+    try {
+      postOperation = await postSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapNameRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!postOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
@@ -151,7 +174,7 @@ export async function patchSchiedsrichterAction(
     try {
       postOperation = await patchSchiedsrichter(validated.data);
     } catch (error) {
-      const refusal = mapEditRefusal(error);
+      const refusal = mapEditRefusal(error) ?? mapNameRefusal(error);
       if (refusal) return { success: false, ...refusal };
       throw error;
     }

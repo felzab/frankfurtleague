@@ -14,7 +14,7 @@ export type BewerbungDublette = "team" | "kuerzel";
  * proposing one Kürzel is a clash between strangers, and an administrator acts on them differently.
  */
 export const BEWERBUNG_DUBLETTE_LABEL: Record<BewerbungDublette, string> = {
-  team: "Schule doppelt",
+  team: "Team doppelt",
   kuerzel: "Kürzel doppelt",
 };
 

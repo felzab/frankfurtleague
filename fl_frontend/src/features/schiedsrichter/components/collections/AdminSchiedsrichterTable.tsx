@@ -110,10 +110,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     // The value is `schiedsrichterFacetValue`'s, never the id: an anonymised referee shares one
     // merged option, and an unoffered value is dropped rather than refused.
     const facetValue = schiedsrichterFacetValue(schiedsrichter);
-    // Read off that value rather than off the erasure's own stamp, which the facet rule cannot see:
-    // where it is not this row's id, the link answers with every anonymised referee's fixtures, and
-    // a fee is reconciled against what the link actually opened.
+    // Read off that value rather than off the erasure's own stamp, which the facet rule cannot see.
     const zusammengefasst = facetValue !== schiedsrichter.id;
+    // The label names the merged set, because a fee is reconciled against what the link opened.
     const einsatzLabel = zusammengefasst ? "Einsätze aller anonymisierten Schiedsrichter anzeigen" : "Einsätze anzeigen";
     const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
 

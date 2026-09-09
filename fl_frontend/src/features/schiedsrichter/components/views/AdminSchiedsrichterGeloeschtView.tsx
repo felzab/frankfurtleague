@@ -16,11 +16,9 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { formatEuro } from "@/shared/utils/format";
 
-/**
- * The referee page once the erasure has run. **Read-only, and that is the point**: the write path
- * refuses every save reaching an erased row (`REQ-ANONYMISE-002`), so an editor here would offer an
- * empty name box that invites exactly the re-entry the refusal exists to stop.
- */
+// The write path refuses every save reaching an erased row (`REQ-ANONYMISE-002`), so an editor here
+// would offer an empty name box that invites exactly the re-entry the refusal exists to stop.
+/** The referee page once the erasure has run. **Read-only, and that is the point.** */
 export function AdminSchiedsrichterGeloeschtView({
   anonymisiertAm,
   inactiveSince,

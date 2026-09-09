@@ -50,8 +50,17 @@ const RENAME_ACTION = sliceBetween(
 
 const EDIT_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const EDIT_CODES = ["REQ-ANONYMISE-002"];
-/* The first mapper in the module, so its slice ends where the retirement's begins. */
 const EDIT_MAP = sliceBetween(ACTIONS, "function mapEditRefusal", "function mapRetireRefusal");
+
+/* The first mapper in the module, so its slice ends where the edit's begins. */
+const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapEditRefusal");
+const CREATE_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function postSchiedsrichterAction",
+  "export async function patchSchiedsrichterAction",
+);
+/* The venue's copy of the same sentence, read where it is written rather than retyped here. */
+const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
 
 const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
 const REACTIVATE_CODES = ["REQ-ANONYMISE-003"];
@@ -142,6 +151,40 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.match(REACTIVATE_MAP, /Daten löschen lassen/, "the refusal does not say why the entry is stilled");
     assert.match(REACTIVATE_MAP, /neuen Schiedsrichter/, "the refusal names no way forward for a person who officiates again");
     assert.doesNotMatch(REACTIVATE_MAP, /wiederherstell|zurückhol|rückgängig/i, "the refusal offers a restore no endpoint can honour");
+  });
+});
+
+describe("the referee name a unique index already holds", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  it("cuts the mapper and the create out of the file before reading them", () => {
+    assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
+    assert.ok(!NAME_MAP.includes("REQ-ANONYMISE-002"), "the duplicate name's slice runs on into the edit's mapper");
+
+    assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
+    assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
+  });
+
+  /* `uniq_schiedsrichter_name` is this collection's only unique index, so the 409 it raises is always
+     the name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about
+     an id, which names no box and no way out. */
+  it("lands the duplicate on the name box rather than in a banner", () => {
+    assert.match(NAME_MAP, /serverErrorCode === "DB-COMMON-002"/, "the duplicate name reaches the admin as an unhandled conflict");
+    assert.match(NAME_MAP, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the duplicate name lands as a bare sentence");
+    // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
+    assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
+  });
+
+  /* The edit weighs the erasure's refusal first and this one after: both are 409s on one save, and a
+     mapper consulted alone leaves the other code falling through to the conflict fallback. */
+  it("consults the mapper on the create and beside the edit's own refusal", () => {
+    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
+    assert.match(RENAME_ACTION, /mapEditRefusal\(error\) \?\? mapNameRefusal\(error\)/, "the edit weighs only one of its two refusals");
+  });
+
+  /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one
+     copy would tell two of them something the other two do not say. */
+  it("words a venue's duplicate name the same way", () => {
+    assert.match(SPIELORTE_ACTIONS, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the two slices word one refusal apart");
   });
 });
 

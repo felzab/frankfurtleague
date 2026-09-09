@@ -1269,6 +1269,14 @@ holds whether a conditional block renders or not
   `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx`), swept
   by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: keeps a stored count the universe does not carry`
   and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/herkunftPick.test.ts :: keeps the stored placing on screen while it is closed`.
+  A record the offered list has DROPPED is the same convention's other shape, put back from what the
+  record holds
+  (`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormSchiedsrichterSection.tsx`,
+  `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormSpielortSection.tsx`),
+  swept by
+  `fl_frontend/src/features/spiele/components/schiedsrichterAnzeige.test.ts :: names the held referee even though the list offers nobody`
+  and
+  `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/spielortPick.test.ts :: names the held venue even though the list offers none`.
 - **A link inside text is `textLink`** (I43, I78, I79). A standalone action is a `ctaButton` link
   (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
   it sits on), never a text link; a whole box is pressable only as `card({ interactive: true })`

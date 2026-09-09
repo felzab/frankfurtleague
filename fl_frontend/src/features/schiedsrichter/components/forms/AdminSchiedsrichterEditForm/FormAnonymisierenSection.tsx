@@ -92,7 +92,7 @@ export function FormAnonymisierenSection({
 
       <div className={panel.body()}>
         <p className="muted-hint">
-          Das Löschen entfernt Name, Schule, E-Mail und Telefonnummer von <strong>{name}</strong> — in der Verwaltung und auf jedem Spiel steht
+          Das Löschen entfernt Name, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem Spiel steht
           dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die ihn
           betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt lesbar. Der Eintrag
           selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht mehr angeboten, und
@@ -108,7 +108,7 @@ export function FormAnonymisierenSection({
                     afterwards: a bare „wird gelöscht“ would read as the referee losing their row. */}
                 <ConfirmReadoutRow
                   label="Name"
-                  value={`${name} — danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                  value={`${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
                 />
                 {/* The school goes with the name: beside a fixture list that never expires it narrows the
                     person to the few referees one school ever sent. */}
@@ -138,7 +138,7 @@ export function FormAnonymisierenSection({
             <p className="fluid-xxs text-foreground leading-normal font-medium">
               Zurückholen lässt sich das nicht. Der Eintrag bleibt mit allen Spielen bestehen, überall steht dann{" "}
               {/* The quotes ride INSIDE the expression: split across the JSX line break they render with a space before the closing one. */}
-              {`„${SCHIEDSRICHTER_ANONYM_LABEL}“`} — und bearbeiten lässt er sich danach nicht mehr.
+              {`„${SCHIEDSRICHTER_ANONYM_LABEL}“`}, und bearbeiten lässt er sich danach nicht mehr.
             </p>
           </ConfirmReveal>
         )}
