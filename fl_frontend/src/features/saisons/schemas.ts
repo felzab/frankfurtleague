@@ -49,7 +49,7 @@ export const FLSaisonRulesSchema = z.object({
   // Required on both sides: a season that never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
   qualifiers_per_group: z
-    .int({ error: "Bitte gib die Zahl der Qualifikanten ein." })
+    .int({ error: "Bitte gib die Zahl der Qualifikanten pro Gruppe ein." })
     .positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
   // The season runs the first `number_of_groups` of the closed name set, so the set's own size is the
   // ceiling: a literal under it is a group count no season can be created with.
@@ -164,7 +164,7 @@ const groupCannotOverQualify = {
 };
 
 const bracketMustHaveAShape = {
-  error: `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
+  error: `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
   path: ["rules", "qualifiers_per_group"],
 };
 

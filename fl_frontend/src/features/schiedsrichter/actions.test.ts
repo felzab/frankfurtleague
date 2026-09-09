@@ -217,12 +217,14 @@ describe("the anonymisation's copy", () => {
       "utf8",
     ).replace(/\s+/g, " ");
 
-    for (const [source, where] of [
-      [PANEL, "the confirmation"],
-      [geloescht, "the page that replaces the form"],
-      [ACTIONS, "the action's report"],
+    // The list is the direct object of the panel's sentence and the subject of the other two, so its
+    // first member is accusative on one surface and nominative on the others.
+    for (const [source, where, list] of [
+      [PANEL, "the confirmation", /Namen, Schule, E-Mail und Telefonnummer/],
+      [geloescht, "the page that replaces the form", /Name, Schule, E-Mail und Telefonnummer/],
+      [ACTIONS, "the action's report", /Name, Schule, E-Mail und Telefonnummer/],
     ] as const) {
-      assert.match(source, /Name, Schule, E-Mail und Telefonnummer/, `${where} does not name the school among what goes`);
+      assert.match(source, list, `${where} does not name the school among what goes`);
     }
 
     assert.doesNotMatch(geloescht, /Schule \/ Verein/, "the erased page still reads the school out as something that survives");

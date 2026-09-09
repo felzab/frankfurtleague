@@ -96,7 +96,7 @@ describe("the bar without a read order", () => {
     for (const query of ["", "status=aktiv", "status=aktiv&gruppe=A"]) {
       const html = bar(query);
 
-      assert.doesNotMatch(html, /Sortierung/, "the bar names the read order on a surface that passes none");
+      assert.doesNotMatch(html, /Ladereihenfolge/, "the bar names the read order on a surface that passes none");
       assert.doesNotMatch(html, /<select/, "the bar mounts a picker on a surface that passes no read order");
       assert.doesNotMatch(html, /Neueste zuerst|Älteste zuerst/, "the bar paints a read order on a surface that passes none");
     }
@@ -114,7 +114,7 @@ describe("the bar with a read order", () => {
   it("carries the field's name and paints only the value", () => {
     const html = bar("", "desc");
 
-    assert.match(html, /aria-label="Sortierung"/, "the picker carries no name for the field it changes");
+    assert.match(html, /aria-label="Ladereihenfolge"/, "the picker carries no name for the field it changes");
     assert.match(html, / aria-describedby="/, "the tooltip's hint reaches no assistive technology");
     assert.match(html, />Neueste zuerst</, "the trigger paints no read order");
   });
@@ -136,7 +136,7 @@ describe("the bar with a read order", () => {
     assert.match(bar("order=asc", "asc"), />Älteste zuerst</);
   });
 
-  /* Filter left, sort right, and a pill appends between them: the control sits last so adding a
+  /* Filter left, read order right, and a pill appends between them: the control sits last so adding a
      filter moves neither fixed control, and neither can be scrolled out of reach. */
   it("sits after the add control, and after a pill once one is drawn", () => {
     const html = bar("status=aktiv", "desc");
@@ -147,8 +147,8 @@ describe("the bar with a read order", () => {
       return stelle;
     };
 
-    assert.ok(at('aria-label="Filter hinzufügen"') < at('aria-label="Sortierung"'), "the read order is drawn before the add control");
-    assert.ok(at("Status: Aktiv ändern") < at('aria-label="Sortierung"'), "the read order is drawn before the pills");
+    assert.ok(at('aria-label="Filter hinzufügen"') < at('aria-label="Ladereihenfolge"'), "the read order is drawn before the add control");
+    assert.ok(at("Status: Aktiv ändern") < at('aria-label="Ladereihenfolge"'), "the read order is drawn before the pills");
   });
 
   /* The order removes no row, so it is in no active count: a reader who reverses the read and then

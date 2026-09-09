@@ -32,6 +32,12 @@ const pathsRefused = (schema: typeof FLPostSaisonPayloadSchema | typeof FLPatchS
   return result.success ? [] : result.error.issues.map((issue) => issue.path.join("."));
 };
 
+const messagesRefused = (schema: typeof FLPostSaisonPayloadSchema, value: unknown): string[] => {
+  const result = schema.safeParse(value);
+
+  return result.success ? [] : result.error.issues.map((issue) => issue.message);
+};
+
 describe("FLPostSaisonPayloadSchema", () => {
   it("takes rules a create can satisfy", () => {
     assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create()), []);
@@ -52,6 +58,14 @@ describe("FLPostSaisonPayloadSchema", () => {
     assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 3, qualifiers_per_group: 1, teams_per_group: 4 })), [
       "rules.qualifiers_per_group",
     ]);
+  });
+
+  /* This is the one message that asks the reader to multiply, so each factor is named as its own panel
+     labels it: a bare „Qualifikanten“ reads as the total across the season and is the wrong arithmetic. */
+  it("names both factors of the bracket product the way the panel labels them", () => {
+    const refused = messagesRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 3, qualifiers_per_group: 1, teams_per_group: 4 }));
+
+    assert.match(refused.join(" "), /Die Zahl der Gruppen mal die Qualifikanten pro Gruppe/);
   });
 
   it("refuses a group too small to generate a fixture, and one past the list read's cap", () => {

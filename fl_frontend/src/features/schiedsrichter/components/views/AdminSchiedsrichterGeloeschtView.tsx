@@ -14,7 +14,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { formatEuro } from "@/shared/utils/format";
+import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
 // The write path refuses every save reaching an erased row (`REQ-ANONYMISE-002`), so an editor here
 // would offer an empty name box that invites exactly the re-entry the refusal exists to stop.
@@ -85,7 +85,7 @@ export function AdminSchiedsrichterGeloeschtView({
             {anonymisiertAm !== null && (
               <ConfirmReadoutRow
                 label="Gelöscht am"
-                value={anonymisiertAm}
+                value={formatSpielDatum(anonymisiertAm)}
               />
             )}
             {/* The one figure the erasure never reached, so the page says plainly what still stands: it

@@ -27,8 +27,8 @@ const NOT_RECORDED = "Nicht hinterlegt";
 
 /**
  * The referee's anonymisation, on `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. **A
- * confirmation step and no undo**: one press nulls the name on the row and on every match, clears the
- * two contact fields, stamps the day, and empties every log row's pre-image.
+ * confirmation step and no undo**: one press nulls the name on the row and every match, clears the
+ * school and both contact fields, stamps the day, and empties every log row's pre-image.
  */
 export function FormAnonymisierenSection({
   schiedsrichterId,
@@ -83,7 +83,7 @@ export function FormAnonymisierenSection({
             mode="reveal"
             label="Hinweis zum Löschen der Daten"
             body={{
-              lead: "Der Weg, Namen und Kontaktdaten ganz aus der Verwaltung zu entfernen.",
+              lead: "Der Weg, Namen, Schule und Kontaktdaten ganz aus der Verwaltung zu entfernen.",
               points: [{ term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." }],
             }}
           />
@@ -92,11 +92,11 @@ export function FormAnonymisierenSection({
 
       <div className={panel.body()}>
         <p className="muted-hint">
-          Das Löschen entfernt Name, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem Spiel steht
-          dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die ihn
-          betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt lesbar. Der Eintrag
-          selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht mehr angeboten, und
-          bearbeiten lässt er sich danach nicht mehr.
+          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem Spiel steht
+          dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die diese
+          Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist, bleibt lesbar.
+          Der Eintrag selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht mehr
+          angeboten, und bearbeiten lässt er sich danach nicht mehr.
         </p>
 
         {isConfirming && (

@@ -62,7 +62,7 @@ export function buildSaisonBanners({
       severity: "info",
       raisedBy: "state",
       title: "Der Aufbau der Saison steht fest",
-      body: "Gruppen, Teams pro Gruppe und Qualifikanten sind gesperrt, solange der Spielplan steht.",
+      body: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe sind gesperrt, solange der Spielplan steht.",
       inline: null,
     });
   }
@@ -89,7 +89,7 @@ export function buildSaisonBanners({
       // excess is refused rather than confirmed.
       raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten oder erhöhe die Teams pro Gruppe.",
+      body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten pro Gruppe oder erhöhe die Teams pro Gruppe.",
       inline: "regeln-qualifikanten",
     });
   }

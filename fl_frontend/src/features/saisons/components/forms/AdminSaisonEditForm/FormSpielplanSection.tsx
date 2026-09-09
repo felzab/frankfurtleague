@@ -222,7 +222,7 @@ export function FormSpielplanSection({
               points: [
                 { term: "Die Teams", text: "verteilst Du über die Teamseite." },
                 {
-                  term: "Gruppen, Teams pro Gruppe und Qualifikanten",
+                  term: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe",
                   text: "änderst Du im Abschnitt Regeln, sobald der Spielplan zurückgenommen ist.",
                 },
               ],

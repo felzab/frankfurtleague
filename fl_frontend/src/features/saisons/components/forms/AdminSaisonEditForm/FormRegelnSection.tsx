@@ -32,7 +32,7 @@ export type SpielplanWindowState = "open" | "recorded" | "closed";
 const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
   // Two repairs and not one, as `find_rules_refusal` composes them per moved field: only the
   // qualifiers move on a redraw, the other two standing on which clubs are entered.
-  open: "Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den Spielplan zurück, passt die Teams an und legst ihn danach neu an.",
+  open: "Die Qualifikanten pro Gruppe änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den Spielplan zurück, passt die Teams an und legst ihn danach neu an.",
   // What counts as entered is the Spielplan panel's own list, stated there in full on exactly this
   // state: a second copy would put one sentence on the page twice.
   recorded:

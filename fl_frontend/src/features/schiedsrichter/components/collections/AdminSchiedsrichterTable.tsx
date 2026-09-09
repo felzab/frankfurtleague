@@ -16,7 +16,7 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatEuro } from "@/shared/utils/format";
+import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -95,7 +95,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     ) : (
       <span
         className="fluid-sm text-foreground-muted font-semibold italic"
-        title={`Daten am ${schiedsrichter.anonymisiert_am} gelöscht`}>
+        title={`Daten am ${formatSpielDatum(schiedsrichter.anonymisiert_am)} gelöscht`}>
         {schiedsrichterAnzeigename(schiedsrichter.name)}
       </span>
     );
@@ -113,7 +113,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     // Read off that value rather than off the erasure's own stamp, which the facet rule cannot see.
     const zusammengefasst = facetValue !== schiedsrichter.id;
     // The label names the merged set, because a fee is reconciled against what the link opened.
-    const einsatzLabel = zusammengefasst ? "Einsätze aller anonymisierten Schiedsrichter anzeigen" : "Einsätze anzeigen";
+    const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter mit gelöschten Daten anzeigen" : "Einsätze anzeigen";
     const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
 
     // An erased referee gets NEITHER state control below: the erasure retired them, and

@@ -46,11 +46,13 @@ const ADD_LABEL = "Filter";
  *  `aria-describedby` lands on its wrapper rather than the control, so a reader is told this once. */
 const ADD_HINT = "Filter hinzufügen";
 
+// Never „Sortierung“: on a list the cap cut short, the other end is a different set of rows rather
+// than the rows on hand reordered, and both truncation notices word it as loading.
 /** The field's name, carried on the control itself: the bar is a row of controls and has no room for a `<Label>`. */
-const ORDER_LABEL = "Sortierung";
+const ORDER_LABEL = "Ladereihenfolge";
 
 /** The verb the painted readout drops, as `ADD_HINT` carries the add control's. */
-const ORDER_HINT = "Sortierung ändern";
+const ORDER_HINT = "Ladereihenfolge ändern";
 
 /** `desc` first: it is the default, and the end a capped list opens on. */
 const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [

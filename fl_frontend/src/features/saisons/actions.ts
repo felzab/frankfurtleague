@@ -44,7 +44,7 @@ const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere 
  * seats the sentence under its field, and the generator, having no field, seats it in a message that
  * names where the repair is made.
  */
-const BRACKET_HAS_NO_SHAPE = `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
+const BRACKET_HAS_NO_SHAPE = `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
 const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
 const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
 const FORFEIT_CANNOT_DECIDE =
@@ -106,7 +106,8 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // turned `past` under an open page reaches this.
     case "REQ-RULES-005":
       return {
-        error: "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. Lade die Seite neu.",
+        error:
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben. Lade die Seite neu.",
       };
     // Bare like the freeze above, and a reload for the same reason: the panel holds the Tiebreak
     // closed once a KO fixture has been played, so only a result entered under an open page gets here.
@@ -122,7 +123,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
         // three cases holds, unconditionally and on the state the reloaded panel is in, where a
         // toast can only hand the reader the condition to evaluate.
         error:
-          "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten gesperrt. " +
+          "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe gesperrt. " +
           "Lade die Seite neu; im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
       };
     // Bare too, and for `REQ-DATE-005`'s reason rather than a freeze's: the two counts make the
@@ -594,7 +595,7 @@ export async function undrawSpielplanAction(
     const removedRows = undrawOperation.spieltage > 0 || undrawOperation.spiele > 0;
 
     const message = removedRows
-      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
+      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
       : undrawOperation.watermark_cleared
         ? `Saison ${validated.data.id} hielt weder Spieltage noch Spiele. Die Angabe, dass ihr Spielplan steht, ist jetzt entfernt.`
         : `Saison ${validated.data.id} hatte keinen Spielplan mehr, deshalb wurde nichts gelöscht.`;

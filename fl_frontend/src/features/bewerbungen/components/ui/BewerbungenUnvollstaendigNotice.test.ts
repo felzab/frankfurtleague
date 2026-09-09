@@ -116,13 +116,26 @@ describe("the notice a truncated queue carries", () => {
         return stelle;
       };
 
-      const reihenfolge = [at("Dubletten werden über alle"), at("Die Zahlen an den Filtern"), at("Geladen sind"), at("Auch diese Ansicht")];
+      const reihenfolge = [at("Dubletten werden über alle"), at("Die Zahlen am Filter"), at("Geladen sind"), at("Auch diese Ansicht")];
 
       assert.deepEqual(
         [...reihenfolge].sort((a, b) => a - b),
         reihenfolge,
         "the notice leads with something other than the duplicate loss",
       );
+    }
+  });
+
+  /* The season and status figures come from the endpoint (`fl_frontend/src/features/bewerbungen/facets.ts ::
+     bewerbungenQueueFacetCounts`), so distrusting them here sends an operator reversing the read over a
+     number that was already whole. */
+  it("distrusts the one facet counted off the served rows and no other", () => {
+    for (const props of [NEUESTE, AELTESTE]) {
+      const html = markup(props);
+
+      assert.match(html, /Die Zahlen am Filter Herkunft zählen nur die geladenen Zeilen\./);
+      assert.doesNotMatch(html, /Saison/, "the notice distrusts a count the endpoint answers in full");
+      assert.doesNotMatch(html, /Status/, "the notice distrusts a count the endpoint answers in full");
     }
   });
 
