@@ -296,6 +296,11 @@ class TestTheGuardWeighsTheNameBesideTheDetails:
 
         assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": None})
 
+    def test_a_contact_detail_standing_over_a_nulled_name_is_work_to_do(self):
+        """The re-entry's own row: the erasure nulled the name and a write put the details back."""
+
+        assert holds_an_anonymisable_value({"kontakt": KONTAKT[SCHIEDSRICHTER_OID], "name": None})
+
 
 # The row as the anonymisation leaves it, which is the only state the undo guard has anything to say about.
 ANONYMISED_ROW: dict[str, Any] = {
