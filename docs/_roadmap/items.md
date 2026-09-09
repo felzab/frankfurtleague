@@ -90,7 +90,7 @@ deliverable.
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere               | FE, Docs, tests, spieler, teams                                             | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Skipped  |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
@@ -752,9 +752,9 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
-| Tags                                                   | Status | Depends on |
-| ------------------------------------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
+| Tags                                                   | Status  | Depends on |
+| ------------------------------------------------------ | ------- | ---------- |
+| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Skipped | —          |
 
 **A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
 `fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
