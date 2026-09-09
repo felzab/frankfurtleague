@@ -336,7 +336,9 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Speichern fehlgeschlagen" : "Keine Antwort von uns", { description: gesendet.error });
+      appToast.danger(gesendet.wroteNothing ? "Speichern fehlgeschlagen" : "Unklar, ob es bei uns angekommen ist", {
+        description: gesendet.error,
+      });
       return;
     }
 

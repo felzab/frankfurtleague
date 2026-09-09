@@ -89,15 +89,16 @@ export function AdminAktionenView({
       {/* „Ein Filter holt dagegen auch Zeilen“ holds only while every facet narrows the read
           (`fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS`). */}
 
-      {/* A facet's numbers ignore its own selection and apply the others, so no sentence here may call
-          them the whole log (`docs/backend/spec.md :: I208`). */}
+      {/* The tally narrows by the trace and document terms as well (`docs/backend/spec.md :: I208`),
+          so a sentence counting rows would need a scope word; what picking a value would leave holds
+          under every narrowing. */}
       {!vollstaendig && (
         <Callout
           severity="warning"
           title="Das Protokoll ist unvollständig">
           Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen; die übrigen stehen nicht auf dieser Seite. Auch
-          die Suche erfasst nur die geladenen Zeilen. Ein Filter holt dagegen auch Zeilen, die hier fehlen. Jede Zahl an einem Filter zählt die
-          Zeilen zu ihrem Wert und rechnet Deine Auswahl in den anderen Filtern mit.
+          die Suche erfasst nur die geladenen Zeilen. Ein Filter holt dagegen auch Zeilen, die hier fehlen. Jede Zahl an einem Filter sagt Dir,
+          wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst.
         </Callout>
       )}
 

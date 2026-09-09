@@ -79,7 +79,7 @@ export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMM
  * sentence that control already showed.
  */
 export const ERASURE_NEEDS_RETIREMENT =
-  "Lege den Spieler zuerst still, in der Spielerliste über „Stilllegen“ in seiner Zeile. Danach lässt er sich endgültig löschen.";
+  "Lege die Person zuerst still, in der Spielerliste über „Stilllegen“ in ihrer Zeile. Danach lässt sie sich endgültig löschen.";
 
 /**
  * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the

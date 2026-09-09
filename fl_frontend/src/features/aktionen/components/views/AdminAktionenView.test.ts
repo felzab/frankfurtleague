@@ -129,16 +129,16 @@ describe("the notice a cut-short log carries", () => {
     assert.doesNotMatch(view(), /unvollständig/);
   });
 
-  /* The failure this guards: a number read as the whole log's, where the tally already applied every
-     other facet's selection (`docs/backend/spec.md :: I208`). */
-  it("says a filter's numbers respect the other filters, in every narrowing", () => {
-    const zahlen = /Jede Zahl an einem Filter zählt die Zeilen zu ihrem Wert und rechnet Deine Auswahl in den anderen Filtern mit\.$/;
+  /* The three states the sentence has to hold in. A count of rows would need a scope word in two of
+     them (`docs/backend/spec.md :: I208`); what picking a value would leave needs none. */
+  it("says what picking a filter value would leave, in every narrowing", () => {
+    const zahlen = /Jede Zahl an einem Filter sagt Dir, wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst\.$/;
 
     for (const narrowing of [{}, { dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
       const text = noticeText(view({ vollstaendig: false, ...narrowing }), TITEL.gekappt);
 
       assert.match(text, zahlen);
-      assert.doesNotMatch(text, /zählen das ganze Protokoll/, "the notice calls a facet's numbers the whole log's");
+      assert.doesNotMatch(text, /zählt die Zeilen|ganze Protokoll/, "the notice describes a number as a count of rows");
     }
   });
 

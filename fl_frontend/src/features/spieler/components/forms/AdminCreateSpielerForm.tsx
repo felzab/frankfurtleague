@@ -229,7 +229,7 @@ export function AdminCreateSpielerForm({
 
             {draft.is_nachgetragen && (
               <p className="fluid-xxs text-foreground-muted font-medium">
-                Dieser Spieler wird nachgetragen. Zu Beginn der Saison war er nicht im Kader.
+                Diese Person wird nachgetragen. Zu Beginn der Saison war sie nicht im Kader.
               </p>
             )}
           </>

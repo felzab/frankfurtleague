@@ -110,8 +110,8 @@ export function FormAustragenSection({
             {/* The condition is named rather than promised away: a club replacement takes the row's
                 team out of the season, and `REQ-SQUAD-001` then refuses the return offered here. */}
             <p className="muted-hint">
-              Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Sein Eintrag bleibt gespeichert und lässt sich reaktivieren, solange
-              sein Team in der Saison dabei ist.
+              Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Der Kadereintrag bleibt gespeichert und lässt sich reaktivieren,
+              solange sein Team in der Saison dabei ist.
             </p>
             {/* A button, not a draft field: one fact with nothing to fill in, and `reactivate` restores
                 it. Its own shape, so it does not read as the page's primary action. */}

@@ -184,3 +184,28 @@ describe("where each public form's write is transported", () => {
     assert.ok(!panel.includes("fetch("), "the confirmation panel spells a fetch of its own");
   });
 });
+
+describe("the title a form raises where the write may already have landed", () => {
+  /* Which title an arm raises is a call rather than an attribute, so it stands in no markup a render
+     could be read for — the reason the two cases above read these files. */
+  const geteilterTitel = (source: string): string | undefined =>
+    /appToast\.danger\(gesendet\.wroteNothing \? "[^"]+" : "([^"]+)"/.exec(source)?.[1];
+
+  /* One title over both sentences above: a word of either in it says that branch's fact twice and
+     makes the title read as the other branch's cause. Five letters skips shared function words. */
+  it("shares no word with either sentence it can be shown over", () => {
+    const woerter = (satz: string): string[] => (satz.match(/\p{L}{5,}/gu) ?? []).map((wort) => wort.toLowerCase());
+    const beschrieben = new Set([...woerter(KEINE_VERBINDUNG), ...woerter(KEINE_ANTWORT_VON_UNS)]);
+    assert.ok(beschrieben.size > 0, "neither description carries a word long enough for this case to find in a title");
+
+    for (const [name, source] of Object.entries(FORMULARE)) {
+      const titel = geteilterTitel(source);
+      assert.ok(titel !== undefined, `${name}: the arm that cannot rule the write out raises no title this case can read`);
+      assert.deepEqual(
+        woerter(titel).filter((wort) => beschrieben.has(wort)),
+        [],
+        `${name}: the title repeats a word of the sentence under it`,
+      );
+    }
+  });
+});

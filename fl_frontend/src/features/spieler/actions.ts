@@ -48,7 +48,7 @@ import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCrea
 
 // The index spans retired rows and creating never revives, so the message names the one path that does.
 const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Dieser Spieler hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
+  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
   repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
 });
 
@@ -156,7 +156,9 @@ export async function postSpielerAction(
         success: false,
         error:
           `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
-          "Nimm ihn über die Spielerseite in eine Saison auf.",
+          // The noun rather than a pronoun: `because` can put a sentence of its own in front of this
+          // one, which a pronoun would then have to reach back past.
+          "Nimm den Spieler über die Spielerseite in eine Saison auf.",
       };
     }
 
@@ -221,7 +223,7 @@ export async function deleteSpielerAction(
     return {
       success: true,
       spieler: deleteOperation,
-      message: "Spieler stillgelegt. Seine Kadereinträge bleiben erhalten.",
+      message: "Spieler stillgelegt. Die Kadereinträge dieser Person bleiben erhalten.",
     };
   });
 }

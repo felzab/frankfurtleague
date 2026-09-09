@@ -30,7 +30,7 @@ export function AdminDeleteSpielerModal({
       heading="Spieler stilllegen"
       entityLabel="den Spieler"
       entityName={spieler.fullName}
-      consequence="Seine Kadereinträge bleiben in jeder Saison erhalten. Für neue Kader steht er nicht mehr zur Auswahl."
+      consequence="Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl."
       successMessage="Spieler stillgelegt"
       onConfirm={() => deleteSpielerAction({ id: spieler.id })}
     />

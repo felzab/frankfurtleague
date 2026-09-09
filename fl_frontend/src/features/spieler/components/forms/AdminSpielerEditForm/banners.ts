@@ -53,9 +53,9 @@ export function buildSpielerBanners({
       id: "spieler.retired",
       severity: "info",
       raisedBy: "state",
-      title: "Dieser Spieler erscheint in keiner Auswahlliste",
+      title: "Diese Person erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
-      body: "Seine Plätze im Kader bleiben erhalten.",
+      body: "Die Kadereinträge dieser Person bleiben erhalten.",
       inline: null,
     });
   }
@@ -65,8 +65,8 @@ export function buildSpielerBanners({
       id: "spieler.not-in-kader-entry",
       severity: "info",
       raisedBy: "state",
-      title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
-      body: "Wähle unten ein Team und nimm ihn auf.",
+      title: `In Saison ${saisonId} erscheint diese Person auf keiner Seite`,
+      body: "Wähle unten ein Team und nimm sie auf.",
       inline: "kader-eintritt",
     });
 
@@ -79,8 +79,8 @@ export function buildSpielerBanners({
         // `state` though it reads as a consequence: the panel's Aufnehmen button writes the flag on
         // its own, and nothing here waits on the editor's save.
         raisedBy: "state",
-        title: "Dieser Spieler wird nachgetragen",
-        body: "Zu Beginn der Saison war er nicht im Kader.",
+        title: "Diese Person wird nachgetragen",
+        body: "Zu Beginn der Saison war sie nicht im Kader.",
         inline: "kader-nachgetragen",
       });
     }
@@ -110,8 +110,8 @@ export function buildSpielerBanners({
       // `isNachgetragen` is a draft field the edit path never offers — `FormKaderSection` derives it
       // at entry — so this can only report the flag the row loaded with.
       raisedBy: "state",
-      title: "Dieser Spieler wurde nachgetragen",
-      body: "Zu Beginn der Saison war er nicht im Kader.",
+      title: "Diese Person wurde nachgetragen",
+      body: "Zu Beginn der Saison war sie nicht im Kader.",
       inline: null,
     });
   }
