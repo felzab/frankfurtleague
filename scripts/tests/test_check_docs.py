@@ -110,6 +110,10 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--fg-muted", "#525252", "#a3a3a3"),
     ("--fg-on-brand", "#ffffff", "#ffffff"),
     ("--border-base", "#d4d4d4", "#333333"),
+    # Solved against this fixture's own two page grounds with room above 3:1, not copied from the
+    # season, whose grey clears that floor in the third decimal: the clean corpus would then be
+    # proving a rounding rather than the arm.
+    ("--border-control", "#8a8a8a", "#666666"),
     ("--bg-hover", "#dfdfdf", "#212121"),
     ("--bg-hover-muted", "#cfcfcf", "#373737"),
     ("--bg-hover-danger", "#f2d9d2", "#321a14"),
@@ -132,9 +136,11 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--accent-success-solid", "#007864", "#007864"),
     ("--accent-warn-solid", "#f2c94c", "#f2c94c"),
     ("--accent-danger-solid", "#b02d1f", "#b02d1f"),
+    ("--accent-info-solid", "#3560b3", "#3560b3"),
     ("--fg-on-success", "#ffffff", "#ffffff"),
     ("--fg-on-warn", "#0a0a0a", "#0a0a0a"),
     ("--fg-on-danger", "#ffffff", "#ffffff"),
+    ("--fg-on-info", "#ffffff", "#ffffff"),
     ("--accent-phase-gruppenphase", "#026a73", "#00c1d1"),
     ("--accent-phase-achtelfinale", "#026799", "#47b5fa"),
     ("--accent-phase-viertelfinale", "#5d53ae", "#a29dff"),
@@ -2021,9 +2027,9 @@ CASES: Final[tuple[Case, ...]] = (
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
     Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
-    # Ten on the season: the dark brand darkened for the ordering arm fails five floored pairs on
-    # the way, and a plant dodging that would be one no scheme file could ever carry.
-    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 10, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
+    # The dark brand darkened for the ordering arm fails eight floored pairs on the way, and a plant
+    # dodging that would be one no scheme file could ever carry.
+    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 13, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
     Case(
         "section-reference",
         _fails("section-reference", NOTES, NOTES, NOTES, BACKEND_SPEC),

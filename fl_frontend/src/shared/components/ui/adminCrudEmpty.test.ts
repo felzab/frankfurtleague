@@ -71,22 +71,31 @@ function px(value: string | undefined): number | null {
 }
 
 /**
+ * A theme variable in pixels, raising where the stylesheets declare none. A non-null assertion here
+ * would be TypeScript's alone: at runtime `px` answers null, arithmetic reads that as zero, and the
+ * ceiling below rises silently past every floor it guards.
+ */
+function themePx(name: string): number {
+  const measured = px(THEME.get(name));
+  if (measured === null) throw new Error(`the theme declares no --${name} this reader can measure`);
+
+  return measured;
+}
+
+/**
  * `w-44` and `min-w-5xl` in pixels. Both scales come from the theme: a numeric step is a multiple of
  * `--spacing`, and a named one is the `--container-*` of that name.
  */
 function widthPx(token: string): number | null {
   const step = /^(?:min-)?w-(\d+(?:\.\d+)?)$/.exec(token);
-  if (step !== null) {
-    const spacing = px(THEME.get("spacing"));
-    return spacing === null ? null : Number(step[1]) * spacing;
-  }
+  if (step !== null) return Number(step[1]) * themePx("spacing");
 
   const named = /^(?:min-)?w-([a-z0-9]+)$/.exec(token);
   return named === null ? null : px(THEME.get(`container-${named[1]!}`));
 }
 
 /** `AdminCrudShell`'s `sm:p-8`, both sides. */
-const SHELL_INSET = 2 * 8 * px(THEME.get("spacing"))!;
+const SHELL_INSET = 2 * 8 * themePx("spacing");
 /** `card()`'s `border`, one pixel each side. */
 const CARD_BORDER = 2;
 /**
@@ -101,7 +110,7 @@ const SCROLLBAR = 17;
  * content column from `lg` up.
  */
 const STEP =
-  Math.min(px(THEME.get("breakpoint-md"))! - SHELL_INSET, px(THEME.get("breakpoint-lg"))! - px(THEME.get("width-sidemenu"))! - SHELL_INSET) -
+  Math.min(themePx("breakpoint-md") - SHELL_INSET, themePx("breakpoint-lg") - themePx("width-sidemenu") - SHELL_INSET) -
   CARD_BORDER -
   SCROLLBAR;
 
@@ -152,19 +161,31 @@ function elementsOf(file: string): Element[] {
   return found;
 }
 
-/** The one `Table.Content` and the columns declared inside it, which is what fixed layout allocates over. */
-function tableOf(file: string): { content: Element | null; columns: Element[] } {
+/**
+ * The one `Table.Content`, the columns fixed layout allocates over, and the cells under them: a
+ * column and its cells are two ways to write the same disappearance, and the grid feels both.
+ */
+function tableOf(file: string): { content: Element | null; columns: Element[]; cells: Element[] } {
   const elements = elementsOf(file);
   const contents = elements.filter((element) => element.tag === "Table.Content");
   const content = contents.length === 1 ? contents[0]! : null;
+  const inside = (tag: string): Element[] =>
+    content === null ? [] : elements.filter((element) => element.tag === tag && element.start >= content.start && element.end <= content.end);
 
-  return {
-    content,
-    columns:
-      content === null
-        ? []
-        : elements.filter((element) => element.tag === "Table.Column" && element.start >= content.start && element.end <= content.end),
-  };
+  return { content, columns: inside("Table.Column"), cells: inside("Table.Cell") };
+}
+
+/** A utility's own name, every variant prefix stripped, so `max-lg:hidden` and `@2xl:min-w-40` both reach the test below. */
+const utilityOf = (token: string): string => token.slice(token.lastIndexOf(":") + 1);
+
+/**
+ * A class that makes the element it sits on exist at one width and not another. A bare width is the
+ * allocation fixed layout needs; the same width behind a variant is the allocation changing.
+ */
+function widthConditional(token: string): boolean {
+  const utility = utilityOf(token);
+
+  return utility === "hidden" || (utility !== token && /^(?:min-|max-)?w-/.test(utility));
 }
 
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
@@ -197,11 +218,14 @@ describe("the seven admin CRUD tables", () => {
      layout the columns collapse the moment the rows go. A declared width is then an allocation. */
   it("lay their columns out fixed, over a minimum the declared ones cannot exhaust", () => {
     for (const { file, freeText } of TABLES) {
-      const { content, columns } = tableOf(file);
+      const { content, columns, cells } = tableOf(file);
 
       assert.ok(content !== null, `${file}: expected exactly one Table.Content`);
       assert.ok(content.classes.includes("table-fixed"), `${file}: leaves its columns to auto layout`);
       assert.ok(columns.length > 0, `${file}: declares no columns the guard can read`);
+      /* The row template writes one cell per column. Read here so the cell sweep below cannot go
+         quiet on a renamed tag, which would leave it passing over an empty population. */
+      assert.equal(cells.length, columns.length, `${file}: declares ${String(columns.length)} columns and ${String(cells.length)} cells`);
 
       const floors = content.classes.filter((token) => token.startsWith("min-w-"));
       assert.equal(floors.length, 1, `${file}: names ${String(floors.length)} floors for its free-text columns`);
@@ -213,7 +237,19 @@ describe("the seven admin CRUD tables", () => {
         `${file}: declares ${declared.join(" ")}, and the theme resolves none of ${declared.filter((_token, index) => widths[index] === null).join(" ")}`,
       );
 
-      const owed = widths.reduce<number>((sum, width) => sum + width!, 0) + freeText * (columns.length - declared.length);
+      const free = columns.length - declared.length;
+      assert.ok(free >= 1, `${file}: declares a width on every column, so the roster's allowance binds nothing`);
+
+      /* `freeText` is declared, never measured: lower it and the floor together and the equality
+         below still passes over an identity column too narrow for a name. Legibility at a width
+         needs a browser and is asserted nowhere. */
+      const widest = Math.max(...widths.map((width) => width!), 0);
+      assert.ok(
+        freeText >= widest,
+        `${file}: allows its free-text column ${String(freeText)}px beside a bounded column of ${String(widest)}px — the identity block takes the remainder and is never the narrower`,
+      );
+
+      const owed = widths.reduce<number>((sum, width) => sum + width!, 0) + freeText * free;
       assert.equal(
         widthPx(floors[0]!),
         owed,
@@ -231,9 +267,9 @@ describe("the seven admin CRUD tables", () => {
       /* A react-aria grid navigates its collection rather than the DOM, so `ArrowRight` hands the
          focused key to a `display:none` cell: one dead keypress per hidden column per row, and an
          `aria-colcount` over columns nothing can reach. */
-      for (const column of columns) {
-        const banned = column.classes.filter((token) => token === "hidden" || /^[a-z0-9@]+:(?:hidden|w-)/.test(token));
-        assert.deepEqual(banned, [], `${file}: a column carrying ${banned.join(" ")} exists at one width and not another`);
+      for (const element of [...columns, ...cells]) {
+        const banned = element.classes.filter(widthConditional);
+        assert.deepEqual(banned, [], `${file}: a ${element.tag} carrying ${banned.join(" ")} exists at one width and not another`);
       }
     }
   });
@@ -254,5 +290,27 @@ describe("the seven admin CRUD tables", () => {
         `${file}: its Aktionen column is not the width ${String(controls)} controls need`,
       );
     }
+  });
+});
+
+/* No table hides a column today, so a sweep over the tree alone cannot tell this reader from one
+   that matches nothing. A variant spelling is caught here or nowhere. */
+describe("the reader behind the hidden-column sweep", () => {
+  it("takes a disappearance behind any variant prefix, and leaves an unconditional width alone", () => {
+    for (const token of [
+      "hidden",
+      "lg:hidden",
+      "max-lg:hidden",
+      "not-lg:hidden",
+      "@2xl:hidden",
+      "md:hover:hidden",
+      "md:w-40",
+      "lg:min-w-40",
+      "@max-md:max-w-40",
+    ])
+      assert.ok(widthConditional(token), `${token}: read as unconditional`);
+
+    for (const token of ["w-24", "min-w-156", "max-w-full", "text-right", "table-fixed", "border-b"])
+      assert.ok(!widthConditional(token), `${token}: read as conditional`);
   });
 });

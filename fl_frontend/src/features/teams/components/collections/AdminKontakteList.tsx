@@ -143,7 +143,12 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   if (filteredKontakte.length === 0) return <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />;
 
   return (
-    <ul className="flex w-full flex-col gap-3">
+    /* Named here because no heading stands over it, where every section of
+       `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` carries an
+       `h2`. „Liste“ and not the „Tabelle“ its six sibling collections say: these are cards. */
+    <ul
+      aria-label="Liste aller Kontakte je Team"
+      className="flex w-full flex-col gap-3">
       {filteredKontakte.map((row) => (
         <li
           key={row.id}
