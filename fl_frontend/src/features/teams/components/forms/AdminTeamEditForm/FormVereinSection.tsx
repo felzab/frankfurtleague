@@ -22,16 +22,13 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
 const SCHULFORM_UNBEANTWORTET = "unbeantwortet";
-
-/** `GruppeSelect`'s item, minus the fill state that picker's rows carry. */
-const SCHULFORM_ITEM =
-  "text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200";
 
 /**
  * The Kürzel uppercases as it is typed: it is unique across every club, retired ones included, so
@@ -51,6 +48,7 @@ export function FormVereinSection({
   onValidateSelection: (paths: readonly string[], selected: { schulform: FLSchulform | null }) => void;
 }) {
   const panel = formPanel();
+  const item = listboxRow({ layout: "plain" });
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   const handleSchulformChange = (key: Key | null) => {
@@ -147,7 +145,7 @@ export function FormVereinSection({
                 <ListBox.Item
                   id={SCHULFORM_UNBEANTWORTET}
                   textValue="Keine Angabe"
-                  className={SCHULFORM_ITEM}>
+                  className={item.row()}>
                   Keine Angabe
                 </ListBox.Item>
                 {SCHULFORM_OPTIONS.map((option) => (
@@ -155,7 +153,7 @@ export function FormVereinSection({
                     key={option.value}
                     id={option.value}
                     textValue={option.label}
-                    className={SCHULFORM_ITEM}>
+                    className={item.row()}>
                     {option.label}
                   </ListBox.Item>
                 ))}

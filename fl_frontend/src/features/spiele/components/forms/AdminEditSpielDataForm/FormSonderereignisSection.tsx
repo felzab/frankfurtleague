@@ -9,6 +9,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react";
@@ -36,6 +37,7 @@ export function FormSonderereignisSection({
 }) {
   const styles = formPanel({ tone: "danger" });
   const status = useFieldStatus("sonderereignis");
+  const item = listboxRow();
 
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
   // to land on — so the write path answers `REQ-STATE-003` and this must not offer it.
@@ -119,9 +121,9 @@ export function FormSonderereignisSection({
                       id={event}
                       textValue={SONDEREREIGNIS_LABELS[event]}
                       isDisabled={reason !== undefined}
-                      className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                      className={item.row()}>
                       <span className="min-w-0 truncate">{SONDEREREIGNIS_LABELS[event]}</span>
-                      {reason !== undefined && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{reason}</span>}
+                      {reason !== undefined && <span className={item.note()}>{reason}</span>}
                     </ListBox.Item>
                   );
                 })}

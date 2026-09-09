@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Description, ListBox, Select } from "@heroui/react";
 
 import { SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
 import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
@@ -20,6 +21,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
   const searchParams = useSearchParams();
   const isMounted = useMounted();
   const [isSwitching, startSwitching] = useTransition();
+  const item = listboxRow({ layout: "plain" });
 
   // The popover's open state is OURS: a client-side navigation is not an outside interaction, so an
   // uncontrolled popover stays logically open with nothing on screen.
@@ -110,7 +112,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
                 key={saison.id}
                 id={saison.id}
                 textValue={`Saison ${saison.id}`}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                className={item.row()}>
                 Saison {saison.id}
               </ListBox.Item>
             ))}

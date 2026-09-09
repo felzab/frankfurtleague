@@ -48,15 +48,12 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
-
-/** `FormVereinSection`'s row, so the two school-type pickers cannot read as two different controls. */
-const SCHULFORM_ITEM =
-  "text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
 const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
@@ -113,6 +110,7 @@ export function FormSchuleSection({
   isSchulenLesbar: boolean;
 }) {
   const panel = formPanel();
+  const item = listboxRow({ layout: "plain" });
   const { contains } = useFilter({ sensitivity: "base" });
   const [isOpen, setIsOpen] = useState(false);
 
@@ -400,7 +398,7 @@ export function FormSchuleSection({
                         key={option.value}
                         id={option.value}
                         textValue={option.label}
-                        className={SCHULFORM_ITEM}>
+                        className={item.row()}>
                         {option.label}
                       </ListBox.Item>
                     ))}
