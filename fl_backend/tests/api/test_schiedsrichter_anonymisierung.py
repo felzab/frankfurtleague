@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, get_args
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -15,8 +15,17 @@ from app.api.schiedsrichter.admin_router import (
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
+from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
+from app.api.schiedsrichter.schemas import (
+    FLPatchSchiedsrichterPayload,
+    FLSchiedsrichter,
+    FLSchiedsrichterAngabe,
+    FLSchiedsrichterFilterParams,
+    FLSchiedsrichterListResponse,
+    FLSchiedsrichterWriteResponse,
+)
 from app.api.schiedsrichter.services import (
+    ANGABEN_TERMS,
     ANONYMISATION_UNDONE_BY_AN_EDIT,
     ANONYMISED_KONTAKT,
     ANONYMISED_REFEREE_REACTIVATED,
@@ -676,6 +685,172 @@ def test_the_erasure_retires_the_referee(mongo_replica_set_url: str):
     assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == TODAY
     # The control, without which retiring the whole collection would pass.
     assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None
+
+
+async def listed_ids(database: AsyncDatabase, **filters: Any) -> list[ObjectId]:
+    """Read by id: the erasure nulls the name, so there is none to find a row under.
+
+    `include_inactive` is on for every call, which is what makes these cases about the erasure rather
+    than the retirement beside it.
+    """
+
+    answered = await get_schiedsrichter(
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        filters=FLSchiedsrichterFilterParams(include_inactive=True, **filters),
+    )
+
+    return [row.id for row in answered.schiedsrichter]
+
+
+def after_anonymising_both_lists(url: str) -> tuple[list[ObjectId], list[ObjectId]]:
+    """The list an administrator opens and the list the erased facet asks for, off one seeded database."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_anonymisation(database, client)
+
+        return await listed_ids(database), await listed_ids(database, include_anonymisiert=True)
+
+    return on_a_league(url, body)
+
+
+def after_anonymising_the_single_read(url: str) -> FLSchiedsrichter:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_anonymisation(database, client)
+        answered = await get_schiedsrichter_by_id(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        )
+
+        return answered.schiedsrichter
+
+    return on_a_league(url, body)
+
+
+@pytest.mark.db
+def test_the_erased_referee_is_off_the_list_an_administrator_works_from(mongo_replica_set_url: str):
+    """An erased referee can be booked, edited, reactivated or restored by nobody, and the list offers what can be acted on.
+
+    Kills serving the row anyway: a permanent line in the list an administrator scans for somebody to book.
+    """
+
+    working_list, _ = after_anonymising_both_lists(mongo_replica_set_url)
+
+    assert SCHIEDSRICHTER_OID not in working_list
+    # The control: a read narrowed to nothing satisfies the line above without excluding anything.
+    assert OTHER_SCHIEDSRICHTER_OID in working_list
+
+
+@pytest.mark.db
+def test_the_erased_referee_comes_back_where_the_read_is_asked_for_them(mongo_replica_set_url: str):
+    """The row is a record rather than a secret: it says the person was erased and on what day.
+
+    Kills narrowing the read unconditionally, which leaves that record reachable through no list at all.
+    """
+
+    _, asked_for = after_anonymising_both_lists(mongo_replica_set_url)
+
+    assert SCHIEDSRICHTER_OID in asked_for
+    # Widening may not become a filter of its own: the erased are added to the list, never swapped in.
+    assert OTHER_SCHIEDSRICHTER_OID in asked_for
+
+
+@pytest.mark.db
+def test_the_single_read_still_answers_for_an_erased_referee(mongo_replica_set_url: str):
+    """A fixture names its referee by id, and the page that id opens is the one saying they were erased.
+
+    Kills carrying the list's narrowing onto this read, which would answer 404 for the fixtures whose
+    referee the erasure reached.
+    """
+
+    schiedsrichter = after_anonymising_the_single_read(mongo_replica_set_url)
+
+    assert (schiedsrichter.id, schiedsrichter.name) == (SCHIEDSRICHTER_OID, None)
+    assert schiedsrichter.anonymisiert_am == TODAY
+
+
+# Fixed for the same reason the pair above is, and outside their run so a row here is never mistaken
+# for one of theirs.
+COUNTED_OIDS = {
+    "kontakt": ObjectId("6890a1b2c3d4e5f607800011"),
+    "ohne_kontakt": ObjectId("6890a1b2c3d4e5f607800012"),
+    "geloescht": ObjectId("6890a1b2c3d4e5f607800013"),
+}
+
+
+def counted_referee_documents() -> list[dict[str, Any]]:
+    """Three rows beside the seeded pair, chosen so no two options answer one number.
+
+    A count taken over the wrong set then reads wrong rather than as another option's.
+    """
+
+    def row(schiedsrichter_id: ObjectId, **held: Any) -> dict[str, Any]:
+        return {
+            "_id": schiedsrichter_id,
+            "schule": None,
+            "default_payment": DEFAULT_PAYMENT,
+            "inactive_since": None,
+            ANONYMISIERT_AM: None,
+            **held,
+        }
+
+    return [
+        row(COUNTED_OIDS["kontakt"], name="Clara Neuhaus", kontakt={"telefon": "+49 69 3334445", "email": None}),
+        row(COUNTED_OIDS["ohne_kontakt"], name="Dilan Yilmaz", kontakt={"telefon": None, "email": None}),
+        # Erased before this run, so no count can stand on the single erasure the case itself makes.
+        row(
+            COUNTED_OIDS["geloescht"],
+            name=None,
+            kontakt=dict(A_CLEARED_KONTAKT),
+            inactive_since=AN_EARLIER_RETIREMENT,
+            **{ANONYMISIERT_AM: AN_EARLIER_ERASURE},
+        ),
+    ]
+
+
+def after_anonymising_the_counted_list(url: str) -> FLSchiedsrichterListResponse:
+    """The list an administrator opens once one referee has been erased, over a collection holding every option."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SCHIEDSRICHTER].insert_many(counted_referee_documents())
+        await call_anonymisation(database, client)
+
+        return await get_schiedsrichter(
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            filters=FLSchiedsrichterFilterParams(include_inactive=True),
+        )
+
+    return on_a_league(url, body)
+
+
+def test_every_option_the_angaben_facet_offers_is_counted():
+    """A value present at one end alone is served as no count at all, which offers the option and disables it."""
+
+    assert set(ANGABEN_TERMS) == set(get_args(FLSchiedsrichterAngabe))
+
+
+@pytest.mark.db
+def test_the_erased_referee_is_counted_while_the_list_leaves_them_out(mongo_replica_set_url: str):
+    """The count is what makes the way back to them pressable, the option being disabled at zero.
+
+    Kills counting over the rows served, which is exactly the set the erasure was taken out of.
+    """
+
+    answered = after_anonymising_the_counted_list(mongo_replica_set_url)
+
+    assert answered.anzahl_je_angabe["geloescht"] == 2
+    assert {row.id for row in answered.schiedsrichter} == {OTHER_SCHIEDSRICHTER_OID, COUNTED_OIDS["kontakt"], COUNTED_OIDS["ohne_kontakt"]}
+
+
+@pytest.mark.db
+def test_no_other_option_counts_the_row_the_erasure_emptied(mongo_replica_set_url: str):
+    """An erased row holds no contact and no school, so counting the collection whole would offer it under `ohne_kontakt`.
+
+    That option's own read never widens to the erased.
+    """
+
+    answered = after_anonymising_the_counted_list(mongo_replica_set_url)
+
+    assert answered.anzahl_je_angabe == {"kontakt": 2, "ohne_kontakt": 1, "schule": 1, "geloescht": 2}
 
 
 def after_anonymising_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:

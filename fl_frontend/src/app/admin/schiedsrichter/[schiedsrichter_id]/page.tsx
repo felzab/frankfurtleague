@@ -25,8 +25,10 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // `include_inactive`, or a retired referee's own editor answers not-found.
-  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
+  // Both switches, each off the default read: this route is the retired referee's editor and the
+  // erased referee's record at once, and a missing one answers not-found for that half
+  // (`docs/backend/spec.md :: I227`).
+  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true, include_anonymisiert: true });
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
   if (!schiedsrichter) {
     notFound();

@@ -71,8 +71,18 @@ export const FLSchiedsrichterSchema = z.object({
 });
 export type FLSchiedsrichter = z.infer<typeof FLSchiedsrichterSchema>;
 
+/**
+ * The values the `angaben` facet offers, mirrored from the endpoint's own closed set so the count it
+ * answers for each one is read under the value the bar writes into the URL.
+ */
+export const FLSchiedsrichterAngabeSchema = z.enum(["kontakt", "ohne_kontakt", "schule", "geloescht"]);
+export type FLSchiedsrichterAngabe = z.infer<typeof FLSchiedsrichterAngabeSchema>;
+
 export const FLSchiedsrichterListResponseSchema = BaseAPIResponseSchema.extend({
   schiedsrichter: z.array(FLSchiedsrichterSchema),
+  // Over the collection rather than the rows served: the erased are off the list by default, so
+  // counted there the option leading back to them would read zero and go dead.
+  anzahl_je_angabe: z.record(FLSchiedsrichterAngabeSchema, z.number().int().nonnegative()),
 });
 export type FLSchiedsrichterListResponse = z.infer<typeof FLSchiedsrichterListResponseSchema>;
 

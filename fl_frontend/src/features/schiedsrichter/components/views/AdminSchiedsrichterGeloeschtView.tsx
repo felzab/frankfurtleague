@@ -29,56 +29,61 @@ export function AdminSchiedsrichterGeloeschtView({
   const panel = formPanel();
 
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col`}>
-      <BackButton fallbackHref={saisonHref("/admin/schiedsrichter")} />
+    // The frame `fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungView.tsx` carries, never
+    // `fl_frontend/src/shared/components/ui/EditFormLayout.tsx`'s: that renders an editor header whose exit is a
+    // form's discard guard and whose hint promises a save this page refuses.
+    <div className={`${PAGE_RISE} w-full p-6 sm:p-8`}>
+      <div className="max-w-page mx-auto flex w-full flex-col">
+        <BackButton fallbackHref={saisonHref("/admin/schiedsrichter")} />
 
-      <header className="mb-6 flex w-full flex-col gap-y-2">
-        {/* `h2`, never `h1` — the shell page owns that one. Italic, so the word reads as the state it
-            is rather than as somebody's name. */}
-        <div className="flex w-full flex-row items-center gap-x-3">
-          <h2 className="fluid-2xl text-foreground-muted min-w-0 truncate font-extrabold tracking-tight italic">
-            {SCHIEDSRICHTER_ANONYM_LABEL}
-          </h2>
-          {inactiveSince !== null && (
-            <div className="flex shrink-0 items-center">
-              <RetiredBadge since={inactiveSince} />
-            </div>
-          )}
-        </div>
-        <p className="muted-hint">An dieser Person lässt sich nichts mehr ändern.</p>
-      </header>
-
-      <section className={panel.root()}>
-        <div className={panel.header()}>
-          <PanelHeading
-            className={panel.heading()}
-            title="Daten gelöscht"
-          />
-        </div>
-
-        <div className={panel.body()}>
-          <p className="muted-hint">
-            Name, Schule, E-Mail und Telefonnummer wurden auf Wunsch dieser Person gelöscht, in der Verwaltung und auf jedem Spiel. Der Eintrag
-            ist stillgelegt und wird für neue Spiele nicht mehr angeboten. Die Spiele selbst bleiben erhalten, mit dem damals vereinbarten
-            Honorar. Zurückholen lässt sich das nicht.
-          </p>
-
-          <dl className="flex w-full flex-col gap-y-1">
-            {anonymisiertAm !== null && (
-              <ConfirmReadoutRow
-                label="Gelöscht am"
-                value={formatSpielDatum(anonymisiertAm)}
-              />
+        <header className="mb-6 flex w-full flex-col gap-y-2">
+          {/* `h2`, never `h1` — the shell page owns that one. Italic, so the word reads as the state it
+              is rather than as somebody's name. */}
+          <div className="flex w-full flex-row items-center gap-x-3">
+            <h2 className="fluid-2xl text-foreground-muted min-w-0 truncate font-extrabold tracking-tight italic">
+              {SCHIEDSRICHTER_ANONYM_LABEL}
+            </h2>
+            {inactiveSince !== null && (
+              <div className="flex shrink-0 items-center">
+                <RetiredBadge since={inactiveSince} />
+              </div>
             )}
-            {/* The one figure the erasure never reached, so the page says plainly what still stands: it
-                is the league's own rate rather than anything about this person. */}
-            <ConfirmReadoutRow
-              label="Standard-Honorar"
-              value={formatEuro(defaultPayment)}
+          </div>
+          <p className="muted-hint">An dieser Person lässt sich nichts mehr ändern.</p>
+        </header>
+
+        <section className={panel.root()}>
+          <div className={panel.header()}>
+            <PanelHeading
+              className={panel.heading()}
+              title="Daten gelöscht"
             />
-          </dl>
-        </div>
-      </section>
+          </div>
+
+          <div className={panel.body()}>
+            <p className="muted-hint">
+              Name, Schule, E-Mail und Telefonnummer wurden auf Wunsch dieser Person gelöscht, in der Verwaltung und auf jedem Spiel. Der
+              Eintrag ist stillgelegt und wird für neue Spiele nicht mehr angeboten. Die Spiele selbst bleiben erhalten, mit dem damals
+              vereinbarten Honorar. Zurückholen lässt sich das nicht.
+            </p>
+
+            <dl className="flex w-full flex-col gap-y-1">
+              {anonymisiertAm !== null && (
+                <ConfirmReadoutRow
+                  label="Gelöscht am"
+                  value={formatSpielDatum(anonymisiertAm)}
+                />
+              )}
+              {/* The one figure the erasure never reached, so the page says plainly what still stands: it
+                  is the league's own rate rather than anything about this person. */}
+              <ConfirmReadoutRow
+                label="Standard-Honorar"
+                value={formatEuro(defaultPayment)}
+              />
+            </dl>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

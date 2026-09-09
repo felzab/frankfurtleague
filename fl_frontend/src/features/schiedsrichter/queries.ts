@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import { schiedsrichterListTerms } from "./facets";
 import { FLSchiedsrichterListResponseSchema } from "./schemas";
 
 import type { FLSchiedsrichterListResponse } from "./schemas";
@@ -20,4 +21,15 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
       params: filters,
     }),
   );
+}
+
+/**
+ * The referee list as one route's query string selects it. Here rather than at the page: a facet carries a
+ * `read` function, which a Server Component may not pass on
+ * (`fl_frontend/src/shared/utils/facets.test.ts :: who may hold a facet`).
+ */
+export async function getSchiedsrichterList(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+): Promise<FLSchiedsrichterListResponse> {
+  return getSchiedsrichter(schiedsrichterListTerms(params));
 }

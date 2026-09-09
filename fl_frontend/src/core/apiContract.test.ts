@@ -79,6 +79,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSchiedsrichterAngabe: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
