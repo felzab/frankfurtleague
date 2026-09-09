@@ -79,7 +79,6 @@ deliverable.
 
 | Token       | Item                                                                                                                          | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                        | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Skipped  |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
@@ -104,29 +103,6 @@ deliverable.
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
 
 ## The items
-
-### `2v3g-9g2y` · The root not-found page renders without the shell every other page has
-
-| Tags | Status | Depends on |
-| ---- | ------ | ---------- |
-| FE   | Open   | —          |
-
-**`fl_frontend/src/app/not-found.tsx` renders no navigation and no footer**, so a visitor who
-lands on a retired address — `/team`, which this branch removed, is the live example, and every
-mistyped URL is another — meets a page whose only exits are a "Zurück" button and a link to the
-start page. Every other page on the site carries the public shell.
-
-**Why it matters.** A 404 is one of the most-reached pages on any site with an index history, and it
-is the page where a visitor is least sure where they are. Dropping the navigation there removes the
-one affordance that recovers them, and it makes the page look like a different site.
-
-**The trap.** The shell is a layout, and `not-found.tsx` at the app root sits ABOVE the
-`(public)` route group whose layout carries it, so wrapping it means either moving the file into
-that group — which changes which unmatched URLs it answers — or lifting the shell. Neither is a
-one-line change, which is why this is filed rather than folded into the brand refresh.
-
-**Done when** an unmatched URL renders the public navigation and footer, and a test pins that it
-does.
 
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
