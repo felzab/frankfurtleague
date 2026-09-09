@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { FLSpielSchema } from "../spiele/schemas.ts";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
@@ -90,17 +91,19 @@ describe("buildSpielplanBestand", () => {
     team_id: teamId,
     tore,
     name: "SV Beispiel",
-    shorthand: "SVB",
+    shorthand: "SV",
     austritt_type: null,
   });
 
   const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 
+  // Complete and parsed at construction: a drifted field fails where the fixture is built rather
+  // than wherever it is read.
   /**
    * A group fixture as the draw leaves it: both sides OCCUPIED, neither wired, nothing entered. An
    * empty-sided one is an EMPTIED fixture instead, which is a state the endpoint counts.
    */
-  const GRUPPENSPIEL: FLSpiel = {
+  const GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse({
     id: "0".repeat(24),
     spieltag_id: "1".repeat(24),
     team1: seite(null, TEAM_1),
@@ -118,7 +121,7 @@ describe("buildSpielplanBestand", () => {
     saison_phase: "gruppenphase",
     saison_id: "2026",
     notiz: null,
-  };
+  } satisfies FLSpiel);
 
   /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
   const KOSPIEL: FLSpiel = {
@@ -259,7 +262,7 @@ describe("buildSpielplanBestand", () => {
      the bookings back here and the readout claims a loss on a season the control never offers. */
   it("counts a date and a kickoff time as scheduled, and a booking as neither", () => {
     assert.equal(bestandOf(spiel({ datum: "2026-05-09" })).angesetzt, 1);
-    assert.equal(bestandOf(spiel({ uhrzeit: "14:30" })).angesetzt, 1);
+    assert.equal(bestandOf(spiel({ uhrzeit: "14:30:00" })).angesetzt, 1);
 
     assert.equal(bestandOf(spiel({ ort: ORT })).angesetzt, 0);
     assert.equal(bestandOf(spiel({ schiedsrichter: SCHIRI })).angesetzt, 0);
@@ -268,7 +271,7 @@ describe("buildSpielplanBestand", () => {
   /* The two figures answer different questions, and only `erfasst` closes the replace. A merely dated
      season is replaceable, which is precisely why the other figure is carried at all. */
   it("keeps the scheduled count out of the recorded one", () => {
-    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30" }), spiel({ ergebnis: "1:1" }));
+    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30:00" }), spiel({ ergebnis: "1:1" }));
 
     assert.deepEqual(bestand, { spiele: 2, erfasst: 1, angesetzt: 1 });
   });

@@ -2,37 +2,49 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
 import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, squadIsFull } from "./utils.ts";
 
-import type { FLSpielerWithMemberships } from "./schemas.ts";
+import type { FLSpielerMembership, FLSpielerWithMemberships } from "./schemas.ts";
 
 const TEAM_A = "6890a1b2c3d4e5f607180001";
 const TEAM_B = "6890a1b2c3d4e5f607180002";
 
+const MEMBERSHIP: FLSpielerMembership = {
+  saison_id: "2026",
+  team_id: TEAM_A,
+  nummer: null,
+  position: null,
+  stufe: null,
+  is_nachgetragen: false,
+  rolle: null,
+  inactive_since: null,
+};
+
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
+  id: "6890a1b2c3d4e5f607180003",
+  vorname: "X",
+  nachname: null,
+  inactive_since: null,
+  geburtsdatum: null,
+  einwilligung: null,
+  memberships: [MEMBERSHIP],
+} satisfies FLSpielerWithMemberships);
+
 function person(
   id: string,
-  memberships: Partial<FLSpielerWithMemberships["memberships"][number]>[],
+  memberships: Partial<FLSpielerMembership>[],
   // The PERSON's own retirement, which is a different fact from any row's: separate here because the
   // squad count deliberately ignores it.
   personInactiveSince: string | null = null,
 ): FLSpielerWithMemberships {
   return {
+    ...SPIELER,
     id,
-    vorname: "X",
-    nachname: null,
     inactive_since: personInactiveSince,
-    memberships: memberships.map((membership) => ({
-      saison_id: "2026",
-      team_id: TEAM_A,
-      nummer: null,
-      position: null,
-      stufe: null,
-      is_nachgetragen: false,
-      rolle: null,
-      inactive_since: null,
-      ...membership,
-    })),
-  } as FLSpielerWithMemberships;
+    memberships: memberships.map((membership) => ({ ...MEMBERSHIP, ...membership })),
+  };
 }
 
 describe("describeErasureUmfang", () => {

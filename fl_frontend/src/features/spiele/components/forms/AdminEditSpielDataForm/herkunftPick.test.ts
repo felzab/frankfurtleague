@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { FLSpielSchema } from "@/features/spiele/schemas.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -25,20 +26,40 @@ const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormTeamPicker.ts
 /** The rule's other half: the picker drops the row, and the editor feeds the banner saying why. */
 const EDITOR = readFileSync(path.resolve(import.meta.dirname, "AdminEditSpielDataForm.tsx"), "utf8");
 
-const SAISON = "6890a1b2c3d4e5f607182900";
+const SAISON = "2026";
 
-/** Only what the picker reads off a fixture: its round, its season, and the source each side stores. */
-const spiel = (spielNr: number, phase: FLSaisonPhase, quelle: FLSpielQuelle | null = null): FLSpiel =>
-  ({
-    id: `spiel-${String(spielNr)}`,
-    saison_id: SAISON,
-    spiel_nr: spielNr,
-    saison_phase: phase,
-    team1: null,
-    team2: null,
-    team1_quelle: quelle,
-    team2_quelle: null,
-  }) as FLSpiel;
+// One id per match number: `feedsInto` drops the target by id, so the fixture standing in a bracket
+// and the draft of that same fixture have to carry one id between them.
+const spielId = (spielNr: number): string => `6890a1b2c3d4e5f6071829${String(spielNr).padStart(2, "0")}`;
+
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const SPIEL: FLSpiel = FLSpielSchema.parse({
+  id: spielId(0),
+  spieltag_id: "6890a1b2c3d4e5f607182990",
+  team1: null,
+  team2: null,
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: null,
+  uhrzeit: null,
+  ort: null,
+  schiedsrichter: null,
+  ergebnis: null,
+  elfmeterschiessen: null,
+  spiel_nr: 1,
+  sonderereignis: null,
+  saison_phase: "halbfinale",
+  saison_id: SAISON,
+  notiz: null,
+} satisfies FLSpiel);
+
+const spiel = (spielNr: number, phase: FLSaisonPhase, quelle: FLSpielQuelle | null = null): FLSpiel => ({
+  ...SPIEL,
+  id: spielId(spielNr),
+  spiel_nr: spielNr,
+  saison_phase: phase,
+  team1_quelle: quelle,
+});
 
 const HALBFINALE = spiel(3, "halbfinale");
 const ACHTELFINALE = spiel(1, "achtelfinale");

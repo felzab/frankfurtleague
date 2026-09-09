@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 // Every card below is reached with `await import`: this helper registers the JSX compile step as it
 // evaluates, and a static import beside it has already resolved (`docs/frontend/spec.md` §1.9).
 import { renderMarkup } from "../../shared/testing/renderTest.ts";
-import { FLSonderereignisSchema } from "./schemas.ts";
+import { FLSonderereignisSchema, FLSpielAdminSchema, FLSpielSchema } from "./schemas.ts";
 import {
   adminSpielEditHref,
   collectSpieltagTeamOccupancy,
@@ -42,6 +42,7 @@ import type {
   FLSpielAdmin,
   FLSpielAdvancement,
   FLSpielQuelle,
+  FLSpielTeamFieldJoined,
   FLSpielWithDraftFields,
 } from "./schemas.ts";
 
@@ -53,12 +54,37 @@ const matchId = (spielNr: number): string => `6890a1b2c3d4e5f6071800${String(spi
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
 const TEAM_2 = "6890a1b2c3d4e5f607182933";
 
+const seite = (teamId: string, name: string, shorthand: string, tore: number | null = null): FLSpielTeamFieldJoined => ({
+  team_id: teamId,
+  name,
+  tore,
+  shorthand,
+  austritt_type: null,
+});
+
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const SPIEL: FLSpiel = FLSpielSchema.parse({
+  id: matchId(1),
+  spieltag_id: "6890a1b2c3d4e5f607180301",
+  team1: seite(TEAM_1, "Team A", "TA"),
+  team2: seite(TEAM_2, "Team B", "TB"),
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: "2026-07-28",
+  uhrzeit: "18:30:00",
+  ort: null,
+  schiedsrichter: null,
+  ergebnis: null,
+  elfmeterschiessen: null,
+  spiel_nr: 1,
+  sonderereignis: null,
+  saison_phase: "gruppenphase",
+  saison_id: "2026",
+  notiz: null,
+} satisfies FLSpiel);
+
 function makeSpiel(ergebnis: string | null): FLSpiel {
-  return {
-    team1: { team_id: TEAM_1, name: "Team A", tore: null, shorthand: "TA" },
-    team2: { team_id: TEAM_2, name: "Team B", tore: null, shorthand: "TB" },
-    ergebnis,
-  } as FLSpiel;
+  return { ...SPIEL, ergebnis };
 }
 
 describe("computeSpielStatus", () => {
@@ -200,14 +226,14 @@ describe("computeErgebnisFor", () => {
 
   // The optional chaining compiles either way, so only this pins an unresolved side to "?".
   it("returns '?' when the side being asked about has no occupant", () => {
-    const halfDrawn = { ...makeSpiel("3:1"), team1: null } as unknown as FLSpiel;
+    const halfDrawn: FLSpiel = { ...makeSpiel("3:1"), team1: null };
 
     assert.equal(computeErgebnisFor({ spiel: halfDrawn, teamId: TEAM_1 }), "?");
     assert.equal(computeErgebnisFor({ spiel: halfDrawn, teamId: TEAM_2 }), "L");
   });
 
   it("returns '?' for every team when neither side has an occupant", () => {
-    const undrawn = { ...makeSpiel("3:1"), team1: null, team2: null } as unknown as FLSpiel;
+    const undrawn: FLSpiel = { ...makeSpiel("3:1"), team1: null, team2: null };
 
     assert.equal(computeErgebnisFor({ spiel: undrawn, teamId: TEAM_1 }), "?");
     assert.equal(computeErgebnisFor({ spiel: undrawn, teamId: TEAM_2 }), "?");
@@ -542,22 +568,37 @@ function fieldedTwice(side: "team1" | "team2"): FLBracketFault {
 }
 
 describe("toPatchPayload", () => {
-  const fixture = (spielNr: number, ergebnis: string | null): FLSpielAdmin =>
-    ({
-      id: matchId(spielNr),
-      spiel_nr: spielNr,
-      sonderereignis: null,
-      team1: { team_id: TEAM_1, name: "Team A", tore: ergebnis === null ? null : Number(ergebnis.split(":")[0]), shorthand: "TA" },
-      team2: { team_id: TEAM_2, name: "Team B", tore: ergebnis === null ? null : Number(ergebnis.split(":")[1]), shorthand: "TB" },
-      team1_quelle: null,
-      team2_quelle: null,
-      elfmeterschiessen: null,
-      datum: "2026-03-15",
-      uhrzeit: "18:00:00",
-      ort: null,
-      schiedsrichter: null,
-      ergebnis,
-    }) as FLSpielAdmin;
+  /** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+  const SPIEL_ADMIN: FLSpielAdmin = FLSpielAdminSchema.parse({
+    id: matchId(29),
+    spieltag_id: "6890a1b2c3d4e5f607180301",
+    spiel_nr: 29,
+    sonderereignis: null,
+    team1: seite(TEAM_1, "Team A", "TA"),
+    team2: seite(TEAM_2, "Team B", "TB"),
+    team1_quelle: null,
+    team2_quelle: null,
+    elfmeterschiessen: null,
+    datum: "2026-03-15",
+    uhrzeit: "18:00:00",
+    ort: null,
+    schiedsrichter: null,
+    ergebnis: null,
+    saison_phase: "gruppenphase",
+    saison_id: "2026",
+    notiz: null,
+  } satisfies FLSpielAdmin);
+
+  const goals = (ergebnis: string | null, side: 0 | 1): number | null => (ergebnis === null ? null : Number(ergebnis.split(":")[side]));
+
+  const fixture = (spielNr: number, ergebnis: string | null): FLSpielAdmin => ({
+    ...SPIEL_ADMIN,
+    id: matchId(spielNr),
+    spiel_nr: spielNr,
+    team1: seite(TEAM_1, "Team A", "TA", goals(ergebnis, 0)),
+    team2: seite(TEAM_2, "Team B", "TB", goals(ergebnis, 1)),
+    ergebnis,
+  });
 
   it("carries every field the write path would otherwise overwrite with nothing", () => {
     // The key this feeds is what remounts the editor, so a field missing here is one the tree keeps
@@ -582,7 +623,7 @@ describe("toPatchPayload", () => {
     // The regression this guards is the undo's: reopening the SAME fixture after its values changed
     // must remount the editor, or every field keeps what its `useState` initialiser was seeded with.
     const before = fixture(29, null);
-    const after = { ...before, uhrzeit: "20:15:00" } as FLSpielAdmin;
+    const after: FLSpielAdmin = { ...before, uhrzeit: "20:15:00" };
 
     assert.notEqual(spielStateKey(before), spielStateKey(after));
   });
@@ -600,7 +641,7 @@ describe("toPatchPayload", () => {
     // The editor seeds its pickers from these copies, so a rename fanned out into the fixture has to
     // remount the tree. The key is the SEED's mirror, which the payload is only part of.
     const before = fixture(29, null);
-    const renamed = { ...before, team1: { ...before.team1, name: "Team A II" } } as FLSpielAdmin;
+    const renamed: FLSpielAdmin = { ...before, team1: seite(TEAM_1, "Team A II", "TA") };
 
     assert.notEqual(spielStateKey(before), spielStateKey(renamed));
   });
@@ -608,7 +649,7 @@ describe("toPatchPayload", () => {
   it("ignores a change to a field no draft atom holds", () => {
     // `ergebnis` is derived by the backend and is on no payload, so it cannot reset a form that never
     // showed it as editable state — the key is the draft's mirror, not the whole document.
-    const played = { ...fixture(29, null), ergebnis: "2:0" } as FLSpielAdmin;
+    const played: FLSpielAdmin = { ...fixture(29, null), ergebnis: "2:0" };
 
     assert.equal(spielStateKey(fixture(29, null)), spielStateKey(played));
   });
@@ -620,16 +661,10 @@ describe("toPatchPayload", () => {
   it("sends a side as identity and goals alone, carrying neither the join nor the composed name", () => {
     // Structural typing accepts a joined side wherever the stored one is asked for, so nothing in
     // the toolchain catches a widened payload — this narrowing is the only guard.
-    const joined = {
+    const joined: FLSpielAdmin = {
       ...fixture(29, "2:0"),
-      team1: {
-        team_id: TEAM_1,
-        name: "Team A",
-        tore: 2,
-        shorthand: "TA",
-        austritt_type: "rueckzug",
-      },
-    } as FLSpielAdmin;
+      team1: { team_id: TEAM_1, name: "Team A", tore: 2, shorthand: "TA", austritt_type: "rueckzug" },
+    };
 
     assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["team_id", "tore"]);
   });
@@ -637,11 +672,11 @@ describe("toPatchPayload", () => {
   it("keeps the rent and the Honorar on the payload, where the composed names do not travel", () => {
     // Each is what THIS fixture pays rather than a copy of a default, so a rent changed elsewhere has
     // to remount the editor — and the save's own `$set` would rewrite an omitted one to nothing.
-    const booked = {
+    const booked: FLSpielAdmin = {
       ...fixture(29, null),
       ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "https://maps.example/nord", mietpreis: 120 },
       schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607180202", name: "R. Meier", payment: 35 },
-    } as FLSpielAdmin;
+    };
     const payload = toPatchPayload(booked);
 
     assert.deepEqual(payload.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
@@ -925,7 +960,6 @@ describe("groupBracketFaultsBySpielId", () => {
   });
 });
 
-// A minimal bracket fixture for the wiring derivations: only the fields they read.
 function makeBracketSpiel(
   id: string,
   nr: number,
@@ -934,7 +968,7 @@ function makeBracketSpiel(
   quelle2: FLSpiel["team2_quelle"] = null,
   saisonId = "2026",
 ): FLSpiel {
-  return { id, spiel_nr: nr, saison_phase: phase, saison_id: saisonId, team1_quelle: quelle1, team2_quelle: quelle2 } as FLSpiel;
+  return { ...SPIEL, id, spiel_nr: nr, saison_phase: phase, saison_id: saisonId, team1_quelle: quelle1, team2_quelle: quelle2 };
 }
 
 describe("quelleKey", () => {
@@ -972,15 +1006,14 @@ describe("collectUsedQuelleKeys", () => {
 });
 
 describe("collectSpieltagTeamOccupancy", () => {
-  // Only the fields the derivation reads — a side is its team id, a fixture its matchday.
-  const spiel = (id: string, spieltagId: string, nr: number, team1: string | null, team2: string | null): FLSpiel =>
-    ({
-      id,
-      spieltag_id: spieltagId,
-      spiel_nr: nr,
-      team1: team1 === null ? null : { team_id: team1 },
-      team2: team2 === null ? null : { team_id: team2 },
-    }) as FLSpiel;
+  const spiel = (id: string, spieltagId: string, nr: number, team1: string | null, team2: string | null): FLSpiel => ({
+    ...SPIEL,
+    id,
+    spieltag_id: spieltagId,
+    spiel_nr: nr,
+    team1: team1 === null ? null : seite(team1, "Team A", "TA"),
+    team2: team2 === null ? null : seite(team2, "Team B", "TB"),
+  });
 
   const season = [
     spiel("id-29", "tag-9", 29, "team-a", null),
@@ -1165,8 +1198,11 @@ describe("adminSpielEditHref", () => {
   });
 });
 
-/** Both sides unoccupied, so no card mounts a popover and every case below turns on the score alone. */
-const CARD_SPIEL = {
+/**
+ * Both sides unoccupied, so no card mounts a popover and every case below turns on the score alone.
+ * Parsed at construction: a drifted field fails here rather than wherever it is read.
+ */
+const CARD_SPIEL: FLSpiel = FLSpielSchema.parse({
   id: "6890a1b2c3d4e5f607182934",
   spieltag_id: "6890a1b2c3d4e5f607182935",
   saison_id: "2027",
@@ -1177,14 +1213,14 @@ const CARD_SPIEL = {
   team1_quelle: null,
   team2_quelle: null,
   datum: "2026-07-28",
-  uhrzeit: "18:30",
+  uhrzeit: "18:30:00",
   ort: null,
   schiedsrichter: null,
   ergebnis: null,
   elfmeterschiessen: null,
   sonderereignis: null,
   notiz: null,
-} as FLSpiel;
+} satisfies FLSpiel);
 
 /** `SpielScore` is the one element a card renders with `font-numeric`, whatever the layout around it. */
 function scoreClasses(markup: string): string {
@@ -1200,6 +1236,16 @@ const { SpielCardCompact } = await import("./components/ui/SpielCardCompact.tsx"
 const { SpielCardUltraCompact } = await import("./components/ui/SpielCardUltraCompact.tsx");
 const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
 
+/**
+ * The two money fields the base tier withholds, supplied rather than cast over: the preview reads a
+ * draft, where an emptied Mietpreis or Honorar is `null` while the admin types.
+ */
+const asDraft = (spiel: FLSpiel): FLSpielWithDraftFields => ({
+  ...spiel,
+  ort: spiel.ort === null ? null : { ...spiel.ort, mietpreis: null },
+  schiedsrichter: spiel.schiedsrichter === null ? null : { ...spiel.schiedsrichter, payment: null },
+});
+
 /** Every surface painting a score, each spelling the three tints in its own vocabulary. */
 const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => string }[] = [
   { name: "SpielCard", markup: (spiel) => renderMarkup(SpielCard, { spielData: spiel, onOpenInfoModal: () => undefined, today: TODAY }) },
@@ -1207,7 +1253,7 @@ const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => strin
   { name: "SpielCardUltraCompact", markup: (spiel) => renderMarkup(SpielCardUltraCompact, { spielData: spiel, onPress: () => undefined }) },
   {
     name: "SpielDraftPreview",
-    markup: (spiel) => renderMarkup(SpielDraftPreview, { previewSpiel: spiel as FLSpielWithDraftFields, today: TODAY, isDirty: false }),
+    markup: (spiel) => renderMarkup(SpielDraftPreview, { previewSpiel: asDraft(spiel), today: TODAY, isDirty: false }),
   },
 ];
 
