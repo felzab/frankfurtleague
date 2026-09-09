@@ -487,19 +487,21 @@ and a card showing `4:3` where `2:2` belongs would contradict the table about th
 Validated at startup by `@t3-oss/env-nextjs` (`fl_frontend/src/core/config.ts`). Failure prints **names only**, never
 values, as one `CRITICAL` line in the stream's own format before it throws.
 
-| Variable                                       | Constraint                                                                                                                           |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `API_URL`                                      | URL; must not share `AUTH_URL`'s origin                                                                                              |
-| `API_VERSION`                                  | integer                                                                                                                              |
-| `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                          |
-| `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                 |
-| `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
-| `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                            |
-| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
-| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a deliverable address, normalised as Auth.js normalises a sign-in identifier                                   |
-| `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
-| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused              |
-| `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build |
+| Variable                                       | Constraint                                                                                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                      | `production` \| `local`; **no default, so a deployment that does not declare it refuses to boot** — and only `production` mails (I228) |
+| `API_URL`                                      | URL; must not share `AUTH_URL`'s origin                                                                                                |
+| `API_VERSION`                                  | integer                                                                                                                                |
+| `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                            |
+| `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                   |
+| `AUTH_SECRET`                                  | string                                                                                                                                 |
+| `AUTH_RESEND_KEY`                              | string, **required only under `APP_ENV=production`** — a deployment that is not production holds no key and sends nothing (I228)       |
+| `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                              |
+| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                    |
+| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a deliverable address, normalised as Auth.js normalises a sign-in identifier                                     |
+| `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                   |
+| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
+| `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real
 environment.
@@ -564,6 +566,14 @@ gate renders — a form through its slice's actions module, and every field pane
 That environment is the script's own, so every runner of the suite inherits it by invoking
 `pnpm test` rather than spelling it — the gate's `scripts/gate/verify.sh :: do_unit_tests` and CI
 alike.
+
+**A file whose worker exits without reporting is diagnosed by
+`fl_frontend/worker-exit-reporter.mjs`, wired into the `test` script beside the spec reporter.**
+`node --test` reports such a file as one failing test named for the path, so a module that threw
+while loading, a worker killed under memory pressure and a case that never reported arrive as one
+line carrying the same text; the worker's own output reaches the log unattributed, and far above
+that line where the death was early. The second reporter writes nothing where no file fails that
+way, which is why it sits in `pnpm test` for every runner of the suite rather than behind a flag.
 
 **The shapes no render reaches:**
 
@@ -1198,18 +1208,18 @@ its utility. What no declaration can say is which surface may spend it:
 | `border`                                                    | Every neutral box, at an alpha for a divider inside one                                                                      | A tinted box, whose edge is its own tone; a field, which takes `control`                           |
 | `control`                                                   | A field's border at rest, from `fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_INPUT` and `:: FIELD_GROUP` | A box, a divider, or a button whose own text identifies it                                         |
 
-**A field's own fill is `--bg-surface` or `--bg-base` and never `--bg-muted` or `--bg-hover`**, on
-which the token measures 2.60:1 and 2.46:1 in the light theme: a recessed fill separates a field
-from the panel behind it by about 1.2:1, which nobody sees, and takes the border below the floor
-that is the whole of what says "field". A field therefore carries no hover fill either, its border
-being what identifies it whether or not a pointer is over it.
-
 | `{tone}` plain | A dot, a bar, a border, the ground of a tint | Text: it is tuned for a fill and fails on its own tint |
 | `{tone}-strong` | Text, on a tint, on `muted` or on `surface` | A fill |
 | `{tone}-solid` with `-foreground` | A fill that must read as one — the destructive button, a result badge, a count on a recessed track — under its paired on-colour | A tint, or text; the informational fill anywhere but that count |
 | `hover*` | Every hover, one declared token per family | An alpha at a call site, which composites against its ground and lands differently on each |
 | `--focus` | Every ring HeroUI does not draw itself, as the foreground | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar` |
 | `phase-*` | A phase badge and its `/15` tint | A state: the sequence is an order, not a meaning |
+
+**A field's own fill is `--bg-surface` or `--bg-base` and never `--bg-muted` or `--bg-hover`**, on
+which the token measures 2.60:1 and 2.46:1 in the light theme: a recessed fill separates a field
+from the panel behind it by about 1.2:1, which nobody sees, and takes the border below the floor
+that is the whole of what says "field". A field therefore carries no hover fill either, its border
+being what identifies it whether or not a pointer is over it.
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping

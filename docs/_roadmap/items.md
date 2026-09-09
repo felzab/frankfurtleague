@@ -80,12 +80,10 @@ deliverable.
 | Token       | Item                                                                                                                          | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Skipped  |
-| `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
-| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -146,40 +144,6 @@ person to read rather than anything a restore can reach, which is a bound on thi
 work inside it.
 
 **How far the log page can reach past its one read is not this entry's.**
-
-### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| FE, Ops, gate, tests, saisons | Open   | —          |
-
-**A file the branch does not touch can fail the frontend section of `scripts/gate/verify.sh` at file
-level, with no case named under it.**
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/undrawSpielplan.test.ts` is
-the file it has happened to. Run on its own it passes, repeatedly; the whole suite run beside it
-passes with every case green; and a second full gate run is green. What separates the failing run
-from the passing ones is the load the section runs its suite under.
-
-**A file-level failure is the shape that hides the cause.** `node --test` reports a file whose
-process exits non-zero as a single failing test named for the path, so a worker killed under memory
-pressure, a module that never loaded and a case that never reported all arrive as one line with the
-same text. Nothing in the output tells them apart, which leaves another full gate run as the only
-available diagnosis — the most expensive one there is, and green more often than not.
-
-**Which half this is has not been established.** Whether it is this file interacting with the load —
-the frontend section runs the suite beside a type check, a lint and a formatter — or a runner-level
-fault that would land on whichever file was unlucky is unknown, and treating it as either is a guess.
-The entry is filed against the diagnostic rather than against the file for that reason: whichever
-half it turns out to be, the run that produces it has to say so.
-
-**Done when** a file-level failure in the frontend section carries something a reader can act on —
-the worker's exit status and its stderr, or the runner's own diagnosis — so the next occurrence is
-read off the run that produced it rather than off a rerun.
-
-**What is read and what is not** (COR-9). The passes are runs: the file alone, and the whole suite
-after it. The failure is one gate run's report, not reproduced since. Nothing was instrumented, no
-worker's exit status was captured, and no second file has been seen to fail this way, so the
-population this reaches is unmeasured.
 
 ### `3s6w-kndn` · A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope
 
@@ -418,25 +382,6 @@ ships today and nothing about what would. Per-component coverage was confirmed o
 pickers, table and overlays and taken from index pages for the rest; whether Mantine can emit its
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
-
-### `7wne-u6hm` · Three test modules each open a cache scope through the same React internal
-
-| Tags                              | Status | Depends on |
-| --------------------------------- | ------ | ---------- |
-| FE, tests, saisons, spiele, teams | Open   | —          |
-
-**`fl_frontend/src/features/saisons/queries.test.ts`,
-`fl_frontend/src/features/spiele/queries.test.ts` and
-`fl_frontend/src/features/teams/queries.test.ts` each import React's `react-server` build and
-install a memo table on the internals object whose exported name says it may not be used**, and each
-carries its own assertion that the build still exposes it. What the three prove is that one render
-pass memoizes a filtered admin read, which is what a page relies on; what they rest on is React's
-private surface, so a release moving it fails three modules at once and the same repair is written
-three times.
-
-**Done when** one module opens the scope and the three take it from there. It has to be reached by a
-static import, the modules under test by `await import`: the opener installs itself as it evaluates,
-and a module already resolved by then gets the real cache rather than the harness's.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
