@@ -6,7 +6,7 @@ import { SITE_URL } from "@/core/brand";
 import { RootProviders } from "@/core/providers/RootProviders";
 import { openGraphFor } from "@/shared/utils/metadata";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 const anton = Anton({
   weight: "400",
@@ -56,6 +56,18 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+};
+
+/**
+ * Not the brand fill the manifest opens an installed app on: this bar is on every screen at once,
+ * and the brand budget is salience (`docs/frontend/spec.md :: I164`). A splash is the one screen
+ * that can afford the fill.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#030303" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

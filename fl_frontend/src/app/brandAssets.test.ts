@@ -3,22 +3,18 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/**
- * Read rather than restated: the two assets below are the only places on the site spelling a brand
- * colour outside a stylesheet, so a token moving without them leaves a favicon and an installed app
- * on last season's green.
- */
-function schemeTokens(): Map<string, string> {
-  const css = readFileSync(path.resolve(import.meta.dirname, "schemes", "2027.css"), "utf8");
-  const block = css.slice(css.indexOf(":root,"));
+import { assertEveryTokenIsRead, schemeTokens } from "@/core/schemeReader.ts";
 
-  return new Map(
-    [...block.slice(0, block.indexOf("\n  }")).matchAll(/(--[a-z-]+):\s*(#[0-9a-f]{3,8});/g)].map((m) => [m[1] ?? "", m[2] ?? ""]),
-  );
-}
+/**
+ * Read rather than restated: the three assets below are the only places spelling a scheme colour
+ * outside a stylesheet, so one moving without them leaves a favicon, an installed app and the
+ * browser's chrome on the season before.
+ */
+const SCHEME = readFileSync(path.resolve(import.meta.dirname, "schemes", "2027.css"), "utf8");
 
 const ICON = readFileSync(path.resolve(import.meta.dirname, "icon.svg"), "utf8");
 const MANIFEST = readFileSync(path.resolve(import.meta.dirname, "manifest.ts"), "utf8");
+const LAYOUT = readFileSync(path.resolve(import.meta.dirname, "layout.tsx"), "utf8");
 
 /** Every hex the icon spells, deduplicated: the mark is two colours and a third is a drift. */
 function iconColours(): Set<string> {
@@ -28,15 +24,12 @@ function iconColours(): Set<string> {
 }
 
 describe("the brand assets that cannot read a stylesheet", () => {
-  it("parses the scheme, so the assertions below are against real values", () => {
-    const tokens = schemeTokens();
-    // Far above the two read here: a scheme declares its whole set, so a low count means the parse
-    // failed and every case below would pass against an empty map.
-    assert.ok(tokens.size > 25, `the season scheme was not parsed, so this test proves nothing (${String(tokens.size)} tokens)`);
+  it("reads every colour the season scheme declares, so the assertions below are against real values", () => {
+    assertEveryTokenIsRead(SCHEME);
   });
 
   it("paints the icon in the scheme's own brand pair", () => {
-    const tokens = schemeTokens();
+    const tokens = schemeTokens(SCHEME, "light");
     const fill = tokens.get("--accent-brand-solid");
     const mark = tokens.get("--accent-on-brand");
     assert.ok(fill !== undefined && mark !== undefined, "the scheme declares no brand pair");
@@ -49,13 +42,29 @@ describe("the brand assets that cannot read a stylesheet", () => {
   });
 
   it("opens an installed app on the scheme's brand fill", () => {
-    const fill = schemeTokens().get("--accent-brand-solid");
+    const fill = schemeTokens(SCHEME, "light").get("--accent-brand-solid");
     assert.ok(fill !== undefined);
 
     for (const key of ["theme_color", "background_color"]) {
       const found = new RegExp(`${key}: "(#[0-9a-f]{6})"`).exec(MANIFEST);
       assert.ok(found !== null, `manifest.ts declares no ${key}`);
       assert.equal(found[1], fill, `manifest.ts's ${key} is not the season scheme's brand fill`);
+    }
+  });
+
+  // A `<meta>` colour is a literal or nothing: `content` resolves no `var()`, so the head is the
+  // third place a scheme colour is spelled by hand rather than a render this could read instead.
+  it("paints the browser's chrome in each theme's own ground", () => {
+    const declared = new Map(
+      [...LAYOUT.matchAll(/media: "\(prefers-color-scheme: (light|dark)\)", color: "(#[0-9a-f]{6})"/g)].map((found) => [
+        found[1] ?? "",
+        found[2] ?? "",
+      ]),
+    );
+    assert.deepEqual([...declared.keys()].sort(), ["dark", "light"], "layout.tsx declares no theme colour per colour scheme");
+
+    for (const theme of ["light", "dark"] as const) {
+      assert.equal(declared.get(theme), schemeTokens(SCHEME, theme).get("--bg-base"), `the ${theme} theme colour is not that theme's ground`);
     }
   });
 

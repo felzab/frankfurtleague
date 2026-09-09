@@ -1047,6 +1047,11 @@ The consequences worth knowing before editing metadata:
 
 - **A route that sets no metadata inherits the root layout's, canonical included**, so an unset
   canonical claims to be the homepage rather than claiming nothing.
+- **The browser chrome's colour is `fl_frontend/src/app/layout.tsx`'s `viewport` export, which no
+  other route sets** — a separate export from `metadata`, whose own `themeColor` field Next
+  deprecates, carrying one entry per `prefers-color-scheme`. An installed app takes
+  `fl_frontend/src/app/manifest.ts`'s `theme_color` instead, and the two answer differently on
+  purpose.
 - **`openGraph` is inherited or replaced whole, never merged field-by-field**, so the root layout
   declares only the site-wide parts and og:title and og:description resolve from each page's own
   title and description.
@@ -1520,3 +1525,4 @@ holds whether a conditional block renders or not
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/src/shared/utils/facets.test.ts :: isClientModule` covers `fl_frontend/src/app/`, `:: VIEWS_GLOB` the admin views; a server-render harness is refused               |
+| `fl_frontend/src/app/layout.tsx`'s chrome colour keys on `prefers-color-scheme`, the page's theme on `data-theme`                                    | Accepted — Next offers no other key, so a visitor whose stored theme differs from the operating system's sees a mismatched bar                                                              |

@@ -89,7 +89,6 @@ deliverable.
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
@@ -114,7 +113,6 @@ deliverable.
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
-| `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                               | FE, tests                                                                   | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                              | FE, Ops, Docs, edge                                                         | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
@@ -541,30 +539,6 @@ what the flow stores, and the notice's squad and referee publication rows
 interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
 until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
 carrying the state that ends there.
-
-### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
-
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| FE, Ops, gate, tests | Open   | —          |
-
-**`fl_frontend/src/core/emailShell.test.ts` guards its own parse with a lower bound rather
-than with the scheme's own count.** The assertion exists so that a parse returning nothing cannot
-make every later case pass vacuously — which is the right instinct — but the bound sits far enough
-below what the parse actually returns that the file could silently lose several tokens and the guard
-would still hold. `fl_frontend/src/app/brandAssets.test.ts` carries the same shape.
-
-**Why it matters.** These two files are the only route by which an email and a favicon follow the
-season scheme; both are pinned by parsing a stylesheet rather than by importing it, so a regex that
-stops matching is the failure mode they exist to catch, and a floor loose enough to absorb it is the
-one thing that would hide it.
-
-**The trap.** Pinning the exact count instead is a hardcoded number in the active repository, which
-the corpus rules refuse. What is wanted is a bound derived from the scheme file itself — the light
-block's declared token count, which `scripts/checks/docs_gate/scheme.py` already derives for the
-gate — so that the two blocks are compared with each other rather than with a literal.
-
-**Done when** neither test can pass on a parse that lost tokens, and neither states a number.
 
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 
@@ -1708,31 +1682,6 @@ before it is relied on.
 **What is read and what is not** (COR-9). The discovery, the discriminator and the cases that consume
 the roster were read off the file. No planted panel was driven against the sweep, so that a
 hand-rolled one passes silently is derived from the roster's construction rather than observed.
-
-### `tbh5-u4c3` · The browser's own chrome takes no colour from the season scheme
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| FE, tests | Open   | —          |
-
-**No `<meta name="theme-color">` reaches the document head.** `fl_frontend/src/app/manifest.ts`
-declares `theme_color`, which paints an installed app's chrome and its splash, and a browser tab
-visiting the site reads none of it: on a phone the address bar keeps the browser's default while the
-page under it is the season scheme's.
-
-**Why it matters.** This is the one brand surface a visitor sees before the page paints, and the
-brand refresh reached every other one. It is also the surface where a wrong answer is most visible,
-which is why it is filed rather than guessed at.
-
-**The decision it needs.** Two defensible answers, and they look different. Matching the page's own
-ground per scheme — `--bg-base`, near-white and near-black — makes the chrome continue the page, and
-is what most mature product sites ship. Matching the manifest's brand fill paints the bar Moselgrün
-on every phone, which is louder and agrees with the installed app. Next takes both through a
-`viewport` export with a `prefers-color-scheme` media pair.
-
-**Done when** the head carries the colour, whichever answer is taken, and it is pinned to the scheme
-by the same route `fl_frontend/src/app/brandAssets.test.ts` pins the manifest — parsed from the
-stylesheet rather than restated.
 
 ### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
 
