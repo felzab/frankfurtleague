@@ -143,8 +143,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
-- **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
-  reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
+- **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
+  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`,
+  `READ-FREETEXT-003`).
 
 ## 5. Erasure reaches everyone who asks
 

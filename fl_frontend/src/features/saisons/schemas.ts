@@ -2,7 +2,8 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
-// Acyclic: the teams slice's schemas import nothing but `@/shared`.
+// Its `options` are read at module load below, so a VALUE cycle back into this file reads the set
+// before it is initialised rather than merely tangling the graph.
 import { FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 

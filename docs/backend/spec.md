@@ -21,8 +21,9 @@
 
 ### 1.1 Endpoint inventory
 
-All paths are prefixed `/api/v{API_VERSION}`. Guards are declared at router level and inherited by
-every endpoint in the router, `system` alone excepted (I7).
+All paths are prefixed `/api/v{API_VERSION}` but the [unrouted](#unrouted) root, which no router and
+no guard reaches either. Guards are declared at router level and inherited by every endpoint in the
+router, `system` alone excepted (I7).
 
 #### Base-tier reads — guard `verify_access_base`
 
@@ -575,6 +576,7 @@ resolves, as `I185`'s two are, or the widening ships unseen.
 | `READ-SQUAD-002`     | Retired squad rows, which it cannot un-hide at all                                                                                                     | The base tier declares no `include_inactive`; the rule lives on `fl_backend/app/api/spieler/schemas.py :: FLSpielerMembership`, whose every row carries its own `inactive_since`                                                                                                                                                                                            |
 | `READ-FREETEXT-001`  | Nothing -- a fixture's `notiz` IS served, by decision. A name typed into it sits beyond an erasure (`I42`); only an admin takes it back                | `fl_backend/app/api/spiele/schemas.py :: FLSpielCommon` declares the field and `:: FLSpielJoined` serves it (`I32`); `fl_backend/tests/api/test_spiele_public_read.py :: TestTheFixtureShapes` pins the field set, and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormNotizSection.tsx` warns the admin                                       |
 | `READ-FREETEXT-002`  | Nothing on a club's own page -- an `austritt`'s `grund` IS served there, by decision. A name in it sits beyond an erasure (`I42`, `I32`)               | `fl_backend/app/api/teams/schemas.py :: FLAustritt` on `:: FLTeam`, which `fl_backend/app/api/teams/services.py :: build_team_pipeline` allows through and `fl_backend/tests/api/test_spiele_public_read.py :: TestThePageThatPublishesTheWithdrawal` pins, and `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormAustrittSection.tsx` warns the admin |
+| `READ-FREETEXT-003`  | Nothing -- a club's `description` IS served on both team reads, by decision. A name typed into it sits beyond an erasure (`I42`)                       | `fl_backend/app/api/teams/schemas.py :: FLTeam` inherits it from `:: _TeamWritable`; `fl_frontend/src/features/teams/components/ui/TeamIdentityCard.tsx` renders it and `fl_frontend/src/features/teams/components/modals/DescriptionEditModal.tsx` warns the admin                                                                                                         |
 
 **A withheld field is absent, never nulled.** A response whose shape follows the caller's key is one no Zod
 mirror can express, so a tier served less is served by a different endpoint with its own `response_model`.

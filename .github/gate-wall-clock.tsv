@@ -183,6 +183,16 @@
 # 74 documents to 75. It sits inside the floor the `docs` row carries, so neither the reference nor
 # the budget moves and neither takes a new stamp.
 #
+# `scripts` gained six cases: `scripts/tests/test_scope_decisions.py` derives what each package
+# reads of the other and holds `scripts/gate/scope_map.sh`'s cross-boundary arms to it. They cost
+# 1.1 s at the median of six interleaved rounds of the module, 15.26-15.91 s carrying them against
+# 14.46-15.37 s without, measured locally on 2026-09-09 on a sixteen-core Windows machine carrying
+# six agent sessions on one tree, so both ends read that contention as much as the cases. The module
+# is one chunk under `--dist loadfile` and its unit is pooled with the section's other three, so the
+# job pays that span only where the pool cannot start all four at once; either way it sits inside the
+# floor the `scripts` row carries, so neither the reference nor the budget moves and neither takes a
+# new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

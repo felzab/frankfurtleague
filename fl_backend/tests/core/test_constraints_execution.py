@@ -1131,11 +1131,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
 
 @pytest.mark.parametrize("db_filter", AKTIONEN_TALLY_FILTERS, ids=read_id)
 def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: str, db_filter: dict[str, Any]):
-    """A tally that scans is a scan per page load of the log.
-
-    `FACET_TALLY` itself rather than a copy: a group key moved there is judged here instead of leaving
-    this case pinning a pipeline nothing issues.
-    """
+    """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
 
     async def body(database: AsyncDatabase) -> list[str]:
         await database[Collection.AKTIONEN].insert_many(
