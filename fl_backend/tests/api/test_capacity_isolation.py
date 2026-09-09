@@ -263,26 +263,38 @@ async def anchor_now(database: AsyncDatabase) -> int:
     return int((stored or {}).get(ANCHOR_FIELD, 0))
 
 
+async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, team_index: int, saisons: Any) -> Any:
+    return await post_saison_team(
+        team_id=oid(team_index),
+        saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=saisons,
+        db=client,
+    )
+
+
+async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, beginn: str, saisons: Any) -> Any:
+    return await patch_spieltag(
+        spieltag_id=oid(4000 + position),
+        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn),
+        spieltage_collection=database[Collection.SPIELTAGE],
+        saisons_collection=saisons,
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+    )
+
+
 class TestASecondEntryLandingMidEntryIsJudgedAgain:
     """Group A holds one free place when both entries judge, and none when the second one writes."""
 
     def test_the_second_entry_is_refused_on_the_place_the_first_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def enter(team_index: int, saisons: Any) -> Any:
-                return await post_saison_team(
-                    team_id=oid(team_index),
-                    saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
-                    teams_collection=database[Collection.TEAMS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=saisons,
-                    db=client,
-                )
-
             async def the_rival_takes_the_place() -> None:
-                await enter(21, database[Collection.SAISONS])
+                await enter_the_group(database, client, 21, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
-            outcome = await outcome_of(enter(20, seasons))
+            outcome = await outcome_of(enter_the_group(database, client, 20, seasons))
 
             occupied = await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON, "gruppe": "A"})
 
@@ -411,21 +423,11 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
     def test_the_second_dating_is_refused_on_the_day_the_first_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def redate(position: int, beginn: str, saisons: Any) -> Any:
-                return await patch_spieltag(
-                    spieltag_id=oid(4000 + position),
-                    spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn),
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    saisons_collection=saisons,
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                )
-
             async def the_rival_advances_the_second() -> None:
-                await redate(2, ADVANCED_SECOND, database[Collection.SAISONS])
+                await redate(database, client, 2, ADVANCED_SECOND, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_advances_the_second)
-            outcome = await outcome_of(redate(1, POSTPONED_FIRST, seasons))
+            outcome = await outcome_of(redate(database, client, 1, POSTPONED_FIRST, seasons))
 
             rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
 
@@ -448,21 +450,11 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
         """The control: the comparison is strict, so the anchor may not turn a lawful pair into a refusal."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def redate(position: int, beginn: str, saisons: Any) -> Any:
-                return await patch_spieltag(
-                    spieltag_id=oid(4000 + position),
-                    spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn),
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    saisons_collection=saisons,
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                )
-
             async def the_rival_moves_the_second_onto_the_same_day() -> None:
-                await redate(2, POSTPONED_FIRST, database[Collection.SAISONS])
+                await redate(database, client, 2, POSTPONED_FIRST, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_moves_the_second_onto_the_same_day)
-            outcome = await outcome_of(redate(1, POSTPONED_FIRST, seasons))
+            outcome = await outcome_of(redate(database, client, 1, POSTPONED_FIRST, seasons))
 
             rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
 
@@ -498,14 +490,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
                 )
 
             async def the_rival_enters_the_group() -> None:
-                await post_saison_team(
-                    team_id=oid(21),
-                    saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
-                    teams_collection=database[Collection.TEAMS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    db=client,
-                )
+                await enter_the_group(database, client, 21, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_enters_the_group)
             outcome = await outcome_of(move(seasons))
@@ -553,14 +538,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
                 )
 
             async def the_rival_enters_the_group() -> None:
-                await post_saison_team(
-                    team_id=oid(21),
-                    saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
-                    teams_collection=database[Collection.TEAMS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    db=client,
-                )
+                await enter_the_group(database, client, 21, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_enters_the_group)
             outcome = await outcome_of(accept(seasons))

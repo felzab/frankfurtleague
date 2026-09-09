@@ -148,6 +148,8 @@ class _LogCells:
         return self.cells if length is None else self.cells[:length]
 
 
+# Not subsumed by the counting cases: each of those covers one filter combination, so a term added to
+# the tally alone under a `document_id` filter passes this module whole without this refusal.
 def _plain_terms(match: Mapping[str, Any]) -> Mapping[str, Any]:
     """Refused rather than answered: a term matching nothing would read as a facet the log recorded no rows under.
 
@@ -417,7 +419,7 @@ class TestTheDoubleRefusesAMatchItCannotAnswer:
             _plain_terms({"trace_id": "9f2c1b7e4a6d8c3f", "redacted_at": {"$eq": None}})
 
     def test_the_terms_the_tally_really_carries_are_passed_through(self):
-        """Non-vacuity: a guard refusing everything would pass every case above and answer each tally empty."""
+        """Non-vacuity: a guard refusing everything passes every case above, and only this one names it as the cause."""
 
         assert _plain_terms({"trace_id": "9f2c1b7e4a6d8c3f"}) == {"trace_id": "9f2c1b7e4a6d8c3f"}
         assert _plain_terms({"document_id": ObjectId("6890a1b2c3d4e5f607200010")}) == {"document_id": ObjectId("6890a1b2c3d4e5f607200010")}

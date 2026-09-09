@@ -660,6 +660,9 @@ class TestTheDateRidesWithThePerson:
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
 
         assert composed is not None
+        # The floor under the claim below: a date standing beside a stamp would prove a confirmation
+        # survived rather than the identity match that carries the date.
+        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the seed is confirmed, so this case proves nothing"
         assert [composed[slot]["geburtsdatum"] for slot in ("trainer", "ansprechperson", "stellvertretung")] == [GEBURTSDATUM] * 3
 
     def test_a_seat_handed_to_another_address_holds_no_date(self):
@@ -702,15 +705,6 @@ class TestTheDateRidesWithThePerson:
         composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
 
         assert composed is not None
-        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
-
-    def test_a_date_under_no_stamp_survives_an_edit_to_the_seat(self):
-        """Nulling the date would destroy it as a side effect of an edit to the telephone number."""
-
-        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
-
-        assert composed is not None
-        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the seed is confirmed, so this case proves nothing"
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_stored_blank_is_carried_forward_as_the_null_every_read_answers(self):
