@@ -18,10 +18,12 @@ const EMAIL_ATOM = "(?:[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]|[^\\p{ASCII}\\p{Z}\\p{C}
  */
 const EMAIL_LOCAL_PART_REGEX = new RegExp(`^(?!\\p{M})${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`, "u");
 
-// Never collapsed into one `v`-flag class: that needs Safari 17 and `package.json`'s browserslist
-// takes 16.4, where the flag throws at module load and takes the page with it.
+/**
+ * Exclusions enumerated rather than allowances united (I226): a union of two classes needs the
+ * `v` flag, which `package.json`'s browserslist refuses at `safari >= 16.4`.
+ */
 /** Read before `new URL` below, which would take a slash or a colon here for a path or a port and answer a host nobody typed. */
-const EMAIL_HOST_CHARS_REGEX = /^(?:[a-zA-Z0-9\-.]|[^\p{ASCII}\p{Z}\p{C}])+$/u;
+const EMAIL_HOST_CHARS_REGEX = /^[^\p{Z}\p{C}!"#$%&'()*+,/:;<=>?@[\]\\^_`{|}~]+$/u;
 
 /** RFC 1123 2.1's letter-digit-hyphen label, which is the clause that refuses `person@ab-.de`. */
 const EMAIL_HOST_LABEL_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
