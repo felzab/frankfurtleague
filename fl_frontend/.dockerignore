@@ -42,3 +42,7 @@ environment-names.json
 # buildkit receives both by other means; copying them in only invalidates layers.
 Dockerfile
 .dockerignore
+
+# The mail sink a deployment that is not production writes into. Each file names a real
+# person and carries a live sign-in link, and `pnpm dev` writes it inside this context.
+**/.tmp-*/
