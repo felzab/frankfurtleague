@@ -114,8 +114,7 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
 def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mapping[str, Any]) -> WriteRefusal | None:
     """Why this edit must be refused, or `None`.
 
-    A stored row holding no name because nobody has typed one is not a row somebody asked to be
-    erased from, and nothing but `ANONYMISIERT_AM` tells the two apart.
+    Keyed on `ANONYMISIERT_AM` and never on the stored values (`docs/backend/spec.md :: I214`).
     """
 
     if stored.get(ANONYMISIERT_AM) is None or not holds_an_anonymisable_value(patched):
@@ -133,8 +132,7 @@ def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mappi
 def find_reactivation_refusal(*, anonymisiert_am: Any) -> WriteRefusal | None:
     """Why this reactivation must be refused, or `None`.
 
-    Read off the erasure's stamp and never off the nulled name: a row nobody has named yet may come
-    back, and only the stamp says somebody asked to be left out.
+    Read off the erasure's stamp and never off the nulled name (`docs/backend/spec.md :: I214`).
     """
 
     if anonymisiert_am is None:
