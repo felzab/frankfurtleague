@@ -16,6 +16,9 @@
 **/*.key
 **/*.crt
 **/.npmrc
+# The mail sink a deployment that is not production writes into. Each file names a real
+# person and carries a live sign-in link, and `pnpm dev` writes it inside this context.
+**/.tmp-*
 
 # The developer's virtualenv, built against another platform's interpreter. The image's own comes
 # from the builder stage.
