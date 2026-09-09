@@ -51,6 +51,8 @@ const PANEL: RegelnProps = {
   onStufenChange: () => undefined,
   isFinishedSaison: false,
   isKnockoutStarted: false,
+  // No club entered, so every occupancy rule closes nothing and each case below names its own.
+  gruppenOccupancy: {},
   isDrawnSaison: false,
   spielplanWindow: "open",
   banners: [],
@@ -145,8 +147,8 @@ describe("the rules panel's shape offer", () => {
     assert.deepEqual(offeredCounts("rules.qualifiers_per_group", {}).counts, [...SHAPE_COUNT_UNIVERSE]);
   });
 
-  /* A season stored before these rules holds a count the offer no longer carries. Clear the field and
-     the save sends a number nobody chose; the row stands instead, at its place and selected. */
+  /* A season can hold a count the offer does not carry. Clear the field and the save sends a number
+     nobody chose; the row stands instead, at its place and selected. */
   it("keeps a stored count the offer does not carry, and leaves the season standing on it", () => {
     const stored = { rules: { ...PANEL.rules, number_of_groups: 3 } };
     const { counts, selected } = offeredCounts("rules.number_of_groups", stored);
@@ -161,10 +163,41 @@ describe("the rules panel's shape offer", () => {
   /* The mirrored `<select>` renders a closed row as a plain option, so the disabled flag is not what
      stops the pick: `pickIfOffered` re-reads the refusal, and the panel drops a key it answers null. */
   it("hands back nothing for a pick on a closed row", () => {
-    const options = groupCountOptions({ groups: 2, qualifiers: 2 });
+    const options = groupCountOptions({ groups: 2, qualifiers: 2, occupancy: {} });
 
     assert.equal(pickIfOffered(options, "16"), null, "sixteen groups qualifying two is a bracket of 32, and the picker takes it");
     assert.equal(pickIfOffered(options, "4"), "4");
+  });
+
+  /* The occupancy rows obey the stored-count rule above. A season whose clubs stand past its own count
+     keeps every row, closed: drop one and the trigger shows a number the list denies. */
+  it("keeps every count on offer where the season's own groups close one", () => {
+    const occupancy = { A: 4, B: 4, C: 1 };
+    const { counts, selected } = offeredCounts("rules.number_of_groups", { gruppenOccupancy: occupancy });
+
+    assert.deepEqual(counts, [...GROUP_COUNT_UNIVERSE]);
+    assert.equal(selected, PANEL.rules.number_of_groups, "the season's own count is not what the picker stands on");
+    // The refusal reaches no markup at all: the mirrored `<select>` renders a closed row as a plain
+    // option, so the closure is read off the offer the panel was handed.
+    assert.equal(pickIfOffered(groupCountOptions({ groups: 2, qualifiers: 2, occupancy }), "2"), null);
+  });
+
+  /* Read rather than rendered, and a render is what proves it has to be: this panel's markup is
+     byte-identical whichever occupancy it is handed, so only the file says the offer reads the prop. */
+  it("builds its offer from the occupancy it is handed, counted once for both panels", () => {
+    // The mirror is where a closure would be legible if it were legible anywhere, and it renders a
+    // closed row as a plain option, so the same list arrives whichever occupancy the panel is handed.
+    assert.deepEqual(
+      offeredCounts("rules.number_of_groups", { gruppenOccupancy: { A: 9, B: 9 } }),
+      offeredCounts("rules.number_of_groups", {}),
+      "an occupancy now reaches the option list, so a render can assert the closure",
+    );
+
+    assert.match(REGELN, /occupancy: gruppenOccupancy/, "the panel builds an offer against something else");
+    assert.doesNotMatch(REGELN, /buildGruppenOccupancy/, "the rules panel counts the groups itself");
+    assert.ok(EDIT_FORM.includes("buildGruppenOccupancy(ersatz.rows)"), "the edit form counts the groups some other way");
+    // BOTH panels, off that one count: two derivations could close different rows of one season.
+    assert.equal(EDIT_FORM.split("gruppenOccupancy={gruppenOccupancy}").length - 1, 2, "one of the two panels is handed no count");
   });
 
   /* Two selects around one stepper where three steppers stood: react-aria's `Select` has no read-only

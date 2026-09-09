@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { renderMarkup } from "@/shared/testing/renderTest";
 
-import { pickIfOffered } from "./refusableOption";
+import { listboxRow, pickIfOffered } from "./refusableOption";
 
 import type { RefusableOption } from "./refusableOption";
 
@@ -88,5 +88,50 @@ describe("what the picker says before anyone opens it", () => {
   it("labels its trigger with an element rather than a string alone", () => {
     assert.match(LEER, /data-slot="label"[^>]*>Gruppe</, "the field's label is not an element the DOM can follow");
     assert.match(LEER, /<button[^>]*\saria-labelledby="/, "the trigger names no labelling element");
+  });
+});
+
+/**
+ * Every picker whose list this recipe draws, by path from this module. Listed rather than walked: the
+ * tree also holds a compact combobox row, and a walk over `ListBox.Item` cannot tell the two apart.
+ */
+const PICKERS: readonly string[] = [
+  "RefusableSelect.tsx",
+  "../../../features/saisons/components/forms/SaisonFormControls.tsx",
+  "../../../features/spieler/components/forms/ClosedSetSelect.tsx",
+  "../../../features/spieler/components/forms/TeamSelect.tsx",
+  "../../../features/teams/components/forms/GruppeSelect.tsx",
+  "../../../features/teams/components/forms/TrikotFarbeSelect.tsx",
+];
+
+/** The two fragments a hand-spelled row and a hand-spelled note each open with. */
+const OWN_ROW = "data-hovered:bg-hover data-hovered:text-brand";
+const OWN_NOTE = "fluid-xs text-foreground-muted";
+
+describe("the row every picker's list is drawn with", () => {
+  /* The floor under the reads below. `Select.Popover` draws nothing until it opens — the option text
+     in the markup is react-aria's hidden native mirror, which carries no class of the row's. */
+  it("puts no drawn row in the markup before the popover opens", () => {
+    assert.ok(!LEER.includes(listboxRow().row()), "the row's own class reaches the markup now, so a render can assert it");
+  });
+
+  /* One place decides what a row looks like and what its note reads as. Spell either at a call site
+     and that picker alone drifts — a duration literal beside the motion scale is the drift that shows. */
+  it("is taken from this module by every picker, none of them spelling one", () => {
+    for (const file of PICKERS) {
+      const source = readFileSync(path.resolve(import.meta.dirname, file), "utf8");
+
+      assert.match(source, /listboxRow\(/, `${file} draws its rows some other way`);
+      assert.ok(!source.includes(OWN_ROW), `${file} still spells a row class of its own`);
+      assert.ok(!source.includes(OWN_NOTE), `${file} still spells a note class of its own`);
+    }
+  });
+
+  /* The variant is the row's content, so each one has to reach a different class: collapse two and a
+     label-only row reserves the space a note would have stood in. */
+  it("parts a label-only row from an adorned one and from a noted one", () => {
+    const spellings = new Set([listboxRow({ layout: "plain" }).row(), listboxRow({ layout: "adorned" }).row(), listboxRow().row()]);
+
+    assert.equal(spellings.size, 3, "two of the three layouts draw the same row");
   });
 });

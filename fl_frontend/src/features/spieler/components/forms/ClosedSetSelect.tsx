@@ -4,6 +4,7 @@ import { FieldError, Label, ListBox, Select, Separator } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { Key } from "@heroui/react";
 
@@ -35,6 +36,8 @@ export function ClosedSetSelect<TValue extends string>({
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
+  const item = listboxRow({ layout: "plain" });
+
   // A sentinel rather than `""`: HeroUI reads `""` as "no selection", so clearing would silently do
   // nothing.
   const NONE = "__none__";
@@ -66,7 +69,7 @@ export function ClosedSetSelect<TValue extends string>({
             key={NONE}
             id={NONE}
             textValue={placeholder}
-            className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+            className={item.row()}>
             Keine Angabe
           </ListBox.Item>
 
@@ -79,7 +82,7 @@ export function ClosedSetSelect<TValue extends string>({
               key={option}
               id={option}
               textValue={option}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={item.row()}>
               {option}
             </ListBox.Item>
           ))}

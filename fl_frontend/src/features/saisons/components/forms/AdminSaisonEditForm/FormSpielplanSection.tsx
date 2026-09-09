@@ -11,7 +11,7 @@ import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saiso
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
+import { drawGroupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -32,7 +32,7 @@ import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spi
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
 import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
-import type { SaisonSpielplanContext } from "@/features/saisons/types";
+import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react";
 
 /** The two writes this panel offers, keyed as the operation picker below reads them back. */
@@ -53,6 +53,7 @@ export function FormSpielplanSection({
   rules,
   startDate,
   endDate,
+  gruppenOccupancy,
   spielplan,
   spieltageCount,
   schedule,
@@ -71,6 +72,12 @@ export function FormSpielplanSection({
   /** The season's STORED span: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
+  /**
+   * How full this season's groups stand. **`REQ-SPIELPLAN-004` asks each offered group for exactly
+   * `teams_per_group`**, so a redraw shape the entries do not fit is the one refusal here that costs a
+   * press rather than a save.
+   */
+  gruppenOccupancy: SaisonGruppenOccupancy;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
@@ -323,7 +330,11 @@ export function FormSpielplanSection({
                       // neither form can render the other's message.
                       name={`shape.${shapeKey}`}
                       label={<Label className={FIELD_LABEL}>{label}</Label>}
-                      minValue={teamsPerGroupFloor({ qualifiers: shape.qualifiers_per_group, held: shape.teams_per_group })}
+                      minValue={teamsPerGroupFloor({
+                        qualifiers: shape.qualifiers_per_group,
+                        held: shape.teams_per_group,
+                        occupancy: gruppenOccupancy,
+                      })}
                       maxValue={MAX_TEAMS_PER_GROUP}
                       isReadOnly={isShapeFrozen}
                       value={shape[shapeKey]}
@@ -345,10 +356,15 @@ export function FormSpielplanSection({
                     isDisabled={isShapeFrozen}
                     // Against the DRAFT the boxes hold, so moving one moves what the next may reach:
                     // the three are judged together, and an offer read off the stored season would
-                    // keep offering a product this press no longer accepts.
+                    // keep offering a product this press refuses.
                     options={
                       shapeKey === "number_of_groups"
-                        ? groupCountOptions({ groups: shape.number_of_groups, qualifiers: shape.qualifiers_per_group })
+                        ? drawGroupCountOptions({
+                            groups: shape.number_of_groups,
+                            qualifiers: shape.qualifiers_per_group,
+                            teams: shape.teams_per_group,
+                            occupancy: gruppenOccupancy,
+                          })
                         : qualifierCountOptions({
                             groups: shape.number_of_groups,
                             qualifiers: shape.qualifiers_per_group,

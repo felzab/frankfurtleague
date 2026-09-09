@@ -5,6 +5,7 @@ import { FieldError, Label, ListBox, Select } from "@heroui/react";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react";
@@ -42,6 +43,8 @@ export function TeamSelect({
    */
   isRequired?: boolean;
 }) {
+  const item = listboxRow();
+
   const handleChange = (key: Key | null) => {
     if (!key) return;
     const picked = teams.find((team) => team.teamId === key.toString());
@@ -83,12 +86,12 @@ export function TeamSelect({
               // Disabled rather than dropped, `GruppeSelect`'s rule for a full group: a reader should
               // see why a team cannot be taken instead of wondering where an expected one went.
               isDisabled={team.isSquadFull === true}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
+              className={item.row()}>
               {/* `min-w-0` and shrink-0 beside it: without them a long club name grows the row past the
                   popover instead of truncating inside it. */}
               <span className="min-w-0 truncate">{team.name}</span>
               <span className="flex shrink-0 flex-row items-center gap-x-2">
-                {team.isSquadFull === true && <span className="fluid-xs text-foreground-muted font-semibold">Kader voll</span>}
+                {team.isSquadFull === true && <span className={item.note()}>Kader voll</span>}
                 {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
                 <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
               </span>

@@ -11,6 +11,7 @@ import { patchSaisonAction } from "@/features/saisons/actions";
 import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
+import { buildGruppenOccupancy } from "@/features/saisons/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -188,6 +189,12 @@ export function AdminSaisonEditForm({
   const spielplanWindow: SpielplanWindowState =
     spielplanUndrawBlockedReason(undrawInput) === null ? "open" : saison.status === "future" ? "recorded" : "closed";
 
+  /**
+   * ONE count for both panels, off `ersatz.rows` rather than a prop: those rows ARE the junction the
+   * endpoints count, and a second copy in the Flight payload could close different rows on each panel.
+   */
+  const gruppenOccupancy = buildGruppenOccupancy(ersatz.rows);
+
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
     setEndDate(parseDate(saison.end_date));
@@ -318,6 +325,7 @@ export function AdminSaisonEditForm({
             // both rules read a played knockout fixture, so one derivation keeps the two panels agreeing.
             isKnockoutStarted={swap.playedKnockoutSpiele > 0}
             isDrawnSaison={hasDrawnSpiele}
+            gruppenOccupancy={gruppenOccupancy}
             spielplanWindow={spielplanWindow}
             banners={banners}
           />
@@ -359,6 +367,7 @@ export function AdminSaisonEditForm({
             // press would draw, and typed dates are refused before arming (`onBeforeWrite`).
             startDate={saison.start_date}
             endDate={saison.end_date}
+            gruppenOccupancy={gruppenOccupancy}
             {...spielplan}
             hasDrawnSpiele={hasDrawnSpiele}
             // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens

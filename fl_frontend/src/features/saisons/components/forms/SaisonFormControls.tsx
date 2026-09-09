@@ -14,7 +14,7 @@ import {
   FIELD_TRIGGER,
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
-import { pickIfOffered } from "@/shared/components/ui/refusableOption";
+import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
@@ -191,6 +191,8 @@ export function SaisonCountSelect({
    */
   isDisabled?: boolean;
 }) {
+  const item = listboxRow();
+
   return (
     <Select
       isRequired
@@ -225,11 +227,11 @@ export function SaisonCountSelect({
               id={option.id}
               textValue={option.name}
               isDisabled={option.refusal !== null}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
+              className={item.row()}>
               <span className="min-w-0 truncate">{option.name}</span>
               {/* Visible and closed rather than dropped: a count legal beside another number is one the
                   reader may have just come from, and the note says which neighbour shut it. */}
-              {option.refusal !== null && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{option.refusal}</span>}
+              {option.refusal !== null && <span className={item.note()}>{option.refusal}</span>}
             </ListBox.Item>
           ))}
         </ListBox>
@@ -261,6 +263,8 @@ export function SaisonTiebreakSelect({
    */
   isDisabled?: boolean;
 }) {
+  const item = listboxRow({ layout: "plain" });
+
   return (
     <Select
       isRequired
@@ -310,7 +314,7 @@ export function SaisonTiebreakSelect({
               key={option.value}
               id={option.value}
               textValue={option.label}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={item.row()}>
               {option.label}
             </ListBox.Item>
           ))}

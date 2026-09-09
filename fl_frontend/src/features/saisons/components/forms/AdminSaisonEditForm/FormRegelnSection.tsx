@@ -12,7 +12,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import type { FLSaisonRulesDraft } from "@/features/saisons/types";
+import type { FLSaisonRulesDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
@@ -60,6 +60,7 @@ export function FormRegelnSection({
   isFinishedSaison,
   isKnockoutStarted,
   isDrawnSaison,
+  gruppenOccupancy,
   spielplanWindow,
   banners,
 }: {
@@ -85,6 +86,11 @@ export function FormRegelnSection({
    * over, and `qualifiers_per_group` is in both.
    */
   isDrawnSaison: boolean;
+  /**
+   * `REQ-RULES-002` and `REQ-RULES-003`'s own figure. **Handed in, never derived here**: the endpoint
+   * counts it once per write, and a second reading could close a row the save would take.
+   */
+  gruppenOccupancy: SaisonGruppenOccupancy;
   /**
    * **Handed in, never derived here**: a state decided beside
    * `blockedReasons.ts :: spielplanUndrawBlockedReason` could offer a repair that control has closed.
@@ -212,14 +218,22 @@ export function FormRegelnSection({
               ariaLabel="Gruppen"
               label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
               value={rules.number_of_groups}
-              options={groupCountOptions({ groups: rules.number_of_groups, qualifiers: rules.qualifiers_per_group })}
+              options={groupCountOptions({
+                groups: rules.number_of_groups,
+                qualifiers: rules.qualifiers_per_group,
+                occupancy: gruppenOccupancy,
+              })}
               onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
             />
             <SaisonRuleNumberField
               name="rules.teams_per_group"
               isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
-              minValue={teamsPerGroupFloor({ qualifiers: rules.qualifiers_per_group, held: rules.teams_per_group })}
+              minValue={teamsPerGroupFloor({
+                qualifiers: rules.qualifiers_per_group,
+                held: rules.teams_per_group,
+                occupancy: gruppenOccupancy,
+              })}
               maxValue={MAX_TEAMS_PER_GROUP}
               value={rules.teams_per_group}
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}

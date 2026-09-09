@@ -124,6 +124,13 @@ export type SaisonSpielplanContext = {
 };
 
 /**
+ * **Mirrors `fl_backend/app/api/saisons/services.py`'s `occupancy_by_gruppe`**, which counts junction
+ * rows and joins no club: a withdrawn or disqualified row occupies its group as a live one does. A
+ * group holding nobody carries no key.
+ */
+export type SaisonGruppenOccupancy = Readonly<Partial<Record<FLGruppenNames, number>>>;
+
+/**
  * One club as it stands in THIS season. Deliberately not the whole `FLTeam`: the derived `statistik`
  * behind every team read is a table this control never draws.
  */

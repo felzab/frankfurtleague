@@ -9,6 +9,8 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { RECORDED_FACTS_ANY } from "@/features/saisons/constants.ts";
+import { drawGroupCountOptions, GROUP_COUNT_UNIVERSE } from "@/features/saisons/shapeOffer.ts";
+import { pickIfOffered } from "@/shared/components/ui/refusableOption.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { ContextType } from "react";
@@ -73,6 +75,9 @@ const PANEL: SpielplanProps = {
     { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
     { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
   ],
+  // Two groups of four, which is exactly what these rules ask for, so the stored shape is on offer
+  // and each case below moves the count rather than the entries.
+  gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
@@ -102,6 +107,13 @@ const shapeFieldCount = (props: Partial<SpielplanProps>): number => (markup(prop
 /** The opening tag of the `<select>` react-aria mirrors one count picker into, named by its payload path. */
 const shapeSelectTag = (path: string, props: Partial<SpielplanProps>): string =>
   new RegExp(`<select [^>]*name="shape\\.${path}"[^>]*>`).exec(markup(props))?.[0] ?? "";
+
+/** Every count the mirrored `<select>` carries for one shape path, in the order the offer built them. */
+const shapeCounts = (path: string, props: Partial<SpielplanProps>): number[] => {
+  const list = new RegExp(`<select [^>]*name="shape\\.${path}"[^>]*>(.*?)</select>`, "s").exec(markup(props))?.[1] ?? "";
+
+  return [...list.matchAll(/<option value="(\d+)"/g)].flatMap(([, value]) => (value === undefined ? [] : [Number(value)]));
+};
 
 /**
  * The stepper's own root, which is where a read-only state is legible: react-aria puts a number
@@ -146,6 +158,27 @@ describe("the draw half of the Spielplan panel", () => {
     assert.ok(offer !== -1, "the panel gates the numbers on something other than a picked draw that replaces");
     assert.ok(fields !== -1, "the three boxes are written out rather than taken from the shared table");
     assert.ok(offer < fields, "the shape fields stand outside the replace branch");
+  });
+
+  /* `REQ-SPIELPLAN-004` asks every offered group for EXACTLY the team count, and the draw is where a
+     wrong guess costs a press rather than a save. */
+  it("closes a redraw count the entries do not fit, and drops no row for it", () => {
+    const occupancy = { A: 4, B: 4 };
+    const offer = drawGroupCountOptions({ groups: 2, qualifiers: 2, teams: 4, occupancy });
+
+    assert.equal(pickIfOffered(offer, "2"), "2", "the shape the entries fit is closed");
+    assert.equal(pickIfOffered(offer, "4"), null, "four groups from eight clubs is a draw the endpoint refuses");
+    // Rendered, because the closure itself reaches no markup: the mirrored `<select>` carries a closed
+    // row as a plain option, so what a render shows is that the row is still there to be closed.
+    assert.deepEqual(shapeCounts("number_of_groups", DRAWN), [...GROUP_COUNT_UNIVERSE]);
+  });
+
+  /* Read rather than rendered for the reason above. The two endpoints judge occupancy and the bracket
+     in opposite orders, so the panel taking the rules patch's offer would name the wrong number. */
+  it("takes the draw's own offer rather than the rules patch's", () => {
+    assert.match(SOURCE, /drawGroupCountOptions\(\{/, "the panel builds its group offer some other way");
+    assert.doesNotMatch(SOURCE, /\bgroupCountOptions\(/, "the draw offers the rules patch's order");
+    assert.match(SOURCE, /occupancy: gruppenOccupancy/, "the offer is built against something other than the season's groups");
   });
 
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would

@@ -20,7 +20,7 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
-import type { SaisonCreateDraft } from "@/features/saisons/types";
+import type { SaisonCreateDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 
 /**
  * **Every value here is a default HERE and nowhere else**: the live season's numbers, as the starting
@@ -46,6 +46,13 @@ const EMPTY_DRAFT: SaisonCreateDraft = {
     erlaubte_stufen: [...STUFE_OPTIONS],
   },
 };
+
+/**
+ * A season being created holds no club, which is the `occupancy_by_gruppe={}` `post_saison` hands
+ * `find_rules_refusal`. Passed rather than defaulted in the offer: a caller that forgot it would build
+ * an editor's picker against a season whose groups nobody counted.
+ */
+const NO_GRUPPEN_OCCUPANCY: SaisonGruppenOccupancy = {};
 
 /**
  * Safe rather than lenient: the only writer is the picker's `onChange`, which produces exactly the
@@ -200,13 +207,21 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 ariaLabel="Gruppen"
                 label={<Label className={FIELD_LABEL}>Gruppen</Label>}
                 value={draft.rules.number_of_groups}
-                options={groupCountOptions({ groups: draft.rules.number_of_groups, qualifiers: draft.rules.qualifiers_per_group })}
+                options={groupCountOptions({
+                  groups: draft.rules.number_of_groups,
+                  qualifiers: draft.rules.qualifiers_per_group,
+                  occupancy: NO_GRUPPEN_OCCUPANCY,
+                })}
                 onChange={(number_of_groups) => setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_groups } }))}
               />
               <SaisonRuleNumberField
                 name="rules.teams_per_group"
                 label={<Label className={FIELD_LABEL}>Teams pro Gruppe</Label>}
-                minValue={teamsPerGroupFloor({ qualifiers: draft.rules.qualifiers_per_group, held: draft.rules.teams_per_group })}
+                minValue={teamsPerGroupFloor({
+                  qualifiers: draft.rules.qualifiers_per_group,
+                  held: draft.rules.teams_per_group,
+                  occupancy: NO_GRUPPEN_OCCUPANCY,
+                })}
                 maxValue={MAX_TEAMS_PER_GROUP}
                 value={draft.rules.teams_per_group}
                 onChange={(teams_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, teams_per_group } }))}
