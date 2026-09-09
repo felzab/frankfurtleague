@@ -182,6 +182,38 @@ def test_rejects_malformed_object_ids(value):
         _ObjectId.model_validate_json(json.dumps({"value": value}))
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "6890a1b2 c3d4e5f6 071829",
+        "6890a1b2\tc3d4e5f6\t071829",
+        "6890a1b2\nc3d4e5f6\n071829",
+        "6890a1b2\rc3d4e5f6\r071829",
+        "6890a1b2\vc3d4e5f6\v071829",
+        "6890a1b2\fc3d4e5f6\f071829",
+    ],
+)
+def test_rejects_ids_bson_decodes_shorter_than_it_was_given(value):
+    """bson accepts every one of these, so none is redundant with the malformed set above.
+
+    All six appear because the class `bytes.fromhex` skips is every ASCII whitespace character
+    rather than the space alone.
+    """
+
+    with pytest.raises(ValidationError):
+        _ObjectId.model_validate({"value": value})
+
+    with pytest.raises(ValidationError):
+        _ObjectId.model_validate_json(json.dumps({"value": value}))
+
+
+def test_accepts_an_upper_case_id_and_serialises_it_lower_case():
+    """Guards the fold: a round-trip compared exactly would refuse this, and the lower-casing is not the defect."""
+
+    parsed = _ObjectId.model_validate({"value": "6890A1B2C3D4E5F607182930"})
+    assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
+
+
 # Taken from the tree's own fixtures, because refusing one of these turns a school away over how it
 # writes the one number the league reaches it on.
 @pytest.mark.parametrize(
