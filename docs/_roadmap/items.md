@@ -89,13 +89,13 @@ deliverable.
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                            | FE, BE, Ops, Docs, gate, tests                                              | Open     |
+| `k7fd-3xqp` | The tree spends gaps off the ladder the frontend sheet names                                                                  | FE, Docs, tests                                                             | Decided  |
 | `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere                | FE, Docs, tests, spieler, teams                                             | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
-| `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
 
 ## The items
@@ -744,6 +744,41 @@ and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.m
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
 
+### `k7fd-3xqp` · The tree spends gaps off the ladder the frontend sheet names
+
+| Tags            | Status  | Depends on |
+| --------------- | ------- | ---------- |
+| FE, Docs, tests | Decided | —          |
+
+**[`docs/frontend/spec.md` §1.20](../frontend/spec.md#120-the-gap-ladder) names a gap ladder, and
+`fl_frontend/src` spends beside it** — half-steps between two rungs, one bracketed pixel value, and
+class lists whose base gap and breakpoint gap are not neighbours. The census is one command over
+production sources:
+
+```bash
+git grep -ohP '(?<![\w-])(?:(?:sm|md|lg|xl|2xl|max-sm|max-md|max-lg):)?(?:gap|gap-x|gap-y|space-x|space-y)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\]|\([^)]+\))(?![\w-])' HEAD -- 'fl_frontend/src' ':!*.test.ts' ':!*.test.tsx' | sort | uniq -c
+```
+
+A step outside `0.5 1 2 3 4 6 8 12` is a spend to move, and so is a class list carrying two of those
+that are not adjacent.
+
+**Why it matters.** The invariant promises a reader that any two siblings sit one rung apart, and a
+half-step is exactly the "a bit more" a later author reaches for again once one stands in the tree.
+
+**The trap.** A half-step retires to whichever neighbour the site around it asks for, never by
+rounding: a wrapped pill row's vertical gap wants the rung that keeps two rows reading as one
+cluster, and a card grid's `gap-5` wants the responsive pair the meta grids already take. A box's
+inset is not a gap and the ladder does not reach it. The toast shell's gap is spent in
+`fl_frontend/src/app/globals.css :: .toast` rather than in a class list, so the sweep edits a rule
+that already exists, which `docs/frontend/spec.md :: I57` permits: what it bans is a NEW `.toast*`
+rule.
+
+**Done when** every `gap-*` under `fl_frontend/src` names a rung and every responsive pair names two
+neighbours; a sweep shaped like `fl_frontend/src/core/refusalPaths.test.ts` asserts it over source
+text, carrying in its own words the excuse the **tests** clause of `.claude/rules/cross-surface.md`
+requires — the runner cannot render a Server Component; and the invariant's enforcement column names
+that sweep.
+
 ### `nadg-bnjb` · Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere
 
 | Tags                            | Status | Depends on |
@@ -1028,39 +1063,6 @@ one; what is wrong today is that neither has been chosen and nothing records the
 costs is unmeasured and measuring it is half the work — each module pays a process start, the alias
 hook's registration and its own TypeScript load, all but one of which would go, and the suite
 already runs while the flag is one word.
-
-### `v7bs-d859` · The frontend keeps a visual system that no document states
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**`docs/frontend/spec.md` states no type scale, no colour role and no spacing rhythm.** The system
-lives in `fl_frontend/src/app/globals.css` and the recipes under
-`fl_frontend/src/shared/components/ui/`, so a session designing anything learns it by reading them or
-does not learn it. What that sheet does state on this surface — `:: I43`, `:: I44`, `:: I78`,
-`:: I79`, `:: I81` and `:: 1.12 The copy rules` — are the copy and link rules, and they match the
-files.
-
-**The visual conventions are kept by imitation and read by nothing.** Prose is `font-medium` and a
-bold run is a label, a pill, a button, a `<dt>` or a reader's own value; a decorative glyph is
-`aria-hidden` beside the words carrying the fact and never stands alone
-(`fl_frontend/src/shared/components/ui/Callout.tsx`); a panel's standing rule is a reveal hint beside
-its heading rather than a paragraph closing its body
-(`fl_frontend/src/shared/components/ui/formPanel.ts :: heading`); the corner ladder steps down one
-level per nesting, 3xl hero to md pill (`fl_frontend/src/shared/components/ui/badges.ts`); the social
-marks wear the ground's foreground and never brand
-(`fl_frontend/src/shared/components/layout/footer/Footer.tsx`). Each holds across at least three
-files, no gate reads any of them, and a design approved against none of them breaks one without
-anybody seeing it.
-
-**Writing the page against today's palette would date it before it is read**, the colour roles being
-the half most likely to move. That is what the work waits on, rather than a reason to leave the
-conventions underived.
-
-**Done when** a page a session meets before it designs anything carries the type scale, the weight
-rule, the spacing and radius ladders, the colour roles and the component grammar, and the conventions
-above are stated there rather than kept by imitation.
 
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 

@@ -2,30 +2,31 @@
 
 **Scope:** `fl_frontend/src/`
 
-| Section                                                                                               | Answers                                                                |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [1.1 Slice inventory](#11-slice-inventory)                                                            | Which slices exist and which modules each holds                        |
-| [1.2 Cached reads](#12-cached-reads)                                                                  | What is cached, for how long, under which tags                         |
-| [1.3 Admin mutations](#13-admin-mutations)                                                            | Which writes exist and what each invalidates                           |
-| [1.4 The cache tag design](#14-the-cache-tag-design)                                                  | Why exactly two granular tags, and what may not be one                 |
-| [1.5 Out-of-band invalidation](#15-out-of-band-invalidation)                                          | What a hand edit in MongoDB costs                                      |
-| [1.6 Deliberate duplication: the three match cards](#16-deliberate-duplication-the-three-match-cards) | Why three near-identical cards stay separate                           |
-| [1.7 Environment](#17-environment)                                                                    | Which variables are validated, and against what                        |
-| [1.8 Lint rules that encode a decision](#18-lint-rules-that-encode-a-decision)                        | Which lint rules are load-bearing                                      |
-| [1.9 The test suite](#19-the-test-suite)                                                              | What the runner is and what is covered                                 |
-| [1.10 The match editor's structural properties](#110-the-match-editors-structural-properties)         | Why the editor is built the way it is                                  |
-| [1.11 Adding a HeroUI component](#111-adding-a-heroui-component)                                      | What a new component needs beyond its TSX import                       |
-| [1.12 The copy rules](#112-the-copy-rules)                                                            | How the site addresses its reader, and where                           |
-| [1.13 Metadata and indexing](#113-metadata-and-indexing)                                              | What each route sets, and what an unset value claims                   |
-| [1.14 The shared editor surface](#114-the-shared-editor-surface)                                      | What every entity editor shares, and what a slice owns                 |
-| [1.15 The document root](#115-the-document-root)                                                      | What the document root may never carry                                 |
-| [1.16 The three faces](#116-the-three-faces)                                                          | Which face and which step an element takes, and what decides a new one |
-| [1.17 Colour roles and the brand budget](#117-colour-roles-and-the-brand-budget)                      | Where each grade may be spent, and how much brand a screen carries     |
-| [1.18 The box](#118-the-box)                                                                          | What every box wears, and which corner and shadow a nesting takes      |
-| [1.19 The component grammar](#119-the-component-grammar)                                              | The shape a heading, a hint, a pill, a strip or a glyph keeps          |
-| [2. Invariants](#2-invariants)                                                                        | The rules that must hold                                               |
-| [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it                          |
-| [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                                      |
+| Section                                                                                               | Answers                                                                              |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [1.1 Slice inventory](#11-slice-inventory)                                                            | Which slices exist and which modules each holds                                      |
+| [1.2 Cached reads](#12-cached-reads)                                                                  | What is cached, for how long, under which tags                                       |
+| [1.3 Admin mutations](#13-admin-mutations)                                                            | Which writes exist and what each invalidates                                         |
+| [1.4 The cache tag design](#14-the-cache-tag-design)                                                  | Why exactly two granular tags, and what may not be one                               |
+| [1.5 Out-of-band invalidation](#15-out-of-band-invalidation)                                          | What a hand edit in MongoDB costs                                                    |
+| [1.6 Deliberate duplication: the three match cards](#16-deliberate-duplication-the-three-match-cards) | Why three near-identical cards stay separate                                         |
+| [1.7 Environment](#17-environment)                                                                    | Which variables are validated, and against what                                      |
+| [1.8 Lint rules that encode a decision](#18-lint-rules-that-encode-a-decision)                        | Which lint rules are load-bearing                                                    |
+| [1.9 The test suite](#19-the-test-suite)                                                              | What the runner is and what is covered                                               |
+| [1.10 The match editor's structural properties](#110-the-match-editors-structural-properties)         | Why the editor is built the way it is                                                |
+| [1.11 Adding a HeroUI component](#111-adding-a-heroui-component)                                      | What a new component needs beyond its TSX import                                     |
+| [1.12 The copy rules](#112-the-copy-rules)                                                            | How the site addresses its reader, and where                                         |
+| [1.13 Metadata and indexing](#113-metadata-and-indexing)                                              | What each route sets, and what an unset value claims                                 |
+| [1.14 The shared editor surface](#114-the-shared-editor-surface)                                      | What every entity editor shares, and what a slice owns                               |
+| [1.15 The document root](#115-the-document-root)                                                      | What the document root may never carry                                               |
+| [1.16 The three faces](#116-the-three-faces)                                                          | Which face and which step an element takes, and what decides a new one               |
+| [1.17 Colour roles and the brand budget](#117-colour-roles-and-the-brand-budget)                      | Where each grade may be spent, and how much brand a screen carries                   |
+| [1.18 The box](#118-the-box)                                                                          | What every box wears, and which corner and shadow a nesting takes                    |
+| [1.19 The component grammar](#119-the-component-grammar)                                              | The shape a heading, a hint, a pill, a strip or a glyph keeps                        |
+| [1.20 The gap ladder](#120-the-gap-ladder)                                                            | Which rung the space between two siblings takes, and what a responsive pair may step |
+| [2. Invariants](#2-invariants)                                                                        | The rules that must hold                                                             |
+| [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it                                        |
+| [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                                                    |
 
 ---
 
@@ -1062,9 +1063,14 @@ The consequences worth knowing before editing metadata:
   canonical claims to be the homepage rather than claiming nothing.
 - **The browser chrome's colour is `fl_frontend/src/app/layout.tsx`'s `viewport` export, which no
   other route sets** — a separate export from `metadata`, whose own `themeColor` field Next
-  deprecates, carrying one entry per `prefers-color-scheme`. An installed app takes
-  `fl_frontend/src/app/manifest.ts`'s `theme_color` instead, and the two answer differently on
-  purpose.
+  deprecates, carrying one entry per `prefers-color-scheme`. It paints each theme's `--bg-surface`,
+  the ground of the bar under it on both shells
+  (`fl_frontend/src/shared/components/layout/shell/PublicShell.tsx`,
+  `fl_frontend/src/shared/components/layout/shell/AppTopBar.tsx`), so that bar's own `border-b`
+  stays the one edge across the join. An installed app takes
+  `fl_frontend/src/app/manifest.ts`'s `theme_color` instead, which keeps the brand fill: a splash is
+  one moment rather than every screen's persistent chrome (I164). Both literals are held to the
+  season scheme by `fl_frontend/src/app/brandAssets.test.ts`.
 - **`openGraph` is inherited or replaced whole, never merged field-by-field**, so the root layout
   declares only the site-wide parts and og:title and og:description resolve from each page's own
   title and description.
@@ -1388,6 +1394,31 @@ holds whether a conditional block renders or not
   a dirty draft's discard latch, say -- keeps the markup by hand, a pill taking a bare handler
   being the hazard the component closes.
 
+### 1.20 The gap ladder
+
+**The space between two siblings is one of eight rungs — `0.5`, `1`, `2`, `3`, `4`, `6`, `8`,
+`12` — and a responsive pair is two adjacent rungs** (I234). Whole steps to `4`, every other step
+to `8`, then `12`, with `0.5` the one hairline rung: each rung is at least a third larger than the
+one below it, which is §1.16's test on a weight rung applied to space, and a half-step between two
+rungs fails it on one side. `1.5` clears the third and is retired anyway, because admitting "a bit
+more than `1`" while refusing "a bit more than `2`" leaves no rule an author can hold. A box's own
+inset — a panel's `p-4 sm:p-5`, a pill's `px-1.5 py-0.5` — is §1.18's and is not a gap.
+
+| Rung  | Between                                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------- |
+| `0.5` | Two lines of one fact: a name over its detail line, a `<dt>` over its `<dd>`, a panel title over its eyebrow              |
+| `1`   | Lines and items inside one control: a label over its control, a list box's options, a track's tabs, a glyph inside a pill |
+| `2`   | Siblings inside one row: a label and its badge, two pills, a glyph and the word beside it                                 |
+| `3`   | The items of a toolbar, the facet cells of a filter panel, a card's own rows, a row of form buttons                       |
+| `4`   | Fields in a grid (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_PAIR`); a card grid below `sm`        |
+| `6`   | Blocks in a column: the panels of an editor, the cards of an admin list; a card grid from `sm`                            |
+| `8`   | Sections in a page column; the editor's rail from its column at `2xl`                                                     |
+| `12`  | Sections in a public page column from `sm` up, the widest rhythm the site keeps                                           |
+
+**A responsive pair steps one rung** — `gap-4 sm:gap-6`, `gap-y-8 sm:gap-y-12` — because a pair
+skipping one changes the rhythm rather than scaling it. `gap-0` is the absence of a gap where a row
+collapses into a column, never a rung.
+
 ## 2. Invariants
 
 | #    | Invariant                                                                                                                                                                                                                                  | Enforced by                                                                                                                                                                                                                                                                                                          |
@@ -1521,6 +1552,7 @@ holds whether a conditional block renders or not
 | I230 | **A collection option under the keyboard wears the app's ring at `--focus`, inset, on react-aria's keyboard attribute alone**                                                                                                              | `fl_frontend/src/app/globals.css :: "The keyboard's own mark"`; `scripts/checks/docs_gate/scheme.py :: PAIRS` measures the ring on that fill; review for a ring keyed elsewhere                                                                                                                                      |
 | I231 | **A picked row in a multi-select list carries a brand check beside its tint**, the tint alone sitting under 3:1 on every ground                                                                                                            | `fl_frontend/src/shared/components/ui/FilterPanel.tsx :: ListBox.ItemIndicator`; `scripts/checks/docs_gate/scheme.py :: PAIRS` measures the check on each fill the row takes                                                                                                                                         |
 | I233 | **Every admin write action calls `refresh()` on its success path**, whatever tags it also moves                                                                                                                                            | each slice's `actions.test.ts`, in `describe("the refresh a write owes the list the admin is looking at")`                                                                                                                                                                                                           |
+| I234 | **Every `gap-*` is one of `0.5 1 2 3 4 6 8 12`, and a responsive pair is two adjacent rungs**                                                                                                                                              | review, against §1.20's table                                                                                                                                                                                                                                                                                        |
 | I232 | **An unmatched URL answers 404 with the public shell on it**, a status Next fixes at the first byte and cannot revise                                                                                                                      | `fl_frontend/src/shared/components/layout/publicShell.test.ts` for the shell; unenforced for the status, which only a request against a built stack reads                                                                                                                                                            |
 
 ## 3. Violation → remedy
@@ -1575,4 +1607,5 @@ holds whether a conditional block renders or not
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit                                  |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                                                       |
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/src/shared/utils/facets.test.ts :: isClientModule` covers `fl_frontend/src/app/`, `:: VIEWS_GLOB` the admin views; a server-render harness is refused                                                |
+| The tree spends gaps off §1.20's ladder, and pairs that skip a rung                                                                                  | Open — a new spend takes a rung; the half-steps and skipping pairs already in the tree move in a sweep of their own                                                                                                          |
 | `fl_frontend/src/app/layout.tsx`'s chrome colour keys on `prefers-color-scheme`, the page's theme on `data-theme`                                    | Accepted — Next offers no other key, so a visitor whose stored theme differs from the operating system's sees a mismatched bar                                                                                               |

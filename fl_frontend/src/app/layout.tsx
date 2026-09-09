@@ -64,9 +64,12 @@ export const metadata: Metadata = {
  * that can afford the fill.
  */
 export const viewport: Viewport = {
+  // `--bg-surface` rather than `--bg-base`: the bar under the chrome is `bg-surface` on both
+  // shells, and a `--bg-base` chrome sits 1.09:1 off it, so the navbar reads as a stripe rather
+  // than as the top of the page.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#030303" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#121212" },
   ],
 };
 

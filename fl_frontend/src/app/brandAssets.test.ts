@@ -76,7 +76,7 @@ describe("the brand assets that cannot read a stylesheet", () => {
 
   // A `<meta>` colour is a literal or nothing: `content` resolves no `var()`, so the head is the
   // third place a scheme colour is spelled by hand rather than a render this could read instead.
-  it("paints the browser's chrome in each theme's own ground", () => {
+  it("paints the browser's chrome in each theme's own bar ground", () => {
     const declared = new Map(
       [...VIEWPORT.matchAll(/media: "\(prefers-color-scheme: (light|dark)\)", color: "(#[0-9a-f]{6})"/g)].map((found) => [
         found[1] ?? "",
@@ -86,7 +86,11 @@ describe("the brand assets that cannot read a stylesheet", () => {
     assert.deepEqual([...declared.keys()].sort(), ["dark", "light"], "the `viewport` export declares no theme colour per colour scheme");
 
     for (const theme of ["light", "dark"] as const) {
-      assert.equal(declared.get(theme), schemeTokens(SCHEME, theme).get("--bg-base"), `the ${theme} theme colour is not that theme's ground`);
+      assert.equal(
+        declared.get(theme),
+        schemeTokens(SCHEME, theme).get("--bg-surface"),
+        `the ${theme} theme colour is not that theme's ground for the bar under the chrome`,
+      );
     }
   });
 
