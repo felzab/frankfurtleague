@@ -17,6 +17,9 @@ import {
 import { FLAktorSchema } from "./schemas.ts";
 
 import type { Facet, FacetSelection } from "@/shared/utils/facets.ts";
+// A type import, and it has to be: `./queries.ts` reaches `next/headers`, which the runner resolves
+// to no file, so importing the read as a value would fail this file before a case ran.
+import type { getAktionen } from "./queries.ts";
 import type { FLAktor } from "./schemas.ts";
 import type { AdminAktionRow } from "./types.ts";
 
@@ -135,6 +138,23 @@ describe("the dimensions the read itself narrows on", () => {
       [],
       `the endpoint publishes ${published.join(", ")} — refresh the document if a term was just added:  ${REGENERATE}`,
     );
+  });
+
+  /* Held by `tsc` rather than by an assertion, a declaration reaching no runtime: a term the read does
+     not declare rides the spread in `./queries.ts` past the excess-property check, and
+     `fl_frontend/src/core/apiRequests.test.ts` reads the declared properties alone. */
+  it("names every term as a filter the read itself declares", () => {
+    type Undeclared = Exclude<keyof ReturnType<typeof aktionenLogFacetTerms>, keyof NonNullable<Parameters<typeof getAktionen>[0]>>;
+    /** Instantiable while nothing is undeclared, and by no other argument. */
+    type EveryTermDeclared<T extends never> = T[];
+
+    const undeclared: EveryTermDeclared<Undeclared> = [];
+
+    // The declaration above is the case; this is what reaches the runner, which passes an empty one.
+    assert.deepEqual(undeclared, []);
+
+    // One key per facet, so a dimension the bar offers and the reader forgets fails here too.
+    assert.deepEqual(Object.keys(aktionenLogFacetTerms({})).sort(), AKTIONEN_FACETS.map((facet) => facet.param).sort());
   });
 });
 

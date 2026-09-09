@@ -26,9 +26,9 @@ type UndoRoute<TPayload> = {
   /** The German refusal where the restore did not fully commit, `undefined` where it did. */
   restore: (payload: TPayload) => Promise<string | undefined>;
   /**
-   * Reached only where the restore committed, and guarded: the write has landed, so a failed
-   * invalidation must not report a failure. The call stays in the route, where `revalidateTag`
-   * and its `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
+   * Reached wherever the restore ran, and guarded: a failed invalidation must not turn a landed write
+   * into a reported failure. The call stays in the route, where `revalidateTag` and its
+   * `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
    */
   invalidate: (payload: TPayload) => void;
 };
@@ -54,15 +54,22 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
       return { success: false as const, error: UNDO_UNREADABLE };
     }
 
-    const refusal = await route.restore(parsed.data);
-    if (refusal !== undefined) {
-      return { success: false as const, error: refusal };
+    // In a `finally` rather than under the refusal below: a replay committing in parts leaves rows
+    // written behind a refusal and behind a throw alike, and a cached read still serves what the undo
+    // removed (`docs/frontend/spec.md` §1.5).
+    let refusal: string | undefined;
+    try {
+      refusal = await route.restore(parsed.data);
+    } finally {
+      try {
+        route.invalidate(parsed.data);
+      } catch (invalidationError) {
+        logger.warn("Undo cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
+      }
     }
 
-    try {
-      route.invalidate(parsed.data);
-    } catch (invalidationError) {
-      logger.warn("Undo committed but cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
+    if (refusal !== undefined) {
+      return { success: false as const, error: refusal };
     }
 
     return { success: true as const, message: UNDO_RESTORED };

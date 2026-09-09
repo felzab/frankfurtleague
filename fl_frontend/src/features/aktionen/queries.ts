@@ -21,9 +21,10 @@ const einzeln = (value: string | string[] | undefined): string | null => (typeof
  * an omitted key means the whole log.
  */
 export const getAktionen = async (
-  filters: {
-    collection?: string;
-    operation?: string;
+  // The bar's terms derived rather than respelled: a spread is exempt from the excess-property check,
+  // so a term declared in `./facets` alone reaches the wire with nothing comparing it against the
+  // published parameter (`fl_frontend/src/core/apiRequests.test.ts`).
+  filters: ReturnType<typeof aktionenLogFacetTerms> & {
     trace_id?: string;
     document_id?: string;
     order?: Leserichtung;
@@ -55,8 +56,8 @@ export async function getAktionenLog(params: Readonly<Record<string, string | st
 
   return getAktionen({
     ...aktionenLogFacetTerms(params),
-    // Narrowed by the bar rather than after the read, so an area's older rows stop being cut by the
-    // endpoint's cap; a Vorgang is answered whole, which is what the row's copy action relies on.
+    // Narrowed by the endpoint rather than after the read: the cap runs before the narrowing, so a
+    // search over the rows it left would miss one row's older history.
     trace_id: vorgangId ?? undefined,
     document_id: dokumentId ?? undefined,
     order: parseLeserichtung(params),

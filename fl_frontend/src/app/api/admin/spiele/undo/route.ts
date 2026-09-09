@@ -14,7 +14,10 @@ import type { NextRequest } from "next/server";
  * page's props would revert a field another writer moved while the editor stood open.
  */
 const UndoRequestSchema = z.object({
-  paarungen: z.array(FLPatchSpielPaarungPayloadSchema),
+  // Never empty: the report this replays leads with the fixture the save named
+  // (`docs/backend/spec.md :: I215`), so an empty list is a body no save produced and the replay below
+  // would answer it as a restore having written nothing.
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
   saison_id: FLSpielSchema.shape.saison_id,
 });
 
@@ -73,8 +76,11 @@ export async function POST(request: NextRequest) {
         }
 
         if (!operation.acknowledged) {
-          // Some fixtures are written and some are not, so the caches are stale either way and the count is what the admin needs.
-          return `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen. Prüfe die betroffenen Spiele.`;
+          // Never `CHANGE_STANDS` here: an unacknowledged write may still have landed. A sentence per
+          // count, the noun agreeing with `total` (`docs/frontend/spec.md` §1.12).
+          return total === 1
+            ? "Die Rücknahme wurde abgebrochen. Prüfe das Spiel."
+            : `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen. Prüfe die betroffenen Spiele.`;
         }
         restored += 1;
       }

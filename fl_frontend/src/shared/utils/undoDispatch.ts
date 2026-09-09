@@ -81,6 +81,15 @@ export function offerUndo<TPayload>({
         // retire it mid-flight.
         const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
 
+        // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
+        const refreshTheScreen = () => {
+          try {
+            router.refresh();
+          } catch (refreshError) {
+            console.warn("Undo answered, refresh failed", refreshError);
+          }
+        };
+
         // The TWO-ARGUMENT `then`: a trailing `.catch` would also catch what the success handler
         // throws, blaming a committed restore on the transport.
         void postUndo(endpoint, body).then(
@@ -88,18 +97,16 @@ export function offerUndo<TPayload>({
             appToast.close(pendingKey);
             if (!result.success) {
               appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
+
+              // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
+              // says the undo did not finish rather than that nothing moved.
+              refreshTheScreen();
               return;
             }
 
             // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
             appToast.success("Änderung zurückgenommen", { description: result.message });
-
-            // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
-            try {
-              router.refresh();
-            } catch (refreshError) {
-              console.warn("Undo committed, refresh failed", refreshError);
-            }
+            refreshTheScreen();
           },
           (dispatchError) => {
             appToast.close(pendingKey);
