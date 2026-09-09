@@ -637,9 +637,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
 /* The fill under a keyboard-focused option MUST stay whatever the app's hover token is — the two
    being the same colour is the whole claim. */
-/* A MENU item keys on `data-focused`, which `useMenuItem` also sets from hover —
-   one indicator for both. A LIST-BOX item cannot: a `Select` focuses its selected
-   option on open, so that would paint a row before anybody pressed a key. */
+/* A MENU item keys on `data-focused`, which react-aria sets from its selection
+   manager rather than from hover. A LIST-BOX item cannot take that attribute: a
+   `Select` focuses its selected option on open, painting a row before a key press. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-hover);
@@ -800,7 +800,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
      pointer events only under `:hover`, and a touch screen has none, so a timed
      message carrying an undo offer could only be waited out. */
   /* Frontmost only. The stacked toasts behind are inert by design, and HeroUI's rule saying so is
-     more specific than this one, so they keep their hidden close button. */
+     more specific than this one, so they keep their hidden close button.
+     Vendored: `@heroui/styles` `toast.css`, `[data-frontmost]` included. */
   .toast[data-frontmost="true"] .toast__close-button {
     @apply pointer-events-auto opacity-100;
   }

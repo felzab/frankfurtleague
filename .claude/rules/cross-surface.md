@@ -12,9 +12,8 @@ paths:
 
 # Ratified decisions — the seams between surfaces
 
-`.claude/CLAUDE.md` §7's never-clauses, on §7's terms. Each names a contract two surfaces hold
-together, so a session on either side can break it and the paths above reach both packages,
-`nginx/` and `scripts/` whole.
+`.claude/CLAUDE.md` §7's never-clauses, on §7's terms. Each is a clause a session on either side
+can break, so the paths above reach both packages, `nginx/` and `scripts/` whole.
 
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum
@@ -39,6 +38,7 @@ together, so a session on either side can break it and the paths above reach bot
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
 - **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
 - **tests** — Justify a source-text assertion by the runner's inability to render, in its own words or by citing a file that carries that excuse; assert over source text what a render can show
+- **sweeps** — Take a test file's fixtures as the production text a sweep asserts over; decide the test files for one suffix where the walk takes two
 
 Why this file reaches both packages whole rather than the slices its keys name is
 `.claude/CLAUDE.md` §7's argument. To derive a reach, search for the clause's own identifier and
