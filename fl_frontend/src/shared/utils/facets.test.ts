@@ -420,6 +420,7 @@ describe("the counts a server-narrowed facet is told", () => {
 });
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
+// Stands in for I13 over the admin views; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 // Separators normalised before it is tested, so the pattern does not have to know the platform's.
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
@@ -427,6 +428,7 @@ const asPosix = (file: string): string => file.split(path.sep).join("/");
 /** Every `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
 const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name), floor);
 
+// Stands in for I13 over the app tree; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 /**
  * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
  * matched: a pattern skipping leading block comments backtracks exponentially (CodeQL `js/redos`).

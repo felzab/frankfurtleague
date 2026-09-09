@@ -87,7 +87,6 @@ deliverable.
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
-| `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states               | FE, Docs, tests                                                             | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
@@ -485,45 +484,6 @@ ships today and nothing about what would. Per-component coverage was confirmed o
 pickers, table and overlays and taken from index pages for the rest; whether Mantine can emit its
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
-
-### `6zuv-9tkx` · Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**`.claude/rules/frontend.md` states that a Server Component may not pass a function to a Client
-Component and names the reason no tool catches it**, and a rule stated and enforced by nothing is
-worse than a gap nobody has written down, because it reads to every later reader as a guarantee
-somebody is keeping. Each layer misses it for its own reason and the reasons do not overlap: a prop
-typed `readonly Facet<Row>[]` is correct, the type system having no notion of the serialisation
-boundary, so a function is a good value on both sides of it; `next build` never renders a dynamic
-route, so the failure has no build-time moment; and no test renders an async Server Component, whose
-markup exists only once its own awaits have resolved. **So the three things a branch is cleared by are each right and each blind to
-the same defect** — which surfaced instead as a flash and a German error on an admin page, found by a
-person opening it.
-
-**What exists now closes one shape rather than the class**, which its author said plainly. Two
-source-level assertions in `fl_frontend/src/shared/utils/facets.test.ts` hold that no module under
-`fl_frontend/src/app/` lacking `"use client"` imports a facets module, and that no `Admin*View.tsx`
-takes `facets` as a prop — both reading source text rather than rendering anything. They are proxies
-for a runtime property, chosen because the runtime property is out of reach, and they cover the facet
-shape alone: the next render prop to cross that boundary will be a different name in a different
-file.
-
-**Done when the repository has chosen which of two things it wants, and the honest answer may be the
-smaller one.** A harness rendering each admin page's server half would test the property itself
-rather than a spelling of it, and would catch a boundary crossing nobody predicted — at the cost of a
-second runner, a React server runtime, and fixtures for pages that read a database. **Or source-level
-proxies per known shape are accepted as the ceiling**, in which case what is owed is a place that
-lists which shapes are covered, so the render-prop rule stops reading as though all of it were held.
-**Choosing the second is a real answer**; leaving the choice unmade is what currently reads as the
-first.
-
-**The shared render harness is not its answer.** `fl_frontend/src/shared/testing/renderTest.ts`
-compiles a `.tsx` and renders it synchronously, which reaches a Client Component and no async Server
-Component ([`docs/frontend/spec.md`](../frontend/spec.md) §1.9), so what that harness buys leaves
-this entry where it stands.
 
 ### `7wne-u6hm` · Three test modules each open a cache scope through the same React internal
 
