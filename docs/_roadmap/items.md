@@ -105,7 +105,6 @@ deliverable.
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
-| `nce5-j467` | Two hand-copied patterns sit outside the register that pairs the others                                                       | FE, BE, tests                                                               | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
@@ -1335,44 +1334,6 @@ of the three**: each is what a first pass covers, and filing them one at a time 
 branch and leaves the next one unheld. **Its `Hint` renders as a popover**, so the wording behind
 that press is one of §1.9's overlay bodies and out of reach; every other block here stands in the
 resting markup.
-
-### `nce5-j467` · Two hand-copied patterns sit outside the register that pairs the others
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, BE, tests | Open   | —          |
-
-**`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` resolves a declared list of
-pattern pairs against each other, and two hand copies of a backend rule are on no list at all.**
-`fl_backend/app/shared/schemas/custom.py :: TIME_REGEX` and
-`fl_frontend/src/shared/schemas.ts :: CustomTimeStringSchema` spell one rule byte for byte, as
-`fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` and
-`fl_frontend/src/shared/schemas.ts :: PersonNameSchema` spell another; each tier's suite lists cases
-against its own copy, and nothing resolves the two spellings against each other.
-`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves patterns outside the contract
-comparison by design, so that register is the only place either pair can be held.
-
-**Neither pair fits the register's probe.** It compares two spellings by what each accepts over an
-alphabet derived from the patterns' own text, and refuses outright a construct it would model wrongly
-(`fl_backend/tests/shared/test_frontend_mirrors.py :: MODELLED_ESCAPES`). Nothing that probe
-generates is a well-formed time — every string up to three characters, then runs of one character —
-so the time pair accepts none of it and the register's own anti-vacuity assertion fails. The name
-pair is further out: `\p{L}` is a class pydantic's Rust engine reads and `re` cannot compile, and
-`re` is the only engine that register has.
-
-**Why it matters.** A divergence either way is a refusal nobody can act on: the looser frontend
-accepts a value the API answers with a 422 naming no field, and the tighter one refuses what the API
-stores. Every form taking a person's name carries the one rule and every kickoff time the other, so a
-recurrence is visible on the first value somebody types rather than lying latent.
-
-**Done when** each pair is resolved against its twin or recorded as unpairable with its reason, in
-`MIRRORED_PATTERNS` where a reader of the register stands. Two shapes stay inside that boundary: a
-case of its own per pair, as
-`fl_backend/tests/shared/test_frontend_mirrors.py :: test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses`
-already is for the one-line rule; or a probe composing a value from the pattern rather than repeating
-one character, which reaches the time pair and not the name pair. **Widening `MODELLED_ESCAPES` is
-neither of them** — that refusal exists so a construct the probe would model wrongly fails loudly
-instead of passing quietly.
 
 ### `njhn-pmtn` · Every call site writes a fallback for a failure message that always arrives
 

@@ -1,3 +1,4 @@
+import math
 import re
 from itertools import product
 from pathlib import Path
@@ -11,7 +12,14 @@ from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
-from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN, CustomErgebnisString
+from app.shared.schemas.custom import (
+    PERSON_NAME_PATTERN,
+    PHONE_REGEX,
+    SINGLE_LINE_PATTERN,
+    CustomErgebnisString,
+    CustomObjectId,
+    CustomTimeString,
+)
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
@@ -309,11 +317,16 @@ def _alias_pattern(alias: Any, name: str) -> str:
 # the groups it reads the two numbers out of, and both copies are paired with this one below.
 ERGEBNIS_RULE: Final = _alias_pattern(CustomErgebnisString, "CustomErgebnisString")
 
+# Read off the alias rather than off `TIME_REGEX`, so a rule respelled at `CustomTimeString` keeps
+# this pair standing rather than leaving it comparing a constant nothing applies.
+TIME_RULE: Final = _alias_pattern(CustomTimeString, "CustomTimeString")
+
 # Every hand-mirrored pattern. `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves
 # patterns out of the contract comparison by design, so nothing else pairs these ends at all.
 MIRRORED_PATTERNS: Final = (
     Pattern("shared/schemas.ts", "PHONE_REGEX", "app/shared/schemas/custom.py :: PHONE_REGEX", PHONE_REGEX),
     Pattern("shared/schemas.ts", "HAUSNUMMER_REGEX", "app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN", HAUSNUMMER_PATTERN),
+    Pattern("shared/schemas.ts", "TIME_REGEX", "app/shared/schemas/custom.py :: CustomTimeString", TIME_RULE),
     # Two pairs spelling one class two ways: a JavaScript `\d` is `[0-9]`, where the Rust engine's takes
     # every Unicode decimal digit, so each agrees only because the backend spells the range.
     Pattern("shared/schemas.ts", "PLZ_REGEX", "app/shared/schemas/addresses.py :: FLAddress", _field_pattern(FLAddress, "plz")),
@@ -326,6 +339,35 @@ MIRRORED_PATTERNS: Final = (
     Pattern("features/spiele/schemas.ts", "ERGEBNIS_REGEX", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
     Pattern("features/spiele/utils.ts", "ERGEBNIS_PATTERN", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
 )
+
+
+class Unpairable(NamedTuple):
+    module: str
+    typescript: str
+    python: str
+    reason: str
+
+
+# The hand-mirrored patterns the comparison above cannot reach, each with what puts it out of reach.
+# A case below holds every entry to what CAN be compared, so an entry here narrows a check rather
+# than dropping one.
+UNPAIRABLE_PATTERNS: Final = (
+    Unpairable(
+        "shared/schemas.ts",
+        "PERSON_NAME_REGEX",
+        "app/shared/schemas/custom.py :: PERSON_NAME_PATTERN",
+        r"`\p{L}` is a Unicode property class `re` cannot compile, and `re` is the only engine `_javascript_accepted` has",
+    ),
+    Unpairable(
+        "shared/schemas.ts",
+        "OBJECT_ID_REGEX",
+        "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
+        "the backend end builds a `bson.ObjectId` rather than stating a pattern, and takes 24-character strings this class refuses",
+    ),
+)
+
+# Only running it says what an id is: `CustomObjectIdAnnotation` states no pattern.
+OBJECT_ID_ADAPTER: Final = TypeAdapter(CustomObjectId)
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than
 # translated: the two engines disagree about what they hold, and `\s` is what the last divergence
@@ -369,6 +411,123 @@ def _probe_alphabet(*patterns: str) -> list[str]:
         for start, end in ALPHANUMERIC_RANGE.findall(pattern):
             characters.update(chr(point) for point in range(ord(start), ord(end) + 1))
     return sorted(characters)
+
+
+# The composed corpus is exhaustive over a pattern's own language or it is not built at all: a
+# partial one would call two ends equal over values neither of them reaches. A larger language is
+# refused rather than sampled.
+COMPOSED_LANGUAGE_MAX: Final = 200_000
+
+# What ends the composable grammar outside a character class. Each is a quantifier, a wildcard or an
+# escape introducer, and a composition guessing at one would enumerate a language neither engine has.
+UNCOMPOSABLE_CONSTRUCTS: Final = frozenset(".*+?{}\\")
+
+
+def _class_members(body: str) -> set[str] | None:
+    """One character class as the characters it names, or `None` where this grammar cannot read it.
+
+    A backslash is refused rather than translated, for `MODELLED_ESCAPES`'s reason: the two engines
+    disagree about what a class escape holds.
+    """
+
+    if not body or body.startswith("^") or "\\" in body:
+        return None
+
+    members: set[str] = set()
+    at = 0
+    while at < len(body):
+        if at + 2 < len(body) and body[at + 1] == "-":
+            start, end = ord(body[at]), ord(body[at + 2])
+            if end < start:
+                return None
+            members.update(chr(point) for point in range(start, end + 1))
+            at += 3
+        else:
+            members.add(body[at])
+            at += 1
+
+    return members
+
+
+def _fragments(body: str) -> tuple[tuple[str, ...], ...] | None:
+    """A pattern body as the run of segments it concatenates, each the strings it contributes, or `None` outside this grammar."""
+
+    segments: list[tuple[str, ...]] = []
+    at = 0
+    while at < len(body):
+        character = body[at]
+        if character in UNCOMPOSABLE_CONSTRUCTS or character in "^$)]|":
+            return None
+        if character == "[":
+            closes = body.find("]", at)
+            members = None if closes == -1 else _class_members(body[at + 1 : closes])
+            if members is None:
+                return None
+            segments.append(tuple(sorted(members)))
+            at = closes + 1
+        elif character == "(":
+            closes = body.find(")", at)
+            if closes == -1 or "(" in body[at + 1 : closes]:
+                return None
+            branches: list[tuple[tuple[str, ...], ...]] = []
+            for branch in body[at + 1 : closes].split("|"):
+                parts = _fragments(branch)
+                if parts is None:
+                    return None
+                branches.append(parts)
+            segments.append(tuple(sorted({"".join(run) for parts in branches for run in product(*parts)})))
+            at = closes + 1
+        else:
+            segments.append((character,))
+            at += 1
+
+    return tuple(segments)
+
+
+def _segment_baselines(segments: tuple[tuple[str, ...], ...]) -> list[str]:
+    """One accepted value per fragment of every segment, the rest at their first: what a change does can depend on the branch it stands in."""
+
+    first = [segment[0] for segment in segments]
+    baselines = {"".join(first)}
+    for at, segment in enumerate(segments):
+        baselines.update("".join([*first[:at], fragment, *first[at + 1 :]]) for fragment in segment)
+
+    return sorted(baselines)
+
+
+def _one_character_changes(value: str, alphabet: list[str]) -> set[str]:
+    """Every substitution, insertion and deletion of one character: a class widened by one, a segment made optional, a tail admitted."""
+
+    changed = {value[:at] + value[at + 1 :] for at in range(len(value))}
+    changed.update(value[:at] + character + value[at + 1 :] for at in range(len(value)) for character in alphabet)
+    changed.update(value[:before] + character + value[before:] for before in range(len(value) + 1) for character in alphabet)
+
+    return changed
+
+
+def _composed_probes(*patterns: str) -> list[str]:
+    """Values composed FROM the patterns' own text, with every one-character change to them.
+
+    Every other probe here is short or one character repeated, so the time pair would be graded over
+    a corpus it accepts nothing in.
+    """
+
+    alphabet = _probe_alphabet(*patterns)
+    composed: set[str] = set()
+    for pattern in patterns:
+        segments = _fragments(pattern[1:-1]) if pattern.startswith("^") and pattern.endswith("$") else None
+        if segments is None:
+            continue
+
+        assert math.prod(len(segment) for segment in segments) <= COMPOSED_LANGUAGE_MAX, (
+            f"{pattern} composes past {COMPOSED_LANGUAGE_MAX} values, so no corpus below reaches its whole language"
+        )
+
+        composed.update("".join(run) for run in product(*segments))
+        for baseline in _segment_baselines(segments):
+            composed.update(_one_character_changes(baseline, alphabet))
+
+    return sorted(composed)
 
 
 def _pydantic_accepted(pattern: str, probes: list[str]) -> set[str]:
@@ -438,12 +597,78 @@ def test_each_declared_pattern_pair_accepts_the_same_values(pattern: Pattern):
     alphabet = _probe_alphabet(pattern.source, typescript)
     probes = ["".join(run) for length in range(4) for run in product(alphabet, repeat=length)]
     probes += [character * length for character in alphabet for length in PROBE_LENGTHS]
+    probes += _composed_probes(pattern.source, typescript)
 
     accepted = _pydantic_accepted(pattern.source, probes)
 
     assert accepted, f"{pattern.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), f"{pattern.python} accepts every probe, so agreeing with it proves nothing"
     assert accepted == _javascript_accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+
+
+def _unpairable(name: str) -> Unpairable:
+    """The record standing behind one frontend spelling: a case whose entry left fails here rather than holding a pattern nothing records."""
+
+    found = [record for record in UNPAIRABLE_PATTERNS if record.typescript == name]
+
+    assert len(found) == 1, f"{name} is recorded {len(found)} times as unpairable, so no one reason stands beside it"
+
+    return found[0]
+
+
+def test_the_name_rule_is_spelled_one_way_at_both_tiers_and_still_grades_letters():
+    r"""Compared as TEXT, which no other pair here is, so the flag check is what makes the comparison mean anything.
+
+    Without `u` a JavaScript `\p{L}` is the letter `p`, and the two identical spellings would accept different values.
+    """
+
+    record = _unpairable("PERSON_NAME_REGEX")
+    typescript, flags = _typescript_pattern(record.module, record.typescript)
+
+    assert flags == "u", rf"{record.typescript} carries the flags '{flags}', and `\p{{L}}` is a property class under 'u' alone"
+    assert typescript == PERSON_NAME_PATTERN, f"{record.typescript} spells {typescript}, where {record.python} spells {PERSON_NAME_PATTERN}"
+
+    # An umlaut for the alphabet an ASCII rule would refuse, a digit and a symbol for what a name
+    # field keeps out, and a leading space and the empty string for the class the rule opens with.
+    probes = ["Körner", "Ada", "O'Neill", "Jean-Luc", "Anna Lena", "R2", "Ada!", " Ada", ""]
+    accepted = _pydantic_accepted(PERSON_NAME_PATTERN, probes)
+
+    assert accepted == {"Körner", "Ada", "O'Neill", "Jean-Luc", "Anna Lena"}, f"{record.python} accepts {sorted(accepted)} of {probes}"
+
+
+def test_every_id_the_frontend_class_takes_is_one_this_package_builds_and_serves_back():
+    """The two directions a person meets.
+
+    An id the class refuses never reaches the API, and one served back that it refuses fails a whole
+    list's parse.
+    """
+
+    record = _unpairable("OBJECT_ID_REGEX")
+    typescript, flags = _typescript_pattern(record.module, record.typescript)
+
+    assert flags == "", f"{record.typescript} carries the flags '{flags}', which this comparison does not model"
+
+    # A served id and its upper-case spelling, then the three near misses: one character short, one
+    # long, and one outside the alphabet.
+    probes = [
+        "0123456789abcdef01234567",
+        "0123456789ABCDEF01234567",
+        "0123456789abcdef0123456",
+        "0123456789abcdef012345678",
+        "0123456789abcdef0123456g",
+    ]
+    taken = _javascript_accepted(typescript, probes)
+
+    assert taken, f"{record.typescript} accepts none of {probes}, so agreeing with it proves nothing"
+    assert len(taken) < len(probes), f"{record.typescript} accepts every one of {probes}, so agreeing with it proves nothing"
+
+    for value in sorted(taken):
+        try:
+            stored = OBJECT_ID_ADAPTER.validate_python(value)
+        except ValidationError:
+            pytest.fail(f"{record.typescript} takes {value}, which {record.python} refuses")
+
+        assert _javascript_accepted(typescript, [str(stored)]), f"{record.python} stores {value} as {stored}, which {record.typescript} refuses"
 
 
 def test_the_backend_grader_reads_a_digit_class_the_way_production_does():
