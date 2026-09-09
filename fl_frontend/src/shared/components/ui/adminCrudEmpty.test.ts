@@ -190,6 +190,15 @@ function widthConditional(token: string): boolean {
 
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
 
+const TABLE_BOX = new Set(["Table", "Table.ScrollContainer", "Table.Content"]);
+
+/** `w-full` and `max-w-full` are the box taking what it is given; `min-w-*` is the floor above. */
+function selfCapped(token: string): boolean {
+  const utility = utilityOf(token);
+
+  return /^(?:max-)?w-/.test(utility) && utility !== "w-full" && utility !== "max-w-full";
+}
+
 describe("the seven admin CRUD tables", () => {
   /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
      it could ever move: the drift worth catching is a ninth table added in some other slice. */
@@ -274,6 +283,28 @@ describe("the seven admin CRUD tables", () => {
     }
   });
 
+  /* The bar above the table takes `AdminCrudShell`'s whole capped column, and fixed layout hands the
+     surplus to the one undeclared column. A table capping itself stops growing under a toolbar that
+     does not. */
+  it("take the shell's column whole, so the surplus above the floor reaches the undeclared column", () => {
+    for (const { file } of TABLES) {
+      // The desktop wrapper too: a cap there stops the table as surely as one on the table itself.
+      const boxes = elementsOf(file).filter((element) => TABLE_BOX.has(element.tag) || element.classes.includes("md:block"));
+      const tags = new Set(boxes.map((box) => box.tag));
+
+      for (const tag of TABLE_BOX) assert.ok(tags.has(tag), `${file}: names no ${tag} for this sweep to read`);
+
+      for (const box of boxes) {
+        const capping = box.classes.filter(selfCapped);
+        assert.deepEqual(
+          capping,
+          [],
+          `${file}: its ${box.tag} carries ${capping.join(" ")} and stops short of the column the bar above it fills`,
+        );
+      }
+    }
+  });
+
   /* A control added to a row that already fills its column wraps the widest row onto a second line,
      and nothing else reports it: fixed layout will not widen the column to take the new control. */
   it("size the Aktionen column from the controls a row can hold", () => {
@@ -312,5 +343,17 @@ describe("the reader behind the hidden-column sweep", () => {
 
     for (const token of ["w-24", "min-w-156", "max-w-full", "text-right", "table-fixed", "border-b"])
       assert.ok(!widthConditional(token), `${token}: read as conditional`);
+  });
+});
+
+/* No admin table caps itself today, so the sweep over the tree cannot tell this reader from one that
+   matches nothing. A cap written behind a variant is caught here or nowhere. */
+describe("the reader behind the self-cap sweep", () => {
+  it("takes a width that stops a box short, and leaves the two that take the column whole", () => {
+    for (const token of ["max-w-page", "max-w-4xl", "max-w-[1400px]", "w-96", "lg:max-w-page", "@2xl:w-80"])
+      assert.ok(selfCapped(token), `${token}: read as taking the column whole`);
+
+    for (const token of ["w-full", "max-w-full", "min-w-156", "table-fixed", "hidden", "md:block", "h-fit", "p-0"])
+      assert.ok(!selfCapped(token), `${token}: read as a cap`);
   });
 });
