@@ -390,7 +390,7 @@ export async function deleteSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: deleteOperation,
-      message: "Spieler aus dem Kader ausgetragen. Nummer und Position bleiben erhalten.",
+      message: "Nummer und Position bleiben erhalten.",
     };
   });
 }
@@ -425,7 +425,7 @@ export async function reactivateSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: reactivateOperation,
-      message: "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.",
+      message: "Nummer, Position und Stufe sind wiederhergestellt.",
     };
   });
 }

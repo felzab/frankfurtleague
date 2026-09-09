@@ -20,8 +20,8 @@ const production = [...sources].filter(([file]) => !isTestFile(file));
 /**
  * One argument's source, ended by the comma or bracket that closes it.
  *
- * Quote-aware because a title is German prose: „Kadereintrag reaktiviert. Nummer, Position …" ends at
- * its own comma otherwise, and the truncated half then resolves to nothing.
+ * Quote-aware because a title is German prose: „Unklar, ob es bei uns angekommen ist“ ends at its
+ * own comma otherwise, and the truncated half then resolves to nothing.
  */
 function argumentText(text: string, from: number): string {
   let depth = 0;
@@ -351,9 +351,8 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Bewerbung nicht abgeschickt": { variant: "danger", identifies: "its description" },
   "Erfolgreich abgemeldet": { variant: "success", identifies: "one site" },
   "Erst speichern": { variant: "warning", identifies: "one site" },
-  Gespeichert: { variant: "success", identifies: "its description" },
   "Gruppen getauscht": { variant: "success", identifies: "its description" },
-  "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.": { variant: "success", identifies: "one site" },
+  "Kadereintrag reaktiviert": { variant: "success", identifies: "its description" },
   "Kein Spielplan vorhanden": { variant: "info", identifies: "one site" },
   "Kontaktdaten kopiert": { variant: "success", identifies: "the press" },
   "Kontakte gelöscht": { variant: "success", identifies: "one site" },
@@ -384,9 +383,10 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Speichern fehlgeschlagen": { variant: "danger", identifies: "its description" },
   "Spieler angelegt": { variant: "success", identifies: "one site" },
   "Spieler aufgenommen": { variant: "success", identifies: "one site" },
+  "Spieler ausgetragen": { variant: "success", identifies: "one site" },
   "Spieler gelöscht": { variant: "success", identifies: "one site" },
   "Spieler nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Spieler reaktiviert": { variant: "success", identifies: "one site" },
+  "Spieler reaktiviert": { variant: "success", identifies: "the press" },
   "Spieler stillgelegt": { variant: "success", identifies: "one site" },
   "Spielort angelegt": { variant: "success", identifies: "one site" },
   "Spielort reaktiviert": { variant: "success", identifies: "the press" },

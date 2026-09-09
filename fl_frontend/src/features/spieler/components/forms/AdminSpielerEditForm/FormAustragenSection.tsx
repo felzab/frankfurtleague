@@ -49,12 +49,12 @@ export function FormAustragenSection({
   // reporting about a club the season does not hold.
   const blockedReason = clubReason ?? squadFullReason;
 
-  const run = (write: () => Promise<ActionResult>, failureHeading: string, savedDetail: string) => {
+  const run = (write: () => Promise<ActionResult>, savedHeading: string, failureHeading: string) => {
     startWriting(async () => {
       const res = await write();
-      // The press's own detail rather than the action's sentence: this panel saves two opposite
-      // things and the shared title names neither (`docs/frontend/spec.md :: I42`).
-      if (res.success) appToast.success("Gespeichert", { description: savedDetail });
+      // A detail written here would be this panel's guess at what the write cost: the action sends
+      // that sentence, and `docs/frontend/spec.md` §1.12 leaves a server's message alone.
+      if (res.success) appToast.success(savedHeading, { description: res.message });
       else appToast.danger(failureHeading, { description: res.error });
     });
   };
@@ -96,8 +96,8 @@ export function FormAustragenSection({
                 onPress={() =>
                   run(
                     () => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
+                    "Kadereintrag reaktiviert",
                     "Reaktivieren fehlgeschlagen",
-                    "Nummer, Position und Stufe sind wiederhergestellt.",
                   )
                 }
                 className={formButton({ intent: "submit" })}>
@@ -122,8 +122,8 @@ export function FormAustragenSection({
               onPress={() =>
                 run(
                   () => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
+                  "Spieler ausgetragen",
                   "Austragen fehlgeschlagen",
-                  "Der Spieler steht nicht mehr im Kader dieser Saison.",
                 )
               }
               className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">

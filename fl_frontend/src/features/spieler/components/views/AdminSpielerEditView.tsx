@@ -10,7 +10,6 @@ import { appToast } from "@/shared/utils/appToast";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
-import type { ActionResult } from "@/shared/types/types";
 
 /**
  * Every exit routes through the form's discard guard.
@@ -33,18 +32,16 @@ export function AdminSpielerEditView({
   /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
   membershipCount: number;
 }) {
-  const [isWritingStatus, startWritingStatus] = useTransition();
+  const [isReactivating, startReactivating] = useTransition();
 
   const isRetired = spieler.inactive_since !== null;
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
 
-  const runStatusWrite = (write: () => Promise<ActionResult>, failureHeading: string, savedDetail: string) => {
-    startWritingStatus(async () => {
-      const res = await write();
-      // The detail rides along because the page header holds several writes: the shared title says a
-      // write landed without saying which of them the press was (`docs/frontend/spec.md :: I42`).
-      if (res.success) appToast.success("Gespeichert", { description: savedDetail });
-      else appToast.danger(failureHeading, { description: res.error });
+  const handleReactivate = () => {
+    startReactivating(async () => {
+      const res = await reactivateSpielerAction({ id: spieler.id });
+      if (res.success) appToast.success("Spieler reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 
@@ -66,17 +63,7 @@ export function AdminSpielerEditView({
               {saison.membership.nummer}
             </span>
           ) : undefined,
-          reactivate: isRetired
-            ? {
-                isPending: isWritingStatus,
-                onPress: () =>
-                  runStatusWrite(
-                    () => reactivateSpielerAction({ id: spieler.id }),
-                    "Reaktivieren fehlgeschlagen",
-                    "Der Spieler steht wieder zur Auswahl.",
-                  ),
-              }
-            : undefined,
+          reactivate: isRetired ? { isPending: isReactivating, onPress: handleReactivate } : undefined,
         }}
       />
     </div>
