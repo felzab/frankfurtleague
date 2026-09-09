@@ -145,6 +145,7 @@ export async function postSpielerAction(
       });
     } catch (error) {
       invalidateSpieler();
+      refresh();
       // A 409 here cannot be the player's own duplicate row, but it CAN be a squad refusal naming
       // something the admin can act on, so the reason is appended.
       const refusal = mapSquadRefusal(error);
