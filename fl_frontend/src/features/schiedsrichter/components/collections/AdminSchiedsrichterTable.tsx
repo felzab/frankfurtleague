@@ -76,6 +76,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
   // rather than for somebody's name.
+  /* A nameless row on this list is what a hand-write leaves: the store types `name` and
+     `anonymisiert_am` nullable independently (`fl_backend/app/core/constraints.py`), and no endpoint
+     writes the one without the other, the list serving no stamped row at all. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
       <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{schiedsrichterAnzeigename(schiedsrichter.name)}</span>
@@ -127,8 +130,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     // Read off that value rather than off the name again, so the link and the option it selects
     // cannot part company.
     const zusammengefasst = facetValue !== schiedsrichter.id;
-    // The label names the merged set, because a fee is reconciled against what the link opened.
-    const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter mit gelöschten Daten anzeigen" : "Einsätze anzeigen";
+    // The label names the merged set, because a fee is reconciled against what the link opened. Its
+    // own state and not the erasure's: this list serves no stamped row, so a missing name is all the
+    // link can stand on.
+    const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter ohne Namen anzeigen" : "Einsätze anzeigen";
     const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
 
     const isRetired = schiedsrichter.inactive_since !== null;

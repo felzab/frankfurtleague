@@ -604,8 +604,7 @@ which a seat holding an address requires; neither hook puts a component out of r
 
 **A replacement reason names what the assertion is about, never what the runner cannot do** — a
 ratified decision (`.claude/rules/cross-surface.md`), not this sheet's to widen. Calling a server
-action
-for the sentence it returns is the standing exception — it raises Next's request-scope error, and a
+action for the sentence it returns is the standing exception — it raises Next's request-scope error, and a
 refusal mapper is module-private besides
 (`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
 

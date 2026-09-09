@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/* Read as source: each route's fetch sits in an async Server Component behind a `Suspense`
-   boundary, and the harness renders synchronously — it commits the fallback, never enters that
-   component, and issues no read for a case to observe. */
+/* The subject is a wiring between two modules: which query each route file calls. The list and
+   the by-id read answer differently for an erased referee, so a route on the wrong one answers
+   not-found for that person's fixture links. */
 const ROUTE_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "admin", "schiedsrichter");
 const DETAIL_PAGE = readFileSync(path.join(ROUTE_DIR, "[schiedsrichter_id]", "page.tsx"), "utf8");
 const LIST_PAGE = readFileSync(path.join(ROUTE_DIR, "page.tsx"), "utf8");

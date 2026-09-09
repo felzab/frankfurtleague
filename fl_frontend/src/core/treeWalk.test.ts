@@ -8,7 +8,7 @@ import { filesUnder, isTestFile } from "./treeWalk.ts";
 
 describe("the one decision every sweep delegates", () => {
   /* The tree holds no `.test.tsx`, so a wrong spelling here reddens nothing and silently hands
-     every caller its own fixtures as product text (`.claude/rules/frontend.md`). These are the
+     every caller its own fixtures as product text (`.claude/rules/cross-surface.md`). These are the
      spellings that pass a loose pattern: each names the mistake it catches. */
   it("takes both suffixes and nothing that merely resembles them", () => {
     for (const taken of ["a.test.ts", "a.test.tsx", "deep.name.test.tsx"]) assert.ok(isTestFile(taken), taken);
@@ -51,7 +51,7 @@ describe("the predicate shape a sweep excluding its fixtures takes", () => {
     );
   });
 
-  /* A walk taking both suffixes may not answer for one of them alone (`.claude/rules/frontend.md`):
+  /* A walk taking both suffixes may not answer for one of them alone (`.claude/rules/cross-surface.md`):
      an exclusion spelled `.test.tsx` leaves every `.test.ts` in, and one spelled `.test.ts` leaves
      this plant in. */
   it("keeps both fixture spellings out of a walk that takes both suffixes", () => {
