@@ -12,11 +12,14 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielPriorOtherFields,
     FLSpielPriorPaarung,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
+    FLSpielRestorableField,
     FLSpielTeamField,
     FLSpielTeamFieldPayload,
+    other_fields_of,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -31,6 +34,7 @@ from app.api.spiele.services import (
     find_double_entries,
     find_gruppen_not_run,
     resolve_bracket,
+    stored_in_slice,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
@@ -389,20 +393,46 @@ def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | No
     return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
 
 
+def _prior_paarung(stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None) -> FLSpielPriorPaarung:
+    return FLSpielPriorPaarung(
+        spiel_id=stored.id,
+        team1=_payload_side(stored.team1),
+        team2=_payload_side(stored.team2),
+        elfmeterschiessen=stored.elfmeterschiessen,
+        sonderereignis=stored.sonderereignis,
+        other_fields=other_fields,
+    )
+
+
+def _fields_this_write_replaced(stored: FLSpiel, patched: FLSpiel) -> FLSpielPriorOtherFields | None:
+    """The stored value of every field outside the Paarung this write overwrote, `None` where it overwrote none.
+
+    Only the fixture the request named can have any: a bracket resolution reaches the Paarung alone.
+    """
+
+    before = other_fields_of(stored)
+    after = other_fields_of(patched)
+    # Annotated, or pyright widens the mapping's `Literal` key to `str` and the model refuses the list.
+    replaced: list[FLSpielRestorableField] = [field for field, value in before.items() if value != after[field]]
+
+    return None if not replaced else FLSpielPriorOtherFields(replaced=replaced, **before)
+
+
 def report_prior_paarungen(
     edited: CustomObjectId,
     season: Sequence[FLSpiel],
+    patched: FLSpiel,
     advanced_to: Sequence[FLSpielAdvancement],
     released_sides: Sequence[FLSpielReleasedSide],
 ) -> list[FLSpielPriorPaarung]:
-    """Every OTHER fixture this write moved, off the slice it was judged on.
+    """Every fixture this write changed, off the slice it was judged on.
 
     Not either report's own view: the releases land before the resolution reads, so a fixture both
     name would report an occupant one write out of date.
     """
 
-    # `edited` is out because the resolution can advance the fixture the request named, and the
-    # caller holds that one's before-state already -- restoring it twice writes it twice.
+    # `edited` is dropped from the set and prepended below instead: the resolution can advance the
+    # fixture the request named, and two entries for it would write that fixture twice on one undo.
     moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
     stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
 
@@ -411,15 +441,13 @@ def report_prior_paarungen(
     if len(stored) != len(moved):
         raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")
 
+    named = stored_in_slice(edited, season)
+
+    # LEADING, because a restore replays this list in order: putting the named fixture back frees the
+    # occupants the resolution then hands to the moved ones, where the reverse order overwrites them.
     return [
-        FLSpielPriorPaarung(
-            spiel_id=spiel.id,
-            team1=_payload_side(spiel.team1),
-            team2=_payload_side(spiel.team2),
-            elfmeterschiessen=spiel.elfmeterschiessen,
-            sonderereignis=spiel.sonderereignis,
-        )
-        for spiel in stored
+        _prior_paarung(named, _fields_this_write_replaced(named, patched)),
+        *(_prior_paarung(spiel, None) for spiel in stored),
     ]
 
 

@@ -987,7 +987,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
-def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[str, dict[str, Any]]:
+def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonbezug, dict[str, Any]]:
     """Each relation's own term, for the count its option is told.
 
     A request naming no season is answered against `None`, which no application carries, so every row

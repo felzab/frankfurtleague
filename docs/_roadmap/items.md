@@ -91,7 +91,6 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
-| `buut-5cyw` | An undo rewrites the edited fixture whole, from the payload the page loaded                                                   | FE, BE, Docs, tests, admin, spiele                                          | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
@@ -607,60 +606,6 @@ block's declared token count, which `scripts/checks/docs_gate/scheme.py` already
 gate — so that the two blocks are compared with each other rather than with a literal.
 
 **Done when** neither test can pass on a parse that lost tokens, and neither states a number.
-
-### `buut-5cyw` · An undo rewrites the edited fixture whole, from the payload the page loaded
-
-| Tags                               | Status | Depends on |
-| ---------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, admin, spiele | Open   | —          |
-
-**A save on `/admin/spiele/[spiel_id]` can rewrite fixtures nobody opened, and the undo offered for it sends
-two shapes rather than one.** `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data` resolves the
-bracket inside its transaction, so one save clears results on advanced fixtures and releases sides on others.
-Each of those goes back through `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_paarung`, which
-takes the two sides, the `elfmeterschiessen` and the `sonderereignis` and nothing else
-(`fl_backend/app/api/spiele/schemas.py :: FLSpielPriorPaarung`), so a date or a note somebody moved in between
-survives the undo. The fixture the admin opened goes back whole:
-`fl_frontend/src/features/spiele/utils.ts :: toPatchPayload` lists every field the wholesale endpoint takes
-because the update is a `$set` — `fl_backend/app/api/spiele/schemas.py :: FLPatchSpielDataPayload` says so at
-each field, and an omitted one is overwritten with nothing.
-
-**The moved fixtures' values come from the write itself; the edited one's come from a read before it.**
-`fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` composes each moved fixture's before-state off
-the season slice the resolution was judged on, inside the same transaction, so nothing can land between the
-judgement and the report. The edited fixture is out of that report, being the one the request named, and its
-payload is built from the props the page render was served
-(`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`). That
-read is uncached, so the window is one page visit rather than a cache lifetime — and inside it, anything
-another writer changes on that fixture is reverted by the undo, silently, with nothing in the payload marking
-a field the resolution never touched.
-
-**Two answers, and they are different sizes.**
-
-- **Report the edited fixture's before-state too, and restore only the fields it names.** The wholesale write
-  path then has to accept a payload naming fewer fields than `FLPatchSpielDataPayload` declares, which is the
-  whole reason every field there is required — so the endpoint's contract, `fl_backend/openapi.json`, the Zod
-  mirror checked against it and the payload builder all move in one change.
-- **Restore over the action log instead.** `fl_backend/app/core/recording.py` keeps the document each write
-  replaced, so a restore reading it is correct by construction and needs no prior value on the response at
-  all. That is `32bs-nhzd`'s subject, and taking this route makes this entry a consumer of that work rather
-  than a repair of its own.
-
-**What may not move either way.** `.claude/rules/frontend.md` fixes two edges a repair may not cross — the
-undo offer is scoped to the destructive save, and a route-handled undo may not sit outside a page-owned editor
-— so what moves is the payloads rather than where the undo lives.
-
-**What is read and what is not** (COR-9). The two payload shapes, and the order the replay writes them in, are
-read off `fl_frontend/src/app/api/admin/spiele/undo/route.ts`.
-`fl_backend/tests/api/test_spiel_paarung_execution.py :: TestAnUndoReplayPutsTheFixtureBackAsItStood` drives that
-order against a replica set — the edited fixture wholesale, then the released one through the narrow route — and
-reads the occupants, the scoreline and a note written in between back out of `spiele`. **What no case reaches is
-the window this entry is about**: the edited fixture's own payload is the page's read rather than the write's
-report, so a value another writer moves inside it is still reverted with nothing marking it.
-
-**Not measured:** whether the edited fixture has ever changed under a mounted editor. One person writes today,
-so the window is a single administrator's page visit; a second writer arrives in the season plan this year
-(confirmed 2026-08-12), which is what turns that window into a shape two people can meet inside.
 
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 

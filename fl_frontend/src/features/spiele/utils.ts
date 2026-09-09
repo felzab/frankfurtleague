@@ -248,9 +248,9 @@ export const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPa
   side === null ? null : { team_id: side.team_id, tore: side.tore };
 
 /**
- * The EDITED fixture as the payload restoring it — every other fixture a save moved comes back in
- * `prior_paarungen`. Every field is listed rather than spread: the write path `$set`s wholesale, so
- * one omitted is overwritten with nothing.
+ * One stored fixture in the shape the save's payload names it — what `spielStateKey` compares two
+ * readings of. Every field is listed rather than spread: one missing here is one the editor keeps
+ * showing from its seed.
  */
 export const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one

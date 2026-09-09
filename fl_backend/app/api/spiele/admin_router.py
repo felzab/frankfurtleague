@@ -366,7 +366,7 @@ async def _write_spiel_data(
             advanced_to=advanced_to,
             released_sides=released_sides,
             bracket_faults=bracket_faults,
-            prior_paarungen=report_prior_paarungen(spiel_id, season, advanced_to, released_sides),
+            prior_paarungen=report_prior_paarungen(spiel_id, season, patched, advanced_to, released_sides),
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
@@ -404,7 +404,7 @@ async def _write_spiel_data(
             bracket_faults=bracket_faults,
             # `season` and not a read of its own: it is the slice this transaction judged on, so a
             # fixture the two writes above both reached is reported as it stood before either.
-            prior_paarungen=report_prior_paarungen(spiel_id, season, advanced_to, released_sides),
+            prior_paarungen=report_prior_paarungen(spiel_id, season, patched, advanced_to, released_sides),
         )
 
     async with db.start_session() as session:
@@ -430,7 +430,8 @@ async def patch_spiel_data(
 
     The payload is written wholesale: an omitted field is overwritten, and every name it carries is
     composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
-    and every fixture either list names arrives in `prior_paarungen` as it stood before this call.
+    and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
+    leading the list, and carrying the fields beyond its Paarung that this payload replaced.
     """
 
     return await _write_spiel_data(
@@ -466,10 +467,11 @@ async def patch_spiel_paarung(
     """
     Put one Spiel's occupants and what they produced back, and resolve the season's bracket.
 
-    The body carries the four fields a bracket resolution can rewrite, and nothing else about the
-    match moves: its date, its venue, its referee, its note and both `quelle`s are read from the
-    stored document rather than from the request, so a value somebody moved since this fixture was
-    rewritten survives. Every refusal, and the resolution itself, are `PATCH /spiele/{spiel_id}`'s.
+    The body carries the four fields a bracket resolution can rewrite, and beyond them only the ones
+    `other_fields.replaced` names: the date, the venue, the referee, the note and both `quelle`s are
+    otherwise read from the stored document rather than from the request, so a value somebody moved
+    since this fixture was written survives. Every refusal, and the resolution itself, are
+    `PATCH /spiele/{spiel_id}`'s.
 
     No `dry_run`: what this body would move is what the save it undoes already reported.
     """

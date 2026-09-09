@@ -283,7 +283,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture either list names arrives in `prior_paarungen` as it stood before this call.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -2576,7 +2576,7 @@
     "/api/v0/spiele/{spiel_id}/paarung": {
       "patch": {
         "summary": "Restore a Spiel's Paarung",
-        "description": "Put one Spiel's occupants and what they produced back, and resolve the season's bracket.\n\nThe body carries the four fields a bracket resolution can rewrite, and nothing else about the\nmatch moves: its date, its venue, its referee, its note and both `quelle`s are read from the\nstored document rather than from the request, so a value somebody moved since this fixture was\nrewritten survives. Every refusal, and the resolution itself, are `PATCH /spiele/{spiel_id}`'s.\n\nNo `dry_run`: what this body would move is what the save it undoes already reported.",
+        "description": "Put one Spiel's occupants and what they produced back, and resolve the season's bracket.\n\nThe body carries the four fields a bracket resolution can rewrite, and beyond them only the ones\n`other_fields.replaced` names: the date, the venue, the referee, the note and both `quelle`s are\notherwise read from the stored document rather than from the request, so a value somebody moved\nsince this fixture was written survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\nNo `dry_run`: what this body would move is what the save it undoes already reported.",
         "operationId": "patch_spiel_paarung_api_v0_spiele__spiel_id__paarung_patch",
         "security": [
           {
@@ -9294,6 +9294,16 @@
               }
             ],
             "title": "Sonderereignis"
+          },
+          "other_fields": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorOtherFields"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -9302,10 +9312,11 @@
           "team1",
           "team2",
           "elfmeterschiessen",
-          "sonderereignis"
+          "sonderereignis",
+          "other_fields"
         ],
         "title": "FLPatchSpielPaarungPayload",
-        "description": "Restore one fixture's occupants and what they produced, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it."
+        "description": "Restore one fixture's Paarung and the fields this body names beyond it, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -11625,6 +11636,166 @@
         "title": "FLSpielOrtFieldPublic",
         "description": "The venue as a BASE-TIER read serves it: which ground, and where to find it.\n\nNo `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`)."
       },
+      "FLSpielPriorOrt": {
+        "properties": {
+          "spielort_id": {
+            "type": "string",
+            "title": "Spielort Id"
+          },
+          "mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mietpreis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielort_id",
+          "mietpreis"
+        ],
+        "title": "FLSpielPriorOrt",
+        "description": "The venue a restore names: which ground, and what that fixture agreed to pay for it.\n\nLax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one\n(`docs/backend/spec.md :: I114`), which is also why the two cannot be one class."
+      },
+      "FLSpielPriorOtherFields": {
+        "properties": {
+          "replaced": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "team1_quelle",
+                "team2_quelle",
+                "datum",
+                "uhrzeit",
+                "ort",
+                "schiedsrichter",
+                "notiz"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Replaced"
+          },
+          "team1_quelle": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Quelle"
+          },
+          "team2_quelle": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Quelle"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "ort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorOrt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schiedsrichter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorSchiedsrichter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notiz": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notiz"
+          }
+        },
+        "type": "object",
+        "required": [
+          "replaced",
+          "team1_quelle",
+          "team2_quelle",
+          "datum",
+          "uhrzeit",
+          "ort",
+          "schiedsrichter",
+          "notiz"
+        ],
+        "title": "FLSpielPriorOtherFields",
+        "description": "One fixture's fields as they stood outside its Paarung, and which of them a write REPLACED.\n\n`replaced` rather than omitted keys: a response cannot omit one, and each field's `null` is a\nvalue a restore may write."
+      },
       "FLSpielPriorPaarung": {
         "properties": {
           "team1": {
@@ -11675,6 +11846,16 @@
             ],
             "title": "Sonderereignis"
           },
+          "other_fields": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorOtherFields"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -11686,10 +11867,31 @@
           "team2",
           "elfmeterschiessen",
           "sonderereignis",
+          "other_fields",
           "spiel_id"
         ],
         "title": "FLSpielPriorPaarung",
-        "description": "One fixture this write moved, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.\n\nOne entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once."
+        "description": "One fixture this write changed, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.\n\nOne entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once."
+      },
+      "FLSpielPriorSchiedsrichter": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          },
+          "payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Payment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "payment"
+        ],
+        "title": "FLSpielPriorSchiedsrichter",
+        "description": "The referee a restore names, and the fee that fixture agreed; lax and re-declared for `FLSpielPriorOrt`'s reasons."
       },
       "FLSpielQuelleGruppe": {
         "properties": {
@@ -12005,7 +12207,7 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, alone among the\npayload models (`docs/backend/spec.md :: I49`)."
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {

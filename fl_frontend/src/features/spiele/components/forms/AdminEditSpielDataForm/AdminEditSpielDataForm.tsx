@@ -26,14 +26,7 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
-import {
-  collectKnockoutTeamIds,
-  collectSpieltagTeamOccupancy,
-  isFirstKnockoutRound,
-  listDependentSpiele,
-  toPatchPayload,
-  toStoredSide,
-} from "../../../utils";
+import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
@@ -406,9 +399,10 @@ export function AdminEditSpielDataForm({
 
       offerUndo({
         endpoint: "/api/admin/spiele/undo",
-        // The edited fixture from THIS render's props, which is the only fixture the page holds a
-        // before-state for; every other one comes from the save's own answer.
-        body: { edited: toPatchPayload(spielData), moved: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
+        // Every fixture from the SAVE's own answer, in the order it reported them: the props this
+        // render was served are older than the save, so an undo built from them would revert a field
+        // another writer moved.
+        body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
         message: res.message,
         fallback: "Die Spieldaten wurden aktualisiert.",
         warn: affected.length > 0,
@@ -422,7 +416,6 @@ export function AdminEditSpielDataForm({
           }),
       });
 
-      // AFTER the undo payloads are built, which read `spielData` rather than these atoms.
       resetDraftToStored();
       leavePage();
     });

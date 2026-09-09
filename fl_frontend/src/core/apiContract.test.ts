@@ -96,7 +96,9 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
-  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all five variants are paired",
+  FLSpielRestorableField: "a Pydantic Literal alias, inlined as an enum on the restore report's `replaced` and on no component of its own",
+
+  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all six variants are paired",
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
@@ -338,7 +340,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 175;
+const EXPECTED_PAIRS = 178;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -3,19 +3,18 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { APIBadStatusError } from "@/core/errors";
-import { patchAdminSpielData, patchAdminSpielPaarung } from "@/features/spiele/mutations";
-import { FLPatchSpielDataPayloadSchema, FLPatchSpielPaarungPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
+import { patchAdminSpielPaarung } from "@/features/spiele/mutations";
+import { FLPatchSpielPaarungPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
 import { handleUndoRequest } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
 /**
- * Two shapes rather than one list, and the edited fixture is the one written wholesale: only it was
- * opened, so only it may have changed in a field the bracket resolution never touches.
+ * One shape for every fixture, and the save's own report is what comes back: a payload built from the
+ * page's props would revert a field another writer moved while the editor stood open.
  */
 const UndoRequestSchema = z.object({
-  edited: FLPatchSpielDataPayloadSchema,
-  moved: z.array(FLPatchSpielPaarungPayloadSchema),
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema),
   saison_id: FLSpielSchema.shape.saison_id,
 });
 
@@ -51,17 +50,17 @@ export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSpielEdit",
     schema: UndoRequestSchema,
-    // **Order is the whole correctness argument.** The edited fixture goes first, so the resolution
-    // has put each moved occupant back before the results below are written over them.
-    restore: async ({ edited, moved }) => {
-      const total = moved.length + 1;
-      const writes = [() => patchAdminSpielData(edited), ...moved.map((paarung) => () => patchAdminSpielPaarung(paarung))];
+    // **Order is the whole correctness argument**, and it is the SERVER's: the fixture the save named
+    // leads its report, so its restore's resolution refills the moved slots first
+    // (`docs/backend/spec.md` I215). Never re-sorted here.
+    restore: async ({ paarungen }) => {
+      const total = paarungen.length;
 
       let restored = 0;
-      for (const write of writes) {
+      for (const paarung of paarungen) {
         let operation;
         try {
-          operation = await write();
+          operation = await patchAdminSpielPaarung(paarung);
         } catch (error) {
           const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
           // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.

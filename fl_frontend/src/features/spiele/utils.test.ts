@@ -527,8 +527,8 @@ describe("toPatchPayload", () => {
     }) as FLSpielAdmin;
 
   it("carries every field the write path would otherwise overwrite with nothing", () => {
-    // The payload is `$set` wholesale, so an omitted field is erased by the very request meant to
-    // restore it. Asserted as a key set, because that is exactly the failure: a value nobody notices.
+    // The key this feeds is what remounts the editor, so a field missing here is one the tree keeps
+    // showing from its seed. Asserted as a key set, because that is exactly the failure: a value nobody notices.
     assert.deepEqual(Object.keys(toPatchPayload(fixture(29, "2:0"))).sort(), [
       "datum",
       "elfmeterschiessen",
@@ -602,8 +602,8 @@ describe("toPatchPayload", () => {
   });
 
   it("keeps the rent and the Honorar on the payload, where the composed names do not travel", () => {
-    // Each is what THIS fixture pays rather than a copy of a default, so an omitted one is a rent
-    // silently rewritten to nothing by the very `$set` that was meant to leave it alone.
+    // Each is what THIS fixture pays rather than a copy of a default, so a rent changed elsewhere has
+    // to remount the editor — and the save's own `$set` would rewrite an omitted one to nothing.
     const booked = {
       ...fixture(29, null),
       ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "https://maps.example/nord", mietpreis: 120 },

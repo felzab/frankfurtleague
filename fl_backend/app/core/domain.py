@@ -1256,7 +1256,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a fixture's date must fall inside the span of the matchday it belongs to",
         implemented_by="app.api.spiele.services.find_fixture_date_refusal",
@@ -1264,7 +1264,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BOOKING-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a venue or a referee NEWLY assigned to a fixture must name a row that exists and has not retired",
         implemented_by="app.api.spiele.services.find_booking_refusal",
@@ -1272,7 +1272,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-CLASH-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a venue OR a referee needs four hours between two fixtures it serves; either alone refuses the write",
         implemented_by="app.api.spiele.services.find_clash_refusal",
@@ -1280,7 +1280,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary=(
             "the wiring must be one the season can hold: no `quelle` on a group fixture, no dangling or "
@@ -1292,7 +1292,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-002",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary=(
             "a group placing seeds only the round this season's bracket opens on; every later slot is fed by a match, "
@@ -1303,7 +1303,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-WIRING-003",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary=(
             "a group placing may name only a group the season runs, judged against the season's own "
@@ -1314,7 +1314,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-002",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a fixture whose event awards nothing may not carry goals",
         implemented_by="app.api.spiele.services.find_state_refusal",
@@ -1322,7 +1322,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-003",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a no-show may not be recorded on a fixture with an unresolved side",
         implemented_by="app.api.spiele.services.find_state_refusal",
@@ -1330,7 +1330,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ELIGIBILITY-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary=(
             "a team that left the season may not be fielded on or after its exit -- judged whenever the side, the date "
@@ -1342,7 +1342,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ELIGIBILITY-002",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a newly fielded team must hold a junction row for the fixture's season",
         implemented_by="app.api.spiele.services.find_eligibility_refusal",
@@ -1350,7 +1350,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RESULT-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a side carrying goals on a played fixture may be switched but not emptied",
         implemented_by="app.api.spiele.services.find_result_removal_refusal",
@@ -1358,7 +1358,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELTAG-001",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="a team plays once per Spieltag; a clash moves a manual side and is refused against a maintained one",
         implemented_by="app.api.spiele.services.judge_spieltag_occupancy",
@@ -1366,7 +1366,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SPIELTAG-002",
-        operation="PATCH /spiele/{spiel_id}",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/{spiel_id}/paarung",
         aggregate="Saison-Spielplan",
         summary="the bracket resolution may not create a Spieltag on which one club stands twice; a standing one is left to be repaired",
         implemented_by="app.api.spiele.services.find_advancement_occupancy_refusal",

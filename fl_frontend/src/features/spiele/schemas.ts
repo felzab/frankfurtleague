@@ -466,8 +466,45 @@ export const FLSpielReleasedSideSchema = z.object({
 });
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
+/** Every wholesale-payload field outside the Paarung, which is the whole of what a save can move and a resolution cannot. */
+export const FLSpielRestorableFieldSchema = z.enum(["team1_quelle", "team2_quelle", "datum", "uhrzeit", "ort", "schiedsrichter", "notiz"], {
+  // German because the closed-set guards ask it of every set a payload binds, and no control binds
+  // this one: the undo's route answers its own sentence for an unreadable body, so nobody reads this.
+  error: "Eine Rücknahme kann nur Felder zurücksetzen, die ein Spiel hat.",
+});
+export type FLSpielRestorableField = z.infer<typeof FLSpielRestorableFieldSchema>;
+
 /**
- * One fixture a save moved, as it stood before that save — everything an undo of it has to put back,
+ * **The venue and the referee a restore names, identical on the wire to the payload blocks above** —
+ * the backend splits them because a class a read parses may not refuse an undeclared key. One schema,
+ * so no key drifts.
+ */
+export const FLSpielPriorOrtSchema = FLSpielOrtFieldPayloadSchema;
+export type FLSpielPriorOrt = z.infer<typeof FLSpielPriorOrtSchema>;
+
+export const FLSpielPriorSchiedsrichterSchema = FLSpielSchiedsrichterFieldPayloadSchema;
+export type FLSpielPriorSchiedsrichter = z.infer<typeof FLSpielPriorSchiedsrichterSchema>;
+
+/**
+ * One fixture's fields outside the Paarung as they stood before a save, and which of them that save
+ * REPLACED. `replaced` alone is what the restore writes, so a field moved after the save is not
+ * reverted by undoing it.
+ */
+export const FLSpielPriorOtherFieldsSchema = z.object({
+  replaced: z.array(FLSpielRestorableFieldSchema).min(1),
+
+  team1_quelle: FLPatchSpielDataPayloadSchema.shape.team1_quelle,
+  team2_quelle: FLPatchSpielDataPayloadSchema.shape.team2_quelle,
+  datum: FLPatchSpielDataPayloadSchema.shape.datum,
+  uhrzeit: FLPatchSpielDataPayloadSchema.shape.uhrzeit,
+  ort: FLSpielPriorOrtSchema.nullable(),
+  schiedsrichter: FLSpielPriorSchiedsrichterSchema.nullable(),
+  notiz: FLPatchSpielDataPayloadSchema.shape.notiz,
+});
+export type FLSpielPriorOtherFields = z.infer<typeof FLSpielPriorOtherFieldsSchema>;
+
+/**
+ * One fixture a save changed, as it stood before that save — everything an undo of it has to put back,
  * and nothing else, so a date or a note somebody moved in between survives the undo.
  */
 export const FLSpielPriorPaarungSchema = z.object({
@@ -476,6 +513,8 @@ export const FLSpielPriorPaarungSchema = z.object({
   team2: FLSpielTeamFieldPayloadSchema.nullable(),
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   sonderereignis: FLSonderereignisSchema.nullable(),
+  // Null on every fixture but the one the save named: a bracket resolution reaches the Paarung alone.
+  other_fields: FLSpielPriorOtherFieldsSchema.nullable(),
 });
 export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 
