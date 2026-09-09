@@ -91,8 +91,8 @@ const abbrechen = (html: string): string => [...html.matchAll(/<button\b[^>]*>/g
  * A roster counted against its own length reports no omission, and neither does one compared against
  * a filter of itself: the two below are found independently and must agree.
  */
-const panelsUnder = (dir: string, holds: (source: string) => boolean): string[] =>
-  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).filter((full) => holds(readFileSync(full, "utf8")));
+const panelsUnder = (dir: string, holds: (source: string, file: string) => boolean): string[] =>
+  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).filter((full) => holds(readFileSync(full, "utf8"), full));
 
 const FEATURES = path.resolve(import.meta.dirname, "..", "..", "..", "features");
 const named = (files: string[]): string[] =>
@@ -105,10 +105,107 @@ const named = (files: string[]): string[] =>
 
 const PANELS = named(panelsUnder(FEATURES, (source) => source.includes("useTwoPressConfirm(")));
 
-// The armed STATE rather than the import supplying it, so a panel arming its own never leaves the
-// roster silently. `ConfirmSaveModal` drops the parent editors, which confirm a save and escalate
-// nothing.
-const PANELS_BY_STATE = named(panelsUnder(FEATURES, (source) => source.includes("isConfirming") && !source.includes("ConfirmSaveModal")));
+/** Every `<Button>` or `<button>` in one source, as its opening tag and the children it wraps. */
+function controls(source: string, file: string): { tag: string; kinder: string; von: number; bis: number }[] {
+  const gefunden: { tag: string; kinder: string; von: number; bis: number }[] = [];
+
+  for (let at = 0; ;) {
+    const treffer = /<([Bb]utton)\b/.exec(source.slice(at));
+    if (treffer === null) return gefunden;
+
+    const oeffnet = at + treffer.index;
+    const tag = openingTag(source, oeffnet);
+    // Throw rather than skip: a control this cannot read drops its whole panel out of the roster,
+    // which is the silent loss a second discriminator exists to prevent.
+    if (tag === "") throw new Error(`${file}: a control's opening tag could not be read`);
+
+    if (tag.endsWith("/>")) {
+      at = oeffnet + tag.length;
+      continue;
+    }
+
+    const schliesst = source.indexOf(`</${treffer[1]!}>`, oeffnet);
+    if (schliesst === -1) throw new Error(`${file}: a control never closes`);
+
+    gefunden.push({ tag, kinder: source.slice(oeffnet + tag.length, schliesst), von: oeffnet, bis: schliesst });
+    at = schliesst + 1;
+  }
+}
+
+/** The braced value of one attribute, brace-counted so a nested object or an arrow does not end it. */
+function attributWert(tag: string, name: string, file: string): string {
+  const oeffnet = tag.indexOf(`${name}={`);
+  if (oeffnet === -1) return "";
+
+  const von = tag.indexOf("{", oeffnet);
+  let tiefe = 0;
+
+  for (let at = von; at < tag.length; at++) {
+    if (tag[at] === "{") tiefe += 1;
+    else if (tag[at] === "}") {
+      tiefe -= 1;
+      if (tiefe === 0) return tag.slice(von + 1, at);
+    }
+  }
+
+  throw new Error(`${file}: ${name} never closes`);
+}
+
+/** The `||` operands at the top level: a flag nested inside one does not close the control alone. */
+function disjunkte(ausdruck: string): string[] {
+  const teile: string[] = [];
+  let tiefe = 0;
+  let von = 0;
+
+  for (let at = 0; at < ausdruck.length; at++) {
+    const hier = ausdruck[at]!;
+
+    if ("([{".includes(hier)) tiefe += 1;
+    else if (")]}".includes(hier)) tiefe -= 1;
+    else if (tiefe === 0 && hier === "|" && ausdruck[at + 1] === "|") {
+      teile.push(ausdruck.slice(von, at).trim());
+      at += 1;
+      von = at + 1;
+    }
+  }
+
+  teile.push(ausdruck.slice(von).trim());
+
+  return teile;
+}
+
+/** The identifiers a brace gates a region on: `{x && …}` and `{x ? … : …}`. */
+const enthuellt = (source: string): Set<string> =>
+  new Set([...source.matchAll(/\{\s*([A-Za-z_$][\w$]*)\s*(?:&&|\?)/g)].map((treffer) => treffer[1]!));
+
+/** The identifiers a control's children branch on, a negation and a ternary's later arms included. */
+const zweige = (kinder: string): Set<string> =>
+  new Set([...kinder.matchAll(/[{:(]\s*!?\s*([A-Za-z_$][\w$]*)\s*(?:&&|\?)/g)].map((treffer) => treffer[1]!));
+
+/**
+ * An ARMING flag reveals a region outside the control, rewords the control that commits, and leaves
+ * it pressable. The last clause parts it from a flag that only says a write is in flight, which
+ * closes the control.
+ */
+function armsAPress(source: string, file: string): boolean {
+  const gefunden = controls(source, file);
+  // Read off what is left when every control is cut out, so a flag branching the control's own
+  // label can never stand in for the region it is supposed to reveal.
+  let aussen = source;
+  for (const { von, bis } of [...gefunden].reverse()) aussen = aussen.slice(0, von) + aussen.slice(bis);
+
+  const gates = enthuellt(aussen);
+
+  return gefunden.some(({ tag, kinder }) => {
+    const geschlossen = new Set(disjunkte(attributWert(tag, "isDisabled", file)));
+
+    return [...zweige(kinder)].some((flag) => gates.has(flag) && !geschlossen.has(flag));
+  });
+}
+
+/* What a panel IS rather than what it imports: `isConfirming` is the name the shared hook's return
+   is destructured to, so a roster reading that name is the roster above under a second spelling. */
+const PANELS_BY_SHAPE = named(panelsUnder(FEATURES, (source, file) => armsAPress(code(source), file)));
 
 describe("the source these files are read as", () => {
   /* First, and over cases rather than the files: a stripper that quietly stopped removing anything
@@ -122,6 +219,69 @@ describe("the source these files are read as", () => {
     assert.match(code('<div role="alert">'), /role="alert"/, "the attribute did not survive the stripper");
     assert.match(code('href="https://x.test" role="alert"'), /role="alert"/, "a URL inside a string ate the code after it");
     assert.match(code('const label = "a // b"; role="alert"'), /role="alert"/, "a comment marker inside a string ate the code after it");
+  });
+});
+
+/* Every panel in the tree arms under one name, so no count over the tree separates a reader of the
+   shape from a reader of that name. These three are what the tree cannot show. */
+const HANDGEROLLT = [
+  "export function FormLoeschenSection() {",
+  "  const [bestaetigt, setBestaetigt] = useState(false);",
+  "  const [laeuft, setLaeuft] = useState(false);",
+  "  return (",
+  "    <section>",
+  "      {bestaetigt && (",
+  '        <div role="alert">',
+  "          <p>Bist Du Dir sicher?</p>",
+  "        </div>",
+  "      )}",
+  "      <Button",
+  "        isDisabled={laeuft}",
+  "        onPress={() => (bestaetigt ? loeschen() : setBestaetigt(true))}",
+  '        className={bestaetigt ? "bg-danger" : "bg-default"}>',
+  "        {!bestaetigt && <TrashBin />}",
+  '        {laeuft ? "Löscht..." : bestaetigt ? "Ja, endgültig löschen" : "Löschen"}',
+  "      </Button>",
+  "    </section>",
+  "  );",
+  "}",
+].join("\n");
+
+const NUR_UNTERWEGS = [
+  "export function BewerbungForm() {",
+  "  const [sendet, setSendet] = useState(false);",
+  "  return (",
+  "    <Form>",
+  "      {sendet && <Spinner />}",
+  "      <Button",
+  "        isDisabled={sendet}>",
+  "        {!sendet && <Paperclip />}",
+  '        {sendet ? "Sendet..." : "Absenden"}',
+  "      </Button>",
+  "    </Form>",
+  "  );",
+  "}",
+].join("\n");
+
+describe("the shape the second roster reads", () => {
+  /* The failure the pair exists to catch: a panel that arms without importing the hook. Its flag is
+     spelled differently on purpose — the shared spelling is the one both routes already share. */
+  it("finds a panel arming its own state under a name of its own", () => {
+    assert.ok(!HANDGEROLLT.includes("useTwoPressConfirm(") && !HANDGEROLLT.includes("isConfirming"), "the sample takes the shared spelling");
+    assert.ok(armsAPress(code(HANDGEROLLT), "handgerollt"), "a panel arming its own state under its own name is absent from the roster");
+  });
+
+  /* A flag saying the write is in flight reveals a region and rewords the control exactly as an
+     arming one does, so a reader taking those two alone puts every submitting form on the roster. */
+  it("passes over a control that only closes while its write is in flight", () => {
+    assert.ok(!armsAPress(code(NUR_UNTERWEGS), "unterwegs"), "a form that only reports its own request is on the roster");
+  });
+
+  /* A control the reader cannot parse would otherwise leave its panel out of the population, where a
+     missing member reads as agreement between the two routes. */
+  it("fails on a control it cannot read rather than dropping its panel", () => {
+    assert.throws(() => armsAPress("<Button isDisabled={x}>{y ? 1 : 2}", "offen"), /never closes/);
+    assert.throws(() => armsAPress("<Button title={x}<div></Button>", "wirr"), /could not be read/);
   });
 });
 
@@ -245,13 +405,13 @@ describe("every panel that escalates a press", () => {
      rest the next time any of the three shared components moves. */
   it("render the shared mechanism rather than spelling their own", () => {
     // The reveal and the fill are filters of this roster, so they catch a panel spelling its own
-    // shell and never one the hook import left out of the walk. `PANELS_BY_STATE` is the route that
+    // shell and never one the hook import left out of the walk. `PANELS_BY_SHAPE` is the route that
     // catches that.
     const byReveal = panelsMatching("<ConfirmReveal>");
     const byFill = panelsMatching("confirmButton(isConfirming)");
 
     assert.ok(PANELS.length > 0, "the sweep found no panels at all, so every case below passes over nothing");
-    assert.deepEqual(PANELS, PANELS_BY_STATE, "a panel arms a press without taking the shared hook, or the reverse");
+    assert.deepEqual(PANELS, PANELS_BY_SHAPE, "a panel arms a press without taking the shared hook, or the reverse");
     assert.deepEqual(PANELS, byReveal, "a panel renders the shared reveal without the shared armed state, or the reverse");
     assert.deepEqual(PANELS, byFill, "a panel wears the shared armed fill without the shared armed state, or the reverse");
 
