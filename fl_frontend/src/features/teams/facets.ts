@@ -72,14 +72,21 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
 ];
 
 /**
- * The same facets with the group offer cut to what the SELECTED season runs: a letter past its count
- * is a row no club can stand behind (`docs/glossary.md :: Gruppe`).
+ * The group offer cut to the SELECTED season's count, which no write path lets a row stand outside
+ * (`REQ-ENTER-002`, `REQ-RULES-002`, `REQ-SPIELPLAN-004`). `erlaubte_stufen` refuses no row
+ * (`docs/glossary.md :: stufe`), which is why `fl_frontend/src/features/spieler/facets.ts` offers the
+ * league's whole set instead.
  */
 export function buildTeamFacets(numberOfGroups: number | null): readonly Facet<AdminTeamRow>[] {
   // No season resolved is not a narrowing: the list spans every season either way, and cutting the
   // offer to nothing would leave the panel a cell nobody can filter on.
   if (numberOfGroups === null) return TEAM_FACETS;
 
+  // A prefix because a season runs the first `number_of_groups` letters
+  // (`docs/glossary.md :: Gruppe`), and no arm for a row in hand as
+  // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx` has
+  // one: a facet holds no row's value, an unoffered selection being dropped
+  // (`fl_frontend/src/shared/utils/facets.ts :: readFacetSelection`).
   const narrowed: Facet<AdminTeamRow> = { ...GRUPPE_FACET, options: GRUPPE_FACET.options.slice(0, numberOfGroups) };
 
   // Identity, never the param: `TEAM_FACETS` holds this facet itself, so a rename cannot part them.

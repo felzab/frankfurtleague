@@ -488,8 +488,8 @@ describe("the group filter the teams list offers", () => {
       .find((facet) => facet.param === "gruppe")
       ?.options.map((option) => option.value);
 
-  /* A group the season does not run can hold nobody (`REQ-ENTER-002`), so every letter past the count
-     is an option that reads zero for every club there is. */
+  /* A group the season does not run can hold nobody, so every letter past the count reads zero for
+     every club there is (`fl_frontend/src/features/teams/facets.ts :: buildTeamFacets`). */
   it("cuts the offer to the groups the selected season runs", () => {
     assert.deepEqual(offered(2), ["A", "B"]);
     assert.deepEqual(offered(4), ["A", "B", "C", "D"]);
