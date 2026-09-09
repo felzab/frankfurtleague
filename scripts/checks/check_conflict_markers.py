@@ -123,11 +123,7 @@ def text_of(path: Path) -> str | None:
 
 
 def shown(path: Path) -> str:
-    """The path as a finding names it -- repo-relative where it can be, forward slashes either way.
-
-    One exception type, not a tuple: the formatter rewrites a tuple into a form the kernel's parse
-    floor rejects (`scripts/tests/test_parse_floor.py`).
-    """
+    """The path as a finding names it -- repo-relative where it can be, forward slashes either way."""
     try:
         return path.relative_to(REPO_ROOT).as_posix()
     except ValueError:

@@ -530,10 +530,7 @@ def _place(buffer: list[str], start: tuple[int, int], text: str) -> None:
         buffer[row - 1 + offset] = (line.ljust(column) if offset == 0 else line) + piece
 
 
-# Named rather than spelled inline: the formatter would fold the tuple into PEP 758's
-# `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
 UNTOKENIZABLE: Final = (tokenize.TokenError, SyntaxError, ValueError)
-# The same fold, over what `ast.parse` alone can raise.
 UNPARSEABLE: Final = (SyntaxError, ValueError)
 
 

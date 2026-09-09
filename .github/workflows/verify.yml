@@ -711,10 +711,11 @@ jobs:
           exit 1
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The checkers' floor is 3.14 (`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`) and the runner's
-        # default python is not; the toolcache holds 3.14, so this is a lookup rather than a
-        # download. Not a `uv sync`: the check imports the standard library alone, and an install
-        # would sit on the required check's critical path for nothing.
+        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
+        # python, and the toolcache holds it, so this is a lookup rather than a download.
+
+        # Not a `uv sync`: the check imports the standard library alone, and an install would sit on
+        # the required check's critical path for nothing.
         with:
           python-version: "3.14"
       - name: Hold every job to its wall-clock budget

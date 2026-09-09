@@ -397,10 +397,11 @@ statement of which paths select which scope — the packaging list included — 
 than repeating it.
 
 **The checkers are python, and one kernel is what makes their answers comparable** —
-`scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). It fixes the interpreter
-floor (`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`), below which it exits at import as a crash — at
-the earliest line an old interpreter reaches, a checker's own body being free to use syntax it
-cannot parse. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
+`scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
+is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is
+handed a file: below it a checker dies compiling and python exits 1, which this scale reads as a
+finding about the change, so no checker's own body is written for an interpreter that cannot compile
+it. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
 repository, so `.github/workflows/pr-body.yml` is the only place it is addressable. The one
 javascript helper is `scripts/checks/ts_normalize.mjs`, whose comment at
 `scripts/checks/ts_normalize.mjs :: printer` argues the exception.
@@ -502,10 +503,10 @@ and which no two runs of the same work share. The pair is held to that by
 and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
 per stream. **The other exception is a machine below the checkers' floor**
-(`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`): the pooled form probes for an interpreter that can
-import the kernel and, finding none, falls back to the serial path and prints a line naming the floor
-where the scopes are announced, while `--serial` sets both pool switches off ahead of that probe and
-can never print it
+(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form asks whether the interpreter it found clears
+the floor and, finding none that does, falls back to the serial path and prints a line naming the
+floor where the scopes are announced, while `--serial` sets both pool switches off ahead of that
+question and can never print it
 (`scripts/gate/verify.sh :: POOL_FALLBACK`). The pair of cases above cannot see that machine —
 `scripts/tests/test_gate_forms.py` puts an interpreter on the fixture's `PATH` as `python3` — so the
 two forms differ there by exactly that one line.

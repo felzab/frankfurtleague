@@ -198,8 +198,7 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
 def declared(source: Path, name: str) -> Any:
     """One module-level annotated constant, as its own source declares it.
 
-    Never imported: a checker raises on an interpreter below its own floor, and a module another
-    fixture cached would answer for the copy under test.
+    Read rather than imported: a module another fixture cached would answer for the copy under test.
     """
     for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:

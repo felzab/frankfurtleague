@@ -100,10 +100,7 @@ ENDINGS: Final[tuple[Ending, ...]] = (
 
 
 def _kernel_exit_codes() -> dict[str, int]:
-    """Every EXIT_ constant checker_kernel.py declares.
-
-    Read out of the source, never imported: the module raises on an interpreter below its own floor.
-    """
+    """Every EXIT_ constant checker_kernel.py declares, read out of the source for `scripts/tests/conftest.py :: declared`'s reason."""
     source = (SCRIPTS / "lib" / "checker_kernel.py").read_text(encoding="utf-8")
     declared: dict[str, int] = {}
     for node in ast.walk(ast.parse(source)):

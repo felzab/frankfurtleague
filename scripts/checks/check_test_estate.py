@@ -57,8 +57,7 @@ LOUD_EMPTY_MARKS: Final = frozenset({"fail_at_collect"})
 EMPTY_MARK_KEY: Final = "empty_parameter_set_mark"
 
 # A module handed to the parser that does not come back. `ValueError` is the NUL byte, which raises
-# before any syntax is read. Named rather than spelled inline, for
-# `scripts/lib/checker_kernel.py :: UNREADABLE`'s reason.
+# before any syntax is read.
 UNPARSABLE: Final = (OSError, UnicodeDecodeError, SyntaxError, ValueError)
 
 

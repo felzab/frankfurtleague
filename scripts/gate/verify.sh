@@ -125,6 +125,9 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   # The failure is the caller's, for the reason `scripts/lib/_lib.sh :: venv_python` records.
   PY="$(venv_python)" \
     || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+  # Before any checker is handed a file: below the floor every one of them dies compiling, and a
+  # SyntaxError exits 1, which this run would report as a finding about the change.
+  require_python_floor "$PY"
   # Existing is not current: a virtualenv holding what the lockfile dropped, or missing what it
   # added, fails the tools below in their own vocabulary rather than the environment's.
   if ! worker && ! step_worker && [[ -z "${CI:-}" ]] && command -v uv >/dev/null 2>&1; then
@@ -474,12 +477,11 @@ if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[
 
 POOL_PY=""; POOL_BASH=""; POOL_FALLBACK=0
 if (( PARALLEL || STEP_JOBS )); then
-  # The floor is asked of the kernel rather than restated here, so one file owns it: a python too
-  # old to import the kernel is too old to run the pool. With none, both forms fall back to the
-  # serial path, which runs the same bodies in the same order.
+  # A skip rather than the refusal the venv gets: `any_python` may answer a system interpreter the
+  # scopes themselves never touch, and both forms then fall back to the serial path, which runs the
+  # same bodies in the same order.
   POOL_PY="$(any_python || true)"
-  if [[ -z "$POOL_PY" ]] \
-    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" >/dev/null 2>&1; then
+  if [[ -z "$POOL_PY" ]] || ! python_at_floor "$POOL_PY"; then
     # Reported below rather than taken quietly: the fallback proves the same thing at the cost of
     # the sum rather than the longest, and a run nothing tells apart is one whose wall clock
     # nobody can account for.
@@ -612,7 +614,7 @@ if ! worker; then
 
   # Here, not where the pool would have started: by then the scopes are already running.
   if (( POOL_FALLBACK )); then
-    info "no python at the checkers' floor (\`scripts/lib/checker_kernel.py :: PYTHON_FLOOR\`), so every
+    info "no python at the checkers' floor (\`scripts/lib/_lib.sh :: PYTHON_FLOOR\`), so every
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
   fi
@@ -627,6 +629,10 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
     SCOPE_RC=0
     if [[ -z "$SCOPE_PY" ]]; then
       skip "no python found — this run was not checked against the diff"
+    # Ahead of the run rather than graded after it: below the floor the checker dies compiling, and
+    # the 1 a SyntaxError exits would reach the refusal arm below as a scope this run does not cover.
+    elif ! python_at_floor "$SCOPE_PY"; then
+      skip "this is ${PYTHON_FOUND:-an interpreter no version could be read from}, below the checkers' floor of ${PYTHON_FLOOR} — this run was not checked against the diff"
     else
       # Captured so the verdict below can count `scripts/checks/check_scope.py :: check`'s report lines,
       # and printed, those being the useful half of a green answer.
@@ -840,19 +846,19 @@ These are the same errors Pylance shows in the editor."
 
   # Every check `scripts/checks/check_docs.py :: CHECKS` registers runs against a fixture repo (PRE-4).
   # pytest's own codes: 2 is a collection error, which `run_checker` would call a refusal.
-  step "scripts · pytest  (the documentation gate's fixture net, and the kernel's floors)"
+  step "scripts · pytest  (the documentation gate's fixture net, and the gate's own guards)"
   unit_join pytest
   PYTEST_RC=0
   quietly unit_replay pytest || PYTEST_RC=$?
   case "$PYTEST_RC" in
     0) ;;
     1) die "pytest over scripts/tests failed: a documentation check stopped reporting
-its planted violation, or a floor the kernel declares does not match what reads it.
+its planted violation, or a guard stopped refusing what it exists to refuse.
 The failing test names which." ;;
     130) on_interrupt ;;
     *) on_error "$PYTEST_RC" "${LINENO}" "pytest scripts/tests" ;;
   esac
-  ok "every documentation check fires on a planted violation, and the kernel's floors hold"
+  ok "every documentation check fires on a planted violation, and every guard still refuses"
 fi
 
 # --- docs ------------------------------------------------------------------------------------------
@@ -1171,17 +1177,13 @@ written at the rule, never suppressed at this call site." \
   # The interpreter is the only thing this step may skip for; past that guard the checker's
   # verdict stands, refusals included.
   OPS_PY="$(any_python || true)"
-  OPS_FLOOR=0
-  if [[ -n "$OPS_PY" ]]; then
-    # Only the kernel's own crash counts as too old; any other probe failure leaves the checker to
-    # answer for itself.
-    quietly "$OPS_PY" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" || OPS_FLOOR=$?
-  fi
+  OPS_AT_FLOOR=0
+  # Read once, the three steps below sharing one answer: a per-step probe would spawn an interpreter
+  # each time to learn what the first already knew.
+  if [[ -n "$OPS_PY" ]] && python_at_floor "$OPS_PY"; then OPS_AT_FLOOR=1; fi
   if [[ -z "$OPS_PY" ]]; then
     skip "no python found, so the compose files were not compared"
-  # 3 is `checker_kernel.py :: EXIT_CRASH`, raised by its import-time floor guard. A stale literal
-  # here stops matching and the checker runs, so this fails loudly rather than skipping quietly.
-  elif (( OPS_FLOOR == 3 )); then
+  elif (( ! OPS_AT_FLOOR )); then
     skip "this python is below the checkers' floor, so the compose files were not compared"
   else
     run_checker stop "scripts/checks/check_compose_mirror.py" "The compose files have drifted. The findings above name
@@ -1195,7 +1197,7 @@ the service and the key, and the declared deltas are the checker's own list." \
   step "ops · each nginx file's Content-Security-Policy says one thing"
   if [[ -z "$OPS_PY" ]]; then
     skip "no python found, so the policy's copies were not compared"
-  elif (( OPS_FLOOR == 3 )); then
+  elif (( ! OPS_AT_FLOOR )); then
     skip "this python is below the checkers' floor, so the policy's copies were not compared"
   else
     run_checker stop "scripts/checks/check_csp_identity.py" "A Content-Security-Policy copy has drifted. Each finding above names
@@ -1208,7 +1210,7 @@ the site and the site it disagrees with, both inside one file." \
 
   if [[ -z "$OPS_PY" ]]; then
     skip "no python found, so the edge files were not compared"
-  elif (( OPS_FLOOR == 3 )); then
+  elif (( ! OPS_AT_FLOOR )); then
     skip "this python is below the checkers' floor, so the edge files were not compared"
   else
     run_checker stop "scripts/checks/check_nginx_mirror.py" "The two edge configurations have drifted. The findings above name

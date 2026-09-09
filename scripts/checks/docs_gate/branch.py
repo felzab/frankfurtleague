@@ -50,8 +50,7 @@ OPENAPI_PAGE: Final = "fl_backend/openapi.json"
 ENDPOINT_TREE: Final = "fl_backend/app/"
 ROUTE_METHODS: Final[frozenset[str]] = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 
-# What walking the published document raises where it is not shaped as this reader expects. Named
-# rather than spelled inline, for `kernel.py :: UNTOKENIZABLE`'s reason.
+# What walking the published document raises where it is not shaped as this reader expects.
 UNSHAPED: Final = (AttributeError, KeyError, TypeError, ValueError)
 
 

@@ -60,8 +60,8 @@ class Malformed(Exception):
 # ASCII digits alone: `str.isdigit` admits a superscript, which `int` then refuses.
 WHOLE: Final = re.compile(r"^[0-9]+$")
 
-# What reading the jobs payload can raise -- `json` answers a ValueError -- named for
-# `checker_kernel.py :: UNREADABLE`'s reason. Flat, or pyright reads the nested tuple as no class.
+# What reading the jobs payload can raise -- `json` answers a ValueError. Flat, or pyright reads the
+# nested tuple as no class.
 UNREADABLE_PAYLOAD: Final = (*UNREADABLE, ValueError, Malformed)
 
 
