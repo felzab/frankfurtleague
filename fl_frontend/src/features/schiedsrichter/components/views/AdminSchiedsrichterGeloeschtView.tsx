@@ -1,19 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-
-import { Button } from "@heroui/react";
-
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";
+import { BackButton } from "@/shared/components/ui/BackButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
-import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
 // The write path refuses every save reaching an erased row (`REQ-ANONYMISE-002`), so an editor here
@@ -30,25 +24,13 @@ export function AdminSchiedsrichterGeloeschtView({
   inactiveSince: string | null;
   defaultPayment: number;
 }) {
-  const router = useRouter();
-  const [isLeaving, startLeaving] = useTransition();
+  const saisonHref = useSaisonHref();
 
   const panel = formPanel();
 
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
-      <Button
-        onPress={() => {
-          // The pending flag is what ends react-aria's hover (`docs/frontend/spec.md :: I68`).
-          startLeaving(() => {
-            router.back();
-          });
-        }}
-        isDisabled={isLeaving}
-        className={`${formButton({ intent: "nav", size: "sm" })} mb-6 w-fit gap-x-2`}>
-        <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-        <span>Zurück</span>
-      </Button>
+      <BackButton fallbackHref={saisonHref("/admin/schiedsrichter")} />
 
       <header className="mb-6 flex w-full flex-col gap-y-2">
         {/* `h2`, never `h1` — the shell page owns that one. Italic, so the word reads as the state it

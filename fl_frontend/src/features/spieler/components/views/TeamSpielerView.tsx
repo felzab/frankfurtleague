@@ -1,15 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Avatar, Chip, Table } from "@heroui/react";
 
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-
-import { Avatar, Button, Chip, Table } from "@heroui/react";
-
+import { BackButton } from "@/shared/components/ui/BackButton";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpielerPublic } from "../../schemas";
@@ -21,23 +16,9 @@ import type { FLSpielerPublic } from "../../schemas";
  * The fallbacks are load-bearing — `FLSpielerPublic` declares surname, number and position nullable.
  */
 export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpielerPublic[] }) {
-  const router = useRouter();
-  const [isLeaving, startLeaving] = useTransition();
-
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
-      <Button
-        onPress={() => {
-          // The pending flag is what ends react-aria's hover (`docs/frontend/spec.md :: I68`).
-          startLeaving(() => {
-            router.back();
-          });
-        }}
-        isDisabled={isLeaving}
-        className={`${formButton({ intent: "nav", size: "sm" })} mb-6 w-fit gap-x-2`}>
-        <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-        <span>Zurück</span>
-      </Button>
+      <BackButton fallbackHref="/dashboard/spieler" />
 
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">

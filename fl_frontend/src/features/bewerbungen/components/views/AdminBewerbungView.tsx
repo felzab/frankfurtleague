@@ -1,16 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-
-import { Button } from "@heroui/react";
-
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
+import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
@@ -40,9 +33,7 @@ export function AdminBewerbungView({
   saisonStatus: "past" | "active" | "future" | null;
   gruppeOffer: readonly GruppeOffer[];
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isLeaving, startLeaving] = useTransition();
 
   const isOpen = bewerbung.status === "eingereicht";
 
@@ -51,27 +42,10 @@ export function AdminBewerbungView({
   const staende = bestaetigungsStand(bewerbung);
   const hindernis = zusageHindernis(staende, teamName);
 
-  const leavePage = () => {
-    // Blur first: react-aria's focus attribute survives a kept-alive tree.
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
-    startLeaving(() => {
-      if (window.history.length > 1) router.back();
-      else router.push(saisonHref("/admin/bewerbungen"));
-    });
-  };
-
   return (
     <div className={`${PAGE_RISE} w-full p-6 sm:p-8`}>
       <div className="max-w-page mx-auto flex w-full flex-col">
-        <Button
-          onPress={leavePage}
-          isDisabled={isLeaving}
-          className={`${formButton({ intent: "nav", size: "sm" })} mb-6 w-fit gap-x-2`}>
-          <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-          <span>Zurück</span>
-        </Button>
+        <BackButton fallbackHref={saisonHref("/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
