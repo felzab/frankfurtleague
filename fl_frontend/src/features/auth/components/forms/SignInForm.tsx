@@ -170,7 +170,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
             <Input
-              className="border-border bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
               placeholder="z.B. name@beispiel.de"
               type="email"
               disabled={isPending}
@@ -198,6 +198,8 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             name="email"
             type="email">
             <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            {/* Left under the decoration grade rather than taking `border-control`: WCAG 1.4.11 exempts
+                an inactive component, and a box that reads as reachable offers a sign-in nothing serves. */}
             <Input
               className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
               placeholder="Noch nicht verfügbar"

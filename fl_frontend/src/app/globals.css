@@ -142,6 +142,8 @@
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
   --color-border: var(--border-base);
+  /* A FIELD's border, never a box's: what alone identifies a control answers WCAG 1.4.11's 3:1. */
+  --color-control: var(--border-control);
   /* A control's hover is one of these tokens, never an alpha at a call site. */
   --color-hover: var(--bg-hover);
   --color-hover-muted: var(--bg-hover-muted);
@@ -166,9 +168,11 @@
   --color-danger-solid: var(--accent-danger-solid);
   --color-danger-solid-hover: var(--accent-danger-solid-hover);
   --color-success-solid: var(--accent-success-solid);
+  --color-info-solid: var(--accent-info-solid);
   --color-warning-solid-foreground: var(--fg-on-warn);
   --color-danger-solid-foreground: var(--fg-on-danger);
   --color-success-solid-foreground: var(--fg-on-success);
+  --color-info-solid-foreground: var(--fg-on-info);
   --color-phase-gruppenphase: var(--accent-phase-gruppenphase);
   --color-phase-achtelfinale: var(--accent-phase-achtelfinale);
   --color-phase-viertelfinale: var(--accent-phase-viertelfinale);
@@ -424,14 +428,14 @@ input:focus:placeholder-shown::placeholder {
   }
 }
 
-/* THREE CATEGORIES take no focus indicator, each because the indicator fires on
-   focus no keyboard user asked for AND the control says "focused" another way.
-   Unlayered, so nothing in a layer can put a ring back. */
+/* THREE CATEGORIES lose the ring that fires on focus no keyboard user asked for, each control
+   saying "focused" another way. Unlayered, so nothing in a layer can put that ring back. */
 /* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
       selectors spec's exception for text entry. Substitute: the border turns
       brand. Only the ring goes; --tw-shadow is untouched, so the field keeps its own. */
-/* 2. COLLECTION OPTIONS. react-aria focuses the first option as you type in a combobox, ringing a
-      result nobody chose. Substitute: a background highlight, as every native picker does. */
+/* 2. COLLECTION OPTIONS. react-aria focuses the first option as you type in a combobox, so HeroUI's
+      offset ring rang a result nobody chose. Substitute: a background highlight, as every native
+      picker does, and the app's inset ring beside it. */
 /* 3. BUTTONS INSIDE A FIELD GROUP. The group's border is already brand by then.
       Scoped by POSITION, because the members this repo writes carry no slot; the
       two clear controls are carved out below. */
@@ -525,7 +529,7 @@ input:focus:placeholder-shown::placeholder {
     [data-focus-visible="true"],
     [data-focus-within="true"]
   ):not([aria-expanded="true"]):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
-  border-color: var(--border-base);
+  border-color: var(--border-control);
 }
 
 /* A DATE PICKER's group CANNOT join the rule above. `date-input-group` is a SHARED
@@ -535,7 +539,7 @@ input:focus:placeholder-shown::placeholder {
    a DatePicker mounts. --tw-ring-shadow is registered `inherits: false`, so the
    group zeroing its own does not reach the button inside. */
 [data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
-  border-color: var(--border-base);
+  border-color: var(--border-control);
 }
 
 /* The SAME group one state further on: it holds focus ITSELF, because
@@ -547,7 +551,7 @@ input:focus:placeholder-shown::placeholder {
 [data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus:not([data-field-clear="true"]))):not(
     :has([aria-expanded="true"])
   ):not([data-invalid="true"]) {
-  border-color: var(--border-base);
+  border-color: var(--border-control);
 }
 
 /* Focus is still SOMEWHERE, and with the border reset above nothing else would
@@ -619,9 +623,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   border-color: var(--accent-brand);
 }
 
-/* COLLECTION OPTIONS take no ring. HeroUI's fires on react-aria's GLOBAL modality
-   flag, so a halo appeared and vanished at random on the one element that must
-   not draw the eye. Suppressed with no state selector, so this cannot flicker. */
+/* COLLECTION OPTIONS take none of HeroUI's ring, which fires on react-aria's GLOBAL modality
+   flag: a halo appeared and vanished at random on the one element that must not draw the
+   eye. Suppressed with no state selector, which cannot flicker. */
 /* BOTH ring properties have to be zeroed: Tailwind composes `box-shadow` from `--tw-ring-shadow` and
    `--tw-ring-offset-shadow`, and killing one leaves the offset band, which is the white line. */
 [data-slot="list-box-item"],
@@ -631,15 +635,23 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   outline: none;
 }
 
-/* What replaces it, closing the WCAG 2.4.7 gap for a keyboard user arrowing an
-   open list. The fill MUST stay whatever the app's hover token is — the two being
-   the same colour is the whole claim. */
+/* The fill under a keyboard-focused option MUST stay whatever the app's hover token is — the two
+   being the same colour is the whole claim. */
 /* A MENU item keys on `data-focused`, which `useMenuItem` also sets from hover —
    one indicator for both. A LIST-BOX item cannot: a `Select` focuses its selected
    option on open, so that would paint a row before anybody pressed a key. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-hover);
+}
+
+/* The keyboard's own mark on a collection option: inset, so a list clipping its overflow keeps it
+   whole, and on react-aria's keyboard attribute, so a menu row hovered by the mouse takes the fill
+   alone (`docs/frontend/spec.md :: I230`). */
+[data-slot="list-box-item"][data-focus-visible="true"],
+[data-slot="menu-item"][data-focus-visible="true"] {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 /* Number fields carry no vertical padding, anywhere. The group is a fixed height with a centred

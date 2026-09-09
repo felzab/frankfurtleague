@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { COUNT_BADGE, PILL_TINT } from "@/shared/components/ui/badges";
+import { countBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChangeList";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
@@ -52,10 +52,10 @@ export function RailHinweiseSection({
       onToggle={setHinweiseOpen}
       badge={
         <span className="rail-marker">
-          {bannerBySeverity.info > 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.info}`}>{bannerBySeverity.info}</span>}
-          {bannerBySeverity.warning > 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.warning}`}>{bannerBySeverity.warning}</span>}
-          {bannerBySeverity.danger > 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.danger}`}>{bannerBySeverity.danger}</span>}
-          {bannerCount === 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.success}`}>0</span>}
+          {bannerBySeverity.info > 0 && <span className={countBadge("info")}>{bannerBySeverity.info}</span>}
+          {bannerBySeverity.warning > 0 && <span className={countBadge("warning")}>{bannerBySeverity.warning}</span>}
+          {bannerBySeverity.danger > 0 && <span className={countBadge("danger")}>{bannerBySeverity.danger}</span>}
+          {bannerCount === 0 && <span className={countBadge("success")}>0</span>}
         </span>
       }
       info={<InfoHint label="Was die Hinweise bedeuten">{nomen}: alle Warnungen an einem Ort, auch die aus dem Formular.</InfoHint>}>
@@ -92,8 +92,8 @@ export function RailChangesSection() {
       badge={
         status.changed.length > 0 ? (
           <span className="rail-marker">
-            {changedNormal > 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.warning}`}>{changedNormal}</span>}
-            {changedCritical > 0 && <span className={`${COUNT_BADGE} ${PILL_TINT.danger}`}>{changedCritical}</span>}
+            {changedNormal > 0 && <span className={countBadge("warning")}>{changedNormal}</span>}
+            {changedCritical > 0 && <span className={countBadge("danger")}>{changedCritical}</span>}
           </span>
         ) : undefined
       }>

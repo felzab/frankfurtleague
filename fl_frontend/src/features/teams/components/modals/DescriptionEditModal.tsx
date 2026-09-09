@@ -6,6 +6,7 @@ import { Button, TextArea, TextField } from "@heroui/react";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
 import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons";
+import { FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
@@ -58,7 +59,7 @@ export function DescriptionEditModal({
             ref={textAreaRef}
             fullWidth
             placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
-            className="border-border bg-surface text-foreground fluid-sm min-h-40 resize-none overflow-hidden rounded-lg border px-3 py-2 transition-colors"
+            className={`${FIELD_TEXTAREA} min-h-40 resize-none overflow-hidden`}
           />
         </TextField>
         <div className="flex w-full flex-row items-baseline justify-between gap-x-3">

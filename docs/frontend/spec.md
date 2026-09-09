@@ -1189,19 +1189,27 @@ value is what it is, and the pair it is measured on, is the comment at its decla
 `fl_frontend/src/app/schemes/2027.css`; `fl_frontend/src/app/globals.css :: @theme` bridges each to
 its utility. What no declaration can say is which surface may spend it:
 
-| Grade                                                       | Spent on                                                                                                                  | Never on                                                                                           |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover highlight, a dot ornament, a selected row's tint | A fill behind text; a run longer than one word                                                     |
-| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, the hero                                  | Text or a dot on a dark ground: unflipped, it sinks into the dark theme's grounds and its own tint |
-| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill, and a link's hover on a dark ground                                          | A light ground, where it fails as text                                                             |
-| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                        | `muted` as a panel's ground                                                                        |
-| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                         | A tinted box, whose edge is its own tone                                                           |
-| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                              | Text: it is tuned for a fill and fails on its own tint                                             |
-| `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                               | A fill                                                                                             |
-| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                        | A tint, or text                                                                                    |
-| `hover*`                                                    | Every hover, one declared token per family                                                                                | An alpha at a call site, which composites against its ground and lands differently on each         |
-| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                 | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar`       |
-| `phase-*`                                                   | A phase badge and its `/15` tint                                                                                          | A state: the sequence is an order, not a meaning                                                   |
+| Grade                                                       | Spent on                                                                                                                     | Never on                                                                                           |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover highlight, a dot ornament, a selected row's tint    | A fill behind text; a run longer than one word                                                     |
+| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, the hero                                     | Text or a dot on a dark ground: unflipped, it sinks into the dark theme's grounds and its own tint |
+| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill, and a link's hover on a dark ground                                             | A light ground, where it fails as text                                                             |
+| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                           | `muted` as a panel's ground                                                                        |
+| `border`                                                    | Every neutral box, at an alpha for a divider inside one                                                                      | A tinted box, whose edge is its own tone; a field, which takes `control`                           |
+| `control`                                                   | A field's border at rest, from `fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_INPUT` and `:: FIELD_GROUP` | A box, a divider, or a button whose own text identifies it                                         |
+
+**A field's own fill is `--bg-surface` or `--bg-base` and never `--bg-muted` or `--bg-hover`**, on
+which the token measures 2.60:1 and 2.46:1 in the light theme: a recessed fill separates a field
+from the panel behind it by about 1.2:1, which nobody sees, and takes the border below the floor
+that is the whole of what says "field". A field therefore carries no hover fill either, its border
+being what identifies it whether or not a pointer is over it.
+
+| `{tone}` plain | A dot, a bar, a border, the ground of a tint | Text: it is tuned for a fill and fails on its own tint |
+| `{tone}-strong` | Text, on a tint, on `muted` or on `surface` | A fill |
+| `{tone}-solid` with `-foreground` | A fill that must read as one — the destructive button, a result badge, a count on a recessed track — under its paired on-colour | A tint, or text; the informational fill anywhere but that count |
+| `hover*` | Every hover, one declared token per family | An alpha at a call site, which composites against its ground and lands differently on each |
+| `--focus` | Every ring HeroUI does not draw itself, as the foreground | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar` |
+| `phase-*` | A phase badge and its `/15` tint | A state: the sequence is an order, not a meaning |
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
@@ -1243,7 +1251,16 @@ not of the scheme file.
 `fl_frontend/src/shared/components/ui/card.ts :: card`), or `shadow-xs` on a band; a tinted box's edge
 is its own tone at an alpha (`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`, the
 `danger` variant of `formPanel`). Never a borderless card, never a neutral edge on a tinted box: in
-the dark theme the hairline is what parts a box from a near-black page. Depth is one of the grades
+the dark theme the hairline is what parts a box from a near-black page.
+
+**That hairline is decoration under WCAG 1.4.11 and sits under 3:1 on every ground by design.**
+The criterion asks 3:1 of what identifies a control or a state and exempts what a reader need not
+see to use the content: a card's edge separates content that spacing, a heading and a ground
+already separate, so a box with the edge removed is still a box anybody can read. A FIELD is the
+other population and takes `control` rather than `border` (§1.17), its border being the whole of
+what says "field"; `scripts/checks/docs_gate/scheme.py :: PAIRS` measures that one against the
+floor and measures this one not at all.
+Depth is one of the grades
 this list closes — `shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the primary control
 and the entry-condition block, `shadow-lg` a floating surface (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
 `fl_frontend/src/shared/components/ui/hintSurface.ts :: HINT_SURFACE`), `shadow-2xl` a modal or the
@@ -1309,7 +1326,8 @@ holds whether a conditional block renders or not
   (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
   it sits on), never a text link; a whole box is pressable only as `card({ interactive: true })`
   (`fl_frontend/src/shared/components/ui/card.ts :: card`).
-- **One pill composed through `fl_frontend/src/shared/components/ui/badges.ts :: labelBadge`**: every
+- **One pill composed through `fl_frontend/src/shared/components/ui/badges.ts :: labelBadge`, and
+  one count through `:: countBadge`**: every
   tint it carries at `/15`, on `surface` or `background` and never on `muted`, where every light ink
   falls under the floor — a tone under its `-strong` text, brand under `text-brand`
   (`fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`), a tournament phase
@@ -1336,13 +1354,14 @@ holds whether a conditional block renders or not
   (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Leer`): a
   value nobody recorded, an absent name, a result not yet stored. An outstanding step is a state and
   never a gap.
-- **An admin list row leads with one identity block** — the entity's own token, its name, the row's
+- **An admin list row built on `fl_frontend/src/shared/components/ui/adminTable.ts` leads with one
+  identity block** — the entity's own token, its name, the row's
   pills and one or two muted lines
   (`fl_frontend/src/shared/components/ui/adminTable.ts :: IDENTITY_ROW`), the same block the phone
   card draws, with content-sized columns beside it and the actions ended right. Every way the row
   offers ELSEWHERE shares one overflow menu where it has two or more
   (`fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionMenu`); a row with one keeps it
-  inline. No column exists at one width and not another, which
+  inline. Neither a column nor a cell exists at one width and not another, which
   `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` pins.
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
@@ -1485,6 +1504,9 @@ holds whether a conditional block renders or not
 | I225 | **A control that leaves a page falls back to the list that page sits under**, `history.length` being the only cold-entry signal the platform offers                                                                                        | `fl_frontend/src/shared/hooks/useEditorExit.ts :: goBackOrPush`, reached by every exit on the surface; driven both ways by `fl_frontend/src/shared/components/ui/BackButton.test.ts`                                                                                                                                 |
 | I226 | **A host is refused for a character `new URL` would REMOVE**, so it cannot read as one name and resolve as another                                                                                                                         | `fl_frontend/src/core/emailAddress.ts :: isDeliverableAddress`, the only check reading a host before `new URL` cleans it; `fl_frontend/src/core/emailAddress.test.ts`                                                                                                                                                |
 | I228 | **A deployment that is not `production` mails nothing and holds no key to mail with**                                                                                                                                                      | `fl_frontend/src/core/config.ts :: APP_ENV` declares it and `createFinalSchema` demands the key under it; `fl_frontend/src/core/mail.ts :: sendMail` withholds and raises `MailWithheldError`; `fl_frontend/src/core/config.test.ts` and `fl_frontend/src/core/mail.test.ts` drive both halves                       |
+| I229 | **A count on `muted` is the tone's solid fill under its on-colour, never a tint: a tint's light ink falls under 4.5:1 there**                                                                                                              | `fl_frontend/src/shared/components/ui/badges.ts :: trackCountBadge`, typed to `:: FeedbackTone`; each on-colour pair in `scripts/checks/docs_gate/scheme.py :: PAIRS`; review for a tint on a track                                                                                                                  |
+| I230 | **A collection option under the keyboard wears the app's ring at `--focus`, inset, on react-aria's keyboard attribute alone**                                                                                                              | `fl_frontend/src/app/globals.css :: "The keyboard's own mark"`; `scripts/checks/docs_gate/scheme.py :: PAIRS` measures the ring on that fill; review for a ring keyed elsewhere                                                                                                                                      |
+| I231 | **A picked row in a multi-select list carries a brand check beside its tint**, the tint alone sitting under 3:1 on every ground                                                                                                            | `fl_frontend/src/shared/components/ui/FilterPanel.tsx :: ListBox.ItemIndicator`; `scripts/checks/docs_gate/scheme.py :: PAIRS` measures the check on each fill the row takes                                                                                                                                         |
 
 ## 3. Violation → remedy
 
@@ -1523,6 +1545,9 @@ holds whether a conditional block renders or not
 | A form row runs off the side of the screen on a phone, or its gap sits outside the container the two fields share                  | A field in the row fixes a width for itself, or lost the `min-w-0` that removes its input's intrinsic-width floor                                                                       | I47 — `min-w-0`, a `flex-<n>` share and no width of its own; I92 — the website field needs that at both levels                                                           |
 | A display-face title looks bolder or smeared beside the wordmark                                                                   | A weight utility on an Anton element, or a weight inherited from a bold ancestor, which the browser synthesises                                                                         | I159 — drop the utility; the face has one weight                                                                                                                         |
 | A hover reads differently on a card than on the page                                                                               | An alpha hover at the call site, compositing against each ground                                                                                                                        | I162 — one of the `hover*` tokens                                                                                                                                        |
+| An option under the keyboard shows a grey fill and nothing else, while the mouse route through the picker is fine                  | The ring at `fl_frontend/src/app/globals.css :: "The keyboard's own mark"` was keyed off `data-focus-visible`, or a layered rule outranked its `outline`                                | I230 — the ring and the fill share one unlayered selector                                                                                                                |
+| A count badge on a tab strip reads faint in one theme and fine in the other                                                        | A tint on `muted`: its light ink measures under 4.5:1 there                                                                                                                             | I229 — `trackCountBadge`                                                                                                                                                 |
+| A field reads as a plain box, or its border changes colour when the pointer crosses it                                             | The call site spells its own border rather than taking `FIELD_INPUT`, `FIELD_GROUP` or `FIELD_TEXTAREA`, or it carries a hover fill                                                     | §1.17 — a field takes `control` and no hover fill                                                                                                                        |
 
 ## 4. Known-open
 

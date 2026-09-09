@@ -14,6 +14,10 @@
        which measures 1.62:1 on that fill. Re-check the pair if the fill ever moves. */
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
+    /* The lightest grey clearing 3:1 on --bg-surface, which a field wears as its own fill: darker
+       shrinks the step the brand focus border makes off it, and no grey clears that floor on
+       --bg-muted as well. */
+    --border-control: #8e8e8e;
 
     /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
        page's own lightness. Never an alpha — it composites against what is behind,
@@ -71,11 +75,16 @@
     --accent-success-solid: #007742;
     --accent-warn-solid: #ecae30;
     --accent-danger-solid: #b71920;
+    /* At the lightness the two white-ink fills share (OKLab L 0.500), on the text grade's hue:
+       6.23:1 under white. Spent under a count on a recessed track and nowhere else; everywhere
+       else the informational tone is a tint. */
+    --accent-info-solid: #1e59cd;
     --fg-on-success: #ffffff;
-    /* Near-black, alone among the three, and a literal because an on-colour does not flip: white
+    /* Near-black, alone among the four, and a literal because an on-colour does not flip: white
        on this fill measures 1.96:1, and an amber dark enough to carry white reads as brown. */
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
+    --fg-on-info: #ffffff;
 
     /* Tournament rounds are an ordered sequence, not a semantic state, so no feedback accent
        fits. A hue arc from 205° to 357°, so they run in hue order with the phases. */
@@ -107,6 +116,9 @@
     /* Same value as the light theme: the fill it sits on does not flip either. */
     --fg-on-brand: #ffffff;
     --border-base: #333333;
+    /* The darkest grey clearing that floor on --bg-surface here: lighter shrinks the focus step,
+       and --bg-muted is out of reach in this theme too. */
+    --border-control: #616161;
 
     /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
     --bg-hover: #212121;
@@ -144,9 +156,11 @@
     --accent-success-solid: #007742;
     --accent-warn-solid: #ecae30;
     --accent-danger-solid: #b71920;
+    --accent-info-solid: #1e59cd;
     --fg-on-success: #ffffff;
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
+    --fg-on-info: #ffffff;
 
     /* The same arc, lifted for the dark surface: each at the lightness its own /15 tint pair
        needs, and the chroma its hue's ceiling leaves there. */

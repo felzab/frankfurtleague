@@ -7,7 +7,7 @@ import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
-import { COUNT_BADGE, PILL_TINT } from "@/shared/components/ui/badges";
+import { COUNT_BADGE, trackCountBadge } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
@@ -16,7 +16,7 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react";
 import type { FLActionUrgency } from "../../utils";
 
@@ -31,7 +31,7 @@ const SECTION_PARAM = "section";
  * Success is reserved for a cleared category, and `none` — `abgesagt` — shares `details`' blue on
  * purpose: a fixture that did not happen asks nothing.
  */
-const URGENCY_TINT: Record<FLActionUrgency, PillTone> = {
+const URGENCY_TONE: Record<FLActionUrgency, FeedbackTone> = {
   blocking: "danger",
   results: "warning",
   details: "info",
@@ -39,11 +39,11 @@ const URGENCY_TINT: Record<FLActionUrgency, PillTone> = {
 };
 
 /**
- * The selected count lies on `Tabs.Indicator`'s brand fill rather than on `surface`, so no
- * `PillTone` fits it: it borrows that fill's own foreground instead of adding a third colour, a
- * pairing that holds in both themes while `--fg-base` flips.
+ * The selected count lies on `Tabs.Indicator`'s brand fill rather than on the track, so no recipe
+ * fits it: it borrows that fill's foreground instead of adding a third colour, a pairing that
+ * holds in both themes while `--fg-base` flips.
  */
-const SELECTED_BADGE = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
+const SELECTED_BADGE = `${COUNT_BADGE} bg-brand-solid-foreground/20 text-brand-solid-foreground`;
 
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
@@ -123,7 +123,7 @@ export function AdminSpieleActionRequiredView({
                 const label = ACTION_REQUIRED_LABELS[section.category];
                 const isActive = section.category === activeSection.category;
                 const isCleared = section.spiele.length === 0;
-                const countTint = isActive ? SELECTED_BADGE : PILL_TINT[isCleared ? "success" : URGENCY_TINT[label.urgency]];
+                const countClass = isActive ? SELECTED_BADGE : trackCountBadge(isCleared ? "success" : URGENCY_TONE[label.urgency]);
 
                 return (
                   <Tabs.Tab
@@ -133,7 +133,7 @@ export function AdminSpieleActionRequiredView({
                      share the rail equally and become slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
-                    <span className={`${COUNT_BADGE} ${countTint}`}>{section.spiele.length}</span>
+                    <span className={countClass}>{section.spiele.length}</span>
                     <Tabs.Indicator className={TAB_INDICATOR} />
                   </Tabs.Tab>
                 );

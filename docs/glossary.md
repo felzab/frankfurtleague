@@ -284,7 +284,7 @@ where the row carries the stamp the expiry reads (I119).\
 
 ### `mietpreis` · `default_mietpreis` — rental price
 
-**Is:** two fields and never one copy — `mietpreis` is what one fixture paid for its venue, carried on the copy a match embeds; `default_mietpreis` is the venue's own current price. Both are an `int` with `ge=0`.\
+**Is:** two fields and never one copy — `mietpreis` is what one fixture paid for its venue, carried on the copy a match embeds; `default_mietpreis` is the venue's own current price — „Mietpreis" on screen, which the venue list's column shows from `default_mietpreis`. Both are an `int` with `ge=0`.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtFieldPayload` carries `mietpreis`, and the stored `:: FLSpielOrtField` declares it again over `:: FLSpielOrtFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` carries `default_mietpreis`.\
 **Trap:** `mietpreis` is **submitted** where the `name` and `maps_link` beside it on the same embedded venue are composed by the server (I3) — it is what _that_ fixture agreed to pay rather than a copy of anything, which is also why a venue's price change never fans out although its name and `maps_link` do. Neither field carries a Pydantic default, because both patches write their payload back wholesale and a default would overwrite a real rent with `0`.\
 **See:** backend spec I6 and I3, [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for which fixture read serves it, and [`domain.md`](domain.md) for the fan-out this is deliberately left out of.

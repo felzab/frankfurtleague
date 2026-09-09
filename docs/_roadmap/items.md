@@ -82,7 +82,6 @@ deliverable.
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                        | FE                                                                          | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Skipped  |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
-| `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                               | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
@@ -90,7 +89,6 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
-| `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                   | FE, Docs                                                                    | Open     |
@@ -102,7 +100,6 @@ deliverable.
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
-| `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
 
@@ -207,27 +204,6 @@ read off the run that produced it rather than off a rerun.
 after it. The failure is one gate run's report, not reproduced since. Nothing was instrumented, no
 worker's exit status was captured, and no second file has been seen to fail this way, so the
 population this reaches is unmeasured.
-
-### `3pb5-7qyc` · `--accent-info` has no `-solid` grade and no on-colour, and nothing records why
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| FE, Ops, Docs, gate | Open   | —          |
-
-**`fl_frontend/src/app/schemes/2027.css` declares `--accent-brand-solid` with `--fg-on-brand`
-and `--accent-success-solid` with `--fg-on-success`, and gives `--accent-info` neither.** The tone
-therefore has no fill a white glyph may sit on, while `brand` and `success` do. Nothing in the
-scheme, in `docs/frontend/spec.md`'s token-role table or in the commit that wrote the file says
-whether that is a decision or an omission.
-
-**Why it matters.** The next surface needing a solid informational fill — a filled state badge, a
-tile, a selected day — has three moves available and no way to choose between them: invent the two
-tokens, spend `brand-solid` on something that is not the brand, or use a tint where a fill was
-wanted. The first is a scheme change that every future season file inherits, so it is the one that
-must not be made casually.
-
-**Done when** either the pair exists and `scripts/checks/docs_gate/scheme.py :: PAIRS` measures it,
-or a comment in the scheme file says which surfaces are meant to go without it.
 
 ### `3s6w-kndn` · A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope
 
@@ -569,36 +545,6 @@ asserted today is still asserted and still driven red afterwards, and a candidat
 in `fl_frontend/package.json` or `fl_backend/pyproject.toml` states which gate scope and which job in
 `.github/workflows/verify.yml` runs it. Where an answer rests on practice outside this repository it
 cites a public repository a reader can open, never a claim about what is usual.
-
-### `dq3b-mgpq` · Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there
-
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| FE, Ops, gate, admin | Open   | —          |
-
-**`fl_frontend/src/shared/components/ui/badges.ts :: PILL_TINT` states that a pill sits on
-`surface` or `background` and never on `muted`, and one live surface does exactly that.**
-`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` gives its tab
-strip `fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_TRACK`, whose ground is
-`bg-muted`, and puts a `COUNT_BADGE` wearing a `/15` tone tint inside each tab. Recomposited over
-that ground the four light inks measure 4.20:1 to 4.48:1 against the 4.5:1 a badge at this step
-answers to.
-
-**Why it matters.** `scripts/checks/docs_gate/scheme.py :: PAIRS` measures every pill on `surface`,
-which is the tighter of the two grounds a pill is allowed and therefore the right floor — but
-nothing measures a pill on a ground the rule forbids, so the rule is prose and the next tab strip
-carrying a count is the next instance.
-
-**The trap, which is why no repair is obvious.** Moving the track to `bg-surface` costs the strip
-its recessed reading AND kills the hover, because
-`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_ITEM`'s hover fill is `bg-surface`
-and would then equal the track. Keeping the track and dropping those badges to `/10` clears the floor
-but puts two tint strengths in the system, which the palette spent a round removing. Giving the
-unselected tabs their own opaque fill is a third answer and the largest change of the three. The
-figures predate this scheme, which moved them toward the floor without reaching it.
-
-**Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
-rule stops being prose.
 
 ### `ex2m-qjkg` · The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read
 
@@ -1235,33 +1181,6 @@ second is a real answer**, and it is the cheaper one; what is wrong today is tha
 chosen and nothing records the constraint. What it costs is unmeasured and measuring it is half the
 work — each module pays a process start, the alias hook's registration and its own TypeScript load,
 all but one of which would go, and the suite already runs while the flag is one word.
-
-### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, Ops, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/scheme.py :: PAIRS` measures text against its ground and nothing
-else, so three pairs that carry meaning without carrying text are unmeasured and each falls under
-WCAG's 3:1 floor for a user-interface component in the dark theme.** `fl_frontend/src/shared/components/ui/FilterPanel.tsx`'s selected row is
-carried by its fill; `border-border` parts a box from the page it sits on
-(`fl_frontend/src/shared/components/ui/card.ts :: card`); and a list box's focus ring marks which
-option the keyboard is on.
-
-**Why it matters.** Each is the only signal for the state it carries. A selection nobody can see is a
-control whose state is unknowable without moving it, and a focus ring nobody can see makes the
-keyboard route through a form unusable while the mouse route is fine — which is why it survives every
-sighted pass.
-
-**The trap.** Raising all three is not one change. A border at the 3:1 floor is a hairline that reads
-as a rule rather than as an edge, and the sheet's own depth rule says the hairline is what parts a box
-from a near-black page — so the border may be a deliberate exception rather than a defect, and the
-first move is deciding which of the three are components and which are decoration. WCAG exempts pure
-decoration from 1.4.11, and it does not exempt a state.
-
-**Done when** each of the three is either measured by a `PAIRS` row that passes, or recorded as
-decoration with the argument in the commit that records it.
 
 ### `v7bs-d859` · The frontend keeps a visual system that no document states
 

@@ -7,9 +7,9 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { labelBadge, PILL_TINT } from "./badges.ts";
+import { countBadge, labelBadge, PILL_SOLID, PILL_TINT, trackCountBadge } from "./badges.ts";
 
-import type { PillTone } from "./badges.ts";
+import type { FeedbackTone, PillTone } from "./badges.ts";
 
 // Three levels up: this file sits at `src/shared/components/ui`, and a sweep rooted any lower reports
 // a clean tree while a feature paints its own chips.
@@ -22,6 +22,9 @@ const NEUTRAL = "bg-muted text-foreground-muted";
  * Spelled out rather than read off the record, so a tone gaining a pair and a tone losing one are
  * both a failure here rather than a shorter run.
  */
+/* Spelled out rather than read off `PILL_SOLID`, which is the record this case grades. */
+const SOLID_TONES: readonly FeedbackTone[] = ["success", "warning", "danger", "info"];
+
 const TONES: readonly PillTone[] = [
   "success",
   "warning",
@@ -134,5 +137,30 @@ describe("the closed set every pill takes its colour from", () => {
     const findings = composing.filter(paintsNeutral).map((reading) => path.relative(SRC, reading.file).split(path.sep).join("/"));
 
     assert.deepEqual(findings, [], `these paint a chip neutral instead of naming a \`PillTone\`:\n  ${findings.join("\n  ")}`);
+  });
+  /* A solid pair with a fill and no ink, or an ink and no fill, paints half a chip and reports
+     nothing, which is what the tinted set is already held to. */
+  it("gives every solid tone a fill and its paired on-colour, and none of them the refused pair", () => {
+    for (const tone of SOLID_TONES) {
+      const tokens = PILL_SOLID[tone].split(/\s+/);
+
+      assert.ok(
+        tokens.some((token) => token.endsWith("-solid") && token.startsWith("bg-")) &&
+          tokens.some((token) => token.endsWith("-solid-foreground") && token.startsWith("text-")),
+        `\`${tone}\` is ${PILL_SOLID[tone]}, which is not a fill under its on-colour`,
+      );
+      assert.ok(!tokens.includes("bg-muted") && !tokens.includes("text-foreground-muted"), `\`${tone}\` is the refused pair under a name`);
+    }
+  });
+
+  /* Both recipes carry the tone's own pair, so neither can exist with the tone left off
+     (`docs/frontend/spec.md :: I229`). */
+  it("carries each ground's own pair into the count it composes", () => {
+    for (const tone of TONES) {
+      assert.ok(countBadge(tone).endsWith(PILL_TINT[tone]), `\`${tone}\` composes to ${countBadge(tone)}, which drops its own tint`);
+    }
+    for (const tone of SOLID_TONES) {
+      assert.ok(trackCountBadge(tone).endsWith(PILL_SOLID[tone]), `\`${tone}\` composes to ${trackCountBadge(tone)}, which drops its own fill`);
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "@gravity-ui/icons";
 
-import { COUNT_BADGE, labelBadge } from "@/shared/components/ui/badges";
+import { countBadge, labelBadge } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -85,18 +85,11 @@ export function SpielRail({
         }
         badge={
           <span className="rail-marker">
-            {expectedScheduling.length > 0 && (
-              <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedScheduling.length}</span>
-            )}
+            {expectedScheduling.length > 0 && <span className={countBadge("warning")}>{expectedScheduling.length}</span>}
             {/* Tinted like every other badge — `/15` fill, `-strong` text:
                 the two solid-filled counts were the odd ones out and the least like their markers. */}
             {(expectedScoring.length > 0 || expectedScheduling.length === 0) && (
-              <span
-                className={`${COUNT_BADGE} ${
-                  expectedScoring.length > 0 ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
-                }`}>
-                {expectedScoring.length}
-              </span>
+              <span className={countBadge(expectedScoring.length > 0 ? "danger" : "success")}>{expectedScoring.length}</span>
             )}
           </span>
         }>

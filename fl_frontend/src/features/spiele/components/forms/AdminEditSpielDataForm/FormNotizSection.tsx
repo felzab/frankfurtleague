@@ -7,7 +7,7 @@ import { FieldError, TextArea, TextField } from "@heroui/react";
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -76,7 +76,7 @@ export function FormNotizSection({
             ref={notizRef}
             fullWidth
             placeholder="z.B. Nachholspiel wegen Regen"
-            className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+            className={`${FIELD_TEXTAREA} min-h-24`}
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
 

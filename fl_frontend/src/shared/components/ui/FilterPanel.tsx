@@ -7,7 +7,7 @@ import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions, isFacetOptionReachable } from "@/shared/utils/facets";
 
-import { COUNT_BADGE, PILL_TINT } from "./badges";
+import { countBadge } from "./badges";
 import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION } from "./pickedOption";
 
@@ -106,7 +106,7 @@ function FacetCell<TItem>({
           value={query}
           onChange={setQuery}
           className="shrink-0 px-1.5">
-          <SearchField.Group className="bg-surface border-border flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
+          <SearchField.Group className="bg-surface border-control flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
             <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
             <SearchField.Input
               placeholder={firstOption === undefined ? "" : `z.B. ${firstOption.label}`}
@@ -135,6 +135,8 @@ function FacetCell<TItem>({
           const isPicked = picked.includes(option.value);
 
           return (
+            // `pe-8` rather than HeroUI's `pe-7`, which sits in `@layer components` and loses to a utility
+            // here: the check is absolute at the row's end, so without the clearance it lands on the count.
             <ListBox.Item
               key={option.value}
               id={option.value}
@@ -143,11 +145,15 @@ function FacetCell<TItem>({
               // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
               // colour. A selected row overrides the hover ink below at two variants, because brand ink on
               // that fill measures 3.31:1.
-              className={`${PICKED_OPTION} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
+              className={`${PICKED_OPTION} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg py-1.5 ps-3 pe-8 font-bold transition-colors duration-(--motion-fast) ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>
-              <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>{count}</span>
+              <span className={`${countBadge("brandSolid")} shrink-0`}>{count}</span>
+              {/* The second carrier of a picked row: its tint sits under 3:1 on the ground in both themes,
+                  and under the keyboard the hover fill replaces the tint outright
+                  (`docs/frontend/spec.md :: I231`). */}
+              <ListBox.ItemIndicator className="text-brand" />
             </ListBox.Item>
           );
         })}

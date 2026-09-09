@@ -10,7 +10,7 @@ import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
-import { COUNT_BADGE, PILL_TINT } from "./badges";
+import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
@@ -21,13 +21,16 @@ import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { Key } from "@heroui/react";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
-const CONTROL_BOX = "border-border bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
+const CONTROL_BOX = "bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
 
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
-const PILL_SHELL = `${CONTROL_BOX} items-stretch overflow-hidden`;
+const PILL_SHELL = `${CONTROL_BOX} border-border items-stretch overflow-hidden`;
+
+/** Split from `ICON_SHELL` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
+const FIELD_SHELL = `${CONTROL_BOX} border-control text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
-const ICON_SHELL = `${CONTROL_BOX} text-foreground hover:bg-hover cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const ICON_SHELL = `${CONTROL_BOX} border-border text-foreground hover:bg-hover cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
 /** Sized by `w-8` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
  *  make the width a property of the icon's margins, and the glyph's own side margins are the pill's right gap. */
@@ -105,7 +108,7 @@ function FilterPill<TItem>({
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
           className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
-          {chosen.length > 1 && <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>+{chosen.length - 1}</span>}
+          {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
         <Popover.Content
           placement="bottom start"
@@ -178,7 +181,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
             // `SaisonSelector` carries why: react-aria hands focus back after a dismiss, and the field-focus
             // rule in `globals.css` would hold the brand border on a control clicked away from.
             data-border-on-open="true"
-            className={ICON_SHELL}>
+            className={FIELD_SHELL}>
             <ArrowUpArrowDown
               aria-hidden="true"
               width={16}

@@ -52,6 +52,30 @@ export const PILL_TINT: Record<PillTone, string> = {
   finale: "bg-phase-finale/15 text-phase-finale",
 };
 
+/** The four tones that carry a `-solid` fill. Brand's is `brandSolid`, and a phase has none. */
+export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | "info">;
+
+/**
+ * A count on a recessed track — a tab strip's `muted` — where a tint's light ink falls under the
+ * floor: the tone's fill under its paired on-colour, a pair no ground moves (`docs/frontend/spec.md :: I229`).
+ */
+export const PILL_SOLID: Record<FeedbackTone, string> = {
+  success: "bg-success-solid text-success-solid-foreground",
+  warning: "bg-warning-solid text-warning-solid-foreground",
+  danger: "bg-danger-solid text-danger-solid-foreground",
+  info: "bg-info-solid text-info-solid-foreground",
+};
+
+/** A count on `surface` or `background`, tinted as a label pill is. */
+export function countBadge(tone: PillTone): string {
+  return `${COUNT_BADGE} ${PILL_TINT[tone]}`;
+}
+
+/** A count on a recessed track, where a tint's ink fails: solid, under its on-colour. */
+export function trackCountBadge(tone: FeedbackTone): string {
+  return `${COUNT_BADGE} ${PILL_SOLID[tone]}`;
+}
+
 /**
  * A word in a pill — "Empfohlen", "Disqualifiziert", "Nicht gespeichert".
  *

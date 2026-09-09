@@ -13,7 +13,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -118,7 +118,7 @@ export function AdminBewerbungAblehnenSection({
           <TextArea
             fullWidth
             placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
-            className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+            className={`${FIELD_TEXTAREA} min-h-24`}
           />
           <FieldError className={FIELD_ERROR}>{error}</FieldError>
         </TextField>

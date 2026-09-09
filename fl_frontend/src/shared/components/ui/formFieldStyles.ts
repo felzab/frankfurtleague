@@ -13,14 +13,23 @@ export const FIELD_HEIGHT = "h-10";
 /**
  * No focus classes here. The border-turns-brand treatment lives once in the unlayered block at the end
  * of `globals.css`, keyed off HeroUI's `data-slot` attributes; repeating it is how it drifted before.
+ * `border-control`, never `border-border`: a field's border alone identifies it.
  */
-export const FIELD_INPUT = `border-border bg-surface text-foreground fluid-sm ${FIELD_HEIGHT} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+export const FIELD_INPUT = `border-control bg-surface text-foreground fluid-sm ${FIELD_HEIGHT} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+
+/**
+ * The one multi-line field; `border-control`, never `border-border`, a field's border alone identifying it.
+ * No `min-h-*` baked in: a call site's own height is the same property in the same layer, so the
+ * stylesheet's order would decide which wins.
+ */
+export const FIELD_TEXTAREA = "border-control bg-surface text-foreground fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**
  * A composite field's group chrome — the stepper, date and time groups. HeroUI sizes these itself, so a
  * site hand-rolling the border without `FIELD_HEIGHT` renders 36px beside a 40px trigger.
+ * `border-control`, never `border-border`: a field's border alone identifies it.
  */
-export const FIELD_GROUP = `border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`;
+export const FIELD_GROUP = `border-control bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`;
 
 /** The input inside a number field's group. `w-full` because the grid's middle track sizes it. */
 export const FIELD_COUNT_INPUT = "fluid-sm w-full";
