@@ -272,7 +272,9 @@ REFERENCES: tuple[Reference, ...] = (
             "the row it holds is retired; retiring the referee is refused from the other side for the reason the "
             "venue's is (`REQ-RETIRE-004`). "
             "The anonymisation retires the row itself, so an erased referee is refused a NEW fixture by the same rule "
-            "and is never reactivated (`REQ-ANONYMISE-003`). "
+            "and is never reactivated (`REQ-ANONYMISE-003`). It retires WITHOUT consulting that refusal, a request to be "
+            "forgotten not being something an unplayed fixture may block, so such a fixture keeps its assignment and "
+            "carries a nulled name until somebody reassigns it. "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -891,8 +893,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` and the anonymisation both stamp it, the erasure keeping a day the row already carries, and "
-        "`POST /reactivate` clears it unless the erasure has run (`REQ-ANONYMISE-003`); the retirement is refused "
-        "while an unplayed fixture still names this referee",
+        "`POST /reactivate` clears it unless the erasure has run (`REQ-ANONYMISE-003`); `DELETE` is refused "
+        "while an unplayed fixture still names this referee, where the erasure's own stamp is not",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
 )

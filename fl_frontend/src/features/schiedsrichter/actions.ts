@@ -232,7 +232,7 @@ export async function deleteSchiedsrichterAction(
     return {
       success: true,
       updated_document: postOperation.updated_document,
-      message: "Schiedsrichter stillgelegt. Seine Spiele bleiben erhalten.",
+      message: "Schiedsrichter stillgelegt. Die Spiele dieser Person bleiben erhalten.",
     };
   });
 }
@@ -318,8 +318,8 @@ export async function anonymiseSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
 
-    // The label fans into every match as a rename does, so the same one cached read is stale here.
-    // The referee list and the log are uncached.
+    // The NULLED name fans into every match as a rename does, so the same one cached read is stale
+    // here. The referee list and the log are uncached.
     updateTag("spiele");
 
     return {
@@ -328,7 +328,10 @@ export async function anonymiseSchiedsrichterAction(
       message:
         `Name, Schule, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
         "Der Eintrag ist stillgelegt und nimmt keine neuen Spiele mehr an. " +
-        "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diesen Schiedsrichter betrifft.",
+        // The erasure retires without the retirement's own refusal, so a fixture still to be played
+        // keeps this person booked on it and shows no name until somebody reassigns it.
+        "Spiele ohne Ergebnis behalten die Zuteilung und müssen neu zugeteilt werden. " +
+        "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diese Person betrifft.",
     };
   });
 }

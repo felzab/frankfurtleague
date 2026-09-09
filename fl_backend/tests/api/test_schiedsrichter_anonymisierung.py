@@ -40,7 +40,7 @@ from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exceptions import DocumentConflictException
 from app.core.recording import build_redaction_filter
-from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -232,7 +232,7 @@ def a_patch(**overrides: Any) -> dict[str, Any]:
         "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
         "schule": SCHULE,
         "default_payment": DEFAULT_PAYMENT,
-        "kontakt": FLKontakt(**A_CLEARED_KONTAKT),
+        "kontakt": FLKontaktPayload(**A_CLEARED_KONTAKT),
         **overrides,
     }
 
@@ -370,7 +370,9 @@ class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
     def test_a_contact_detail_put_back_is_refused_with_the_name_left_out(self):
         """The details are as much of the erasure as the name is, and a guard reading the name alone lets them back."""
 
-        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch(kontakt=FLKontakt(**KONTAKT[SCHIEDSRICHTER_OID])))
+        refusal = find_anonymisation_undo_refusal(
+            stored=ANONYMISED_ROW, patched=a_patch(kontakt=FLKontaktPayload(**KONTAKT[SCHIEDSRICHTER_OID]))
+        )
 
         assert refusal is not None
         assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
@@ -492,7 +494,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
             name=REFEREE_NAMES[schiedsrichter_id],
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontakt(**KONTAKT[schiedsrichter_id]),
+            kontakt=FLKontaktPayload(**KONTAKT[schiedsrichter_id]),
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
@@ -666,6 +668,32 @@ def test_the_erasure_retires_the_referee(mongo_replica_set_url: str):
     assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == TODAY
     # The control, without which retiring the whole collection would pass.
     assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None
+
+
+@pytest.mark.db
+def test_an_unplayed_fixture_does_not_stop_the_erasure_and_keeps_its_assignment(mongo_replica_set_url: str):
+    """`DELETE` owes `REQ-RETIRE-004` and this does not: a request to be forgotten outranks a booking.
+
+    Kills consulting that refusal here, and kills clearing the booking, which strands the fee agreed
+    for a match still to be played.
+    """
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        unplayed = SPIEL_OIDS[SCHIEDSRICHTER_OID][0]
+        await database[Collection.SPIELE].update_one({"_id": unplayed}, {"$set": {"ergebnis": None}})
+        await call_anonymisation(database, client)
+
+        return unplayed, await stored_fixtures(database), await stored_referees(database)
+
+    unplayed, fixtures, referees = on_a_league(mongo_replica_set_url, body)
+
+    assert referees[SCHIEDSRICHTER_OID][ANONYMISIERT_AM] == TODAY
+    assert fixtures[unplayed]["ergebnis"] is None
+    assert fixtures[unplayed]["schiedsrichter"] == {
+        "schiedsrichter_id": SCHIEDSRICHTER_OID,
+        "name": None,
+        "payment": DEFAULT_PAYMENT,
+    }
 
 
 @pytest.mark.db

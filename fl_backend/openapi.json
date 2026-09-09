@@ -8312,8 +8312,7 @@
           "telefon": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -8324,9 +8323,7 @@
           "email": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 254,
-                "format": "email"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -8512,6 +8509,42 @@
           "datum"
         ],
         "title": "FLKontaktKenntnisnahmePayload"
+      },
+      "FLKontaktPayload": {
+        "properties": {
+          "telefon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefon"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "telefon",
+          "email"
+        ],
+        "title": "FLKontaktPayload"
       },
       "FLKontaktSitz": {
         "properties": {
@@ -8929,7 +8962,7 @@
       "FLPatchSchiedsrichterPayload": {
         "properties": {
           "kontakt": {
-            "$ref": "#/components/schemas/FLKontakt"
+            "$ref": "#/components/schemas/FLKontaktPayload"
           },
           "name": {
             "type": "string",
@@ -9856,7 +9889,7 @@
       "FLPostSchiedsrichterPayload": {
         "properties": {
           "kontakt": {
-            "$ref": "#/components/schemas/FLKontakt"
+            "$ref": "#/components/schemas/FLKontaktPayload"
           },
           "name": {
             "type": "string",

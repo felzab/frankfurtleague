@@ -140,6 +140,13 @@ export function FormAnonymisierenSection({
               {/* The quotes ride INSIDE the expression: split across the JSX line break they render with a space before the closing one. */}
               {`„${SCHIEDSRICHTER_ANONYM_LABEL}“`}, und bearbeiten lässt er sich danach nicht mehr.
             </p>
+
+            {/* The one consequence the readout above cannot show: this press retires the referee without
+                the refusal `DELETE` owes an unplayed fixture, so such a fixture stays assigned to a row
+                that names nobody. */}
+            <p className="fluid-xxs text-foreground leading-normal font-medium">
+              Spiele ohne Ergebnis behalten die Zuteilung und müssen neu zugeteilt werden.
+            </p>
           </ConfirmReveal>
         )}
 

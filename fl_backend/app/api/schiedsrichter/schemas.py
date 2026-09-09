@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomOptionalString
-from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -24,6 +24,8 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     # the whole list over one row (`docs/backend/spec.md :: I36`). Stripped first, so the padding
     # the pattern's trailing space class admits never reaches a match document.
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
+    kontakt: FLKontaktPayload
 
 
 # One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,

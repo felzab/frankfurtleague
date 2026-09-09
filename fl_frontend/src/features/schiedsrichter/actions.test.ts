@@ -189,8 +189,8 @@ describe("the referee name a unique index already holds", () => {
 });
 
 describe("what the anonymisation moves", () => {
-  /* The one cached read it moves: the label fans into every Spiel as a rename does, and without the
-     tag the erased name keeps being served from cache. The referee list and the log are uncached. */
+  /* The one cached read it moves: the nulled name lands on every Spiel as a rename does, and without
+     the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
   it("invalidates the fixture reads, as the rename does", () => {
     assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
     assert.ok(RENAME_ACTION.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
@@ -253,6 +253,27 @@ describe("the anonymisation's copy", () => {
     assert.match(PANEL, /stillgelegt/, "the confirmation does not say the entry stops taking fixtures");
     assert.match(PANEL, /für neue Spiele nicht mehr angeboten/, "the confirmation does not say what the retirement costs");
     assert.match(PANEL, /Zurückholen lässt sich das nicht/, "a copy naming only the retirement would read as reversible");
+  });
+
+  /* The subject is the ASSIGNMENT this retirement leaves standing: `DELETE` is refused while an
+     unplayed fixture names the referee (`REQ-RETIRE-004`) and the erasure consults no such refusal, so
+     an administrator not told here leaves a match with no referee. */
+  it("says on both surfaces that a fixture without a result keeps the assignment", () => {
+    for (const [source, where] of [
+      [PANEL, "the armed confirmation"],
+      [ACTIONS, "the action's report"],
+    ] as const) {
+      assert.match(source, /Spiele ohne Ergebnis behalten die Zuteilung/, `${where} does not say the assignment survives the erasure`);
+      assert.match(source, /neu zugeteilt/, `${where} does not say the fixture has to be reassigned`);
+    }
+  });
+
+  /* Every other sentence about the erasure says „dieser Person“, and this one is the report an
+     administrator forwards: a referee can be a woman, and the notice writes both forms. */
+  it("reports the log redaction about a person rather than about a masculine referee", () => {
+    const report = sliceBetween(ANONYMISE_ACTION, "Im Änderungsprotokoll", null);
+
+    assert.match(report, /die diese Person betrifft/, "the report names the log rows by a masculine referee again");
   });
 
   /* The word is a frontend constant so it can be reworded without touching a stored document; typed

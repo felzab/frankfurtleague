@@ -131,9 +131,12 @@ class TestSchiedsrichter:
         """Not every referee is attached to a school."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(schule=None)).schule is None
 
-    def test_rejects_a_malformed_email_through_the_nested_contact(self, schiedsrichter, kontakt):
-        with pytest.raises(ValidationError):
-            FLSchiedsrichter.model_validate(schiedsrichter(kontakt=kontakt(email="nope")))
+    def test_the_payload_rejects_a_malformed_email_through_the_nested_contact(self, kontakt, assert_rejects):
+        assert_rejects(
+            FLPostSchiedsrichterPayload,
+            {"kontakt": kontakt(email="nope"), "name": "Anna Referee", "schule": None, "default_payment": 20},
+            "email",
+        )
 
     def test_payload_accepts_a_valid_body(self, kontakt):
         parsed = FLPostSchiedsrichterPayload.model_validate(
@@ -154,6 +157,12 @@ class TestSchiedsrichter:
     def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
         """A read model refusing a stored name would answer 500 for the whole list because of one row."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(name="A. Referee")).name == "A. Referee"
+
+    def test_the_read_model_still_serves_a_stored_contact_the_payload_would_refuse(self, schiedsrichter, kontakt):
+        """The nested half of the case above, and the one a NARROWED rule reaches: the phone rule grew a final digit after rows existed."""
+        stored = kontakt(telefon="069 1234 ", email="a" * 250 + "@b.example")
+
+        assert FLSchiedsrichter.model_validate(schiedsrichter(kontakt=stored)).kontakt.telefon == "069 1234 "
 
     def test_payload_shares_the_same_constraints(self, kontakt, assert_rejects):
         assert_rejects(FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "", "schule": None, "default_payment": 0}, "name")

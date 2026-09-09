@@ -36,8 +36,17 @@ describe("buildSchiedsrichterBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.match(banner?.body ?? "", /Einsätze bleiben erhalten/, "the body stopped naming what survives");
+    assert.match(banner?.body ?? "", /Einsätze[^.]*bleiben erhalten/, "the body stopped naming what survives");
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
+  });
+
+  /* A referee can be a woman and the published notice writes both forms, so a masculine possessive
+     here names the wrong person for half the collection. */
+  it("says whose Einsätze survive without a masculine possessive", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.body ?? "", /dieser Person/, "the body stopped naming the person neutrally");
+    assert.ok(!/\bSein(e|em|en|er)?\b/.test(banner?.body ?? ""), "the body is back to a masculine possessive");
   });
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {

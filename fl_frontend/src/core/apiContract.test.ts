@@ -65,7 +65,6 @@ const FRONTEND_ONLY: Record<string, string> = {
   OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
   KontaktEmail: "a shared validator applied per field; the backend spells it as EmailStr",
-  FLKontaktPayload: "the API types both directions with FLKontakt, and only the write side may judge an address",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -341,7 +340,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 178;
+const EXPECTED_PAIRS = 179;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

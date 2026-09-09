@@ -45,11 +45,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   // rather than on the current one.
   const saisonHref = useSaisonHref();
 
-  const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
-    // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a
-    // detail somebody could paste into a message, where an empty copy says there is nothing to send.
-    const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
-
+  const handleCopyKontakt = async (details: string) => {
     const copied = await copyTextToClipboard(details);
 
     if (copied) appToast.success("Kontaktdaten kopiert");
@@ -122,6 +118,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const isErased = schiedsrichter.anonymisiert_am !== null;
     const isRetired = schiedsrichter.inactive_since !== null;
 
+    // The state and not `angezeigt`, which is the word „anonym“: the italics that mark it a state on
+    // screen reach a screen reader as nothing, so the name it reads out is a person's.
+    const bearbeitenLabel = isErased ? "Eintrag mit gelöschten Daten bearbeiten" : `Schiedsrichter ${angezeigt} bearbeiten`;
+
+    // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
+    // somebody could paste into a message.
+    const kontaktdaten = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
+
     return (
       <RowActions>
         {/* Admin-only: the public Spielsuche declares no such facet, so the same link would filter nothing. */}
@@ -135,16 +139,20 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             height={18}
           />
         </RowActionLink>
-        <RowActionCopy
-          label="Kontaktdaten kopieren"
-          ariaLabel={`Kontaktdaten von ${angezeigt} kopieren`}
-          onPress={() => handleCopyKontakt(schiedsrichter)}
-        />
+        {/* No control where there is nothing to copy: `writeText("")` succeeds, so an empty copy clears
+            the clipboard the administrator was holding and the toast reports it as a copy. */}
+        {kontaktdaten !== "" && (
+          <RowActionCopy
+            label="Kontaktdaten kopieren"
+            ariaLabel={`Kontaktdaten von ${angezeigt} kopieren`}
+            onPress={() => handleCopyKontakt(kontaktdaten)}
+          />
+        )}
         {/* A link and not a press: the referee form edits on a page of its own. */}
         <RowActionLink
           href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
-          ariaLabel={`Schiedsrichter ${angezeigt} bearbeiten`}>
+          ariaLabel={bearbeitenLabel}>
           <Pencil
             aria-hidden="true"
             width={18}
