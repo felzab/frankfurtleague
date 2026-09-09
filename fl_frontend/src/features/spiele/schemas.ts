@@ -174,6 +174,10 @@ export const FLSpielElfmeterschiessenSchema = z
   });
 export type FLSpielElfmeterschiessen = z.infer<typeof FLSpielElfmeterschiessenSchema>;
 
+// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+const ERGEBNIS_REGEX = /^[0-9]+:[0-9]+$/;
+
 export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
@@ -198,10 +202,7 @@ export const FLSpielSchema = z.object({
 
   // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
   // silently rendered as a loss for both teams.
-  ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  ergebnis: z.string().regex(ERGEBNIS_REGEX, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'").nullable(),
 
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
@@ -435,10 +436,7 @@ export const FLSpielAdvancementSchema = z.object({
   // a client matching that number against a list it read before the save can match the wrong one.
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
-  voided_ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  voided_ergebnis: FLSpielSchema.shape.ergebnis,
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
   // occupant leaves each of them true and none of them is cleared.
@@ -456,10 +454,7 @@ export const FLSpielReleasedSideSchema = z.object({
   spiel_nr: z.int().positive(),
   side: z.enum(["team1", "team2"]),
   team_name: z.string().nonempty(),
-  voided_ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  voided_ergebnis: FLSpielAdvancementSchema.shape.voided_ergebnis,
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // A no-show alone, for `FLSpielAdvancementSchema`'s reason.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),

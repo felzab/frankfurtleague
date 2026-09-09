@@ -1,16 +1,17 @@
 import re
 from itertools import product
 from pathlib import Path
-from typing import Annotated, Final, NamedTuple
+from typing import Annotated, Any, Final, NamedTuple, get_args
 
 import pytest
 from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
+from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
-from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN
+from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN, CustomErgebnisString
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
@@ -228,6 +229,51 @@ def test_every_ceiling_the_event_payload_states_is_paired_here():
     assert bounded == {mirror.field for mirror in MIRRORED_MODEL_BOUNDS if mirror.model is payload}
 
 
+# The frontend's copy of the kind-to-origin mapping. `Record<FLAktor["kind"], AktionHerkunft>` refuses
+# a kind nobody places and takes a row moved to another origin, so only a comparison holds the two
+# ends to one origin per kind.
+KIND_ORIGINS: Final = ("features/aktionen/constants.ts", "AKTOR_HERKUNFT")
+
+OBJECT_ROW: Final = re.compile(r'^ +(?P<key>[a-z_]+): "(?P<value>[a-z_]+)",$', re.MULTILINE)
+
+# The literal's close, matched on the brace alone: `as const` or a `.parse()` after it would otherwise
+# carry the read into the next literal, whose rows this one would take for its own.
+OBJECT_CLOSE: Final = re.compile(r"^\}", re.MULTILINE)
+
+
+def _object_literal(module: str, name: str) -> dict[str, str]:
+    """One frontend object literal's string rows.
+
+    A row this reader cannot see is one the comparison below fails on rather than one that drops
+    quietly out of it.
+    """
+
+    source = _source(module)
+    opens = re.search(rf"^export const {name}[^=]*= \{{$", source, re.MULTILINE)
+
+    assert opens is not None, f"{module} no longer opens {name} as an object literal on one line"
+
+    closes = OBJECT_CLOSE.search(source, opens.end())
+
+    assert closes is not None, f"{module} no longer closes {name} at the start of a line"
+
+    return {row["key"]: row["value"] for row in OBJECT_ROW.finditer(source[opens.end() : closes.start()])}
+
+
+def test_the_log_files_every_actor_kind_under_the_origin_this_package_files_it_under():
+    """A disagreement answers a told count with an empty table.
+
+    The filter narrows the read on this package's mapping, and the page filters the rows it served on
+    the frontend's (`fl_frontend/src/shared/utils/facets.ts :: applyFacets`).
+    """
+
+    module, name = KIND_ORIGINS
+    filed = _object_literal(module, name)
+
+    assert filed, f"{module} no longer spells {name} as one origin per row, so this case compares nothing"
+    assert filed == dict(HERKUNFT_JE_KIND), f"{name} files {sorted(filed.items())}, where this package files {sorted(HERKUNFT_JE_KIND.items())}"
+
+
 class Pattern(NamedTuple):
     module: str
     typescript: str
@@ -249,6 +295,20 @@ def _field_pattern(model: type[BaseModel], field: str) -> str:
     return stated[0]
 
 
+def _alias_pattern(alias: Any, name: str) -> str:
+    """`_field_pattern`'s reading for an `Annotated` alias, whose constraint the fields carrying it never restate."""
+
+    stated = [part.pattern for part in get_args(alias)[1:] if getattr(part, "pattern", None) is not None]
+
+    assert len(stated) == 1, f"{name} states {len(stated)} patterns, so no one alphabet pairs with the frontend's"
+
+    return stated[0]
+
+
+# The scoreline rule, which this package spells once and the frontend twice: the parser's copy carries
+# the groups it reads the two numbers out of, and both copies are paired with this one below.
+ERGEBNIS_RULE: Final = _alias_pattern(CustomErgebnisString, "CustomErgebnisString")
+
 # Every hand-mirrored pattern. `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves
 # patterns out of the contract comparison by design, so nothing else pairs these ends at all.
 MIRRORED_PATTERNS: Final = (
@@ -263,11 +323,13 @@ MIRRORED_PATTERNS: Final = (
         "app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN",
         _field_pattern(FLPostSaisonSpielerPayload, "nummer"),
     ),
+    Pattern("features/spiele/schemas.ts", "ERGEBNIS_REGEX", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
+    Pattern("features/spiele/utils.ts", "ERGEBNIS_PATTERN", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
 )
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than
 # translated: the two engines disagree about what they hold, and `\s` is what the last divergence
-# between these two patterns was made of.
+# in the telephone pair was made of.
 MODELLED_ESCAPES: Final = frozenset("d-.\\()[]{}+*?^$|/")
 
 # A decimal digit outside ASCII, probed because `\d` holds it in Rust's engine and not in JavaScript's:
@@ -278,10 +340,14 @@ NON_ASCII_DIGIT: Final = "٥"
 # neither one names is one no derived alphabet would reach.
 PROBE_CONTROLS: Final = frozenset({"\n", "\r", "\t", " ", "é", "z", "5", NON_ASCII_DIGIT})
 
-# Long enough to stand either side of a twenty-character ceiling, which no exhaustive short probe reaches.
+# Runs standing on both sides of every repetition bound the pairs above state, the exhaustive short
+# probes reaching neither side of a long one; a bound that outgrows them is refused by
+# `test_the_probe_runs_reach_past_every_bound_the_declared_patterns_state`.
 PROBE_LENGTHS: Final = (4, 5, 19, 20, 21)
 
 ALPHANUMERIC_RANGE: Final = re.compile(r"([0-9A-Za-z])-([0-9A-Za-z])")
+
+REPETITION_BOUND: Final = re.compile(r"\{(\d+)(?:,(\d+))?\}")
 
 
 def _typescript_pattern(module: str, name: str) -> tuple[str, str]:
@@ -339,10 +405,29 @@ def test_each_declared_pattern_uses_only_the_constructs_this_check_models(patter
     typescript, flags = _typescript_pattern(pattern.module, pattern.typescript)
 
     assert flags == "", f"{pattern.typescript} carries the flags '{flags}', which this comparison does not model"
+    # Both anchors, because `.test()` and `.match()` SEARCH: an unanchored frontend spelling accepts a
+    # value with the scoreline buried in it, and the full match below would call the two ends equal.
+    assert typescript.startswith("^") and typescript.endswith("$"), (
+        f"{pattern.typescript} is unanchored, which the full match below models as anchored"
+    )
     for spelling in (pattern.source, typescript):
         escapes = {spelling[at + 1] for at, character in enumerate(spelling[:-1]) if character == "\\"}
         assert escapes <= MODELLED_ESCAPES, f"{sorted(escapes - MODELLED_ESCAPES)} in {spelling} is outside this check's vocabulary"
         assert "(?" not in spelling, f"{spelling} carries a group modifier this check does not model"
+
+
+@pytest.mark.parametrize("pattern", MIRRORED_PATTERNS, ids=lambda pattern: pattern.typescript)
+def test_the_probe_runs_reach_past_every_bound_the_declared_patterns_state(pattern: Pattern):
+    """A refusal like the one above: a bound raised past the longest run leaves the pair agreeing on every probe short of it."""
+
+    typescript, _ = _typescript_pattern(pattern.module, pattern.typescript)
+    stated = {
+        int(bound) for spelling in (pattern.source, typescript) for group in REPETITION_BOUND.findall(spelling) for bound in group if bound
+    }
+
+    assert not stated or max(PROBE_LENGTHS) > max(stated), (
+        f"{pattern.typescript} states {max(stated)}, past the longest run probed at {max(PROBE_LENGTHS)}"
+    )
 
 
 @pytest.mark.parametrize("pattern", MIRRORED_PATTERNS, ids=lambda pattern: pattern.typescript)
