@@ -16,6 +16,8 @@ export function NotFound() {
 
   return (
     <StatusPanel
+      /* `fl_frontend/src/app/not-found.tsx` renders this inside the public shell rather than as the whole document. */
+      fills="shell"
       badgeLabel="VAR Review"
       heading={
         <>
