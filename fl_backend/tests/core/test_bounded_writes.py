@@ -95,7 +95,7 @@ def _keyword(call: ast.Call, name: str) -> ast.expr | None:
 
 @pytest.mark.parametrize("function", CHOKE_POINT_FUNCTIONS, ids=lambda function: function.__name__)
 def test_a_choke_point_cannot_be_called_without_the_transactions_session(function: Callable[..., Any]):
-    """The answer to the objection the register raised: forgetting the write means forgetting the session, which is a `TypeError`.
+    """Forgetting the anchor write means forgetting the session, which is a `TypeError` at the call.
 
     Keyword-only and undefaulted, so neither a positional argument nor an omission reaches the body.
     """

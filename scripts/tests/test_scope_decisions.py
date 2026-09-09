@@ -797,9 +797,10 @@ def _planted() -> Path:
 
 
 def test_each_reader_finds_a_file_the_other_package_reads_and_a_reach_it_cannot_place() -> None:
-    """Both directions over a planted tree, which the three cases above cannot be.
+    """Both directions over a planted tree, carrying the spellings this repository does not.
 
-    Those compare sets over this repository, where a reader resolving nothing would pass every one.
+    A reader taking `opaque.ts`'s one string for a named file passes every case over the tree, which
+    holds no module spelling a path that way.
     """
     root = _planted()
     # The second module of each pair is the shape that must not read as a named file.

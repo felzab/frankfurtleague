@@ -776,8 +776,6 @@ class TestEveryServiceModuleDecidesFromItsArguments:
         assert called == []
 
 
-# --- appended by the coordinator: the create sweep -------------------------------------------------
-
 #: What `app/core/crud.py :: insert_live` stamps for every caller, so a router that omits it is right
 #: to. `_id` is the driver's.
 STAMPED_FOR_THE_CALLER: frozenset[str] = frozenset({"inactive_since", "_id"})
@@ -942,10 +940,10 @@ def creations() -> tuple[list[Creation], frozenset[str]]:
 
 
 class TestEveryCreateCarriesWhatItsValidatorRequires:
-    """The half of a required key nothing else holds.
+    """The half of a required key nothing holds without a mongod.
 
-    Dropping the key from a create leaves the whole estate green while production refuses every insert
-    at `validationAction: error`. Two create endpoints are named by no test at all.
+    A missing required key is refused at `validationAction: error`, so the create answers 500. Every
+    routed create is reached here, so none waits on an endpoint case.
     """
 
     def test_the_sweep_reaches_every_create_the_routers_make(self) -> None:
