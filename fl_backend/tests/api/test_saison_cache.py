@@ -20,7 +20,7 @@ from app.api.saisons.cache import (
     store_cached_saison,
 )
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
-from app.core import crud
+from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import SYSTEM_WRITE_ROUTERS, WRITE_ROUTERS
 
@@ -242,6 +242,17 @@ WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 # helper taking the collection through names it the same, which is what lets one recogniser read both.
 SAISONS_COLLECTION_PARAM = "saisons_collection"
 
+# The dependency alias an endpoint's parameter carries. FastAPI injects by annotation rather than by
+# name, so a parameter renamed keeps the season injected and drops the endpoint from a name-only
+# recogniser.
+SAISONS_COLLECTION_ANNOTATION = "SaisonsCollection"
+
+# Spelled rather than read off the object, an `Annotated` alias carrying no name of its own, so the
+# spelling is checked against the module the way `CRUD_WRITERS` is.
+assert hasattr(dependencies, SAISONS_COLLECTION_ANNOTATION), (
+    f"app/core/dependencies.py no longer spells {SAISONS_COLLECTION_ANNOTATION}, so the annotation route reads nothing"
+)
+
 # `app/core/crud.py`'s writing half, checked against that module below: a rename there would
 # otherwise leave this sweep matching nothing and passing.
 CRUD_WRITERS = ("patch_one_in_db", "patch_many_in_db", "post_one_to_db", "post_many_to_db", "set_inactive_since", "insert_live")
@@ -266,9 +277,50 @@ UNKNOWN_WRITERS = [name for name in CRUD_WRITERS if not hasattr(crud, name)]
 assert not UNKNOWN_WRITERS, f"{UNKNOWN_WRITERS} are no longer in app/core/crud.py, so this sweep would see no write"
 
 
+def _alias_targets(node: ast.AST) -> tuple[tuple[str, ...], str | None]:
+    """The names a plain copy binds, and the name it copies from.
+
+    A copy alone: anything computed carries no promise about which collection it holds.
+    """
+
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
+        return tuple(target.id for target in node.targets if isinstance(target, ast.Name)), node.value.id
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and isinstance(node.value, ast.Name):
+        return (node.target.id,), node.value.id
+
+    return (), None
+
+
+def _season_collection_names(tree: ast.AST) -> frozenset[str]:
+    """Every name this source has bound to the seasons collection.
+
+    Three routes, because each alone goes blind on a rename costing no behaviour: the injected
+    parameter, a parameter the dependency alias annotates, and a plain copy of either.
+    """
+
+    names = {SAISONS_COLLECTION_PARAM}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and isinstance(node.annotation, ast.Name) and node.annotation.id == SAISONS_COLLECTION_ANNOTATION:
+            names.add(node.arg)
+
+    # Re-walked until it settles: an alias copied from an alias is one too, in whatever order the
+    # source spells the two.
+    while True:
+        copies: set[str] = set()
+        for node in ast.walk(tree):
+            targets, copied_from = _alias_targets(node)
+            if copied_from in names:
+                copies.update(targets)
+
+        if copies <= names:
+            return frozenset(names)
+        names |= copies
+
+
 def _writes_the_season(tree: ast.AST) -> bool:
     """Whether this source writes a `saisons` document, through a crud helper or the driver."""
 
+    names = _season_collection_names(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -276,11 +328,11 @@ def _writes_the_season(tree: ast.AST) -> bool:
         called = node.func
         if isinstance(called, ast.Name) and called.id in CRUD_WRITERS:
             targets = (keyword for keyword in node.keywords if keyword.arg == "collection")
-            if any(isinstance(target.value, ast.Name) and target.value.id == SAISONS_COLLECTION_PARAM for target in targets):
+            if any(isinstance(target.value, ast.Name) and target.value.id in names for target in targets):
                 return True
 
         if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITERS:
-            if isinstance(called.value, ast.Name) and called.value.id == SAISONS_COLLECTION_PARAM:
+            if isinstance(called.value, ast.Name) and called.value.id in names:
                 return True
 
     return False
@@ -372,9 +424,17 @@ def _season_write_handlers() -> dict[str, tuple[ast.AST, ...]]:
 
 SEASON_WRITE_HANDLERS = _season_write_handlers()
 
+# Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
+# set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
+# shrink the sweep and still report success.
+SEASON_WRITE_HANDLER_FLOOR = 13
+
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.
-assert SEASON_WRITE_HANDLERS, "no admin endpoint was seen writing a season; did the dependency or the crud helpers get renamed?"
+assert len(SEASON_WRITE_HANDLERS) >= SEASON_WRITE_HANDLER_FLOOR, (
+    f"only {sorted(SEASON_WRITE_HANDLERS)} were seen writing a season, under the {SEASON_WRITE_HANDLER_FLOOR} this sweep reaches; "
+    "lower the floor only for an endpoint deliberately removed -- otherwise the recogniser, not the handlers, is the likely cause"
+)
 
 
 class TestEverySeasonWriteDropsIt:

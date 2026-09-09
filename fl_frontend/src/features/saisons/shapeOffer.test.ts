@@ -91,7 +91,7 @@ describe("the group count offer", () => {
   /* A season stored before these rules holds a count no shape satisfies. Drop it and the trigger
      shows a number the list does not carry; offer it and the picker promises a season that cannot
      be saved. */
-  it("keeps a stored count the universe does not carry", () => {
+  it("keeps a stored group count the universe does not carry", () => {
     const rows = groupCountOptions({ groups: 3, qualifiers: 2, occupancy: NOBODY_ENTERED });
 
     assert.deepEqual(
@@ -126,7 +126,7 @@ describe("the qualifier count offer", () => {
 
   /* The stored-count case on this side. Its note is whichever rule shuts it, which here is the group
      count standing beside it rather than anything about the number itself. */
-  it("keeps a stored count the universe does not carry", () => {
+  it("keeps a stored qualifier count the universe does not carry", () => {
     const rows = qualifierCountOptions({ groups: 2, qualifiers: 3, teams: MAX_TEAMS_PER_GROUP });
 
     assert.deepEqual(

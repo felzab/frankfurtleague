@@ -175,10 +175,18 @@ describe("the draw half of the Spielplan panel", () => {
 
   /* Read rather than rendered for the reason above. The two endpoints judge occupancy and the bracket
      in opposite orders, so the panel taking the rules patch's offer would name the wrong number. */
-  it("takes the draw's own offer rather than the rules patch's", () => {
+  it("takes the draw's own offer rather than the rules patch's, and the stepper's floor from the same groups", () => {
     assert.match(SOURCE, /drawGroupCountOptions\(\{/, "the panel builds its group offer some other way");
     assert.doesNotMatch(SOURCE, /\bgroupCountOptions\(/, "the draw offers the rules patch's order");
-    assert.match(SOURCE, /occupancy: gruppenOccupancy/, "the offer is built against something other than the season's groups");
+    /* One anchored match per consumer: this panel spells the pair twice, so a whole-file match is
+       held up by whichever copy survives while the other one goes. The gap crosses newlines, so a
+       Prettier reflow cannot fail it instead. */
+    assert.match(
+      SOURCE,
+      /drawGroupCountOptions\(\{[^}]*occupancy: gruppenOccupancy/,
+      "the offer is built against something other than the season's groups",
+    );
+    assert.match(SOURCE, /teamsPerGroupFloor\(\{[^}]*occupancy: gruppenOccupancy/, "the team stepper's floor ignores the season's groups");
   });
 
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would

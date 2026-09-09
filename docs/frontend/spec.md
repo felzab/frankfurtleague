@@ -1267,7 +1267,8 @@ holds whether a conditional block renders or not
   whichever rule shuts it, so a stored value reads as a statement rather than an offer
   (`fl_frontend/src/features/saisons/shapeOffer.ts :: countOptions`,
   `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx`), swept
-  by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: keeps a stored count the universe does not carry`
+  by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: keeps a stored group count the universe does not carry`,
+  `:: keeps a stored qualifier count the universe does not carry`
   and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/herkunftPick.test.ts :: keeps the stored placing on screen while it is closed`.
   A record the offered list has DROPPED is the same convention's other shape, put back from what the
   record holds

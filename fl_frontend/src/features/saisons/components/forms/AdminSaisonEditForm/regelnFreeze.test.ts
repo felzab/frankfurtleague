@@ -183,8 +183,9 @@ describe("the rules panel's shape offer", () => {
   });
 
   /* Read rather than rendered, and a render is what proves it has to be: this panel's markup is
-     byte-identical whichever occupancy it is handed, so only the file says the offer reads the prop. */
-  it("builds its offer from the occupancy it is handed, counted once for both panels", () => {
+     byte-identical whichever occupancy it is handed, so only the file says the two consumers read
+     the prop. */
+  it("builds its offer and its team floor from the occupancy it is handed, counted once for both panels", () => {
     // The mirror is where a closure would be legible if it were legible anywhere, and it renders a
     // closed row as a plain option, so the same list arrives whichever occupancy the panel is handed.
     assert.deepEqual(
@@ -193,7 +194,11 @@ describe("the rules panel's shape offer", () => {
       "an occupancy now reaches the option list, so a render can assert the closure",
     );
 
-    assert.match(REGELN, /occupancy: gruppenOccupancy/, "the panel builds an offer against something else");
+    /* One anchored match per consumer: this panel spells the pair twice, so a whole-file match is
+       held up by whichever copy survives while the other one goes. The gap crosses newlines, so a
+       Prettier reflow cannot fail it instead. */
+    assert.match(REGELN, /groupCountOptions\(\{[^}]*occupancy: gruppenOccupancy/, "the panel builds an offer against something else");
+    assert.match(REGELN, /teamsPerGroupFloor\(\{[^}]*occupancy: gruppenOccupancy/, "the team stepper's floor ignores the season's groups");
     assert.doesNotMatch(REGELN, /buildGruppenOccupancy/, "the rules panel counts the groups itself");
     assert.ok(EDIT_FORM.includes("buildGruppenOccupancy(ersatz.rows)"), "the edit form counts the groups some other way");
     // BOTH panels, off that one count: two derivations could close different rows of one season.
