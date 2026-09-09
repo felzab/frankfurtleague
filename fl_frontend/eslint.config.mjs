@@ -130,6 +130,17 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
 
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+
+      // A syntax rule rather than a test sweep: two comments in this tree name `router.back()`
+      // without calling it, and a matcher over source text cannot tell them from a call. The
+      // exemption below is the one guarded site.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
+          message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
+        },
+      ],
     },
   },
 
@@ -143,6 +154,10 @@ const eslintConfig = defineConfig([
   { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY) },
   { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.core) },
   { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.shared) },
+
+  // The one site the rule above exists to protect: it IS the guard, so it is the only place the
+  // platform call belongs.
+  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-syntax": "off" } },
 
   {
     files: ["src/**/*.{ts,tsx}"],
