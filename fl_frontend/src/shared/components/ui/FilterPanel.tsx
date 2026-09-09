@@ -7,7 +7,7 @@ import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions, isFacetOptionReachable } from "@/shared/utils/facets";
 
-import { COUNT_BADGE } from "./badges";
+import { COUNT_BADGE, PILL_TINT } from "./badges";
 import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION } from "./pickedOption";
 
@@ -147,7 +147,7 @@ function FacetCell<TItem>({
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>
-              <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{count}</span>
+              <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>{count}</span>
             </ListBox.Item>
           );
         })}

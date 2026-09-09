@@ -436,9 +436,9 @@ describe("one pass of the sweep", () => {
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NIEMAND] });
   });
 
-  /* Ruling 182's hold is the backend's alone: `fl_backend/app/api/bewerbungen/services.py ::
-     announcement_is_undeliverable` drops a refused Ansprechperson out of `:: deletion_is_due`, so no
-     held application is listed here. A second judgement on this side would be a copy free to drift. */
+  /* Holding an undeliverable application past its erasure window is the backend's alone:
+     `fl_backend/app/api/bewerbungen/services.py :: announcement_is_undeliverable` drops a refused
+     Ansprechperson out of `:: deletion_is_due`, so no held application is listed here. */
   it("mails every candidate the listing hands it, reading no delivery state to withhold one on", async () => {
     assert.ok(
       !Object.keys(FLBewerbungSweepLoeschungSchema.shape).some((feld) => feld.includes("zustellung")),

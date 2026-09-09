@@ -1014,8 +1014,8 @@ describe("the corrected contact address", () => {
     );
   });
 
-  /* Rulings 76 and 91: one press writes every seat the person holds, so the message names both or a
-     reader goes looking for a second link that will never come. */
+  /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
+     the message names both or a reader goes looking for a second link that will never come. */
   it("names every seat of a mirrored pair in the message it sends", () => {
     assert.match(
       KORREKTUR_ACTION,
@@ -1100,7 +1100,7 @@ describe("the seat row's correction control", () => {
   });
 
   /* A refused delivery is the row's most actionable fact, and the tone set it draws from holds no
-     neutral member (ruling 78, `fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
+     neutral member (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("grades a refused delivery with a tone rather than leaving it neutral", () => {
     assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
     assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");

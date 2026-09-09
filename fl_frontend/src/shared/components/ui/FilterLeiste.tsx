@@ -10,7 +10,7 @@ import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
-import { COUNT_BADGE } from "./badges";
+import { COUNT_BADGE, PILL_TINT } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
@@ -105,9 +105,7 @@ function FilterPill<TItem>({
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
           className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
-          {chosen.length > 1 && (
-            <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>+{chosen.length - 1}</span>
-          )}
+          {chosen.length > 1 && <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
         <Popover.Content
           placement="bottom start"

@@ -151,8 +151,8 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "trainer_ist_zugleich": None,
 }
 
-# The same three seats before any of them answered their own link: the state ruling 274's read-only
-# control shows, and the one the payload had made unsaveable.
+# The same three seats before any of them answered their own link: a seat carries no date until the
+# person enters one at their own confirmation (`docs/backend/spec.md :: I141`).
 UNDATED_SEEDED: dict[str, Any] = {
     **SEEDED_KONTAKTE,
     **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},

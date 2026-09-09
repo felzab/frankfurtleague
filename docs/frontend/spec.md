@@ -965,15 +965,22 @@ state each answer a question the reader has already been made to ask. What binds
 
 The banner rules:
 
-- **Four questions raise a banner, and a banner answers the one that raised it** (my rule,
-  2026-08-27): a save raises _what will this do to what is already there_; a control this panel
-  cannot offer, _why not_; a control living on another page, _where_; a gap in the record, _what
-  should I add_. **The answer is a title and at most one sentence under it.**
+- **Four questions raise a banner on a panel, and a banner answers the one that raised it** (my
+  rule, 2026-08-27, scoped to a panel on 2026-09-09): a save raises _what will this do to what is
+  already there_; a control this panel cannot offer, _why not_; a control living on another page,
+  _where_; a gap in the record, _what should I add_. **The answer is a title and at most one
+  sentence under it.**
 - **That cap reaches an entry built in a `banners.ts` and stops there** (my rule, 2026-08-27): a
   rail entry renders twice, so a second sentence is paid for twice over. A `Callout` written into a
   panel section stands alone and earns a second sentence — a closure states the rule and then the
   way out, an operation committing on its own control what it does and what moves with it. **Two is
-  the ceiling there as well**, a readout not counted.
+  the ceiling in a panel section as well**, a readout not counted.
+- **A list raises its own banner: the answer on screen is not the whole answer** (my rule,
+  2026-09-09): a read narrowed to one document, or cut short at one end of the collection, is
+  nothing the reader did, so the page says what it is short of and names the control that reaches
+  past it where one does. **What bounds it is the page's own set of controls and never a sentence
+  count** — one sentence for each control whose meaning the narrowing changes, a notice one control
+  short reading as though the rest behave as usual.
 - **Write the rule, never the situation that met it** — the rule is the half a reader can carry
   away and predict from. **The tell is a figure or a clause about rows other than the one being
   edited**; what the reader is standing on is not that tell and stays. **A readout is not prose and
