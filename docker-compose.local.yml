@@ -47,8 +47,8 @@ services:
       # the local stack in against production while every other read came from the container below.
       - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
-      # sweep here mails the league's real contact people: the database below can hold a production
-      # dump, and .env carries the real AUTH_RESEND_KEY.
+      # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
+      # it raises.
       - BEWERBUNG_SWEEP=off
     volumes:
       # `/app` is root-owned and the container runs as `nextjs`, so without this the sink has

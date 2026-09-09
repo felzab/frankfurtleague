@@ -323,9 +323,11 @@ platform.
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
 (`docker-compose.local.yml`, whose invariant block lists the overrides while each argument sits at
 the line it constrains). The same
-block sets `BEWERBUNG_SWEEP` off, because the database is a copy of production and
-`fl_frontend/.env` holds the real `AUTH_RESEND_KEY`: an armed sweep here mails the league's actual
-contact people, and one checked-in line is what a developer flips to exercise it (§1.1).
+block sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`. The database is a copy of production, so
+an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
+notices it raises off the people those rows name, each landing in the sink instead
+([`docs/frontend/spec.md`](../frontend/spec.md) I228). One checked-in line is what a developer
+flips to exercise the sweep (§1.1).
 
 **`./scripts/ops/local.sh --seed` fills it from production**, through two containers of which only
 one is handed the production credentials — a discipline rather than a boundary, its costs written
