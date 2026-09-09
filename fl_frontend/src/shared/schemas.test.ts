@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { z } from "zod";
@@ -414,6 +417,24 @@ describe("ExternalUrlSchema", () => {
     for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
       assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
     }
+  });
+
+  // A zod release moves `z.regexes.domain` without us, and the two ends then accept different hosts
+  // on either side of one stored URL.
+  it("checks the hostname against the regex the backend copied out of zod", () => {
+    // Source text rather than an import: `fl_backend/app/shared/schemas/custom.py :: DOMAIN_REGEX` is Python, which nothing here can load.
+    const custom = readFileSync(
+      path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"),
+      "utf8",
+    );
+    const copied = /^DOMAIN_REGEX = re\.compile\(r"(?<pattern>.+)"\)$/m.exec(custom)?.groups?.pattern;
+    // The INSTALLED package's own version, never `fl_frontend/package.json`'s range, which names no one regex.
+    const zod = JSON.parse(readFileSync(createRequire(import.meta.url).resolve("zod/package.json"), "utf8")) as { version: string };
+
+    assert.ok(copied, "custom.py no longer spells DOMAIN_REGEX as one compiled raw string, so this case compares nothing");
+    assert.equal(copied, z.regexes.domain.source, `the backend's copy no longer matches zod ${zod.version}`);
+    // A Python pattern string carries no flags, so a flag zod added would divide the two ends while the sources still compared equal.
+    assert.equal(z.regexes.domain.flags, "", `zod ${zod.version} gives its domain regex a flag`);
   });
 });
 
