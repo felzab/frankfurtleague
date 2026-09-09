@@ -461,8 +461,10 @@ def test_a_module_the_other_package_reads_selects_that_package_s_scopes() -> Non
         ("fl_backend/app/shared/schemas/bounds.py", read_by_a_frontend_suite),
         ("fl_backend/app/shared/schemas/custom.py", read_by_a_frontend_suite),
         ("fl_backend/app/api/bewerbungen/admin_router.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/bewerbungen/services.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/saisons/schemas.py", read_by_a_frontend_suite),
         ("fl_backend/app/api/saisons/services.py", read_by_a_frontend_suite),
-        ("fl_backend/app/api/schiedsrichter/services.py", read_by_a_frontend_suite),
+        ("fl_backend/app/api/teams/crud.py", read_by_a_frontend_suite),
         # `format` rides along with every TypeScript path, prettier having a parser for it.
         ("fl_frontend/src/features/saisons/actions.ts", {"backend", "db", "frontend", "docs", "format"}),
     ):

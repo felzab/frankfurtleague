@@ -717,10 +717,11 @@ with it**, which is why I1 is held by a check of its own over both files rather 
 **An arm reaches across the package boundary wherever one package's suite reads the other's file as
 source text**, and what makes it necessary is that the assertion sits on the far side: a scope
 confined to the changed file's own package never runs the check written to catch that change, so the
-finding waits for the push to main. Three couplings take that shape — the generated contract both
-packages hold, the backend modules a frontend suite reads off disk, and the one frontend module a
-backend suite cuts a refusal's German out of. Which paths those are is in
-`scripts/gate/scope_map.sh`, and `scripts/tests/test_scope_decisions.py` holds each arm both to the
+finding waits for the push to main. Four couplings take that shape — the generated contract both
+packages hold, the backend modules a frontend suite reads off disk, the frontend modules retyping a
+bound a backend suite compares, and the one frontend module a backend suite cuts a refusal's German
+out of. Which paths those are is in `scripts/gate/scope_map.sh`, and
+`scripts/tests/test_scope_decisions.py` holds each arm both to the
 scopes it must select and to the reads that earn it: it derives what each package reads of the other
 from the two trees and probes the mapping itself, so an arm short of a read and an arm outliving one
 are each a red branch. **A suite that discovers its subjects by walking the far tree is outside that
