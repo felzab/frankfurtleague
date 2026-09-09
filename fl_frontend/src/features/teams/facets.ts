@@ -18,6 +18,19 @@ const ZUGEHOERIGKEIT_PARAM = "zugehoerigkeit";
 export const TEAMS_ANY_SAISON_QUERY = `${ZUGEHOERIGKEIT_PARAM}=`;
 
 /**
+ * Its own binding so `buildTeamFacets` below can replace one field of it: a second literal there
+ * would be a second label and a second `read` to keep in step.
+ */
+const GRUPPE_FACET: Facet<AdminTeamRow> = {
+  param: "gruppe",
+  label: "Gruppe",
+  options: GRUPPEN_OPTIONS.map((gruppe) => ({ value: gruppe, label: `Gruppe ${gruppe}` })),
+  // A club with no junction row holds no group, so picking any group filters it out — the honest
+  // answer, since it is in none.
+  read: (team) => (team.selected === null ? [] : [team.selected.gruppe]),
+};
+
+/**
  * Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
  * key on the array's identity.
  */
@@ -36,14 +49,7 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
     // about a season of its own.
     read: (team) => [team.selected === null ? "nicht_aufgenommen" : "aufgenommen"],
   },
-  {
-    param: "gruppe",
-    label: "Gruppe",
-    options: GRUPPEN_OPTIONS.map((gruppe) => ({ value: gruppe, label: `Gruppe ${gruppe}` })),
-    // A club with no junction row holds no group, so picking any group filters it out — the honest
-    // answer, since it is in none.
-    read: (team) => (team.selected === null ? [] : [team.selected.gruppe]),
-  },
+  GRUPPE_FACET,
   {
     param: "status",
     label: "Status",
@@ -66,9 +72,20 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
 ];
 
 /**
- * Module scope, for `TEAM_FACETS`'s reason. No season dimension: the page reads one season already,
- * so a facet here could only ask the question the sidemenu selector has answered.
+ * The same facets with the group offer cut to what the SELECTED season runs: a letter past its count
+ * is a row no club can stand behind (`docs/glossary.md :: Gruppe`).
  */
+export function buildTeamFacets(numberOfGroups: number | null): readonly Facet<AdminTeamRow>[] {
+  // No season resolved is not a narrowing: the list spans every season either way, and cutting the
+  // offer to nothing would leave the panel a cell nobody can filter on.
+  if (numberOfGroups === null) return TEAM_FACETS;
+
+  const narrowed: Facet<AdminTeamRow> = { ...GRUPPE_FACET, options: GRUPPE_FACET.options.slice(0, numberOfGroups) };
+
+  // Identity, never the param: `TEAM_FACETS` holds this facet itself, so a rename cannot part them.
+  return TEAM_FACETS.map((facet) => (facet === GRUPPE_FACET ? narrowed : facet));
+}
+
 /** What a club's three seats add up to, which is the question the list is worked down by. */
 export const KONTAKTE_BESETZUNG_OPTIONS = [
   { value: "vollstaendig", label: "Alle drei besetzt" },
@@ -83,6 +100,10 @@ export function kontakteBesetzung(besetzt: number): (typeof KONTAKTE_BESETZUNG_O
   return besetzt === KONTAKT_ROLLEN.length ? "vollstaendig" : "teilweise";
 }
 
+/**
+ * Module scope, for `TEAM_FACETS`'s reason. No season dimension: the page reads one season already,
+ * so a facet here could only ask the question the sidemenu selector has answered.
+ */
 export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
   {
     param: "besetzung",

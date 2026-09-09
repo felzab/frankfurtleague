@@ -1099,8 +1099,8 @@ describe("the seat row's correction control", () => {
     assert.match(STRIP, /stiftRef\.current\?\.focus\(\)/, "focus is left wherever the unmounted field was");
   });
 
-  /* Ruling 78: a grey chip on a coloured row reads as a control that has been switched off, and this
-     one is the row's most actionable fact. */
+  /* A refused delivery is the row's most actionable fact, and the tone set it draws from holds no
+     neutral member (ruling 78, `fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("grades a refused delivery with a tone rather than leaving it neutral", () => {
     assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
     assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");

@@ -264,7 +264,8 @@ every two seconds:** every worker was first seen within seven seconds of the sta
 (`scripts/gate/verify.sh :: do_pytest`) the unit still running; `images` closed at 95 and 45 (a cold
 and a warm layer cache), `format` at 88 and 91, `backend` and `db` at 42 to 45, `docs` at 27, `ops`
 at 15 and 36. In CI the frontend job binds outright, 122 seconds against the scripts job's 52
-(`.github/gate-wall-clock.tsv`), which is `g489-8ptk`'s subject. The tail the 2026-08-26 profile
+(`.github/gate-wall-clock.tsv`), its span attributed there to the gate step rather than to the setup
+around it (`:: reference stands where it does`). The tail the 2026-08-26 profile
 described, forty seconds of `db` alone at six to twenty per cent, is gone: the tier closes inside
 both sections' span. `scripts/gate/gate_pool.py :: TYPICAL_MS` carries the same profile as its
 ranking.

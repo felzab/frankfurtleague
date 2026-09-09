@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 
-import { TRIKOT_FARBE_OPTIONS } from "./constants.ts";
-import { buildKontakteFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "./facets.ts";
+import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
+import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
@@ -479,6 +479,40 @@ describe("the club filter a link into the contacts list preselects", () => {
     // passes, and the badge then calls a club reachable through one person fully staffed.
     assert.equal(kontakteBesetzung(1), "teilweise");
     assert.equal(kontakteBesetzung(2), "teilweise");
+  });
+});
+
+describe("the group filter the teams list offers", () => {
+  const offered = (numberOfGroups: number | null) =>
+    buildTeamFacets(numberOfGroups)
+      .find((facet) => facet.param === "gruppe")
+      ?.options.map((option) => option.value);
+
+  /* A group the season does not run can hold nobody (`REQ-ENTER-002`), so every letter past the count
+     is an option that reads zero for every club there is. */
+  it("cuts the offer to the groups the selected season runs", () => {
+    assert.deepEqual(offered(2), ["A", "B"]);
+    assert.deepEqual(offered(4), ["A", "B", "C", "D"]);
+  });
+
+  /* The rows still span every season, so the unnarrowed offer is the honest one — and a facet
+     offering nothing is a filter cell a reader cannot use at all. */
+  it("offers the whole set where no season resolves", () => {
+    assert.deepEqual(offered(null), [...GRUPPEN_OPTIONS]);
+  });
+
+  /* Only the one dimension moves: the season and status facets read fields no group count reaches,
+     and a rebuild that dropped either would take the list's default narrowing with it. */
+  it("leaves the other facets and their order alone", () => {
+    assert.deepEqual(
+      buildTeamFacets(2).map((facet) => facet.param),
+      TEAM_FACETS.map((facet) => facet.param),
+    );
+    for (const facet of TEAM_FACETS) {
+      if (facet.param === "gruppe") continue;
+
+      assert.ok(buildTeamFacets(2).includes(facet), `the ${facet.param} facet was rebuilt rather than passed through`);
+    }
   });
 });
 

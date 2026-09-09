@@ -308,7 +308,8 @@ describe("an application holding a seat no message reaches", () => {
   });
 
   /* `danger` where the duplicate mark is `warning`: a colliding pair is waited out and an address
-     refused for good is not. Never grey, which reads as a control switched off (ruling 78). */
+     refused for good is not. Never grey (ruling 78,
+     `fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("is marked in the queue's own words, at a tone a reader can act on", () => {
     assert.equal(ZUSTELLUNG_QUEUE_TINT, "danger");
     assert.equal(ZUSTELLUNG_QUEUE_LABEL, "Kontakt unerreichbar");
