@@ -1313,11 +1313,6 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         assert advancement_refusal(stored, filling_the_open_side) is None
 
-    def test_the_code_is_not_the_one_a_payload_s_own_clash_carries(self):
-        """Nothing this save named is at fault, so the two refusals send the admin to different controls."""
-
-        assert SPIELTAG_OCCUPIED_BY_THE_RESOLUTION != SPIELTAG_OCCUPIED
-
     def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 

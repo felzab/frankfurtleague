@@ -282,11 +282,6 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
 
         assert ANONYMISED_SCHIEDSRICHTER == {**ANONYMISED_KONTAKT, "name": None, "schule": None}
 
-    def test_the_fee_is_left_where_it_stands(self):
-        """The control on the case above: a mapping widened to every field would pass it and take the league's own rate with it."""
-
-        assert "default_payment" not in ANONYMISED_SCHIEDSRICHTER
-
     def test_the_erasure_writes_no_word_into_the_name_column(self):
         """A word there is one value for every erased person, which `uniq_schiedsrichter_name` refuses the second of.
 

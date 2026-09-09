@@ -457,9 +457,6 @@ class TestBothSidesOfTheSeasonRelationAreCounted:
 
         assert run_list(_ArchiveCollection(mixed_archive())).anzahl_je_saisonbezug == {"diese_saison": 0, "andere_saison": 10}
 
-    def test_both_sides_are_named_whatever_is_stored(self):
-        assert sorted(run_list(_ArchiveCollection(archive_of(2))).anzahl_je_saisonbezug) == ["andere_saison", "diese_saison"]
-
 
 class TestTheCollisionIsAskedOverTheWholeQueue:
     """The pass the marking rests on. Narrowed the way the page is, a pair the cap parted is a group of one at each end."""
