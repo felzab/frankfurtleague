@@ -1,6 +1,6 @@
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Mapping, get_args
+from typing import Any, Awaitable, Callable, Final, Mapping, get_args
 
 import pytest
 from bson import ObjectId
@@ -958,8 +958,13 @@ def counted_stages(explained: Mapping[str, Any]) -> list[str]:
     return walk_stages(winning.get("queryPlan", winning))
 
 
+#: What the declared support set may not fall below. The equality beside it compares the registry's own
+#: length on both sides, so it holds no floor (`docs/_standard/standard.md :: PRE-4`).
+SUPPORT_INDEX_FLOOR: Final = 9
+
+
 def test_every_declared_support_index_is_built(mongo_url: str):
-    """`apply_constraints` creates each one. Only the unique indexes were checked before, so a typo here built nothing."""
+    """`apply_constraints` creates each one, and the declared set does not quietly shrink."""
 
     async def body(database: AsyncDatabase) -> int:
         for index in SUPPORT_INDEXES:
@@ -967,7 +972,9 @@ def test_every_declared_support_index_is_built(mongo_url: str):
             assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
         return len(SUPPORT_INDEXES)
 
-    assert on_the_shipped_schema(mongo_url, body) == len(SUPPORT_INDEXES)
+    built = on_the_shipped_schema(mongo_url, body)
+    assert built == len(SUPPORT_INDEXES)
+    assert built >= SUPPORT_INDEX_FLOOR, f"only {built} support index(es) are declared -- lower the floor only for one deliberately removed"
 
 
 def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url: str):

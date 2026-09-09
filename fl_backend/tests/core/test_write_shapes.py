@@ -1,6 +1,8 @@
 import ast
+from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, get_type_hints
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact
@@ -10,6 +12,7 @@ from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
+from app.main import SYSTEM_WRITE_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -657,3 +660,195 @@ class TestEveryServiceModuleDecidesFromItsArguments:
         ]
 
         assert called == []
+
+
+# --- appended by the coordinator: the create sweep -------------------------------------------------
+
+#: What `app/core/crud.py :: insert_live` stamps for every caller, so a router that omits it is right
+#: to. `_id` is the driver's.
+STAMPED_FOR_THE_CALLER: frozenset[str] = frozenset({"inactive_since", "_id"})
+
+#: The one helper a create goes through. `post_one_to_db` is reached only through it in the routers,
+#: and a create that stopped using it would drop out of this sweep -- which the floor below catches.
+CREATE_HELPER = "insert_live"
+
+#: Asserted equal to what the sweep finds, so a create that stops being readable fails rather than
+#: leaving the population.
+UNREADABLE_CREATES: frozenset[str] = frozenset(
+    {
+        # No single expression at its call site names the document. `post_team` covers the same
+        # collection from the same payload model.
+        "annehmen_bewerbung",
+    }
+)
+
+
+@dataclass(frozen=True)
+class Creation:
+    """One document a create composes, read off its own call site and its own payload model."""
+
+    endpoint: str
+    collection: str
+    #: Every key the document literal spells, a module constant resolved to its value.
+    literal_keys: frozenset[str]
+    #: Every field of every model whose `model_dump()` the literal spreads.
+    spread_fields: frozenset[str]
+
+    @property
+    def composed(self) -> frozenset[str]:
+        return self.literal_keys | self.spread_fields
+
+
+def _resolved_key(key: ast.expr, module: Any) -> str | None:
+    """A literal key, or a module constant naming one -- `ANONYMISIERT_AM` is spelled the second way."""
+
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        return key.value
+    if isinstance(key, ast.Name):
+        found = getattr(module, key.id, None)
+        return found if isinstance(found, str) else None
+    return None
+
+
+def creations() -> tuple[list[Creation], frozenset[str]]:
+    """Every create the application makes, composed keys beside the collection they land in.
+
+    Neither side is written twice, so the two can disagree: the keys come from the router's own source
+    and its payload model's fields, the requirement from `COLLECTION_VALIDATORS`.
+    """
+
+    found: list[Creation] = []
+    unreadable: set[str] = set()
+    for router in (*WRITE_ROUTERS, *SYSTEM_WRITE_ROUTERS):
+        for route in router.routes:
+            found_endpoint: Callable[..., Any] | None = getattr(route, "endpoint", None)
+            if found_endpoint is None:
+                continue
+            # Bound to a narrowed name because the readers below close over it, and a narrowing does not
+            # cross a closure.
+            endpoint: Callable[..., Any] = found_endpoint
+            module = import_module(endpoint.__module__)
+            hints = get_type_hints(endpoint)
+            for call in ast.walk(declared(endpoint)):
+                if not isinstance(call, ast.Call) or callee(call) != CREATE_HELPER:
+                    continue
+                arguments = {keyword.arg: keyword.value for keyword in call.keywords}
+                collection_argument = arguments.get("collection")
+                document = arguments.get("document")
+                if not isinstance(collection_argument, ast.Name):
+                    unreadable.add(endpoint.__name__)
+                    continue
+
+                def _base_name(node: ast.expr) -> str | None:
+                    """The name a call chain starts from: `FLPostTeamPayload.model_validate(x).model_dump()` is that class."""
+
+                    while True:
+                        if isinstance(node, ast.Name):
+                            return node.id
+                        if isinstance(node, ast.Attribute):
+                            node = node.value
+                        elif isinstance(node, ast.Call):
+                            node = node.func
+                        else:
+                            return None
+
+                def _fields_of(dump: ast.expr) -> set[str]:
+                    """The payload model a dump comes from, whether it is the endpoint's parameter or a class.
+
+                    Both ends are resolved rather than pattern-matched: a parameter through the
+                    endpoint's own type hints, a class through the module it is spelled in.
+                    """
+
+                    if not isinstance(dump, ast.Call) or "model_dump" not in ast.dump(dump.func):
+                        return set()
+                    name = _base_name(dump.func)
+                    if name is None:
+                        return set()
+                    model = hints.get(name) or getattr(module, name, None)
+                    return set(model.model_fields) if model is not None and hasattr(model, "model_fields") else set()
+
+                def _through_a_local(name: str) -> ast.expr | None:
+                    """What a local was assigned, following one call into the app so a composed document resolves."""
+
+                    for statement in ast.walk(declared(endpoint)):
+                        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+                            continue
+                        target = statement.targets[0]
+                        if not isinstance(target, ast.Name) or target.id != name:
+                            continue
+                        assigned = statement.value
+                        if isinstance(assigned, ast.Await):
+                            assigned = assigned.value
+                        found_helper: Callable[..., Any] | None = getattr(module, _base_name(assigned) or "", None)
+                        if found_helper is not None and callable(found_helper) and not hasattr(found_helper, "model_fields"):
+                            returned = next((node.value for node in ast.walk(declared(found_helper)) if isinstance(node, ast.Return) and node.value), None)
+                            if returned is not None:
+                                return returned
+                        return assigned
+                    return None
+
+                # Two shapes: the payload dumped whole, or that dump spread into a literal adding
+                # what no payload carries. Anything else is recorded rather than skipped.
+                if isinstance(document, ast.Name):
+                    resolved_document = _through_a_local(document.id)
+                    if resolved_document is None:
+                        unreadable.add(endpoint.__name__)
+                        continue
+                    document = resolved_document
+                if isinstance(document, ast.Call):
+                    literal, spread = set(), _fields_of(document)
+                    if not spread:
+                        unreadable.add(endpoint.__name__)
+                        continue
+                elif isinstance(document, ast.Dict):
+                    literal = {resolved for key in document.keys if key is not None and (resolved := _resolved_key(key, module)) is not None}
+                    spread, unread_spread = set(), False
+                    for key, value in zip(document.keys, document.values, strict=True):
+                        if key is None:
+                            fields = _fields_of(value)
+                            # A spread this reader cannot resolve leaves the document PARTLY read, and a
+                            # partial read is worse than none: it would report keys as missing that the
+                            # unread half supplies.
+                            unread_spread = unread_spread or not fields
+                            spread |= fields
+                    if unread_spread:
+                        unreadable.add(endpoint.__name__)
+                        continue
+                else:
+                    unreadable.add(endpoint.__name__)
+                    continue
+                found.append(
+                    Creation(
+                        endpoint=endpoint.__name__,
+                        collection=collection_argument.id.removesuffix(COLLECTION_ARGUMENT_SUFFIX),
+                        literal_keys=frozenset(literal),
+                        spread_fields=frozenset(spread),
+                    )
+                )
+    return found, frozenset(unreadable)
+
+
+class TestEveryCreateCarriesWhatItsValidatorRequires:
+    """The half of a required key nothing else holds.
+
+    Dropping the key from a create leaves the whole estate green while production refuses every insert
+    at `validationAction: error`. Two create endpoints are named by no test at all.
+    """
+
+    def test_the_sweep_reaches_every_create_the_routers_make(self) -> None:
+        composed, unreadable = creations()
+        # A floor rather than non-emptiness: a create that stops going through `insert_live`, or a
+        # call this reader stops resolving, shrinks the population and the assertion together.
+        assert len(composed) >= 4, f"only {len(composed)} create(s) resolved: {[creation.endpoint for creation in composed]}"
+        assert unreadable == UNREADABLE_CREATES, f"the set this reader cannot follow moved: {sorted(unreadable)}"
+
+    def test_each_create_composes_every_key_its_collection_requires(self) -> None:
+        composed, _ = creations()
+        for creation in composed:
+            schema = COLLECTION_VALIDATORS[Collection(creation.collection)]["$jsonSchema"]
+            required = frozenset(schema.get("required", ())) - STAMPED_FOR_THE_CALLER
+            missing = required - creation.composed
+            assert not missing, (
+                f"{creation.endpoint} composes no {sorted(missing)}, which the {creation.collection} validator requires -- "
+                f"the insert is refused at `validationAction: error` and the create answers 500"
+            )

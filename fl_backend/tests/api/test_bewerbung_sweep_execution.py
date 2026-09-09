@@ -715,6 +715,9 @@ class TestTheOneMonthClock:
         other, erasures = on_a_league(mongo_replica_set_url, body)
 
         assert other is not None
+        # Floored as the case above floors its own rows: `all` over an empty corpus is true, so a sweep
+        # that erased nothing would pass this while proving the opposite of what it claims.
+        assert erasures, "the sweep erased nothing, so this proves no season was spared"
         assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
 
 
