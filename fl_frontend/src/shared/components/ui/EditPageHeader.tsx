@@ -40,6 +40,9 @@ export function EditPageHeader({
 }) {
   return (
     <>
+      {/* Spelled out rather than `BackButton`: this exit is `useEditorExit`'s `requestLeave`, which
+          raises the discard latch on a dirty draft. A shared pill taking a bare handler would reopen
+          the hole `BackButton` closes. */}
       <Button
         onPress={onLeave}
         isDisabled={isLeaving}

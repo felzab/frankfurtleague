@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react";
+
+import { goBackOrPush } from "@/shared/hooks/useEditorExit";
 
 import { DISPLAY_HEADING } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
 export function NotFound() {
+  const router = useRouter();
+
   return (
     <StatusPanel
       badgeLabel="VAR Review"
@@ -30,7 +35,7 @@ export function NotFound() {
         <Button
           variant="ghost"
           aria-label="Zurück zur vorherigen Seite"
-          onPress={() => window.history.back()}
+          onPress={() => goBackOrPush(router, "/")}
           className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full px-8 sm:w-auto`}>
           Zurück
         </Button>

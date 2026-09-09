@@ -13,8 +13,8 @@ export type PageExitOptions = {
 };
 
 /**
- * `router.back()` alone is a silent no-op where a bookmark or a pasted URL is the whole history:
- * `history.length` is the only signal the platform offers, and a fresh tab reads 1.
+ * The guarded exit (`docs/frontend/spec.md :: I225`). A fresh tab reads `history.length` as 1, so
+ * the comparison is against 1 and not against 0.
  */
 export function goBackOrPush(router: ReturnType<typeof useRouter>, fallbackHref: string): void {
   if (window.history.length > 1) router.back();

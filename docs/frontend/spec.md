@@ -1336,6 +1336,12 @@ holds whether a conditional block renders or not
 - **Every field-shaped control resolves to one height**
   (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_HEIGHT`), and focus and refusal
   are both borders told apart by hue (`fl_frontend/src/app/globals.css :: data-invalid`).
+- **A page's own exit renders `fl_frontend/src/shared/components/ui/BackButton.tsx :: BackButton`**,
+  which carries the guard with the markup: a page spelling the pill out instead gets a control that
+  does nothing on a cold entry (I225). Its spacing is a closed pair and SUBSTITUTES rather than
+  appends, there being no `twMerge` in the path. An exit whose destination its own page decides --
+  a dirty draft's discard latch, say -- keeps the markup by hand, a pill taking a bare handler
+  being the hazard the component closes.
 
 ## 2. Invariants
 
@@ -1463,6 +1469,7 @@ holds whether a conditional block renders or not
 | I207 | A public write names the outcome only where the edge refused the request; every other unread answer claims nothing about it                                                                                                                | `fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`, whose refused arm carries `wroteNothing`, and `fl_frontend/src/shared/utils/publicSubmit.test.ts`, which drives all three refusals against the flag                                                                                                  |
 | I209 | A shape control's open rows are exactly the counts a create saves: no offer the write path refuses, no legal count out of reach                                                                                                            | `fl_frontend/src/features/saisons/shapeOffer.ts`, held to `fl_frontend/src/features/saisons/schemas.ts :: FLPostSaisonPayloadSchema` in both directions by `fl_frontend/src/features/saisons/shapeOffer.test.ts`                                                                                                     |
 | I216 | **An erased referee's editor route answers a read-only readout, never the editor**: `EditPageHeader` is the editor's chrome (I38) and this page carries its own                                                                            | review — `fl_frontend/src/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx` branches on the erasure stamp, and `fl_frontend/src/features/schiedsrichter/components/views/AdminSchiedsrichterGeloeschtView.tsx` is the readout                                                                |
+| I225 | **A control that leaves a page falls back to the list that page sits under**, `history.length` being the only cold-entry signal the platform offers                                                                                        | `fl_frontend/src/shared/hooks/useEditorExit.ts :: goBackOrPush`, reached by every exit on the surface; driven both ways by `fl_frontend/src/shared/components/ui/BackButton.test.ts`                                                                                                                                 |
 
 ## 3. Violation → remedy
 
