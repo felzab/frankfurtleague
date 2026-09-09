@@ -48,8 +48,9 @@ export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
 export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
 
 /**
- * A club's Kürzel is exactly this many characters. Read by the schema, the input's own cap and the
- * blur-time check, so no two of them can disagree about what a complete code looks like.
+ * A club's Kürzel is exactly this many characters, mirrored from
+ * `fl_backend/app/shared/schemas/bounds.py`. Every site that counts a code reads it from here, the
+ * application form and the club editor alike, so no two can disagree about a complete code.
  */
 export const KUERZEL_LAENGE = 2;
 

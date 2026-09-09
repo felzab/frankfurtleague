@@ -1,6 +1,10 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+// The applications slice declares this width, a school proposing a Kürzel before any club exists to
+// hold it (`docs/glossary.md :: Kürzel`). `fl_backend/tests/shared/test_frontend_mirrors.py` pairs
+// that one declaration with the backend's, so a literal beside it is compared by nothing.
+import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   CustomDateStringSchema,
@@ -243,7 +247,7 @@ export const FLTeamSchema = z.object({
 
   // Out of THIS season. Joined from the junction on every read, so it cannot go stale.
   austritt: FLAustrittSchema.nullable(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
@@ -266,7 +270,7 @@ export type FLTeam = z.infer<typeof FLTeamSchema>;
 export const FLGruppenTeamSchema = z.object({
   id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   statistik: FLTeamStatistikSchema,
   // The record's TYPE alone, reusing the enum rather than restating it: a row marks that a club is
   // out of the season, and the club's own page publishes the reason and the date.
@@ -321,8 +325,11 @@ const teamPayloadFields = {
     .trim()
     .nonempty({ error: "Bitte gib einen Namen ein." })
     .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
-  // Exactly two characters, held unique across every club — retired ones included.
-  shorthand: z.string().trim().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
+  // Held unique across every club, retired ones included (`fl_backend/app/core/constraints.py :: uniq_shorthand`).
+  shorthand: z
+    .string()
+    .trim()
+    .length(KUERZEL_LAENGE, { error: `Das Kürzel besteht aus genau ${String(KUERZEL_LAENGE)} Zeichen.` }),
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
@@ -382,7 +389,7 @@ export const FLTeamRecordSchema = z.object({
   id: CustomObjectIdStringSchema,
 
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   website_url: OptionalExternalUrlSchema,
@@ -490,7 +497,7 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   // and rewritten by a rename only while the season is not `past`, so a client's copy could only be
   // stale.
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;
 
@@ -509,7 +516,7 @@ export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Reseeded from the incoming club, exactly as entry seeds them.
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   // Reported rather than assumed, as the rename's count is: this fan-out is the half of the endpoint
   // that fails silently.
   fanned_out_to_spiele: z.int().nonnegative(),

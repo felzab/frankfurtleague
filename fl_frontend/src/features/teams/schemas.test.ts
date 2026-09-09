@@ -306,7 +306,7 @@ describe("the write payloads' floors, against the stripped floors at the API", (
   it("refuses a club name, full name or Kürzel of spaces alone", () => {
     assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ name: SPACES })), ["name"]);
     assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ full_name: SPACES })), ["full_name"]);
-    // Two spaces satisfy an untrimmed `length(2)` exactly, which is the arm a floor alone would miss.
+    // A Kürzel of spaces alone satisfies an untrimmed width exactly, which is the arm a floor alone would miss.
     assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "  " })), ["shorthand"]);
   });
 

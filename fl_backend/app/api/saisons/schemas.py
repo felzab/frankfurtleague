@@ -226,7 +226,10 @@ class FLSwapGruppenPayload(BaseModel):
 class FLSwapGruppenResponse(BaseAPIResponse):
     """Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed."""
 
-    saison_id: str
+    # Stated on a RESPONSE because `app/api/saisons/admin_router.py :: swap_gruppen` builds this model
+    # in-transaction and before the junction writes: a path id outside the width aborts the exchange
+    # rather than failing the echo of a swap that landed.
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     team1_id: CustomObjectId
     team1_gruppe: FLGruppenNames
     team2_id: CustomObjectId
