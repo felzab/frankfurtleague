@@ -10,9 +10,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
-from app.api.bewerbungen.services import build_dubletten_pipeline, dubletten_schluessel_of
+from app.api.bewerbungen.services import dubletten_schluessel_of
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -483,6 +482,13 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
 
         assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group"]
 
+    def test_the_answer_carries_the_keys_the_pass_found(self):
+        """Read off the ANSWER: the fold's own cases below build cells by hand, which a router dropping the field would still satisfy."""
+
+        collection = _ArchiveCollection([bewerbung_document(1, shorthand="gg"), bewerbung_document(2, shorthand="GG")])
+
+        assert run_list(collection).dubletten_schluessel == [KUERZEL_PAAR]
+
 
 class TestWhatCountsAsOneCollisionKey:
     """The fold and the pair rule, over cells of the shape the tally's `$group` answers with."""
@@ -545,21 +551,17 @@ class TestTheCollisionSurvivesTheReadsCap:
     pytestmark = pytest.mark.db
 
     def test_a_pair_at_the_two_ends_of_a_cut_queue_is_named(self, mongo_url: str):
-        async def read() -> tuple[Any, list[str]]:
+        async def read() -> Any:
             async with a_clean_database(mongo_url, DUBLETTEN_DATABASE, constraints=True) as (_, database):
                 collection = database[Collection.BEWERBUNGEN]
                 await collection.insert_many(straddling_archive())
 
-                # The endpoint's own page, for the cut, beside the pass over everything open.
-                answered = await get_bewerbungen(
+                return await get_bewerbungen(
                     bewerbungen_collection=collection,
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )
-                cells = await aggregate_many_from_db(collection=collection, pipeline=build_dubletten_pipeline({}))
 
-                return answered, dubletten_schluessel_of(cells)
-
-        answered, schluessel = on_the_seed_loop(read())
+        answered = on_the_seed_loop(read())
         served = {row.id for row in answered.bewerbungen}
 
         # Non-vacuity: the cap has to have cut the queue and kept exactly one half of the pair, or a
@@ -569,7 +571,7 @@ class TestTheCollisionSurvivesTheReadsCap:
         assert ObjectId(BEWERBUNG_ID.format(NEUESTE)) in served
         assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
 
-        assert schluessel == [KUERZEL_PAAR]
+        assert answered.dubletten_schluessel == [KUERZEL_PAAR]
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so

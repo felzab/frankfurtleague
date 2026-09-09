@@ -380,7 +380,7 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
     A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. German, because the person who typed the date reads it.
+    clock. Both messages reach the log alone (`docs/logging/spec.md :: L4`).
     """
 
     age = _whole_years_between(born=geburtsdatum, today=today)

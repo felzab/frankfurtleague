@@ -492,6 +492,23 @@ def test_a_second_erased_referee_is_fine(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == 2
 
 
+def test_the_erasure_filter_reaches_a_row_written_before_the_field_existed(mongo_url: str):
+    """Seeded before the constraints, because the shipped validator requires the key: only a row stored under an older schema can lack it."""
+
+    async def body(database: AsyncDatabase) -> str:
+        pre_backfill = {key: value for key, value in valid_documents()["schiedsrichter"].items() if key != "anonymisiert_am"}
+        await database.schiedsrichter.insert_many([pre_backfill, {**pre_backfill, "_id": TEAM_OID}])
+
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            return "raised" if "uniq_schiedsrichter_name" in str(failure) else f"raised the wrong thing: {failure}"
+
+        return "carried on"
+
+    assert on_a_database(mongo_url, body) == "raised"
+
+
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_url: str):
     """The index is compound for a reason: match 1 exists in every season."""
 
@@ -876,8 +893,9 @@ AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
 # One trace the seeded rows share, so the narrowed tally below counts more than a single row.
 TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
 
-# Every shape the tally's own `$match` can hold, neither facet term reaching it. All four, because the
-# planner is asked afresh for each.
+# Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
+# (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
+# for each.
 AKTIONEN_TALLY_FILTERS: list[dict[str, Any]] = [
     {},
     {"trace_id": TALLY_TRACE_ID},
