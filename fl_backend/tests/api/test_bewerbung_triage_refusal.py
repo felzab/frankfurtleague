@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import Any, Iterator, Mapping, cast
+from collections.abc import Iterator, Mapping
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId

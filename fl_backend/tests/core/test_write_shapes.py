@@ -1,8 +1,9 @@
 import ast
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, get_type_hints
+from typing import Any, get_type_hints
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact

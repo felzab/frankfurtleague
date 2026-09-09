@@ -1,6 +1,7 @@
 import ast
 import asyncio
-from typing import Any, Callable, NoReturn, cast
+from collections.abc import Callable
+from typing import Any, NoReturn, cast
 
 import pytest
 from bson import ObjectId
@@ -1250,7 +1251,7 @@ class _TeamPipelineCollection:
     def __init__(self, clubs: list[dict[str, Any]]) -> None:
         self.clubs = clubs
 
-    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_TeamPipelineCollection":
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _TeamPipelineCollection:
         return self
 
     async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
@@ -1267,10 +1268,10 @@ class _SeasonCollection:
     def __init__(self, spiele: list[dict[str, Any]]) -> None:
         self.spiele = spiele
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_SeasonCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _SeasonCollection:
         return self
 
-    def limit(self, count: int) -> "_SeasonCollection":
+    def limit(self, count: int) -> _SeasonCollection:
         return self
 
     async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:

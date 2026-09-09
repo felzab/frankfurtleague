@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
+from typing import Any
 
 import pytest
 from bson import ObjectId

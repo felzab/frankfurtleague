@@ -3,8 +3,9 @@ import functools
 import importlib
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pytest
 from pydantic import BaseModel

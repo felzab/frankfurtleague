@@ -1,6 +1,7 @@
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from itertools import combinations, product
-from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
+from typing import Any, get_args
 
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
@@ -352,7 +353,7 @@ def _head_to_head_table(
     teams: Sequence[FLTeam],
     spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> _MiniTable:
     """The mini-table over the matches `teams` played against EACH OTHER.
 
@@ -410,7 +411,7 @@ def _break_tie(
     band: Sequence[FLTeam],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> list[list[FLTeam]]:
     """Teams level on points, split by one criterion then the other; `tiebreak_order` picks which leads, where it can.
 
@@ -451,7 +452,7 @@ def _break_tie(
 def _tiers(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
-    settled: AbstractSet[CustomObjectId],
+    settled: Set[CustomObjectId],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
@@ -659,8 +660,8 @@ def _separated_placings(
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
     still_to_play: Mapping[CustomObjectId, int],
-    settled: AbstractSet[CustomObjectId],
-    placeable: AbstractSet[CustomObjectId],
+    settled: Set[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> Mapping[int, FLTeam]:
     """The placings no ending of an outstanding fixture can reach.
 
@@ -697,10 +698,10 @@ def _separated_placings(
 def _placings(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
-    settled: AbstractSet[CustomObjectId],
+    settled: Set[CustomObjectId],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> Mapping[int, FLTeam]:
     """The placings one points table pins down. A band holding several teams that can place pins none of them."""
 
@@ -780,7 +781,7 @@ def build_decided_standings(
     teams: Iterable[FLTeam],
     spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
-    gruppen: AbstractSet[FLGruppenNames] | None = None,
+    gruppen: Set[FLGruppenNames] | None = None,
 ) -> Mapping[FLGruppenNames, DecidedStanding]:
     """Which placing in each group is beyond doubt, and which is still anybody's.
 

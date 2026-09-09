@@ -1,4 +1,5 @@
-from typing import Any, Mapping, get_args
+from collections.abc import Mapping
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError

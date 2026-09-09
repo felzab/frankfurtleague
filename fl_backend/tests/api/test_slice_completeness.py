@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -103,10 +104,10 @@ class _SeasonCollection:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self.documents = documents
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_SeasonCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _SeasonCollection:
         return self
 
-    def limit(self, count: int) -> "_SeasonCollection":
+    def limit(self, count: int) -> _SeasonCollection:
         # Truncating rather than answering everything: this IS the silent loss under test.
         self.documents = self.documents[:count]
         return self
@@ -161,13 +162,13 @@ class _ArchiveCollections:
 
     # A coroutine, matching the driver: the read under test awaits `aggregate` and does not await
     # `find`, so a synchronous double here would pass a cursor where a coroutine is expected.
-    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _ArchiveCollections:
         return self
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _ArchiveCollections:
         return self
 
-    def limit(self, count: int) -> "_ArchiveCollections":
+    def limit(self, count: int) -> _ArchiveCollections:
         self.saisons = self.saisons[:count]
         return self
 

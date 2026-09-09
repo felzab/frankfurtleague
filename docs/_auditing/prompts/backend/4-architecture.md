@@ -45,12 +45,10 @@ THE CHECKS, in priority order:
      Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may import
      from `app/`.
 
-4. **TYPING AND MODERNISATION.** A known open item in `docs/_roadmap/items.md`: several modules
-   import `Mapping` / `Sequence` / `Optional` / `Callable` from `typing` instead of
-   `collections.abc` and PEP-604 syntax, and the recorded decision is to enable ruff's `UP` rules and
-   migrate **in one pass, never piecemeal**. This pass is that moment: measure what `UP` would flag,
-   report the full inventory, and put the one-pass migration in the fix-priority list. Also:
-   `pyright` strictness gaps, `Any` leaks, missing return types on public functions.
+4. **TYPING AND MODERNISATION.** `fl_backend/pyproject.toml` selects ruff's `UP` family, so a
+   deprecated `typing` alias and a pre-PEP-604 annotation are both refused at the linter and are
+   not this pass's work. What no linter sees is: `pyright` strictness gaps, `Any` leaks, and
+   missing return types on public functions.
 
 5. **TEST STRATEGY BY LAYER.** Establish what the suite actually covers before judging it. **A real
    `mongod` fixture already exists**, behind a `db` marker the default tier deselects, so this pass

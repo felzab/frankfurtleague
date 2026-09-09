@@ -3,8 +3,9 @@ import asyncio
 import inspect
 import sys
 import textwrap
+from collections.abc import Mapping
 from types import FunctionType, ModuleType
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 import pytest
 from pymongo.asynchronous.collection import AsyncCollection

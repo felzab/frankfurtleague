@@ -1,8 +1,9 @@
 import math
 from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Iterable, Literal, Mapping, Sequence
+from typing import Any, Literal
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (

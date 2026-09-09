@@ -1,4 +1,5 @@
-from typing import Annotated, Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession

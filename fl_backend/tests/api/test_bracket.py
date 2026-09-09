@@ -1,4 +1,5 @@
-from typing import Any, Callable, Mapping, get_args
+from collections.abc import Callable, Mapping
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId

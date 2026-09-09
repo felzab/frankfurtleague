@@ -1,5 +1,6 @@
+from collections.abc import Callable, Iterator, Sequence
 from itertools import product
-from typing import Any, Callable, Iterator, Sequence
+from typing import Any
 
 import pytest
 

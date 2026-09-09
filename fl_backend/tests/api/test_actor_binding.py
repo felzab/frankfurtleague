@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 from collections import Counter
-from typing import Iterator
+from collections.abc import Iterator
 
 import pytest
 from fastapi.routing import APIRoute

@@ -290,7 +290,7 @@ class FLSpielElfmeterschiessen(BaseModel):
     team2: int = Field(ge=0)
 
     @model_validator(mode="after")
-    def a_shootout_names_a_winner(self) -> "FLSpielElfmeterschiessen":
+    def a_shootout_names_a_winner(self) -> FLSpielElfmeterschiessen:
         """Refuse a level shoot-out: the one value this field could hold and still name nobody.
 
         It fails on READ as well as on write, which is what catches a hand edit.
@@ -473,7 +473,7 @@ class FLSpielPriorSchiedsrichter(_SpielSchiedsrichterBooking):
     payment: int = Field(ge=0)
 
 
-def other_fields_of(spiel: "FLSpiel") -> dict[FLSpielRestorableField, Any]:
+def other_fields_of(spiel: FLSpiel) -> dict[FLSpielRestorableField, Any]:
     """One fixture's fields outside the Paarung, as a restore names them.
 
     ONE spelling for the restore's completion and for the report's comparison: read apart, the two
@@ -554,7 +554,7 @@ class FLPatchSpielPaarungPayload(_SpielRestore):
     # addresses the list, so nothing but the entry can say which fixture it restores.
     spiel_id: CustomObjectId
 
-    def completed_with(self, stored: "FLSpiel") -> FLPatchSpielDataPayload:
+    def completed_with(self, stored: FLSpiel) -> FLPatchSpielDataPayload:
         """This request as the wholesale payload, the document answering what it does not restore.
 
         Completed rather than written field by field, so the refusals, the composed `ergebnis` and
@@ -597,7 +597,7 @@ class FLPatchSpielePaarungenPayload(BaseModel):
     paarungen: list[FLPatchSpielPaarungPayload] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
     @model_validator(mode="after")
-    def one_entry_per_fixture(self) -> "FLPatchSpielePaarungenPayload":
+    def one_entry_per_fixture(self) -> FLPatchSpielePaarungenPayload:
         """A fixture named twice is restored twice, and its first restore's collateral then reads as the replay's own doing.
 
         `fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` reports each fixture once.

@@ -1,6 +1,7 @@
 import hashlib
 import json
-from typing import Annotated, Any, Final, Literal, Mapping, Union, get_args
+from collections.abc import Mapping
+from typing import Annotated, Any, Final, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -668,6 +669,6 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
 
 
 FLTeamsResponse = Annotated[
-    Union[FLTeamsListResponse, FLTeamsGroupedResponse],
+    FLTeamsListResponse | FLTeamsGroupedResponse,
     Field(discriminator="format"),
 ]

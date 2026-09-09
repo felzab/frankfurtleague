@@ -1,4 +1,5 @@
-from typing import Annotated, Any, Final, Literal, Mapping, get_args
+from collections.abc import Mapping
+from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator

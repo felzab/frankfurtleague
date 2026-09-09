@@ -1,5 +1,6 @@
 import json
-from typing import Any, Awaitable, Callable, Iterator, Mapping, Sequence, get_args
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId

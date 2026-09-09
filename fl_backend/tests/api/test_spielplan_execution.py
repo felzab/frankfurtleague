@@ -1,6 +1,7 @@
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from itertools import combinations, product
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any
 
 import pytest
 from bson import ObjectId

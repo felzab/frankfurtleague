@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 from bson import ObjectId

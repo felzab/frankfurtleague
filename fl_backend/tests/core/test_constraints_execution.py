@@ -1,6 +1,7 @@
 import secrets
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Final, Mapping, get_args
+from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime
+from typing import Any, Final, get_args
 
 import pytest
 from bson import ObjectId
@@ -233,7 +234,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "aktionen": {
             "_id": AKTION_OID,
             "at": "2026-03-15T09:30:00+00:00",
-            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=timezone.utc),
+            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
             "trace_id": secrets.token_hex(16),
             "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},

@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, get_args
+from typing import Any, get_args
 
 import pytest
 

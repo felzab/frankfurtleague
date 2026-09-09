@@ -1,5 +1,6 @@
 import asyncio
-from typing import Annotated, Any, Final, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, Query
 from pymongo import ASCENDING

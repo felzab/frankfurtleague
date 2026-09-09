@@ -1,8 +1,9 @@
 import argparse
 import asyncio
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Awaitable, Callable, Mapping, Sequence, TypedDict
+from typing import Any, TypedDict
 
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase

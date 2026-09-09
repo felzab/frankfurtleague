@@ -1,5 +1,6 @@
+from collections.abc import Awaitable, Callable, Sequence
 from itertools import product
-from typing import Any, Awaitable, Callable, Sequence
+from typing import Any
 
 import pytest
 from bson import ObjectId

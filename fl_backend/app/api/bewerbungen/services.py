@@ -1,7 +1,8 @@
 import hashlib
 import secrets
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
-from typing import Any, Final, Mapping, Sequence, cast, get_args
+from typing import Any, Final, cast, get_args
 
 from pydantic import ValidationError
 

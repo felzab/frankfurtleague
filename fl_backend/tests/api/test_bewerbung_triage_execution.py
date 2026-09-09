@@ -1,5 +1,6 @@
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Mapping, cast
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest

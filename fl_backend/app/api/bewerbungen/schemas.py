@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints, TypeAdapter, model_validator
@@ -88,7 +88,7 @@ def normalise_zustellzeitpunkt(value: str) -> str:
     if moment.tzinfo is None or moment.utcoffset() is None:
         raise ValueError("Der Zustellzeitpunkt braucht einen UTC-Versatz.")
 
-    return moment.astimezone(timezone.utc).isoformat(timespec="microseconds")
+    return moment.astimezone(UTC).isoformat(timespec="microseconds")
 
 
 # The ceiling is judged BEFORE the parse, as `FLBewerbungSchulePayload.website_url`'s is: no ISO-8601

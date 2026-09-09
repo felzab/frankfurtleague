@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Any, Mapping, cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -196,16 +197,16 @@ class _LogCollection:
 
         return _LogCells([{"_id": {"collection": area, "operation": art}, "anzahl": held} for (area, art), held in tally.items()])
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_LogCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _LogCollection:
         self.requested_filter = filter
         return self
 
-    def sort(self, sort_by: Any) -> "_LogCollection":
+    def sort(self, sort_by: Any) -> _LogCollection:
         for field, direction in reversed(list(sort_by)):
             self.documents.sort(key=lambda document: str(document[field]), reverse=direction < 0)
         return self
 
-    def limit(self, count: int) -> "_LogCollection":
+    def limit(self, count: int) -> _LogCollection:
         self.requested_limit = count
         # Truncating rather than answering everything: this IS the silent loss under test.
         self.documents = self.documents[:count]

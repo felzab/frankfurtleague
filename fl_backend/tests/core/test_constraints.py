@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Mapping
 from functools import partial
-from typing import Annotated, Any, Literal, Mapping, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId

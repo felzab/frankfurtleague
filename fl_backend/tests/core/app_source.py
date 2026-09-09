@@ -2,9 +2,10 @@ import ast
 import functools
 import inspect
 import re
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any
 
 from app.core.collections import Collection
 

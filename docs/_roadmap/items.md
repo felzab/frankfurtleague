@@ -126,7 +126,6 @@ deliverable.
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                          | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                         | FE, tests, spieler                                                          | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                         | FE, BE, tests                                                               | Open     |
-| `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                 | BE, Docs, versions                                                          | Decided  |
 
 ## The items
 
@@ -2103,17 +2102,3 @@ written to exercise a refusal is exactly the shape that calls an unpublished pat
 **Done when** the walk decides the test files for both suffixes it collects. Deciding one suffix
 where the walk takes two leaves a `.test.tsx` in the set and reads, from the code, as though the
 question had been settled.
-
-### `z8nf-7nzd` · `typing` imports instead of `collections.abc`
-
-| Tags               | Status  | Depends on |
-| ------------------ | ------- | ---------- |
-| BE, Docs, versions | Decided | —          |
-
-Several backend modules import `Mapping`, `Sequence`, `Optional` and `Callable` from `typing` —
-aliases deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed
-piecemeal:** modernising one module while the rest keep the old spelling is worse than uniformity.
-The decision is to enable ruff's `UP` rules and migrate in one pass, which is why
-`fl_backend/pyproject.toml`'s ruff selection leaves that family out.
-[`docs/_auditing/prompts/backend/4-architecture.md`](../_auditing/prompts/backend/4-architecture.md)
-carries the typing check that owns the migration.

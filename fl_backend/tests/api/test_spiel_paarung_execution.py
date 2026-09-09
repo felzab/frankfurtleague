@@ -8,7 +8,8 @@ assertion below re-reads the fixtures out of the database. The refusals and the 
 fixture is `tests/api/test_bracket.py`'s; nothing here re-decides either.
 """
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId

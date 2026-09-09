@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, Mapping, cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -135,7 +136,7 @@ class _ArchiveCollection:
         # defect the pass exists to close, and its stages are the only place that shows.
         self.requested_pipeline: list[Mapping[str, Any]] = []
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_ArchiveCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _ArchiveCollection:
         self.requested_filter = filter
         # Applied rather than recorded: a fake serving every row whatever it was asked for would let
         # a case about what one status's page holds pass over rows of all three.
@@ -145,14 +146,14 @@ class _ArchiveCollection:
     async def count_documents(self, filter: Any) -> int:
         return len([document for document in self.stored if matches(document, filter or {})])
 
-    def sort(self, sort_by: Any) -> "_ArchiveCollection":
+    def sort(self, sort_by: Any) -> _ArchiveCollection:
         # Applied rather than accepted: a fake that ignores the sort hands back insertion order, and
         # a keyset walk over it would look total while paging the wrong end of the queue.
         for field, direction in reversed(list(sort_by)):
             self.documents.sort(key=lambda document: document[field], reverse=direction < 0)
         return self
 
-    def limit(self, count: int) -> "_ArchiveCollection":
+    def limit(self, count: int) -> _ArchiveCollection:
         self.requested_limit = count
         # Truncating rather than answering everything: this IS the silent loss under test.
         self.documents = self.documents[:count]
@@ -161,7 +162,7 @@ class _ArchiveCollection:
     async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
         return self.documents if length is None else self.documents[:length]
 
-    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_Cells":
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _Cells:
         # Grouped rather than answered from a canned list: cells of the reader's own shape would pass
         # a pipeline narrowed to the page. Which keys MongoDB really answers is the db tier's.
         self.requested_pipeline = list(pipeline)

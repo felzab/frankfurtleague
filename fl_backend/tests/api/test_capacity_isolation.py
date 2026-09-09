@@ -8,7 +8,8 @@ The refusals themselves are decided on in `tests/api/test_team_entry_refusal.py`
 `:: test_containment_refusals.py` and `:: test_spieltag_refusals.py`; nothing here re-decides one.
 """
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId

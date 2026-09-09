@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, Mapping, cast, get_args
+from collections.abc import Mapping
+from typing import Any, cast, get_args
 
 import pytest
 from bson import ObjectId
@@ -1295,10 +1296,10 @@ class _RecordingCursor:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self._documents = documents
 
-    def sort(self, *_: Any) -> "_RecordingCursor":
+    def sort(self, *_: Any) -> _RecordingCursor:
         return self
 
-    def limit(self, *_: Any) -> "_RecordingCursor":
+    def limit(self, *_: Any) -> _RecordingCursor:
         return self
 
     async def to_list(self, length: Any = None) -> list[dict[str, Any]]:

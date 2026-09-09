@@ -10,10 +10,11 @@ log stream: a restore replays what a write replaced, so the prior document is th
 makes retention and redaction this module's problem rather than the stream's.
 """
 
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Literal, Mapping, Sequence
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -74,7 +75,7 @@ def log_stamp(moment: datetime) -> str:
     string carrying no offset sorts October's two identical clock hours the wrong way.
     """
 
-    return moment.astimezone(timezone.utc).isoformat(timespec="seconds")
+    return moment.astimezone(UTC).isoformat(timespec="seconds")
 
 
 async def record_write(
@@ -102,7 +103,7 @@ async def record_write(
     request = request_var.get()
 
     # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
-    moment = datetime.now(timezone.utc)
+    moment = datetime.now(UTC)
 
     row: dict[str, Any] = {
         "at": log_stamp(moment),

@@ -1,4 +1,5 @@
-from typing import Annotated, Any, Mapping, NamedTuple, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument

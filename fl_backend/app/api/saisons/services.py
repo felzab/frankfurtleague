@@ -1,5 +1,6 @@
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus

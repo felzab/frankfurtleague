@@ -12,7 +12,8 @@ an omission is a `TypeError` at the call rather than a race under a rule that re
 
 import ast
 import inspect
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
