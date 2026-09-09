@@ -150,6 +150,7 @@ beforeEach(() => {
 describe("the switch the retention sweep is armed by", () => {
   /** The whole environment `createEnv` needs, so the case under test is the only variable in it. */
   const COMPLETE_ENV: Record<string, string> = {
+    APP_ENV: "production",
     API_URL: "http://backend:8000",
     API_VERSION: "0",
     MONGODB_URI: "mongodb://localhost:27017/probe",

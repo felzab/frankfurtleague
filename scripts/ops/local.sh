@@ -174,10 +174,10 @@ if (( DOWN )); then
   if (( FRESH )); then
     step "Stopping the local stack and removing volumes"
     quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
-    # The copy and the edge's access log go with the volume: all three are records of real people,
-    # and a machine done with a local stack should be left holding none of them.
-    rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log"
-    ok "stopped — Next's cache rebuilds, and the database, the copy of production and the access log are gone"
+    # The copy, the edge's access log and the mail sink go with the volume: all four are records of
+    # real people, and a machine done with a local stack should be left holding none of them.
+    rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log" "${REPO_ROOT:?}/.tmp-mail"
+    ok "stopped — Next's cache rebuilds, and the database, the copy of production, the access log and the withheld mail are gone"
   else
     step "Stopping the local stack"
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
@@ -212,9 +212,17 @@ if (( FRESH )); then
   step "Tearing down, including volumes"
   quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be torn down — the output above is compose's own."
   # As on the way down, and for the same reason.
-  rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log"
+  rm -rf "${REPO_ROOT:?}/.local-db" "${REPO_ROOT:?}/.tmp-nginx-log" "${REPO_ROOT:?}/.tmp-mail"
   ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed fills it again"
 fi
+
+step "Where the frontend writes the mail it does not send"
+# Never left to the engine: a bind-mount source it creates is root-owned, and the frontend writes as
+# `nextjs` (`docs/ops/spec.md` §1.2 records the same decision for the access log).
+mkdir -p "${REPO_ROOT:?}/.tmp-mail" || die "the mail sink's directory could not be created, and the
+frontend cannot make it either: it runs as a non-root user under a root-owned /app. mkdir's own
+account is above."
+ok "ready — a message this stack withholds lands in .tmp-mail in the checkout"
 
 section "build"
 

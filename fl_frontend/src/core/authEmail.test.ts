@@ -20,10 +20,19 @@ const ORIGIN = "http://localhost:3000";
 
 /** The markup branch reduced to the facts a reader ends up with, so a fact is checked as a fact in both branches. */
 function readable(html: string): string {
+  let stripped = html;
+
+  // To a FIXPOINT: a pattern leaving a tag standing hands the caller markup to read as text
+  // (`fl_frontend/src/shared/testing/renderTest.ts :: textOf`).
+  for (let previous = ""; stripped !== previous;) {
+    previous = stripped;
+    stripped = stripped.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]*>/g, " ");
+  }
+
   return (
-    html
-      .replace(/<style[\s\S]*?<\/style>/g, " ")
-      .replace(/<[^>]*>/g, " ")
+    stripped
+      // Below the strip and never inside it: `&lt;script&gt;` decodes to a tag this file asserts a
+      // reader is served, and a strip running after would eat it.
       .replaceAll("&lt;", "<")
       .replaceAll("&gt;", ">")
       .replaceAll("&quot;", '"')

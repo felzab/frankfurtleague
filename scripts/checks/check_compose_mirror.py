@@ -43,11 +43,19 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.backend.build", ABSENT, ANY, "the local stack builds from source"),
     Delta("services.frontend.image", ANY, ABSENT, "production pulls a published image and never builds"),
     Delta("services.backend.image", ANY, ABSENT, "production pulls a published image and never builds"),
-    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI overrides"),
+    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, APP_ENV, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI overrides"),
     Delta("services.backend.environment", ABSENT, ANY, "the LOG_FORMAT and MONGODB_URI overrides"),
     Delta("services.mongo", ABSENT, ANY, "the local stack runs its own database; production's is a managed cluster"),
     Delta("services.frontend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
     Delta("services.backend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
+    # Spelled as the local value rather than ANY, as the nginx row below is: a second mount on this
+    # service is a finding rather than an allowed difference.
+    Delta(
+        "services.frontend.volumes",
+        ABSENT,
+        ["./.tmp-mail:/app/.tmp-mail"],
+        "the mail sink a withheld send writes into; production sends instead of writing",
+    ),
     Delta("volumes", ABSENT, ANY, "the local database's storage; production keeps none on the host"),
     Delta("services.nginx.ports", ABSENT, ["3000:80"], "production publishes nothing; the local stack serves the edge on 3000"),
     Delta("services.cloudflared", ANY, ABSENT, "the tunnel is production's only route in; the local stack is reached on this host"),

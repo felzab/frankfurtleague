@@ -58,9 +58,22 @@ export function failingVariableNames(issues: ValidationIssues): string[] {
   return [...new Set(issues.map((issue) => variableName(issue.path?.[0])))].sort();
 }
 
+// The deployments this repository defines -- `docker-compose.yml` and `docker-compose.local.yml`.
+// A third member would name a stack nothing here deploys.
+const APP_ENVIRONMENTS = ["production", "local"] as const;
+
+// The credentials `production` demands and no other deployment holds. A name added here is refused
+// at boot on the production host alone.
+const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY"] as const;
+
 // Bound to a name rather than written inside the call, so `DECLARED_ENVIRONMENT_NAMES` can be read
 // off the schema itself: a hand-kept copy of those names would be a second artefact to keep current.
 const server = {
+  // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
+  // production host too, and an origin test would call a staging box production. `mail.ts` sends on
+  // this value alone.
+  APP_ENV: z.enum(APP_ENVIRONMENTS),
+
   // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
   // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
   // call (`docs/ops/spec.md :: I13`). Caught at boot: that shape reads as healthy.
@@ -80,7 +93,9 @@ const server = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
   AUTH_SECRET: z.string(),
-  AUTH_RESEND_KEY: z.string(),
+  // Optional here and demanded below under `production` alone: outside it the container holds no
+  // Resend credential, so a send has nothing to authorise with even where its own guard is gone.
+  AUTH_RESEND_KEY: z.string().optional(),
 
   // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
   // the provider retries for thirty-two hours before disabling the endpoint.
@@ -127,7 +142,21 @@ export const frontend_config = createEnv({
 
   onValidationError: (issues) => refuseInvalidEnvironment(failingVariableNames(issues)),
 
+  // The package's own hook for a rule reading two variables at once, which a per-variable schema
+  // cannot express; its issues reach `onValidationError` like any other.
+  createFinalSchema: (shape) =>
+    z.object(shape).superRefine((values, ctx) => {
+      if (values.APP_ENV !== "production") return;
+
+      for (const name of PRODUCTION_ONLY_REQUIRED) {
+        // Carries a `path`, so the refusal names the variable to go and set: `failingVariableNames`
+        // reduces an issue without one to `<unknown>`.
+        if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
+      }
+    }),
+
   runtimeEnv: {
+    APP_ENV: process.env.APP_ENV,
     API_URL: process.env.API_URL,
     API_VERSION: process.env.API_VERSION,
 
