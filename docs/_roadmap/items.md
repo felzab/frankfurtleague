@@ -113,7 +113,6 @@ deliverable.
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
-| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                             | FE, Docs                                                                    | Open     |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                          | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                         | FE, tests, spieler                                                          | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                         | FE, BE, tests                                                               | Open     |
@@ -1672,39 +1671,6 @@ the backend's are. Each line is proved by the surface's own suite the way the fa
 envelope, and the `aktionen` collection deliberately stores the values the stream may never carry
 (`fl_backend/app/core/recording.py`), so a transition line names ids and never the values the row
 holds.
-
-### `vgk8-btxt` · What decides whether a module belongs in `core` or in `shared` is written nowhere
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**One rule holds the two folders apart, and it is a direction rather than a membership test.**
-`docs/frontend/spec.md :: I9` and `docs/frontend/overview.md :: How it is organised` fix that
-`fl_frontend/src/core` imports neither `fl_frontend/src/shared` nor `fl_frontend/src/features`, and
-that `fl_frontend/src/shared` does not import `fl_frontend/src/features`, enforced by ESLint. Every
-module importing nothing above it satisfies both readings, so which of the two folders a new module
-goes in is settled by whoever writes it.
-
-**The two have drifted apart in kind while the rule stayed a direction.**
-`fl_frontend/src/core/einwilligung.ts`, `fl_frontend/src/core/mail.ts` and
-`fl_frontend/src/core/logging.ts` sit beside `fl_frontend/src/shared/utils/refusal.ts` and
-`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx` — one set is what the server process does,
-the other what a rendered page is built from. That distinction is real and is stated on neither page,
-so a reader deriving the rule from the import direction alone arrives somewhere else.
-
-**A reorganisation is its own pull request, and is bounded before it starts.**
-`.claude/CLAUDE.md :: structure` refuses a barrel file, an unrequired default export and a second
-nesting level, so grouping either folder into subfolders is not the cheap half of this; and every
-module moved is an import path rewritten at each call site, which makes the diff wide and the review
-shallow exactly where a mistake is a runtime failure. **Naming the rule is separable from acting on
-it**, and is the half worth doing first: a rule that answers where a module goes stops the drift
-without moving a file.
-
-**Done when** the rule says what belongs in each folder rather than only what may import what,
-written where a session adding a module reads it —
-`docs/frontend/overview.md :: How it is organised` — with `docs/frontend/spec.md :: I9` keeping the
-direction it already holds.
 
 ### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
 
