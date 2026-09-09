@@ -610,6 +610,47 @@ def _literal(node: ast.expr) -> str | None:
     return None
 
 
+def _segments(node: ast.expr, bound: dict[str, tuple[list[str], ast.expr]]) -> list[str]:
+    """The literal path one `/` chain fixes.
+
+    A leading name is followed rather than read as an opaque operand: a module that names the package
+    once and then divides that binding reads a tree where it reads a file.
+    """
+    segments: list[str] = []
+    for part in _divided(node):
+        followed = bound.get(part.id) if isinstance(part, ast.Name) else None
+        if followed is not None:
+            if segments:
+                break
+            segments.extend(followed[0])
+            continue
+        literal = _literal(part)
+        opens = literal is not None and (literal == FRONTEND or literal.startswith(FRONTEND + "/"))
+        if literal is None or (not segments and not opens):
+            if segments:
+                break
+            continue
+        segments.append(literal)
+    return segments
+
+
+def _bindings(tree: ast.Module) -> dict[str, tuple[list[str], ast.expr]]:
+    """Each name a module binds to a bare `/` chain, and that chain.
+
+    The chain travels because a binding filed as a reach of its own would spare every file under it
+    from `scripts/tests/test_scope_decisions.py :: _stale`.
+    """
+    bound: dict[str, tuple[list[str], ast.expr]] = {}
+    for node in ast.walk(tree):
+        targets = [node.target] if isinstance(node, ast.AnnAssign) else node.targets if isinstance(node, ast.Assign) else []
+        value = node.value if isinstance(node, ast.AnnAssign | ast.Assign) else None
+        if value is None or not isinstance(value, ast.BinOp) or not isinstance(value.op, ast.Div):
+            continue
+        if segments := _segments(value, bound):
+            bound.update({target.id: (segments, value) for target in targets if isinstance(target, ast.Name)})
+    return bound
+
+
 def _backend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]], set[tuple[str, str]]]:
     """Every frontend path a backend module builds, and every reach that resolves to no file.
 
@@ -624,21 +665,17 @@ def _backend_reaches(root: Path, files: list[str]) -> tuple[dict[str, set[str]],
             continue
         # Named, so a module this suite cannot parse fails saying which one rather than `<unknown>`.
         tree = ast.parse(text, filename=rel)
+        bound = _bindings(tree)
         divisions = [node for node in ast.walk(tree) if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)]
         # A chain's own left operand is a division too, and read on its own it answers for a prefix
         # of the path -- `root / "fl_frontend"` where the chain names a module inside it.
         nested = {node.left for node in divisions}
-        for node in (division for division in divisions if division not in nested):
-            segments: list[str] = []
-            for part in _divided(node):
-                literal = _literal(part)
-                opens = literal is not None and (literal == FRONTEND or literal.startswith(FRONTEND + "/"))
-                if literal is None or (not segments and not opens):
-                    if segments:
-                        break
-                    continue
-                segments.append(literal)
-            if segments:
+        divided = [part for division in divisions for part in _divided(division)]
+        # A binding nothing divides keeps its own chain filed: dropping it would lose the reach of a
+        # module that walks the tree it names through anything but a `/`.
+        composed = {chain for name, (_, chain) in bound.items() if any(isinstance(part, ast.Name) and part.id == name for part in divided)}
+        for node in (division for division in divisions if division not in nested and division not in composed):
+            if segments := _segments(node, bound):
                 _file_or_tree(root, rel, "/".join(segments).rstrip("/"), FRONTEND, reads, reaches)
     return reads, _widest(reaches)
 
@@ -769,6 +806,10 @@ PLANTED_TREE: Final[dict[str, str]] = {
     "fl_backend/tests/test_mirror.py": (
         "from pathlib import Path\n\nROOT = Path(__file__).resolve().parents[2]\n"
         'ACTIONS = (ROOT / "fl_frontend" / "src" / "actions.ts").read_text(encoding="utf-8")\n'
+        # The same read spelled through a binding, which a reader taking a name for an opaque
+        # operand files as the whole tree while the module names one file in it.
+        'SRC = ROOT / "fl_frontend" / "src"\n'
+        'REGISTER = (SRC / "register.ts").read_text(encoding="utf-8")\n'
         'EVERY = sorted((ROOT / "fl_frontend" / "src").rglob("*.ts"))\n'
     ),
     "fl_frontend/src/actions.ts": "export const total = 1;\n",
@@ -809,7 +850,10 @@ def test_each_reader_finds_a_file_the_other_package_reads_and_a_reach_it_cannot_
     assert reaches == {("fl_frontend/src/opaque.ts", BACKEND)}, repr(reaches)
 
     reads, reaches = _backend_reaches(root, ["fl_backend/tests/test_mirror.py"])
-    assert reads == {"fl_frontend/src/actions.ts": {"fl_backend/tests/test_mirror.py"}}, repr(reads)
+    assert reads == {
+        "fl_frontend/src/actions.ts": {"fl_backend/tests/test_mirror.py"},
+        "fl_frontend/src/register.ts": {"fl_backend/tests/test_mirror.py"},
+    }, repr(reads)
     assert reaches == {("fl_backend/tests/test_mirror.py", "fl_frontend/src")}, repr(reaches)
 
 

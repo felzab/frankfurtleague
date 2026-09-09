@@ -183,15 +183,46 @@ const TAG = /<[A-Za-z][\w.]*/g;
 // would lose `<X name="a" isRequired>`.
 const MARK = /\bisRequired(?![\w=])/;
 const LITERAL_NAME = /\bname="([^"]*)"/;
-/** A name built from one prop and a literal tail, which is `AddressFields`'s five controls. */
-const COMPUTED_NAME = /\bname=\{`\$\{(\w+)\}([^`${]*)`\}/;
+/** A name a template composes around one prop hole, wherever in the path that hole sits. */
+const TEMPLATE_NAME = /\bname=\{`([^`${]*)\$\{(\w+)\}([^`${]*)`\}/;
+/** A name a local one-argument builder composes, which is `FormKontaktpersonenSection`'s `path`. */
+const BUILT_NAME = /\bname=\{(\w+)\("([^"]*)"\)\}/;
+/** A `name` this control does not fix itself, its path being written wherever the control is used. */
+const OWN_PATH = /\bname=(?!\{\w+\})/;
 
 /**
- * A required control, read off ONE opening tag so `isRequired` and its `name` belong to the same
- * control (`docs/frontend/spec.md :: I17`). A conditional `isRequired` is out of reach.
+ * The segment a form fills at run time.
+ *
+ * A hole inside a path is closed by the schema's keys at that position; a hole that IS the prefix
+ * stands for any depth, and only a call site closes it.
  */
-function requiredNamesIn(source: string, resolve: (identifier: string) => readonly string[]): string[] {
-  const found: string[] = [];
+const SEGMENT = "*";
+
+/** The template a local one-argument arrow returns, with the call's own argument in its hole. */
+function builderTemplate(source: string, identifier: string, argument: string): string | null {
+  const declared = new RegExp(String.raw`\b` + identifier + String.raw`\s*=\s*\((\w+)[^)]*\)\s*=>\s*` + "`([^`]*)`").exec(source);
+  if (declared?.[1] === undefined || declared[2] === undefined) return null;
+
+  return declared[2].split("${" + declared[1] + "}").join(argument);
+}
+
+/** Every path one template can name: the values a call site fixes, or the segment the schema closes. */
+function namesFromTemplate(template: string, resolve: (identifier: string) => readonly string[]): string[] {
+  const hole = /^([^`${]*)\$\{(\w+)\}([^`${]*)$/.exec(template);
+  if (hole === null) return template.includes("${") ? [] : [template];
+
+  const [, head = "", identifier = "", tail = ""] = hole;
+
+  return head === "" ? resolve(identifier).map((value) => `${value}${tail}`) : [`${head}${SEGMENT}${tail}`];
+}
+
+/**
+ * Every path a required control names, and every marked control this reader could not place
+ * (`docs/frontend/spec.md :: I17`). A conditional `isRequired` is out of reach.
+ */
+function requiredNamesIn(source: string, resolve: (identifier: string) => readonly string[]): { names: string[]; unread: string[] } {
+  const names: string[] = [];
+  const unread: string[] = [];
 
   for (const tag of source.matchAll(TAG)) {
     const opening = openingTag(source, tag.index);
@@ -199,17 +230,26 @@ function requiredNamesIn(source: string, resolve: (identifier: string) => readon
 
     const literal = LITERAL_NAME.exec(opening);
     if (literal?.[1] !== undefined) {
-      found.push(literal[1]);
+      names.push(literal[1]);
       continue;
     }
 
-    // Dropped rather than guessed at: a name paired with a path no control writes fails a branch
-    // that touched neither the control nor the schema.
-    const computed = COMPUTED_NAME.exec(opening);
-    if (computed?.[1] === undefined || computed[2] === undefined) continue;
-    for (const prefix of resolve(computed[1])) found.push(`${prefix}${computed[2]}`);
+    const built = BUILT_NAME.exec(opening);
+    const template = TEMPLATE_NAME.exec(opening);
+    const composed =
+      built?.[1] !== undefined && built[2] !== undefined
+        ? builderTemplate(source, built[1], built[2])
+        : template === null
+          ? null
+          : `${template[1] ?? ""}\${${template[2] ?? ""}}${template[3] ?? ""}`;
+
+    // Reported rather than dropped: a control that leaves the population in silence is one whose
+    // schema path nothing below grades, and no floor over the rest of the tree reaches it.
+    const found = composed === null ? [] : namesFromTemplate(composed, resolve);
+    if (found.length === 0 && OWN_PATH.test(opening)) unread.push(opening);
+    names.push(...found);
   }
-  return found;
+  return { names, unread };
 }
 
 const collectComponents = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
@@ -217,10 +257,12 @@ const collectComponents = (dir: string): string[] => filesUnder(dir, (name) => n
 const COMPONENTS = new Map(collectComponents(SRC_DIR).map((file) => [file, readFileSync(file, "utf8")]));
 
 /** Every value a prop holds where a `name` is built from it, resolved from the tree rather than listed. */
-function propValues(file: string, identifier: string): string[] {
-  const text = COMPONENTS.get(file) ?? "";
+function propValues(sources: ReadonlyMap<string, string>, file: string, identifier: string): string[] {
+  const text = sources.get(file) ?? "";
   const component = /export function (\w+)\s*\(/.exec(text)?.[1];
-  const declared = new RegExp(String.raw`\n\s{2}` + identifier + String.raw`(?:\s*=\s*"([^"]*)")?,`).exec(text);
+  // The destructuring's own punctuation, never its indentation: a prop reflowed onto one line with
+  // its siblings is a prop this reader would stop finding, with every path built from it going too.
+  const declared = new RegExp(String.raw`[,{]\s*` + identifier + String.raw`\s*(?:=\s*"([^"]*)")?\s*[,}]`).exec(text);
   if (component === undefined || declared === null) return [];
 
   const fallback = declared[1];
@@ -228,7 +270,7 @@ function propValues(file: string, identifier: string): string[] {
   const expression = new RegExp(String.raw`\b` + identifier + String.raw`=\{`);
   const values: string[] = [];
 
-  for (const [other, otherText] of COMPONENTS) {
+  for (const [other, otherText] of sources) {
     if (other === file) continue;
 
     for (const site of otherText.matchAll(new RegExp(String.raw`<` + component + String.raw`\b`, "g"))) {
@@ -244,13 +286,32 @@ function propValues(file: string, identifier: string): string[] {
   return [...new Set(values)];
 }
 
+const READ = [...COMPONENTS].map(([file, text]) => ({
+  file,
+  ...requiredNamesIn(text, (identifier) => propValues(COMPONENTS, file, identifier)),
+}));
+
 /** Every path some form marks required, discovered from the forms rather than listed beside them. */
-const REQUIRED_NAMES = new Set([...COMPONENTS].flatMap(([file, text]) => requiredNamesIn(text, (identifier) => propValues(file, identifier))));
+const REQUIRED_NAMES = new Set(READ.flatMap(({ names }) => names));
+
+/** Every marked control no reader above could place, against the file it stands in. */
+const UNREAD = READ.flatMap(({ file, unread }) => unread.map((tag) => `${path.relative(SRC_DIR, file).split(path.sep).join("/")}: ${tag}`));
+
+/** One required name against one schema path, the wildcard standing for the segment a form fills. */
+const covers = (name: string, candidate: string): boolean =>
+  name.includes(SEGMENT)
+    ? new RegExp(
+        `^${name
+          .split(SEGMENT)
+          .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+          .join("[^.]+")}$`,
+      ).test(candidate)
+    : name === candidate;
 
 /** One schema's path that a form marks required, with the emptiness that field's own control writes. */
 const marked = Object.entries(BOUND).flatMap(([name, schema]) =>
   leafPaths(schema)
-    .filter((probe) => probe.rootId === "" && probe.wrong !== undefined && REQUIRED_NAMES.has(probe.path))
+    .filter((probe) => probe.rootId === "" && probe.wrong !== undefined && [...REQUIRED_NAMES].some((required) => covers(required, probe.path)))
     .map((probe) => ({ schema: name, root: probe.root, path: probe.path, wrong: probe.wrong })),
 );
 
@@ -259,23 +320,58 @@ describe("what a schema does with a field its form marks required", () => {
     /* The reader on input, not on the tree: a discovery that silently finds nothing passes every case
        below, and no count over uniform marks can tell a correct reader from a truncating one. */
     const sample = [
+      "const feldPfad = (feld: string) => `kontakte.${sitz}.${feld}`;",
       '<TextField isRequired name="vorname">',
       '<TextField name="stadtteil">',
       '<NumberField name="kader.gute_spieler" isRequired minValue={0}>',
-      '<TextField isRequired name={path("nachname")}>',
       '<TextField isRequired={isNeu} name="schule.shorthand">',
       '<TextField isRequired>Trag den name="verborgen" ein</TextField>',
       '<TextField onChange={(next) => set(next)} isRequired name="vorname">',
       "<TextField isRequired name={`${namePrefix}.strasse`}>",
+      "<TextField isRequired name={`kontakte.${rolle}.telefon`}>",
+      '<TextField isRequired name={feldPfad("email")}>',
+      "<Select isRequired name={name}>",
       "<TextField isRequired name={`${ungelesen}.plz`}>",
     ].join("\n");
 
     // Twice over for `vorname`: the arrow's own `>` truncated the second one, and a set would have
     // hidden the loss behind the first.
-    assert.deepEqual(
-      requiredNamesIn(sample, (identifier) => (identifier === "namePrefix" ? ["address", "schule.address"] : [])),
-      ["vorname", "kader.gute_spieler", "vorname", "address.strasse", "schule.address.strasse"],
+    assert.deepEqual(requiredNamesIn(sample, (identifier) => (identifier === "namePrefix" ? ["address", "schule.address"] : [])).names, [
+      "vorname",
+      "kader.gute_spieler",
+      "vorname",
+      "address.strasse",
+      "schule.address.strasse",
+      `kontakte.${SEGMENT}.telefon`,
+      `kontakte.${SEGMENT}.email`,
+    ]);
+  });
+
+  it("reports the control it cannot place, and stays silent about the one that names no path", () => {
+    /* Both readings on one input: reporting neither drops a real control, and reporting both fails
+       every branch for a shared control whose path is written at its call sites. */
+    const sample = ["<TextField isRequired name={`${ungelesen}.plz`}>", "<Select isRequired name={name}>", "<TeamSelect isRequired />"].join(
+      "\n",
     );
+
+    assert.deepEqual(requiredNamesIn(sample, () => []).unread, ["<TextField isRequired name={`${ungelesen}.plz`}>"]);
+  });
+
+  it("finds a prop wherever the destructuring puts it, so a reflow drops no path", () => {
+    /* Every prop on one line, which is what a short parameter list formats to: an anchor on the
+       indentation stops seeing it, and every address path built from it leaves the sweep. */
+    const sources = new Map([
+      ["fields.tsx", 'export function AddressFields({ children, namePrefix = "address", onChange }: Props) {'],
+      ["form.tsx", '<AddressFields namePrefix="schule.address" />\n<AddressFields />'],
+    ]);
+
+    assert.deepEqual(propValues(sources, "fields.tsx", "namePrefix"), ["schule.address", "address"]);
+  });
+
+  it("places every marked control in the tree", () => {
+    /* A path this reader cannot build is a finding, never a member it drops: dropped, it takes its
+       schema out of the grading below while every floor the rest of the population keeps stays green. */
+    assert.deepEqual(UNREAD, []);
   });
 
   it("found the marks and the schema paths they land on", () => {

@@ -19,10 +19,9 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const NEUTRAL = "bg-muted text-foreground-muted";
 
 /**
- * Spelled out rather than read off the record, so a tone gaining a pair and a tone losing one are
- * both a failure here rather than a shorter run.
+ * Spelled out rather than read off `PILL_SOLID`, which is the record the cases below grade: a list
+ * derived from it would grade a fifth tone by nothing and a retired one not at all.
  */
-/* Spelled out rather than read off `PILL_SOLID`, which is the record this case grades. */
 const SOLID_TONES: readonly FeedbackTone[] = ["success", "warning", "danger", "info"];
 
 const TONES: readonly PillTone[] = [
@@ -141,6 +140,8 @@ describe("the closed set every pill takes its colour from", () => {
   /* A solid pair with a fill and no ink, or an ink and no fill, paints half a chip and reports
      nothing, which is what the tinted set is already held to. */
   it("gives every solid tone a fill and its paired on-colour, and none of them the refused pair", () => {
+    assert.deepEqual([...SOLID_TONES].sort(), Object.keys(PILL_SOLID).sort(), "the set and this case's list no longer name the same tones");
+
     for (const tone of SOLID_TONES) {
       const tokens = PILL_SOLID[tone].split(/\s+/);
 

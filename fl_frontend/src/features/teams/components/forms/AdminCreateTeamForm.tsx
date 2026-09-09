@@ -71,9 +71,9 @@ export function AdminCreateTeamForm({
                 saisonIds={saisonOptions.map((option) => option.saisonId)}
               />
 
-              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` reads a literal
-                  mark off a literal `name`, and this picker spells both through props.
-                  `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
+              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn`
+                  spares a control that names no path of its own, and this picker's own `name` is a
+                  prop. `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
               <GruppeSelect
                 isRequired
                 value={draft.gruppe}

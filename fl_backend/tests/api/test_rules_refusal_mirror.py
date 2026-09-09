@@ -42,6 +42,29 @@ def _arm(code: str) -> str:
 ARM: Final = _arm(SHAPE_REFUSAL)
 
 
+LITERAL: Final = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
+def _joined(block: str, at: int) -> str:
+    """Every literal one value concatenates, and nothing where it ends in a shape this cannot read.
+
+    The mapper's arm beside it already concatenates, and a first literal alone states a repair fewer
+    while reading as the whole note.
+    """
+
+    parts: list[str] = []
+    while True:
+        while at < len(block) and block[at] in " \t\r\n+":
+            at += 1
+        literal = LITERAL.match(block, at)
+        if literal is None:
+            break
+        parts.append(literal.group(1))
+        at = literal.end()
+
+    return "".join(parts) if parts and block[at : at + 1] == "," else ""
+
+
 def _shape_note_open() -> str:
     """The note for the state where BOTH repairs are open.
 
@@ -56,9 +79,10 @@ def _shape_note_open() -> str:
     if end == -1:
         return ""
 
-    match = re.search(r'\n\s*open:\s*\n?\s*"((?:[^"\\]|\\.)*)"', REGELN_PANEL[start:end])
+    block = REGELN_PANEL[start:end]
+    opened = re.search(r"\n\s*open:", block)
 
-    return "" if match is None else match.group(1)
+    return "" if opened is None else _joined(block, opened.end())
 
 
 OPEN_NOTE: Final = _shape_note_open()
@@ -68,10 +92,42 @@ OPEN_NOTE: Final = _shape_note_open()
 OPEN_REPAIRS: Final = [satz for satz in re.split(r"(?<=\.)\s+", OPEN_NOTE) if satz]
 
 
+def _names(german: str, text: str) -> bool:
+    """Whether one phrase stands in a text as a whole word.
+
+    German compounds a term into a longer word meaning something else, so `Gruppenphase` satisfies a
+    substring search for the group COUNT while naming no count at all.
+    """
+
+    return re.search(rf"(?<!\w){re.escape(german)}(?!\w)", text) is not None
+
+
 def _repairs_naming(field: str) -> set[int]:
     """Which of the panel's repairs name one field, by position."""
 
-    return {index for index, satz in enumerate(OPEN_REPAIRS) if GERMAN_OF[field] in satz}
+    return {index for index, satz in enumerate(OPEN_REPAIRS) if _names(GERMAN_OF[field], satz)}
+
+
+def test_a_value_written_as_two_literals_is_read_whole_or_not_at_all():
+    """The reader on input: the panel writes one literal today, so the tree cannot tell the two apart."""
+
+    joined = 'const SHAPE_NOTE = {\n  open:\n    "Erste Reparatur. " +\n    "Zweite Reparatur.",\n  recorded: "x",'
+    composed = 'const SHAPE_NOTE = {\n  open: "Erste Reparatur. " + satzFuer(state),\n  recorded: "x",'
+    absent = 'const SHAPE_NOTE = {\n  open: satzFuer(state),\n  recorded: "x",'
+
+    after = len("open:")
+
+    assert _joined(joined, joined.index("open:") + after) == "Erste Reparatur. Zweite Reparatur."
+    assert _joined(composed, composed.index("open:") + after) == "", "a literal joined to an expression read as the whole value"
+    assert _joined(absent, absent.index("open:") + after) == ""
+
+
+def test_a_phrase_inside_a_longer_german_word_names_no_field():
+    """The reader on input: every site in the tree spells these phrases as whole words already."""
+
+    assert _names("Gruppen", "Für Gruppen und Teams pro Gruppe")
+    assert not _names("Gruppen", "Die Gruppenphase ist gesperrt")
+    assert not _names("Qualifikant", "Die Qualifikanten pro Gruppe")
 
 
 def test_the_german_sites_are_still_where_this_module_cuts_them():
@@ -95,14 +151,14 @@ def test_the_table_names_exactly_the_fields_the_write_path_freezes():
 def test_the_german_arm_names_every_field_the_refusal_freezes(field: str, german: str):
     """The failure this guards: an arm naming a repair for some of the frozen fields reads as complete and is not."""
 
-    assert german in ARM, f"{SHAPE_REFUSAL} freezes {field} and its message never names it"
+    assert _names(german, ARM), f"{SHAPE_REFUSAL} freezes {field} and its message never names {german}"
 
 
 @pytest.mark.parametrize(("field", "german"), sorted(GERMAN_OF.items()))
 def test_the_panel_names_a_repair_for_every_field_the_refusal_freezes(field: str, german: str):
     """The arm is a bare message sending the administrator to the reloaded panel, so a field the panel leaves out has no route named for it."""
 
-    assert german in OPEN_NOTE, f"{SHAPE_REFUSAL} freezes {field} and the reloaded panel names no repair for it"
+    assert _names(german, OPEN_NOTE), f"{SHAPE_REFUSAL} freezes {field} and the reloaded panel names no repair naming {german}"
 
 
 def test_the_panel_parts_the_redrawable_field_from_the_ones_the_entries_pin():

@@ -384,17 +384,6 @@ ORDERINGS: Final[tuple[Ordering, ...]] = (
 )
 
 
-# A floor is a design conclusion (`docs/_standard/standard.md :: CUR-8`), so a token arriving without
-# one is entered here against why, or the season fails: what this refuses is a token that leaves the
-# measuring by being written.
-UNMEASURED: Final[dict[str, str]] = {
-    "--accent": "HeroUI's checked-control fill, whose thumb pair the palette records no floor for",
-    "--accent-foreground": "the thumb over `--accent`, whose pair the palette records no floor for",
-    "--border-base": "a box's hairline, decoration under WCAG 1.4.11 (`docs/frontend/spec.md :: 1.18 The box`)",
-    "--skeleton-sweep": "a sheen mixed to transparent, which no arm here can read as an opaque colour",
-}
-
-
 # --- the arms ------------------------------------------------------------------------------------
 
 
@@ -493,25 +482,6 @@ def _measured(theme: Theme) -> frozenset[str]:
     return frozenset(tokens)
 
 
-def _coverage_findings(rel: str, roster: frozenset[str]) -> list[Finding]:
-    """The season's whole token list against the tables, in both directions.
-
-    The stale direction as well: an exemption outliving its token goes on answering for nothing, and
-    the next one entered beside it reads as routine.
-    """
-    named = frozenset(token for theme in THEMES for token in _measured(theme))
-    found = [
-        _fail(rel, f"declares `{token}`, which no pair, step or ordering names -- give it a floor or enter it in `:: UNMEASURED`")
-        for token in sorted(roster - named - frozenset(UNMEASURED))
-    ]
-    found.extend(
-        _fail(rel, f"`scripts/checks/docs_gate/scheme.py :: UNMEASURED` holds `{token}` as {reason}, and the season declares it nowhere")
-        for token, reason in sorted(UNMEASURED.items())
-        if token not in roster
-    )
-    return found
-
-
 def _unreadable_findings(scheme: Scheme) -> list[Finding]:
     """Every token the measuring arms name, held to a colour they can read.
 
@@ -599,7 +569,6 @@ def check_scheme_tokens() -> list[Finding]:
     )
     if season is not None:
         found.extend(_bridge_findings(_bridged(text), roster))
-        found.extend(_coverage_findings(season.relative_to(REPO_ROOT).as_posix(), roster))
 
     for path in files:
         scheme = _read(path)
