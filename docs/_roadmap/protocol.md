@@ -65,17 +65,19 @@ changes rows nobody edited. **A closing commit walks the entire table and re-der
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | 1   | An entry its `Depends on` names is still on the page and still blocking                                                                                                       | **Blocked**  |
 | 2   | A caution, or a finding with a recorded trigger rather than a plan                                                                                                            | **Standing** |
-| 3   | The argument is settled and recorded where it will be read — a comment at the line it constrains, a CLAUDE.md §7 line or a `.claude/rules/` clause, or a spec-sheet invariant | **Decided**  |
-| 4   | Otherwise                                                                                                                                                                     | **Open**     |
+| 3   | I have ruled the entry deferred — a conclusion no session reaches on its own                                                                                                  | **Skipped**  |
+| 4   | The argument is settled and recorded where it will be read — a comment at the line it constrains, a CLAUDE.md §7 line or a `.claude/rules/` clause, or a spec-sheet invariant | **Decided**  |
+| 5   | Otherwise                                                                                                                                                                     | **Open**     |
 
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
-remains. A status that contradicts the `Depends on` beside it is the failure this rule exists to
-catch, so read the two columns together. **Both listings carry the same word, that word is one of the
-four above, and a `Blocked` names an entry the page still holds**
-(`scripts/checks/docs_gate/checks.py :: _check_status_agreement`), which reads the four out of the
-table above rather than repeating them.
+remains. **`Skipped` is not declined**: the work is still wanted, so the entry stays and nothing
+re-opens it until I say so (ruling 137, 2026-09-06). A status that contradicts the `Depends on`
+beside it is the failure this rule exists to catch, so read the two columns together. **Both
+listings carry the same word, that word is one the table above derives, and a `Blocked` names an
+entry the page still holds** (`scripts/checks/docs_gate/checks.py :: _check_status_agreement`),
+which reads that set out of the table rather than repeating it.
 
-**Rule 3's three homes are the whole set.** An argument recorded anywhere else — a page holding it
-until it reaches its own destination, a commit body, a report — leaves the entry at rule 4, because
+**Rule 4's three homes are the whole set.** An argument recorded anywhere else — a page holding it
+until it reaches its own destination, a commit body, a report — leaves the entry at rule 5, because
 what makes a question settled is that whoever meets the constraint next is standing where the answer
 is written.

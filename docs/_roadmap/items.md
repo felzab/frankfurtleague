@@ -80,7 +80,7 @@ deliverable.
 | Token       | Item                                                                                                                          | Tags                                                                        | Status   |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                        | FE                                                                          | Open     |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Open     |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Skipped  |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                               | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
@@ -95,7 +95,7 @@ deliverable.
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing             | FE, Docs, tests                                                             | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                       | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                              | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                               | FE, BE, tests, saisons                                                      | Open     |
@@ -107,9 +107,9 @@ deliverable.
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `nce5-j467` | Two hand-copied patterns sit outside the register that pairs the others                                                       | FE, BE, tests                                                               | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
@@ -149,9 +149,9 @@ does.
 
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
-| Tags                     | Status | Depends on |
-| ------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, spiele | Open   | —          |
+| Tags                     | Status  | Depends on |
+| ------------------------ | ------- | ---------- |
+| FE, BE, DB, Docs, spiele | Skipped | —          |
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
@@ -770,9 +770,9 @@ population each walks is the one it chose rather than the one the tree's current
 
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                        | Status | Depends on |
-| --------------------------------------------------------------------------- | ------ | ---------- |
-| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open   | —          |
+| Tags                                                                        | Status  | Depends on |
+| --------------------------------------------------------------------------- | ------- | ---------- |
+| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped | —          |
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through a whole
 new season — its dates, which clubs play it, which clubs are new, and the rules it runs under — and the season
@@ -1421,9 +1421,9 @@ is whether retrying can help.
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
-| Tags           | Status | Depends on |
-| -------------- | ------ | ---------- |
-| FE, BE, spiele | Open   | —          |
+| Tags           | Status  | Depends on |
+| -------------- | ------- | ---------- |
+| FE, BE, spiele | Skipped | —          |
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as
 one** (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change the match
@@ -1486,9 +1486,9 @@ collects.
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
-| Tags                        | Status | Depends on |
-| --------------------------- | ------ | ---------- |
-| FE, BE, Docs, admin, spiele | Open   | —          |
+| Tags                        | Status  | Depends on |
+| --------------------------- | ------- | ---------- |
+| FE, BE, Docs, admin, spiele | Skipped | —          |
 
 **The Fehlt and Offen markers exist on the match editor alone, and putting them on the other entity editors is
 a domain question before it is a UI one.**

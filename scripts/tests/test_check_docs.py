@@ -275,6 +275,12 @@ QUALIFIED_BE_ROW: Final = BE_DERIVATION_ROW.replace(_tick("tests/"), _tick("test
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
 STATUS_COLUMN_ROW: Final = "| # | When | Status |"
+# The derivation's closing rule, spelled once: the corpus writes it and the widening case below
+# anchors a new rule on it, renumbering this one as a real addition to the ladder would.
+OTHERWISE_RULE: Final = "| 4 | Otherwise | **Open** |"
+# A rule deriving the same word the refusal cases put outside the set, so that pair and the
+# widening case differ in this row alone rather than in the word each plants.
+ADDED_STATUS_RULE: Final = "| 4 | A rule the derivation gains | **Parked** |"
 # The sheet `scripts/gate/selfcheck.sh` reads its output vocabulary out of, with the lead-in that
 # arms that reader and one row under it in the shape it keeps.
 OPS_SPEC: Final = "docs/ops/spec.md"
@@ -803,7 +809,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "| 1 | An entry this one waits on is still filed here | **Blocked** |",
             "| 2 | A caution, or a finding carrying a recorded trigger | **Standing** |",
             "| 3 | The argument is settled where the next reader stands | **Decided** |",
-            "| 4 | Otherwise | **Open** |",
+            OTHERWISE_RULE,
         ),
         TEMPLATES: _page(
             _heading(1, "Templates"),
@@ -2246,6 +2252,24 @@ def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a table outside section four widened the vocabulary: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
+    """A vocabulary retyped in the checker would pass both refusal cases and fail this one alone.
+
+    The word is the one those cases put outside the set, so the three differ in the planted row
+    alone.
+    """
+    _reset()
+    _replace(PROTOCOL, OTHERWISE_RULE, ADDED_STATUS_RULE + "\n" + OTHERWISE_RULE.replace("| 4 |", "| 5 |"))
+    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
+    _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a status the table derives was refused: " + _shape(reported)
     _assert_corpus_restored()
 
 
