@@ -22,7 +22,7 @@ export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeam[]; urlPrefix: st
     // The cascade is keyed off `role="listitem"`, not the card type, so every grid arrives alike.
     <div
       role="list"
-      className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+      className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
       {teams.map((teamData) => (
         // On the wrapper, never on the <Link>: an explicit role replaces the implicit `link` one,
         // dropping the card out of a screen reader's list of links.

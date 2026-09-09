@@ -39,7 +39,7 @@ const KEINE_SPIELE: Pick<FLSpieleListResponse, "spiele"> = { spiele: [] };
  */
 export function RecentAndUpcomingSpieleGridSkeleton() {
   return (
-    <section className="flex w-full flex-col gap-14 pb-10">
+    <section className="flex w-full flex-col gap-y-8 pb-10 sm:gap-y-12">
       <div className="flex w-full flex-col">
         <SectionHeader
           eyebrow="Demnächst"
@@ -112,7 +112,7 @@ export async function RecentAndUpcomingSpieleGrid() {
   const today = getGermanTodayStr();
 
   return (
-    <section className="flex w-full flex-col gap-14 pb-10">
+    <section className="flex w-full flex-col gap-y-8 pb-10 sm:gap-y-12">
       <div className="flex w-full flex-col">
         <SectionHeader
           eyebrow="Demnächst"

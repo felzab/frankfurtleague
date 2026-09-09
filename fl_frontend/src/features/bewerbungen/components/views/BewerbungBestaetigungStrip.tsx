@@ -211,7 +211,7 @@ function SitzZeile({
 
   return (
     <div className="flex w-full flex-col gap-y-2">
-      <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
+      <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP}`}>{sitz.label}</span>
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP}`}>Zugleich Trainer</span>}
 

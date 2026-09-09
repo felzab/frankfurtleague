@@ -287,7 +287,7 @@ export function SaisonTiebreakSelect({
       <FieldError className={FIELD_ERROR} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
           what this field decides, and the trigger shows only the criterion's name. */}
-      <ol className="mt-2 flex w-full flex-col gap-y-1.5">
+      <ol className="mt-2 flex w-full flex-col gap-y-1">
         {/* The WHOLE chain, because the two options are the same three rungs in a different order, so
             a sentence naming only the leader leaves a reader comparing one word against one word. */}
         {tiebreakLadder(value).map((rung, index) => (

@@ -589,7 +589,7 @@ export function FormTeamPicker({
         teamPicker
       ) : (
         /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
-        <div className="flex w-full flex-col gap-y-1.5">
+        <div className="flex w-full flex-col gap-y-2">
           <span className={FIELD_LABEL}>{label}</span>
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>

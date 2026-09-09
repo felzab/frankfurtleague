@@ -16,11 +16,11 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
   const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
-    <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4 sm:p-6`}>
+    <div className={`${card()} flex w-full flex-col gap-y-2 p-4 sm:p-6`}>
       <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
 
       {/* Offizieller Schulname. No emptiness guard — both schemas require it. */}
-      <p className="fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
+      <p className="fluid-xs text-foreground-muted -mt-2 font-semibold">{teamData.full_name}</p>
 
       <div className="flex flex-col items-start gap-y-1 pt-2">
         {/* A club may hold no website at all. Rendered anyway, React resolves an empty `href` against

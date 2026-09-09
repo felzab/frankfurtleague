@@ -77,26 +77,24 @@ deliverable.
 
 ## The items at a glance
 
-| Token       | Item                                                                                                                          | Tags                                                                        | Status   |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Skipped  |
-| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
-| `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
-| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                            | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `k7fd-3xqp` | The tree spends gaps off the ladder the frontend sheet names                                                                  | FE, Docs, tests                                                             | Decided  |
-| `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere                | FE, Docs, tests, spieler, teams                                             | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
-| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
+| Token       | Item                                                                                                                         | Tags                                                                        | Status   |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Skipped  |
+| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
+| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
+| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
+| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
+| `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere               | FE, Docs, tests, spieler, teams                                             | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
+| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
+| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
+| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 
 ## The items
 
@@ -465,65 +463,6 @@ in `fl_frontend/package.json` or `fl_backend/pyproject.toml` states which gate s
 `.github/workflows/verify.yml` runs it. Where an answer rests on practice outside this repository it
 cites a public repository a reader can open, never a claim about what is usual.
 
-### `ex2m-qjkg` · The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read
-
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, saisons, spiele, teams | Open   | —          |
-
-**The offer both shape selects are built from is a mirror of backend numbers that no check compares.**
-`fl_frontend/src/features/saisons/shapeOffer.ts` derives every row it opens from its own
-`:: MIN_TEAMS_PER_GROUP` and `:: MAX_TEAMS_PER_GROUP`, from
-`fl_frontend/src/features/saisons/schemas.ts :: MAX_QUALIFIERS` and from
-`fl_frontend/src/features/teams/constants.ts :: GRUPPEN_OPTIONS`, each written beside a comment naming
-the Python it mirrors. `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` names none
-of the four, and `.claude/rules/cross-surface.md` holds the Zod mirror to presence, required, nullable,
-type and enum, so `fl_frontend/src/core/apiContract.test.ts` compares no numeric bound either. **A
-ceiling moved on the Python side leaves the offer disagreeing with the write path and the whole gate
-green** — the **saisons** clause in `.claude/rules/cross-surface.md` bars offering what the write path
-refuses, and this is the direction nothing watches.
-
-**The offer's own guard is the strongest pairing reachable without parsing Python, and that is the
-limit.** `fl_frontend/src/features/saisons/shapeOffer.test.ts` holds every open row and every closed one
-to `fl_frontend/src/features/saisons/schemas.ts :: FLPostSaisonPayloadSchema` in both directions — but
-that schema is one of the mirrors in question, so the two agree by construction whatever the backend
-says. `fl_frontend/src/features/saisons/recordedFactMirror.test.ts` is the precedent for reading the
-Python side instead.
-
-**No panel is handed the season's occupancy, so the rules that read it can only refuse a submit.**
-`REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-006` weigh the season's own group fill and fixtures, and
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx` and
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx` receive
-freeze flags and fixture counts alone. `REQ-SPIELPLAN-004` demands that every offered group hold exactly
-`teams_per_group` after a redraw, so the redraw panel could offer only shapes whose group count times
-team count equals the clubs already entered — the one panel where a wrong guess costs a failed draw
-rather than a refused save. Threading the fill counts in is cheaper than it sounds: `REQ-RULES-011`
-freezes all three shape fields absolutely once a fixture exists, so the only editable case is an undrawn
-season, where occupancy is the sole remaining stored constraint.
-
-**No backend rule is removed, and this is written down so a later session does not reach for one.** A
-derived offer eliminates a round trip, never a rule: a stale tab holds an offer built from rules that
-have since changed, and the API is reachable without the form. Where a rule should genuinely stop
-holding, `fl_backend/app/core/domain.py :: UNENFORCED` is the mechanism and deletion is not.
-
-**No layout is sized per group, which is what keeps the widest legal season a design question rather
-than a breakage.** Every grid in `fl_frontend/src` is card responsiveness, no tab strip or filter row
-carries one entry per group, and no table has a column per group. Nothing on the frontend sorts group
-names either, so the byte-order hazard `docs/backend/spec.md :: I54` guards against does not reach this.
-The standings page stacks one card per group and grows.
-
-**Done when** the four numbers are compared against the declarations that fix them —
-`fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`,
-`fl_backend/app/api/teams/schemas.py :: MAX_NUMBER_OF_GROUPS` and
-`fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup`'s two bounds — by a check that reads the
-Python, `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` being the mechanism
-already built for exactly that pairing; and both shape panels are handed the season's group fill, so
-`REQ-RULES-002`, `REQ-RULES-003` and `REQ-SPIELPLAN-004` close a row instead of refusing a submit.
-
-**Not verified.** No admin session is available to the sessions that read this, so every claim here
-about a control is read off source. What `shapeOffer.test.ts` executes is the offer against the Zod
-payload; nothing was seen rendering.
-
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
 | Tags                                                                        | Status  | Depends on |
@@ -656,8 +595,7 @@ workflow is a page rather than a larger modal, and the pattern to copy is on
 the panels beside it, the Spielplan draw among them. The editor is where a wrong answer from the
 flow is corrected, so every field the flow collects has to be editable afterwards, and the narrowing
 refusals `find_rules_refusal` performs are what the flow has to state while a value is still being
-chosen — which is `ex2m-qjkg`'s subject, and building this flow before it means building that offer
-twice.
+chosen, and building this flow before that offer means building the offer twice.
 
 **Where a representative's contact is kept is fixed, and the flow inherits it rather than choosing
 it.** The block is embedded rather than given a collection of its own: on the `saison_teams`
@@ -743,41 +681,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `k7fd-3xqp` · The tree spends gaps off the ladder the frontend sheet names
-
-| Tags            | Status  | Depends on |
-| --------------- | ------- | ---------- |
-| FE, Docs, tests | Decided | —          |
-
-**[`docs/frontend/spec.md` §1.20](../frontend/spec.md#120-the-gap-ladder) names a gap ladder, and
-`fl_frontend/src` spends beside it** — half-steps between two rungs, one bracketed pixel value, and
-class lists whose base gap and breakpoint gap are not neighbours. The census is one command over
-production sources:
-
-```bash
-git grep -ohP '(?<![\w-])(?:(?:sm|md|lg|xl|2xl|max-sm|max-md|max-lg):)?(?:gap|gap-x|gap-y|space-x|space-y)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\]|\([^)]+\))(?![\w-])' HEAD -- 'fl_frontend/src' ':!*.test.ts' ':!*.test.tsx' | sort | uniq -c
-```
-
-A step outside `0.5 1 2 3 4 6 8 12` is a spend to move, and so is a class list carrying two of those
-that are not adjacent.
-
-**Why it matters.** The invariant promises a reader that any two siblings sit one rung apart, and a
-half-step is exactly the "a bit more" a later author reaches for again once one stands in the tree.
-
-**The trap.** A half-step retires to whichever neighbour the site around it asks for, never by
-rounding: a wrapped pill row's vertical gap wants the rung that keeps two rows reading as one
-cluster, and a card grid's `gap-5` wants the responsive pair the meta grids already take. A box's
-inset is not a gap and the ladder does not reach it. The toast shell's gap is spent in
-`fl_frontend/src/app/globals.css :: .toast` rather than in a class list, so the sweep edits a rule
-that already exists, which `docs/frontend/spec.md :: I57` permits: what it bans is a NEW `.toast*`
-rule.
-
-**Done when** every `gap-*` under `fl_frontend/src` names a rung and every responsive pair names two
-neighbours; a sweep shaped like `fl_frontend/src/core/refusalPaths.test.ts` asserts it over source
-text, carrying in its own words the excuse the **tests** clause of `.claude/rules/cross-surface.md`
-requires — the runner cannot render a Server Component; and the invariant's enforcement column names
-that sweep.
 
 ### `nadg-bnjb` · Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere
 

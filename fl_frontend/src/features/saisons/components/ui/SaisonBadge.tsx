@@ -20,7 +20,7 @@ const WORT: Record<FLSaisonStatus, string> = { active: "Laufend", future: "Gepla
 /** The app's one wording and one palette for a season's state. */
 export function SaisonBadge({ status, className = "" }: { status: FLSaisonStatus; className?: string }) {
   return (
-    <span className={`${labelBadge(TINT[status])} gap-1.5 ${className}`}>
+    <span className={`${labelBadge(TINT[status])} gap-1 ${className}`}>
       {/* The live dot `SaisonChip` gives this season on the public pages: in the light theme the
           brand tint and `past`'s success tint are one colour, so the state cannot ride on hue
           alone. */}

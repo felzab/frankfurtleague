@@ -240,7 +240,7 @@ export function FormTeamErsatzSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
+            <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow
                 isConfirming={isConfirming}
                 isPending={isReplacing}

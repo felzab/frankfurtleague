@@ -65,7 +65,7 @@ const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE =
-  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
+  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
 
 /**
  * In the facet's own option order rather than the click order, so one selection looks the same however it was arrived at.

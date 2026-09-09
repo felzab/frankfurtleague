@@ -637,9 +637,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
 /* The fill under a keyboard-focused option MUST stay whatever the app's hover token is — the two
    being the same colour is the whole claim. */
-/* A MENU item keys on `data-focused`, which react-aria sets from its selection
-   manager rather than from hover. A LIST-BOX item cannot take that attribute: a
-   `Select` focuses its selected option on open, painting a row before a key press. */
+/* A MENU item keys on `data-focused`, which `useMenuItem`'s `onHoverStart` also sets —
+   one indicator for both. A LIST-BOX item cannot: a `Select` focuses its selected
+   option on open, so that would paint a row before anybody pressed a key. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-hover);
@@ -775,7 +775,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   .toast {
     @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
     /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
-    @apply items-start gap-2.5 overflow-hidden whitespace-normal;
+    @apply items-start gap-2 overflow-hidden whitespace-normal;
   }
 
   /* Severity is the border and the timer bar, so on a settled toast the border carries it alone —

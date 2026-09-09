@@ -108,7 +108,7 @@ export function TeamPopoverMenu({
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <CircleInfo
                   className="text-brand shrink-0"
                   width={18}
@@ -121,7 +121,7 @@ export function TeamPopoverMenu({
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <Persons
                   className="text-brand shrink-0"
                   width={18}

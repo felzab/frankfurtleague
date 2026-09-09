@@ -81,7 +81,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (team: AdminTeamRow) => (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       {team.inactive_since !== null && <RetiredBadge since={team.inactive_since} />}
       {/* An absence and not an exit: a club nobody took into the season takes the label tone, where
           the two Austritt words beside it grade a club that was in it and left. */}

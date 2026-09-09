@@ -315,7 +315,7 @@ export function BewerbungForm({
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"
         validationErrors={mergedErrors}
-        className="flex w-full flex-col gap-5"
+        className="flex w-full flex-col gap-6"
         onSubmit={runOnSubmit(handleSubmit)}>
         <FormSchuleSection
           schulen={schulen}

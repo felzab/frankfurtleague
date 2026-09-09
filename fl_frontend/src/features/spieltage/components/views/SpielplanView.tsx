@@ -69,7 +69,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               Spieltag's card sat, so a single fade reads as the content mutating in place. */}
           <div
             role="list"
-            className={`${CARDS_CASCADE} max-w-page mx-auto grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+            className={`${CARDS_CASCADE} max-w-page mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
               today={today}

@@ -161,7 +161,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
 
           {/* Three equal columns from `md`, so one seat sits under itself down the page and a reader
               still scans a single role the way a column let them. */}
-          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3 md:gap-x-6">
+          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3 md:gap-x-4">
             {row.seats.map((seat) => (
               <div key={seat.rolle}>{renderSeat(seat)}</div>
             ))}

@@ -40,7 +40,7 @@ export function SidemenuFooter({
           href="/"
           onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
+            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
           }`}
           aria-label="Zur öffentlichen Website">
           <ArrowRightToSquare className="size-[18px] shrink-0" />
@@ -57,7 +57,7 @@ export function SidemenuFooter({
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
+            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
           }`}
           aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
           {isDesktopCollapsed ? (

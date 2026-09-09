@@ -114,7 +114,7 @@ export function SpielRail({
                       block: "start",
                     });
                   }}
-                  className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-1.5 font-bold transition-colors">
+                  className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-2 font-bold transition-colors">
                   <ArrowRight
                     className={`size-3.5 shrink-0 ${field.expectedSeverity === "scoring" ? "text-danger-strong" : "text-warning-strong"}`}
                   />

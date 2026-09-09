@@ -108,4 +108,4 @@ export const MODAL_FOOTER_ROW = `${MODAL_FOOTER} flex flex-row items-center just
  * The band for a pair that is not symmetrical — one of the two discards work. Stacked at every width, since
  * `ModalShell`'s narrow size cannot seat both labels side by side and a sometimes-stacked pair reads as two designs.
  */
-export const MODAL_FOOTER_STACK = `${MODAL_FOOTER} flex min-w-0 flex-col gap-2.5`;
+export const MODAL_FOOTER_STACK = `${MODAL_FOOTER} flex min-w-0 flex-col gap-3`;

@@ -48,7 +48,7 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
       {[...grouped.entries()].map(([group, fields]) => (
         <section
           key={group}
-          className="bg-muted/50 flex w-full flex-col gap-y-1.5 rounded-lg p-2.5">
+          className="bg-muted/50 flex w-full flex-col gap-y-2 rounded-lg p-2.5">
           <h3 className={FORM_SECTION_HEADING}>{group}</h3>
           <ul className="flex w-full flex-col gap-y-1">
             {fields.map((field) => {

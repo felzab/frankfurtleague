@@ -1418,8 +1418,8 @@ inset — a panel's `p-4 sm:p-5`, a pill's `px-1.5 py-0.5` — is §1.18's and i
 | `12`  | Sections in a public page column from `sm` up, the widest rhythm the ladder admits                                        |
 
 **A responsive pair steps one rung** — `gap-4 sm:gap-6`, `gap-y-8 sm:gap-y-12` — because a pair
-skipping one changes the rhythm rather than scaling it. `gap-0` is the absence of a gap where a row
-collapses into a column, never a rung.
+skipping one changes the rhythm rather than scaling it. `gap-0` is the absence of a gap — a row
+collapsing into a column, or two controls joined at a seam — never a rung.
 
 ## 2. Invariants
 
@@ -1611,5 +1611,4 @@ collapses into a column, never a rung.
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/src/shared/utils/facets.test.ts :: isClientModule` covers `fl_frontend/src/app/`, `:: VIEWS_GLOB` the admin views; a server-render harness is refused               |
-| The tree spends gaps off §1.20's ladder, and pairs that skip a rung                                                                                  | Open — a new spend takes a rung; every off-ladder spend and skipping pair in the tree moves in a sweep of its own                                                                           |
 | `fl_frontend/src/app/layout.tsx`'s chrome colour keys on `prefers-color-scheme`, the page's theme on `data-theme`                                    | Accepted — Next offers no other key, so a visitor whose stored theme differs from the operating system's sees a mismatched bar                                                              |

@@ -156,7 +156,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
           ref={formRef}
           validationErrors={fieldErrors}
           onSubmit={runOnSubmit(handleFormSubmit)}
-          className="flex flex-col gap-y-5">
+          className="flex flex-col gap-y-4">
           {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
             stopped matching the words a voice-control user reads. `TextField` associates it. */}
           <TextField
@@ -191,7 +191,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
       <Tabs.Panel id="Spieler">
         {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
             more surface the submit-block sweep has to carve an exception for. */}
-        <div className="flex flex-col gap-y-5">
+        <div className="flex flex-col gap-y-4">
           <TextField
             className="flex w-full flex-col gap-y-2"
             isRequired

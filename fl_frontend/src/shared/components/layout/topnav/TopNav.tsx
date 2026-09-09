@@ -15,7 +15,7 @@ export function TopNav() {
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4">
       <BrandLink />
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
         <div className="hidden items-center gap-1 lg:flex">
           <Link
             href="/dashboard"

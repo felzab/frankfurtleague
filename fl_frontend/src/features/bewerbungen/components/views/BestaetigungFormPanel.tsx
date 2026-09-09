@@ -400,7 +400,7 @@ export function BestaetigungFormPanel({
       validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-6"
       onSubmit={runOnSubmit(handleSubmit)}>
       <BestaetigungHinweise
         schule={schule}

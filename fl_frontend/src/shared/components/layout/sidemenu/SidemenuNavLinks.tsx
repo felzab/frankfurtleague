@@ -36,7 +36,7 @@ export function SidemenuNavLinks<TIcon extends string>({
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {structure.map((group) => (
         <div
           // The first item's id, not the category name: a category may deliberately have none, and every
@@ -52,7 +52,7 @@ export function SidemenuNavLinks<TIcon extends string>({
 
           {/* `items-center` while collapsed, matching the footer's own container: the two must agree or the rail
               reads as two columns of different widths. */}
-          <div className={`flex flex-col gap-[2px] ${isDesktopCollapsed ? "items-center" : ""}`}>
+          <div className={`flex flex-col gap-0.5 ${isDesktopCollapsed ? "items-center" : ""}`}>
             {group.sub_options.map((sub_option) => {
               const targetPath = `${linkPrefix}/${sub_option.id}`;
               const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;

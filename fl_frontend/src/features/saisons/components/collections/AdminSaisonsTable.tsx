@@ -54,7 +54,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
    * (`fl_frontend/src/core/numericFigures.test.ts :: PAIR`).
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
-    <span className="font-numeric flex flex-row items-baseline gap-x-1.5 tabular-nums">
+    <span className="font-numeric flex flex-row items-baseline gap-x-1 tabular-nums">
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
       <span className="muted-meta">–</span>
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>

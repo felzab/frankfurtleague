@@ -58,7 +58,7 @@ export function BewerbungView({
   const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
 
   return (
-    <section className="max-w-meta flex w-full flex-col gap-5 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8">
+    <section className="max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8">
       <header className="border-border bg-surface relative flex flex-col gap-4 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8">
         <div className="bg-brand-solid absolute top-0 left-0 h-1.5 w-full" />
 
@@ -88,7 +88,7 @@ export function BewerbungView({
           {KOPF_LINKS.map(({ href, label, anlass, Icon }) => (
             <div
               key={href}
-              className="flex flex-col gap-1.5">
+              className="flex flex-col gap-1">
               {/* The site's eyebrow, so the reason to press reads like every other label on the page. */}
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{anlass}</span>
 
@@ -173,7 +173,7 @@ export function BewerbungView({
  */
 function FensterFakten({ saisonId, bis }: { saisonId: string; bis: string }) {
   return (
-    <dl className="bg-brand-solid text-brand-solid-foreground flex w-full flex-col gap-4 rounded-2xl p-4 shadow-md sm:flex-row sm:items-center sm:gap-8 sm:p-5">
+    <dl className="bg-brand-solid text-brand-solid-foreground flex w-full flex-col gap-4 rounded-2xl p-4 shadow-md sm:flex-row sm:items-center sm:gap-6 sm:p-5">
       <Fakt label="Wer mitspielen darf">Abi-Jahrgang {abiJahrgang(saisonId)}</Fakt>
 
       <div

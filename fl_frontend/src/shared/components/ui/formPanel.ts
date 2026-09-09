@@ -10,7 +10,7 @@ export const formPanel = tv({
     header: "border-border flex flex-col gap-y-0.5 rounded-t-2xl border-b p-4 sm:p-5",
     /** Carries the panel's `InfoHint` inline, so the explanation lives on the title rather than as a standing sentence. */
     heading: "fluid-base text-foreground font-extrabold tracking-tight",
-    body: "flex w-full flex-col gap-y-5 p-4 sm:p-5",
+    body: "flex w-full flex-col gap-y-6 p-4 sm:p-5",
     /**
      * A `Switch.Content` row and its `Switch.Control` track, tinted from the tone rather than at the
      * call site: a colour retyped per switch is one that drifts from the panel around it.

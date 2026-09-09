@@ -146,7 +146,7 @@ function GruppenTauschControl({
             Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
-          <div className="flex w-full flex-col gap-y-1.5">
+          <div className="flex w-full flex-col gap-y-2">
             <RefusableSelect
               label="Tauschen mit"
               placeholder="Team wählen"
@@ -182,7 +182,7 @@ function GruppenTauschControl({
             </ConfirmReveal>
           )}
 
-          <div className="flex w-full flex-col gap-y-1.5">
+          <div className="flex w-full flex-col gap-y-2">
             <ConfirmActionRow
               isConfirming={isConfirming}
               isPending={isSwapping}

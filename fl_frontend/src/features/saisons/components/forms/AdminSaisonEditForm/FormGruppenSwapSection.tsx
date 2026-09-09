@@ -44,7 +44,7 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
   return (
     <div
       aria-hidden="true"
-      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-1.5 justify-self-center rounded-full px-3 font-bold">
+      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
         className="size-4 shrink-0 rotate-90 sm:rotate-0"
@@ -263,7 +263,7 @@ export function FormGruppenSwapSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
+            <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow
                 isConfirming={isConfirming}
                 isPending={isSwapping}

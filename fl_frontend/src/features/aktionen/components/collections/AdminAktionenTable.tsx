@@ -135,7 +135,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     aktion.request === null ? (
       <span className="fluid-xs text-foreground-muted italic">Ohne Aufruf</span>
     ) : (
-      <span className="fluid-xs text-foreground-muted flex flex-row flex-wrap gap-x-1.5 font-mono break-all">
+      <span className="fluid-xs text-foreground-muted flex flex-row flex-wrap gap-x-1 font-mono break-all">
         <span className="font-bold">{aktion.request.method}</span>
         <span>{aktion.request.path}</span>
       </span>
@@ -152,7 +152,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {datensatz.filterPaare.map(([feld, wert]) => (
           <span
             key={feld}
-            className="fluid-xs flex flex-row flex-wrap gap-x-1.5 font-mono break-all">
+            className="fluid-xs flex flex-row flex-wrap gap-x-1 font-mono break-all">
             <span className="text-foreground-muted">{feld}</span>
             <span className="text-foreground">{wert}</span>
           </span>
@@ -186,8 +186,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * with the record it was made against: that is why one column holds all four.
    */
   const renderAenderung = (aktion: AdminAktionRow) => (
-    <div className="flex min-w-0 flex-col items-start gap-1.5">
-      <div className="flex flex-row flex-wrap gap-1.5">
+    <div className="flex min-w-0 flex-col items-start gap-2">
+      <div className="flex flex-row flex-wrap gap-2">
         {renderArtTag(aktion)}
         {renderBereichTag(aktion)}
       </div>

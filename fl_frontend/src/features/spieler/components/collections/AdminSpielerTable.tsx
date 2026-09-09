@@ -88,7 +88,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (spieler: AdminSpielerRow) => (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       {spieler.inactive_since !== null && <RetiredBadge since={spieler.inactive_since} />}
       {/* An absence and not an exit: a person with no squad row this season takes the label tone,
           where „ausgetragen“ beside it grades a row that was in the Kader and came out. */}

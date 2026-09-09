@@ -1,7 +1,7 @@
 import { tv } from "tailwind-variants";
 
 const contentLoader = tv({
-  base: "flex w-full flex-1 items-center justify-center gap-x-1.5 px-4 py-16",
+  base: "flex w-full flex-1 items-center justify-center gap-x-1 px-4 py-16",
   variants: {
     /**
      * Which box the dots are asked to fill. `region` is any ground whose own height already ends

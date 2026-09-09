@@ -158,7 +158,7 @@ export function AdminSpieleActionRequiredView({
           key={section.category}
           id={section.category}
           className="flex w-full flex-col items-center px-4 pt-0 pb-4 outline-none sm:px-8">
-          <div className="max-w-page flex w-full flex-col items-center gap-y-5">
+          <div className="max-w-page flex w-full flex-col items-center gap-y-6">
             {section.spiele.length === 0 ? (
               <EmptyState
                 tone="positive"
@@ -169,7 +169,7 @@ export function AdminSpieleActionRequiredView({
               // diagnosis, and the only category whose tab cannot state the reason itself.
               <div
                 role="list"
-                className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+                className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
                 <SpielCardsList
                   spiele={[...section.spiele]}
                   today={today}
