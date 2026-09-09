@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import {
   ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
@@ -13,6 +14,9 @@ import {
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -287,6 +291,19 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
   });
 });
 
+/**
+ * The squad panel on a RETIRED row, which is the arm holding the reactivate both gates close. The
+ * winning reason rides the refusal hint's `aria-label` (`shared/components/ui/Hint.tsx :: RefusalHint`).
+ */
+const austragenPanel = (gates: { isRowTeamInSaison: boolean; isRowSquadFull: boolean }): string =>
+  renderMarkup(FormAustragenSection, {
+    spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
+    saisonId: "2026",
+    rowInactiveSince: "2026-03-01",
+    banners: [],
+    ...gates,
+  });
+
 describe("the reactivate's gate on the editor", () => {
   /* The refusal is deterministic and the page already holds what decides it — the season's junction
      rows against the row's stored club — so the press is offered only where the endpoint takes it. */
@@ -306,14 +323,22 @@ describe("the reactivate's gate on the editor", () => {
   /* Both refusals reach one control, in the endpoint's own order: the club's is asked first there, a
      full squad being no fact worth reporting about a club the season does not hold. */
   it("asks the cap after the club, and composes the two", () => {
-    assert.match(
-      AUSTRAGEN_PANEL,
-      /const squadFullReason = isRowSquadFull \? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
-      "the cap gate reads the wrong way round",
-    );
-    assert.match(
-      AUSTRAGEN_PANEL,
-      /const blockedReason = clubReason \?\? squadFullReason;/,
+    const open = austragenPanel({ isRowTeamInSaison: true, isRowSquadFull: false });
+    const capAlone = austragenPanel({ isRowTeamInSaison: true, isRowSquadFull: true });
+    const bothRefusals = austragenPanel({ isRowTeamInSaison: false, isRowSquadFull: true });
+
+    // The floor for the two reasons below, which a control closed whatever it is handed would carry
+    // anyway.
+    assert.doesNotMatch(open, /\sdisabled=""/, "the reactivate is closed on a row both gates clear");
+    assert.ok(!open.includes(REACTIVATION_NEEDS_ROOM_IN_SQUAD), "an open control still reports a full squad");
+
+    assert.match(capAlone, /\sdisabled=""/, "a full squad leaves the reactivate open");
+    assert.ok(capAlone.includes(`aria-label="${REACTIVATION_NEEDS_ROOM_IN_SQUAD}"`), "the cap gate reads the wrong way round");
+
+    // The club's reason on a row both refuse, which is the composition: reversed, the admin is sent to
+    // free a squad slot in a season the row's club has left.
+    assert.ok(
+      bothRefusals.includes(`aria-label="${REACTIVATION_NEEDS_A_TEAM_IN_SAISON}"`),
       "the cap reason is reported ahead of the club's, or the two no longer compose",
     );
   });

@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
+/**
+ * Read rather than rendered for what this file claims over it: which expression resolves a state, an
+ * absence spanning every state, and the label pair a second press parts. `spielplanReplace.test.ts`
+ * renders this panel.
+ */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
 /** The action file, for the claims that are about two sites agreeing rather than about this panel. */
@@ -17,19 +21,16 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..",
 const ACTION_COPY = ACTIONS.replaceAll(/" \+\s*"/g, "");
 
 /**
- * The Regeln panel beside this one, read the same way: it holds the copy the refusal points at, so
- * the claims below span three files rather than two.
- */
-const REGELN_COPY = readFileSync(path.resolve(import.meta.dirname, "FormRegelnSection.tsx"), "utf8").replaceAll(/" \+\s*"/g, "");
-
-/**
  * JSX's line breaks and its `{" "}` joins collapsed. **Every copy assertion reads this and not the
  * raw file**: Prettier rewraps a text node at will, so a sentence asserted as written would fail on a
  * reformat that changed nothing a reader sees.
  */
 const flatten = (jsx: string): string => jsx.replaceAll('{" "}', " ").replace(/\s+/g, " ");
 
-/** The armed alert alone: the shell's own parts are asserted at `ConfirmReveal`'s home. */
+/**
+ * The armed alert alone, which a second press reveals, so a static render answers with the resting
+ * form. The shell's own parts are asserted at `ConfirmReveal`'s home.
+ */
 const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "");
 
 /** The panel's own hint, which stands in the heading and ends with it. */
@@ -121,22 +122,12 @@ describe("the undraw half of the Spielplan panel", () => {
   });
 
   /* Three sites, one verb: the refusal sends an admin to the reloaded Regeln panel, that panel names
-     taking the Spielplan back, and this control is what they go looking for. Rename one and the chain
-     breaks silently. */
+     taking the Spielplan back (`regelnFreeze.test.ts :: UNDRAW`), and this control is what they go
+     looking for. Rename one and the chain breaks silently. */
   it("carries the verb the rules refusal sends the admin looking for", () => {
     assert.match(ACTION_COPY, /im Abschnitt Regeln steht dann/);
-    assert.match(REGELN_COPY, /nimmst Du den Spielplan zurück/);
     assert.match(SOURCE, /"Spielplan zurücknehmen"/);
     assert.match(SOURCE, /"Ja, Spielplan zurücknehmen"/);
-  });
-
-  /* The mapper holds only the code, so the Regeln panel resolves the window for the season in hand.
-     Drop a case and a season in that state is sent to a control it finds closed, with nothing saying
-     why. */
-  it("states the window the repair it names runs in, and what holds outside it", () => {
-    assert.match(REGELN_COPY, /lässt sich der Spielplan weder neu anlegen noch zurücknehmen/);
-    assert.match(REGELN_COPY, /nur, solange die Saison geplant ist/);
-    assert.match(REGELN_COPY, /Im Abschnitt Spielplan steht/);
   });
 
   /* Leave the armed label at "Ja, zurücknehmen" and this fails: on a danger panel a bare verb is

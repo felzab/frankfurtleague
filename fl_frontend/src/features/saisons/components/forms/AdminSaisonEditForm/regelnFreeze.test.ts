@@ -243,12 +243,18 @@ const UNDRAW = /nimmst Du den Spielplan zurück/;
 const RECORDED = /Solange zu mindestens einem Spiel/;
 const FROZEN = /Damit sind diese drei Zahlen festgeschrieben/;
 
+/* What a closed note says past the sentence that discriminates it: which writes are shut, where the
+   list of what closed them stands, and which window a season is past. */
+const BOTH_WRITES_SHUT = /lässt sich der Spielplan weder neu anlegen noch zurücknehmen/;
+const SPIELPLAN_PANEL = /Im Abschnitt Spielplan steht/;
+const PLANNED_ONLY = /nur, solange die Saison geplant ist/;
+
 describe("the rules panel's note on the frozen shape", () => {
-  /* The gate the three cases below cannot see, each holding the note to a state that renders one:
-     it explains a freeze, so a season nothing has frozen is told to redraw a Spielplan it has not
+  /* The gate the cases below cannot see, each holding the note to a state that renders one: it
+     explains a freeze, so a season nothing has frozen is told to redraw a Spielplan it has not
      got. */
   it("renders no note at all on a season that holds no draw", () => {
-    for (const pattern of [REDRAW, UNDRAW, RECORDED, FROZEN])
+    for (const pattern of [REDRAW, UNDRAW, RECORDED, FROZEN, BOTH_WRITES_SHUT, SPIELPLAN_PANEL, PLANNED_ONLY])
       assert.doesNotMatch(markup({}), pattern, "an undrawn season is told how to unfreeze fields nothing has frozen");
   });
 
@@ -279,6 +285,17 @@ describe("the rules panel's note on the frozen shape", () => {
     assert.doesNotMatch(recorded, FROZEN, "a state the admin can leave is called final");
     assert.doesNotMatch(recorded, UNDRAW, "a closed window is sent to take the Spielplan back");
     assert.doesNotMatch(recorded, REDRAW, "a closed window is sent to draw the Spielplan again");
+  });
+
+  /* `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal` holds only the code, so this panel
+     resolves the window itself. Drop a state's own words and a season in it is sent to a control it
+     finds closed, with nothing saying why. */
+  it("states the window the repair it names runs in, and what holds outside it", () => {
+    const recorded = markup({ isDrawnSaison: true, spielplanWindow: "recorded" });
+
+    assert.match(recorded, BOTH_WRITES_SHUT, "a recorded fact is described as closing only one of the two writes");
+    assert.match(recorded, SPIELPLAN_PANEL, "nothing sends the reader to the panel listing what counts as entered");
+    assert.match(markup({ isDrawnSaison: true, spielplanWindow: "closed" }), PLANNED_ONLY, "the window both writes run in is unnamed");
   });
 
   /* Read rather than rendered, for this file's own reason: the note is the same markup whichever
