@@ -94,9 +94,11 @@ export function describeErasureUmfang(erasedSaisonSpieler: number, redactedAktio
         ? "Ein Kadereintrag wurde gelöscht."
         : `${String(erasedSaisonSpieler)} Kadereinträge wurden gelöscht.`;
 
+  // „dieser Person“ rather than a pronoun: the league fields players of both genders, and a gender map
+  // beside the count would drift (`docs/frontend/spec.md` §1.12).
   const protokoll =
     redactedAktionen === 0
-      ? "Im Änderungsprotokoll stand nichts zu ihm."
+      ? "Im Änderungsprotokoll stand nichts zu dieser Person."
       : redactedAktionen === 1
         ? "Ein Eintrag im Änderungsprotokoll wurde geleert."
         : `${String(redactedAktionen)} Einträge im Änderungsprotokoll wurden geleert.`;

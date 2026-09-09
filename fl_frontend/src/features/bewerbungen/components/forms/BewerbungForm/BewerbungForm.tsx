@@ -244,7 +244,7 @@ export function BewerbungForm({
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Keine Antwort erhalten", { description: gesendet.error });
+        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Keine Antwort von uns", { description: gesendet.error });
         return;
       }
 

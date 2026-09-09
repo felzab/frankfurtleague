@@ -39,7 +39,7 @@ describe("describeErasureUmfang", () => {
   /* A person can be erased holding none: registered, and never put in a squad. Zero is a sentence
      rather than a figure, because German counts nothing with a word. */
   it("reports both counts, each with its own zero and its own singular", () => {
-    assert.equal(describeErasureUmfang(0, 0), "Kadereinträge gab es keine. Im Änderungsprotokoll stand nichts zu ihm.");
+    assert.equal(describeErasureUmfang(0, 0), "Kadereinträge gab es keine. Im Änderungsprotokoll stand nichts zu dieser Person.");
     assert.equal(describeErasureUmfang(1, 1), "Ein Kadereintrag wurde gelöscht. Ein Eintrag im Änderungsprotokoll wurde geleert.");
     assert.equal(describeErasureUmfang(3, 12), "3 Kadereinträge wurden gelöscht. 12 Einträge im Änderungsprotokoll wurden geleert.");
   });

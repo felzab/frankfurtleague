@@ -129,14 +129,16 @@ describe("the notice a cut-short log carries", () => {
     assert.doesNotMatch(view(), /unvollständig/);
   });
 
-  it("counts the filters against the whole log, and against the narrowing where one is in force", () => {
-    assert.match(noticeText(view({ vollstaendig: false }), TITEL.gekappt), /Die Zahlen an den Filtern zählen das ganze Protokoll\.$/);
+  /* The failure this guards: a number read as the whole log's, where the tally already applied every
+     other facet's selection (`docs/backend/spec.md :: I208`). */
+  it("says a filter's numbers respect the other filters, in every narrowing", () => {
+    const zahlen = /Jede Zahl an einem Filter zählt die Zeilen zu ihrem Wert und rechnet Deine Auswahl in den anderen Filtern mit\.$/;
 
-    for (const narrowing of [{ dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
-      assert.match(
-        noticeText(view({ vollstaendig: false, ...narrowing }), TITEL.gekappt),
-        /Die Zahlen an den Filtern zählen alle Zeilen der oben genannten Auswahl\.$/,
-      );
+    for (const narrowing of [{}, { dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
+      const text = noticeText(view({ vollstaendig: false, ...narrowing }), TITEL.gekappt);
+
+      assert.match(text, zahlen);
+      assert.doesNotMatch(text, /zählen das ganze Protokoll/, "the notice calls a facet's numbers the whole log's");
     }
   });
 

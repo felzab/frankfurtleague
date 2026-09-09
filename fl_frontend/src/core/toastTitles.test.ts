@@ -355,7 +355,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Gruppen getauscht": { variant: "success", identifies: "its description" },
   "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.": { variant: "success", identifies: "one site" },
   "Kein Spielplan vorhanden": { variant: "info", identifies: "one site" },
-  "Keine Antwort erhalten": { variant: "danger", identifies: "its description" },
+  "Keine Antwort von uns": { variant: "danger", identifies: "its description" },
   "Kontaktdaten kopiert": { variant: "success", identifies: "the press" },
   "Kontakte gelöscht": { variant: "success", identifies: "one site" },
   "Kontakte nicht gelöscht": { variant: "danger", identifies: "one site" },

@@ -471,9 +471,13 @@ export function DatenschutzView() {
               </Angabe>
             ))}
           </dl>
+          {/* Two erasures, so two sentences: a referee's row and its copy on every match survive with the
+              name nulled (`docs/glossary.md :: Schiedsrichter`), where a pupil's erasure takes the person
+              and their squad rows outright (`:: inactive_since`). */}
           <p className={ABSATZ}>
-            Ergebnisse, Tabellen und Spielpläne vergangener Saisons bleiben als Chronik der Liga bestehen. Wer darin mit Namen steht, kann die
-            Löschung verlangen; danach erscheint dort ein neutraler Eintrag statt des Namens.
+            Ergebnisse, Tabellen und Spielpläne vergangener Saisons bleiben als Chronik der Liga bestehen. Der Name einer Schiedsrichterin oder
+            eines Schiedsrichters an einem vergangenen Spiel wird auf Wunsch gelöscht; dort steht dann ein neutraler Eintrag. Aus den
+            Kaderlisten verschwindet der Name einer Spielerin oder eines Spielers dagegen ganz.
           </p>
           <p className={ABSATZ}>
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
