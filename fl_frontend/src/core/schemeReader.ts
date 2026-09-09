@@ -29,7 +29,7 @@ function blockBody(css: string, theme: SchemeTheme): string {
   const opened = OPENER[theme].exec(blanked);
 
   // Throws rather than answering with an empty block: every comparison below is satisfied vacuously
-  // by one, which is the shape a floor stated as a number was reaching for and missing.
+  // by one, and a floor stated as a number passes a block that has lost most of what it declares.
   if (opened === null) throw new Error(`the season scheme opens no ${theme} block`);
 
   let depth = 1;
@@ -48,9 +48,27 @@ export function schemeTokens(css: string, theme: SchemeTheme): Map<string, strin
   return new Map([...blockBody(css, theme).matchAll(HEX)].map((found) => [found[1] ?? "", found[2] ?? ""]));
 }
 
+/** Every property the block declares, reached by splitting rather than by matching. */
+function propertyNames(body: string): string[] {
+  return body
+    .split(";")
+    .map((fragment) => fragment.trim())
+    .filter((fragment) => fragment.startsWith("--") && fragment.includes(":"))
+    .map((fragment) => fragment.slice(0, fragment.indexOf(":")).trim());
+}
+
 function declarations(css: string, theme: SchemeTheme): Map<string, string> {
-  const found = new Map([...blockBody(css, theme).matchAll(DECLARATION)].map((match) => [match[1] ?? "", match[2] ?? ""]));
+  const body = blockBody(css, theme);
+  const found = new Map([...body.matchAll(DECLARATION)].map((match) => [match[1] ?? "", match[2] ?? ""]));
   if (found.size === 0) throw new Error(`the season scheme's ${theme} block declares nothing`);
+
+  // The reference parse needs a reference of its own, or a reformat joining two declarations onto
+  // one line defeats `DECLARATION`'s anchor and drops that property out of the population unread.
+  assert.deepEqual(
+    [...found.keys()].sort(),
+    propertyNames(body).sort(),
+    `the ${theme} block declares a property the declaration reader did not match`,
+  );
 
   return found;
 }

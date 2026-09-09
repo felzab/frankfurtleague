@@ -13,8 +13,30 @@ import { assertEveryTokenIsRead, schemeTokens } from "@/core/schemeReader.ts";
 const SCHEME = readFileSync(path.resolve(import.meta.dirname, "schemes", "2027.css"), "utf8");
 
 const ICON = readFileSync(path.resolve(import.meta.dirname, "icon.svg"), "utf8");
-const MANIFEST = readFileSync(path.resolve(import.meta.dirname, "manifest.ts"), "utf8");
-const LAYOUT = readFileSync(path.resolve(import.meta.dirname, "layout.tsx"), "utf8");
+
+function exportBody(file: string, opener: RegExp, what: string): string {
+  // Blanked rather than dropped, so a commented-out block cannot answer for the live one.
+  const source = readFileSync(path.resolve(import.meta.dirname, file), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) =>
+    comment.replace(/[^\n]/g, " "),
+  );
+  const opened = opener.exec(source);
+  if (opened === null) throw new Error(`${what} is not declared where this reads it`);
+
+  let depth = 1;
+  for (let offset = opened.index + opened[0].length; offset < source.length; offset++) {
+    if (source[offset] === "{") depth++;
+    if (source[offset] === "}") depth--;
+    if (depth === 0) return source.slice(opened.index + opened[0].length, offset);
+  }
+  throw new Error(`${what} is never closed`);
+}
+
+/**
+ * Sliced to the export Next resolves rather than read whole: a literal outside it reaches no
+ * output, so a matcher over the file passes a renamed export and a commented-out block alike.
+ */
+const MANIFEST = exportBody("manifest.ts", /export default function\b[^{]*\{/, "manifest.ts's default export");
+const VIEWPORT = exportBody("layout.tsx", /export const viewport\b[^={]*=\s*\{/, "layout.tsx's `viewport` export");
 
 /** Every hex the icon spells, deduplicated: the mark is two colours and a third is a drift. */
 function iconColours(): Set<string> {
@@ -56,12 +78,12 @@ describe("the brand assets that cannot read a stylesheet", () => {
   // third place a scheme colour is spelled by hand rather than a render this could read instead.
   it("paints the browser's chrome in each theme's own ground", () => {
     const declared = new Map(
-      [...LAYOUT.matchAll(/media: "\(prefers-color-scheme: (light|dark)\)", color: "(#[0-9a-f]{6})"/g)].map((found) => [
+      [...VIEWPORT.matchAll(/media: "\(prefers-color-scheme: (light|dark)\)", color: "(#[0-9a-f]{6})"/g)].map((found) => [
         found[1] ?? "",
         found[2] ?? "",
       ]),
     );
-    assert.deepEqual([...declared.keys()].sort(), ["dark", "light"], "layout.tsx declares no theme colour per colour scheme");
+    assert.deepEqual([...declared.keys()].sort(), ["dark", "light"], "the `viewport` export declares no theme colour per colour scheme");
 
     for (const theme of ["light", "dark"] as const) {
       assert.equal(declared.get(theme), schemeTokens(SCHEME, theme).get("--bg-base"), `the ${theme} theme colour is not that theme's ground`);
