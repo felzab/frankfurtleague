@@ -270,7 +270,7 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
     return {
       success: true,
       updated_document: deleteOperation.updated_document,
-      message: "Team stillgelegt. Seine Spiele und Saisons bleiben erhalten.",
+      message: "Seine Spiele und Saisons bleiben erhalten.",
     };
   });
 }

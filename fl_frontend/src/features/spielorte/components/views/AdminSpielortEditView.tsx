@@ -7,7 +7,6 @@ import { AdminSpielortEditForm } from "@/features/spielorte/components/forms/Adm
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLAddress } from "@/shared/schemas";
 
@@ -30,8 +29,8 @@ export function AdminSpielortEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: spielort.id });
-      if (res.success) appToast.success(res.message ?? "Spielort reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Spielort reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 

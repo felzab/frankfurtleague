@@ -22,7 +22,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -95,7 +94,7 @@ export function AdminBewerbungAnnehmenSection({
 
         // Suppressed where the picker carries the message, so a refusal about the chosen group is
         // not also said in a toast that names no field.
-        if (fieldError === null) appToast.danger("Zusage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Zusage fehlgeschlagen", { description: res.error });
         return;
       }
 

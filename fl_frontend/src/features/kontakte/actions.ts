@@ -10,7 +10,7 @@ import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht 
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type {
   FLKontaktErasureAnsichtResponse,
   FLKontaktErasurePayload,
@@ -129,7 +129,7 @@ export async function patchSaisonTeamKontakteAction(
  */
 export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
-): Promise<ActionResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
+): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
   return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

@@ -325,6 +325,10 @@ export const listDependentSpiele = (
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
 };
 
+// The trailing point is the LAST sentence's: `join` puts one between the pieces and none at the end,
+// so a toast body composed without it renders an unpunctuated sentence.
+const asOneParagraph = (sentences: readonly string[]): string => `${sentences.join(". ")}.`;
+
 /**
  * **"aktualisiert", not "eingetragen"**: `advanced_to` reports an emptied slot as readily as a
  * filled one. **`Paarung`, not `Aufstellung`** — the site stores a starting line-up too. Silence is
@@ -335,7 +339,7 @@ export const formatSpielUpdateMessage = (
   bracketFaults: readonly FLBracketFault[] = [],
   releasedSides: readonly FLSpielReleasedSide[] = [],
 ): string => {
-  return ["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)].join(". ");
+  return asOneParagraph(["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)]);
 };
 
 /**
@@ -349,7 +353,7 @@ export const describeMovedSpiele = (
 ): string | undefined => {
   const sentences = movedSpielSentences(advancedTo, bracketFaults, releasedSides);
 
-  return sentences.length === 0 ? undefined : sentences.join(". ");
+  return sentences.length === 0 ? undefined : asOneParagraph(sentences);
 };
 
 /** Every sentence naming what a write reached beyond the fixture it was asked about, in reading order. */

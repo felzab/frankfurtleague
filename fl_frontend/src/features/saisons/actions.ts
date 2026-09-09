@@ -290,7 +290,7 @@ export async function postSaisonAction(
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: `Saison ${postOperation.created_id} angelegt. Zur laufenden Saison wird sie erst mit der Umstellung.`,
+      message: "Zur laufenden Saison wird sie erst mit der Umstellung.",
     };
   });
 }

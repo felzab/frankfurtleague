@@ -223,7 +223,7 @@ export async function deleteSpielerAction(
     return {
       success: true,
       spieler: deleteOperation,
-      message: "Spieler stillgelegt. Die Kadereinträge dieser Person bleiben erhalten.",
+      message: "Die Kadereinträge dieser Person bleiben erhalten.",
     };
   });
 }

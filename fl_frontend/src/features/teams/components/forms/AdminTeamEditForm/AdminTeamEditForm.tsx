@@ -264,7 +264,7 @@ export function AdminTeamEditForm({
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.fieldErrors?.shorthand ?? res.error ?? "Die Teamdaten konnten nicht gespeichert werden.");
+          failedNotes.push(res.fieldErrors?.shorthand ?? res.error);
         }
       }
 
@@ -280,7 +280,7 @@ export function AdminTeamEditForm({
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.fieldErrors?.gruppe ?? res.error ?? "Die Saison-Zugehörigkeit konnte nicht gespeichert werden.");
+          failedNotes.push(res.fieldErrors?.gruppe ?? res.error);
         }
       }
 

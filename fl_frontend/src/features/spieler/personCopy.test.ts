@@ -147,7 +147,7 @@ describe("the sentences the player's own write paths answer with", () => {
     for (const [was, satz] of [
       ["the duplicate squad row", /reason: "([^"]*schon einen Kadereintrag[^"]*)"/],
       ["the create whose squad row failed", /"(Nimm [^"]*Spielerseite[^"]*)"/],
-      ["the retirement", /message: "(Spieler stillgelegt\.[^"]*)"/],
+      ["the retirement", /message: "(Die Kadereinträge dieser Person[^"]*)"/],
     ] as const) {
       const gefunden = satz.exec(ACTIONS)?.[1];
 

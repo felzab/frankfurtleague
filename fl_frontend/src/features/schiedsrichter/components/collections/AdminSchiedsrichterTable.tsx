@@ -17,7 +17,6 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
@@ -56,8 +55,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const handleReactivate = (schiedsrichter: FLSchiedsrichter) => {
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
-      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Schiedsrichter reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 

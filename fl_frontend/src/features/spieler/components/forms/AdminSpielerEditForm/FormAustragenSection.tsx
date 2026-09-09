@@ -12,8 +12,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { SpielerBanner } from "./banners";
 
 /**
@@ -49,13 +49,13 @@ export function FormAustragenSection({
   // reporting about a club the season does not hold.
   const blockedReason = clubReason ?? squadFullReason;
 
-  const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string, savedDetail: string) => {
+  const run = (write: () => Promise<ActionResult>, failureHeading: string, savedDetail: string) => {
     startWriting(async () => {
       const res = await write();
-      // The detail is the press's own: this panel saves two opposite things, and „Gespeichert“ alone
-      // leaves the reader holding whichever they pressed as the only evidence of what happened.
-      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
-      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
+      // The press's own detail rather than the action's sentence: this panel saves two opposite
+      // things and the shared title names neither (`docs/frontend/spec.md :: I42`).
+      if (res.success) appToast.success("Gespeichert", { description: savedDetail });
+      else appToast.danger(failureHeading, { description: res.error });
     });
   };
 

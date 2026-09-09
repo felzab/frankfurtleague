@@ -50,7 +50,7 @@ function sharedAnswer(serverErrorCode: string): string {
     serverErrorCode,
   });
 
-  return toActionErrorResult(refusal).error ?? "";
+  return toActionErrorResult(refusal).error;
 }
 
 /**

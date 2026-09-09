@@ -18,7 +18,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
 
@@ -57,7 +56,7 @@ export function FormKontakteLoeschenSection({
       const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand });
 
       if (!res.success) {
-        appToast.danger("Kontakte nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Kontakte nicht gelöscht", { description: res.error });
         return;
       }
 

@@ -19,7 +19,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 /** The sentence the disabled decline is described by. This control renders at most once per page. */
 const ABSAGE_BUTTON_HINT_ID = "bewerbung-absage-hinweis";
@@ -71,7 +70,7 @@ export function AdminBewerbungAblehnenSection({
         const fieldError = res.fieldErrors?.grund ?? null;
         setGrundError(fieldError);
 
-        if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error });
         return;
       }
 

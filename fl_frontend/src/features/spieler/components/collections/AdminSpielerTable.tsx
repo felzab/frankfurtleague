@@ -24,7 +24,6 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -67,16 +66,16 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSpielerAction({ id: spieler.id });
-      if (res.success) appToast.success(res.message ?? "Spieler reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Spieler reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 
   const handleReactivateRow = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
-      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 

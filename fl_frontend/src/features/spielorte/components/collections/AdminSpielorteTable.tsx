@@ -15,7 +15,6 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formatMapsLink } from "../../utils";
 
@@ -56,8 +55,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   const handleReactivate = (ort: FLSpielort) => {
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: ort.id });
-      if (res.success) appToast.success(res.message ?? "Spielort reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Spielort reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 

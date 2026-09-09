@@ -17,7 +17,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
@@ -111,7 +110,7 @@ export function FormKaderSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen team is not
       // also said in a toast that names no field.
       if (teamError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
+        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error });
       }
     });
   };

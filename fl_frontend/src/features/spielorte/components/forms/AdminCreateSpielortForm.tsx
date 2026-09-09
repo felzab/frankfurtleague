@@ -5,6 +5,7 @@ import { SpielortFormFields } from "@/features/spielorte/components/forms/Spielo
 import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { formatAddressFull } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { SpielortDraft } from "@/features/spielorte/types";
@@ -48,22 +49,24 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
         // rent rather than the draft's, which still carries the empty case.
         const payload = FLPostSpielortPayloadSchema.parse(toPayload(draft));
         const res = await postSpielortAction(payload);
-        const success = res.success && !!res.created_id;
 
-        if (success && res.created_id) {
-          onCreated?.({
-            id: res.created_id,
-            name: draft.name,
-            address: draft.address,
-            // A plain search string, as the backend stores it; `formatMapsLink` wraps one for an href.
-            maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
-            default_mietpreis: payload.default_mietpreis,
-            // Just created, so current — and `null` is what current means.
-            inactive_since: null,
-          });
-        }
+        if (!res.success) return res;
+        // An acknowledged create that answered no id leaves the caller nothing to name, so the
+        // shared refusal stands in for a sentence the action never composed.
+        if (res.created_id === undefined) return { success: false, error: UNKNOWN_REFUSAL };
 
-        return { ...res, success };
+        onCreated?.({
+          id: res.created_id,
+          name: draft.name,
+          address: draft.address,
+          // A plain search string, as the backend stores it; `formatMapsLink` wraps one for an href.
+          maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
+          default_mietpreis: payload.default_mietpreis,
+          // Just created, so current — and `null` is what current means.
+          inactive_since: null,
+        });
+
+        return res;
       }}
       marksRequired
       successMessage="Spielort angelegt"

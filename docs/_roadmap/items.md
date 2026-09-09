@@ -105,7 +105,6 @@ deliverable.
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
-| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
@@ -1238,8 +1237,6 @@ the honest scope is a look at one editor past 96rem, in a real browser, by someb
 | ---------------------------------- | ------ | ---------- |
 | FE, auth, spiele, spielorte, teams | Open   | —          |
 
-Lands with: `njhn-pmtn`
-
 **Twenty distinct German sentences stand ready for a success that will never render one of them —
 24 occurrences across 23 files under `fl_frontend/src`, measured 2026-08-26.** Behind each of them
 is an action whose terminal return sets `message`, and each of them writes a fallback beside the
@@ -1280,13 +1277,6 @@ stillgelegt. Seine Spiele bleiben erhalten."`; `"Team aufgenommen"` where the se
 aktualisiert."` where the same sentence arrives without the full stop and with the fan-out behind
 it. So a copy pass can correct the wrong string, watch nothing change, and leave the rendered
 sentence standing.
-
-**Done is the type moving first.** `fl_frontend/src/shared/types/types.ts :: FormState` types
-`message` as optional, so the checker requires each fallback and cannot be shown that none is
-reachable — the same wall `njhn-pmtn` meets on `error`. Narrowing `FormState` into a union whose
-succeeding member requires its `message` turns every fallback into a compile error rather than a
-judgement per site, and the two shared components go with it: `successMessage` stops being required,
-or stops existing.
 
 **What must survive the sweep.** The undo toasts' fallbacks read the same way and are live:
 `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` renders `message ?? fallback`, and the
@@ -1334,51 +1324,6 @@ of the three**: each is what a first pass covers, and filing them one at a time 
 branch and leaves the next one unheld. **Its `Hint` renders as a popover**, so the wording behind
 that press is one of §1.9's overlay bodies and out of reach; every other block here stands in the
 resting markup.
-
-### `njhn-pmtn` · Every call site writes a fallback for a failure message that always arrives
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-Lands with: `nadg-bnjb`
-
-**Forty consumer sites under `fl_frontend/src`, across 28 files, spell `res.error ?? …` or
-`res.error || …` for a value that always arrives** (measured 2026-08-26).
-`fl_frontend/src/shared/types/types.ts :: FormState` types `error` as optional, so the checker
-requires each one; whether any can run is a runtime contract rather than a type claim, and the
-contract holds. `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation` answers a thrown
-error with `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`, whose every branch
-sets `error`, and every failing return under `fl_frontend/src` carries an `error` beside it.
-
-**Seventeen of those sites fall back to a sentence of their own rather than to the shared one**, in
-eight files, and one family inside them is a second sentence with no home: the undo's outcome
-`"Die Änderung steht weiterhin."` stands 20 times across 14 files (measured 2026-09-03) — the five
-undo route handlers, the five slice `actions.test.ts` files reading them, `undoDispatch.ts` with its
-test, `undoRoute.ts` and the public-route test — and no module owns it. **No page-owned editor
-carries it**, which is worth saying because that is where a reader looks first. §1.12 of
-[`docs/frontend/spec.md`](../frontend/spec.md) is where a refusal's vocabulary is fixed and it names
-the two homes a new failure message is written from —
-`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` for a refusal that can name a cause, and
-`:: UNKNOWN_REFUSAL` for one that cannot.
-
-**The type has moved half the way.** `fl_frontend/src/shared/types/types.ts :: ActionResult` is a
-union now and `:: ActionFailure` is its failing member, so the shape this entry asked for exists.
-`error` stays optional on that member, which is what keeps every fallback a judgement call rather
-than a compile error. **Done is requiring it there**, which turns the rest into a mechanical sweep;
-short of that, deleting one is an argument to be had at every site.
-
-**What makes it more than deleting a token.** `fl_frontend/src/shared/components/ui/EntityForm.tsx`
-and `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
-`res.error || res.message || …`, and their `res` comes from a caller-supplied function rather than
-from an action — so the narrowing has to reach the props those shared components declare, not the
-actions alone. And the seventeen own sentences are a copy decision each: **a fallback that is dead
-weight and a fallback that is the only sentence naming what did not happen read identically at the
-`??`.**
-
-**Not decided:** whether the shared sentence should stay generic at all. `toActionErrorResult`
-states its own reason for one — the diagnosis is already in the server log, and what an admin needs
-is whether retrying can help.
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 

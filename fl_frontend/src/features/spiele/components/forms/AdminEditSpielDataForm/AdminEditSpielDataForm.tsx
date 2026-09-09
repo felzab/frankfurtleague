@@ -384,7 +384,7 @@ export function AdminEditSpielDataForm({
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
           appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || "Versuche es erneut.",
+            description: res.error,
           });
         }
         return;

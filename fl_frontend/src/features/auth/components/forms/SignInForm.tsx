@@ -13,7 +13,6 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { handleSignIn } from "../../actions";
 import { SignInActionFallback } from "../ui/SignInActionFallback";
@@ -89,7 +88,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
-      description: state.error ?? UNKNOWN_REFUSAL,
+      description: state.error,
     });
   }, [state, setSubmitFieldErrors]);
 
@@ -104,8 +103,8 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
   if (isSubmitted) {
     return (
-      /* Deliberately "falls diese Adresse freigegeben ist": the action answers identically
-         either way, and a confirmation naming a real outcome is the membership test again. */
+      /* The confirmation is read off the answer rather than written here: the two arms of
+         `fl_frontend/src/features/auth/actions.ts :: handleSignIn` have to read identically. */
       <div
         role="status"
         className="flex flex-col items-center gap-y-3 py-6 text-center">
@@ -114,7 +113,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
         {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-        <p className="muted-hint text-pretty">{state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}</p>
+        <p className="muted-hint text-pretty">{state.message}</p>
         {/* The action does not navigate, so without this the only way back is a page reload. */}
         <Button
           type="button"

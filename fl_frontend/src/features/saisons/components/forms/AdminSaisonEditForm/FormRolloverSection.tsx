@@ -21,7 +21,6 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { rolloverBlockedReason } from "./blockedReasons";
 
@@ -73,7 +72,7 @@ export function FormRolloverSection({
       const res = await activateSaisonAction({ id: saisonId });
 
       if (!res.success) {
-        appToast.danger("Umstellung fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Umstellung fehlgeschlagen", { description: res.error });
         return;
       }
 

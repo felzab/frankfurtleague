@@ -7,15 +7,12 @@ import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { ReactNode } from "react";
-
-/** What a delete action has to return for this modal to report it. */
-type DeleteResult = { success: boolean; message?: string; error?: string };
 
 /**
  * **Every admin delete here retires a row rather than removing one**, so the verb and the consequence are the caller's while the
@@ -43,7 +40,11 @@ export function ConfirmDeleteModal({
   entityName: string;
   /** The step-2 sentence after the reactivation promise. */
   consequence: ReactNode;
-  onConfirm: () => Promise<DeleteResult>;
+  onConfirm: () => Promise<ActionResult>;
+  /**
+   * The title the retirement raises, and the action's own sentence stands beside it: this literal is
+   * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
+   */
   successMessage: string;
   /** The infinitive the question and the confirm button use. */
   verb?: string;
@@ -74,12 +75,14 @@ export function ConfirmDeleteModal({
       if (!res.success) {
         // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
         appToast.danger(`${capitalized} fehlgeschlagen`, {
-          description: res.error || res.message || UNKNOWN_REFUSAL,
+          description: res.error,
         });
         return;
       }
 
-      appToast.success(res.message || successMessage);
+      // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+      // the title: an action with nothing to add sends the title's own words.
+      appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       onClose();
     });
   };

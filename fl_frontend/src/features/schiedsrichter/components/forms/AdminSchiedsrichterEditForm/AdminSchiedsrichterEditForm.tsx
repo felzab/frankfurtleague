@@ -163,7 +163,7 @@ export function AdminSchiedsrichterEditForm({
       const res = await patchSchiedsrichterAction(payload);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Die Schiedsrichterdaten konnten nicht gespeichert werden." });
+        appToast.danger("Speichern fehlgeschlagen", { description: res.error });
         return;
       }
 

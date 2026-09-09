@@ -251,7 +251,7 @@ export function AdminSpielerEditForm({
           savedParts.push("Personendaten gespeichert.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error ?? "Die Personendaten konnten nicht gespeichert werden.");
+          failedNotes.push(res.error);
         }
       }
 
@@ -262,7 +262,7 @@ export function AdminSpielerEditForm({
           if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error ?? "Der Kadereintrag konnte nicht gespeichert werden.");
+          failedNotes.push(res.error);
         }
       }
 

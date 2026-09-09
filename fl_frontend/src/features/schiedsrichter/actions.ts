@@ -60,33 +60,29 @@ function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldEr
 }
 
 /** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
-function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+function mapRetireRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-RETIRE-004") {
-    return {
-      error: buildRefusal({
-        reason: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben",
-        repair: "Teile die Spiele jemand anderem zu oder sage sie ab",
-      }),
-    };
+    return buildRefusal({
+      reason: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben",
+      repair: "Teile die Spiele jemand anderem zu oder sage sie ab",
+    });
   }
   return null;
 }
 
 /** `null` where the 409 is something else; it lands on no field, the reactivation being a row control. */
-function mapReactivateRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+function mapReactivateRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-ANONYMISE-003") {
-    return {
-      error: buildRefusal({
-        // The repair names a NEW entry rather than a route back: nothing can undo the deletion, and a
-        // sentence hinting at one sends a teacher looking for a button that is not there.
-        reason: "Diese Person hat ihre Daten löschen lassen, deshalb bleibt der Eintrag stillgelegt",
-        repair: "Wenn sie wieder Spiele leitet, lege sie als neuen Schiedsrichter an",
-      }),
-    };
+    return buildRefusal({
+      // The repair names a NEW entry rather than a route back: nothing can undo the deletion, and a
+      // sentence hinting at one sends a teacher looking for a button that is not there.
+      reason: "Diese Person hat ihre Daten löschen lassen, deshalb bleibt der Eintrag stillgelegt",
+      repair: "Wenn sie wieder Spiele leitet, lege sie als neuen Schiedsrichter an",
+    });
   }
   return null;
 }
@@ -95,16 +91,14 @@ function mapReactivateRefusal(error: unknown): { error?: string; fieldErrors?: F
  * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
  * control is a dialog rather than a form.
  */
-function mapAnonymiseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+function mapAnonymiseRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-ANONYMISE-001") {
-    return {
-      error: buildRefusal({
-        reason: "Die Daten waren schon gelöscht und Name oder Kontaktdaten wurden inzwischen neu eingetragen",
-        repair: "Lösche sie erneut, damit auch der neue Stand verschwindet",
-      }),
-    };
+    return buildRefusal({
+      reason: "Die Daten waren schon gelöscht und Name oder Kontaktdaten wurden inzwischen neu eingetragen",
+      repair: "Lösche sie erneut, damit auch der neue Stand verschwindet",
+    });
   }
   return null;
 }
@@ -134,7 +128,7 @@ export async function postSchiedsrichterAction(
       postOperation = await postSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -175,7 +169,7 @@ export async function patchSchiedsrichterAction(
       postOperation = await patchSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapEditRefusal(error) ?? mapNameRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -221,7 +215,7 @@ export async function deleteSchiedsrichterAction(
       postOperation = await deleteSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
@@ -232,7 +226,7 @@ export async function deleteSchiedsrichterAction(
     return {
       success: true,
       updated_document: postOperation.updated_document,
-      message: "Schiedsrichter stillgelegt. Die Spiele dieser Person bleiben erhalten.",
+      message: "Die Spiele dieser Person bleiben erhalten.",
     };
   });
 }
@@ -265,7 +259,7 @@ export async function reactivateSchiedsrichterAction(
       reactivateOperation = await reactivateSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapReactivateRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
@@ -310,7 +304,7 @@ export async function anonymiseSchiedsrichterAction(
       anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapAnonymiseRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 

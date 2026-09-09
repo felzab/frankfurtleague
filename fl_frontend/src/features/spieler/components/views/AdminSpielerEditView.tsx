@@ -7,10 +7,10 @@ import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminS
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { ActionResult } from "@/shared/types/types";
 
 /**
  * Every exit routes through the form's discard guard.
@@ -38,17 +38,13 @@ export function AdminSpielerEditView({
   const isRetired = spieler.inactive_since !== null;
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
 
-  const runStatusWrite = (
-    write: () => Promise<{ success: boolean; message?: string; error?: string }>,
-    failureHeading: string,
-    savedDetail: string,
-  ) => {
+  const runStatusWrite = (write: () => Promise<ActionResult>, failureHeading: string, savedDetail: string) => {
     startWritingStatus(async () => {
       const res = await write();
-      // Named rather than left to „Gespeichert“: the page header is where the press was, and a bare
-      // confirmation there says a write landed without saying which of the page's writes it was.
-      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
-      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
+      // The detail rides along because the page header holds several writes: the shared title says a
+      // write landed without saying which of them the press was (`docs/frontend/spec.md :: I42`).
+      if (res.success) appToast.success("Gespeichert", { description: savedDetail });
+      else appToast.danger(failureHeading, { description: res.error });
     });
   };
 

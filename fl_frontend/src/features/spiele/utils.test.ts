@@ -344,20 +344,28 @@ describe("formatSpielUpdateMessage", () => {
   });
 
   it("says only that the match was saved when the bracket did not move", () => {
-    assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden aktualisiert");
+    assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden aktualisiert.");
+  });
+
+  it("closes the paragraph on one point, whatever it was composed from", () => {
+    // The toast renders this as its body: the pieces are written open, so a joiner that adds only
+    // separators leaves the last sentence unpunctuated.
+    for (const message of [formatSpielUpdateMessage([]), formatSpielUpdateMessage([moved(29), voided(30, "2:0")])]) {
+      assert.match(message, /[^.]\.$/);
+    }
   });
 
   it("names one advanced fixture in the singular", () => {
     assert.equal(
       formatSpielUpdateMessage([moved(29)]),
-      "Die Spieldaten wurden aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
+      "Die Spieldaten wurden aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert.",
     );
   });
 
   it("joins several with und, as German does and a hand-rolled join would not", () => {
     assert.equal(
       formatSpielUpdateMessage([moved(29), moved(30), moved(31)]),
-      "Die Spieldaten wurden aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
+      "Die Spieldaten wurden aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert.",
     );
   });
 
@@ -487,7 +495,7 @@ describe("describeMovedSpiele", () => {
 
     assert.doesNotMatch(described ?? "", /Die Spieldaten wurden aktualisiert/);
     assert.match(described ?? "", /^Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. /);
-    assert.match(described ?? "", /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht$/);
+    assert.match(described ?? "", /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht\.$/);
   });
 });
 

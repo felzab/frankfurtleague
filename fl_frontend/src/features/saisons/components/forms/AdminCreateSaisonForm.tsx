@@ -19,6 +19,7 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonCreateDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 
@@ -268,7 +269,9 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
       toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postSaisonAction(draft);
-        return { ...res, success: res.success && !!res.created_id };
+        // An acknowledged create that answered no id leaves the caller nothing to name, so the
+        // shared refusal stands in for a sentence the action never composed.
+        return res.success && res.created_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;
       }}
       marksRequired
       successMessage="Saison angelegt"

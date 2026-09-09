@@ -23,7 +23,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -109,7 +108,7 @@ export function BewerbungBestaetigungStrip({
     router.refresh();
 
     if (!res.success) {
-      appToast.danger("Link nicht erneut gesendet", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Link nicht erneut gesendet", { description: res.error });
       return;
     }
 
@@ -356,7 +355,7 @@ function AdresseKorrigieren({
       // time the administrator reads it.
       router.refresh();
       onFertig();
-      appToast.danger("Adresse nicht korrigiert", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Adresse nicht korrigiert", { description: res.error });
       return;
     }
 

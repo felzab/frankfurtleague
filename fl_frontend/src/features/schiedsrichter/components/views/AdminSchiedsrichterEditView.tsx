@@ -8,7 +8,6 @@ import { AdminSchiedsrichterGeloeschtView } from "@/features/schiedsrichter/comp
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLKontakt } from "@/shared/schemas";
 
@@ -35,8 +34,8 @@ export function AdminSchiedsrichterEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
-      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Schiedsrichter reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 
