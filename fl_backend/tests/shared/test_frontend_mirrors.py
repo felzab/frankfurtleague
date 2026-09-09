@@ -9,7 +9,10 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.saisons.schemas import TeamsPerGroup
+from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
 from app.shared.schemas.custom import (
@@ -237,6 +240,104 @@ def test_every_ceiling_the_event_payload_states_is_paired_here():
     assert bounded == {mirror.field for mirror in MIRRORED_MODEL_BOUNDS if mirror.model is payload}
 
 
+class ShapeBound(NamedTuple):
+    module: str
+    typescript: str
+    python: str
+    value: int
+
+
+def _alias_bound(alias: Any, name: str, attribute: str) -> int:
+    """`_alias_pattern`'s reading for a numeric constraint, so a bound respelled at the alias still pairs and one dropped fails."""
+
+    stated = [
+        getattr(constraint, attribute)
+        for part in get_args(alias)[1:]
+        for constraint in (part, *getattr(part, "metadata", ()))
+        if getattr(constraint, attribute, None) is not None
+    ]
+
+    assert len(stated) == 1, f"{name} states {len(stated)} {attribute} bounds, so no one number pairs with the frontend's"
+
+    return stated[0]
+
+
+# The season form's own numbers, which this package fixes at a field rather than in `bounds.py`:
+# `MIRRORED_BOUNDS` cannot hold them, its own case holding every pair to a name that module declares.
+MIRRORED_SHAPE_BOUNDS: Final = (
+    ShapeBound(
+        "features/saisons/shapeOffer.ts",
+        "MIN_TEAMS_PER_GROUP",
+        "app/api/saisons/schemas.py :: TeamsPerGroup",
+        _alias_bound(TeamsPerGroup, "TeamsPerGroup", "ge"),
+    ),
+    ShapeBound(
+        "features/saisons/shapeOffer.ts",
+        "MAX_TEAMS_PER_GROUP",
+        "app/api/saisons/schemas.py :: TeamsPerGroup",
+        _alias_bound(TeamsPerGroup, "TeamsPerGroup", "le"),
+    ),
+)
+
+# The closed set as the frontend spells it, and the phase list its bracket ceiling counts. One reader
+# for both, `as const` and `z.enum` alike: what fixes the literal read is the name beside it.
+GRUPPEN_SET: Final = ("features/teams/constants.ts", "GRUPPEN_OPTIONS")
+
+PHASE_SET: Final = ("features/saisons/schemas.ts", "FLSaisonPhaseSchema")
+
+# The one text the ceiling is spelled as. Nothing here evaluates TypeScript, so a respelled
+# derivation fails the case below rather than leaving its arithmetic modelling the wrong expression.
+QUALIFIER_CEILING: Final = ("features/saisons/schemas.ts", "MAX_QUALIFIERS", "2 ** (FLSaisonPhaseSchema.options.length - 1)")
+
+STRING_MEMBER: Final = re.compile(r'"([^"]+)"')
+
+
+def _declared_members(module: str, name: str) -> tuple[str, ...]:
+    """One frontend list literal's members. A member this reader cannot see fails a case below rather than dropping quietly out of it."""
+
+    found = re.search(rf"^export const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer opens {name} as one list literal on one line"
+
+    return tuple(STRING_MEMBER.findall(found["members"]))
+
+
+@pytest.mark.parametrize("bound", MIRRORED_SHAPE_BOUNDS, ids=lambda bound: f"{bound.python}->{bound.typescript}")
+def test_every_shape_bound_agrees_with_the_declaration_that_fixes_it(bound: ShapeBound):
+    """A looser mirror opens a team count the save refuses, and a tighter one hides one the save takes."""
+
+    found = re.search(rf"^export const {bound.typescript} = (\d+);$", _source(bound.module), re.MULTILINE)
+
+    assert found is not None, f"{bound.module} no longer exports {bound.typescript} as a bare integer"
+    assert int(found[1]) == bound.value, f"{bound.typescript} disagrees with {bound.python}"
+
+
+def test_the_group_offer_holds_as_many_names_as_this_package_caps_a_season_at():
+    """The frontend reads its own cap off this set's length, where this package derives the same number from the closed `Literal`."""
+
+    module, name = GRUPPEN_SET
+    offered = _declared_members(module, name)
+
+    assert len(offered) == MAX_NUMBER_OF_GROUPS, (
+        f"{name} holds {len(offered)} names, where this package caps a season at {MAX_NUMBER_OF_GROUPS}"
+    )
+
+
+def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_season_at():
+    """Both ends derive it from their own phase list, so the pair parts when either derivation moves rather than when the lists do."""
+
+    module, name, spelling = QUALIFIER_CEILING
+
+    assert f"export const {name} = {spelling};" in _source(module), f"{name} is no longer spelled `{spelling}`, which is the arithmetic below"
+
+    phases = _declared_members(*PHASE_SET)
+
+    assert phases, f"{PHASE_SET[1]} names no phase, so the ceiling derived from it below rests on nothing"
+    assert 2 ** (len(phases) - 1) == MAX_QUALIFIERS, (
+        f"{name} opens a bracket of {2 ** (len(phases) - 1)}, where this package caps one at {MAX_QUALIFIERS}"
+    )
+
+
 # The frontend's copy of the kind-to-origin mapping. `Record<FLAktor["kind"], AktionHerkunft>` refuses
 # a kind nobody places and takes a row moved to another origin, so only a comparison holds the two
 # ends to one origin per kind.
@@ -287,6 +388,9 @@ class Pattern(NamedTuple):
     typescript: str
     python: str
     source: str
+    # Values the composed corpus cannot reach: it changes an accepted string by one character, so a
+    # drift shortening or lengthening a match by more than that is graded over nothing.
+    probes: tuple[str, ...] = ()
 
 
 def _field_pattern(model: type[BaseModel], field: str) -> str:
@@ -321,12 +425,21 @@ ERGEBNIS_RULE: Final = _alias_pattern(CustomErgebnisString, "CustomErgebnisStrin
 # this pair standing rather than leaving it comparing a constant nothing applies.
 TIME_RULE: Final = _alias_pattern(CustomTimeString, "CustomTimeString")
 
-# Every hand-mirrored pattern. `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves
-# patterns out of the contract comparison by design, so nothing else pairs these ends at all.
+# Every hand-mirrored pattern this comparison reaches, `UNPAIRABLE_PATTERNS` below holding the rest.
+# `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves patterns out of the contract
+# comparison by design, so nothing else pairs these ends at all.
 MIRRORED_PATTERNS: Final = (
     Pattern("shared/schemas.ts", "PHONE_REGEX", "app/shared/schemas/custom.py :: PHONE_REGEX", PHONE_REGEX),
     Pattern("shared/schemas.ts", "HAUSNUMMER_REGEX", "app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN", HAUSNUMMER_PATTERN),
-    Pattern("shared/schemas.ts", "TIME_REGEX", "app/shared/schemas/custom.py :: CustomTimeString", TIME_RULE),
+    Pattern(
+        "shared/schemas.ts",
+        "TIME_REGEX",
+        "app/shared/schemas/custom.py :: CustomTimeString",
+        TIME_RULE,
+        # The two values `fl_frontend/src/shared/schemas.ts :: CustomTimeStringSchema` names as why it
+        # spells a regular expression rather than taking `z.iso.time()`.
+        ("14:30", "14:30:00.5"),
+    ),
     # Two pairs spelling one class two ways: a JavaScript `\d` is `[0-9]`, where the Rust engine's takes
     # every Unicode decimal digit, so each agrees only because the backend spells the range.
     Pattern("shared/schemas.ts", "PLZ_REGEX", "app/shared/schemas/addresses.py :: FLAddress", _field_pattern(FLAddress, "plz")),
@@ -598,12 +711,30 @@ def test_each_declared_pattern_pair_accepts_the_same_values(pattern: Pattern):
     probes = ["".join(run) for length in range(4) for run in product(alphabet, repeat=length)]
     probes += [character * length for character in alphabet for length in PROBE_LENGTHS]
     probes += _composed_probes(pattern.source, typescript)
+    probes += list(pattern.probes)
 
     accepted = _pydantic_accepted(pattern.source, probes)
 
     assert accepted, f"{pattern.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), f"{pattern.python} accepts every probe, so agreeing with it proves nothing"
     assert accepted == _javascript_accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+
+
+def test_every_named_probe_stands_outside_the_composed_corpus_and_is_refused_at_both_ends():
+    """Both directions: a probe the corpus already reaches adds nothing, and one either end accepts today is not the drift its row names."""
+
+    named = [(pattern, probe) for pattern in MIRRORED_PATTERNS for probe in pattern.probes]
+
+    assert named, "no pair names a probe, so this case is checked against nothing"
+
+    for pattern, probe in named:
+        typescript, _ = _typescript_pattern(pattern.module, pattern.typescript)
+
+        assert probe not in set(_composed_probes(pattern.source, typescript)), (
+            f"{pattern.typescript} names {probe!r}, which the composed corpus reaches on its own"
+        )
+        assert not _pydantic_accepted(pattern.source, [probe]), f"{pattern.python} accepts {probe!r}, so no drift toward it parts the two ends"
+        assert not _javascript_accepted(typescript, [probe]), f"{pattern.typescript} accepts {probe!r}, where {pattern.python} refuses it"
 
 
 def _unpairable(name: str) -> Unpairable:

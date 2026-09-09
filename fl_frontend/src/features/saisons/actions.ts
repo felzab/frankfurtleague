@@ -273,7 +273,7 @@ export async function postSaisonAction(
       postOperation = await postSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
-      if (refusal) return { success: false, error: VALIDATION_FAILED, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
       }
