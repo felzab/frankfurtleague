@@ -189,8 +189,8 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
     def test_a_group_beyond_the_offered_ones_refuses_the_draw(self):
         """A club in a group the season does not run draws into no round robin at all.
 
-        `REQ-ENTER-002` and `REQ-RULES-002` close the write path to this, so what reaches it is a
-        hand-edited row.
+        `REQ-ENTER-002` closes every entry and `REQ-RULES-002` the rules patch; this rule closes the
+        draw's own `shape`, judged with `stored` as `None`.
         """
 
         two_groups = RULES.model_copy(update={"number_of_groups": 2})
