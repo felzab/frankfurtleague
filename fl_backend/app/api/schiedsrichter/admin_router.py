@@ -108,7 +108,6 @@ async def patch_schiedsrichter(
                     projection={"kontakt": 1, "name": 1, ANONYMISIERT_AM: 1},
                     session=session,
                 ),
-                patched=patched,
             )
         )
 

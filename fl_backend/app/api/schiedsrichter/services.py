@@ -126,13 +126,15 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
     )
 
 
-def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mapping[str, Any]) -> WriteRefusal | None:
+def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any]) -> WriteRefusal | None:
     """Why this edit must be refused, or `None`.
 
     Keyed on `ANONYMISIERT_AM` and never on the stored values (`docs/backend/spec.md :: I214`).
     """
 
-    if stored.get(ANONYMISIERT_AM) is None or not holds_an_anonymisable_value(patched):
+    # Nothing about the payload is weighed beside the stamp: `FLPatchSchiedsrichterPayload.name`
+    # admits no null and no blank, so every edit reaching an erased row puts a name back.
+    if stored.get(ANONYMISIERT_AM) is None:
         return None
 
     return WriteRefusal(

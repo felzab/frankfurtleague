@@ -233,24 +233,6 @@ async def an_archived_fixture(database: AsyncDatabase) -> None:
     )
 
 
-def a_patch(**overrides: Any) -> dict[str, Any]:
-    """A payload built through the model rather than as a literal.
-
-    No case can then pass over a shape the endpoint cannot receive, which is what pins that the
-    payload has no way to spell a nulled name.
-    """
-
-    fields: dict[str, Any] = {
-        "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
-        "schule": SCHULE,
-        "default_payment": DEFAULT_PAYMENT,
-        "kontakt": FLKontaktPayload(**A_CLEARED_KONTAKT),
-        **overrides,
-    }
-
-    return FLPatchSchiedsrichterPayload(**fields).model_dump(mode="json")
-
-
 class TestTheUpdateNamesTheMembersAndNeverTheBlock:
     """The spelling the write turns on, apart from a database.
 
@@ -361,25 +343,21 @@ class TestTheErasureStampSurvivesEveryLaterRun:
         assert first_stamped(stored=A_NAMED_ROW, field="inactive_since", today=TODAY) == TODAY
 
 
-class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
-    """Each half alone gets a case wrong.
+class TestTheUndoRefusalReadsTheErasureStampAlone:
+    """The stamp is the whole of the weighing, and each case below is a row a guard reading anything else answers wrongly."""
 
-    The payload alone refuses the ordinary rename this endpoint exists for, and the values alone
-    cannot tell an erased row from one nobody has named yet.
-    """
-
-    def test_a_name_put_back_onto_an_anonymised_row_is_refused(self):
-        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW, patched=a_patch())
+    def test_an_erased_row_is_refused(self):
+        refusal = find_anonymisation_undo_refusal(stored=ANONYMISED_ROW)
 
         assert refusal is not None
         assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
 
-    def test_a_contact_detail_put_back_is_refused_with_the_name_left_out(self):
-        """The details are as much of the erasure as the name is, and a guard reading the name alone lets them back."""
+    def test_a_row_whose_details_were_typed_back_outside_the_api_is_still_refused(self):
+        """A detail re-entered where no endpoint refused it must not read as never erased (`docs/backend/spec.md :: I214`)."""
 
-        refusal = find_anonymisation_undo_refusal(
-            stored=ANONYMISED_ROW, patched=a_patch(kontakt=FLKontaktPayload(**KONTAKT[SCHIEDSRICHTER_OID]))
-        )
+        re_entered = {**A_NAMED_ROW, ANONYMISIERT_AM: AN_EARLIER_ERASURE}
+
+        refusal = find_anonymisation_undo_refusal(stored=re_entered)
 
         assert refusal is not None
         assert refusal.error_code == ANONYMISATION_UNDONE_BY_AN_EDIT
@@ -389,12 +367,12 @@ class TestAnUndoOfTheAnonymisationIsWeighedFromBothSides:
 
         never_erased = {**ANONYMISED_ROW, ANONYMISIERT_AM: None}
 
-        assert find_anonymisation_undo_refusal(stored=never_erased, patched=a_patch()) is None
+        assert find_anonymisation_undo_refusal(stored=never_erased) is None
 
-    def test_the_same_restoring_payload_against_a_row_still_naming_them_passes(self):
-        """The control: without it a guard reading the payload alone would refuse every rename."""
+    def test_a_row_still_naming_them_takes_the_edit(self):
+        """The ordinary rename this endpoint exists for, which a guard reaching past the stamp would refuse."""
 
-        assert find_anonymisation_undo_refusal(stored=A_NAMED_ROW, patched=a_patch()) is None
+        assert find_anonymisation_undo_refusal(stored=A_NAMED_ROW) is None
 
 
 class TestBringingAnErasedRefereeBackIsRefused:
