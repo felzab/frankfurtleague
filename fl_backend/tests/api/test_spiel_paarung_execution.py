@@ -1,12 +1,12 @@
 """
 API · the narrow restore route, driven against a real mongod because only the stored fixture answers
 
-`PATCH /spiele/{spiel_id}/paarung` is what a season's undo replays a moved fixture through, and its
-response reports what the write MEANT to do, so a case reading that alone would still pass the day
-the write stopped landing: every assertion below re-reads the fixture out of the database. The
-refusals and the composition are `tests/api/test_spiele_write_execution.py`'s, and completing a
-narrowed payload off the stored fixture is `tests/api/test_bracket.py`'s; nothing here re-decides
-either.
+`PATCH /spiele/{spiel_id}/paarung` is what a season's undo replays every fixture through, the one the
+save itself named included, and its response reports what the write MEANT to do, so a case reading
+that alone would still pass the day the write stopped landing: every assertion below re-reads the
+fixture out of the database. The refusals and the composition are
+`tests/api/test_spiele_write_execution.py`'s, and completing a narrowed payload off the stored
+fixture is `tests/api/test_bracket.py`'s; nothing here re-decides either.
 """
 
 from typing import Any, Awaitable, Callable
@@ -63,6 +63,10 @@ SPIELTAGE = {SPIELTAG_GRUPPE: ("gruppenphase", "2026-03-15"), SPIELTAG_HALBFINAL
 
 UHRZEIT = "18:00:00"
 
+# Where the save moves the edited fixture, so its own restore has a field outside the Paarung to put
+# back. The time and never the date: a date off its Spieltag's span is refused (`REQ-DATE-001`).
+SAVED_UHRZEIT = "19:30:00"
+
 SETTLED_SEMI = oid("0011")
 HELD = oid("0021")
 FILLING = oid("0022")
@@ -82,6 +86,7 @@ SCHIEDSRICHTER_NAME = "A. Referee"
 # belonged there.
 SEMI_NOTIZ = "Verlängerung nur bei Gleichstand"
 REPLAY_NOTIZ = "Platz getauscht, Anpfiff bleibt"
+EDITED_NOTIZ = "Ballfänger hinter dem Tor fehlt"
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -347,6 +352,9 @@ class TestARewrittenPaarungLeavesNoScoreline:
                         "team2": {"team_id": GAMMA, "tore": None},
                         "elfmeterschiessen": None,
                         "sonderereignis": None,
+                        # Nothing beyond the Paarung, which is what leaves the fields asserted below
+                        # the stored document's rather than this request's.
+                        "other_fields": None,
                     }
                 ),
             )
@@ -369,41 +377,38 @@ class TestARewrittenPaarungLeavesNoScoreline:
 class TestAnUndoReplayPutsTheFixtureBackAsItStood:
     """The whole sequence `fl_frontend/src/app/api/admin/spiele/undo/route.ts` runs, driven end to end.
 
-    The edited fixture goes back wholesale FIRST, which frees the club the moved fixture is about to
-    claim again; the moved one then goes back through the narrow route alone.
+    Every fixture goes back through the narrow route, the edited one leading, which frees the club the
+    moved one is about to claim again (`docs/backend/spec.md :: I215`).
     """
 
-    def _replayed(self, url: str) -> tuple[dict[str, Any], dict[str, Any], FLPatchSpielDataResponse]:
+    def _replayed(self, url: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], list[FLPatchSpielDataResponse]]:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            as_the_page_loaded_it = await payload_for(database, FILLING)
-
-            saved = await call_patch(database, client, FILLING, await payload_for(database, FILLING, team1={"team_id": ALPHA, "tore": None}))
-            released = await stored_spiel(database, HELD)
-
-            # Between the save and the restore, and by a writer the undo knows nothing about: this is
-            # the field the narrow route may not carry back.
-            await database[Collection.SPIELE].update_one({"_id": HELD}, {"$set": {"notiz": REPLAY_NOTIZ}})
-
-            await call_patch(database, client, FILLING, as_the_page_loaded_it)
-
-            # Composed from what the SAVE reported rather than from the seed, which is the only shape
-            # the undo has to replay from.
-            (prior,) = saved.prior_paarungen
-            restored = await call_paarung(
+            saved = await call_patch(
                 database,
                 client,
-                prior.spiel_id,
-                FLPatchSpielPaarungPayload(
-                    team1=prior.team1, team2=prior.team2, elfmeterschiessen=prior.elfmeterschiessen, sonderereignis=prior.sonderereignis
-                ),
+                FILLING,
+                await payload_for(database, FILLING, team1={"team_id": ALPHA, "tore": None}, uhrzeit=SAVED_UHRZEIT),
             )
+            released = await stored_spiel(database, HELD)
 
-            return released, await stored_spiel(database, HELD), restored
+            # Between the save and the restore, and by a writer the undo knows nothing about: on the
+            # edited fixture as well, which is the half no report can tell from a field it replaced.
+            for spiel_id, notiz in ((HELD, REPLAY_NOTIZ), (FILLING, EDITED_NOTIZ)):
+                await database[Collection.SPIELE].update_one({"_id": spiel_id}, {"$set": {"notiz": notiz}})
+
+            # Composed from what the SAVE reported rather than from the seed, which is the only shape
+            # the undo has to replay from, and replayed in the order it reported.
+            replayed = [
+                await call_paarung(database, client, prior.spiel_id, FLPatchSpielPaarungPayload(**prior.model_dump(exclude={"spiel_id"})))
+                for prior in saved.prior_paarungen
+            ]
+
+            return released, await stored_spiel(database, FILLING), await stored_spiel(database, HELD), replayed
 
         return on_a_seeded_season(url, body, spiele=one_spieltag_holding_a_played_fixture())
 
     def test_the_occupants_and_the_scoreline_come_back_together(self, mongo_replica_set_url: str):
-        released, held, restored = self._replayed(mongo_replica_set_url)
+        released, _, held, replayed = self._replayed(mongo_replica_set_url)
 
         # The save really did empty it, so the restore below has something to put back rather than a
         # fixture that never moved.
@@ -412,13 +417,13 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
         assert (held["team1"], held["team2"]) == (side(ALPHA, 2), side(GAMMA, 1))
         assert held["ergebnis"] == "2:1"
 
-        # Nothing else moved with it: the edited fixture went back first, so Alpha was free to claim.
-        assert (restored.advanced_to, restored.released_sides) == ([], [])
+        # Nothing else moved with either: the edited fixture went back first, so Alpha was free to claim.
+        assert [(answered.advanced_to, answered.released_sides) for answered in replayed] == [([], []), ([], [])]
 
     def test_a_note_written_between_the_save_and_the_replay_survives_it(self, mongo_replica_set_url: str):
         """The narrowing, against a database: the wholesale payload would carry the note the save saw and revert this one."""
 
-        _, held, _ = self._replayed(mongo_replica_set_url)
+        _, _, held, _ = self._replayed(mongo_replica_set_url)
 
         # First, so the note below is read off a fixture the restore WROTE: a restore that landed
         # nothing leaves the note standing too, and this case alone would pass for it.
@@ -428,3 +433,20 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
         # Beside the note, because both are fields the request never named and one alone would not
         # say whether the restore reads the document or the payload.
         assert (held["ort"], held["schiedsrichter"]) == (booking(), assignment())
+
+    def test_a_note_written_on_the_edited_fixture_survives_its_own_restore(self, mongo_replica_set_url: str):
+        """The one fixture whose report also carries fields beyond the Paarung, so its restore is the one that has to choose."""
+
+        _, filling, _, _ = self._replayed(mongo_replica_set_url)
+
+        # First: a restore that landed nothing leaves the note standing too.
+        assert filling["team1"] is None
+
+        assert filling["notiz"] == EDITED_NOTIZ
+
+    def test_the_time_the_save_moved_on_the_edited_fixture_comes_back(self, mongo_replica_set_url: str):
+        """The other half of `other_fields`: naming no field at all would leave the save's own edit standing."""
+
+        _, filling, _, _ = self._replayed(mongo_replica_set_url)
+
+        assert filling["uhrzeit"] == UHRZEIT
