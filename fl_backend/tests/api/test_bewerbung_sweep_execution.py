@@ -18,7 +18,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
 )
-from app.api.bewerbungen.services import BEWERBUNG_TOKEN_UNKNOWN, KONTAKT_SEATS, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import (
+    BEWERBUNG_TOKEN_UNKNOWN,
+    KONTAKT_SEATS,
+    compose_bestaetigungen,
+    compose_confirmation_update,
+    hash_token,
+)
 from app.api.bewerbungen.sweep_router import angekuendigt_bewerbungen, get_sweep_saisons, loeschen_bewerbungen, sweep_saison
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.core.collections import Collection
@@ -186,12 +192,12 @@ def junction_row() -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "active") -> Any:
+def on_a_league(url: str, body: Body, *, next_status: str | None = "active", status: str = "active") -> Any:
     """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            seasons = [season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")]
+            seasons = [season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")]
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
             await database[Collection.SAISONS].insert_many(seasons)
@@ -320,6 +326,21 @@ async def refuse_the_submitters_address(database: AsyncDatabase, client: AsyncMo
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         db=client,
+    )
+
+
+CONFIRMED_GEBURTSDATUM = "1994-07-19"
+
+
+async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) -> None:
+    """Every seat answered, through the production composer: an application in this state is what the fourteen-day clock stops reaching."""
+
+    await patch_one_in_db(
+        collection=database[Collection.BEWERBUNGEN],
+        db_filter={"_id": bewerbung_id},
+        update=compose_confirmation_update(
+            seats=KONTAKT_SEATS, geburtsdatum=CONFIRMED_GEBURTSDATUM, today=MAILED_ON_THE_MARK, text_version="v3", whatsapp=False
+        ),
     )
 
 
@@ -695,6 +716,81 @@ class TestTheOneMonthClock:
 
         assert other is not None
         assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+
+
+class TestTheSeasonsOwnEndClock:
+    """The bound on an application nobody decided, which the fourteen-day clock drops as soon as every seat confirms."""
+
+    def test_an_application_every_seat_confirmed_and_nobody_decided_is_erased_and_its_rows_redacted(self, mongo_replica_set_url: str):
+        """Both submitted rows go, the confirmed one and the one past its deadline; a decided one is this clock's business at all."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_every_seat(database, REMIND_OID)
+            response = await sweep(database, client)
+
+            return (
+                response,
+                await stored(database, REMIND_OID),
+                await stored(database, DELETE_OID),
+                await stored(database, ACCEPTED_OID),
+                await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID),
+                await erasure_rows(database),
+            )
+
+        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(mongo_replica_set_url, body, status="past")
+
+        assert (response.ohne_entscheidung_geloescht, confirmed, past_its_deadline) == (2, None, None)
+        # The accepted one is the successor season's business, and that season still runs.
+        assert accepted is not None
+        assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+
+    def test_nothing_goes_while_the_season_still_runs(self, mongo_replica_set_url: str):
+        """The row every other clock leaves standing: confirmed by all three, decided by nobody, and its deadline behind it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_every_seat(database, REMIND_OID)
+            response = await sweep(database, client)
+
+            return response, await stored(database, REMIND_OID)
+
+        response, confirmed = on_a_league(mongo_replica_set_url, body)
+
+        assert response.ohne_entscheidung_geloescht == 0
+        assert confirmed is not None
+
+    def test_the_pass_offers_neither_a_reminder_nor_a_notice_for_a_row_this_clock_takes(self, mongo_replica_set_url: str):
+        """The order is the whole of it: run after either, and the caller mails about an application this pass has erased."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await sweep(database, client)
+
+        response = on_a_league(mongo_replica_set_url, body, status="past")
+
+        assert (response.erinnerungen, response.loeschungen) == ([], [])
+        assert response.ohne_entscheidung_geloescht == 2
+
+    def test_an_application_whose_notice_the_provider_refuses_goes_with_the_season(self, mongo_replica_set_url: str):
+        """The hold that has no other end: `deletion_is_due` drops a refused address, so nothing else ever reaches this row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_submitters_address(database, client, DELETE_OID)
+            response = await sweep(database, client)
+
+            return response, await stored(database, DELETE_OID)
+
+        response, document = on_a_league(mongo_replica_set_url, body, status="past")
+
+        assert (response.ohne_entscheidung_geloescht, document) == (2, None)
+
+    def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await sweep(database, client)
+
+            return first.ohne_entscheidung_geloescht, (await sweep(database, client)).ohne_entscheidung_geloescht
+
+        # The first count as well as the second: a clock taking nothing at all answers zero twice.
+        assert on_a_league(mongo_replica_set_url, body, status="past") == (2, 0)
 
 
 class TestTheSeasonAndOneClock:

@@ -26,6 +26,7 @@ const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
   "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
   "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
   "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
+  "2026-09-bestaetigungsseite-4": "3e1b323c33619294f7f76112cd5ad2583461b04a1b729826dd584eaa71f204cf",
 };
 
 const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");
@@ -83,6 +84,15 @@ describe("LIGA_KENNTNISNAHMEN", () => {
       assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
       assert.ok(text.includes("eine Erinnerung verschiebt sie nicht"), `${textVersion} lets a reminder read as a new deadline`);
     }
+  });
+
+  /* The three other periods read as exhausting the outcomes, so a reader whose own confirmation
+     produced the fourth is shown three periods and told nothing about theirs. */
+  it("points the live confirmation label at a wording naming the period for an application nobody decides", () => {
+    const text = BESTAETIGUNG_KENNTNISNAHME.absaetze.join(" ");
+
+    assert.ok(text.includes("ohne Entscheidung"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} states no period for an undecided application`);
+    assert.ok(text.includes("vorbei ist"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} names no day that period is counted to`);
   });
 
   it("answers nothing for a label no record was ever made under", () => {

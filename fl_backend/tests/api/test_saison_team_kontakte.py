@@ -53,6 +53,8 @@ TRIKOT_FARBE = "bordeaux"
 AUSTRITT: dict[str, Any] = {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-04-01"}
 
 CONFIRMED_ON = "2026-03-15"
+# An edit to a seat that changes nothing about who holds it: `person` writes the other number.
+OTHER_TELEFON = "+4915199999999"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
@@ -309,27 +311,58 @@ class TestTheProvenanceIsTheServers:
     """`docs/backend/spec.md :: I142`: a stored confirmation survives the editor, and nothing an editor sends can create one."""
 
     def test_a_confirmed_seat_keeps_its_source_and_its_stamp_through_an_edit(self, mongo_replica_set_url: str):
-        """The data-loss path: the block is `$set` whole, so a stamp the write does not carry over is destroyed with no refusal."""
+        """The data-loss path: the block is `$set` whole, so a stamp the write does not carry over is destroyed with no refusal.
 
-        renamed = {**PARTLY_CONFIRMED, "trainer": person("Ida-Marie", email=PARTLY_CONFIRMED["trainer"]["email"])}
-        renamed["ansprechperson"] = person("Jonas")
-        renamed["stellvertretung"] = person("Klara")
+        The telephone number is the edit here, and says nothing about who holds the seat.
+        """
+
+        edited = {**PARTLY_CONFIRMED, "trainer": {**person("Ida", email=PARTLY_CONFIRMED["trainer"]["email"]), "telefon": OTHER_TELEFON}}
+        edited["ansprechperson"] = person("Jonas")
+        edited["stellvertretung"] = person("Klara")
 
         async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, renamed, stand=kontakte_stand_of(PARTLY_CONFIRMED))
+            response = await write_kontakte(database, edited, stand=kontakte_stand_of(PARTLY_CONFIRMED))
 
             return response, await row_now(database)
 
         response, stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         trainer = stored["kontakte"]["trainer"]
-        assert trainer["vorname"] == "Ida-Marie"
+        assert trainer["telefon"] == OTHER_TELEFON, "the edit itself did not land, so this case proves nothing"
         assert (trainer["einwilligung"]["erfasst_von"], trainer["einwilligung"]["bestaetigt_am"]) == ("person", CONFIRMED_ON)
         # The date goes the same way, and by the same route: the payload names none, so a save that
         # did not carry it over would leave a stamped seat with no birthdate at all (I141).
         assert trainer["geburtsdatum"] == GEBURTSDATUM
         assert response.kontakte is not None and response.kontakte.trainer is not None
         assert response.kontakte.trainer.einwilligung.bestaetigt_am == CONFIRMED_ON
+
+    def test_a_confirmed_seat_renamed_at_its_own_address_starts_unconfirmed(self, mongo_replica_set_url: str):
+        """A role mailbox handed from one teacher to the next, which the address alone cannot tell from an edit.
+
+        The WhatsApp scope goes with the stamp and the date.
+        """
+
+        whatsapp = {
+            **PARTLY_CONFIRMED,
+            "trainer": {
+                **PARTLY_CONFIRMED["trainer"],
+                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "umfang": "kontaktdaten_whatsapp"},
+            },
+        }
+        successor = {**person("Bert", email=str(PARTLY_CONFIRMED["trainer"]["email"])), "nachname": "Neu"}
+        renamed = {**RESAVED_AS_RENDERED, "trainer": successor}
+
+        async def body(database: AsyncDatabase) -> Any:
+            return await write_kontakte(database, renamed, stand=kontakte_stand_of(whatsapp)), await row_now(database)
+
+        response, stored = on_a_league(mongo_replica_set_url, body, seeded=whatsapp)
+
+        trainer = stored["kontakte"]["trainer"]
+        assert (trainer["vorname"], trainer["nachname"]) == ("Bert", "Neu"), "the rename did not land, so this case proves nothing"
+        assert trainer["einwilligung"] == {**successor["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        assert trainer["geburtsdatum"] is None
+        assert response.kontakte is not None and response.kontakte.trainer is not None
+        assert response.kontakte.trainer.einwilligung.bestaetigt_am is None
 
     def test_an_unconfirmed_seat_is_recorded_as_entered_on_the_persons_behalf(self, mongo_replica_set_url: str):
         """Whatever the row held before: a seat with no stamp is `administrativ`, and the stamp stays null."""
@@ -620,10 +653,10 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed["trainer_ist_zugleich"] == "ansprechperson"
 
 
-class TestTheDateRidesWithTheAddress:
+class TestTheDateRidesWithThePerson:
     """The payload names no birthdate, so a save can only carry the row's own forward."""
 
-    def test_the_stored_date_is_carried_forward_for_the_same_address(self):
+    def test_the_stored_date_is_carried_forward_for_the_same_person(self):
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
 
         assert composed is not None
@@ -635,6 +668,41 @@ class TestTheDateRidesWithTheAddress:
 
         assert composed is not None
         assert composed["trainer"]["geburtsdatum"] is None
+
+    @pytest.mark.parametrize(
+        "renamed",
+        [
+            pytest.param({"vorname": "Bert"}, id="a first name"),
+            pytest.param({"nachname": "Neu"}, id="a surname"),
+            pytest.param({"vorname": "Ida-Marie"}, id="a first name a typo could explain"),
+        ],
+    )
+    def test_a_seat_whose_name_changed_at_its_own_address_holds_no_date(self, renamed: dict[str, str]):
+        """The role mailbox handed on. The third case is the accepted false positive: a correction costs the same as a handover."""
+
+        handed = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **renamed}}
+        composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
+
+        assert composed is not None
+        assert composed["trainer"]["geburtsdatum"] is None
+
+    @pytest.mark.parametrize(
+        ("held", "sent"),
+        [
+            pytest.param({}, {"vorname": "IDA"}, id="the case, which a payload does carry"),
+            pytest.param({"nachname": " Musterfrau "}, {}, id="padding, which only a stored row carries"),
+            pytest.param({"nachname": "Muster  frau"}, {"nachname": "Muster frau"}, id="a doubled inner space"),
+        ],
+    )
+    def test_a_name_respelled_and_not_changed_keeps_the_date(self, held: dict[str, str], sent: dict[str, str]):
+        """The fold's whole purpose: none of these is another person, and each would otherwise cost one a fresh confirmation."""
+
+        stored = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], **held}}
+        respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **sent}}
+        composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
+
+        assert composed is not None
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_date_under_no_stamp_survives_an_edit_to_the_seat(self):
         """Nulling the date would destroy it as a side effect of an edit to the telephone number."""

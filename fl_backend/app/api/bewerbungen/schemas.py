@@ -920,13 +920,17 @@ class FLBewerbungSweepLoeschung(BaseModel):
 
 
 class FLBewerbungSweepResponse(BaseAPIResponse):
-    """One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts."""
+    """One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts."""
 
     saison_id: str
     erinnerungen: list[FLBewerbungSweepErinnerung]
     loeschungen: list[FLBewerbungSweepLoeschung]
     abgelehnte_geloescht: int
     angenommene_geloescht: int
+    # The applications nobody decided, taken by the end of the season they applied for. Counted apart
+    # from the two decided ones: folded in, a pass that erased where nobody decided would read as a
+    # decision.
+    ohne_entscheidung_geloescht: int
     kontaktbloecke_geleert: int
     redigierte_aktionen: int
 

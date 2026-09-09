@@ -62,11 +62,17 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
   written. **That confirmation is also the only route by which the date reaches the database**: the
   junction contacts editor accepts no birthdate, refusing the key outright rather than taking a null
-  (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries whatever date the address
-  already holds forward (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`). **A
-  stored date no confirmation stamped is therefore judged by nothing**, and clearing one is the
-  remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than something a
-  write can refuse. The consent vocabulary's `volljaehrig`
+  (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries a date forward only where the
+  stored seat holds the same person — the same address and the same name, folded for case and inner
+  spacing (`fl_backend/app/api/teams/services.py :: _seat_held_by`). A renamed seat therefore keeps
+  nothing of whoever sat in it, a corrected typo costing that person a fresh confirmation because no
+  write can tell the two apart. An acceptance copies a seat's date into the season's junction row only
+  where that seat's own confirmation stamped it
+  (`fl_backend/app/api/teams/services.py :: compose_kontakte_at_entry`), which is what keeps an
+  application stored before the confirmation flow from carrying its applicant's answer into a second
+  collection. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
+  one is the remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than
+  something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
@@ -224,7 +230,19 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `docs/backend/spec.md :: I196`): the provider accepts a send to a suppressed address and skips
   it, so erasing on a stamp saying the notice went out is erasing somebody who was told nothing,
   which is what ruling 87 refuses. It stands until an administrator enters a reachable address or
-  decides the application. Ruled 2026-09-08.
+  decides the application, and in neither case past the end of the season it applied for. Ruled
+  2026-09-08.
+- **An application still awaiting a decision when the season it applied for has ended is deleted,
+  those three people's contact details and every birthdate on it included, whatever its contact
+  persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
+  season's own `status` rather than counting a period from a day
+  (`fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`), so an application is
+  kept exactly as long as a decision could still be taken. This is the bound for every
+  application the fourteen-day clock above leaves standing: one every contact person confirmed and
+  nobody judged, one whose window no stored deadline bounds, and one held because the notice was
+  refused. The confirmation page states the period to the person whose details they are
+  (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
+  tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not

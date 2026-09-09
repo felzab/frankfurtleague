@@ -32,6 +32,8 @@ from app.api.bewerbungen.services import (
     reminder_seats,
     schule_name,
     season_after_has_ended,
+    season_has_ended,
+    undecided_erasure_is_due,
     vorname_of,
 )
 from app.api.saisons.cache import invalidate_saison_cache
@@ -134,7 +136,7 @@ async def sweep_saison(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
     """
-    Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+    Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
 
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
     person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
@@ -142,11 +144,14 @@ async def sweep_saison(
     LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
     delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
     Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
-    correct the address, because erasing it would destroy a school's application with nobody told. The
+    correct the address, because erasing it would destroy a school's application with nobody told. That hold ends with the
+    season: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its
+    seats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is
+    over. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The
     declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
     404 where no season has the id. Idempotent per day: a second run finds nothing left to do.
 
-    A season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a
+    A season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a
     successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
     would leave both stopped for ever with nothing anywhere saying so.
 
@@ -154,12 +159,38 @@ async def sweep_saison(
     answers it. So a day's first call records the day and the rest of that day's calls record nothing.
     """
 
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+    # The read that answers the 404 carries the status: this season's own end is a clock too, and a
+    # second query for a document already in hand would be a second answer to when it ended.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
+    saison_status = saison_raw.get("status")
 
     naechste_raw = await saisons_collection.find_one({"_id": next_saison_id(saison_id)}, {"status": 1})
     next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
 
     stamp = log_stamp(germany_now)
+
+    async def erase_the_undecided(session: AsyncClientSession) -> tuple[int, int]:
+        """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
+
+        rows = await pull_many_from_db(
+            collection=bewerbungen_collection,
+            db_filter={"saison_id": saison_id, "status": "eingereicht"},
+            projection=["status"],
+            limit=LIST_LIMIT_MAX,
+            session=session,
+        )
+        ids = [row["_id"] for row in rows if undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status)]
+        if not ids:
+            return 0, 0
+
+        result = await erase_many_from_db(
+            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
+        )
+        redacted = await _redact(
+            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        )
+
+        return result.deleted_count, redacted
 
     async def remind(session: AsyncClientSession) -> list[FLBewerbungSweepErinnerung]:
         """Stamp, mint, then hand back. Everything judged is read in-session, so a retry re-judges it."""
@@ -313,6 +344,14 @@ async def sweep_saison(
 
         return result.modified_count
 
+    ohne_entscheidung, redacted_undecided = 0, 0
+    # AHEAD of the reminder and of the list below, which read the collection after it: a season that
+    # has ended leaves nobody to chase, and a notice about an application this pass erased is a
+    # notice about nothing.
+    if season_has_ended(saison_status=saison_status):
+        async with db.start_session() as session:
+            ohne_entscheidung, redacted_undecided = await session.with_transaction(erase_the_undecided)
+
     async with db.start_session() as session:
         erinnerungen = await session.with_transaction(remind)
 
@@ -364,8 +403,9 @@ async def sweep_saison(
         loeschungen=loeschungen,
         abgelehnte_geloescht=abgelehnte,
         angenommene_geloescht=angenommene,
+        ohne_entscheidung_geloescht=ohne_entscheidung,
         kontaktbloecke_geleert=geleert,
-        redigierte_aktionen=redacted_declined + redacted_accepted,
+        redigierte_aktionen=redacted_declined + redacted_accepted + redacted_undecided,
     )
 
 

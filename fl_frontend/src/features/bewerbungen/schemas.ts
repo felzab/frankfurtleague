@@ -904,13 +904,14 @@ export const FLBewerbungSweepLoeschungSchema = z.object({
 });
 export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
 
-/** One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts. */
+/** One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts. */
 export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   erinnerungen: z.array(FLBewerbungSweepErinnerungSchema),
   loeschungen: z.array(FLBewerbungSweepLoeschungSchema),
   abgelehnte_geloescht: z.int().nonnegative(),
   angenommene_geloescht: z.int().nonnegative(),
+  ohne_entscheidung_geloescht: z.int().nonnegative(),
   kontaktbloecke_geleert: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
 });

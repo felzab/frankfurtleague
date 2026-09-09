@@ -4288,7 +4288,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
       "post": {
         "summary": "Accept a Bewerbung and enter the school into the season",
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no\nconfirmation block and is not held to it.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no\nconfirmation block and is not held to it. A seat of such an application enters the season without the birthdate\nthe applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own\nto state.",
         "operationId": "annehmen_bewerbung_api_v0_bewerbungen__bewerbung_id__annehmen_post",
         "security": [
           {
@@ -4921,7 +4921,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -7309,6 +7309,10 @@
             "type": "integer",
             "title": "Angenommene Geloescht"
           },
+          "ohne_entscheidung_geloescht": {
+            "type": "integer",
+            "title": "Ohne Entscheidung Geloescht"
+          },
           "kontaktbloecke_geleert": {
             "type": "integer",
             "title": "Kontaktbloecke Geleert"
@@ -7325,11 +7329,12 @@
           "loeschungen",
           "abgelehnte_geloescht",
           "angenommene_geloescht",
+          "ohne_entscheidung_geloescht",
           "kontaktbloecke_geleert",
           "redigierte_aktionen"
         ],
         "title": "FLBewerbungSweepResponse",
-        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts."
+        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts."
       },
       "FLBewerbungSweepSaisonsResponse": {
         "properties": {
@@ -10582,7 +10587,8 @@
           "inactive_since": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
               },
               {
                 "type": "null"
@@ -12439,7 +12445,8 @@
           "inactive_since": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
               },
               {
                 "type": "null"
@@ -13162,6 +13169,8 @@
           },
           "saison_id": {
             "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
             "title": "Saison Id"
           },
           "team1_id": {

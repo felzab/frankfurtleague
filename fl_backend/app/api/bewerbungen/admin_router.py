@@ -32,7 +32,7 @@ from app.api.bewerbungen.services import (
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.crud import refuse_a_full_gruppe
-from app.api.teams.services import find_club_entry_refusal
+from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -82,7 +82,9 @@ async def annehmen_bewerbung(
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
     confirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no
-    confirmation block and is not held to it.
+    confirmation block and is not held to it. A seat of such an application enters the season without the birthdate
+    the applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own
+    to state.
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
@@ -174,9 +176,10 @@ async def annehmen_bewerbung(
                 "gruppe": annahme_data.gruppe,
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
-                # The three people arrive WITH the season's row rather than being typed in after it:
-                # they are what the application was, and `/admin/kontakte` reads them from here.
-                "kontakte": bewerbung_raw["kontakte"],
+                # The three people arrive WITH the row rather than in a later write: they are what the
+                # application was, and `/admin/kontakte` reads them from here. Composed, never copied:
+                # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
+                "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
                 "name": name,
                 "shorthand": shorthand,

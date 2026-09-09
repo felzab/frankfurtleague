@@ -757,7 +757,7 @@ def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand:
     return {"$set": written}
 
 
-# --- The retention SWEEP. Five clocks, each a pure predicate over one document and `today`, so
+# --- The retention SWEEP. Six clocks, each a pure predicate over one document and `today`, so
 # every boundary is pinned without a container. Dates, never instants: an instant would move the
 # boundary with the hour a pass happens to run.
 
@@ -939,18 +939,34 @@ def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> b
     return isinstance(getroffen_am, str) and one_month_after(day=getroffen_am) <= today
 
 
-def season_after_has_ended(*, next_saison_status: Any) -> bool:
-    """The accepted clock and the contact block share one test: the season after the one applied for is `past`.
+def season_has_ended(*, saison_status: Any) -> bool:
+    """Whether a season is over.
 
     Read off `saisons.status` rather than computed from a date, as the design fixes; a season not
     yet created is not past.
     """
 
-    return next_saison_status == "past"
+    return saison_status == "past"
+
+
+def season_after_has_ended(*, next_saison_status: Any) -> bool:
+    """The accepted clock and the contact block share one test: the season after the one applied for is `past`."""
+
+    return season_has_ended(saison_status=next_saison_status)
 
 
 def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], next_saison_status: Any) -> bool:
     return bewerbung_raw.get("status") == "angenommen" and season_after_has_ended(next_saison_status=next_saison_status)
+
+
+def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+    """Whether the season's own end takes this application: undecided, and its season is over.
+
+    Nothing else is asked: a confirmed seat, a missing deadline and a refused notice each drop an
+    application out of the fourteen-day clock.
+    """
+
+    return bewerbung_raw.get("status") == "eingereicht" and season_has_ended(saison_status=saison_status)
 
 
 def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, str]) -> str:

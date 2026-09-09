@@ -114,6 +114,7 @@ function sweepAnswers({
       loeschungen: loeschungen[saisonId] ?? [],
       abgelehnte_geloescht: 0,
       angenommene_geloescht: 0,
+      ohne_entscheidung_geloescht: 0,
       kontaktbloecke_geleert: 0,
       redigierte_aktionen: 0,
     };
@@ -500,6 +501,7 @@ describe("one pass of the sweep", () => {
         loeschungen: [],
         abgelehnte_geloescht: 0,
         angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
       };

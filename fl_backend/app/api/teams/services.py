@@ -841,42 +841,66 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
 
 
-def _seat_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
-    """The stored seat where it names the address being written, else `None`."""
+# Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
+# rather than a claim about which person sits there.
+SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+
+
+def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
+    """Who this seat holds, folded so two spellings of one person compare equal."""
+
+    # Case and inner whitespace folded, so re-typing „ida“ as „Ida“ costs nobody a fresh confirmation;
+    # the fold is the erasure's (`app/api/kontakte/services.py :: find_matching_slots`).
+    return tuple(" ".join(str(seat.get(field) or "").split()).casefold() for field in SEAT_IDENTITY_FIELDS)
+
+
+def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """This seat's consent record, or `None` where a stored row carries none."""
+
+    return einwilligung if isinstance(einwilligung := seat.get("einwilligung"), Mapping) else None
+
+
+def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
+    """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
+
+    return (einwilligung := _kenntnisnahme_of(seat)) is not None and einwilligung.get("bestaetigt_am") is not None
+
+
+def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The stored seat where it holds the same person as the one being written, else `None`."""
 
     if not isinstance(stored_slot, Mapping):
         return None
 
-    # The mailbox and never the slot's position, on the erasure's case-insensitive terms
-    # (`app/api/kontakte/services.py :: find_matching_slots`): the address IS the person here, so a
-    # seat handed to another one carries nothing of whoever sat in it.
-    if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
+    # A difference the fold keeps is a handover even where it is a corrected typo: nothing here can
+    # tell the two apart, and only this direction refuses a record saying one person answered for
+    # another.
+    if _identity_of(stored_slot) != _identity_of(seat):
         return None
 
     return stored_slot
 
 
-def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
-    """The stored provenance where this slot holds a confirmation from the address being written, else `None`."""
+def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The stored provenance where this slot holds a confirmation from the same person, else `None`."""
 
-    held = _seat_held_by(stored_slot, email=email)
-    if held is None or not isinstance(einwilligung := held.get("einwilligung"), Mapping):
+    held = _seat_held_by(stored_slot, seat=seat)
+    if held is None or not _seat_is_stamped(held):
         return None
 
-    if einwilligung.get("bestaetigt_am") is None:
-        return None
+    einwilligung = held["einwilligung"]
 
     # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
     # narrower one.
     return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
-def _geburtsdatum_held_by(stored_slot: Any, *, email: Any) -> str | None:
-    """The date this address already sits behind, or `None`."""
+def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
+    """The date this person already sits behind in this seat, or `None`."""
 
-    # The address alone and never the confirmation beside it: a seat can hold a date under no stamp,
+    # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
     # and nulling one here would destroy it as a side effect of an edit to the telephone number.
-    held = _seat_held_by(stored_slot, email=email)
+    held = _seat_held_by(stored_slot, seat=seat)
     if held is None:
         return None
 
@@ -889,8 +913,8 @@ def _geburtsdatum_held_by(stored_slot: Any, *, email: Any) -> str | None:
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
     """Each seat's provenance and its birthdate, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
 
-    A confirmed seat keeps its stamp through an edit; every other seat is recorded as entered on
-    somebody's behalf.
+    A confirmed seat keeps its stamp while the same person holds it; every other seat is recorded as
+    entered on somebody's behalf.
     """
 
     if kontakte is None:
@@ -905,12 +929,42 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
             continue
 
         stored_slot = stored_block.get(slot)
-        herkunft = _confirmation_held_by(stored_slot, email=seat.get("email")) or UNCONFIRMED_HERKUNFT
+        herkunft = _confirmation_held_by(stored_slot, seat=seat) or UNCONFIRMED_HERKUNFT
         composed[slot] = {
             **seat,
-            "geburtsdatum": _geburtsdatum_held_by(stored_slot, email=seat.get("email")),
+            "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat),
             "einwilligung": {**seat["einwilligung"], **herkunft},
         }
+
+    return composed
+
+
+def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
+    """The application's contact block as the junction row takes it, every seat held to its own stamp.
+
+    A pre-flow application carries a birthdate its applicant gave about somebody else, and acceptance
+    refuses nothing over it (`docs/backend/spec.md :: I143`).
+    """
+
+    if not isinstance(kontakte, Mapping):
+        return kontakte
+
+    composed = dict(kontakte)
+
+    for slot in KONTAKT_SLOTS:
+        seat = composed.get(slot)
+        if not isinstance(seat, Mapping) or _seat_is_stamped(seat):
+            continue
+
+        # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
+        # a decided application mints no confirmation link, so the person has no route to enter theirs.
+        stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
+        # Left as it stands where a stored row carries no record at all: the two provenance keys alone
+        # would be a consent record short of the fields every reader of one requires.
+        if (einwilligung := _kenntnisnahme_of(seat)) is not None:
+            stripped["einwilligung"] = {**einwilligung, **UNCONFIRMED_HERKUNFT}
+
+        composed[slot] = stripped
 
     return composed
 
