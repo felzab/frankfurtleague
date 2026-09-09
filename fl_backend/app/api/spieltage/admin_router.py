@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
@@ -217,6 +218,10 @@ async def patch_spieltag(
     # the callback re-reading its neighbours.
     async with db.start_session() as session:
         updated_raw, rules = await session.with_transaction(redate_the_matchday)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
 
     return FLSpieltagWriteResponse(
         spieltag_id=spieltag_id,

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
@@ -385,7 +386,13 @@ async def post_saison_spieler(
     # makes two writers into one squad contend. `with_transaction` is safe to retry, the callback
     # re-reading everything it judges.
     async with db.start_session() as session:
-        return _as_junction(await session.with_transaction(add_the_player))
+        entered = await session.with_transaction(add_the_player)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
+
+    return _as_junction(entered)
 
 
 @router.patch(f"{by_id('spieler_id')}/saisons/{{saison_id}}", response_model=FLSaisonSpielerResponse, summary="Update a squad entry")
@@ -452,7 +459,13 @@ async def patch_saison_spieler(
         )
 
     async with db.start_session() as session:
-        return _as_junction(await session.with_transaction(move_the_player))
+        moved = await session.with_transaction(move_the_player)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
+
+    return _as_junction(moved)
 
 
 @router.delete(f"{by_id('spieler_id')}/saisons/{{saison_id}}", response_model=FLSaisonSpielerResponse, summary="Remove a Spieler from a squad")
@@ -549,4 +562,10 @@ async def reactivate_saison_spieler(
         )
 
     async with db.start_session() as session:
-        return _as_junction(await session.with_transaction(bring_the_player_back))
+        revived = await session.with_transaction(bring_the_player_back)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
+
+    return _as_junction(revived)

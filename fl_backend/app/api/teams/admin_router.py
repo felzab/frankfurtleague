@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
@@ -368,6 +369,10 @@ async def post_saison_team(
     async with db.start_session() as session:
         entered = await session.with_transaction(enter_the_club)
 
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
+
     return FLSaisonTeamResponse(
         saison_id=saison_team_data.saison_id,
         team_id=team_id,
@@ -448,6 +453,10 @@ async def patch_saison_team(
     # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
     async with db.start_session() as session:
         existing_raw, updated_raw = await session.with_transaction(move_the_club)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
     # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
