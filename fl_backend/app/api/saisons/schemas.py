@@ -134,8 +134,8 @@ class _SaisonPayload(_SaisonWritable):
 
 
 class FLSaison(_SaisonWritable):
-    # Exactly 4 characters, as every `saison_id` referencing this one demands: without it, an id
-    # like "2026/27" validates here and every document pointing at it fails on read.
+    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands:
+    # without it, an id like "2026/27" validates here and every document pointing at it fails on read.
     id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     status: FLSaisonStatus
@@ -171,7 +171,7 @@ FIRST_SAISON_YEAR: Final = 2026
 
 
 def refuse_a_saison_year_outside_the_league(value: str) -> str:
-    """The half a four-digit pattern cannot express: an alternation over the legal years would be a literal somebody maintains."""
+    """The half a digits-only pattern cannot express: an alternation over the legal years would be a literal somebody maintains."""
 
     # Read PER VALIDATION: a ceiling computed at import pins the year the process started, so the
     # first January after a long-running deploy would refuse next season's id.
@@ -194,9 +194,12 @@ class FLPostSaisonPayload(_SaisonPayload):
 
     # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
     # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
+
+    # The width is `SAISON_ID_LENGTH`'s alone: a pattern spelling it as well would refuse an id of the
+    # declared length the moment that constant moves, every mirror having followed it.
     id: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]{4}$"),
+        StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
         AfterValidator(refuse_a_saison_year_outside_the_league),
     ]
 

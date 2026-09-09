@@ -94,7 +94,10 @@ CustomStrippedNonEmptyString = Annotated[str, StringConstraints(strip_whitespace
 
 # A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there would let the value
 # carry the newlines and tabs they exclude.
-PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
+
+# The final digit sits outside the class, so no accepted value is punctuation and spaces alone: such
+# a value is stored and shown as a number, and nobody can ring it.
+PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 
 # Unicode letters and the separators a real name uses, because an ASCII rule would refuse `Körner`.
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.

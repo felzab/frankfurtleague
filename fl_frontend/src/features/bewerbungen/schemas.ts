@@ -416,8 +416,8 @@ function normalisiereTelefon(value: string): string {
 
 /**
  * Compared as digits, so `+49 (0)170 …` and `0170 …` are the one number the backend reads them as.
- * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` admits `().`, which normalises to nothing,
- * and Pydantic refuses two such seats.
+ * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` ends every accepted value in a digit, so
+ * none of them normalises to nothing.
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 

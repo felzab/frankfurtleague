@@ -1,18 +1,25 @@
 import { z } from "zod";
 
-// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`; looser makes the
-// message a lie, and a pattern is outside the contract comparison entirely.
+// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
+// `fl_backend/app/shared/schemas/addresses.py`; looser makes the message a lie, and a pattern is
+// outside the contract comparison entirely.
 
+// The final digit sits outside the class, so no accepted value is punctuation and spaces alone
+// (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
 /**
  * A literal space, never `\s`, which inside the anchors would admit newlines and tabs. Exported
  * because `FLKontaktpersonSchema` needs the same rule where the field is required rather than optional.
  */
-export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
+export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
 
 // Shared, because the payload redeclares the field for its ceiling and a duplicated alphabet would drift. `*` not
 // `+`, so "optional" is the pattern rather than a union: a union whose branches both fail surfaces zod's raw English.
 const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
 const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
+
+// Named rather than written into `FLAddressSchema`, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+const PLZ_REGEX = /^\d{5}$/;
 
 /**
  * `YYYY-MM-DD`, and a day that exists — `z.iso.date()` is a calendar regex rather than a shape one. The refinement
@@ -73,7 +80,7 @@ export const PersonNameSchema = z
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
   hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),
-  plz: z.string().regex(/^\d{5}$/, { error: "Die PLZ muss genau 5 Ziffern haben." }),
+  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
   stadtteil: z.string(),
   stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
 });

@@ -14,6 +14,7 @@ import {
   FLAddressSchema,
   FLKontaktSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
+  PHONE_REGEX,
 } from "./schemas.ts";
 
 const validAddress = {
@@ -115,6 +116,56 @@ describe("FLAddressPayloadSchema", () => {
   });
 });
 
+describe("PHONE_REGEX", () => {
+  // The German spellings the tree's own fixtures use, plus the bracketed trunk zero with a grouping
+  // hyphen: refusing one of these refuses a school the only channel the league reaches it on.
+  const IN_USE = [
+    "+49 (0) 69 1234-567",
+    "069 1234567",
+    "+49 (0)170 1234567",
+    "0049-170-1234567",
+    "(0170) 123 45 67",
+    "069.123.4567",
+    "+4915112345678",
+    "030 123",
+  ];
+
+  it("accepts every spelling of a German number the tree already uses", () => {
+    for (const telefon of IN_USE) {
+      assert.equal(PHONE_REGEX.test(telefon), true, `expected ${JSON.stringify(telefon)} to be accepted`);
+    }
+  });
+
+  // The API stores what it is sent and the club page shows it, so a value with no digit in it is a
+  // number handed to whoever tries to ring the school.
+  it("refuses a value carrying no digit at all", () => {
+    for (const telefon of ["   ", "().", "---", "(  )"]) {
+      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+    }
+  });
+
+  // How the rule reaches the case above: every telephone number ends in a digit, and no floor over
+  // the digit count fits a pattern that carries its own ceiling as well.
+  it("refuses a value trailing off into a space or punctuation", () => {
+    for (const telefon of ["(069)", "069 ", "069-"]) {
+      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+    }
+  });
+
+  // The pattern carries the ceiling itself, no length bound standing beside it, so taking the final
+  // digit out of the run must leave the window where it was: a `{3,20}` run beside one stores 21.
+  it("keeps the twenty-character ceiling and the three-character floor", () => {
+    for (const [telefon, accepted] of [
+      ["0".repeat(3), true],
+      ["0".repeat(20), true],
+      ["0".repeat(2), false],
+      ["0".repeat(21), false],
+    ] as const) {
+      assert.equal(PHONE_REGEX.test(telefon), accepted, `expected ${String(telefon.length)} characters to be ${String(accepted)}`);
+    }
+  });
+});
+
 describe("FLKontaktSchema", () => {
   // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
   function addressOfLength(total: number): string {
@@ -155,6 +206,12 @@ describe("FLKontaktSchema", () => {
   it("accepts null and empty string for both fields", () => {
     assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: null }).success, true);
     assert.equal(FLKontaktSchema.safeParse({ telefon: "", email: "" }).success, true);
+  });
+
+  // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
+  // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
+  it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
+    assert.equal(FLKontaktSchema.safeParse({ telefon: "   ", email: null }).success, true);
   });
 
   it("validates email addresses", () => {

@@ -1,10 +1,11 @@
 import json
+from typing import Annotated
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, StringConstraints, ValidationError
 
-from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString
+from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString
 
 
 class _Date(BaseModel):
@@ -21,6 +22,13 @@ class _Url(BaseModel):
 
 class _ObjectId(BaseModel):
     value: CustomObjectId
+
+
+# The REQUIRED declaration `fl_backend/app/api/teams/schemas.py :: _KontaktpersonWritablePayload`
+# carries, rather than `CustomOptionalPhoneString`, whose `parse_empty_string_to_none` answers spaces
+# alone with `None` before the pattern is reached.
+class _Phone(BaseModel):
+    value: Annotated[str, StringConstraints(pattern=PHONE_REGEX)]
 
 
 @pytest.mark.parametrize(
@@ -172,3 +180,53 @@ def test_rejects_malformed_object_ids(value):
     # guarantee is the type's rather than the framework's.
     with pytest.raises(ValidationError):
         _ObjectId.model_validate_json(json.dumps({"value": value}))
+
+
+# Taken from the tree's own fixtures, because refusing one of these turns a school away over how it
+# writes the one number the league reaches it on.
+@pytest.mark.parametrize(
+    "value",
+    [
+        "+49 (0) 69 1234-567",
+        "069 1234567",
+        "+49 (0)170 1234567",
+        "0049-170-1234567",
+        "(0170) 123 45 67",
+        "069.123.4567",
+        "+4915112345678",
+        "030 123",
+    ],
+)
+def test_accepts_every_german_spelling_the_tree_uses(value):
+    assert _Phone.model_validate({"value": value}).value == value
+
+
+# Refused rather than coerced: the required field stores what it is handed and the club page renders
+# it, so a value with no digit in it is a number given to whoever tries to ring the school.
+@pytest.mark.parametrize("value", ["   ", "().", "---", "(  )"])
+def test_rejects_a_phone_number_carrying_no_digit(value):
+    with pytest.raises(ValidationError):
+        _Phone.model_validate({"value": value})
+
+
+# How the rule above is reached: every accepted value ends in a digit, no floor over the digit count
+# fitting a pattern that carries its own ceiling as well.
+@pytest.mark.parametrize("value", ["(069)", "069 ", "069-"])
+def test_rejects_a_phone_number_trailing_off_into_a_space_or_punctuation(value):
+    with pytest.raises(ValidationError):
+        _Phone.model_validate({"value": value})
+
+
+# Both edges, because the trailing digit sits outside the class: taking it out of the run has to
+# leave the window where it was, and no length bound stands beside the pattern to catch a slip.
+@pytest.mark.parametrize(
+    ("value", "accepted"),
+    [("0" * 3, True), ("0" * 20, True), ("0" * 2, False), ("0" * 21, False)],
+    ids=["at the floor", "at the ceiling", "one under the floor", "one over the ceiling"],
+)
+def test_keeps_both_edges_of_the_length_window(value, accepted):
+    if accepted:
+        assert _Phone.model_validate({"value": value}).value == value
+    else:
+        with pytest.raises(ValidationError):
+            _Phone.model_validate({"value": value})

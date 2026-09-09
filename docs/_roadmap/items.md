@@ -107,7 +107,7 @@ deliverable.
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
-| `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                | FE, BE, tests                                                               | Open     |
+| `nce5-j467` | Two hand-copied patterns sit outside the register that pairs the others                                                       | FE, BE, tests                                                               | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
@@ -1413,55 +1413,43 @@ branch and leaves the next one unheld. **Its `Hint` renders as a popover**, so t
 that press is one of §1.9's overlay bodies and out of reach; every other block here stands in the
 resting markup.
 
-### `nce5-j467` · A comment claims two files hold the same pattern, and nothing holds them to it
+### `nce5-j467` · Two hand-copied patterns sit outside the register that pairs the others
 
 | Tags          | Status | Depends on |
 | ------------- | ------ | ---------- |
 | FE, BE, tests | Open   | —          |
 
-**The two ends of the wire are resolved against each other in exactly one place, and patterns are
-outside it on purpose.** `fl_frontend/src/core/apiContract.test.ts` converts every exported Zod
-schema to JSON Schema, pairs it with its component in the committed `fl_backend/openapi.json`, and
-compares presence, required, nullable, primitive type and enum members;
-`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` states the boundary in terms, that patterns,
-lengths, bounds and messages are deliberately not compared because the two sides diverge there by
-design and comparing validation policy produces failures nobody can act on. **This entry does not
-propose moving that boundary.**
+**`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` resolves a declared list of
+pattern pairs against each other, and two hand copies of a backend rule are on no list at all.**
+`fl_backend/app/shared/schemas/custom.py :: TIME_REGEX` and
+`fl_frontend/src/shared/schemas.ts :: CustomTimeStringSchema` spell one rule byte for byte, as
+`fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` and
+`fl_frontend/src/shared/schemas.ts :: PersonNameSchema` spell another; each tier's suite lists cases
+against its own copy, and nothing resolves the two spellings against each other.
+`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves patterns outside the contract
+comparison by design, so that register is the only place either pair can be held.
 
-**What nothing checks is a narrower claim, made in prose and legible from one side only.**
-`fl_frontend/src/shared/schemas.ts` opens by stating that each schema there mirrors a constraint in
-`fl_backend/app/shared/schemas/custom.py`, that looser makes the message a lie, and that a pattern is
-outside the contract comparison entirely. That sentence is the whole written record of the
-`PHONE_REGEX` pair, it is a comparison nothing performs, and it reads only from the frontend:
-`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` explains its own character class to whoever
-edits it, and points at no twin.
+**Neither pair fits the register's probe.** It compares two spellings by what each accepts over an
+alphabet derived from the patterns' own text, and refuses outright a construct it would model wrongly
+(`fl_backend/tests/shared/test_frontend_mirrors.py :: MODELLED_ESCAPES`). Nothing that probe
+generates is a well-formed time — every string up to three characters, then runs of one character —
+so the time pair accepts none of it and the register's own anti-vacuity assertion fails. The name
+pair is further out: `\p{L}` is a class pydantic's Rust engine reads and `re` cannot compile, and
+`re` is the only engine that register has.
 
-**The two patterns agree today, and nothing holds them there.** They last diverged on the character
-class — a literal space on one side against `\s` on the other, which in JavaScript absorbs a trailing
-newline so `$` still matches — with the frontend the looser end, so the failure mode was a form
-accepting a value the API answers with a 422 that nothing in the interface can explain rather than a
-bad value being stored. **It survived a review, a commit body asserting the two were identical, and a
-contract test that does not look at patterns.** The phone pair's blast radius is nil, since no
-referee holds a phone number at all, which is exactly what would make a recurrence invisible.
+**Why it matters.** A divergence either way is a refusal nobody can act on: the looser frontend
+accepts a value the API answers with a 422 naming no field, and the tighter one refuses what the API
+stores. Every form taking a person's name carries the one rule and every kickoff time the other, so a
+recurrence is visible on the first value somebody types rather than lying latent.
 
-**`hausnummer` is a second hand-mirrored pair, and it does not share that mercy.**
-`fl_backend/app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN` and
-`fl_frontend/src/shared/schemas.ts :: HAUSNUMMER_REGEX` are the two ends, each named on its own side
-so the read model and the payload cannot drift within a side, and nothing compares them across the
-wire. The alphabets agree today, `\d` inside a JavaScript class being `[0-9]`, but every club, venue
-and referee form carries a house number, so a divergence here is visible to an admin on the first
-address they type. **The prose record is weaker here than for the phone pair**: the mirroring comment
-names `custom.py`, where these two ends live in `addresses.py`, so a reader following that comment
-never arrives at them.
-
-**Done when** one of three answers is taken, and they are not equivalent. **Check the declared
-pairs** — a list of `(python symbol, typescript symbol)` pairs whose patterns must be byte-identical,
-compared in the frontend suite that already reads across the boundary; it says nothing about the
-pairs not on the list, which is what keeps it inside that boundary. **Drop the claim** — delete the
-mirroring sentence, let the two ends diverge like every other validation policy, and accept the 422
-as the contract; cheapest, and it gives up the one property that makes the frontend message
-trustworthy. **Generate one end from the other** — refused for the mirror as a whole, and refusing it
-for one constant is the same argument at a smaller scale.
+**Done when** each pair is resolved against its twin or recorded as unpairable with its reason, in
+`MIRRORED_PATTERNS` where a reader of the register stands. Two shapes stay inside that boundary: a
+case of its own per pair, as
+`fl_backend/tests/shared/test_frontend_mirrors.py :: test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses`
+already is for the one-line rule; or a probe composing a value from the pattern rather than repeating
+one character, which reaches the time pair and not the name pair. **Widening `MODELLED_ESCAPES` is
+neither of them** — that refusal exists so a construct the probe would model wrongly fails loudly
+instead of passing quietly.
 
 ### `njhn-pmtn` · Every call site writes a fallback for a failure message that always arrives
 

@@ -161,7 +161,7 @@ class TestTheCreatedSeasonsIdIsAYear:
         ["20a6", "２0２6", *NON_ASCII_YEARS],
         ids=["a letter", "two fullwidth digits", "arabic-indic", "fullwidth"],
     )
-    def test_it_refuses_an_id_that_is_not_four_ascii_digits(self, new_saison, value, assert_rejects):
+    def test_it_refuses_an_id_that_is_not_ascii_digits(self, new_saison, value, assert_rejects):
         """The refusal is the PATTERN and not the range: `int` reads three of these as 2026, so a range check alone would store them."""
 
         error = assert_rejects(FLPostSaisonPayload, {**new_saison, "id": value}, "id")
@@ -174,13 +174,19 @@ class TestTheCreatedSeasonsIdIsAYear:
         ids=["the year before the first season", "long before the league", "two years out"],
     )
     def test_it_refuses_a_year_the_league_can_have_no_season_in(self, new_saison, value, assert_rejects):
-        """A four-digit pattern cannot express either bound, so the refusal has to arrive as the validator's rather than the pattern's."""
+        """A digits-only pattern cannot express either bound, so the refusal has to arrive as the validator's rather than the pattern's."""
 
         error = assert_rejects(FLPostSaisonPayload, {**new_saison, "id": value}, "id")
 
         assert {entry["type"] for entry in error.errors()} == {"value_error"}
 
-    @pytest.mark.parametrize("value", [str(FIRST_SAISON_YEAR), str(date.today().year + 1)], ids=["the league's first season", "next year"])
+    # Padded from the constant rather than spelled: the width is `SAISON_ID_LENGTH`'s alone, so a
+    # pattern restating it would refuse these ids the moment that constant moved.
+    @pytest.mark.parametrize(
+        "value",
+        [str(FIRST_SAISON_YEAR).zfill(SAISON_ID_LENGTH), str(date.today().year + 1).zfill(SAISON_ID_LENGTH)],
+        ids=["the league's first season", "next year"],
+    )
     def test_it_accepts_a_year_inside_the_range(self, new_saison, value):
         assert FLPostSaisonPayload.model_validate({**new_saison, "id": value}).id == value
 

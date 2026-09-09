@@ -8,7 +8,7 @@ from pydantic import BaseModel, StringConstraints
 
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.shared.schemas import bounds
-from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
+from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
 from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
@@ -209,11 +209,28 @@ class Pattern(NamedTuple):
     source: str
 
 
-# The two hand-mirrored patterns. `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves
+def _field_pattern(model: type[BaseModel], field: str) -> str:
+    """Off the model rather than its text, so an alphabet respelled at the field still pairs and one dropped fails.
+
+    `Field(pattern=...)` and `StringConstraints(pattern=...)` land in `metadata` alike, neither
+    reaching the annotation.
+    """
+
+    stated = [constraint.pattern for constraint in model.model_fields[field].metadata if getattr(constraint, "pattern", None) is not None]
+
+    assert len(stated) == 1, f"{model.__name__}.{field} states {len(stated)} patterns, so no one alphabet pairs with the frontend's"
+
+    return stated[0]
+
+
+# Every hand-mirrored pattern. `fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves
 # patterns out of the contract comparison by design, so nothing else pairs these ends at all.
 MIRRORED_PATTERNS: Final = (
     Pattern("shared/schemas.ts", "PHONE_REGEX", "app/shared/schemas/custom.py :: PHONE_REGEX", PHONE_REGEX),
     Pattern("shared/schemas.ts", "HAUSNUMMER_REGEX", "app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN", HAUSNUMMER_PATTERN),
+    # Latent rather than live: `\d` inside a JavaScript class is `[0-9]`, so the two agree today and
+    # nothing held them there.
+    Pattern("shared/schemas.ts", "PLZ_REGEX", "app/shared/schemas/addresses.py :: FLAddress", _field_pattern(FLAddress, "plz")),
 )
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than
@@ -225,7 +242,7 @@ MODELLED_ESCAPES: Final = frozenset("d-.\\()[]{}+*?^$|/")
 # neither one names is one no derived alphabet would reach.
 PROBE_CONTROLS: Final = frozenset({"\n", "\r", "\t", " ", "é", "z", "5"})
 
-# Long enough to stand either side of a `{3,20}`-style bound, which no exhaustive short probe reaches.
+# Long enough to stand either side of a twenty-character ceiling, which no exhaustive short probe reaches.
 PROBE_LENGTHS: Final = (4, 5, 19, 20, 21)
 
 ALPHANUMERIC_RANGE: Final = re.compile(r"([0-9A-Za-z])-([0-9A-Za-z])")

@@ -214,12 +214,13 @@ const saisonPayloadFields = {
  */
 export const FIRST_SAISON_YEAR = 2026;
 
+// The width is the length bound beside it, on both tiers, so neither states one number twice.
 /**
- * Character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload` spells it, and compared to
- * that spelling by `fl_frontend/src/features/saisons/saisonIdMirror.test.ts`: a form offering what the write path refuses
- * is what the two sides drifting apart looks like.
+ * The ALPHABET, character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload`
+ * spells it and compared to that spelling by `saisonIdMirror.test.ts` — a form offering what the write
+ * path refuses being what drift looks like here.
  */
-export const SAISON_ID_PATTERN = /^[0-9]{4}$/;
+export const SAISON_ID_PATTERN = /^[0-9]+$/;
 
 /** Read PER PARSE: a ceiling taken once when the module loads pins the year the tab was opened, not the year it is now. */
 const newestSaisonYear = () => new Date().getFullYear() + 1;

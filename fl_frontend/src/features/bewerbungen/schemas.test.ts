@@ -215,12 +215,6 @@ describe("two spellings of one telephone number are one number", () => {
     });
   }
 
-  /* `PHONE_REGEX` admits `().`, which normalises to nothing, and Pydantic has no empty-guard, so it
-     refuses two such seats. Guarded here, the form would offer what the write path refuses. */
-  it("refuses two seats whose numbers both normalise to nothing", () => {
-    assert.deepEqual(refusedPaths(geteilteNummer("().", "().")), ["kontakte.stellvertretung.telefon"]);
-  });
-
   /* The fold may not over-match either: two different numbers that merely start alike are two people,
      and refusing them would cost a school a seat it filled correctly. */
   it("leaves two genuinely different numbers standing", () => {
