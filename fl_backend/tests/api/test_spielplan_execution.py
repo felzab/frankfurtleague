@@ -29,7 +29,6 @@ from app.api.saisons.services import (
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
 )
-from app.api.saisons.spielplan import BRACKET_SEEDING
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
@@ -37,6 +36,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import trace_id_var
+from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 

@@ -5,7 +5,7 @@ Nothing here judges the draw against the season, because a half-written draw is 
 could see.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,73 +16,6 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSaisonPhase, FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
-
-# The reference rows `tests/api/test_spielplan.py` holds `bracket_seeding` to. Read by no request: a
-# shape absent here is constructed, so widening the rules bounds owes this table nothing.
-BRACKET_SEEDING: Mapping[tuple[int, int], tuple[tuple[FLGruppenNames, int], ...]] = {
-    (1, 2): (("A", 1), ("A", 2)),
-    (1, 4): (("A", 1), ("A", 4), ("A", 2), ("A", 3)),
-    (1, 8): (("A", 1), ("A", 8), ("A", 4), ("A", 5), ("A", 2), ("A", 7), ("A", 3), ("A", 6)),
-    (1, 16): (
-        ("A", 1),
-        ("A", 16),
-        ("A", 8),
-        ("A", 9),
-        ("A", 4),
-        ("A", 13),
-        ("A", 5),
-        ("A", 12),
-        ("A", 2),
-        ("A", 15),
-        ("A", 7),
-        ("A", 10),
-        ("A", 3),
-        ("A", 14),
-        ("A", 6),
-        ("A", 11),
-    ),
-    (2, 1): (("A", 1), ("B", 1)),
-    (2, 2): (("A", 1), ("B", 2), ("B", 1), ("A", 2)),
-    (2, 4): (("A", 1), ("B", 4), ("A", 2), ("B", 3), ("B", 1), ("A", 4), ("B", 2), ("A", 3)),
-    (2, 8): (
-        ("A", 1),
-        ("B", 8),
-        ("A", 4),
-        ("B", 5),
-        ("A", 2),
-        ("B", 7),
-        ("A", 3),
-        ("B", 6),
-        ("B", 1),
-        ("A", 8),
-        ("B", 4),
-        ("A", 5),
-        ("B", 2),
-        ("A", 7),
-        ("B", 3),
-        ("A", 6),
-    ),
-    (4, 1): (("A", 1), ("B", 1), ("C", 1), ("D", 1)),
-    (4, 2): (("A", 1), ("B", 2), ("C", 1), ("D", 2), ("B", 1), ("A", 2), ("D", 1), ("C", 2)),
-    (4, 4): (
-        ("A", 1),
-        ("B", 4),
-        ("C", 2),
-        ("D", 3),
-        ("B", 1),
-        ("A", 4),
-        ("D", 2),
-        ("C", 3),
-        ("C", 1),
-        ("D", 4),
-        ("A", 2),
-        ("B", 3),
-        ("D", 1),
-        ("C", 4),
-        ("B", 2),
-        ("A", 3),
-    ),
-}
 
 
 @dataclass(frozen=True)
@@ -177,7 +110,7 @@ def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tupl
 
     placing_at = _seed_at_slot(qualifiers_per_group)
     # `max`, or the draw repeats one pair and leaves another out. A divisor that also fits scores the
-    # same and ships a different row, which is what `BRACKET_SEEDING` fixes.
+    # same and ships a different row, which is what `tests/bracket_reference.py :: BRACKET_SEEDING` fixes.
     shift_of = max(number_of_groups, qualifiers_per_group)
 
     # One qualifier of every group per block of `number_of_groups` slots, the latest a bracket can

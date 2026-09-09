@@ -18,12 +18,13 @@ from app.api.saisons.schedule import (
 )
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal
-from app.api.saisons.spielplan import BRACKET_SEEDING, EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
+from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
 from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
+from tests.bracket_reference import BRACKET_SEEDING
 
 GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
 
