@@ -190,7 +190,8 @@ under the same stamp and a `-failed` suffix; a deploy made by hand owes the same
 ### 1.3 Client-side crashes
 
 A client component cannot reach the server-only logger, so a browser-side crash would be recorded
-nowhere. The error boundary (`fl_frontend/src/app/error.tsx`) posts crashes **without a digest** to
+nowhere. Every error boundary posts crashes **without a digest**, through
+`fl_frontend/src/shared/hooks/useReportClientCrash.ts`, to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
 `FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
 unauthenticated by design, which is why nginx gives it a pair of `limit_req` zones of its own

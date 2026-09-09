@@ -9,12 +9,15 @@ import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.share
 
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
+import type { ReactNode } from "react";
+
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { Error: ErrorPanel } = await import("./Error.tsx");
 const { NotFound } = await import("./NotFound.tsx");
 const { StatusPanel } = await import("./StatusPanel.tsx");
 const { PublicShell } = await import("../layout/shell/PublicShell.tsx");
+const { default: PublicErrorBoundary } = await import("../../../app/(public)/error.tsx");
 
 const router = {
   back: () => undefined,
@@ -32,17 +35,20 @@ const rootClasses = (markup: string): string => markup.match(/^<[a-z]+ class="([
 /** The `<main>` the shell wraps a public route in, whose floor is the fold the footer sits under. */
 const shellMainClasses = (markup: string): string => markup.match(/<main [^>]*class="([^"]*)"/)?.[1] ?? "";
 
+/** The panel's own box under the shell, which is the first element that `<main>` wraps. */
+const shelledPanelClasses = (markup: string): string => markup.match(/<main [^>]*>\s*<[a-z]+ class="([^"]*)"/)?.[1] ?? "";
+
+const underRouter = (tree: ReactNode): string =>
+  renderTree(h(AppRouterContext.Provider, { value: router }, h(PathnameContext.Provider, { value: "/nirgendwo" }, tree)));
+
+const boundaryProps = { error: new globalThis.Error("kaputt"), reset: () => undefined };
+
+const rootBoundary = underRouter(h(ErrorPanel, boundaryProps));
+const publicBoundary = underRouter(h(PublicShell, { serverStatusSlot: null, children: h(PublicErrorBoundary, boundaryProps) }));
+
 const shelled = rootClasses(renderTree(h(AppRouterContext.Provider, { value: router }, h(NotFound, {}))));
 
-const wholeDocument = rootClasses(
-  renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: router },
-      h(PathnameContext.Provider, { value: "/nirgendwo" }, h(ErrorPanel, { error: new globalThis.Error("kaputt"), reset: () => undefined })),
-    ),
-  ),
-);
+const wholeDocument = rootClasses(rootBoundary);
 
 const FLOOR = "min-h-[calc(100dvh-var(--navbar-height)-1px)]";
 const VIEWPORT = "min-h-[100dvh]";
@@ -75,5 +81,27 @@ describe("the box each full-page status panel is sized to", () => {
 
     assert.ok(page.includes(VIEWPORT), `an unqualified page panel is sized ${page}`);
     assert.ok(inline.includes("min-h-[400px]") && !inline.includes("dvh"), `an inline panel is sized ${inline}`);
+  });
+});
+
+/** Each mark is a way off the page the shell carries and the panel does not. */
+const SHELL_MARKS = ['href="#main-content"', 'id="main-content"', "<footer"];
+
+describe("the chrome each error boundary is served with", () => {
+  /* React mounts a boundary on a thrown child alone, so this renders the component the route file
+     exports rather than reaching it through the router: what nests it under the shell is its path. */
+  it("shells the public boundary and leaves the root one bare", () => {
+    for (const mark of SHELL_MARKS) {
+      assert.ok(publicBoundary.includes(mark), `the public error page carries no ${mark}, so a visitor is left with the panel's own links`);
+      assert.ok(!rootBoundary.includes(mark), `the root boundary renders ${mark}, which is chrome its own failure can be`);
+    }
+
+    const panel = shelledPanelClasses(publicBoundary);
+
+    assert.ok(panel.includes(FLOOR), `the public error panel is sized ${panel}, so the footer starts above the fold`);
+    assert.ok(
+      !panel.includes(VIEWPORT),
+      `the public error panel keeps a whole-viewport floor in ${panel}, which the navbar pushes past the fold`,
+    );
   });
 });

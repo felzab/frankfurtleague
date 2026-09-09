@@ -3,6 +3,8 @@
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
+
 import { DashboardError } from "./DashboardError";
 
 /**
@@ -13,6 +15,8 @@ import { DashboardError } from "./DashboardError";
 // No console.error here -- see the note in `fl_frontend/src/app/error.tsx`.
 export function DashboardErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
+
+  useReportClientCrash(error);
 
   const handleRetry = () => {
     startTransition(() => {

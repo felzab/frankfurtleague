@@ -7,19 +7,33 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { DISPLAY_HEADING } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 import { textLink } from "./textLink";
 
-export function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export function Error({
+  error,
+  reset,
+  // The root boundary sits above every layout, so what failed there can be the chrome itself and it
+  // renders none of it. A boundary under a shell passes `shell`
+  // (`fl_frontend/src/app/(public)/error.tsx`).
+  fills = "document",
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+  fills?: "document" | "shell";
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [isRetrying, startRetrying] = useTransition();
 
   // Captured at mount, as close to the incident as the client can date it; click time would drift.
   const [occurredAt] = useState(() => new Date().toISOString());
+
+  useReportClientCrash(error);
 
   // The three coordinates `docs/logging/spec.md` asks a report to carry: a digest names an error class, so
   // the route and the time narrow it to one entry. A client crash has no digest, and saying so is the pointer.
@@ -49,6 +63,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
 
   return (
     <StatusPanel
+      fills={fills}
       badgeLabel="Spielunterbrechung"
       heading={
         <>
