@@ -830,7 +830,9 @@ way is type-checked, linted and covered by `better-tailwindcss/no-unknown-classe
 `.<component>__<slot>` rule in `globals.css` is none of those: those class names are vendored
 implementation detail, and a release that renames one takes the styling with it and reports nothing
 (I57). Where a stylesheet is genuinely the only route, **name the HeroUI version the rule was written
-against at the rule**, so the next upgrade knows what to re-read.
+against at the rule**, so the next upgrade knows what to re-read. The toast block in
+`fl_frontend/src/app/globals.css` is the standing example: every selector it styles but
+`.toast__timer` is declared by `@heroui/styles`' `toast.css`.
 
 ### 1.12 The copy rules
 

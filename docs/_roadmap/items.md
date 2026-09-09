@@ -88,7 +88,6 @@ deliverable.
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
-| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                   | FE, Docs                                                                    | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                            | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
@@ -706,55 +705,6 @@ is in adds the third.
   signing in, for a crashing browser, and for one school submitting one application; a whole squad
   filling a form in one break is a different shape of traffic on the same edge, so `zone=bewerbung`
   ([`docs/ops/spec.md`](../ops/spec.md) §1.3) is the nearest precedent rather than the answer.
-
-### `huzh-hdfx` · A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**`.claude/rules/frontend.md` permits a toast to be styled from CSS at the shell and at the
-frontmost close button, and `fl_frontend/src/app/globals.css` styles a surface past both.** The
-block there sets `.toast` and each of its `--<variant>` modifiers, the close button under
-`[data-frontmost]`, and the timer bar — its animation, and the pause the region's hover and focus put
-on it.
-
-**The same rule is stated in a wider place, and the wider statement is the one that fits the code.**
-[`docs/frontend/spec.md`](../frontend/spec.md) I57 states it as a ban on adding — never a new
-`.toast*` rule in a stylesheet — which names the surface rather than counting it. The **toast**
-clause states it as a bound on what may be styled at all, and the bound it names falls short of what
-the stylesheet holds. PRE-1's ladder puts the code above the spec sheet and the spec sheet above
-`.claude/CLAUDE.md`, so the clause is the loser of both.
-
-**Ruled: replace the clause's first half with the spec sheet's formulation and keep the second
-half** (`docs/datenschutz.md` §10, 2026-09-02). That is a `.claude/CLAUDE.md`-governed edit only I
-authorise, and I do; naming the surface the way I57 does — the toast rules a stylesheet may hold are
-the ones markup cannot reach, and a new one is a breach — states the same bound without a figure
-that goes stale the next time a rule is genuinely forced into CSS.
-
-**Which parts are genuinely in question, verified against `@heroui/styles` 3.2.4 on 2026-08-20 by
-enumerating the selectors its `toast.css` declares:**
-
-- **The variant modifiers are the shell.** HeroUI writes `toast` and its `--<variant>` modifier onto
-  one element, so a rule tinting that element's border styles the shell rather than something beside
-  it. Every modifier the stylesheet overrides is declared by that file.
-- **`toast-region` is never a rule's subject.** It occurs only as the ancestor in the selectors that
-  pause the timer, and the property lands on the timer.
-- **The timer bar is this app's own element, and its rules are what the clause does not name.**
-  `toast.css` declares no `toast__timer` selector, and
-  `fl_frontend/src/core/providers/AppToaster.tsx :: toastCard` is what puts the class on the
-  element. Its keyframes and its paused state are keyed on an ancestor's hover and focus, which a
-  utility on the element cannot express — so a stylesheet is the only route, which is the argument
-  the close button's rule already rests on.
-
-**What the change may not sweep in.** `table__column` and the secondary variant's row hover are
-vendored selectors overridden in the same file, and no clause governs them. §1.11 of the frontend
-spec sheet is what governs both cases, and it already asks a stylesheet rule to name the HeroUI
-version it was written against.
-
-**Done when** the clause's first half reads as I57 does, and the stylesheet's toast comment, the
-block opening `THE TOAST, deliberately small:` and the one over-bound block in that file no pass has
-yet read, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 

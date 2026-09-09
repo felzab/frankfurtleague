@@ -34,7 +34,7 @@ own config files included, on §7's terms.
 
 - **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
 - **css** — Pick `admin.css` membership by folder name, not the import graph
-- **toast** — Style a toast from CSS past the shell and the frontmost close button; call `toast` at a call site rather than `appToast`
+- **toast** — Add a new `.toast*` rule to a stylesheet rather than building the appearance in `AppToaster`; call `toast` at a call site rather than `appToast`
 - **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a `@layer`
 - **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
 

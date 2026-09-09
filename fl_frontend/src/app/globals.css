@@ -768,9 +768,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
      function, so everything with an element to hang a class on is ordinary TSX.
-     VERIFIED against `@heroui/styles` 3.2.4 — `.toast`, its `--<variant>` modifiers,
-     `.toast-region`, `.toast__close-button` and `[data-frontmost]` are all vendored, so
-     re-read `toast.css` on upgrade. */
+     Written against `@heroui/styles` 3.2.4 (`docs/frontend/spec.md :: 1.11`). */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */

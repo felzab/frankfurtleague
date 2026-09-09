@@ -345,7 +345,7 @@ the `Entry` column carries a token only where one still resolves in that file.
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
 | —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
-| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                                                                |
+| —           | The toast clause's first half now reads as [`frontend/spec.md`](frontend/spec.md) I57 does and its second half stands, in `.claude/rules/frontend.md`                                                               |
 | —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
 | —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 
