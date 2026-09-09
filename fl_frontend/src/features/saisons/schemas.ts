@@ -59,8 +59,9 @@ export const FLSaisonRulesSchema = z.object({
     .max(FLGruppenNamesSchema.options.length, {
       error: `Es gibt höchstens ${String(FLGruppenNamesSchema.options.length)} Gruppen.`,
     }),
-  // The floor stops a group phase that generates no fixture at all; the ceiling keeps the largest
-  // legal season inside the list read's cap, past which a season-scoped read is truncated.
+  // The floor stops a group phase that generates no fixture at all; the ceiling bounds one GROUP,
+  // where what a whole season may play is `REQ-RULES-013`, weighing every group and the bracket at
+  // once.
   teams_per_group: z
     .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
     .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })

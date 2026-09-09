@@ -694,9 +694,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # every row it builds, so those are the only ones outside the retention.
                 "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
-                # Required, so a row written under the previous name fails until the deploy-day
-                # rename in `docs/ops/runbooks.md` §2 has run; strict validation then refuses an
-                # erasure's `$set` over it.
+                # Required where `at_date` above is not: the rows the log already holds carry this
+                # value under an older name, so a hand-run rename supplies it rather than the field
+                # staying optional (`docs/ops/runbooks.md` §2 has that order and what it costs).
                 "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},

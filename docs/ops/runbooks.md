@@ -6,18 +6,21 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
 [`../_git/spec.md`](../_git/spec.md) §1.1.
 
-| Section                                                                                                                        | Answers                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
-| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
-| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                   | The one deploy that has steps of its own, and its rollback     |
-| [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                   | The one call that answers it, and what each answer means       |
-| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
+| Section                                                                                                                                         | Answers                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [1. The server](#1-the-server)                                                                                                                  | What a deploy does, and what a failed one leaves running       |
+| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)                         | The one check to run before a constraint reaches production    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                                    | Who can sign in, and what revoking actually ends               |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                                                | What the triage page still shows, and what stops new rows      |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)                   | Where each role's data is read, and how a request is answered  |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                                                | The authority, the clock, and what the logs can establish      |
+| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                  | The host files that bound them, and where a deploy's copies go |
+| [8. Putting the tunnel in front of the origin](#8-putting-the-tunnel-in-front-of-the-origin)                                                    | The one deploy that has steps of its own, and its rollback     |
+| [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                                    | The one call that answers it, and what each answer means       |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
+| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
+| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The order the two halves run in, and what is lost with them    |
+| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 
 ---
 
@@ -105,25 +108,25 @@ validator.
 own:
 
 ```bash
-docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
-  -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
-  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=http://x \
-  -e INTERNAL_API_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-  -e INTERNAL_API_KEY_SYSTEM=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-  -e INTERNAL_API_KEY_ADMIN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+docker run --rm --network <compose-network> \
+  -v "$PWD/fl_backend/app:/app/app:ro" \
+  -v "$PWD/fl_backend/.env:/app/.env:ro" \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Seven variables are required and two carry real values.** `BackendConfig` declares seven fields with no
-default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming all
-seven — an empty value being no URI, and `DB_BASE_NAME` being as much about the database as the URI
-is. `--check` reads the database and nothing else, so the hosts,
-the origins and the three keys need only take the shape the gate requires — **do not go looking for
-the production ones**, and keep the origin's `http://`, which is the one placeholder above that a
-constraint reads.
+**Seven variables are required and the environment file is what supplies them.** `BackendConfig`
+declares seven fields with no default, so a run reaching none of them exits 1 on a validation error
+naming all seven; the settings class reads its file from the image's own working directory
+(`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the seven
+as `-e` values instead puts that one in the shell's history and in the process list, and sends the
+operator looking up six values `--check` never reads. It is the same mount
+`scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
 
-Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
-`app/` must be readable by that uid, and an SELinux host needs `:z` on the mount.
+Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so both
+mounted paths must be readable by that uid — `--user 0:0` before the image name is the way past a
+permission error, `--check` writing nothing either way — and an SELinux host needs `:z` on each
+mount.
 
 **Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
 query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
@@ -227,19 +230,21 @@ shell the `--check` above runs in:
 db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
 ```
 
-**A uniqueness rule narrowed to a `partial_filter`** cannot be moved that way, `collMod` reaching an
-index's expiry alone: the live index is dropped by hand while the stack is down, and the boot that
-follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop
-is the whole procedure, and it belongs in the deploy's own window rather than ahead of it — between
-the stack coming down and the new build coming up, because the refusal above is what the boot answers
-with while the old index stands.
-
 Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
 is the smaller window, no read losing the index in between. `<new>` must equal
 `fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
-deploy, or the boot raises on the difference that is left. Mirrored from
-https://www.mongodb.com/docs/manual/reference/command/collMod/, which moves without us; read
-2026-09-04.
+deploy, or the boot raises on the difference that is left.
+
+**A uniqueness rule narrowed to a `partial_filter`** cannot be moved that way, because a narrowing
+is a different index rather than a changed one: `collMod`'s `index` option reaches four properties —
+`expireAfterSeconds`, `hidden`, `prepareUnique` and `unique` — and never the filter deciding which
+rows the rule indexes, so an index can be made unique in place and cannot be made to cover fewer
+rows. Mirrored from https://www.mongodb.com/docs/manual/reference/command/collMod/, which moves
+without us; read 2026-09-09. The live index is dropped by hand while the stack is down, and the boot
+that follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The
+drop is the whole procedure, and it belongs in the deploy's own window rather than ahead of it —
+between the stack coming down and the new build coming up, because the refusal above is what the boot
+answers with while the old index stands.
 
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
@@ -383,8 +388,11 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Administrator  | The sign-in store — the second database, holding the address, the sessions and the sign-in tokens                                   |
 
 `/admin/aktionen` answers what was written about them and by whom, and is the only place that
-question is answered at all. A row past the log's own expiry is gone
-(`docs/backend/spec.md :: I119`), so establish the window before promising a period.
+question is answered at all. **Two populations sit in that collection and only one has an expiry**:
+a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
+is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
+which it is about — the unstamped rows leave at [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s
+reset instead.
 
 **There is no export route, so an access request is answered by composing what those pages show.**
 Send the categories, the values, where each came from, who receives them
@@ -717,3 +725,120 @@ file, and it is the one that stops the frontend booting.
 the endpoint and notifies the account; nothing in the product reports it, and re-enabling is done
 here by hand. A frontend that boots without the secret crash-loops rather than answering, which is
 the boot check doing its job.
+
+## 11. A contact seat's birthdate that no confirmation stamped
+
+**The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
+one: the date arrives with a person's own confirmation and rides with their address through every
+later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
+and no validator expresses the pairing either
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I141), so `--check` reports nothing about it.
+
+**It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
+declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
+were collected on ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
+so an accepted school holds each date twice. In `mongosh` against the cluster, as §2's `collMod`
+command is — the backend image carries none, and §2 says what a command run through that image
+instead looks like:
+
+```javascript
+const seats = ["trainer", "ansprechperson", "stellvertretung"];
+const term = (seat) => ({ [`kontakte.${seat}.geburtsdatum`]: { $ne: null }, [`kontakte.${seat}.einwilligung.bestaetigt_am`]: null });
+for (const seat of seats)
+  for (const name of ["saison_teams", "bewerbungen"]) print(name, seat, db.getCollection(name).countDocuments(term(seat)));
+```
+
+**The `null` half is what reaches a record written before `bestaetigt_am` existed**, matching an
+absent key as well as a stored null, which is why that key sits outside `required`
+(`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`). The `$ne: null` half matches a
+stored value alone, so an empty seat and an already-clear one match neither. The clear reads that
+same `seats` and `term`, so it goes in the shell the count ran in rather than a fresh one:
+
+```javascript
+for (const seat of seats)
+  for (const name of ["saison_teams", "bewerbungen"])
+    print(name, seat, db.getCollection(name).updateMany(term(seat), { $set: { [`kontakte.${seat}.geburtsdatum`]: null } }).modifiedCount);
+```
+
+**Null rather than `$unset`**, which is the shape every write path stores and every read answers as
+none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`). **One update per seat, each
+carrying its own seat's term**, for the reason §2's rename gives: a dotted path cannot traverse a
+null, and a document the term matched necessarily holds that seat. Each `modifiedCount` should equal
+the count above it. Then `--check` again.
+
+## 12. Deleting this season's player records and resetting the action log
+
+**Once, at the end of this season, and never again** — the ruling and what it is for are
+[`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)'s. Both halves are
+database edits: `aktionen` carries no POST and no DELETE route, and no code removes a row from it
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
+
+**The log goes LAST whichever route the player half takes**, because every write through
+`fl_backend/app/core/crud.py` appends a row to it: taken through
+`DELETE /spieler/{spieler_id}/erasure` per person, the player half leaves rows this reset then has to
+take, and each of those calls is refused until that person is retired (`REQ-PURGE-001`). Which route
+the player half takes is not settled here.
+
+**What the reset reaches that the retention index cannot is the unstamped rows.** The TTL expires a
+row on `at_date`, and only `fl_backend/app/core/recording.py :: record_write` ever wrote one, so a row
+standing before that writer shipped is expired by nothing (I119). What says how many are left, in
+`mongosh` as §11's commands are:
+
+```javascript
+db.getCollection("aktionen").countDocuments({ at_date: { $exists: false } });
+```
+
+**Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
+write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
+so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
+first ([section 13](#13-after-a-restore-from-a-snapshot)).
+
+```javascript
+db.getCollection("aktionen").deleteMany({});
+```
+
+## 13. After a restore from a snapshot
+
+**The published notice promises that nothing comes back from a backup without the person's erasure
+being run again** (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`), and nothing
+in the product replays one
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so this is how that
+promise is kept. Two things a restore is contemplated for: a hand-run migration that succeeded against
+a mistyped path (§2), and a mistaken erasure, for which the snapshot window is the only route back.
+
+**The action log cannot be the list, because the restore rolls it back too.** Everything written
+between the snapshot and the restore is gone, the log's own rows about the erasures inside that window
+included, so the record is the mail thread — which is the record in any case, there being no ticket
+system ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). Write down which
+snapshot was restored, so which requests fall after it is answerable later.
+
+**`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
+constraint landed restores rows the current validators reject, and the validators are attached strict,
+so such a row refuses an erasure's own `$set` — which is every write below.
+
+**Then read every erasure the mailbox answered inside the window, and run each again.** A restored row
+does not look erased, and each role's guard reads something the restore took away:
+
+- **A referee.** The name, school and contact members are back and `anonymisiert_am` is unstamped, so
+  both the undo refusal and the reactivation refusal read the row as never erased
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I214) and it is editable and bookable
+  again. `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`.
+- **A pupil.** The person and their squad rows are back and standing, so the erasure is refused until
+  the retirement is stamped again (`REQ-PURGE-001`): `DELETE /spieler/{spieler_id}`, then
+  `DELETE /spieler/{spieler_id}/erasure`.
+- **A contact seat.** Every seat that address held is back and filled. `POST /kontakte/erasure` is
+  keyed on the address, so the address off the thread is the whole input — and the armed panel's list
+  now names seats written since the snapshot as well, which is why section 5 says to read it before
+  pressing.
+- **An administrator.** The sign-in store is a second database reached by hand (section 5), so whether
+  the restore reached it is a question about what was restored rather than about this step.
+
+**The log's redactions came back as well**, so re-running each erasure is also what re-empties the
+images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
+
+**Two consequences that are not erasures.** The retention sweep repairs itself, its clocks being
+stored dates — but a deletion notice already sent whose stamp the restore took back is sent a second
+time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants)
+I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
+answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
+misses.

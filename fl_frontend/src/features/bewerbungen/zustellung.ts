@@ -61,9 +61,10 @@ const ZustellEreignisSchema = z.object({
 
 type ZustellEreignis = z.infer<typeof ZustellEreignisSchema>;
 
-// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`, which the endpoint applies
-// to `grund`. A third spelling — `fl_frontend/src/features/bewerbungen/schemas.ts` carries the
-// second — and no contract test compares patterns.
+// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`, applied there to `grund`
+// and copied again in `fl_frontend/src/features/bewerbungen/schemas.ts`. This copy is held to the
+// original by `fl_backend/tests/shared/test_frontend_mirrors.py :: SINGLE_LINE_SCREEN`, which reads
+// it as one line and refuses any flag but `u`.
 const EINZEILIG = /^[^\x00\n\v\f\r\u0085\u2028\u2029]*$/u;
 
 // The offset the endpoint requires, anchored to a time so a date alone cannot satisfy it. Nothing of
