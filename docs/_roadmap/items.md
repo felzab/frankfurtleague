@@ -111,7 +111,6 @@ deliverable.
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
-| `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                              | FE, Ops, Docs, edge                                                         | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                             | FE, Docs                                                                    | Open     |
@@ -1590,41 +1589,6 @@ decoration from 1.4.11, and it does not exempt a state.
 
 **Done when** each of the three is either measured by a `PAIRS` row that passes, or recorded as
 decoration with the argument in the commit that records it.
-
-### `uayf-u7g4` · The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
-
-| Tags                | Status   | Depends on |
-| ------------------- | -------- | ---------- |
-| FE, Ops, Docs, edge | Standing | —          |
-
-**Found 2026-08-01 while diagnosing a missing WhatsApp link preview.**
-`fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, `meta-externalagent` among
-them, and **that file is a request**: robots.txt is advisory and a crawler chooses whether to obey
-it. Cloudflare is separately enforcing something stronger — measured against the live site on
-2026-08-01, `WhatsApp/2.x`, `facebookexternalhit/1.1` and `Twitterbot/1.0` each collected 200 for a
-page and for an image while `meta-externalagent/1.1` collected 403 for both, the 403 carrying
-`Server: cloudflare` and a `CF-RAY` where `nginx/prod.conf` contains no user-agent or `deny` rules.
-**The block is an edge setting, made in a dashboard this repository does not configure and does not
-record, and it is invisible from the codebase.**
-
-**Why it matters, and why it is not urgent.** Link previews on Meta's products are fetched by
-`facebookexternalhit`, which is served normally, so nothing is broken today. The risk is
-consolidation: if preview fetching ever moves behind `meta-externalagent`, every WhatsApp and
-Facebook preview for this site stops working, the failure is silent, and nothing in the repository
-would explain it.
-
-**What a rework has to decide rather than assume:** whether the AI opt-out belongs in robots.txt, at
-the edge, or both — and if both, which one is the source of truth when they disagree, since they
-already disagree in kind, one asking and one enforcing; whether blocking an agent Meta also uses for
-product features is the intended trade, the opt-out having been aimed at training rather than at
-previews; and whether the edge configuration should be recorded here at all, given
-[`docs/ops/overview.md`](../ops/overview.md) states that this repository does not configure
-Cloudflare — a setting that can break a user-visible feature and leaves no trace in the repo being
-the argument for writing it down somewhere.
-
-**Trigger to revisit:** any Cloudflare bot-protection change, or a report of broken previews.
-Re-running the measurement takes one `curl` per agent and distinguishes an edge block from a markup
-problem immediately.
 
 ### `v7bs-d859` · The frontend keeps a visual system that no document states
 
