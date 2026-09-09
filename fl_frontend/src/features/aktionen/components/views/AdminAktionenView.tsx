@@ -85,12 +85,15 @@ export function AdminAktionenView({
 
       {/* Not dismissible: a standing property of the answer, and a closed notice would leave a
           partial log looking whole. */}
+
+      {/* „Ein Filter holt dagegen auch Zeilen“ holds only while every facet narrows the read
+          (`fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS`). */}
       {!vollstaendig && (
         <Callout
           severity="warning"
           title="Das Protokoll ist unvollständig">
           Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen; die übrigen stehen nicht auf dieser Seite. Auch
-          die Suche erfasst nur die geladenen Zeilen. Die Zahlen an den Filtern zählen dagegen{" "}
+          die Suche erfasst nur die geladenen Zeilen. Ein Filter holt dagegen auch Zeilen, die hier fehlen. Die Zahlen an den Filtern zählen{" "}
           {dokumentId !== null || vorgangId !== null ? "alle Zeilen der oben genannten Auswahl" : "das ganze Protokoll"}.
         </Callout>
       )}
