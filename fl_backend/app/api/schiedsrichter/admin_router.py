@@ -157,7 +157,19 @@ async def delete_schiedsrichter(
     )
     refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
 
-    updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=today)
+    stored = await pull_one_from_db(
+        collection=schiedsrichter_collection,
+        db_filter={"_id": schiedsrichter_id},
+        projection={"inactive_since": 1},
+    )
+
+    updated_document_raw = await set_inactive_since(
+        collection=schiedsrichter_collection,
+        db_filter={"_id": schiedsrichter_id},
+        # `first_stamped` and never `today`: a second press would move the day they stopped
+        # officiating, which is the day a fee is reconciled against.
+        when=first_stamped(stored=stored, field="inactive_since", today=today),
+    )
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 

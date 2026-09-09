@@ -8,7 +8,12 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter, reactivate_schiedsrichter
+from app.api.schiedsrichter.admin_router import (
+    anonymise_schiedsrichter,
+    delete_schiedsrichter,
+    patch_schiedsrichter,
+    reactivate_schiedsrichter,
+)
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
 from app.api.schiedsrichter.services import (
     ANONYMISATION_UNDONE_BY_AN_EDIT,
@@ -87,6 +92,10 @@ AN_EARLIER_ERASURE = "2026-03-02"
 # The same, for the retirement the erasure writes beside it, and a different day: one value for both
 # would pass a run that stamped each from the other.
 AN_EARLIER_RETIREMENT = "2025-11-20"
+
+# Handed to the retire endpoint alone, and later than every other day here: a stamp that moved off the
+# erasure's own is then unmistakable rather than equal to what the erasure would have written.
+A_LATER_PRESS = "2026-05-04"
 
 # What the seeded fixture edit moves. The field is arbitrary; the edit is not -- it is what files a log
 # row carrying the whole fixture, the referee's embedded name included.
@@ -536,6 +545,17 @@ async def call_anonymisation(
         db=client,
         germany_now=NOW,
         today=TODAY,
+    )
+
+
+async def call_retirement(database: AsyncDatabase, *, today: str) -> FLSchiedsrichterWriteResponse:
+    """Every seeded fixture of this referee is PLAYED, so `find_referee_retire_refusal` refuses nothing and a case below fails on the date."""
+
+    return await delete_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        today=today,
     )
 
 
@@ -1269,3 +1289,39 @@ class TestASecondPersonsErasureLandsAndTwoLiveNamesakesStillDoNot:
             return "accepted"
 
         assert on_a_league(mongo_replica_set_url, body) == "refused"
+
+
+class TestTheRetirePressIsTheSecondWriterOfInactiveSince:
+    """Driven through the endpoint rather than over `first_stamped`, which the default tier already covers.
+
+    What needs a database is whether the retire path consults it at all.
+    """
+
+    @pytest.mark.db
+    def test_a_press_after_the_erasure_leaves_the_erasures_own_day(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_anonymisation(database, client)
+            await call_retirement(database, today=A_LATER_PRESS)
+
+            return await stored_referees(database)
+
+        referees = on_a_league(mongo_replica_set_url, body)
+
+        assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == TODAY
+        # The erasure's own stamp beside it, so this cannot pass on a row neither write reached.
+        assert referees[SCHIEDSRICHTER_OID][ANONYMISIERT_AM] == TODAY
+
+    @pytest.mark.db
+    def test_a_referee_still_serving_is_retired_on_the_day_of_the_press(self, mongo_replica_set_url: str):
+        """The control: a press that stamped nothing at all would pass the case above and retire nobody."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_retirement(database, today=A_LATER_PRESS)
+
+            return await stored_referees(database)
+
+        referees = on_a_league(mongo_replica_set_url, body)
+
+        assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == A_LATER_PRESS
+        # The control's own control: retiring the whole collection would otherwise pass.
+        assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None

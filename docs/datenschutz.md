@@ -3,6 +3,8 @@
 **Purpose:** every data-protection decision I have taken for the league site, recorded once, so
 none is lost before the code, a spec sheet or a runbook carries it. A ruling leaves only when its
 text has reached its destination, and it moves rather than copies (`docs/_standard/standard.md` COR-2).
+**A section number is spent once taken**: a gap in the run below is a number that left with its
+ruling, and renumbering what stands would repoint every citation of it.
 
 Nothing here is a legal conclusion. A ruling marked **Datenschutzexperte consulted** was taken after
 consulting one; every other ruling is mine, taken on 2026-09-01 in a review of every open question
@@ -58,8 +60,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   three. That write is the contact person's own confirmation:
   they type their date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. **The junction contacts editor is not that write** -- it requires a birthdate of the
-  administrator and bounds it at neither tier, so a seat entered there can hold any date at all. The consent vocabulary's `volljaehrig`
+  written. **That confirmation is also the only route by which the date reaches the database**: the
+  junction contacts editor accepts no birthdate, refusing the key outright rather than taking a null
+  (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries whatever date the address
+  already holds forward (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`). **A
+  stored date no confirmation stamped is therefore judged by nothing**, and clearing one is the
+  remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than something a
+  write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to

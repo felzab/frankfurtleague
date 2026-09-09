@@ -427,11 +427,12 @@ agreed, the only reliable form it can take here is removing the data, which is t
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
 keyed on an email address, so it clears every seat that address holds, in every season and both
-collections. The confirmation names the person whose panel you started from and lists nothing else
-the address matches
+collections. **Read the armed panel's list before pressing**: it names every one of those seats, by
+person and by the season or application it sits in, and the press stays shut until that list is on
+screen
 (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
-so establish yourself whether a school inbox is shared before pressing, and read the counts the
-result reports afterwards — they are what say how far the write reached.
+so a shared school inbox arrives as several names. Read the counts the result reports afterwards —
+they are what say how far the write reached.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that

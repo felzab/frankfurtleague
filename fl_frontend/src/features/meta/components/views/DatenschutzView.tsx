@@ -17,7 +17,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "8. September 2026";
+const STAND = "9. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -85,7 +85,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
-    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel, in derselben Form",
+    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
@@ -161,7 +161,10 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Für die Teilnahme an der Frankfurt League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
             </li>
-            <li className={ABSATZ}>Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens.</li>
+            <li className={ABSATZ}>
+              Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens; wie das bei Schiedsrichterinnen und
+              Schiedsrichtern genau aussieht, steht in Abschnitt 10.
+            </li>
             <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
@@ -402,9 +405,9 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Veröffentlicht werden dann
-            Vorname und erster Buchstabe des Nachnamens, bei einer Spielerin und einem Spieler dazu das Team, die Rückennummer und die Position,
-            soweit sie angegeben sind.
+            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Von einer Spielerin und einem
+            Spieler werden Vorname und erster Buchstabe des Nachnamens veröffentlicht, dazu das Team, die Rückennummer und die Position, soweit
+            sie angegeben sind.
           </p>
           <p className={ABSATZ}>
             Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
@@ -412,8 +415,10 @@ export function DatenschutzView() {
             wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
           </p>
           <p className={ABSATZ}>
-            Für Schiedsrichterinnen und Schiedsrichter gilt dieselbe Form: An einem Spiel stehen Vorname und erster Buchstabe des Nachnamens.
-            Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
+            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
+            und vom nächsten nur der Anfangsbuchstabe. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens,
+            und ist nur ein einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der
+            Liga.
           </p>
           <p className={ABSATZ}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
