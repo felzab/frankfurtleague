@@ -6,18 +6,14 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { CustomObjectIdStringSchema, KONTAKT_EMAIL_MAX_LENGTH } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /**
  * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
  * a person and not a row. Its own declaration, so no value typed for a write reaches the deletion.
  */
 export const FLKontaktErasurePayloadSchema = z.object({
-  // Spelled as the team editor spells it: the backend types the field the same way, and its refusal
-  // carries no field detail, so an address only the server judged would mark no box.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
 });
 export type FLKontaktErasurePayload = z.infer<typeof FLKontaktErasurePayloadSchema>;
 

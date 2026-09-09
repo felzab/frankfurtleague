@@ -81,6 +81,25 @@ describe("what the public submission schema accepts", () => {
   it("accepts a whole submission at all", () => {
     assert.deepEqual(refusedPaths(gueltig()), []);
   });
+
+  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a school whose
+     contact address holds either has to be able to apply. */
+  it("accepts a submission whose contact address carries an umlaut, in either part", () => {
+    for (const email of ["käthe@beispiel.de", "erika@käthe-schule.example"]) {
+      const draft = gueltig();
+
+      assert.deepEqual(refusedPaths(gueltig({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } })), [], email);
+    }
+  });
+
+  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so the box
+     the applicant has to change would be marked by nothing. */
+  it("refuses a contact address the API would refuse, on that seat's own box", () => {
+    const draft = gueltig();
+    const kaputt = gueltig({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email: "tim@ab-.de" }) } });
+
+    assert.deepEqual(refusedPaths(kaputt), ["kontakte.trainer.email"]);
+  });
 });
 
 describe("the three people have to be tellable apart", () => {
@@ -595,6 +614,14 @@ describe("the one field of a submitted application an administrator may move", (
 
   it("refuses an empty address rather than storing a seat nothing can reach", () => {
     assert.ok(refusalFor({ ...KORREKTUR, email: "" })["email"] !== undefined);
+  });
+
+  /* The correction exists to reach a mailbox the submission could not, so an address `EmailStr` stores
+     has to pass here: refused, the seat stays unreachable and no other route moves it. */
+  it("takes every address the API stores, so any mailbox can be corrected to", () => {
+    for (const email of ["käthe@schule.de", "erika@käthe-schule.example", "a!b@schule.de"]) {
+      assert.deepEqual(refusalFor({ ...KORREKTUR, email }), {}, email);
+    }
   });
 
   /* Exported for the editor, which closes its own press on an address that has not moved: two

@@ -15,6 +15,7 @@ import {
   FLKontaktPayloadSchema,
   FLKontaktSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
   PHONE_REGEX,
 } from "./schemas.ts";
 
@@ -214,6 +215,78 @@ describe("FLKontaktSchema", () => {
   });
 });
 
+describe("KontaktEmailSchema", () => {
+  const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
+
+  // Each is a value `EmailStr` takes and stores unchanged, and `z.email()`'s alphabet refuses: a
+  // school whose contact address holds one could not submit an application at all.
+  it("takes every address the API stores, umlauts and atext characters and all", () => {
+    const addresses = [
+      "käthe@example.de",
+      "kaethe@käthe-schule.example",
+      "kaethe@xn--kthe-schule-l8a.example",
+      "a!b@example.de",
+      `${"a".repeat(70)}@example.de`,
+      "Anna@Example.DE",
+    ];
+
+    for (const email of addresses) {
+      assert.equal(KontaktEmailSchema.safeParse(email).success, true, `expected "${email}" to be accepted`);
+    }
+  });
+
+  // Each is one the API answers with a bare REQ-VAL-001 naming no field, so the box the applicant has
+  // to change would be marked by nothing.
+  it("refuses every address the API refuses on its characters and lengths", () => {
+    const addresses = [
+      "person@ab-.de",
+      "anna@-example.de",
+      `person@${"a".repeat(70)}.de`,
+      "anna@example",
+      "anna@1.2.3.4",
+      "anna@example..de",
+      "anna@example.de.",
+      "anna@ex_ample.de",
+      ".anna@example.de",
+      "anna.@example.de",
+      "an..na@example.de",
+      "an,na@example.de",
+      "an na@example.de",
+      "anna@@example.de",
+    ];
+
+    for (const email of addresses) {
+      assert.equal(KontaktEmailSchema.safeParse(email).success, false, `expected "${email}" to be rejected`);
+    }
+  });
+
+  // The label cap is 63 OCTETS of the punycoded host and an umlaut costs more than one, so read on the
+  // value as typed the second of these is 58 characters and passes.
+  it("measures the label cap on the punycoded host rather than on what was typed", () => {
+    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(57)}.de`).success, true);
+    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(58)}.de`).success, false);
+  });
+
+  // Pydantic strips before it validates, so the API takes this and stores it trimmed. The padding is
+  // invisible, which is what makes a refusal over it unactionable.
+  it("takes a pasted address padded with spaces and submits it trimmed", () => {
+    assert.equal(KontaktEmailSchema.parse("  erika@example.de  "), "erika@example.de");
+  });
+
+  // The API takes this one and stores the address alone. Refused rather than unwrapped: the name is on
+  // screen for the applicant to delete, where a quiet rewrite would submit what nobody typed.
+  it("refuses an address wrapped in a display name rather than unwrapping it", () => {
+    assert.equal(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success, false);
+  });
+
+  it("carries one German sentence per fault", () => {
+    assert.deepEqual(refusals("erika@"), ["Bitte gib eine gültige E-Mail-Adresse ein."]);
+    assert.deepEqual(refusals(`${"e".repeat(300)}@schule.de`), [
+      `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
+    ]);
+  });
+});
+
 describe("FLKontaktPayloadSchema", () => {
   // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
   function addressOfLength(total: number): string {
@@ -250,6 +323,14 @@ describe("FLKontaktPayloadSchema", () => {
       over.error?.issues.map((issue) => issue.message),
       ["Bitte gib eine gültige E-Mail-Adresse ein."],
     );
+  });
+
+  // The referee editor's own box, which is where an address is typed: one `EmailStr` stores has to
+  // pass here, or the admin cannot enter it at all.
+  it("takes on the write every address the read mirror takes", () => {
+    for (const email of ["käthe@example.de", "kaethe@käthe-schule.example", "a!b@example.de"]) {
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
+    }
   });
 
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic

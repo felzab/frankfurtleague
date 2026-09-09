@@ -23,7 +23,7 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
-  KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
 } from "@/shared/schemas";
@@ -371,9 +371,7 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
   // here so the API refuses one an older client still sends rather than storing an unchecked date.
@@ -783,10 +781,7 @@ export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEi
 export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-  // The submission's own two sentences, so one address is judged alike wherever it is typed.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
 });
 export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
 

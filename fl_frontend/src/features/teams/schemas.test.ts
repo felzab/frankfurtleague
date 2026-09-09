@@ -195,6 +195,25 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
   it("refuses a seat that is neither a whole person nor empty", () => {
     assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
   });
+
+  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a seat whose person
+     holds one has to save here rather than meet a field message no repair answers. */
+  it("takes a seat whose address carries an umlaut, in either part", () => {
+    for (const email of ["käthe@beispiel.de", "kaethe@käthe-schule.example"]) {
+      const seat = kontaktpersonPayload({ email });
+
+      assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: seat })), [], email);
+    }
+  });
+
+  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so nothing
+     would mark the box the admin has to change. */
+  it("refuses a seat whose address the API would refuse", () => {
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
+      ["trainer.email"],
+    );
+  });
 });
 
 describe("a club's website", () => {

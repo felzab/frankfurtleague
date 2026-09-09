@@ -8,7 +8,7 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
-  KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
 } from "@/shared/schemas";
@@ -171,11 +171,7 @@ const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX
 export const FLKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  // The ceiling is stated here rather than left to the address validator, whose refusal carries no
-  // field detail, so nothing would mark the box.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
   // person has not confirmed yet (`docs/backend/spec.md :: I141`).
