@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
         const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
         if (refusal === undefined) throw error;
 
-        return refusal;
+        return { refusal };
       }
 
-      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten.";
+      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
     invalidate: () => {

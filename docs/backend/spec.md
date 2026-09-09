@@ -115,7 +115,7 @@ subject is an email address and travels in the body instead.
 | ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PATCH  | `/spiele/{spiel_id}`                                     | Writes one match, then resolves that season's bracket. See §1.3                                                                                                                 |
 |        | `/spiele/{spiel_id}?dry_run=true`                        | The same call, reporting what it would move and destroy. Writes nothing                                                                                                         |
-|        | `/spiele/{spiel_id}/paarung`                             | Puts one match's Paarung back, with the fields a save replaced beyond it, and resolves the bracket again — see I210, I215                                                       |
+|        | `/spiele/paarungen`                                      | Puts every match one save moved back in ONE transaction, in the body's order — see I210, I215, I222, I223                                                                       |
 |        | _no `POST /spiele`, no `DELETE /spiele/{spiel_id}`_      | No request creates or removes ONE fixture; a season's set is drawn and removed whole — see I26                                                                                  |
 | POST   | `/teams`                                                 | Creates a club                                                                                                                                                                  |
 | PATCH  | `/teams/{team_id}`                                       | Renames a club **and fans it out** into its `saison_teams` rows and its matches, in every season that is not `past` — see I13                                                   |
@@ -219,10 +219,12 @@ what follows from that decision travels in its transaction (I42, I51) rather tha
 
 ### 1.3 The match write path
 
-`PATCH /spiele/{spiel_id}` step by step, and `PATCH /spiele/{spiel_id}/paarung` with it: both routes hand
-their payload to `fl_backend/app/api/spiele/admin_router.py :: _write_spiel_data`, and the narrow one's body
-is completed from the stored fixture before step 1a, so every rule below judges a whole fixture rather than
-the fields the request named (I210).
+`PATCH /spiele/{spiel_id}` step by step, and `PATCH /spiele/paarungen` with it: both routes hand
+their payload to `fl_backend/app/api/spiele/admin_router.py :: _write_spiel_data` as a LIST of fixtures,
+and a narrow entry's body is completed from the stored fixture before step 1a, so every rule below judges
+a whole fixture rather than the fields the request named (I210). **The restore runs steps 0 to 5 once per
+entry and all of them in one transaction** (I222), so a refusal on any entry takes the entries already
+written back with it.
 
 | Step | Behaviour                                                                                                                                                                          | What breaks if changed                                                                                                                                          |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -264,7 +266,10 @@ the `$set` cannot have moved the fixture out from under the scope.
 **More than one document, and still one transaction**, because the result and the advancement it causes
 are one fact. Step 5's read takes the session, or it would see the snapshot from before step 2 and
 resolve the bracket from the match as it was; step 4's takes it so the junction rows the standings
-rank — each club's group and its `austritt` — are read at the same instant.
+rank — each club's group and its `austritt` — are read at the same instant. **The transaction is opened
+inside `_write_spiel_data` rather than by either route**, so every write it commits sits in the callback
+`fl_backend/tests/core/app_source.py :: transactional_callbacks` reads and none can lose its session
+unseen.
 
 **No team document is written.** The league table is computed from the match documents by `GET /teams`
 (I1), so entering a result moves the table on the next read. The frontend still invalidates the `teams`
@@ -724,6 +729,8 @@ rather than by the handler remembering to conceal one.
 | I219 | A seat's stored provenance and birthdate carry forward only where the address and both names fold equal; any other difference reads as a handover                                                  | `fl_backend/app/api/teams/services.py :: _seat_held_by` over `:: SEAT_IDENTITY_FIELDS`; `fl_backend/tests/api/test_saison_team_kontakte.py :: TestTheDateRidesWithThePerson` and `:: TestTheProvenanceIsTheServers`                                                                                                                                                                                                                                                         |
 | I220 | An application still `eingereicht` when the season it applied for is `past` is erased, whatever its seats answered or its notice became                                                            | `fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due` and `:: season_has_ended`, read off `saisons.status`; `fl_backend/app/api/bewerbungen/sweep_router.py :: erase_the_undecided`, run before the reminder; `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheSeasonsOwnEndClock`                                                                                                                                                      |
 | I221 | An acceptance copies a seat's birthdate into `saison_teams` only where that seat's own `bestaetigt_am` stands; every other seat enters undated                                                     | `fl_backend/app/api/teams/services.py :: compose_kontakte_at_entry`, inside `fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung`; `fl_backend/tests/api/test_bewerbung_triage_execution.py :: TestAnAcceptanceEntersTheSchool` and `:: TestAcceptanceWaitsForEverySeat`                                                                                                                                                                                   |
+| I222 | A restore replays every fixture one save moved in ONE transaction: a refusal on one leaves the season as that save left it                                                                         | `fl_backend/app/api/spiele/admin_router.py :: _write_spiel_data` opens one transaction over the whole list; `fl_backend/tests/api/test_spiel_paarung_execution.py :: TestAChainOfRoundsGoesBackWholeOrNotAtAll` drives a refused entry                                                                                                                                                                                                                                      |
+| I223 | A replay writes the entries in the body's own order, `spiel_nr` ascending behind the fixture the save named, and re-sorts nothing                                                                  | `fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` composes it (I215), `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen` walks it as given, and `fl_backend/app/api/spiele/services.py :: find_wiring_refusal` refuses a fixture ahead of its feeder                                                                                                                                                                                         |
 
 ## 3. Violation → remedy
 

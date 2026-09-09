@@ -1,27 +1,24 @@
 import { revalidateTag } from "next/cache";
 
-import { z } from "zod";
-
 import { APIBadStatusError } from "@/core/errors";
-import { patchAdminSpielPaarung } from "@/features/spiele/mutations";
-import { FLPatchSpielPaarungPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
+import { patchAdminSpielePaarungen } from "@/features/spiele/mutations";
+import { FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
+import { describeMovedSpiele } from "@/features/spiele/utils";
 import { handleUndoRequest } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
 /**
- * One shape for every fixture, and the save's own report is what comes back: a payload built from the
- * page's props would revert a field another writer moved while the editor stood open.
+ * The save's own report: a payload built from the page's props would revert a field another writer
+ * moved while the editor stood open.
  */
-const UndoRequestSchema = z.object({
-  // Never empty: the report this replays leads with the fixture the save named
-  // (`docs/backend/spec.md :: I215`), so an empty list is a body no save produced and the replay below
-  // would answer it as a restore having written nothing.
-  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
+const UndoRequestSchema = FLPatchSpielePaarungenPayloadSchema.extend({
+  // This route's alone, naming the cached reads to clear: the endpoint derives the season from the
+  // fixtures themselves.
   saison_id: FLSpielSchema.shape.saison_id,
 });
 
-// One replay can carry several fixtures, so no row below names a single one.
+// One replay carries every fixture, so no row below names a single one.
 
 /**
  * The refusals a replay can meet, in German written for the undo — the save's own words name a field
@@ -46,46 +43,39 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-WIRING-003": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, die es in dieser Saison nicht gibt.",
 };
 
-/** The second half of every refusal above: a cause alone leaves the admin unsure what the fixtures now hold. */
+/**
+ * The second half of every refusal above, and the whole of it: the replay is one transaction, so a
+ * refusal on any fixture leaves every one of them where the save put it.
+ */
 const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSpielEdit",
     schema: UndoRequestSchema,
-    // **Order is the whole correctness argument**, and it is the SERVER's: the fixture the save named
-    // leads its report, so its restore's resolution refills the moved slots first
-    // (`docs/backend/spec.md` I215). Never re-sorted here.
     restore: async ({ paarungen }) => {
-      const total = paarungen.length;
+      let operation;
+      try {
+        operation = await patchAdminSpielePaarungen({ paarungen });
+      } catch (error) {
+        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
+        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
+        if (refusal === undefined) throw error;
 
-      let restored = 0;
-      for (const paarung of paarungen) {
-        let operation;
-        try {
-          operation = await patchAdminSpielPaarung(paarung);
-        } catch (error) {
-          const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-          // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-          const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
-          if (refusal === undefined) throw error;
-
-          // The count, not `CHANGE_STANDS`, once a fixture is back: the change stands only in part.
-          const outcome = restored === 0 ? CHANGE_STANDS : `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen.`;
-          return `${refusal} ${outcome}`;
-        }
-
-        if (!operation.acknowledged) {
-          // Never `CHANGE_STANDS` here: an unacknowledged write may still have landed. A sentence per
-          // count, the noun agreeing with `total` (`docs/frontend/spec.md` §1.12).
-          return total === 1
-            ? "Die Rücknahme wurde abgebrochen. Prüfe das Spiel."
-            : `Die Rücknahme wurde nach ${restored} von ${total} Spielen abgebrochen. Prüfe die betroffenen Spiele.`;
-        }
-        restored += 1;
+        return { refusal: `${refusal} ${CHANGE_STANDS}` };
       }
 
-      return undefined;
+      if (!operation.acknowledged) {
+        // Never `CHANGE_STANDS` here: an unacknowledged write may still have landed, so the admin is
+        // sent to look rather than told the save is intact.
+        return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
+      }
+
+      // The replay's own collateral, which the loop this replaced discarded: restoring the fixture the
+      // save named empties the slots below it again, and a fixture the list does not put back has lost
+      // its result for good.
+      return { cost: describeMovedSpiele(operation.advanced_to, operation.bracket_faults, operation.released_sides) };
     },
     invalidate: ({ saison_id }) => {
       for (const tag of ["spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`]) {

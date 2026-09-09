@@ -514,11 +514,20 @@ export const FLSpielPriorPaarungSchema = z.object({
 export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 
 /**
- * **The report above IS the body the restore sends**, `spiel_id` becoming the path segment: naming
- * the shape twice is what would let one end gain a field the other never carries.
+ * **The report above IS one entry of the body the restore sends**, `spiel_id` included: naming the
+ * shape twice is what would let one end gain a field the other never carries.
  */
 export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
 export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
+
+/** Every fixture one save moved, in the order it reported them — one request, and one transaction behind it. */
+export const FLPatchSpielePaarungenPayloadSchema = z.object({
+  // Never empty: the report this replays leads with the fixture the save named, so an empty list is
+  // a body no save produced and a replay over it would answer as a restore having written nothing.
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
+});
+
+export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;
 
 /**
  * **`dry_run=true` answers with this same shape**, one schema being what stops a preview parsing
@@ -538,6 +547,18 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
+
+/**
+ * What a whole replay cost fixtures it was not asked to restore, and the faults the season it
+ * committed carries. No `prior_paarungen`: an undo is not itself undoable.
+ */
+export const FLPatchSpielePaarungenResponseSchema = BaseAPIResponseSchema.extend({
+  advanced_to: z.array(FLSpielAdvancementSchema),
+  released_sides: z.array(FLSpielReleasedSideSchema),
+  bracket_faults: z.array(FLBracketFaultSchema),
+});
+
+export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarungenResponseSchema>;
 
 /**
  * `spiele` carries the filter's matches plus every match a fault names, so the client always holds

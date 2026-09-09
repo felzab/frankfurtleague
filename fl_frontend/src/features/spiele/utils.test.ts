@@ -15,6 +15,7 @@ import {
   computeSpielStatus,
   deriveSlotHerkunft,
   describeBracketFaultOnCard,
+  describeMovedSpiele,
   formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
@@ -463,6 +464,30 @@ describe("formatSpielUpdateMessage", () => {
     );
 
     assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde; das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
+  });
+});
+
+describe("describeMovedSpiele", () => {
+  const voidedElsewhere: FLSpielAdvancement = {
+    spiel_id: matchId(30),
+    spiel_nr: 30,
+    voided_ergebnis: "2:0",
+    voided_elfmeterschiessen: null,
+    voided_sonderereignis: null,
+  };
+
+  it("says nothing at all where the write moved nothing", () => {
+    // The undo's toast reads as a clean restore off exactly this: an empty sentence would grade it a
+    // warning and send the admin looking for a loss nothing took.
+    assert.equal(describeMovedSpiele([]), undefined);
+  });
+
+  it("carries the save's own sentences without the save's lead", () => {
+    const described = describeMovedSpiele([voidedElsewhere]);
+
+    assert.doesNotMatch(described ?? "", /Die Spieldaten wurden aktualisiert/);
+    assert.match(described ?? "", /^Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. /);
+    assert.match(described ?? "", /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht$/);
   });
 });
 

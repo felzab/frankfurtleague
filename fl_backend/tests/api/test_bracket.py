@@ -91,9 +91,9 @@ def priors(
 
 
 def restore_of(prior: FLSpielPriorPaarung) -> FLPatchSpielPaarungPayload:
-    """The report as the body sent back, `spiel_id` becoming the path segment -- the round trip the wire makes."""
+    """The report as one entry of the body sent back -- the round trip the wire makes, field for field."""
 
-    return FLPatchSpielPaarungPayload(**prior.model_dump(exclude={"spiel_id"}))
+    return FLPatchSpielPaarungPayload(**prior.model_dump())
 
 
 def a_release_of(spiel_nr: int, ergebnis: str | None = None) -> FLSpielReleasedSide:
@@ -873,7 +873,9 @@ class TestPuttingBackWhatTheResolutionDestroyed:
     def test_the_two_halves_name_every_field_the_wholesale_payload_takes(self):
         """A field added to that payload and to neither half here is written by a save and put back by no undo."""
 
-        paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields"}
+        # `spiel_id` off both sides: the wholesale payload takes its target from the path, and a
+        # replay entry names its own, so neither is a field a save writes.
+        paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields", "spiel_id"}
         beyond = set(get_args(FLSpielRestorableField))
 
         assert set(FLPatchSpielDataPayload.model_fields) == paarung | beyond

@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
         const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
         if (refusal === undefined) throw error;
 
-        return refusal;
+        return { refusal };
       }
 
-      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.";
+      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };
     },
     // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts :: patchSaisonTeamKontakteAction`
     // states at the save this replays: no cached read holds a contact person. The screen is refreshed

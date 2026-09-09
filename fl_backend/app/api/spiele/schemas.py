@@ -543,12 +543,16 @@ class _SpielRestore(_SpielPaarung):
 
 
 class FLPatchSpielPaarungPayload(_SpielRestore):
-    """Restore one fixture's Paarung and the fields this body names beyond it, leaving every other field as stored.
+    """One fixture of a replay: its Paarung and the fields this entry names beyond it, leaving every other field as stored.
 
     Its own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it.
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    # On the BODY where every other patch takes its target from the path (RFC 5789): the route
+    # addresses the list, so nothing but the entry can say which fixture it restores.
+    spiel_id: CustomObjectId
 
     def completed_with(self, stored: "FLSpiel") -> FLPatchSpielDataPayload:
         """This request as the wholesale payload, the document answering what it does not restore.
@@ -580,6 +584,30 @@ class FLPatchSpielPaarungPayload(_SpielRestore):
             ),
             **beyond,
         )
+
+
+class FLPatchSpielePaarungenPayload(BaseModel):
+    """Restore every fixture one save moved, in the order the report named them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The floor: a save's report leads with the fixture it named, so an empty list is a body no save
+    # produced. The ceiling is the season read's, no legitimate replay naming more fixtures than one
+    # season can hold.
+    paarungen: list[FLPatchSpielPaarungPayload] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
+
+    @model_validator(mode="after")
+    def one_entry_per_fixture(self) -> "FLPatchSpielePaarungenPayload":
+        """A fixture named twice is restored twice, and its first restore's collateral then reads as the replay's own doing.
+
+        `fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` reports each fixture once.
+        """
+
+        named = [entry.spiel_id for entry in self.paarungen]
+        if len(set(named)) != len(named):
+            raise ValueError("Eine Rücknahme nennt jedes Spiel genau einmal.")
+
+        return self
 
 
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
@@ -773,3 +801,21 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     # name is restored once, and neither reports the sides.
     # ORDER-BEARING: the fixture the request named leads it (`docs/backend/spec.md :: I215`).
     prior_paarungen: list[FLSpielPriorPaarung] = Field(default_factory=list)
+
+
+class FLPatchSpielePaarungenResponse(BaseAPIResponse):
+    """What a whole replay cost beyond the fixtures it was asked to restore, and the season's faults once it had.
+
+    No `prior_paarungen`: a restore this reports would be an undo of an undo, which no surface offers
+    (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`).
+    """
+
+    # A fixture the replay itself puts back after this rewrite is left out of both: it is the
+    # mechanism the order exists for (`docs/backend/spec.md :: I223`) rather than something an admin
+    # lost.
+    advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
+    released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
+
+    # The LAST entry's, never a union: an earlier entry's faults describe a season the replay has
+    # since moved past, and only the committed one is a fault an admin can act on.
+    bracket_faults: list[FLBracketFault] = Field(default_factory=list)

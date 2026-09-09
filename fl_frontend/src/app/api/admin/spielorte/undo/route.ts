@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     schema: FLPatchSpielortPayloadSchema,
     restore: async (payload) => {
       const operation = await patchSpielort(payload);
-      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.";
+      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten." };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
     invalidate: () => {

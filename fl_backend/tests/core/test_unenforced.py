@@ -11,7 +11,7 @@ from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiel_paarung
+from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -804,7 +804,7 @@ class TestAFutureSeasonHoldingRecordedResults:
     def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
         """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
 
-        for route in (patch_spiel_data, patch_spiel_paarung):
+        for route in (patch_spiel_data, patch_spiele_paarungen):
             judged = {
                 callee(call)
                 for _, call in calls_in(declared(route), route.__name__)

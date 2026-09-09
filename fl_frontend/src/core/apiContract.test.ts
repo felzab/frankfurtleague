@@ -130,7 +130,6 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLAblehnenBewerbungPayload: ["id"],
   FLPatchSpielortPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
-  FLPatchSpielPaarungPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
@@ -340,7 +339,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 179;
+const EXPECTED_PAIRS = 181;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

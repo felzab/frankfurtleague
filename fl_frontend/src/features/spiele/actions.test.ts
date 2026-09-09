@@ -96,10 +96,9 @@ describe("the match edit's refusals when the undo replays it", () => {
 
   it("adds the outcome sentence once, outside the rows", () => {
     assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(
-      UNDO_ROUTE.includes("restored === 0 ? CHANGE_STANDS :"),
-      "a replay that already restored a fixture now claims the change stands whole",
-    );
+    // Unconditional, which is what the one transaction buys: a refusal on any entry leaves the whole
+    // change standing rather than the part a stopped replay had already put back.
+    assert.ok(UNDO_ROUTE.includes("${refusal} ${CHANGE_STANDS}"), "a refusal no longer closes with the outcome");
   });
 
   /* The route's own rows, never `sharedAnswer`'s: eight of these codes reach a named arm there,

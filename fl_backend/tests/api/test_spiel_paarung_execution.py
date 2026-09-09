@@ -1,10 +1,9 @@
 """
-API · the narrow restore route, driven against a real mongod because only the stored fixture answers
+API · the restore route, driven against a real mongod because only the stored fixture answers
 
-`PATCH /spiele/{spiel_id}/paarung` is what a season's undo replays every fixture through, the one the
-save itself named included, and its response reports what the write MEANT to do, so a case reading
-that alone would still pass the day the write stopped landing: every assertion below re-reads the
-fixture out of the database. The refusals and the composition are
+`PATCH /spiele/paarungen` is the whole of a season's undo, and its response reports what the write
+MEANT to do, so a case reading that alone would still pass the day the write stopped landing: every
+assertion below re-reads the fixtures out of the database. The refusals and the composition are
 `tests/api/test_spiele_write_execution.py`'s, and completing a narrowed payload off the stored
 fixture is `tests/api/test_bracket.py`'s; nothing here re-decides either.
 """
@@ -17,9 +16,16 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spiele.admin_router import patch_spiel_data, patch_spiel_paarung
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLPatchSpielPaarungPayload
+from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.schemas import (
+    FLPatchSpielDataPayload,
+    FLPatchSpielDataResponse,
+    FLPatchSpielePaarungenPayload,
+    FLPatchSpielePaarungenResponse,
+    FLPatchSpielPaarungPayload,
+)
 from app.core.collections import Collection
+from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -56,10 +62,17 @@ NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA"), D
 
 SPIELTAG_GRUPPE = oid("00a1")
 SPIELTAG_HALBFINALE = oid("00a2")
+SPIELTAG_VIERTELFINALE = oid("00a3")
+SPIELTAG_FINALE = oid("00a4")
 
 # Each matchday's phase and its day, which is also the day every fixture on it is played: the write
 # path reads the span back to judge the saved date.
-SPIELTAGE = {SPIELTAG_GRUPPE: ("gruppenphase", "2026-03-15"), SPIELTAG_HALBFINALE: ("halbfinale", "2026-05-08")}
+SPIELTAGE = {
+    SPIELTAG_GRUPPE: ("gruppenphase", "2026-03-15"),
+    SPIELTAG_VIERTELFINALE: ("viertelfinale", "2026-04-10"),
+    SPIELTAG_HALBFINALE: ("halbfinale", "2026-05-08"),
+    SPIELTAG_FINALE: ("finale", "2026-06-05"),
+}
 
 UHRZEIT = "18:00:00"
 
@@ -71,10 +84,23 @@ SETTLED_SEMI = oid("0011")
 HELD = oid("0021")
 FILLING = oid("0022")
 
+# The chain: the quarter-final feeds the semi-final, which feeds the final. Its whole point is that
+# each restore is legal only once the fixture before it has put its winner back.
+VIERTELFINALE = oid("0031")
+HALBFINALE = oid("0032")
+FINALE = oid("0033")
+
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 SETTLED_SEMI_NR = 5
 HELD_NR = 11
 FILLING_NR = 12
+
+# Ascending across the chain, which is what makes `spiel_nr` order feeder-first: a `quelle` may name
+# only a match played in an earlier round. Distinct from every number above, so a failure names one
+# fixture of one seed.
+VIERTELFINALE_NR = 21
+HALBFINALE_NR = 22
+FINALE_NR = 23
 
 SPIELORT = oid("00b1")
 SCHIEDSRICHTER = oid("00c1")
@@ -195,6 +221,7 @@ def spiel_document(
     elfmeterschiessen: dict[str, int] | None = None,
     notiz: str | None = None,
     booked: bool = False,
+    team1_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Every key spelled out: `FLSpiel` defaults `notiz` alone, so an omitted one fails inside the handler."""
 
@@ -208,10 +235,9 @@ def spiel_document(
         "spieltag_id": spieltag_id,
         "team1": team1,
         "team2": team2,
-        # Null on both sides of every fixture here: the restore reads a `quelle` off the document
-        # rather than out of the request, so a resolution refilling the slot would answer for it
-        # instead (`docs/backend/spec.md :: I23`).
-        "team1_quelle": None,
+        # `team2_quelle` is null throughout, so every fixture keeps one side the admin owns: a
+        # resolution refilling both slots would answer for the payload (`docs/backend/spec.md :: I23`).
+        "team1_quelle": team1_quelle,
         "team2_quelle": None,
         "datum": tag,
         "uhrzeit": UHRZEIT,
@@ -261,6 +287,43 @@ def one_spieltag_holding_a_played_fixture() -> list[dict[str, Any]]:
     ]
 
 
+def a_knockout_chain() -> list[dict[str, Any]]:
+    """Three rounds a result runs the length of: the quarter-final's winner plays the semi-final, whose winner plays the final.
+
+    Every fixture is decided, so one edit at the top empties both scorelines below it.
+    """
+
+    return [
+        # Neither side wired: the admin owns both, so the save below can change who won here.
+        spiel_document(
+            spiel_id=VIERTELFINALE,
+            spiel_nr=VIERTELFINALE_NR,
+            spieltag_id=SPIELTAG_VIERTELFINALE,
+            team1=side(ALPHA, 2),
+            team2=side(BETA, 1),
+            ergebnis="2:1",
+        ),
+        spiel_document(
+            spiel_id=HALBFINALE,
+            spiel_nr=HALBFINALE_NR,
+            spieltag_id=SPIELTAG_HALBFINALE,
+            team1=side(ALPHA, 1),
+            team2=side(GAMMA, 0),
+            ergebnis="1:0",
+            team1_quelle={"type": "spiel", "spiel_nr": VIERTELFINALE_NR, "ausgang": "sieger"},
+        ),
+        spiel_document(
+            spiel_id=FINALE,
+            spiel_nr=FINALE_NR,
+            spieltag_id=SPIELTAG_FINALE,
+            team1=side(ALPHA, 2),
+            team2=side(DELTA, 0),
+            ergebnis="2:0",
+            team1_quelle={"type": "spiel", "spiel_nr": HALBFINALE_NR, "ausgang": "sieger"},
+        ),
+    ]
+
+
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -306,10 +369,14 @@ async def call_patch(
     return await patch_spiel_data(spiel_id=spiel_id, spiel_data=spiel_data, dry_run=False, **_dependencies(database, client))
 
 
-async def call_paarung(
-    database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, paarung: FLPatchSpielPaarungPayload
-) -> FLPatchSpielDataResponse:
-    return await patch_spiel_paarung(spiel_id=spiel_id, spiel_paarung=paarung, **_dependencies(database, client))
+async def call_replay(
+    database: AsyncDatabase, client: AsyncMongoClient, paarungen: list[FLPatchSpielPaarungPayload]
+) -> FLPatchSpielePaarungenResponse:
+    """The whole undo as one request, which is the only shape it has: the list travels in the order it is given."""
+
+    payload = FLPatchSpielePaarungenPayload(paarungen=paarungen)
+
+    return await patch_spiele_paarungen(payload=payload, **_dependencies(database, client))
 
 
 async def payload_for(database: AsyncDatabase, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataPayload:
@@ -342,21 +409,23 @@ class TestARewrittenPaarungLeavesNoScoreline:
 
     def test_the_scoreline_and_the_shoot_out_go_with_the_replaced_occupant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answered = await call_paarung(
+            answered = await call_replay(
                 database,
                 client,
-                SETTLED_SEMI,
-                FLPatchSpielPaarungPayload.model_validate(
-                    {
-                        "team1": {"team_id": ALPHA, "tore": None},
-                        "team2": {"team_id": GAMMA, "tore": None},
-                        "elfmeterschiessen": None,
-                        "sonderereignis": None,
-                        # Nothing beyond the Paarung, which is what leaves the fields asserted below
-                        # the stored document's rather than this request's.
-                        "other_fields": None,
-                    }
-                ),
+                [
+                    FLPatchSpielPaarungPayload.model_validate(
+                        {
+                            "spiel_id": SETTLED_SEMI,
+                            "team1": {"team_id": ALPHA, "tore": None},
+                            "team2": {"team_id": GAMMA, "tore": None},
+                            "elfmeterschiessen": None,
+                            "sonderereignis": None,
+                            # Nothing beyond the Paarung, which is what leaves the fields asserted
+                            # below the stored document's rather than this request's.
+                            "other_fields": None,
+                        }
+                    )
+                ],
             )
 
             return answered, await stored_spiel(database, SETTLED_SEMI)
@@ -377,11 +446,11 @@ class TestARewrittenPaarungLeavesNoScoreline:
 class TestAnUndoReplayPutsTheFixtureBackAsItStood:
     """The whole sequence `fl_frontend/src/app/api/admin/spiele/undo/route.ts` runs, driven end to end.
 
-    Every fixture goes back through the narrow route, the edited one leading, which frees the club the
-    moved one is about to claim again (`docs/backend/spec.md :: I215`).
+    Every fixture goes back in one request, the edited one leading, which frees the club the moved
+    one is about to claim again (`docs/backend/spec.md :: I215`).
     """
 
-    def _replayed(self, url: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], list[FLPatchSpielDataResponse]]:
+    def _replayed(self, url: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], FLPatchSpielePaarungenResponse]:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saved = await call_patch(
                 database,
@@ -397,11 +466,10 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
                 await database[Collection.SPIELE].update_one({"_id": spiel_id}, {"$set": {"notiz": notiz}})
 
             # Composed from what the SAVE reported rather than from the seed, which is the only shape
-            # the undo has to replay from, and replayed in the order it reported.
-            replayed = [
-                await call_paarung(database, client, prior.spiel_id, FLPatchSpielPaarungPayload(**prior.model_dump(exclude={"spiel_id"})))
-                for prior in saved.prior_paarungen
-            ]
+            # the undo has to replay from, and sent in the order it reported.
+            replayed = await call_replay(
+                database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in saved.prior_paarungen]
+            )
 
             return released, await stored_spiel(database, FILLING), await stored_spiel(database, HELD), replayed
 
@@ -417,8 +485,9 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
         assert (held["team1"], held["team2"]) == (side(ALPHA, 2), side(GAMMA, 1))
         assert held["ergebnis"] == "2:1"
 
-        # Nothing else moved with either: the edited fixture went back first, so Alpha was free to claim.
-        assert [(answered.advanced_to, answered.released_sides) for answered in replayed] == [([], []), ([], [])]
+        # Nothing else moved: the edited fixture went back first, so Alpha was free to claim, and the
+        # replay owed the admin no report of its own.
+        assert (replayed.advanced_to, replayed.released_sides, replayed.bracket_faults) == ([], [], [])
 
     def test_a_note_written_between_the_save_and_the_replay_survives_it(self, mongo_replica_set_url: str):
         """The narrowing, against a database: the wholesale payload would carry the note the save saw and revert this one."""
@@ -450,3 +519,156 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
         _, filling, _, _ = self._replayed(mongo_replica_set_url)
 
         assert filling["uhrzeit"] == UHRZEIT
+
+
+class TestAChainOfRoundsGoesBackWholeOrNotAtAll:
+    """The case the single transaction exists for: one edit at the top of a bracket empties every scoreline under it.
+
+    A replay stopping part-way leaves the occupants back and the results gone, with no second press.
+    """
+
+    async def _saved(self, database: AsyncDatabase, client: AsyncMongoClient) -> FLPatchSpielDataResponse:
+        """The edit that turns the quarter-final round: Beta wins it, and the two rounds below lose their results."""
+
+        return await call_patch(
+            database,
+            client,
+            VIERTELFINALE,
+            await payload_for(database, VIERTELFINALE, team1={"team_id": ALPHA, "tore": 1}, team2={"team_id": BETA, "tore": 2}),
+        )
+
+    async def _chain(self, database: AsyncDatabase) -> list[dict[str, Any]]:
+        """The three fixtures as the database holds them, in playing order."""
+
+        return [await stored_spiel(database, spiel_id) for spiel_id in (VIERTELFINALE, HALBFINALE, FINALE)]
+
+    def test_the_save_empties_both_rounds_below_it(self, mongo_replica_set_url: str):
+        """The floor: without it every case below could pass over a save that moved nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await self._saved(database, client)
+
+            return saved, await self._chain(database)
+
+        saved, (_, halbfinale, finale) = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_knockout_chain())
+
+        assert (halbfinale["team1"], halbfinale["team2"], halbfinale["ergebnis"]) == (side(BETA), side(GAMMA), None)
+        assert (finale["team1"], finale["team2"], finale["ergebnis"]) == (None, side(DELTA), None)
+
+        # The report the undo replays, and the whole of what the admin has left of those two results.
+        assert [prior.spiel_id for prior in saved.prior_paarungen] == [VIERTELFINALE, HALBFINALE, FINALE]
+
+    def test_the_reported_order_puts_the_whole_chain_back(self, mongo_replica_set_url: str):
+        """Feeder-first, which is what `spiel_nr` order buys: each restore's resolution refills the slot the next one writes into."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await self._saved(database, client)
+            replayed = await call_replay(
+                database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in saved.prior_paarungen]
+            )
+
+            return replayed, await self._chain(database)
+
+        replayed, (viertelfinale, halbfinale, finale) = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_knockout_chain())
+
+        assert (viertelfinale["team1"], viertelfinale["team2"], viertelfinale["ergebnis"]) == (side(ALPHA, 2), side(BETA, 1), "2:1")
+        assert (halbfinale["team1"], halbfinale["team2"], halbfinale["ergebnis"]) == (side(ALPHA, 1), side(GAMMA, 0), "1:0")
+        assert (finale["team1"], finale["team2"], finale["ergebnis"]) == (side(ALPHA, 2), side(DELTA, 0), "2:0")
+
+        # The replay's own rewrites are not reported: each names a fixture the list puts back after
+        # it, which is the order working rather than a result the admin lost.
+        assert (replayed.advanced_to, replayed.released_sides, replayed.bracket_faults) == ([], [], [])
+
+    def test_a_reversed_order_is_refused_and_leaves_the_season_untouched(self, mongo_replica_set_url: str):
+        """A wrong order is refused rather than silently accepted: the final leads, and its occupant is not the one stored under it.
+
+        Sent in reverse rather than with a hand-built refusal, which is the shape a wrong order takes.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await self._saved(database, client)
+            after_the_save = await self._chain(database)
+
+            refused: str | None = None
+            try:
+                await call_replay(
+                    database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in reversed(saved.prior_paarungen)]
+                )
+            except DocumentConflictException as conflict:
+                refused = conflict.error_code
+
+            return refused, after_the_save, await self._chain(database)
+
+        refused, after_the_save, after_the_replay = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_knockout_chain())
+
+        assert refused == "REQ-WIRING-001"
+        assert after_the_replay == after_the_save
+
+    def test_an_entry_that_committed_before_a_later_refusal_is_taken_back_with_it(self, mongo_replica_set_url: str):
+        """The rollback itself: the quarter-final's restore lands and the final's behind it is refused.
+
+        The one order a transaction per entry survives, leaving that first write standing.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await self._saved(database, client)
+            after_the_save = await self._chain(database)
+
+            # The quarter-final first, so its restore is legal; the final second, whose slot the
+            # semi-final has not refilled yet, so `REQ-WIRING-001` refuses it.
+            named, halbfinale, finale = saved.prior_paarungen
+            order = (named, finale, halbfinale)
+
+            refused: str | None = None
+            try:
+                await call_replay(database, client, [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in order])
+            except DocumentConflictException as conflict:
+                refused = conflict.error_code
+
+            return refused, after_the_save, await self._chain(database)
+
+        refused, after_the_save, after_the_replay = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_knockout_chain())
+
+        assert refused == "REQ-WIRING-001"
+
+        # Named, so the state the rollback restored is readable without the comparison below: Beta
+        # still holds the quarter-final the save gave it, and the restore that landed is gone.
+        viertelfinale = after_the_replay[0]
+        assert (viertelfinale["team1"], viertelfinale["team2"], viertelfinale["ergebnis"]) == (side(ALPHA, 1), side(BETA, 2), "1:2")
+
+        # Every field of every fixture, not the Paarung alone: a rolled-back transaction leaves the
+        # documents byte for byte, and comparing three of their keys would pass over a partial write.
+        assert after_the_replay == after_the_save
+
+    def test_what_the_replay_destroys_and_does_not_put_back_is_reported(self, mongo_replica_set_url: str):
+        """A fixture the list never names loses its result to the replay, and the admin is told.
+
+        The final is left out of the body, so restoring the rounds above it empties it and nothing puts it back.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await self._saved(database, client)
+
+            # The final's result restored by hand, so the replay below has one to destroy: the save
+            # already took it, and this case is about what the REPLAY costs.
+            await database[Collection.SPIELE].update_one(
+                {"_id": FINALE}, {"$set": {"team1": side(ALPHA, 2), "team2": side(DELTA, 0), "ergebnis": "2:0"}}
+            )
+
+            replayed = await call_replay(
+                database,
+                client,
+                [FLPatchSpielPaarungPayload(**prior.model_dump()) for prior in saved.prior_paarungen if prior.spiel_id != FINALE],
+            )
+
+            return replayed, await stored_spiel(database, FINALE)
+
+        replayed, finale = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_knockout_chain())
+
+        # Alpha comes back out of the semi-final and into the final, which costs the scoreline
+        # standing there -- and the body named no entry to write it back.
+        assert (finale["team1"], finale["ergebnis"]) == (side(ALPHA), None)
+
+        # ONE entry, naming the result that really stood there: both restores rewrite this fixture,
+        # and the second finds it already empty, so a second entry would name a loss of nothing.
+        assert [(entry.spiel_nr, entry.voided_ergebnis) for entry in replayed.advanced_to] == [(FINALE_NR, "2:0")]

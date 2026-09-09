@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         // No replay catch: the register declares no refusal against the season-independent club row.
         const operation = await patchTeam(club);
         if (!operation.acknowledged) {
-          return "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten.";
+          return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
         }
       }
 
@@ -57,18 +57,21 @@ export async function POST(request: NextRequest) {
           const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
           if (refusal === undefined) throw error;
 
-          return `${refusal} ${club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED}`;
+          return { refusal: `${refusal} ${club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED}` };
         }
 
         if (!operation.acknowledged) {
           // The first half may already be restored; reported rather than papered over.
-          return club === undefined
-            ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
-            : "Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit.";
+          return {
+            refusal:
+              club === undefined
+                ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
+                : "Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit.",
+          };
         }
       }
 
-      return undefined;
+      return {};
     },
     invalidate: ({ saison }) => {
       const tags = new Set(["teams", "spiele"]);

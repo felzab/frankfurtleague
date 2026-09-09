@@ -15,9 +15,11 @@ const ADMIN_API = path.resolve(import.meta.dirname, "..", "..", "app", "api", "a
 /** Every undo route, walked rather than listed, so one added is swept with the rest. */
 const UNDO_ROUTES = filesUnder(ADMIN_API, (name) => name === "route.ts", 8).filter((file) => path.basename(path.dirname(file)) === "undo");
 
-/** The slices whose replay commits in parts, each named by the sentence it answers when it stops. */
+/**
+ * The slices whose replay commits in parts, each named by the sentence it answers when it stops. A
+ * replay the backend commits whole words no such sentence and takes no row.
+ */
 const PART_WAY: Record<string, RegExp> = {
-  spiele: /von \$\{total\} Spielen abgebrochen/,
   spieler: /Nur die Personendaten wurden zurückgesetzt/,
   teams: /Nur die Stammdaten wurden zurückgesetzt/,
 };
@@ -41,7 +43,7 @@ describe("what the undo spine clears when a replay stops part-way", () => {
   it("clears the caches before it reports a refusal, and where the restore throws", () => {
     assert.equal((SPINE.match(/route\.invalidate\(/g) ?? []).length, 1, "a second invalidation site would satisfy this reading on its own");
 
-    const pastTheRestore = sliceBetween(SPINE, "await route.restore(", "if (refusal !== undefined)");
+    const pastTheRestore = sliceBetween(SPINE, "await route.restore(", "if (report.refusal !== undefined)");
 
     assert.ok(pastTheRestore.includes("route.invalidate("), "the invalidation sits past the refusal's return, which a part-way restore takes");
     assert.ok(pastTheRestore.includes("} finally {"), "a restore that throws leaves the caches serving the rows it had already written");

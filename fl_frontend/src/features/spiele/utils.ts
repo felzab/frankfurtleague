@@ -335,7 +335,30 @@ export const formatSpielUpdateMessage = (
   bracketFaults: readonly FLBracketFault[] = [],
   releasedSides: readonly FLSpielReleasedSide[] = [],
 ): string => {
-  const sentences = ["Die Spieldaten wurden aktualisiert"];
+  return ["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)].join(". ");
+};
+
+/**
+ * The same sentences under the undo's own lead, `undefined` where the replay moved nothing. **The
+ * save's wording and not a second set**: one event would otherwise reach an admin in two vocabularies.
+ */
+export const describeMovedSpiele = (
+  advancedTo: readonly FLSpielAdvancement[],
+  bracketFaults: readonly FLBracketFault[] = [],
+  releasedSides: readonly FLSpielReleasedSide[] = [],
+): string | undefined => {
+  const sentences = movedSpielSentences(advancedTo, bracketFaults, releasedSides);
+
+  return sentences.length === 0 ? undefined : sentences.join(". ");
+};
+
+/** Every sentence naming what a write reached beyond the fixture it was asked about, in reading order. */
+const movedSpielSentences = (
+  advancedTo: readonly FLSpielAdvancement[],
+  bracketFaults: readonly FLBracketFault[],
+  releasedSides: readonly FLSpielReleasedSide[],
+): string[] => {
+  const sentences: string[] = [];
 
   if (advancedTo.length > 0) {
     sentences.push(
@@ -383,7 +406,7 @@ export const formatSpielUpdateMessage = (
   // Named individually rather than counted: "zwei Bracket-Verweise sind offen" is not actionable.
   sentences.push(...bracketFaults.map(formatBracketFault));
 
-  return sentences.join(". ");
+  return sentences;
 };
 
 /** `Intl.ListFormat` over a hand-rolled join: German's "und" and missing serial comma are free. */

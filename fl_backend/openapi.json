@@ -2573,36 +2573,20 @@
         "x-fl-tier": "admin"
       }
     },
-    "/api/v0/spiele/{spiel_id}/paarung": {
+    "/api/v0/spiele/paarungen": {
       "patch": {
-        "summary": "Restore a Spiel's Paarung",
-        "description": "Put one Spiel's occupants and what they produced back, and resolve the season's bracket.\n\nThe body carries the four fields a bracket resolution can rewrite, and beyond them only the ones\n`other_fields.replaced` names: the date, the venue, the referee, the note and both `quelle`s are\notherwise read from the stored document rather than from the request, so a value somebody moved\nsince this fixture was written survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\nNo `dry_run`: what this body would move is what the save it undoes already reported.",
-        "operationId": "patch_spiel_paarung_api_v0_spiele__spiel_id__paarung_patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "spiel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Spiel Id"
-            }
-          }
-        ],
+        "summary": "Restore the Paarungen one save moved",
+        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
+        "operationId": "patch_spiele_paarungen_api_v0_spiele_paarungen_patch",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLPatchSpielPaarungPayload"
+                "$ref": "#/components/schemas/FLPatchSpielePaarungenPayload"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -2610,7 +2594,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPatchSpielDataResponse"
+                  "$ref": "#/components/schemas/FLPatchSpielePaarungenResponse"
                 }
               }
             }
@@ -2626,6 +2610,11 @@
             }
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "x-fl-tier": "admin"
       }
     },
@@ -9342,6 +9331,10 @@
                 "type": "null"
               }
             ]
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
           }
         },
         "additionalProperties": false,
@@ -9351,10 +9344,105 @@
           "team2",
           "elfmeterschiessen",
           "sonderereignis",
-          "other_fields"
+          "other_fields",
+          "spiel_id"
         ],
         "title": "FLPatchSpielPaarungPayload",
-        "description": "Restore one fixture's Paarung and the fields this body names beyond it, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it."
+        "description": "One fixture of a replay: its Paarung and the fields this entry names beyond it, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it."
+      },
+      "FLPatchSpielePaarungenPayload": {
+        "properties": {
+          "paarungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLPatchSpielPaarungPayload"
+            },
+            "type": "array",
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Paarungen"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "paarungen"
+        ],
+        "title": "FLPatchSpielePaarungenPayload",
+        "description": "Restore every fixture one save moved, in the order the report named them."
+      },
+      "FLPatchSpielePaarungenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "advanced_to": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielAdvancement"
+            },
+            "type": "array",
+            "title": "Advanced To"
+          },
+          "released_sides": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielReleasedSide"
+            },
+            "type": "array",
+            "title": "Released Sides"
+          },
+          "bracket_faults": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultGruppe"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultQuelle"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpiel"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSlot"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultOccupant"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpieltag"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "reason",
+                "mapping": {
+                  "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
+                  "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
+                  "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
+                  "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+                  "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
+                  "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
+                  "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "same_team": "#/components/schemas/FLBracketFaultSpiel",
+                  "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
+                  "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
+                  "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
+                  "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Bracket Faults"
+          }
+        },
+        "type": "object",
+        "title": "FLPatchSpielePaarungenResponse",
+        "description": "What a whole replay cost beyond the fixtures it was asked to restore, and the season's faults once it had.\n\nNo `prior_paarungen`: a restore this reports would be an undo of an undo, which no surface offers\n(`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`)."
       },
       "FLPatchSpielerPayload": {
         "properties": {

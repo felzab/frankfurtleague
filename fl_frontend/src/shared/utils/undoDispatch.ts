@@ -1,6 +1,7 @@
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
-type UndoOutcome = { success: boolean; message?: string; error?: string };
+/** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
+type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean };
 
 type UndoOffer<TPayload> = {
   /** The slice's own route on `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest`, whose schema parses `body`. */
@@ -105,7 +106,11 @@ export function offerUndo<TPayload>({
             }
 
             // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
-            appToast.success("Änderung zurückgenommen", { description: result.message });
+            // The title moves with the grade, for the reason the offer's does.
+            const withCost = result.warn === true;
+            const raiseOutcome = withCost ? appToast.warning : appToast.success;
+            raiseOutcome(withCost ? "Mit Folgen zurückgenommen" : "Änderung zurückgenommen", { description: result.message });
+
             refreshTheScreen();
           },
           (dispatchError) => {
