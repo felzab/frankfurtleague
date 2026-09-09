@@ -122,9 +122,11 @@ if (( RUN_OPS || RUN_IMAGES )); then
 fi
 PY=""
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
-  # The failure is the caller's, for the reason `scripts/lib/_lib.sh :: venv_python` records.
+  # `refuse`, not `die`: an absent virtualenv is not something the change could be fixed to answer
+  # for, and 1 is spoken for by findings (`docs/ops/spec.md` §1.7). The ending is the caller's, for
+  # `scripts/lib/_lib.sh :: venv_python`'s own reason.
   PY="$(venv_python)" \
-    || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+    || refuse "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
   # Before any checker is handed a file: below the floor every one of them dies compiling, and a
   # SyntaxError exits 1, which this run would report as a finding about the change.
   require_python_floor "$PY"
