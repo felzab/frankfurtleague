@@ -89,8 +89,7 @@ deliverable.
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                            | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
-| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
+| `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere                | FE, Docs, tests, spieler, teams                                             | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Skipped  |
@@ -745,86 +744,49 @@ and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.m
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
 
-### `m4m3-hxmj` · The shared editor shell's widest layout step has never been rendered
+### `nadg-bnjb` · Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere
 
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
+| Tags                            | Status | Depends on |
+| ------------------------------- | ------ | ---------- |
+| FE, Docs, tests, spieler, teams | Open   | —          |
 
-**`fl_frontend/src/shared/components/ui/EditFormLayout.tsx :: EditFormLayout` declares a layout step
-at the `2xl` breakpoint that nothing has ever exercised**, and every entity editor renders through
-it. What has been rendered is the single column below `xl` and the grid inside `xl`, where it
-resolves to `minmax(0px, 1fr) 340px` with the rail sticky at 24px. Past `2xl` — 96rem in the
-installed Tailwind 4.3.3, the theme declaring no breakpoint of its own — the rail becomes 380px and
-the gap widens, and nobody has looked at it.
+**`docs/frontend/spec.md` §1.12 puts the sentence the server sent in a toast's body, and two panels
+raise it as the title.**
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx :: handleEnterSaison`
+raises `res.message ?? "Spieler aufgenommen"` as the toast's only argument, and
+`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx :: handleEnterSaison`
+raises `res.message ?? "Team aufgenommen"` the same way.
+`fl_frontend/src/shared/types/types.ts :: ActionSuccess` requires `message`, and both actions compose
+one on the path that gets there — `fl_frontend/src/features/spieler/actions.ts :: postSaisonSpielerAction`
+and `fl_frontend/src/features/teams/actions.ts :: postSaisonTeamAction` — so what an admin reads is
+the server's sentence in the title slot and the literal beside it reaches no screen.
 
-**Read from the source, the step moves width the wrong way.** The rail gains 40px and the gap gains
-8px, and both come out of the form column, so crossing that breakpoint narrows the fields by 48px
-while the viewport grows. Whether the wrapper is at `--container-page`'s cap or short of it does not
-change the transfer, only the widths either side of it. That arithmetic is derived from the class
-list and the token rather than measured in a browser, and confirming it is the work's first step.
+**The literal is the only copy the title register can read, so deleting it is no repair.**
+`fl_frontend/src/core/toastTitles.test.ts :: resolveTitles` takes the right side of a `??` and
+resolves a member expression to nothing, which is what puts `Spieler aufgenommen` and
+`Team aufgenommen` in the register `docs/frontend/spec.md :: I42` holds. Each of those two rows
+therefore names a title the product never raises, and no case can catch it: the register reads a
+call site's source and never the sentence that arrives at runtime. Teaching it to follow
+`res.message` is refused for that same reason — a register following a server field holds no
+readable copy of any title at all.
 
-**The question is which way the step goes, not merely whether it is tested.** Either the wider rail
-earns the width it takes at that size and the step stays, or it is a default nobody chose and the
-shell keeps a single grid past `xl`. Both are cheap; neither is answerable without rendering it.
+**What the repair costs is copy nobody has ratified.** Each action's sentence names the season it
+entered the row into, so it is not the registered title plus a cost, and standing it under
+`Spieler aufgenommen` would say the same thing twice, which `docs/frontend/spec.md` §1.12 refuses.
+Both panels already name the season in their heading and on the button that was pressed, which is
+what makes a shorter body arguable rather than obvious.
 
-**Where it has to be rendered, and why that is not free.** Every editor sits behind the admin
-sign-in, and the sidemenu takes its share of the viewport before the shell sees any of it, so the
-breakpoint and the space the shell actually gets are different numbers.
-[`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
-the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
+**Done when** each of the two raises a title `fl_frontend/src/core/toastTitles.test.ts` resolves and
+an admin reads, with whatever stands beneath it saying what the title does not — or
+`docs/frontend/spec.md` §1.12 admits a server sentence in the title slot and I42's register is held
+to something the product actually raises.
 
-### `nadg-bnjb` · Every admin write states its success twice, and the second sentence cannot render
-
-| Tags                               | Status | Depends on |
-| ---------------------------------- | ------ | ---------- |
-| FE, auth, spiele, spielorte, teams | Open   | —          |
-
-**Twenty distinct German sentences stand ready for a success that will never render one of them —
-24 occurrences across 23 files under `fl_frontend/src`, measured 2026-08-26.** Behind each of them
-is an action whose terminal return sets `message`, and each of them writes a fallback beside the
-value that always arrives.
-
-Three shapes:
-
-- **A fallback under a `success` guard**, twelve of them: `res.message ?? "Spielort reaktiviert"` and
-  its like, in the tables and views that reactivate a row and in the two panels that add one to a
-  season — for instance
-  `fl_frontend/src/features/spielorte/components/collections/AdminSpielorteTable.tsx :: handleReactivate`
-  and
-  `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx :: handleEnterSaison`.
-- **A `successMessage` prop**, nine of them.
-  `fl_frontend/src/shared/components/ui/EntityForm.tsx :: EntityForm` and
-  `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx :: ConfirmDeleteModal` each raise
-  `res.message || successMessage`, and the prop is required — so every create form and every
-  retirement dialog supplies a sentence it cannot show.
-- **Three one-offs**: the match editor's undo toast, the sign-in panel's confirmation, and
-  `fl_frontend/src/shared/hooks/useSignOut.ts :: useSignOut`, whose one supplier is `signOutAction`.
-  The sign-in one is the sharpest — `fl_frontend/src/features/auth/actions.ts :: neutralResult`
-  composes the neutral sentence deliberately, and
-  `fl_frontend/src/features/auth/components/forms/SignInForm.tsx :: SignInForm` writes the same
-  sentence out again as the fallback beneath it.
-
-**Why the runtime always wins.** `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`
-answers a thrown error through `toActionErrorResult`, which sets `success: false`; a `success` of
-true is therefore always the action's own terminal return, and at every site above, that return sets
-its `message`. The match editor is the case that looks like an exception and is not:
-`fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` composes its message
-through `fl_frontend/src/features/spiele/utils.ts :: formatSpielUpdateMessage`, whose first sentence
-is unconditional, so the empty string that would let its `||` through cannot be produced.
-
-**Nine of the twenty say something different from what renders**, which is what makes this more than
-dead weight. `successMessage="Spielort stillgelegt"` stands where the action sends `"Spielort
-stillgelegt. Seine Spiele bleiben erhalten."`; `"Team aufgenommen"` where the season is named;
-`"Gespeichert"` where the row's own verb is; and the match editor's `"Die Spieldaten wurden
-aktualisiert."` where the same sentence arrives without the full stop and with the fan-out behind
-it. So a copy pass can correct the wrong string, watch nothing change, and leave the rendered
-sentence standing.
-
-**What must survive the sweep.** The undo toasts' fallbacks read the same way and are live:
-`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` renders `message ?? fallback`, and the
-`message` the entity editors pass is `undefined` on an ordinary save, so there the fallback is the
-ordinary case. **Reading the `??` alone does not separate the two.**
+**A `??` elsewhere in this shape is live and stays.** `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`
+renders `message ?? fallback`, and the `message` the entity editors pass is `undefined` on an
+ordinary save, so there the fallback is the ordinary case;
+`fl_frontend/src/shared/hooks/useSignOut.ts :: useSignOut` falls back for the `null`
+`fl_frontend/src/shared/types/types.ts :: FormState` admits. **Reading the `??` alone does not
+separate them from the two above.**
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
@@ -1029,7 +991,7 @@ each page actually streams.
 | FE, tests, versions | Open   | —          |
 
 **`fl_frontend/package.json`'s `test` script runs Node's own test runner, which gives every test file
-its own process**, and the suite counted 116 modules on 2026-09-02. The installed Node offers
+its own process**, and the suite counted 167 modules on 2026-09-10. The installed Node offers
 `--test-isolation=none`, which runs the whole suite in one process instead — **the one lever on this
 scope that removes work rather than moving it**.
 
@@ -1044,14 +1006,28 @@ registered for every file in it**, so under one process those doubles reach modu
 for them, and the replaced `fetch` is every other test's `fetch` too. **The per-test-file recorder
 globals are not the obstacle**: each carries a name of its own, so no two collide.
 
+**Installing a double and removing it again is not the escape it reads as, and the module cache is
+why.** `registerHooks` answers with a `deregister`, and deregistering leaves standing every module
+the hooks already loaded: the cache is keyed on the URL a hook has already answered for, so a module
+doubled for one file answers a later import in the same process with the double, and a fresh import
+of the doubled module itself answers with it too. The same cache bounds
+`fl_frontend/src/shared/testing/renderTest.ts` from the other side, it registering a compile hook
+rather than a double because Node compiles no JSX of its own: once that hook is deregistered a
+`.tsx` the process has not already loaded raises `ERR_UNKNOWN_FILE_EXTENSION`, so scoping it means
+every module importing the harness installing it around its own dynamic imports, which is the
+harness's public shape rather than its internals. **Both halves were driven against the installed
+Node rather than taken from its documentation.**
+
 **Done when** one of two things is chosen. Either those modules are reshaped so that a double is
 installed and removed around the module that needs it — **which is a different testing style, not a
-smaller one** — or the mode stays closed and a sentence somewhere says why, so the next session
-reading `--test-isolation` in Node's help does not spend an afternoon discovering it. **Choosing the
-second is a real answer**, and it is the cheaper one; what is wrong today is that neither has been
-chosen and nothing records the constraint. What it costs is unmeasured and measuring it is half the
-work — each module pays a process start, the alias hook's registration and its own TypeScript load,
-all but one of which would go, and the suite already runs while the flag is one word.
+smaller one**, and which the paragraph above prices: no two files in the process may need one module
+two ways, and the compile hook moves out into every importer — or the mode stays closed and a
+sentence somewhere says why, so the next session reading `--test-isolation` in Node's help does not
+spend an afternoon discovering it. **Choosing the second is a real answer**, and it is the cheaper
+one; what is wrong today is that neither has been chosen and nothing records the constraint. What it
+costs is unmeasured and measuring it is half the work — each module pays a process start, the alias
+hook's registration and its own TypeScript load, all but one of which would go, and the suite
+already runs while the flag is one word.
 
 ### `v7bs-d859` · The frontend keeps a visual system that no document states
 
