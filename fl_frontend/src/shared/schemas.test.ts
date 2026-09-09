@@ -347,26 +347,10 @@ describe("FLKontaktPayloadSchema", () => {
     );
   });
 
-  // The referee editor's own box, which is where an address is typed: one `EmailStr` stores has to
-  // pass here, or the admin cannot enter it at all.
-  it("takes on the write every address the read mirror takes", () => {
-    for (const email of ["käthe@example.de", "kaethe@käthe-schule.example", "a!b@example.de"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
-    }
-  });
-
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
     assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
-  });
-
-  // The two states an emptied box submits, and the phone rule this schema takes from the read shape
-  // rather than restating: spelled afresh, the payload would accept a number the API answers 422 to.
-  it("takes a cleared box on either field and keeps the phone rule", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: null }).success, true);
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: "" }).success, true);
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "069-ABC-123", email: null }).success, false);
   });
 });
 

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL, spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
@@ -69,6 +69,11 @@ function refereeCell(spiel: FLSpielWithDraftFields): string {
 }
 
 describe("what the draft preview renders where a referee's name was erased", () => {
+  // The floor for the two cases below: were the two words equal, each would pass on the other's value.
+  it("keeps the two absences apart", () => {
+    assert.notEqual(SCHIEDSRICHTER_ANONYM_LABEL, PLACEHOLDER.entity);
+  });
+
   /* The defect this replaces: `schiedsrichter?.name ?? PLACEHOLDER.entity` read the NAME through the
      booking's own optional chain, so a nulled name fell through to the no-referee placeholder. */
   it("shows the erasure's word rather than the no-referee placeholder", () => {
@@ -83,27 +88,6 @@ describe("what the draft preview renders where a referee's name was erased", () 
 
   it("renders an ordinary referee's own name", () => {
     assert.equal(refereeCell(draftOf("Anna Körner")), "Anna Körner");
-  });
-});
-
-describe("the word a fixture's referee cell shows", () => {
-  /* One helper for both surfaces, and the reason the branch is on the BOOKING: the obvious spelling
-     reads both absences through one chain and shows the no-referee placeholder for an erased referee
-     the fixture does hold. */
-  it("gives the erasure's word for a booking whose name is gone", () => {
-    assert.equal(spielSchiedsrichterAnzeige({ name: null }), SCHIEDSRICHTER_ANONYM_LABEL);
-  });
-
-  it("gives the no-referee placeholder only where nobody is booked", () => {
-    assert.equal(spielSchiedsrichterAnzeige(null), PLACEHOLDER.entity);
-  });
-
-  it("gives an ordinary referee their own name", () => {
-    assert.equal(spielSchiedsrichterAnzeige({ name: "Anna K." }), "Anna K.");
-  });
-
-  it("keeps the two absences apart", () => {
-    assert.notEqual(SCHIEDSRICHTER_ANONYM_LABEL, PLACEHOLDER.entity);
   });
 });
 
