@@ -779,7 +779,7 @@ class FLSpielReleasedSide(_VoidedResult):
 
 
 class FLSpielPriorPaarung(_SpielRestore):
-    """One fixture this write changed, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.
+    """One fixture this write changed, as it stood before it -- the body `PATCH /spiele/paarungen` takes back.
 
     One entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once.
     """

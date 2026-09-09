@@ -11998,7 +11998,7 @@
           "spiel_id"
         ],
         "title": "FLSpielPriorPaarung",
-        "description": "One fixture this write changed, as it stood before it -- the body `PATCH /spiele/{spiel_id}/paarung` takes back.\n\nOne entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once."
+        "description": "One fixture this write changed, as it stood before it -- the body `PATCH /spiele/paarungen` takes back.\n\nOne entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once."
       },
       "FLSpielPriorSchiedsrichter": {
         "properties": {
