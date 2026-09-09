@@ -90,7 +90,6 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
-| `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -573,30 +572,6 @@ against it.
 shown at, and a check refuses one that does — extending the roster's existing sums rather than
 adding a second reader of the same markup, with the bound recorded where a session adding a column
 meets it (`docs/frontend/spec.md`).
-
-### `cvub-qx5s` · `NOTICE` asserts the source copyright of a natural person while an association publishes the site
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, meta | Open   | —          |
-
-**`NOTICE` names an individual as the copyright holder of the source**, and the site is
-published by the association `fl_frontend/src/core/brand.ts :: VEREIN_NAME` names and
-`fl_frontend/src/features/meta/components/views/ImpressumView.tsx` renders. The two documents
-therefore disagree about who owns what, in the one place a reader goes to find out.
-
-**Why it matters.** The name reservation in the same file is the league's, and it is the half that
-gets read; the copyright line beside it is the half that decides whether a fork is licensed by the
-right party. An association that has not been assigned the source cannot license it, and an
-individual who has assigned it cannot keep asserting it.
-
-**The trap.** This is a legal question rather than a wording one — whether the source was assigned
-to the association at all, and whether the association exists yet in a form that can hold it. The
-Impressum still carries `i. G.`, so the answer may be that the individual line is correct today and
-becomes wrong on the day the register entry lands.
-
-**Done when** who holds the source copyright is decided, `NOTICE` says so, and, if the answer
-changes at registration, the condition is written where whoever files the registration meets it.
 
 ### `dgdv-27yw` · Ninety-four test files parse source by hand, and no rule engine has been measured against one
 

@@ -143,7 +143,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         <Suspense
           fallback={
             <FooterSlotSkeleton
-              width="w-64"
+              width="w-96 max-w-full"
               label="Copyright wird geladen"
             />
           }>

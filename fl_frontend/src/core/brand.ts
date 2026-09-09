@@ -1,5 +1,8 @@
 export const KONTAKT_EMAIL = "kontakt@frankfurtleague.de";
 
+/** The register entry that drops this constant's `i. G.` suffix is the first moment an association can hold an
+ * exclusive Nutzungsrecht in the source: German copyright itself never transfers. Revisit `NOTICE`'s holder line
+ * the same day. */
 export const VEREIN_NAME = "Frankfurt League e. V. i. G.";
 
 /** Spelled once: the Impressum, the Datenschutzerklärung and every email's close render this same string. */
