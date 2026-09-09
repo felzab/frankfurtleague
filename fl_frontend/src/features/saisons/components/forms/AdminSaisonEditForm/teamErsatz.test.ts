@@ -144,7 +144,16 @@ describe("the replacement panel", () => {
   /* Both wrong directions at once: `stillgelegt` would claim these pupils left every season there
      is, and a deletion word that the rows went rather than being stamped. */
   it("words the squad as its entries being ausgetragen, never as a Stilllegung or a deletion", () => {
-    assert.match(PANEL, /Kadereinträge[\s\S]{0,160}ausgetragen/);
+    /* Every mention rather than one: the panel names the squad rows at the press and again after it,
+       so one sentence losing the word is a single match away from invisible. */
+    const mentions = (PANEL.match(/Kadereinträge/g) ?? []).length;
+
+    assert.ok(mentions >= 2, "the panel no longer names the squad rows both at the press and after it");
+    assert.equal(
+      (PANEL.match(/Kadereinträge[\s\S]{0,160}ausgetragen/g) ?? []).length,
+      mentions,
+      "a sentence naming the squad rows no longer says they are ausgetragen",
+    );
     assert.doesNotMatch(PANEL, /Kadereinträge[\s\S]{0,160}(gelöscht|entfernt|stillgelegt)/);
     // A CLUB's league-wide retirement keeps the word, which is why only its use on people is forbidden.
     assert.doesNotMatch(PANEL, /Spieler[\s\S]{0,160}stillgelegt/);

@@ -269,7 +269,11 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
       /const heldRollen = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.heldRollen \?\? \{\};/,
       "the offer is derived from something other than the draft team's own holders",
     );
-    assert.match(PAGE, /collectHeldRollen\(\{/, "the page stopped supplying who holds each role");
+    assert.match(
+      PAGE,
+      /const heldRollen = collectHeldRollen\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
+      "the page gathers the holders of another season, or counts this player's own role as taken from them",
+    );
   });
 
   /* A transfer carries the draft's role into the destination squad, where the write path would
@@ -400,13 +404,21 @@ describe("REQ-SQUAD-003 before the press", () => {
       /const isSquadFull = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.isSquadFull === true;/,
       "the banner is derived from something other than the draft team's own answer",
     );
-    assert.match(PAGE, /countLiveSquadRows\(\{/, "the page stopped supplying what the cap is judged against");
+    assert.match(
+      PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
+      "the page counts another season's squad rows, or leaves the player being edited in the tally their own room is judged from",
+    );
   });
 
   /* The table is handed `filteredSpieler`, so a count folded there would shrink under a search and
      report room in a squad the endpoint refuses. */
   it("folds the list's counts on the page, where no search has narrowed the memberships", () => {
-    assert.match(LIST_PAGE, /countLiveSquadRows\(\{/, "the list page stopped counting the season's live squad rows");
+    assert.match(
+      LIST_PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaisonId, exceptSpielerId: null \}\);/,
+      "the list's own fold counts against something other than the season the rows are shown for",
+    );
     assert.ok(!TABLE.includes("countLiveSquadRows"), "the count moved into the component that only ever sees a filtered list");
   });
 
@@ -507,9 +519,15 @@ describe("the number's format as the admin reads it", () => {
       NUMMER_MUST_BE_DIGITS.includes(`1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern`),
       "the sentence names a bound the input does not enforce",
     );
+    // What `fl_backend/tests/shared/test_frontend_mirrors.py` cannot see: that this slice's own sentence
+    // names the same bound the constant enforces.
     assert.ok(
-      SCHEMAS.includes(`.regex(/^\\d{1,${String(NUMMER_MAX_LENGTH)}}$/, { error: NUMMER_MUST_BE_DIGITS })`),
+      SCHEMAS.includes(`const SQUAD_NUMMER_REGEX = /^\\d{1,${String(NUMMER_MAX_LENGTH)}}$/;`),
       "the schema's regex and the cap name different bounds",
+    );
+    assert.ok(
+      SCHEMAS.includes("z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS })"),
+      "the squad number is judged against something other than the named alphabet",
     );
   });
 });

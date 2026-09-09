@@ -537,6 +537,13 @@ describe("the decline's bound", () => {
     assert.notEqual(backend, "", "the backend no longer states the bound under that name");
     assert.equal(frontend, backend, "the frontend mirror disagrees with the backend's bound");
     assert.ok(SCHEMAS.includes("BEWERBUNG_GRUND_MAX_LENGTH"), "the payload schema stopped reading the mirrored bound");
+    /* The ceiling the schema enforces, beside the mention of it: a wider one written beside the import
+       still reads the mirror, and the reason it lets through is the one the API marks no field for. */
+    assert.equal(
+      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "a".repeat(BEWERBUNG_GRUND_MAX_LENGTH + 1) }).success,
+      false,
+      "a reason one character past the mirrored bound is taken here and refused only by the backend",
+    );
   });
 
   /* A decline is stored on the application and mailed to the school in one irreversible step, so
@@ -1043,7 +1050,11 @@ describe("the seat row's correction control", () => {
   /* `docs/frontend/spec.md :: I66` gives a panel one action row, and a second open editor would put
      two: three rows each holding a draft is three ways to leave one unsaved. */
   it("is one editor for the whole strip rather than one per row", () => {
-    assert.match(STRIP, /useState<KontaktRolle \| null>\(null\)/, "the strip holds something other than one editor slot");
+    assert.match(
+      STRIP,
+      /const \[korrektur, setKorrektur\] = useState<KontaktRolle \| null>\(null\)/,
+      "the correction holds something other than one open row at a time",
+    );
     assert.match(STRIP, /\{bearbeitet && \(/, "the editor is mounted whether or not its row is the open one");
   });
 
@@ -1058,7 +1069,11 @@ describe("the seat row's correction control", () => {
   /* `.claude/rules/frontend.md` **forms**: a message between two keystrokes describes a value nobody
      finished entering, so the field is judged when it is left and at the press. */
   it("judges the typed address on blur and at the press, through the shared mechanism", () => {
-    assert.match(STRIP, /useDraftFieldErrors\(\{/, "the editor judges its field with something other than the shared hook");
+    assert.match(
+      STRIP,
+      /useDraftFieldErrors\(\{\s*schemas: \{ korrektur: FLBewerbungKontaktEmailPayloadSchema \},/,
+      "the editor judges the typed address with another hook, or against a schema other than the correction's own payload",
+    );
     assert.match(
       STRIP,
       /onBlur=\{\(\) => \{\s*validatePaths\("korrektur", payload, \["email"\]\);/,
