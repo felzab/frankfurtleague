@@ -198,7 +198,13 @@ describe("the draw half of the Spielplan panel", () => {
       assert.notEqual(tag, "", `${path} renders no picker at all`);
       assert.doesNotMatch(tag, /\sdisabled=""/, `${path} is shut before the panel is armed`);
     }
-    assert.doesNotMatch(shapeStepperTag(DRAWN), /data-readonly="true"/, "the team stepper is shut before the panel is armed");
+
+    const stepper = shapeStepperTag(DRAWN);
+
+    // Floored like the two above it: `doesNotMatch` passes over the empty string the reader answers
+    // with when it finds no such slot, so the stepper's half would report on nothing.
+    assert.notEqual(stepper, "", "the team stepper renders no number field at all");
+    assert.doesNotMatch(stepper, /data-readonly="true"/, "the team stepper is shut before the panel is armed");
 
     // Arming is a press, so the render above says the three stand open and the source says what
     // shuts them.

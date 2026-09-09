@@ -20,7 +20,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.retired",
       severity: "info",
       raisedBy: "state",
-      title: "Dieser Schiedsrichter erscheint in keiner Auswahlliste",
+      title: "Diese Person erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
       body: "Die Einsätze dieser Person bleiben erhalten.",
       inline: null,

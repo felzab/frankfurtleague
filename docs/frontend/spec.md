@@ -234,9 +234,13 @@ admin to check a connection that is fine.
 
 **Seven of the eight undo replays can be refused on the way back**, and each answers in German out of
 its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
-since narrowed comes back from the matchday's as a refusal, and the toast reports the change as still
-standing — which is correct. The contacts undo reaches `revalidateTag` not at all — the one place the
-eight differ (I14).
+since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
+standing only where the replay is one write**: a replay that commits in parts words the half that
+went back instead. **`fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` therefore
+clears the caches wherever its restore ran, never only where it committed** — a refusal and a throw
+each leave rows written behind them, and a cached read would go on serving what the undo took back.
+The dispatch re-reads the screen on a refusal for that same reason. The contacts undo reaches
+`revalidateTag` not at all — the one place the eight differ (I14).
 
 **Where a page-owned editor's write has no undo, the absence is never an omission.** The rollover
 confirms in place: there is nothing for an undo to call (`REQ-ACTIVATE-002`, and no endpoint

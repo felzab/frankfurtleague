@@ -139,8 +139,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             height={18}
           />
         </RowActionLink>
-        {/* No control where there is nothing to copy: `writeText("")` succeeds, so an empty copy clears
-            the clipboard the administrator was holding and the toast reports it as a copy. */}
+        {/* No control where there is nothing to copy: an empty write is refused at
+            `fl_frontend/src/shared/utils/clipboard.ts :: copyTextToClipboard`, so the press could only
+            raise the failure toast. */}
         {kontaktdaten !== "" && (
           <RowActionCopy
             label="Kontaktdaten kopieren"

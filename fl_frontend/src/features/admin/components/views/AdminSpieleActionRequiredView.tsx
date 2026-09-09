@@ -28,8 +28,8 @@ const SECTION_PARAM = "section";
 
 /**
  * Success is reserved for a cleared category. `none` is `abgesagt` and shares `details`' blue on
- * purpose: a fixture that did not happen asks nothing, and a grey badge among coloured ones read as a
- * control that had been switched off.
+ * purpose: a fixture that did not happen asks nothing, and no badge here is neutral
+ * (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`).
  */
 const URGENCY_BADGE: Record<FLActionUrgency, string> = {
   blocking: "bg-danger/15 text-danger-strong",

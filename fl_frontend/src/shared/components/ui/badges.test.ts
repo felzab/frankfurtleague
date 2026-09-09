@@ -15,7 +15,7 @@ import type { PillTone } from "./badges.ts";
 // a clean tree while a feature paints its own chips.
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** The pair the ruling refuses, spelled once. */
+/** The pair ruling 78 refuses, spelled once (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
 const NEUTRAL = "bg-muted text-foreground-muted";
 
 /**
@@ -85,7 +85,7 @@ const SAMPLE = {
 
 describe("the closed set every pill takes its colour from", () => {
   /* A tone with no fill or no ink paints half a chip, which renders and reports nothing; the neutral
-     pair readmitted under a tone name is the ruling undone in one line. */
+     pair readmitted under a tone name is ruling 78 undone in one line. */
   it("gives every tone a fill and an ink, and none of them the refused pair", () => {
     assert.deepEqual([...TONES].sort(), Object.keys(PILL_TINT).sort(), "the set and this case's list no longer name the same tones");
 
