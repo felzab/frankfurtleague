@@ -104,7 +104,7 @@ export function FormNotizSection({
                   notizRef.current?.focus();
                   onNotizChange(null);
                 }}
-                className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
+                className="border-border text-foreground-muted hover:bg-hover-danger hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
                 <Xmark
                   aria-hidden="true"
                   className="size-3.5 shrink-0"

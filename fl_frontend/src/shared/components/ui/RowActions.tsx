@@ -206,8 +206,8 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
 }
 
 /**
- * One way out of the row. **No hover class**: `fl_frontend/src/app/globals.css` paints `--bg-hover`
- * on a focused menu item for the mouse and the keyboard alike, unlayered, so it beats HeroUI's own.
+ * One way out of the row. Its hover is spelled here rather than left to `globals.css`, whose
+ * unlayered rule keys on `data-focused`, which react-aria sets from the keyboard.
  */
 export function RowActionMenuItem({
   id,
@@ -228,7 +228,7 @@ export function RowActionMenuItem({
       textValue={label}
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+      className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
       <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">{label}</Label>
       {children}
     </Dropdown.Item>

@@ -43,7 +43,7 @@ export function TopNav() {
               id="dashboard"
               textValue="Saisonübersicht"
               href="/dashboard"
-              className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Saisonübersicht</Label>
               <Eye className="text-foreground-muted size-4" />
             </Dropdown.Item>
@@ -52,7 +52,7 @@ export function TopNav() {
               id="admin"
               textValue="Verwalten"
               href="/admin"
-              className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Verwalten</Label>
               <Pencil className="text-foreground-muted size-4" />
             </Dropdown.Item>
@@ -65,7 +65,7 @@ export function TopNav() {
               id="about"
               textValue="About"
               href="/about"
-              className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">About</Label>
               <CircleInfo className="text-foreground-muted size-4" />
             </Dropdown.Item>
@@ -74,7 +74,7 @@ export function TopNav() {
               id="organisation"
               textValue="Organisation"
               href="/organisation"
-              className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Organisation</Label>
               <Persons className="text-foreground-muted size-4" />
             </Dropdown.Item>
@@ -83,7 +83,7 @@ export function TopNav() {
               id="kontakt"
               textValue="Kontakt"
               href="/kontakt"
-              className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Kontakt</Label>
               <At className="text-foreground-muted size-4" />
             </Dropdown.Item>

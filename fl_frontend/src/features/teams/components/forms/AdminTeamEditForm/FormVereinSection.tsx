@@ -180,7 +180,7 @@ export function FormVereinSection({
             type="button"
             onClick={() => setIsEditingDescription(true)}
             aria-label="Beschreibung bearbeiten"
-            className="border-border bg-surface hover:border-brand/40 hover:bg-hover group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border px-3 py-2.5 text-left transition-colors">
+            className="border-border bg-surface hover:bg-hover group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border px-3 py-2.5 text-left transition-colors">
             {draft.description.trim() === "" ? (
               <span className="muted-hint">Noch keine Beschreibung.</span>
             ) : (
