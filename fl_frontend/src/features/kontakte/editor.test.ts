@@ -55,7 +55,7 @@ const TEAM_FORM = readFileSync(path.resolve(TEAM_FORM_DIR, "AdminTeamEditForm.ts
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormKontakteLinkSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormKontakteLinkSection.tsx");
-const { AdminKontakteTable } = await import("@/features/teams/components/collections/AdminKontakteTable.tsx");
+const { AdminKontakteList } = await import("@/features/teams/components/collections/AdminKontakteList.tsx");
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { AdminKontakteEditView } = await import("./components/views/AdminKontakteEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
@@ -97,7 +97,7 @@ const listMarkup = (row: AdminKontakteRow, query: string): string =>
     h(
       SearchParamsContext.Provider,
       { value: new URLSearchParams(query) },
-      h(AdminKontakteTable, { filteredKontakte: [row], emptiness: "none" }),
+      h(AdminKontakteList, { filteredKontakte: [row], emptiness: "none" }),
     ),
   );
 

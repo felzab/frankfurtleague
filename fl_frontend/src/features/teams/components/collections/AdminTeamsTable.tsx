@@ -3,17 +3,37 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Envelope, Globe, Magnifier, Pencil, PersonPencil, Persons } from "@gravity-ui/icons";
+import { Envelope, Globe, Magnifier, Pencil, PersonPencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import {
+  CELL_EDGE,
+  CELL_INNER,
+  COLUMN_EDGE,
+  COLUMN_INNER,
+  IDENTITY_HEAD,
+  IDENTITY_LINE,
+  IDENTITY_NAME,
+  IDENTITY_ROW,
+  IDENTITY_STACK,
+  TABLE_HEADING,
+} from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import {
+  RowActionDelete,
+  RowActionLink,
+  RowActionMenu,
+  RowActionMenuItem,
+  RowActionRestore,
+  RowActions,
+} from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -76,54 +96,29 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     </div>
   );
 
+  /**
+   * The Kürzel is the club's identity token rather than a column, as every other surface sets it
+   * (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx`). The pills join the name's line: a
+   * column wide enough for „Stillgelegt seit …“ leaves the name almost nothing.
+   */
+  const renderIdentity = (team: AdminTeamRow, dimmed: boolean) => (
+    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+      <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
+      <div className={IDENTITY_STACK}>
+        <div className={IDENTITY_HEAD}>
+          <span className={IDENTITY_NAME}>{team.name}</span>
+          {renderStatusBadges(team)}
+        </div>
+        <span className={IDENTITY_LINE}>{team.full_name}</span>
+      </div>
+    </div>
+  );
+
+  const renderGruppe = (team: AdminTeamRow) =>
+    team.selected ? <span className="fluid-sm text-foreground font-semibold">{team.selected.gruppe}</span> : null;
+
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
-      {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
-          are that facet's options, so a club outside the season drops out and the link widens. */}
-      <RowActionLink
-        href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
-        label="Spieler anzeigen"
-        ariaLabel={`Spieler von ${team.name} anzeigen`}>
-        <PersonPencil
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
-          hang off the junction, so without it this opens another season's three people. */}
-      <RowActionLink
-        href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
-        label="Kontakte anzeigen"
-        ariaLabel={`Kontakte von ${team.name} anzeigen`}>
-        <Envelope
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
-          fixtures whichever slot it occupies. */}
-      <RowActionLink
-        href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
-        label="Spiele anzeigen"
-        ariaLabel={`Spiele von ${team.name} anzeigen`}>
-        <Magnifier
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      <RowActionLink
-        href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
-        label="Öffentliche Teamseite"
-        ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
-        <Globe
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
       <RowActionLink
         href={withSaisonId(`/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
@@ -152,6 +147,40 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           onPress={() => setDeletingTeam(team)}
         />
       )}
+      {/* All four leave the row for another list or page, and as inline icons they put six controls
+          in a row that has 631px for everything. */}
+      <RowActionMenu ariaLabel={`Weitere Aktionen für Team ${team.name}`}>
+        {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
+            are that facet's options, so a club outside the season drops out and the link widens. */}
+        <RowActionMenuItem
+          id="spieler"
+          href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
+          label="Spieler anzeigen">
+          <PersonPencil className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+        {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
+            hang off the junction, so without it this opens another season's three people. */}
+        <RowActionMenuItem
+          id="kontakte"
+          href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
+          label="Kontakte anzeigen">
+          <Envelope className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+        {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
+            fixtures whichever slot it occupies. */}
+        <RowActionMenuItem
+          id="spiele"
+          href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
+          label="Spiele anzeigen">
+          <Magnifier className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+        <RowActionMenuItem
+          id="oeffentlich"
+          href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
+          label="Öffentliche Teamseite">
+          <Globe className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+      </RowActionMenu>
     </RowActions>
   );
 
@@ -165,19 +194,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           <div
             key={team.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${team.inactive_since !== null ? "opacity-80" : ""}`}>
-            <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
-                {team.shorthand}
-              </span>
-              <div className="flex min-w-0 flex-col">
-                <span className="fluid-sm text-foreground truncate font-semibold">{team.name}</span>
-                <span className="fluid-xs text-foreground-muted truncate">{team.full_name}</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
-              {renderStatusBadges(team)}
-            </div>
+            {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
+            {renderIdentity(team, false)}
+            {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(team)}</div>
           </div>
         ))}
@@ -185,85 +204,47 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
-              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
-                columns plus 256 for the free-text one, under which it gets nothing. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is what the declared
+                columns plus the Team allowance come to. */}
             <Table.Content
               aria-label="Tabelle aller Teams"
-              /* A numeric step rather than a container name: six controls put the owed floor at 944px,
-                  which no `--container-*` names. `adminCrudEmpty.test.ts` resolves both scales. */
-              className="min-w-236 table-fixed">
+              className="min-w-156 table-fixed">
               <Table.Header>
                 {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
                 is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
                   Team
                 </Table.Column>
-                {/* Declared to the column's content or to its own heading, whichever is wider:
-                under fixed layout a surplus here comes out of the name column rather than going
-                unused. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Kürzel
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Gruppe
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Status
-                </Table.Column>
-                {/* Five controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                {/* The season's one fact about a club that a reader scans down the page, so it keeps
+                    a column; `w-24` is its heading's width, which runs wider than any group letter. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24`}>Gruppe</Table.Column>
+                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-84 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-48 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredTeams}
                 renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
-                {(team: AdminTeamRow) => {
-                  const isRetired = team.inactive_since !== null;
-                  return (
-                    <Table.Row
-                      id={team.id}
-                      className="border-border/50 border-b last:border-b-0">
-                      <Table.Cell className="px-6 py-4">
-                        <div className={`flex items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
-                          <Persons
-                            className="text-brand shrink-0"
-                            width={18}
-                            height={18}
-                          />
-                          <div className="flex flex-col gap-0.5">
-                            <span className="fluid-sm text-foreground font-semibold">{team.name}</span>
-                            <span className="fluid-xs text-foreground-muted">{team.full_name}</span>
-                          </div>
-                        </div>
-                      </Table.Cell>
+                {(team: AdminTeamRow) => (
+                  <Table.Row
+                    id={team.id}
+                    className="border-border/50 border-b last:border-b-0">
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(team, team.inactive_since !== null)}</Table.Cell>
 
-                      <Table.Cell className="px-3 py-4">
-                        {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. Fixed
-                        width, sized to the widest pair, so the column stops wobbling between rows. */}
-                        <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
-                          {team.shorthand}
-                        </span>
-                      </Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderGruppe(team)}</Table.Cell>
 
-                      <Table.Cell className="px-3 py-4">
-                        {team.selected ? <span className="fluid-sm text-foreground font-semibold">{team.selected.gruppe}</span> : null}
-                      </Table.Cell>
-
-                      <Table.Cell className="px-3 py-4">{renderStatusBadges(team)}</Table.Cell>
-
-                      <Table.Cell className="px-6 py-4">{renderActions(team)}</Table.Cell>
-                    </Table.Row>
-                  );
-                }}
+                    <Table.Cell className={CELL_EDGE}>{renderActions(team)}</Table.Cell>
+                  </Table.Row>
+                )}
               </Table.Body>
             </Table.Content>
           </Table.ScrollContainer>

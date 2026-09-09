@@ -27,7 +27,7 @@ export default function AdminKontaktePage(props: NextPageProps) {
           attachEnd={false}
         />
       }>
-      <Suspense fallback={<AdminCrudFallback />}>
+      <Suspense fallback={<AdminCrudFallback shape="cards" />}>
         <KontakteTable searchParams={props.searchParams} />
       </Suspense>
     </AdminCrudShell>

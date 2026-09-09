@@ -89,7 +89,6 @@ deliverable.
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -534,42 +533,6 @@ what the flow stores, and the notice's squad and referee publication rows
 interest they rest on to the consent the flow collects. A pupil's birthdate is optional only
 until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
 carrying the state that ends there.
-
-### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**Ruled: an admin table is never scrolled sideways to be read.**
-
-**A table's floor is computed rather than chosen, and nothing compares it to the width it has.**
-`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: TABLES` is the roster — the admin
-lists whose rows sit in a react-aria table — and for each one the test adds the widths its columns
-declare to a free-text allowance per undeclared column, then requires the table's single `min-w-`
-floor to equal that sum exactly. The controls column has its own derivation,
-`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: ACTIONS_WIDTH`, which grows with the
-most controls one row can hold. Both are checks that the floor matches what the columns asked for.
-Neither asks whether the viewport can give it.
-
-**Below the floor the reader gets a scroll container, and the busiest table is the one it reaches
-first.** Each table renders cards below Tailwind's `md` step and the table layout from it up, so the
-narrowest viewport that shows a table is that step; a table whose controls and free-text columns push
-its floor past that step is scrolled sideways for every width between the two. The scroll container
-is deliberate as a last resort and says so at the line, deliberately keeping its bar visible — which
-is the right behaviour for a table that overflows and the wrong outcome for a table that should not.
-
-**The repair is a shared budget, not a trim per table.** Each table's floor is the sum of decisions
-taken in that table — how many controls a row offers, how much room a free-text column is owed — so
-narrowing one is a product decision about that list, and narrowing every member of the roster by
-hand still leaves the table added after it free to reintroduce the defect. What holds is a width no
-table may exceed, derived from the step its layout starts at, with the per-table sums measured
-against it.
-
-**Done when** no admin table declares a floor wider than the narrowest viewport its table layout is
-shown at, and a check refuses one that does — extending the roster's existing sums rather than
-adding a second reader of the same markup, with the bound recorded where a session adding a column
-meets it (`docs/frontend/spec.md`).
 
 ### `dgdv-27yw` · Ninety-four test files parse source by hand, and no rule engine has been measured against one
 

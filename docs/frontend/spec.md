@@ -1336,6 +1336,14 @@ holds whether a conditional block renders or not
   (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Leer`): a
   value nobody recorded, an absent name, a result not yet stored. An outstanding step is a state and
   never a gap.
+- **An admin list row leads with one identity block** — the entity's own token, its name, the row's
+  pills and one or two muted lines
+  (`fl_frontend/src/shared/components/ui/adminTable.ts :: IDENTITY_ROW`), the same block the phone
+  card draws, with content-sized columns beside it and the actions ended right. Every way the row
+  offers ELSEWHERE shares one overflow menu where it has two or more
+  (`fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionMenu`); a row with one keeps it
+  inline. No column exists at one width and not another, which
+  `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` pins.
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
 - **Every field-shaped control resolves to one height**

@@ -8,9 +8,29 @@ import { Table } from "@heroui/react";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import {
+  CELL_EDGE,
+  CELL_INNER,
+  COLUMN_EDGE,
+  COLUMN_INNER,
+  IDENTITY_HEAD,
+  IDENTITY_LINE,
+  IDENTITY_NAME,
+  IDENTITY_ROW,
+  IDENTITY_STACK,
+  TABLE_HEADING,
+} from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import {
+  RowActionCopy,
+  RowActionDelete,
+  RowActionLink,
+  RowActionMenu,
+  RowActionMenuItem,
+  RowActionRestore,
+  RowActions,
+} from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
@@ -60,55 +80,47 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     });
   };
 
-  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
-  // row or its controls.
-  const renderAddress = (ort: FLSpielort) => (
-    <div className="flex flex-col gap-0.5">
-      <span className="fluid-sm text-foreground">
-        {ort.address.strasse} {ort.address.hausnummer}
-      </span>
-      <span className="fluid-xs text-foreground-muted">
-        {ort.address.plz} {ort.address.stadt}
-        {ort.address.stadtteil && ` (${ort.address.stadtteil})`}
-      </span>
-    </div>
-  );
-
-  // Beside the identity rather than in a column: retirement is the only state a venue has, so a
-  // column would be empty on every live row.
-  const renderRetiredBadge = (ort: FLSpielort) => (ort.inactive_since === null ? null : <RetiredBadge since={ort.inactive_since} />);
-
   const renderMietpreis = (ort: FLSpielort) => (
     <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
       {formatEuro(ort.default_mietpreis)}
     </span>
   );
 
+  // Beside the identity rather than in a column: retirement is the only state a venue has, so a
+  // column would be empty on every live row.
+  const renderRetiredBadge = (ort: FLSpielort) => (ort.inactive_since === null ? null : <RetiredBadge since={ort.inactive_since} />);
+
+  /**
+   * The address is the venue's second fact rather than something scanned across rows, so it reads
+   * under the name. Two lines and not one: a district joined to its street truncates at every width
+   * the table renders at.
+   */
+  const renderIdentity = (ort: FLSpielort, dimmed: boolean) => (
+    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+      <MapPin
+        aria-hidden="true"
+        className="text-brand shrink-0"
+        width={18}
+        height={18}
+      />
+      <div className={IDENTITY_STACK}>
+        <div className={IDENTITY_HEAD}>
+          <span className={IDENTITY_NAME}>{ort.name}</span>
+          {renderRetiredBadge(ort)}
+        </div>
+        <span className={IDENTITY_LINE}>
+          {ort.address.strasse} {ort.address.hausnummer}
+        </span>
+        <span className={IDENTITY_LINE}>
+          {ort.address.plz} {ort.address.stadt}
+          {ort.address.stadtteil && ` (${ort.address.stadtteil})`}
+        </span>
+      </div>
+    </div>
+  );
+
   const renderActions = (ort: FLSpielort) => (
     <RowActions>
-      <RowActionLink
-        href={formatMapsLink(ort)}
-        label="Auf Maps öffnen"
-        ariaLabel={`${ort.name} auf Google Maps öffnen`}
-        external>
-        <Globe
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
-          here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
-      <RowActionLink
-        href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
-        label="Spiele anzeigen"
-        ariaLabel={`Spiele in ${ort.name} anzeigen`}>
-        <Magnifier
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
       <RowActionCopy
         label="Adresse kopieren"
         ariaLabel={`Adresse von ${ort.name} kopieren`}
@@ -138,6 +150,24 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           onPress={() => setDeletingOrt(ort)}
         />
       )}
+      {/* Both leave the row; the copy above acts on it, which is what keeps that one inline. */}
+      <RowActionMenu ariaLabel={`Weitere Aktionen für Spielort ${ort.name}`}>
+        <RowActionMenuItem
+          id="maps"
+          href={formatMapsLink(ort)}
+          label="Auf Maps öffnen"
+          external>
+          <Globe className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+        {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
+            here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
+        <RowActionMenuItem
+          id="spiele"
+          href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
+          label="Spiele anzeigen">
+          <Magnifier className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+      </RowActionMenu>
     </RowActions>
   );
 
@@ -151,16 +181,10 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             key={ort.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${ort.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <MapPin
-                className="text-brand shrink-0"
-                width={18}
-                height={18}
-              />
-              <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{ort.name}</span>
-              <span className="ml-auto shrink-0">{renderMietpreis(ort)}</span>
+              {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
+              <div className="min-w-0 flex-1">{renderIdentity(ort, false)}</div>
+              <span className="shrink-0">{renderMietpreis(ort)}</span>
             </div>
-            {renderRetiredBadge(ort)}
-            {renderAddress(ort)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
           </div>
         ))}
@@ -168,33 +192,30 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
-              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
-                columns plus 224 for the name, under which it gets nothing. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is what the declared
+                columns plus the Name allowance come to. */}
             <Table.Content
               aria-label="Tabelle aller Spielorte"
-              className="min-w-5xl table-fixed">
+              className="min-w-156 table-fixed">
               <Table.Header>
+                {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
+                    is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
                   Name
                 </Table.Column>
-                {/* PINNED to their content's width, so the leftover all goes to the name column. The action
-                    column is the widest: every row here ends in five controls, one of them a maps link. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-80 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Adresse
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Std. Mietpreis
-                </Table.Column>
-                {/* Five controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                {/* Sized to the euro chip rather than to the heading over it: a chip holds one line,
+                    so a column under its width draws it across the cell beside it. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-36`}>Mietpreis</Table.Column>
+                {/* Four controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-60 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -205,25 +226,11 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                   <Table.Row
                     id={ort.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className="px-6 py-4">
-                      <div className={`flex items-center gap-3 ${ort.inactive_since !== null ? "opacity-60" : ""}`}>
-                        <MapPin
-                          className="text-brand shrink-0"
-                          width={18}
-                          height={18}
-                        />
-                        <div className="flex flex-col items-start gap-1">
-                          <span className="fluid-sm text-foreground font-semibold">{ort.name}</span>
-                          {renderRetiredBadge(ort)}
-                        </div>
-                      </div>
-                    </Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(ort, ort.inactive_since !== null)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderAddress(ort)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderMietpreis(ort)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderMietpreis(ort)}</Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderActions(ort)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderActions(ort)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

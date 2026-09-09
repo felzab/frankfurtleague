@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { buildKontakteFacets } from "@/features/teams/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
-import { AdminKontakteTable } from "../collections/AdminKontakteTable";
+import { AdminKontakteList } from "../collections/AdminKontakteList";
 
 import type { AdminKontakteRow } from "@/features/teams/types";
 
@@ -36,8 +36,11 @@ export function AdminKontakteView({ kontakte, teams }: { kontakte: AdminKontakte
       items={kontakte}
       searchKeys={SEARCH_KEYS}
       facets={facets}
+      /* No react-aria collection here, so nothing ever grows a `tbody`: with the default the
+         placeholder overlay would never lift. */
+      isCollection={false}
       renderTable={({ filteredItems, emptiness }) => (
-        <AdminKontakteTable
+        <AdminKontakteList
           filteredKontakte={filteredItems}
           emptiness={emptiness}
         />

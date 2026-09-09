@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 
-import { ArrowRotateLeft, Copy, TrashBin } from "@gravity-ui/icons";
+import { ArrowRotateLeft, Copy, Ellipsis, TrashBin } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
+import { Button, Dropdown, Label } from "@heroui/react";
 
 import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";
@@ -165,6 +165,73 @@ export function RowActionDelete({
       tone="danger">
       {button}
     </IconTooltip>
+  );
+}
+
+/**
+ * The row's ways ELSEWHERE, where it has two or more: six inline icons take 336px of a row that has
+ * 631px for everything. One navigation stays inline, a menu of one item costing a press and buying
+ * nothing.
+ */
+export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; children: ReactNode }) {
+  return (
+    /* Uncontrolled: `useNavigationClosedOverlay` cannot reach an overlay inside a page — the router
+       hides the departed page, Effects and all
+       (`fl_frontend/src/features/teams/components/ui/TeamPopoverMenu.tsx`) — and a menu item's own
+       `shouldCloseOnSelect` closes this before the route it opens changes. */
+    <Dropdown>
+      {/* One label for every row and every list, so the trigger names the same control everywhere;
+          `ariaLabel` is what says whose row it belongs to. */}
+      <IconTooltip label="Weitere Aktionen">
+        <Dropdown.Trigger
+          aria-label={ariaLabel}
+          className={ACTION_BUTTON_CLASS}>
+          <Ellipsis
+            aria-hidden="true"
+            width={18}
+            height={18}
+          />
+        </Dropdown.Trigger>
+      </IconTooltip>
+      {/* `offset` rather than a margin class: it feeds react-aria's positioning maths, so the gap
+          survives the menu flipping above a row near the foot of the list. */}
+      <Dropdown.Popover
+        placement="bottom end"
+        offset={8}
+        className="w-64 rounded-xl">
+        <Dropdown.Menu aria-label={ariaLabel}>{children}</Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
+  );
+}
+
+/**
+ * One way out of the row. **No hover class**: `fl_frontend/src/app/globals.css` paints `--bg-hover`
+ * on a focused menu item for the mouse and the keyboard alike, unlayered, so it beats HeroUI's own.
+ */
+export function RowActionMenuItem({
+  id,
+  href,
+  label,
+  external,
+  children,
+}: {
+  id: string;
+  href: string;
+  label: string;
+  external?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Dropdown.Item
+      id={id}
+      textValue={label}
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+      <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">{label}</Label>
+      {children}
+    </Dropdown.Item>
   );
 }
 

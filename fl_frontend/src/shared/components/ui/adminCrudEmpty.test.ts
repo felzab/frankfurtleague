@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const FEATURES = path.join(SRC, "features");
@@ -23,23 +23,22 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
  * together; `freeText` is owed PER undeclared column, not per table.
  */
 const TABLES = [
-  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 224 },
-  // Its free-text column is the Ansprechperson, a name over an address: the club beside it is
-  // declared, so the width above the floor lands on the pair that goes on reading longer.
-  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 160 },
-  { file: "features/teams/components/collections/AdminKontakteTable.tsx", controls: 2, alternates: 0, freeText: 256 },
-  { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 3, alternates: 0, freeText: 304 },
-  { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 176 },
-  { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 4, alternates: 1, freeText: 176 },
-  { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 5, alternates: 1, freeText: 224 },
-  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 6, alternates: 1, freeText: 256 },
+  // Two undeclared columns, the one row here that is two blocks of like weight, so `freeText` is
+  // owed twice.
+  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 240 },
+  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 208 },
+  { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 2, alternates: 0, freeText: 224 },
+  { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 240 },
+  { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 3, alternates: 1, freeText: 240 },
+  { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 4, alternates: 1, freeText: 240 },
+  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 3, alternates: 1, freeText: 336 },
 ];
 
 const read = (file: string): string => readFileSync(path.join(SRC, file), "utf8");
 
-/** Every `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
+/** Every shipped `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
 const tsxUnder = (dir: string): string[] =>
-  filesUnder(dir, (name) => name.endsWith(".tsx"), 100).map((full) => path.relative(SRC, full).split(path.sep).join("/"));
+  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).map((full) => path.relative(SRC, full).split(path.sep).join("/"));
 
 /** Each `@theme` block's body. Tailwind takes a theme variable from nowhere else, so nor does this. */
 function themeBlocks(css: string): string[] {
@@ -85,6 +84,26 @@ function widthPx(token: string): number | null {
   const named = /^(?:min-)?w-([a-z0-9]+)$/.exec(token);
   return named === null ? null : px(THEME.get(`container-${named[1]!}`));
 }
+
+/** `AdminCrudShell`'s `sm:p-8`, both sides. */
+const SHELL_INSET = 2 * 8 * px(THEME.get("spacing"))!;
+/** `card()`'s `border`, one pixel each side. */
+const CARD_BORDER = 2;
+/**
+ * The classic scrollbar `AppShell`'s `main` reserves through `scrollbar-gutter-stable`, at the widest
+ * a shipped desktop browser draws one; a platform drawing overlay scrollbars reserves nothing.
+ */
+const SCROLLBAR = 17;
+
+/**
+ * The narrowest table any viewport gives: the `lg` step less the docked rail, against the `md` step
+ * with the rail a drawer. **The wider breakpoint binds**, the rail taking its width out of the
+ * content column from `lg` up.
+ */
+const STEP =
+  Math.min(px(THEME.get("breakpoint-md"))! - SHELL_INSET, px(THEME.get("breakpoint-lg"))! - px(THEME.get("width-sidemenu"))! - SHELL_INSET) -
+  CARD_BORDER -
+  SCROLLBAR;
 
 type Element = { tag: string; classes: readonly string[]; start: number; end: number };
 
@@ -150,7 +169,7 @@ function tableOf(file: string): { content: Element | null; columns: Element[] } 
 
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
 
-describe("the eight admin CRUD tables", () => {
+describe("the seven admin CRUD tables", () => {
   /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
      it could ever move: the drift worth catching is a ninth table added in some other slice. */
   it("are every collection in the tree that pairs the shared emptiness with a react-aria table", () => {
@@ -200,6 +219,22 @@ describe("the eight admin CRUD tables", () => {
         owed,
         `${file}: ${floors[0]!} is not the ${String(owed)}px its ${String(declared.length)} declared columns plus ${String(columns.length - declared.length)} free-text one(s) come to`,
       );
+
+      // The floor the columns asked for, against the width a viewport can give: over the step the
+      // scroll container below is reached at every width the table renders at, which is the one
+      // outcome it is not there for.
+      assert.ok(
+        widthPx(floors[0]!)! <= STEP,
+        `${file}: ${floors[0]!} is ${String(widthPx(floors[0]!))}px, over the ${String(STEP)}px the narrowest content column gives a table`,
+      );
+
+      /* A react-aria grid navigates its collection rather than the DOM, so `ArrowRight` hands the
+         focused key to a `display:none` cell: one dead keypress per hidden column per row, and an
+         `aria-colcount` over columns nothing can reach. */
+      for (const column of columns) {
+        const banned = column.classes.filter((token) => token === "hidden" || /^[a-z0-9@]+:(?:hidden|w-)/.test(token));
+        assert.deepEqual(banned, [], `${file}: a column carrying ${banned.join(" ")} exists at one width and not another`);
+      }
     }
   });
 
@@ -207,7 +242,7 @@ describe("the eight admin CRUD tables", () => {
      and nothing else reports it: fixed layout will not widen the column to take the new control. */
   it("size the Aktionen column from the controls a row can hold", () => {
     for (const { file, controls, alternates } of TABLES) {
-      const declared = read(file).match(/<RowAction(?:Link|Copy|Restore|Delete)\b/g)?.length ?? 0;
+      const declared = read(file).match(/<RowAction(?:Link|Copy|Restore|Delete|Menu)\b/g)?.length ?? 0;
       assert.equal(declared, controls + alternates, `${file}: holds a control the roster here does not count`);
 
       // The only column ended right, which is what makes it the Aktionen one.

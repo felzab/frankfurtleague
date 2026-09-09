@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 
-import { ArrowRightFromSquare, GraduationCap, Persons } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, GraduationCap } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -11,6 +11,20 @@ import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbun
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellung";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import {
+  CELL_EDGE,
+  CELL_INNER,
+  COLUMN_EDGE,
+  COLUMN_INNER,
+  IDENTITY_HEAD,
+  IDENTITY_LINE,
+  IDENTITY_NAME,
+  IDENTITY_NAME_BOX,
+  IDENTITY_PAIR,
+  IDENTITY_ROW,
+  IDENTITY_STACK,
+  TABLE_HEADING,
+} from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -52,33 +66,14 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
   // row or its controls.
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className="fluid-sm text-foreground-muted italic">{NO_TEAM}</span>
+      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{NO_TEAM}</span>
     ) : (
-      <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{bewerbung.teamName}</span>
+      <span className={IDENTITY_NAME}>{bewerbung.teamName}</span>
     );
 
   const renderStatus = (bewerbung: AdminBewerbungRow) => (
     <span className={labelBadge(BEWERBUNG_STATUS_TINT[bewerbung.status])}>{bewerbungStatusLabel(bewerbung.status)}</span>
   );
-
-  // The Ansprechperson is who the league writes to first; the Trainer stands in where that seat is
-  // empty, an erasure clearing one slot without reaching the two beside it.
-  const renderKontakt = (bewerbung: AdminBewerbungRow) => {
-    const person = bewerbung.kontakte.ansprechperson ?? bewerbung.kontakte.trainer;
-
-    return (
-      // Truncated rather than allowed to spill: fixed layout will not widen this column for a long
-      // address, and an overflowing one draws itself across the column beside it.
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="fluid-sm text-foreground min-w-0 truncate">
-          {person === null ? <span className="text-foreground-muted italic">Keine Kontaktperson</span> : `${person.vorname} ${person.nachname}`}
-        </span>
-        <span className="fluid-xs text-foreground-muted min-w-0 truncate">
-          {person === null || person.email === "" ? <span className="text-foreground-muted italic">Keine E-Mail</span> : person.email}
-        </span>
-      </div>
-    );
-  };
 
   // A new school and an existing club are decided differently — the first one gets created — so the
   // row says which it is before it is opened.
@@ -132,6 +127,58 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     );
   };
 
+  const renderEingereicht = (bewerbung: AdminBewerbungRow) => (
+    // `font-numeric tabular-nums` is what makes a fixed-format date a fixed WIDTH under a proportional
+    // page face, and the Eingereicht column's `w-32` is measured against it. Never truncate: a clipped
+    // year is a different date.
+    <span className="font-numeric fluid-sm text-foreground tabular-nums">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+  );
+
+  /**
+   * The status pill leads because a row's standing reads before its kind, and a row cannot know
+   * which facet is on. The contact is a third line: what a reader writes to once they have found
+   * the application.
+   */
+  const renderIdentity = (bewerbung: AdminBewerbungRow) => {
+    // The Ansprechperson is who the league writes to first; the Trainer stands in where that seat is
+    // empty, an erasure clearing one slot without reaching the two beside it.
+    const person = bewerbung.kontakte.ansprechperson ?? bewerbung.kontakte.trainer;
+
+    return (
+      <div className={IDENTITY_ROW}>
+        <GraduationCap
+          aria-hidden="true"
+          className="text-brand shrink-0"
+          width={18}
+          height={18}
+        />
+        <div className={IDENTITY_STACK}>
+          <div className={IDENTITY_HEAD}>
+            {renderName(bewerbung)}
+            {renderStatus(bewerbung)}
+            {renderHerkunft(bewerbung)}
+            {renderDublette(bewerbung)}
+            {renderUnerreichbar(bewerbung)}
+            {/* Words rather than a pill: the season is the ordinary case, which the date beside it
+                already states in the same register. */}
+            <span className="fluid-xs text-foreground-muted">
+              Saison <span className="font-numeric tabular-nums">{bewerbung.saison_id}</span>
+            </span>
+          </div>
+          {bewerbung.schule !== null && <span className={IDENTITY_LINE}>{bewerbung.schule.full_name}</span>}
+          <span className={IDENTITY_PAIR}>
+            <span className={IDENTITY_LINE}>
+              {person === null ? <span className="italic">Keine Kontaktperson</span> : `${person.vorname} ${person.nachname}`}
+            </span>
+            <span className={IDENTITY_LINE}>
+              {person === null || person.email === "" ? <span className="italic">Keine E-Mail</span> : person.email}
+            </span>
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   const renderActions = (bewerbung: AdminBewerbungRow) => (
     <RowActions>
       {/* A link and not a press: the decision is taken on a page of its own, where the whole
@@ -158,28 +205,11 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
           <div
             key={bewerbung.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
-            <div className="flex w-full min-w-0 flex-row items-center gap-3">
-              <GraduationCap
-                className="text-brand shrink-0"
-                width={18}
-                height={18}
-              />
-              {renderName(bewerbung)}
-              <span className="ml-auto shrink-0">{renderStatus(bewerbung)}</span>
-            </div>
+            {renderIdentity(bewerbung)}
             <div className="flex flex-row flex-wrap items-center gap-2">
-              {renderHerkunft(bewerbung)}
-              {renderDublette(bewerbung)}
-              {renderUnerreichbar(bewerbung)}
-              {renderBestaetigung(bewerbung)}
-              {/* Words rather than a pill: the season is the card's ordinary case, which the date
-                  beside it already states in the same register. */}
-              <span className="fluid-xs text-foreground-muted">
-                Saison <span className="font-numeric tabular-nums">{bewerbung.saison_id}</span>
-              </span>
               <span className="fluid-xs text-foreground-muted">Eingereicht {formatSpielDatum(bewerbung.eingereicht_am)}</span>
+              {renderBestaetigung(bewerbung)}
             </div>
-            {renderKontakt(bewerbung)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(bewerbung)}</div>
           </div>
         ))}
@@ -187,54 +217,34 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the only
-              way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is every pinned column's
-                width plus a floor for the name, under which the name gets nothing. `text-left` here
-                because `Table.Column` takes no alignment prop. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is what the declared
+                columns plus the Team allowance come to. `text-left` here because `Table.Column` takes
+                no alignment prop. */}
             <Table.Content
               aria-label="Tabelle aller Bewerbungen"
-              className="min-w-7xl table-fixed text-left">
+              className="min-w-156 table-fixed text-left">
               <Table.Header>
-                {/* DECLARED, so the spare width above the floor goes to Ansprechperson: a club's
-                    name stops at a length, where a name and an address beside each other read
-                    longer the more room they get. */}
+                {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
+                    is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border w-64 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
                   Team
                 </Table.Column>
-                {/* PINNED to the widest PILL each carries rather than to its heading, which may
-                    wrap: a label pill holds one line, so a column under its pill's width pushes
-                    the pill across the one beside it. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Herkunft
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Saison
-                </Table.Column>
-                {/* `w-36` fits the fixed-format date and is measured rather than guessed, so it
-                    holds only while the cell below sets that date in tabular figures. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Eingereicht
-                </Table.Column>
-                {/* UNDECLARED, the one column that grows: every pixel above the floor lands here,
-                    and the pair below it truncates only once the table is at its minimum. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Ansprechperson
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Bestätigungen
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Status
-                </Table.Column>
+                {/* The queue is served in this order, so a date column is what a reader checks that
+                    order against; `w-32` is its heading's width, wider than the date under it. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-32`}>Eingereicht</Table.Column>
+                {/* The state the queue is worked down by, so it keeps a column of its own; the
+                    heading fixes the width here rather than the pill under it. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-40`}>Bestätigungen</Table.Column>
                 {/* One control — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
                     the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-32 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children: the static form stops
@@ -246,53 +256,13 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                   <Table.Row
                     id={bewerbung.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className="px-6 py-4">
-                      {/* `min-w-0` on the row too: a flex item floors at its content's width by
-                          default, and the `truncate` two levels down then never engages. */}
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Persons
-                          className="text-brand shrink-0"
-                          width={18}
-                          height={18}
-                        />
-                        {/* Stretched rather than `items-start`: a column item sized to its own
-                            content has no width for an ellipsis to sit at, and the two names below
-                            are the one thing in this table long enough to need one. */}
-                        <div className="flex min-w-0 flex-col gap-1">
-                          {renderName(bewerbung)}
-                          {bewerbung.schule !== null && (
-                            <span className="fluid-xs text-foreground-muted min-w-0 truncate">{bewerbung.schule.full_name}</span>
-                          )}
-                        </div>
-                      </div>
-                    </Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(bewerbung)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">
-                      <div className="flex flex-col items-start gap-1">
-                        {renderHerkunft(bewerbung)}
-                        {renderDublette(bewerbung)}
-                        {renderUnerreichbar(bewerbung)}
-                      </div>
-                    </Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderEingereicht(bewerbung)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">
-                      <span className="font-numeric fluid-sm text-foreground font-semibold tabular-nums">{bewerbung.saison_id}</span>
-                    </Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderBestaetigung(bewerbung)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">
-                      {/* `font-numeric tabular-nums` is what makes a fixed-format date a fixed WIDTH
-                          under a proportional page face, and the Eingereicht column's `w-36` is
-                          measured against it. Never truncate: a clipped year is a different date. */}
-                      <span className="font-numeric fluid-sm text-foreground tabular-nums">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
-                    </Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderBestaetigung(bewerbung)}</Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderStatus(bewerbung)}</Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderActions(bewerbung)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderActions(bewerbung)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

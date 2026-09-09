@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { IDENTITY_LINE } from "../../shared/components/ui/adminTable.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
@@ -639,9 +640,11 @@ describe("the queue's columns", () => {
   /* One rule on the table rather than a class per cell: HeroUI's `Table.Column` takes no alignment
      prop, so nothing else makes eight columns read from one edge. */
   it("reads from one edge, with the controls the single exception", () => {
+    // The floor stays out of this case: `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+    // derives every table's own and holds it under the step a viewport gives.
     assert.match(
       TABLE,
-      /className="min-w-7xl table-fixed text-left"/,
+      /className="min-w-\S+ table-fixed text-left"/,
       "the table declares no alignment, so each cell keeps whatever it inherits",
     );
 
@@ -666,7 +669,12 @@ describe("the queue's columns", () => {
 
     assert.notEqual(eingereicht, -1, "the queue no longer renders the submission date where this case reads it");
     assert.doesNotMatch(TABLE.slice(eingereicht - 120, eingereicht), /truncate/, "the submission date is clipped rather than given its width");
-    assert.match(TABLE, /min-w-0 truncate[^"]*">\{bewerbung\.schule\.full_name\}/, "the school's full name no longer truncates at its column");
+    assert.match(
+      TABLE,
+      /className=\{IDENTITY_LINE\}>\{bewerbung\.schule\.full_name\}/,
+      "the school's full name is set outside the identity block's own line",
+    );
+    assert.match(IDENTITY_LINE, /\btruncate\b/, "the identity block's secondary line stopped truncating");
   });
 });
 

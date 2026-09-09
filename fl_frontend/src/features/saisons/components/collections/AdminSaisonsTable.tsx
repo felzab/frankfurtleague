@@ -8,8 +8,9 @@ import { Table } from "@heroui/react";
 
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, TABLE_HEADING } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
-import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionLink, RowActionMenu, RowActionMenuItem, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -63,26 +64,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   const renderActions = (saison: AdminSaisonRow) => (
     <RowActions>
       <RowActionLink
-        href={`/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
-        label="Spieltage"
-        ariaLabel={`Spieltage der Saison ${saison.id} anzeigen`}>
-        <Calendar
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      <RowActionLink
-        href={`/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
-        label="Teams"
-        ariaLabel={`Teams der Saison ${saison.id} anzeigen`}>
-        <Persons
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      <RowActionLink
         href={saisonHref(`/admin/saisons/${saison.id}`)}
         label="Bearbeiten"
         ariaLabel={`Saison ${saison.id} bearbeiten`}>
@@ -92,6 +73,22 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
           height={18}
         />
       </RowActionLink>
+      {/* Both leave the row for another list, which is what sends them here rather than to an icon
+          of their own beside the pencil. */}
+      <RowActionMenu ariaLabel={`Weitere Aktionen für Saison ${saison.id}`}>
+        <RowActionMenuItem
+          id="spieltage"
+          href={`/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
+          label="Spieltage">
+          <Calendar className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+        <RowActionMenuItem
+          id="teams"
+          href={`/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
+          label="Teams">
+          <Persons className="text-foreground-muted size-4" />
+        </RowActionMenuItem>
+      </RowActionMenu>
     </RowActions>
   );
 
@@ -119,31 +116,29 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
-              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is every pinned column's
-                width plus a floor for the span, which needs room to set its two dates on one line. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is what the declared
+                columns plus the Zeitraum allowance come to. */}
             <Table.Content
               aria-label="Tabelle aller Saisons"
-              className="min-w-3xl table-fixed">
+              className="min-w-152 table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border w-28 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE} w-28`}>
                   Saison
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Zeitraum
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Status
-                </Table.Column>
-                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
+                    is the only one here holding free text. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER}`}>Zeitraum</Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-32`}>Status</Table.Column>
+                {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-36 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` + a render function, not mapped children — see the memo note above. */}
@@ -154,7 +149,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                   <Table.Row
                     id={saison.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className="px-6 py-4">
+                    <Table.Cell className={CELL_EDGE}>
                       {/* The season id wears the same chip fill a team's Kürzel does: both are the short
                           identifier a reader scans a column for. */}
                       <span className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm">
@@ -162,11 +157,11 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                       </span>
                     </Table.Cell>
 
-                    <Table.Cell className="px-3 py-4">{renderZeitraum(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderZeitraum(saison)}</Table.Cell>
 
-                    <Table.Cell className="px-3 py-4">{renderStatusBadge(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderStatusBadge(saison)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderActions(saison)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderActions(saison)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

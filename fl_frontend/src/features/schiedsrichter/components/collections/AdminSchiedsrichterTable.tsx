@@ -10,6 +10,20 @@ import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/action
 import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { schiedsrichterFacetValue } from "@/features/spiele/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import {
+  CELL_EDGE,
+  CELL_INNER,
+  COLUMN_EDGE,
+  COLUMN_INNER,
+  IDENTITY_HEAD,
+  IDENTITY_LINE,
+  IDENTITY_NAME,
+  IDENTITY_NAME_BOX,
+  IDENTITY_PAIR,
+  IDENTITY_ROW,
+  IDENTITY_STACK,
+  TABLE_HEADING,
+} from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -60,36 +74,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     });
   };
 
-  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
-  // row or its controls.
-  const renderKontakt = (schiedsrichter: FLSchiedsrichter) => (
-    <div className="flex flex-col gap-0.5">
-      <span className="fluid-sm text-foreground">
-        {schiedsrichter.kontakt.email || <span className="text-foreground-muted italic">Keine E-Mail</span>}
-      </span>
-      <span className="fluid-xs text-foreground-muted">
-        {schiedsrichter.kontakt.telefon ? (
-          <span className="font-numeric tabular-nums">{schiedsrichter.kontakt.telefon}</span>
-        ) : (
-          <span className="text-foreground-muted italic">Keine Telefonnummer</span>
-        )}
-      </span>
-    </div>
-  );
-
-  // Beside the identity rather than in a column: retirement is the only state a referee has, so a
-  // column would be empty on every live row.
-  const renderRetiredBadge = (schiedsrichter: FLSchiedsrichter) =>
-    schiedsrichter.inactive_since === null ? null : <RetiredBadge since={schiedsrichter.inactive_since} />;
-
   // Italic where the name is gone, so a reader takes the word for the state it is rather than for
   // somebody's name. The `title` carries the day, which no cell has room for.
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.anonymisiert_am === null ? (
-      <span className="fluid-sm text-foreground font-semibold">{schiedsrichter.name}</span>
+      <span className={IDENTITY_NAME}>{schiedsrichter.name}</span>
     ) : (
       <span
-        className="fluid-sm text-foreground-muted font-semibold italic"
+        className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}
         title={`Daten am ${formatSpielDatum(schiedsrichter.anonymisiert_am)} gelöscht`}>
         {schiedsrichterAnzeigename(schiedsrichter.name)}
       </span>
@@ -99,6 +91,37 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
+  );
+
+  /**
+   * The school is the person's affiliation and reads as one under their name; a column of its own
+   * leaves it standing alone. An address and a number are what a reader copies once they have found
+   * somebody.
+   */
+  const renderIdentity = (schiedsrichter: FLSchiedsrichter, dimmed: boolean) => (
+    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+      <Person
+        aria-hidden="true"
+        className="text-brand shrink-0"
+        width={18}
+        height={18}
+      />
+      <div className={IDENTITY_STACK}>
+        <div className={IDENTITY_HEAD}>
+          {renderName(schiedsrichter)}
+          {/* Beside the identity rather than in a column: retirement is the only state a referee has,
+              so a column would be empty on every live row. */}
+          {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
+        </div>
+        <span className={IDENTITY_LINE}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
+        <span className={IDENTITY_PAIR}>
+          <span className={IDENTITY_LINE}>{schiedsrichter.kontakt.email || <span className="italic">Keine E-Mail</span>}</span>
+          <span className={`${IDENTITY_LINE} font-numeric tabular-nums`}>
+            {schiedsrichter.kontakt.telefon || <span className="italic">Keine Telefonnummer</span>}
+          </span>
+        </span>
+      </div>
+    </div>
   );
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => {
@@ -127,7 +150,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
     return (
       <RowActions>
-        {/* Admin-only: the public Spielsuche declares no such facet, so the same link would filter nothing. */}
+        {/* The row's ONE way elsewhere, so it stays inline: a menu holding a single item costs a press
+            and buys nothing. Admin-only, the public Spielsuche declaring no such facet. */}
         <RowActionLink
           href={saisonHref(`/admin/spielsuche?schiedsrichter=${facetValue}`)}
           label={einsatzLabel}
@@ -179,8 +203,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   return (
     <>
-      {/* One card per referee, so nothing scrolls horizontally. The school column stays table-only:
-          on a card it read as an unlabeled stray line, and the edit page carries it. */}
+      {/* One card per referee, so nothing scrolls horizontally. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSchiedsrichter.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSchiedsrichter.map((schiedsrichter) => (
@@ -188,16 +211,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             key={schiedsrichter.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${schiedsrichter.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <Person
-                className="text-brand shrink-0"
-                width={18}
-                height={18}
-              />
-              <span className="min-w-0 truncate">{renderName(schiedsrichter)}</span>
-              <span className="ml-auto shrink-0">{renderHonorar(schiedsrichter)}</span>
+              {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
+              <div className="min-w-0 flex-1">{renderIdentity(schiedsrichter, false)}</div>
+              <span className="shrink-0">{renderHonorar(schiedsrichter)}</span>
             </div>
-            {renderRetiredBadge(schiedsrichter)}
-            {renderKontakt(schiedsrichter)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(schiedsrichter)}</div>
           </div>
         ))}
@@ -205,36 +222,30 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
-              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
-                columns plus 176 for the name, under which it gets nothing. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is what the declared
+                columns plus the Name allowance come to. */}
             <Table.Content
               aria-label="Tabelle aller Schiedsrichter"
-              className="min-w-6xl table-fixed">
+              className="min-w-156 table-fixed">
               <Table.Header>
+                {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
+                    is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
                   Name
                 </Table.Column>
-                {/* PINNED to their content's width, so the leftover all goes to the name column. Kontakt is
-                    sized to an e-mail; the two beside it to their headings, which run longer than their cells. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Kontakt
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Schule / Verein
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Standard-Honorar
-                </Table.Column>
+                {/* Sized to the euro chip rather than to the heading over it: a chip holds one line,
+                    so a column under its width draws it across the cell beside it. */}
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-36`}>Honorar</Table.Column>
                 {/* Four controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-60 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-60 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -245,31 +256,11 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   <Table.Row
                     id={schiedsrichter.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className="px-6 py-4">
-                      <div className={`flex items-center gap-3 ${schiedsrichter.inactive_since !== null ? "opacity-60" : ""}`}>
-                        <Person
-                          className="text-brand shrink-0"
-                          width={18}
-                          height={18}
-                        />
-                        <div className="flex flex-col items-start gap-1">
-                          {renderName(schiedsrichter)}
-                          {renderRetiredBadge(schiedsrichter)}
-                        </div>
-                      </div>
-                    </Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(schiedsrichter, schiedsrichter.inactive_since !== null)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderKontakt(schiedsrichter)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderHonorar(schiedsrichter)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground">
-                        {schiedsrichter.schule || <span className="text-foreground-muted italic">Keine Schule</span>}
-                      </span>
-                    </Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderHonorar(schiedsrichter)}</Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderActions(schiedsrichter)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderActions(schiedsrichter)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

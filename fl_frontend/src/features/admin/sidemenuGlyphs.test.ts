@@ -40,15 +40,26 @@ function sectionActions(): Action[] {
   for (const file of collectTsxFiles(path.join(SRC_DIR, "features"))) {
     const text = readFileSync(file, "utf8");
 
-    for (const match of text.matchAll(/<RowActionLink\b([\s\S]*?)<\/RowActionLink>/g)) {
-      const body = match[1] ?? "";
+    // Both shapes: a row offers one way elsewhere inline and several through a menu
+    // (`fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionMenu`), and the sidemenu
+    // answers for the glyph either way.
+    for (const match of text.matchAll(/<RowAction(Link|MenuItem)\b([\s\S]*?)<\/RowAction\1>/g)) {
+      const body = match[2] ?? "";
       // `?` or the closing backtick ends a section path; `/` means a record id follows.
       const target = /\/admin\/([a-z_]+)([`?"])/.exec(body);
-      const label = /label="([^"]+)"/.exec(body)?.[1];
       const glyph = /<([A-Z]\w+)\s/.exec(body)?.[1];
-      if (target === null || label === undefined || glyph === undefined) continue;
+      if (target === null || glyph === undefined) continue;
 
-      found.push({ file: path.relative(SRC_DIR, file).split(path.sep).join("/"), label, glyph, destination: target[1] ?? "" });
+      // Both JSX spellings, and neither decides membership: a label is this case's title, and an
+      // action whose label is an expression is one the pairing below still has to hold.
+      const label = /label=(?:"([^"]+)"|\{([^\n]+)\})/.exec(body);
+
+      found.push({
+        file: path.relative(SRC_DIR, file).split(path.sep).join("/"),
+        label: label?.[1] ?? label?.[2] ?? "",
+        glyph: glyph,
+        destination: target[1] ?? "",
+      });
     }
   }
 

@@ -201,7 +201,7 @@ where the row carries the stamp the expiry reads (I119).\
 ### `rolle` — which of a squad's leading roles a player holds
 
 **Is:** the Kapitän or the Co-Kapitän of one team for one season, held on the `saison_spieler` junction rather than on the person. ONE nullable closed set rather than a flag per role, so holding both at once is unrepresentable rather than refused, and null — holding neither — is the ordinary state.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`, on `:: FLSaisonSpielerRow` beside `is_nachgetragen`; the German for each value and the Kürzel the phone layout shows in its place are `fl_frontend/src/features/spieler/constants.ts :: ROLLE_OPTIONS`, which every surface reads rather than spelling its own.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`, on `:: FLSaisonSpielerRow` beside `is_nachgetragen`; the German for each value is `fl_frontend/src/features/spieler/constants.ts :: ROLLE_OPTIONS`, which every surface reads rather than spelling its own.\
 **Trap:** a squad holds each role at most once among its LIVE rows and every squad write path refuses one already held (`REQ-SQUAD-004`), so a role is handed on by taking it off its current holder or retiring them; it is the one `saison_spieler` key the validator leaves out of `required`, a missing key and a stored null both reading as no role; and `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` on the write payloads is what stops the marker being typed inside a name instead.\
 **See:** backend spec I35 for the closed sets, I36 for the write-payload name pattern.
 

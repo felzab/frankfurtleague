@@ -8,6 +8,7 @@ import { ClockArrowRotateLeft, Cpu, Globe, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, IDENTITY_STACK, TABLE_HEADING } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -72,18 +73,6 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     router.push(withSaisonId(`/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
   };
 
-  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a row.
-  const renderZeitpunkt = (aktion: AdminAktionRow) => {
-    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
-
-    return (
-      <div className="font-numeric flex flex-col gap-0.5 tabular-nums">
-        <span className="fluid-sm text-foreground font-bold">{datum}</span>
-        {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
-      </div>
-    );
-  };
-
   const renderAkteur = (aktion: AdminAktionRow) => {
     const herkunft = herkunftOfAktor(aktion.actor);
 
@@ -112,6 +101,24 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           height={18}
         />
         <span className={labelBadge(badge)}>{AKTION_HERKUNFT_LABELS[herkunft]}</span>
+      </div>
+    );
+  };
+
+  /**
+   * The when leads and the who follows it, an audit row being who did what when and the when its sort
+   * key. One source for both layouts, so the table's cells and the phone cards cannot disagree.
+   */
+  const renderZeitpunkt = (aktion: AdminAktionRow) => {
+    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
+
+    return (
+      <div className={IDENTITY_STACK}>
+        <div className="font-numeric flex flex-row flex-wrap items-baseline gap-x-2 tabular-nums">
+          <span className="fluid-sm text-foreground font-bold">{datum}</span>
+          {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
+        </div>
+        {renderAkteur(aktion)}
       </div>
     );
   };
@@ -174,6 +181,22 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     return null;
   };
 
+  /**
+   * The operation and the area are one fact about the write, and the request that made it belongs
+   * with the record it was made against: that is why one column holds all four.
+   */
+  const renderAenderung = (aktion: AdminAktionRow) => (
+    <div className="flex min-w-0 flex-col items-start gap-1.5">
+      <div className="flex flex-row flex-wrap gap-1.5">
+        {renderArtTag(aktion)}
+        {renderBereichTag(aktion)}
+      </div>
+      {renderDatensatz(aktion)}
+      {renderStandBadge(aktion)}
+      {renderAufruf(aktion)}
+    </div>
+  );
+
   // The row has no name to be announced by, so the moment it happened is what tells two of them apart.
   const zeitpunktLabel = (aktion: AdminAktionRow) => {
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
@@ -214,19 +237,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           <div
             key={aktion.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
-            <div className="flex w-full flex-row items-center gap-3">
-              {renderZeitpunkt(aktion)}
-              <span className="ml-auto shrink-0">{renderArtTag(aktion)}</span>
-            </div>
-            {renderAkteur(aktion)}
-            <div className="flex flex-row flex-wrap items-center gap-1.5">
-              {renderBereichTag(aktion)}
-              {renderStandBadge(aktion)}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {renderDatensatz(aktion)}
-              {renderAufruf(aktion)}
-            </div>
+            {renderZeitpunkt(aktion)}
+            {renderAenderung(aktion)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(aktion)}</div>
           </div>
         ))}
@@ -234,36 +246,28 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
-              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          {/* Never scrolled at a width this table renders at
+              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+              scrollbar wider than the step allows for and for text zoom, where a clipped column would
+              hide a cell a bar reaches. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
-                columns plus 224 for Datensatz, under which it gets nothing. */}
+            {/* Fixed layout holds the columns when the rows go, and the minimum is the action column
+                plus an allowance for each of the two undeclared ones. */}
             <Table.Content
               aria-label="Alle aufgezeichneten Änderungen"
-              className="min-w-260 table-fixed">
+              className="min-w-156 table-fixed">
               <Table.Header>
-                {/* PINNED, with the leftover going to Datensatz rather than to the first column: ids and
-                    filter pairs are `break-all`, so that one column reads at any width it is given. */}
+                {/* BOTH UNDECLARED, which splits the remainder equally between them: the only list
+                    here whose row is two blocks of like weight, where every other has one. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
                   Zeitpunkt
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Wer
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Art
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Datensatz
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER}`}>Änderung</Table.Column>
                 {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
                 the arithmetic, and below three the heading is wider than the controls it sits over. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-                  Aktionen
-                </Table.Column>
+                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-36 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -274,26 +278,11 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                   <Table.Row
                     id={aktion.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className="px-6 py-4">{renderZeitpunkt(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderZeitpunkt(aktion)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderAkteur(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER}>{renderAenderung(aktion)}</Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">
-                      <div className="flex flex-col items-start gap-1.5">
-                        {renderArtTag(aktion)}
-                        {renderAufruf(aktion)}
-                      </div>
-                    </Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">
-                      <div className="flex flex-col items-start gap-1.5">
-                        {renderBereichTag(aktion)}
-                        {renderDatensatz(aktion)}
-                        {renderStandBadge(aktion)}
-                      </div>
-                    </Table.Cell>
-
-                    <Table.Cell className="px-6 py-4">{renderActions(aktion)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderActions(aktion)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>
