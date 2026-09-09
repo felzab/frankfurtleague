@@ -1,12 +1,13 @@
 import re
 from itertools import product
 from pathlib import Path
-from typing import Final, NamedTuple
+from typing import Annotated, Final, NamedTuple
 
 import pytest
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
 from app.shared.schemas.custom import PHONE_REGEX, SINGLE_LINE_PATTERN
@@ -51,7 +52,16 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
 )
+
+# Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
+# neither register fails the direction below rather than reading as covered.
+UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
+    "LIST_LIMIT_DEFAULT": "the page size a read applies for a caller that asks for none",
+    "LIST_LIMIT_MAX": "the ceiling on what a caller may ask for; every frontend read sends the size it needs or none",
+    "AKTION_RETENTION_SECONDS": "the log index's own `expireAfterSeconds`; no surface counts a row's age",
+}
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
 
@@ -115,6 +125,22 @@ def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
 
     assert found is not None, f"{mirror.module} no longer exports {mirror.typescript} as a bare integer"
     assert int(found[1]) == _declared_bounds()[mirror.python], f"{mirror.typescript} disagrees with {mirror.python}"
+
+
+def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():
+    """The direction that starts from `bounds.py`.
+
+    Both cases below start from what the frontend claims, so a bound it never names is compared by
+    nothing and reads as covered.
+    """
+
+    declared = set(_declared_bounds())
+    paired = {mirror.python for mirror in MIRRORED_BOUNDS}
+    named = set(UNMIRRORED_BOUNDS)
+
+    assert declared, "no integer was read off bounds.py, so this case passes over nothing"
+    assert not paired & named, f"{sorted(paired & named)} is both paired with a mirror and named as retyped nowhere"
+    assert declared == paired | named
 
 
 def test_every_module_claiming_a_mirror_is_one_this_register_covers():
@@ -228,9 +254,15 @@ def _field_pattern(model: type[BaseModel], field: str) -> str:
 MIRRORED_PATTERNS: Final = (
     Pattern("shared/schemas.ts", "PHONE_REGEX", "app/shared/schemas/custom.py :: PHONE_REGEX", PHONE_REGEX),
     Pattern("shared/schemas.ts", "HAUSNUMMER_REGEX", "app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN", HAUSNUMMER_PATTERN),
-    # Latent rather than live: `\d` inside a JavaScript class is `[0-9]`, so the two agree today and
-    # nothing held them there.
+    # Two pairs spelling one class two ways: a JavaScript `\d` is `[0-9]`, where the Rust engine's takes
+    # every Unicode decimal digit, so each agrees only because the backend spells the range.
     Pattern("shared/schemas.ts", "PLZ_REGEX", "app/shared/schemas/addresses.py :: FLAddress", _field_pattern(FLAddress, "plz")),
+    Pattern(
+        "features/spieler/schemas.ts",
+        "SQUAD_NUMMER_REGEX",
+        "app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN",
+        _field_pattern(FLPostSaisonSpielerPayload, "nummer"),
+    ),
 )
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than
@@ -238,9 +270,13 @@ MIRRORED_PATTERNS: Final = (
 # between these two patterns was made of.
 MODELLED_ESCAPES: Final = frozenset("d-.\\()[]{}+*?^$|/")
 
+# A decimal digit outside ASCII, probed because `\d` holds it in Rust's engine and not in JavaScript's:
+# a pair spelling one class two ways agrees on every ASCII probe and parts here.
+NON_ASCII_DIGIT: Final = "٥"
+
 # Probed alongside every character the two spellings mention, because a divergence over a character
 # neither one names is one no derived alphabet would reach.
-PROBE_CONTROLS: Final = frozenset({"\n", "\r", "\t", " ", "é", "z", "5"})
+PROBE_CONTROLS: Final = frozenset({"\n", "\r", "\t", " ", "é", "z", "5", NON_ASCII_DIGIT})
 
 # Long enough to stand either side of a twenty-character ceiling, which no exhaustive short probe reaches.
 PROBE_LENGTHS: Final = (4, 5, 19, 20, 21)
@@ -269,8 +305,27 @@ def _probe_alphabet(*patterns: str) -> list[str]:
     return sorted(characters)
 
 
-def _accepted(pattern: str, probes: list[str]) -> set[str]:
-    """`fullmatch` rather than `match`: JavaScript's `$` is the end of the input, where Python's also stands before a final newline."""
+def _pydantic_accepted(pattern: str, probes: list[str]) -> set[str]:
+    r"""The BACKEND spelling, graded through pydantic as the API grades it: Rust's engine, where `\d` is every Unicode decimal digit."""
+
+    adapter = TypeAdapter(Annotated[str, StringConstraints(pattern=pattern)])
+    accepted: set[str] = set()
+    for probe in probes:
+        try:
+            adapter.validate_python(probe)
+        except ValidationError:
+            continue
+        accepted.add(probe)
+
+    return accepted
+
+
+def _javascript_accepted(pattern: str, probes: list[str]) -> set[str]:
+    r"""The FRONTEND spelling, graded as JavaScript reads it.
+
+    `re.ASCII` for its `\d`, and `fullmatch` because JavaScript's `$` is the end of the input where
+    Python's also stands before a final newline.
+    """
 
     compiled = re.compile(pattern, re.ASCII)
 
@@ -299,11 +354,24 @@ def test_each_declared_pattern_pair_accepts_the_same_values(pattern: Pattern):
     probes = ["".join(run) for length in range(4) for run in product(alphabet, repeat=length)]
     probes += [character * length for character in alphabet for length in PROBE_LENGTHS]
 
-    accepted = _accepted(pattern.source, probes)
+    accepted = _pydantic_accepted(pattern.source, probes)
 
     assert accepted, f"{pattern.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), f"{pattern.python} accepts every probe, so agreeing with it proves nothing"
-    assert accepted == _accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+    assert accepted == _javascript_accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+
+
+def test_the_backend_grader_reads_a_digit_class_the_way_production_does():
+    r"""Neither half of this reaches a `\d` on the Python side alone.
+
+    `re.ASCII` would grade both ends as JavaScript, and an ASCII-only corpus would find them equal
+    whichever engine read them.
+    """
+
+    probes = [NON_ASCII_DIGIT * 5]
+
+    assert _pydantic_accepted(r"^\d{5}$", probes) == set(probes)
+    assert _javascript_accepted(r"^\d{5}$", probes) == set()
 
 
 # The delivery screen's copy of `SINGLE_LINE_PATTERN`, one of four spellings of that one rule.
@@ -349,11 +417,11 @@ def test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses(
     alphabet = sorted(_spelled_codepoints(SINGLE_LINE_PATTERN) | _spelled_codepoints(found["source"]) | PROBE_CONTROLS)
     probes = [*alphabet, *(f"Goethe{character}Startgeld" for character in alphabet)]
 
-    accepted = _accepted(SINGLE_LINE_PATTERN, probes)
+    accepted = _pydantic_accepted(SINGLE_LINE_PATTERN, probes)
 
     assert accepted, f"SINGLE_LINE_PATTERN accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), "SINGLE_LINE_PATTERN accepts every probe, so agreeing with it proves nothing"
-    assert accepted == _accepted(found["source"], probes), f"{name} and SINGLE_LINE_PATTERN accept different values"
+    assert accepted == _javascript_accepted(found["source"], probes), f"{name} and SINGLE_LINE_PATTERN accept different values"
 
 
 ANSWER_PAYLOAD: Final = Path(bewerbungen_schemas.__file__)

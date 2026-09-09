@@ -34,6 +34,7 @@ import {
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
   BEWERBUNG_STUFENGROESSE_MAX,
+  BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
@@ -641,8 +642,19 @@ export const FLPostBewerbungPayloadSchema = z
   });
 export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
-/** The one thing a visitor's body can be missing that no input renders: a link opened without its token. */
+/** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+
+/**
+ * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`, both consent payloads
+ * reading it from here. One sentence for the missing token and the over-long one: a visitor typed
+ * neither, so the repair is the same link opened again.
+ */
+const einwilligungToken = z
+  .string()
+  .trim()
+  .nonempty({ error: LINK_UNVOLLSTAENDIG })
+  .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
 // Mirrors `KONTAKT_ROLLEN`'s values as `FLTrainerZugleichSchema` mirrors its two: the wire names a
 // seat by this closed set.
@@ -656,7 +668,7 @@ export type FLKontaktRolle = z.infer<typeof FLKontaktRolleSchema>;
  * the credential, and a second URL carrying it is a second line the edge has to redact.
  */
 export const FLBewerbungEinwilligungAnsichtPayloadSchema = z.object({
-  token: z.string().trim().nonempty({ error: LINK_UNVOLLSTAENDIG }),
+  token: einwilligungToken,
 });
 export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEinwilligungAnsichtPayloadSchema>;
 
@@ -685,7 +697,7 @@ export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungE
  */
 export const FLBewerbungEinwilligungAntwortPayloadSchema = z
   .object({
-    token: z.string().trim().nonempty({ error: LINK_UNVOLLSTAENDIG }),
+    token: einwilligungToken,
     // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
     // answer, and the repair is the reload rather than a choice.
     antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),

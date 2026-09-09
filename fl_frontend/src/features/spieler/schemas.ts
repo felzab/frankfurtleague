@@ -45,7 +45,7 @@ export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
  */
 export const FLSpielerPublicSchema = z.object({
   id: CustomObjectIdStringSchema,
-  vorname: z.string(),
+  vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
@@ -145,6 +145,10 @@ export const FLEraseSpielerPayloadSchema = z.object({
 });
 export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
 
+// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling.
+const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
+
 /**
  * No transforms — empty-to-null normalisation is the FORM boundary's. A schema that rewrote its
  * input would make `z.infer` disagree with what the form holds, and `apiContract.test.ts` compares
@@ -153,10 +157,7 @@ export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
 const saisonSpielerPayloadFields = {
   team_id: CustomObjectIdStringSchema,
   // A string on the wire — worn rather than counted — but free text was never meant to admit a name.
-  nummer: z
-    .string()
-    .regex(/^\d{1,4}$/, { error: NUMMER_MUST_BE_DIGITS })
-    .nullable(),
+  nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   // The create form derives this from the season's status rather than asking it, so it cannot be
@@ -212,7 +213,9 @@ export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPaylo
  */
 export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string().nonempty(),
+  // No floor, `FLSpielerSingleResponse` stating none: a read refusing what the API can serve reports
+  // the name-write that echoed it as failed.
+  vorname: z.string(),
   nachname: z.string().nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });

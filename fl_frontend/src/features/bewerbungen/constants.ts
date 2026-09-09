@@ -92,6 +92,13 @@ export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14;
 export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
+ * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two
+ * consent payloads because a link mangled longer than any mint answers a bare `REQ-VAL-001`, which
+ * tells a visitor nothing about their link.
+ */
+export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
+
+/**
  * The picker key standing for „meine Schule ist nicht dabei“.
  *
  * **Not an ObjectId and never one**: every other key in that list is a club id, so a sentinel that

@@ -12,6 +12,7 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  FLKontaktPayloadSchema,
   FLKontaktSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
   PHONE_REGEX,
@@ -167,20 +168,6 @@ describe("PHONE_REGEX", () => {
 });
 
 describe("FLKontaktSchema", () => {
-  // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
-  function addressOfLength(total: number): string {
-    const local = "a".repeat(64);
-    let remaining = total - local.length - 1;
-    const labels: string[] = [];
-    while (remaining > 0) {
-      const size = Math.min(60, remaining);
-      labels.push("b".repeat(size));
-      remaining -= size;
-      if (remaining > 0) remaining -= 1;
-    }
-    return `${local}@${labels.join(".")}`;
-  }
-
   it("accepts common German phone formats", () => {
     for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
       assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
@@ -214,10 +201,38 @@ describe("FLKontaktSchema", () => {
     assert.equal(FLKontaktSchema.safeParse({ telefon: "   ", email: null }).success, true);
   });
 
+  // Each is a value `EmailStr` takes and stores: a punycode host normalised to unicode, an umlaut
+  // local part, an atext character outside zod's class, and a local part past RFC 5321's 64.
+  it("takes every address the API stores, whose rule no zod pattern spells", () => {
+    for (const email of ["kaethe@käthe-schule.example", "käthe@example.de", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
+      assert.equal(FLKontaktSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
+    }
+  });
+
+  it("rejects a missing field outright", () => {
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+  });
+});
+
+describe("FLKontaktPayloadSchema", () => {
+  // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
+  function addressOfLength(total: number): string {
+    const local = "a".repeat(64);
+    let remaining = total - local.length - 1;
+    const labels: string[] = [];
+    while (remaining > 0) {
+      const size = Math.min(60, remaining);
+      labels.push("b".repeat(size));
+      remaining -= size;
+      if (remaining > 0) remaining -= 1;
+    }
+    return `${local}@${labels.join(".")}`;
+  }
+
   it("validates email addresses", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success, true);
     for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
     }
   });
 
@@ -226,9 +241,9 @@ describe("FLKontaktSchema", () => {
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
     const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
     assert.equal(atTheCap.length, KONTAKT_EMAIL_MAX_LENGTH);
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
 
-    const over = FLKontaktSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
+    const over = FLKontaktPayloadSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
     assert.equal(over.success, false, "one over the cap");
     // The union carries the message, so the ceiling must not have moved it to zod's own English.
     assert.deepEqual(
@@ -240,11 +255,15 @@ describe("FLKontaktSchema", () => {
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
   });
 
-  it("rejects a missing field outright", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+  // The two states an emptied box submits, and the phone rule this schema takes from the read shape
+  // rather than restating: spelled afresh, the payload would accept a number the API answers 422 to.
+  it("takes a cleared box on either field and keeps the phone rule", () => {
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: null }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: "" }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "069-ABC-123", email: null }).success, false);
   });
 });
 

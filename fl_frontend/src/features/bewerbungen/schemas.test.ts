@@ -5,8 +5,15 @@ import { describe, it } from "node:test";
 
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { BEWERBUNG_STUFENGROESSE_MAX, BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import {
+  BEWERBUNG_STUFENGROESSE_MAX,
+  BEWERBUNG_TOKEN_MAX_LENGTH,
+  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+  SCHULE_NICHT_IN_LISTE,
+} from "./constants.ts";
+import {
+  FLBewerbungEinwilligungAnsichtPayloadSchema,
+  FLBewerbungEinwilligungAntwortPayloadSchema,
   FLBewerbungKontaktEmailPayloadSchema,
   FLBewerbungTrikotFarbenResponseSchema,
   FLBewerbungZustellungAngenommenPayloadSchema,
@@ -710,5 +717,33 @@ describe("the one-line rule the submission and the endpoint hold together", () =
       [...new Set(EINZEILIG.flatMap(([, codes]) => [...codes]))].sort((first, second) => first - second),
       endpointRefuses(BACKEND_SINGLE_LINE),
     );
+  });
+});
+
+describe("the ceiling on the confirmation link's own token", () => {
+  /* A decline, so the body is whole without a date and no clock decides the case. */
+  const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, text_version: "2026-08" };
+
+  const verdicts = (token: string) => [
+    FLBewerbungEinwilligungAnsichtPayloadSchema.safeParse({ token: token }),
+    FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody }),
+  ];
+
+  /* No control renders the token, and past `CustomBewerbungToken`'s ceiling the endpoint refuses with
+     a bare `REQ-VAL-001` naming no field, so the page can only report a failed save. */
+  it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
+    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1))) {
+      assert.equal(parsed.success, false);
+      assert.deepEqual(
+        parsed.error?.issues.map((issue) => issue.message),
+        ["Bitte öffne den Link noch einmal aus Deiner E-Mail."],
+      );
+    }
+  });
+
+  it("takes a token at the ceiling, as the endpoint does", () => {
+    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH))) {
+      assert.equal(parsed.success, true);
+    }
   });
 });

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
-// `fl_backend/app/shared/schemas/addresses.py`; looser makes the message a lie, and a pattern is
-// outside the contract comparison entirely.
+// `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie, and a
+// pattern is outside the contract comparison entirely.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
 // (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
@@ -141,12 +141,19 @@ export const FLKontaktSchema = z.object({
       error: "Bitte gib eine gültige Telefonnummer ein.",
     })
     .nullable(),
-  // No local-part cap beside it: email-validator applies RFC 5321's 64 only under `strict`, which
-  // pydantic does not pass, so one here alone would refuse an address the API accepts.
+  // Judged on the payload alone: `EmailStr` normalises a punycode host to unicode and takes an umlaut
+  // local part, so a read stating an address rule refuses a value the API stored.
+  email: z.string().nullable(),
+});
+export type FLKontakt = z.infer<typeof FLKontaktSchema>;
+
+/** What the two referee payloads embed: the address rule lives here, where a refusal reaches a box. */
+export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
+  // No local-part cap beside the ceiling: email-validator applies RFC 5321's 64 only under `strict`,
+  // which pydantic does not pass, so one here alone would refuse an address the API accepts.
   email: z
     .union([z.email().max(KONTAKT_EMAIL_MAX_LENGTH), z.string().trim().length(0)], {
       error: "Bitte gib eine gültige E-Mail-Adresse ein.",
     })
     .nullable(),
 });
-export type FLKontakt = z.infer<typeof FLKontaktSchema>;
