@@ -163,6 +163,11 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   person after they asked to be erased creates fresh personal data about them, with no lawful basis
   standing for it, so the erasure retires the row — `REQ-BOOKING-001` then refuses it every new
   fixture — and the reactivation that would undo that is refused in turn (`REQ-ANONYMISE-003`). A
+  booking already standing on a fixture still to be played is the same data on the same argument, so
+  the erasure empties it in the same transaction and the fixture surfaces under
+  `GET /spiele/action_required` until somebody assigns a referee to it; one fixture never vetoes a
+  request to be forgotten, and the retirement's own refusal (`REQ-RETIRE-004`) therefore has nothing
+  left to refuse. A
   retirement the row already carried keeps its own day: a referee who stopped officiating last season
   is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
   the person, and beside a fixture list that never expires it narrows them to the few referees one

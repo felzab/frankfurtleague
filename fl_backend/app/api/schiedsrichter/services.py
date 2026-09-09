@@ -1,5 +1,6 @@
 from typing import Any, Mapping, Sequence
 
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.kontakt import FLKontakt
@@ -40,6 +41,20 @@ ANONYMISATION_UNDONE_BY_AN_EDIT = "REQ-ANONYMISE-002"
 # about somebody who asked to be left out. What `REQ-BOOKING-001` reads is the retirement the erasure
 # writes.
 ANONYMISED_REFEREE_REACTIVATED = "REQ-ANONYMISE-003"
+
+
+def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
+    """Every fixture this referee holds that is still to be played, as `app/api/saisons/services.py :: unplayed_spiel_nrs` decides it.
+
+    One filter for the retirement's own refusal and for the erasure's unassign, so the two cannot
+    disagree about what is still to come.
+    """
+
+    return {
+        "schiedsrichter.schiedsrichter_id": schiedsrichter_id,
+        "ergebnis": None,
+        "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+    }
 
 
 def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:

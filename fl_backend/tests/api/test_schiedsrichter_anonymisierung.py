@@ -23,12 +23,14 @@ from app.api.schiedsrichter.services import (
     ANONYMISIERT_AM,
     KONTAKT_RE_ENTERED_MID_ANONYMISATION,
     build_booked_image_filter,
+    build_unplayed_assignment_filter,
     find_anonymisation_undo_refusal,
     find_reactivation_refusal,
     first_stamped,
     holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpielListAdapter,
     FLSpielSchiedsrichterField,
@@ -114,6 +116,16 @@ SPIEL_OIDS: dict[ObjectId, tuple[ObjectId, ...]] = {
     SCHIEDSRICHTER_OID: (ObjectId("6890a1b2c3d4e5f607800011"), ObjectId("6890a1b2c3d4e5f607800012")),
     OTHER_SCHIEDSRICHTER_OID: (ObjectId("6890a1b2c3d4e5f607800013"),),
 }
+
+# The first of their pair is emptied of its result per case and the second left as `fixture_document`
+# seeds it, so one league drives both halves of what the erasure does to a booking.
+UNPLAYED_SPIEL_OID, PLAYED_SPIEL_OID = SPIEL_OIDS[SCHIEDSRICHTER_OID]
+
+(OTHER_SPIEL_OID,) = SPIEL_OIDS[OTHER_SCHIEDSRICHTER_OID]
+
+# Read off the declaration, so a member leaving that set fails here rather than leaving the case below
+# asserting nothing about a cancellation.
+A_CANCELLATION = SONDEREREIGNIS_WITHOUT_A_RESULT[0]
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6078000a1")
 SAISON_ID = "2026"
@@ -561,6 +573,23 @@ async def call_retirement(database: AsyncDatabase, *, today: str) -> FLSchiedsri
     )
 
 
+async def one_of_their_fixtures_left_to_play(database: AsyncDatabase, *, sonderereignis: str | None = None) -> None:
+    """`UNPLAYED_SPIEL_OID` owing a result, `fixture_document` having seeded every fixture played."""
+
+    await database[Collection.SPIELE].update_one({"_id": UNPLAYED_SPIEL_OID}, {"$set": {"ergebnis": None, "sonderereignis": sonderereignis}})
+
+
+async def a_validator_refusing_the_redaction(database: AsyncDatabase) -> None:
+    """Narrow enough to refuse the redaction's `$set`, wide enough to admit every row recorded with `redacted_at` null."""
+
+    await database.command(
+        "collMod",
+        Collection.AKTIONEN.value,
+        validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
+        validationLevel="strict",
+    )
+
+
 async def stored_fixtures(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
     """Keyed by `_id`, so a failing assertion names the fixture rather than a list position."""
 
@@ -670,28 +699,80 @@ def test_the_erasure_retires_the_referee(mongo_replica_set_url: str):
     assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None
 
 
-@pytest.mark.db
-def test_an_unplayed_fixture_does_not_stop_the_erasure_and_keeps_its_assignment(mongo_replica_set_url: str):
-    """`DELETE` owes `REQ-RETIRE-004` and this does not: a request to be forgotten outranks a booking.
-
-    Kills consulting that refusal here, and kills clearing the booking, which strands the fee agreed
-    for a match still to be played.
-    """
+def after_anonymising_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
+    """One league holding a played fixture and an unplayed one, so the two halves are read off a single run."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        unplayed = SPIEL_OIDS[SCHIEDSRICHTER_OID][0]
-        await database[Collection.SPIELE].update_one({"_id": unplayed}, {"$set": {"ergebnis": None}})
+        await one_of_their_fixtures_left_to_play(database)
         await call_anonymisation(database, client)
 
-        return unplayed, await stored_fixtures(database), await stored_referees(database)
+        return await stored_fixtures(database), await stored_referees(database)
 
-    unplayed, fixtures, referees = on_a_league(mongo_replica_set_url, body)
+    return on_a_league(url, body)
+
+
+@pytest.mark.db
+def test_an_unplayed_fixture_does_not_stop_the_erasure_and_loses_its_assignment(mongo_replica_set_url: str):
+    """`DELETE` owes `REQ-RETIRE-004` and this does not: the erasure empties the booking rather than being blocked by it.
+
+    Kills consulting that refusal here, and kills leaving an erased person named on work still to come.
+    """
+
+    fixtures, referees = after_anonymising_one_fixture_left_to_play(mongo_replica_set_url)
 
     assert referees[SCHIEDSRICHTER_OID][ANONYMISIERT_AM] == TODAY
-    assert fixtures[unplayed]["ergebnis"] is None
-    assert fixtures[unplayed]["schiedsrichter"] == {
+    # Still owing a result, so this cannot pass on an erasure that composed one instead.
+    assert fixtures[UNPLAYED_SPIEL_OID]["ergebnis"] is None
+    assert fixtures[UNPLAYED_SPIEL_OID]["schiedsrichter"] is None
+
+
+@pytest.mark.db
+def test_the_played_fixture_beside_it_keeps_its_assignment_under_a_nulled_name(mongo_replica_set_url: str):
+    """Kills an unassign ignoring the result: a match that was played records who officiated it, and no request rewrites that."""
+
+    fixtures, _ = after_anonymising_one_fixture_left_to_play(mongo_replica_set_url)
+
+    assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"] == {
         "schiedsrichter_id": SCHIEDSRICHTER_OID,
         "name": None,
+        "payment": DEFAULT_PAYMENT,
+    }
+
+
+@pytest.mark.db
+def test_a_cancelled_fixture_keeps_its_assignment(mongo_replica_set_url: str):
+    """Kills an unassign reading `ergebnis` alone: a fixture called off owes no result, so nothing on it is still to be played."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await one_of_their_fixtures_left_to_play(database, sonderereignis=A_CANCELLATION)
+        await call_anonymisation(database, client)
+
+        return await stored_fixtures(database)
+
+    fixtures = on_a_league(mongo_replica_set_url, body)
+
+    assert fixtures[UNPLAYED_SPIEL_OID]["schiedsrichter"] == {
+        "schiedsrichter_id": SCHIEDSRICHTER_OID,
+        "name": None,
+        "payment": DEFAULT_PAYMENT,
+    }
+
+
+@pytest.mark.db
+def test_another_referees_unplayed_fixture_keeps_its_assignment(mongo_replica_set_url: str):
+    """Kills an unassign ignoring the id in its filter, which would strip a referee nobody asked about."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SPIELE].update_one({"_id": OTHER_SPIEL_OID}, {"$set": {"ergebnis": None}})
+        await call_anonymisation(database, client)
+
+        return await stored_fixtures(database)
+
+    fixtures = on_a_league(mongo_replica_set_url, body)
+
+    assert fixtures[OTHER_SPIEL_OID]["schiedsrichter"] == {
+        "schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID,
+        "name": REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID],
         "payment": DEFAULT_PAYMENT,
     }
 
@@ -1019,6 +1100,16 @@ def test_the_array_image_a_removal_files_is_emptied_too(mongo_replica_set_url: s
     assert row["redacted_at"] == REDACTED_AT
 
 
+def test_the_unplayed_assignment_filter_spells_the_definition_once():
+    """The retirement's refusal and the erasure's unassign read this one filter, so a widening here moves both at once."""
+
+    assert build_unplayed_assignment_filter(SCHIEDSRICHTER_OID) == {
+        "schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID,
+        "ergebnis": None,
+        "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+    }
+
+
 def test_the_fixture_image_filter_names_the_collection_it_reads():
     """Nothing indexes inside `before`, so this filter is a scan narrowed by `collection` and by nothing else.
 
@@ -1050,7 +1141,7 @@ def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: st
 def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     """Kills removing `record_write`'s early return on the log: the redaction would record a copy of what it cleared.
 
-    Two rows are added -- the referee patch's and the fan-out's -- and none of them names the log.
+    None of the rows the erasure adds names the log at all.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1065,7 +1156,9 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
 
-    assert after_count == before_count + 2
+    # The referee patch and both fan-outs, the unassign's row recording a count of nothing on a seed
+    # whose every fixture is played.
+    assert after_count == before_count + 3
     assert self_recorded == 0
 
 
@@ -1098,14 +1191,7 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        # Narrow enough to refuse the redaction's `$set`, wide enough to admit the patch's own row,
-        # which is recorded with `redacted_at` null.
-        await database.command(
-            "collMod",
-            Collection.AKTIONEN.value,
-            validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
-            validationLevel="strict",
-        )
+        await a_validator_refusing_the_redaction(database)
 
         with pytest.raises(OperationFailure) as failure:
             await call_anonymisation(database, client)
@@ -1119,6 +1205,29 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
     assert referees[SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[SCHIEDSRICHTER_OID], "the clearing outlived a redaction that failed"
     assert [row for row in rows if row["before"] is not None], "the log lost its image to a transaction that never committed"
     assert all(row["redacted_at"] is None for row in rows)
+
+
+@pytest.mark.db
+def test_a_refused_redaction_takes_the_unassignment_back(mongo_replica_set_url: str):
+    """Kills dropping the session from the unassign: a run that failed would leave a match with nobody to officiate it."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await one_of_their_fixtures_left_to_play(database)
+        await a_validator_refusing_the_redaction(database)
+
+        with pytest.raises(OperationFailure) as failure:
+            await call_anonymisation(database, client)
+
+        return failure.value.code, await stored_fixtures(database)
+
+    code, fixtures = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+
+    assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"
+    assert fixtures[UNPLAYED_SPIEL_OID]["schiedsrichter"] == {
+        "schiedsrichter_id": SCHIEDSRICHTER_OID,
+        "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
+        "payment": DEFAULT_PAYMENT,
+    }
 
 
 class AktionenRunningAHookBeforeTheRedaction:

@@ -26,8 +26,8 @@ export function schiedsrichterAnzeigename(name: string | null): string {
  * The word a FIXTURE's referee cell shows.
  *
  * One helper because the obvious spelling reads both absences through one chain —
- * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which shows „nicht zugewiesen“ for an erased referee
- * the fixture does hold.
+ * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which falls through to the no-referee placeholder for
+ * an erased referee the fixture does hold.
  */
 export function spielSchiedsrichterAnzeige(schiedsrichter: { name: string | null } | null): string {
   return schiedsrichter === null ? PLACEHOLDER.entity : schiedsrichterAnzeigename(schiedsrichter.name);

@@ -326,11 +326,11 @@ export async function anonymiseSchiedsrichterAction(
       success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
-        `Name, Schule, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
+        `Name, Schule, E-Mail und Telefonnummer sind gelöscht; auf jedem gespielten Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
         "Der Eintrag ist stillgelegt und nimmt keine neuen Spiele mehr an. " +
-        // The erasure retires without the retirement's own refusal, so a fixture still to be played
-        // keeps this person booked on it and shows no name until somebody reassigns it.
-        "Spiele ohne Ergebnis behalten die Zuteilung und müssen neu zugeteilt werden. " +
+        // The one sentence here an administrator must act on: without it a match still to be played
+        // sits with nobody to officiate it and nothing says so.
+        "Spiele ohne Ergebnis brauchen jetzt einen neuen Schiedsrichter. " +
         "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diese Person betrifft.",
     };
   });

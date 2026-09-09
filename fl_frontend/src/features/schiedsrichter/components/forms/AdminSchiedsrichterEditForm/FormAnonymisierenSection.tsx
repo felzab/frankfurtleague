@@ -92,11 +92,11 @@ export function FormAnonymisierenSection({
 
       <div className={panel.body()}>
         <p className="muted-hint">
-          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem Spiel steht
-          dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht, die diese
-          Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist, bleibt lesbar.
-          Der Eintrag selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht mehr
-          angeboten, und bearbeiten lässt er sich danach nicht mehr.
+          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem gespielten
+          Spiel steht dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
+          die diese Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist,
+          bleibt lesbar. Der Eintrag selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht
+          mehr angeboten, und bearbeiten lässt er sich danach nicht mehr.
         </p>
 
         {isConfirming && (
@@ -136,16 +136,13 @@ export function FormAnonymisierenSection({
             {/* No restore is named on purpose: nothing in the system holds the old values once the
                 row and the log have both been cleared. What goes is the readout directly above. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              Zurückholen lässt sich das nicht. Der Eintrag bleibt mit allen Spielen bestehen, überall steht dann{" "}
-              {/* The quotes ride INSIDE the expression: split across the JSX line break they render with a space before the closing one. */}
-              {`„${SCHIEDSRICHTER_ANONYM_LABEL}“`}, und bearbeiten lässt er sich danach nicht mehr.
+              Zurückholen lässt sich das nicht. Der Eintrag bleibt mit allen Spielen bestehen, und bearbeiten lässt er sich danach nicht mehr.
             </p>
 
-            {/* The one consequence the readout above cannot show: this press retires the referee without
-                the refusal `DELETE` owes an unplayed fixture, so such a fixture stays assigned to a row
-                that names nobody. */}
+            {/* The one consequence the readout above cannot show: a match still to be played comes out of
+                the press with nobody assigned to it. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              Spiele ohne Ergebnis behalten die Zuteilung und müssen neu zugeteilt werden.
+              Spiele ohne Ergebnis verlieren die Zuteilung und brauchen einen neuen Schiedsrichter.
             </p>
           </ConfirmReveal>
         )}

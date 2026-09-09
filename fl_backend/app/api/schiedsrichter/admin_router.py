@@ -16,6 +16,7 @@ from app.api.schiedsrichter.services import (
     ANONYMISED_SCHIEDSRICHTER,
     ANONYMISIERT_AM,
     build_booked_image_filter,
+    build_unplayed_assignment_filter,
     find_anonymisation_refusal,
     find_anonymisation_undo_refusal,
     find_reactivation_refusal,
@@ -23,7 +24,6 @@ from app.api.schiedsrichter.services import (
     first_stamped,
     holds_an_anonymisable_value,
 )
-from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -145,14 +145,9 @@ async def delete_schiedsrichter(
 ) -> FLSchiedsrichterWriteResponse:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
 
-    # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
     assigned = await pull_many_from_db(
         collection=spiele_collection,
-        db_filter={
-            "schiedsrichter.schiedsrichter_id": schiedsrichter_id,
-            "ergebnis": None,
-            "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-        },
+        db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
         projection={"spiel_nr": 1},
     )
     refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
@@ -229,10 +224,13 @@ async def anonymise_schiedsrichter(
     itself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under
     the erasure is refused (`REQ-ANONYMISE-001`).
 
-    **It also retires the referee**, so they take no NEW fixture (`REQ-BOOKING-001`) and cannot be
-    brought back (`REQ-ANONYMISE-003`): a booking would create fresh personal data about the person who
-    asked to be left out. A retirement already stamped keeps its own day. What a reader is shown in
-    place of the nulled name is the frontend's word, so no endpoint answers one.
+    **It also retires the referee and unassigns them from every fixture with no result**, so they take
+    no NEW fixture (`REQ-BOOKING-001`), hold none of the fixtures still to be played, and cannot be
+    brought back (`REQ-ANONYMISE-003`): a booking of any kind would create fresh personal data about the
+    person who asked to be left out. Such a fixture loses the whole `schiedsrichter` block, the fee
+    agreed for it included, and answers `GET /spiele/action_required` until somebody assigns a referee
+    to it. A retirement already stamped keeps its own day. What a reader is shown in place of the
+    nulled name is the frontend's word, so no endpoint answers one.
     """
 
     async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
@@ -267,6 +265,15 @@ async def anonymise_schiedsrichter(
                     ANONYMISIERT_AM: first_stamped(stored=stored, field=ANONYMISIERT_AM, today=today),
                 }
             },
+            session=session,
+        )
+
+        # The fee goes with the block: nothing was earned on a match still to be played, and a
+        # reassignment writes the next referee's own default compensation.
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            update={"$set": {"schiedsrichter": None}},
             session=session,
         )
 

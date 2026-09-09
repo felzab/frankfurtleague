@@ -240,7 +240,7 @@ describe("the anonymisation's copy", () => {
   /* The name is nulled on every match and the ROW survives — every fixture embeds the id. Copy saying
      the row goes, or that the name stays, describes an operation the backend does not run. */
   it("says the name goes from every match, and the row survives with nothing left to edit", () => {
-    assert.match(PANEL, /auf jedem Spiel/, "the confirmation does not say the matches are reached");
+    assert.match(PANEL, /auf jedem gespielten\s+Spiel/, "the confirmation does not say the played matches are reached");
     assert.match(PANEL, /Der Eintrag bleibt mit allen Spielen bestehen/, "the confirmation does not say the row survives");
     assert.match(PANEL, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
@@ -255,16 +255,16 @@ describe("the anonymisation's copy", () => {
     assert.match(PANEL, /Zurückholen lässt sich das nicht/, "a copy naming only the retirement would read as reversible");
   });
 
-  /* The subject is the ASSIGNMENT this retirement leaves standing: `DELETE` is refused while an
-     unplayed fixture names the referee (`REQ-RETIRE-004`) and the erasure consults no such refusal, so
-     an administrator not told here leaves a match with no referee. */
-  it("says on both surfaces that a fixture without a result keeps the assignment", () => {
+  /* The subject is the ASSIGNMENT the erasure ends: it empties the booking on every fixture with no
+     result, so an administrator not told here leaves a match nobody is going to officiate. */
+  it("says on both surfaces that a fixture without a result needs a new referee", () => {
     for (const [source, where] of [
       [PANEL, "the armed confirmation"],
       [ACTIONS, "the action's report"],
     ] as const) {
-      assert.match(source, /Spiele ohne Ergebnis behalten die Zuteilung/, `${where} does not say the assignment survives the erasure`);
-      assert.match(source, /neu zugeteilt/, `${where} does not say the fixture has to be reassigned`);
+      assert.match(source, /Spiele ohne Ergebnis/, `${where} does not name the fixtures the erasure unassigns`);
+      assert.match(source, /neuen Schiedsrichter/, `${where} does not say such a fixture needs somebody else`);
+      assert.ok(!/behalten die Zuteilung/.test(source), `${where} still promises the assignment survives the erasure`);
     }
   });
 

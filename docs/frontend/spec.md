@@ -288,7 +288,7 @@ the other refuses.
 | `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                                                       |
 | `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                                                    |
 | `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                                                    |
-| `anonymiseSchiedsrichterAction`  | schiedsrichter | `spiele` — the nulled name lands on every fixture the referee officiated, as a rename does     |
+| `anonymiseSchiedsrichterAction`  | schiedsrichter | `spiele` — the nulled name lands where the booking survives; a fixture left to play loses it   |
 | `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
 | `patchTeamAction`                | teams          | `teams`, `spiele`                                                                              |
 | `deleteTeamAction`               | teams          | `teams`                                                                                        |
