@@ -492,7 +492,7 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
 | `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                            |
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
-| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
+| `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a deliverable address, normalised as Auth.js normalises a sign-in identifier                                   |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
 | `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused              |
 | `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build |
@@ -831,15 +831,17 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 
 - **The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04): `Du`,
   `Dein`, `Dir`, `Dich`, and never `Sie` or `Ihr`. When auditing, a sentence-initial `Du` is
-  capitalised whatever the convention holds, so it is evidence of nothing. **One sentence takes the
-  plural `ihr` instead** (my rule, 2026-09-04), the Instagram invitation at
-  `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`: the post it asks
-  for is one a school's players make together, and `Du` asks a single reader for it. Nothing
-  mechanical keeps the exception to that file, and the hole is wider than this one sentence:
-  `scripts/checks/docs_gate/copy_rules.py :: FORMAL_RE` matches `Sie` and the `Ihr` family alike, and
-  `:: _formal_findings` drops either wherever `:: SENTENCE_OPENER_RE` puts it at the head of a span,
-  `:: INFORMAL_RE` reading the `Du` family alone — so a formal address opening a sentence is
-  review's, this exception with it.
+  capitalised whatever the convention holds, so it is evidence of nothing. **A surface several people
+  read at one address addresses them as `ihr`** (my rule, 2026-09-09, replacing the single named
+  exception of 2026-09-04): `Euch`, `Eure`, and a plural verb. **The test is who reads the surface,
+  never which file it sits in** — an invitation asking for a post a school's players make together
+  takes it, and so does a mail landing in a shared school mailbox that three contact seats read; a
+  sentence one person reads takes `Du` however many people it is ABOUT. Naming the files instead is
+  what made correct German elsewhere read as a violation. Nothing mechanical holds either side:
+  `scripts/checks/docs_gate/copy_rules.py :: FORMAL_RE` matches `Sie` and the `Ihr` family alike and
+  `:: INFORMAL_RE` reads the `Du` family alone, so the `Euch` family is seen by neither, and
+  `:: _formal_findings` drops a match wherever `:: SENTENCE_OPENER_RE` puts it at the head of a span —
+  so a formal address opening a sentence is review's, and every plural address with it.
 - **One German word per concept, and a club is a `Team`** (my rule, 2026-08-21): never
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a

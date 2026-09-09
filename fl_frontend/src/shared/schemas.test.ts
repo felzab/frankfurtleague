@@ -169,15 +169,30 @@ describe("PHONE_REGEX", () => {
 });
 
 describe("FLKontaktSchema", () => {
+  // Values the API serves from storage that the write rule refuses. The reason the read judges neither
+  // member is at `FLKontaktSchema` itself; what this pins is that one such row does not fail the list.
+  it("serves every stored value the write rule would refuse", () => {
+    for (const telefon of ["069 1234567 ", "+49 (0) 69 1234-567 ", "069 1234-", "(069) 1234567.", "nicht bekannt"]) {
+      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected ${JSON.stringify(telefon)} to be served`);
+    }
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: "a".repeat(300) }).success, true);
+  });
+
+  it("rejects a missing field outright", () => {
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+  });
+});
+
+describe("FLKontaktPayloadSchema", () => {
   it("accepts common German phone formats", () => {
     for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
     }
   });
 
   it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
     for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, false, `expected "${telefon}" to be rejected`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, false, `expected "${telefon}" to be rejected`);
     }
   });
 
@@ -185,33 +200,37 @@ describe("FLKontaktSchema", () => {
   // out of the contract comparison, so a unit test is what holds the two spellings together.
   it("rejects a phone number carrying a control character, which the backend rejects too", () => {
     for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, false, `expected ${JSON.stringify(telefon)} to be rejected`);
+      assert.equal(
+        FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success,
+        false,
+        `expected ${JSON.stringify(telefon)} to be rejected`,
+      );
     }
   });
 
   // Both fields accept null (not supplied) and "" (supplied but cleared); the two are distinct
   // states in the admin forms, so both must stay valid.
   it("accepts null and empty string for both fields", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: null }).success, true);
-    assert.equal(FLKontaktSchema.safeParse({ telefon: "", email: "" }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: null }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: "" }).success, true);
   });
 
   // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
   // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
   it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: "   ", email: null }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: null }).success, true);
   });
 
   // Each is a value `EmailStr` takes and stores: a punycode host normalised to unicode, an umlaut
   // local part, an atext character outside zod's class, and a local part past RFC 5321's 64.
   it("takes every address the API stores, whose rule no zod pattern spells", () => {
     for (const email of ["kaethe@käthe-schule.example", "käthe@example.de", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
     }
   });
 
   it("rejects a missing field outright", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null }).success, false);
   });
 });
 

@@ -3,6 +3,7 @@ import "server-only";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+import { asSignInIdentifier, isDeliverableAddress } from "./emailAddress";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
@@ -16,6 +17,17 @@ export const INTERNAL_API_KEY = z
   .string()
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "every character must be printable ASCII, and none may be a space");
+
+/**
+ * One rule with the sign-in box, `fl_frontend/src/features/auth/schemas.ts :: SignInPayloadSchema`:
+ * an address only one of the two takes is an administrator nobody can let in.
+ */
+export const ADMIN_EMAIL_ALLOWLIST = z
+  .string()
+  .transform((str) => str.split(",").map(asSignInIdentifier))
+  // A refused entry fails the whole variable, so a separator nothing split on is met at boot rather
+  // than at a sign-in that answers every address alike.
+  .pipe(z.array(z.string().refine(isDeliverableAddress)));
 
 export function refuseInvalidEnvironment(names: readonly string[]): never {
   // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
@@ -78,10 +90,7 @@ const server = {
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
 
-  ALLOWED_ADMIN_EMAILS: z
-    .string()
-    .transform((str) => str.split(",").map((s) => s.trim().toLowerCase()))
-    .pipe(z.array(z.email())),
+  ALLOWED_ADMIN_EMAILS: ADMIN_EMAIL_ALLOWLIST,
 
   // An enum over a normalised value, not a bare string: the json branch is selected by exact
   // comparison, so a capitalised one would fall through to colourised output in production.
