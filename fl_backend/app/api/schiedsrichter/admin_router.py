@@ -273,6 +273,8 @@ async def anonymise_schiedsrichter(
         await patch_many_in_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            # Null rather than `$unset`: `spiele` requires the key, so a removed one fails the
+            # collection validator on the row's next write.
             update={"$set": {"schiedsrichter": None}},
             session=session,
         )
