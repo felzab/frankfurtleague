@@ -93,6 +93,7 @@ deliverable.
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
+| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
 | `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing             | FE, Docs, tests                                                             | Open     |
@@ -667,6 +668,51 @@ becomes wrong on the day the register entry lands.
 
 **Done when** who holds the source copyright is decided, `NOTICE` says so, and, if the answer
 changes at registration, the condition is written where whoever files the registration meets it.
+
+### `dgdv-27yw` · Ninety-four test files parse source by hand, and no rule engine has been measured against one
+
+| Tags                                         | Status | Depends on |
+| -------------------------------------------- | ------ | ---------- |
+| FE, BE, Ops, Docs, gate, ci, tests, versions | Open   | —          |
+
+**Eleven modules under `fl_backend/tests/` parse Python with `ast`, and 83 files under
+`fl_frontend/src/` read source text; the files holding them run 6,208 and 25,007 lines.** Those
+figures are the files whole rather than the sweep parts alone, so they bound the subject rather than
+measure it. Beside them `scripts/checks/` is 11,055 lines across 21 modules and `scripts/tests/`
+16,251 across 39. What each of them asserts is a contract nothing else holds; what each of them
+contains is a parser written again.
+
+**The walk is repo-agnostic and the property never is, and that split decides every option below.**
+Resolving a call, reading a decorator, following an import and finding a JSX tag's real close are
+generic work; "a read inside a transaction carries its session" is ours and no purchased tool knows
+it. The repository has already begun separating the two — `fl_backend/tests/core/app_source.py` is
+shared by five modules — and that helper imports `fl_backend/app/core/collections.py`, so even the
+factored walker is coupled to the domain it walks. **Three open entries are each a defect in a reader
+and none in a property**: `w2c2-xc9j`, `w4tm-9khd` and `z82x-us4y`. That is where the cost is.
+
+**Thirty-five of these files cross the language boundary** — 27 under `fl_frontend/src/` read Python,
+8 under `fl_backend/tests/` read TypeScript — so a custom ESLint rule and a Python linter plugin
+between them reach the majority and cannot touch this third at all. Only an engine parsing both
+languages under one rule, or an artefact both sides derive from, does. **The second of those is
+already refused**: `.claude/rules/cross-surface.md`'s **openapi** clause forbids generating the Zod
+mirror, so a proposal to generate both ends of a contract is settled before it is written.
+
+**Whether the generic half leaves the repository is decided by CUR-2, not by how generic it is.**
+`scripts/checks/docs_gate/kernel.py` is 1,334 lines of machinery against `checks.py`'s 2,539 of our
+own rules, which is the one clean seam in the tree. Moving the kernel to its own package puts a
+documented claim and the checker enforcing it in two repositories, and `docs/_standard/standard.md ::
+CUR-2` requires them to move in one commit — "not the same branch eventually, not a follow-up".
+`.claude/CLAUDE.md` §7's **docs gate** clauses bound the shape further.
+
+**Done when** three named sweeps of different shape have been expressed in each candidate mechanism
+or shown to resist it — `fl_backend/tests/core/test_write_shapes.py` for single-language work,
+`fl_frontend/src/shared/schemas.test.ts` for a value copied by hand between two languages, and
+`scripts/checks/docs_gate/checks.py` for rules over prose that no code linter addresses — and each
+class has a verdict recorded at COR-14's rung. Two bounds hold whatever the verdict: every property
+asserted today is still asserted and still driven red afterwards, and a candidate arriving as a pin
+in `fl_frontend/package.json` or `fl_backend/pyproject.toml` states which gate scope and which job in
+`.github/workflows/verify.yml` runs it. Where an answer rests on practice outside this repository it
+cites a public repository a reader can open, never a claim about what is usual.
 
 ### `dq3b-mgpq` · Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there
 
