@@ -7,7 +7,7 @@ import { ArrowRight } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { describeAngesetzteSpiele } from "@/features/saisons/utils";
+import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -34,7 +34,7 @@ const BUTTON_HINT_ID = "teamwechsel-hinweis";
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
  * on it, change hands. **A confirmation and no undo offer** — the schedule survives, the cleared
- * Austritt and the retired squad rows do not.
+ * Austritt and this season's squad rows do not.
  */
 export function FormTeamErsatzSection({
   saisonId,
@@ -209,7 +209,7 @@ export function FormTeamErsatzSection({
               <Callout
                 severity="warning"
                 title={`${incoming.name} übernimmt den Platz von ${outgoing.name} ${describePlatz(outgoing.gruppe)}`}>
-                {describeUebernommeneSpiele(outgoing.spiele)} Die Kadereinträge von {outgoing.name} werden ausgetragen.
+                {`${describeUebernommeneSpiele(outgoing.spiele)} ${describeKaderAustragung(outgoing.name)}`}
               </Callout>
             )}
 
@@ -235,8 +235,7 @@ export function FormTeamErsatzSection({
 
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
-                  Weg zurück. Die Kadereinträge von {outgoing.name} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend erneut
-                  wechselst.
+                  Weg zurück. {describeKaderAustragungDanach(outgoing.name)}
                 </p>
               </ConfirmReveal>
             )}

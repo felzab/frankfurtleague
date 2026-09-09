@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { describeSpielplanPermanenz } from "@/features/saisons/utils.ts";
+
 /**
  * Read rather than rendered for what this file claims over it: which expression resolves a state, an
  * absence spanning every state, and the label pair a second press parts. `spielplanReplace.test.ts`
@@ -95,16 +97,21 @@ describe("the undraw half of the Spielplan panel", () => {
     assert.match(ARMED, /label="Mit Termin oder Uhrzeit" value=\{describeAngesetzteSpiele\(bestand\.angesetzt\)\}/);
   });
 
-  /* Soften this to "der Spielplan wird zurückgesetzt" and this fails. Nothing writes the removed rows
-     back: `/spiele` has neither a create nor a delete, and the log's images are a record to read. */
-  it("states in the armed alert that the removal cannot be taken back", () => {
-    assert.match(ARMED, /Es gibt in der Verwaltung keinen Weg zurück\./);
+  /* Nothing writes the removed rows back: `/spiele` has neither a create nor a delete, and the
+     log's images are a record to read. The counts above the sentence are not the loss stated. */
+  it("names the matchdays and the fixtures the press deletes, and claims no way back", () => {
+    for (const saisonStatus of ["future", "active", "past"] as const) {
+      const satz = describeSpielplanPermanenz({ holdsADraw: true, saisonStatus });
+
+      assert.match(satz, /Die Spieltage und Spiele oben werden dabei gelöscht\./, `${saisonStatus} names no deletion`);
+      assert.match(satz, /Es gibt in der Verwaltung keinen Weg zurück\./, `${saisonStatus} leaves the removal sounding reversible`);
+    }
   });
 
-  /* The words, not the counts above them: softening this to "der Spielplan wird ersetzt" leaves the
-     figures rendered and the losses unnamed, which nothing else here would catch. */
-  it("names the matchdays and the fixtures the press deletes", () => {
-    assert.match(ARMED, /Die Spieltage und Spiele oben werden dabei gelöscht\./);
+  /* A literal spelling the same three sentences renders identically, so which of the two stands in
+     the panel is legible in the source alone (`fl_frontend/src/features/saisons/utils.ts`). */
+  it("seats the composer for the permanence sentence rather than one of its own", () => {
+    assert.match(ARMED, /\{describeSpielplanPermanenz\(\{ holdsADraw, saisonStatus \}\)\}/);
   });
 
   /* Wire an undo here and this fails, for the draw's reason: there is no endpoint to replay the

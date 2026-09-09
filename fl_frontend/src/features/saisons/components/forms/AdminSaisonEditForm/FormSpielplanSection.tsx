@@ -12,7 +12,12 @@ import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/com
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { drawGroupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
-import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
+import {
+  buildSpielplanVorschau,
+  describeAngesetzteSpiele,
+  describeSpielplanPermanenz,
+  describeSpielplanUmfang,
+} from "@/features/saisons/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -454,16 +459,7 @@ export function FormSpielplanSection({
               )}
             </div>
 
-            {/* A first draw on a PLANNED season is the one branch with a repair: the undraw beside it
-                removes what this press writes (`REQ-SPIELPLAN-006`). Nothing replays the rows
-                elsewhere, the log's images being a record to read rather than a restore. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
-              {holdsADraw
-                ? "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück."
-                : saisonStatus === "future"
-                  ? "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde."
-                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück."}
-            </p>
+            <p className="fluid-xxs text-foreground leading-normal font-medium">{describeSpielplanPermanenz({ holdsADraw, saisonStatus })}</p>
           </ConfirmReveal>
         )}
 
