@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
         const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
         if (refusal === undefined) throw error;
 
-        return `${refusal} ${CHANGE_STANDS}`;
+        return { refusal: `${refusal} ${CHANGE_STANDS}` };
       }
 
-      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag.";
+      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
     },
     invalidate: () => {
       revalidateTag("spieltage", { expire: 0 });

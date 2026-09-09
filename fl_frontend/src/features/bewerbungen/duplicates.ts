@@ -14,7 +14,7 @@ export type BewerbungDublette = "team" | "kuerzel";
  * proposing one Kürzel is a clash between strangers, and an administrator acts on them differently.
  */
 export const BEWERBUNG_DUBLETTE_LABEL: Record<BewerbungDublette, string> = {
-  team: "Schule doppelt",
+  team: "Team doppelt",
   kuerzel: "Kürzel doppelt",
 };
 
@@ -33,39 +33,39 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
 function dublettenSchluessel(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
   if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
-  // Compared the way the backend's own uniqueness would: a Kürzel is a two-letter code, and `gg`
-  // against `GG` is one code typed twice rather than two codes.
+  // Folded, which `uniq_shorthand` is not: that index compares two-letter codes byte for byte, so
+  // `gg` beside `GG` would enter the league as two clubs, and the queue asks about it first.
   const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand.trim().toUpperCase();
 
   return kuerzel === "" ? null : { art: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
 }
 
+// **Shown, never refused**: uniqueness on an unauthenticated form lets a stranger lock a school out
+// by typing its name, so the queue marks a collision instead of the write refusing one.
 /**
- * Which open applications share a club or a Kürzel. **Shown, never refused**: uniqueness on an
- * unauthenticated form lets a stranger lock a school out by typing its name. `eingereicht` both
- * sides: a decided one has nothing left to decide.
+ * Which of the loaded applications collide, by id — the answer the server took over the whole queue,
+ * applied to the rows this page holds.
  */
-export function findBewerbungDubletten(bewerbungen: readonly Kandidat[]): ReadonlyMap<string, BewerbungDublette> {
-  const nachSchluessel = new Map<string, { art: BewerbungDublette; ids: string[] }>();
+export function markBewerbungDubletten(
+  bewerbungen: readonly Kandidat[],
+  kollidierendeSchluessel: readonly string[],
+): ReadonlyMap<string, BewerbungDublette> {
+  // The server's list and never a grouping over `bewerbungen`: a pair the endpoint's cap parted has
+  // one half here and the other nowhere, and a group of one marks neither
+  // (`fl_backend/app/api/bewerbungen/services.py :: dubletten_schluessel_of`).
+  const kollidiert = new Set(kollidierendeSchluessel);
+  const dubletten = new Map<string, BewerbungDublette>();
 
   for (const bewerbung of bewerbungen) {
+    // The ROW's own status and not the key's: two open applications collide on a Kürzel a third,
+    // declined one also carries, and marking that one asks for a decision already taken.
     if (bewerbung.status !== "eingereicht") continue;
 
     const schluessel = dublettenSchluessel(bewerbung);
-    if (schluessel === null) continue;
 
-    const gruppe = nachSchluessel.get(schluessel.key) ?? { art: schluessel.art, ids: [] };
-    gruppe.ids.push(bewerbung.id);
-    nachSchluessel.set(schluessel.key, gruppe);
-  }
+    if (schluessel === null || !kollidiert.has(schluessel.key)) continue;
 
-  const dubletten = new Map<string, BewerbungDublette>();
-
-  // A key held by one application is no duplicate: every member of a group of two or more is marked,
-  // because neither of them is the real one until somebody decides which.
-  for (const gruppe of nachSchluessel.values()) {
-    if (gruppe.ids.length < 2) continue;
-    for (const id of gruppe.ids) dubletten.set(id, gruppe.art);
+    dubletten.set(bewerbung.id, schluessel.art);
   }
 
   return dubletten;

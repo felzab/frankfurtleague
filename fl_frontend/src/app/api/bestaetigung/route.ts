@@ -1,4 +1,4 @@
-import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail } from "@/core/bewerbungEmail";
+import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
@@ -56,7 +56,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
     buildMail: (rollen) =>
       vollstaendig
         ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, origin: origin, rollenText: rollen })
-        : buildBewerbungAblehnungEmail({
+        : buildBewerbungWiderspruchEmail({
             saisonId: antwort.saison_id,
             origin: origin,
             rollenText: rollen,

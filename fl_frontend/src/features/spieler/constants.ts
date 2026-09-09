@@ -79,7 +79,7 @@ export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMM
  * sentence that control already showed.
  */
 export const ERASURE_NEEDS_RETIREMENT =
-  "Lege den Spieler zuerst still, in der Spielerliste über „Stilllegen“ in seiner Zeile. Danach lässt er sich endgültig löschen.";
+  "Lege die Person zuerst still, in der Spielerliste über „Stilllegen“ in ihrer Zeile. Danach lässt sie sich endgültig löschen.";
 
 /**
  * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the
@@ -97,3 +97,13 @@ export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
   "Das Team dieses Kadereintrags ist in dieser Saison nicht mehr dabei. Bearbeite den Spieler und weise den Eintrag " +
   "im Bereich „Kader“ einem Team dieser Saison zu.";
+
+// One sentence for both readers, where the club refusal above needed one each: the repair is another
+// player's page or the season's rules, so neither the list nor the editor could point within itself.
+/**
+ * `REQ-SQUAD-003` in German, word for word the sentence `actions.ts` toasts for the code, so a
+ * press that got past a stale gate reads as the state this control already showed.
+ */
+export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
+  "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln oder trage " +
+  "zuerst einen anderen Spieler aus.";

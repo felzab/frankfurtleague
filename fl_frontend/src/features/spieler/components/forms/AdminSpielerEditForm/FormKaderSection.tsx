@@ -272,6 +272,8 @@ export function FormKaderSection({
                 teams={teams}
                 error={entryTeamError ?? undefined}
               />
+              {/* Its cap refusal is the picker's beside it: `teamId` starts null on this branch and
+                  `TeamSelect` is its only writer, so a squad at `REQ-SQUAD-003`'s cap never gets here. */}
               <Button
                 type="button"
                 variant="primary"

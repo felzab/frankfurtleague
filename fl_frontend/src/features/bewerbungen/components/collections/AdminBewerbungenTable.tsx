@@ -41,7 +41,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
   emptiness,
 }: {
   filteredBewerbungen: AdminBewerbungRow[];
-  /** Which open applications share a club or a Kürzel, by id — derived over the whole list, never over this one. */
+  /** Which open applications share a club or a Kürzel, by id — answered over the whole queue, never over this list. */
   dubletten: ReadonlyMap<string, BewerbungDublette>;
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
@@ -225,7 +225,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                   Ansprechperson
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Einwilligungen
+                  Bestätigungen
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Status

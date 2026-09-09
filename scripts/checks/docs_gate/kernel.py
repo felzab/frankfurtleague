@@ -15,10 +15,12 @@ import os
 import re
 import tokenize
 from bisect import bisect_right
-from collections.abc import Iterable, Iterator
+from collections import Counter
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Final, Literal
 
 # From the shared kernel rather than a second copy: a checker taking git, the repository root or
@@ -88,11 +90,9 @@ BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
 # What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
 # rule itself does, is a mention rather than a use.
 QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
-# A row of the invariant shape wherever it sits, for a reader of diff lines, which carry no
-# section; `invariant_rows` reads the table alone.
-INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
-# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
-# enough that an id is resolved against every sheet.
+# Both bands (OUT-4): a citation crosses surfaces, and an allocation reads whichever band its row
+# is in. Section-blind, for a reader of diff lines; `invariant_rows` is what confines a match to
+# the table.
 INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 # The closing sections are fixed so a growing contract cannot push Invariants down and silently
 # repoint every citation of section 3 — which is what makes an invariant number safe to cite.
@@ -532,10 +532,7 @@ def _place(buffer: list[str], start: tuple[int, int], text: str) -> None:
         buffer[row - 1 + offset] = (line.ljust(column) if offset == 0 else line) + piece
 
 
-# Named rather than spelled inline: the formatter would fold the tuple into PEP 758's
-# `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
 UNTOKENIZABLE: Final = (tokenize.TokenError, SyntaxError, ValueError)
-# The same fold, over what `ast.parse` alone can raise.
 UNPARSEABLE: Final = (SyntaxError, ValueError)
 
 
@@ -1248,6 +1245,74 @@ def defined_symbols(path: Path) -> frozenset[str] | None:
     if not has_suffix(path.name, (".py",)) or (text := _read_text(path)[0]) is None:
         return None
     return _python_names(text)
+
+
+# What names a test case: a string somebody typed, in the argument every runner takes it as. A plain
+# literal only -- a template literal's name is generated, and `is_placeholder` drops an anchor
+# carrying a substitution.
+CASE_CALL_RE: Final = re.compile(r"(?:^|[^\w$.])(?:describe|it|test)(?:\.\w+)?[ \t]*\([ \t]*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')")
+# pytest's collection prefixes at the spelling this suite writes. A case outside them leaves the
+# population rather than being judged inside it (`docs/_standard/standard.md` PRE-4).
+CASE_CLASS_PREFIX: Final = "Test"
+CASE_FUNCTION_PREFIX: Final = "test_"
+
+
+def _script_cases(text: str, image: str) -> Counter[str]:
+    """Every case a script module declares, counted, a name a comment quotes left out.
+
+    A comment naming a case is a claim about it, so counting it would report a declaration nobody
+    wrote.
+    """
+    lines = image.split("\n")
+    found: Counter[str] = Counter()
+    for row, line in enumerate(text.split("\n")):
+        # By line, because the image keeps a comment's own column and not its offset.
+        shadow = lines[row] if row < len(lines) else ""
+        for match in CASE_CALL_RE.finditer(line):
+            column = match.start(1)
+            if column < len(shadow) and not shadow[column].isspace():
+                continue
+            # The literal's own body, escapes unresolved: the caller compares it against an anchor
+            # the presence arm has already refused wherever the two spellings differ.
+            found[match.group(1)[1:-1]] += 1
+    return found
+
+
+def _python_cases(text: str) -> Counter[str]:
+    """Every case a Python module declares, counted, at any class depth.
+
+    Two classes of one module hold a method of one name without Python minding, which is the shape a
+    cited case name resolves twice through.
+    """
+    try:
+        tree = ast.parse(text)
+    except UNPARSEABLE:
+        return Counter()
+    found: Counter[str] = Counter()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name.startswith(CASE_CLASS_PREFIX):
+            found[node.name] += 1
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(CASE_FUNCTION_PREFIX):
+            found[node.name] += 1
+    return found
+
+
+@cache
+def declared_cases(path: Path) -> Mapping[str, int]:
+    """How many test cases one module declares under each name; empty for a kind declaring none.
+
+    An unreadable or unparseable file answers no listing rather than a finding, `defined_symbols`'
+    reason.
+    """
+    text = _read_text(path)[0]
+    if text is None:
+        return MappingProxyType({})
+    if has_suffix(path.name, (".py",)):
+        return MappingProxyType(dict(_python_cases(text)))
+    if has_suffix(path.name, CSTYLE_SUFFIXES):
+        # `_scan_body`'s image, which every other check already paid for over this same file.
+        return MappingProxyType(dict(_script_cases(text, _scan_body(path))))
+    return MappingProxyType({})
 
 
 @cache

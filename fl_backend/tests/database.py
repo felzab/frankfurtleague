@@ -1,7 +1,8 @@
 import asyncio
 import atexit
+from collections.abc import AsyncIterator, Coroutine, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Coroutine, Iterable, Mapping, Sequence
+from typing import Any
 
 import pymongo
 from pymongo import AsyncMongoClient

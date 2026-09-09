@@ -1,7 +1,11 @@
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
@@ -24,8 +28,8 @@ from app.api.spieltage.services import (
     with_expected_matches,
 )
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection
+from app.core.crud import patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -96,42 +100,31 @@ async def get_spieltag_for_admin(
     return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))
 
 
-@router.patch(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Re-date a Spieltag")
-async def patch_spieltag(
-    spieltag_id: CustomRouteObjectId,
-    spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],
-    spieltage_collection: SpieltageCollection,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-) -> FLSpieltagWriteResponse:
-    """
-    Move a matchday's span.
+async def _refuse_an_out_of_order_beginn(
+    *,
+    spieltage_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    stored_raw: Mapping[str, Any],
+    beginn: str,
+    ende: str,
+    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # TypeError at the call rather than a silent reopening of it.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `REQ-DATE-008` when this matchday's new `beginn` breaks the order its phase's positions are dated in."""
 
-    No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
-    to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
-    """
+    # The neighbour reads are the whole of what two writers dating one phase share, and a read is
+    # what a snapshot re-validates nowhere -- so the season is written to put the two in one write set.
 
-    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
-
-    # Read for both halves of the write: the season bounds the span, and its `rules` are what the
-    # echo's `anzahl_spiele` derives from.
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
-    rules = FLSaisonRules.model_validate(saison_raw["rules"])
-
-    # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
-    fixture_dates = [row["datum"] async for row in spiele_collection.find({"spieltag_id": spieltag_id, "datum": {"$ne": None}}, {"datum": 1})]
-    refuse(
-        find_spieltag_span_refusal(
-            beginn=spieltag_data.beginn,
-            ende=spieltag_data.ende,
-            saison_start=saison_raw["start_date"],
-            saison_end=saison_raw["end_date"],
-            fixture_dates=fixture_dates,
-        )
+    # `patch_many_in_db`, not `patch_one_in_db`: that helper would log a whole season pre-image on
+    # every re-dating where this one logs a filter and a count.
+    await patch_many_in_db(
+        collection=saisons_collection,
+        db_filter={"_id": stored_raw["saison_id"]},
+        update={"$inc": {"bounded_writes": 1}},
+        session=session,
     )
 
-    # After the span refusals, and reading only once they pass: a date outside the season is wrong
-    # on its own terms, where this one is wrong only beside the neighbours read below.
     neighbourhood = {
         "saison_id": stored_raw["saison_id"],
         # The phase is part of the key: positions restart at 1 in each, so a matchday of another
@@ -140,19 +133,17 @@ async def patch_spieltag(
         "beginn": {"$ne": None},
     }
     neighbour_fields = {"position": 1, "beginn": 1}
-    # Read-then-write, not transactional: two positions dated at once write different documents, so
-    # no session would conflict on the pair either, and losing the race leaves a phase dated out of
-    # order rather than corrupt data, on a single-admin surface.
     previous_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, neighbour_fields, sort=[("position", -1)]
+        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, neighbour_fields, sort=[("position", -1)], session=session
     )
     following_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, neighbour_fields, sort=[("position", 1)]
+        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, neighbour_fields, sort=[("position", 1)], session=session
     )
+
     refuse(
         find_spieltag_order_refusal(
-            beginn=spieltag_data.beginn,
-            ende=spieltag_data.ende,
+            beginn=beginn,
+            ende=ende,
             # The read its neighbours go through as well, so what an undated row means is decided in
             # one place rather than at each side of the comparison.
             stored_beginn=dated_beginn(stored_raw),
@@ -161,11 +152,77 @@ async def patch_spieltag(
         )
     )
 
-    updated_raw = await patch_one_in_db(
-        collection=spieltage_collection,
-        db_filter={"_id": spieltag_id},
-        update={"$set": spieltag_data.model_dump(mode="json")},
-    )
+
+@router.patch(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Re-date a Spieltag")
+async def patch_spieltag(
+    spieltag_id: CustomRouteObjectId,
+    spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],
+    spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    db: DBClient,
+) -> FLSpieltagWriteResponse:
+    """
+    Move a matchday's span.
+
+    No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
+    to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+    """
+
+    async def redate_the_matchday(session: AsyncClientSession) -> tuple[Mapping[str, Any], FLSaisonRules]:
+        """Judge, then move the span. Everything judged is read in-session, the phase's neighbours inside `_refuse_an_out_of_order_beginn`."""
+
+        stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
+
+        # Read for both halves of the write: the season bounds the span, and its `rules` are what the
+        # echo's `anzahl_spiele` derives from.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]}, session=session)
+        rules = FLSaisonRules.model_validate(saison_raw["rules"])
+
+        # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
+        fixture_dates = [
+            row["datum"]
+            async for row in spiele_collection.find({"spieltag_id": spieltag_id, "datum": {"$ne": None}}, {"datum": 1}, session=session)
+        ]
+        refuse(
+            find_spieltag_span_refusal(
+                beginn=spieltag_data.beginn,
+                ende=spieltag_data.ende,
+                saison_start=saison_raw["start_date"],
+                saison_end=saison_raw["end_date"],
+                fixture_dates=fixture_dates,
+            )
+        )
+
+        # After the span refusals, and reaching for its neighbours only once they pass: a date
+        # outside the season is wrong on its own terms, where this one is wrong only beside them.
+        await _refuse_an_out_of_order_beginn(
+            spieltage_collection=spieltage_collection,
+            saisons_collection=saisons_collection,
+            stored_raw=stored_raw,
+            beginn=spieltag_data.beginn,
+            ende=spieltag_data.ende,
+            session=session,
+        )
+
+        updated_raw = await patch_one_in_db(
+            collection=spieltage_collection,
+            db_filter={"_id": spieltag_id},
+            update={"$set": spieltag_data.model_dump(mode="json")},
+            session=session,
+        )
+
+        return updated_raw, rules
+
+    # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
+    # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
+    # the callback re-reading its neighbours.
+    async with db.start_session() as session:
+        updated_raw, rules = await session.with_transaction(redate_the_matchday)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
 
     return FLSpieltagWriteResponse(
         spieltag_id=spieltag_id,

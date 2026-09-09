@@ -1,8 +1,9 @@
 "use client";
 
+import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../../utils";
+import { computeSpielStatus, formatQuelle, formatSpielDisplay, isAbgesagt } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
 import { SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
@@ -21,6 +22,16 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
   // So the score reads as unknown and this names why, rather than the preview inventing figures the
   // save would replace.
   const isAwaitingForfeit = previewSpiel.sonderereignis === "nichtantreten_team1" || previewSpiel.sonderereignis === "nichtantreten_team2";
+
+  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
+  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
+  // than a result still owed.
+  const ergebnisTint =
+    previewSpiel.ergebnis !== null
+      ? "text-success-strong"
+      : isAbgesagt(previewSpiel.sonderereignis)
+        ? "text-danger-strong"
+        : "text-warning-strong";
 
   // The fall-through every card uses, so this names a side exactly as the bracket will.
   const team1Name = previewSpiel.team1?.name || formatQuelle(previewSpiel.team1_quelle) || PLACEHOLDER.slot;
@@ -49,9 +60,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
         <SpielScore
           ergebnis={ergebnis}
           elfmeterschiessen={elfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${
-            previewSpiel.ergebnis !== null ? "text-success-strong" : "text-warning-strong"
-          }`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ergebnisTint}`}
         />
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>
       </div>
@@ -65,7 +74,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
         </div>
         <div className="flex flex-row items-baseline justify-between gap-x-3">
           <dt className="fluid-xxs text-foreground-muted font-bold">Schiedsrichter</dt>
-          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{previewSpiel.schiedsrichter?.name ?? PLACEHOLDER.entity}</dd>
+          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</dd>
         </div>
       </dl>
     </div>

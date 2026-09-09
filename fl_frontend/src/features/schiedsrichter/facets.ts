@@ -20,14 +20,17 @@ export const SCHIEDSRICHTER_FACETS: readonly Facet<FLSchiedsrichter>[] = [
       { value: "kontakt", label: "Mit Kontakt" },
       { value: "ohne_kontakt", label: "Ohne Kontakt" },
       { value: "schule", label: "Mit Schule" },
+      { value: "geloescht", label: "Daten gelöscht" },
     ],
-    // `kontakt` is required to be present and never to be filled in, so a referee with neither a phone
-    // number nor an email address is a normal document and a real gap.
     read: (schiedsrichter) => {
       const held: string[] = [];
+      // `kontakt` is required to be present and never to be filled in, so a referee with neither a
+      // phone number nor an email address is a normal document and a real gap.
       const hasKontakt = schiedsrichter.kontakt.email !== null || schiedsrichter.kontakt.telefon !== null;
       held.push(hasKontakt ? "kontakt" : "ohne_kontakt");
       if (schiedsrichter.schule !== null) held.push("schule");
+      // Off the erasure's own stamp, never off an empty contact block, which most referees have anyway.
+      if (schiedsrichter.anonymisiert_am !== null) held.push("geloescht");
       return held;
     },
   },

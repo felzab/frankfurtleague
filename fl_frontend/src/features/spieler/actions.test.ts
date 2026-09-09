@@ -5,13 +5,18 @@ import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import {
   ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   NUMMER_MAX_LENGTH,
   NUMMER_MUST_BE_DIGITS,
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -42,6 +47,12 @@ const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "
   " ",
 );
 
+/** The list page, which folds the squad counts the table must not fold. Collapsed for the same reason. */
+const LIST_PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "page.tsx"), "utf8").replace(
+  /\s+/g,
+  " ",
+);
+
 /** The mirror that states the number's format on a validated payload. Not collapsed: it holds no JSX. */
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
 /** The create form, which states the same format natively. Collapsed for the reason `PANEL` is. */
@@ -49,6 +60,8 @@ const CREATE_FORM = readFileSync(path.resolve(import.meta.dirname, "components",
   /\s+/g,
   " ",
 );
+/** The picker all three squad write paths reach a team through, collapsed for the reason `PANEL` is. */
+const TEAM_SELECT = readFileSync(path.resolve(import.meta.dirname, "components", "forms", "TeamSelect.tsx"), "utf8").replace(/\s+/g, " ");
 /** The squad section, which states it natively beside the schema's own. Collapsed for the same reason. */
 const KADER_SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormKaderSection.tsx"),
@@ -260,7 +273,11 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
       /const heldRollen = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.heldRollen \?\? \{\};/,
       "the offer is derived from something other than the draft team's own holders",
     );
-    assert.match(PAGE, /collectHeldRollen\(\{/, "the page stopped supplying who holds each role");
+    assert.match(
+      PAGE,
+      /const heldRollen = collectHeldRollen\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
+      "the page gathers the holders of another season, or counts this player's own role as taken from them",
+    );
   });
 
   /* A transfer carries the draft's role into the destination squad, where the write path would
@@ -274,13 +291,26 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
   });
 });
 
+/**
+ * The squad panel on a RETIRED row, which is the arm holding the reactivate both gates close. The
+ * winning reason rides the refusal hint's `aria-label` (`shared/components/ui/Hint.tsx :: RefusalHint`).
+ */
+const austragenPanel = (gates: { isRowTeamInSaison: boolean; isRowSquadFull: boolean }): string =>
+  renderMarkup(FormAustragenSection, {
+    spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
+    saisonId: "2026",
+    rowInactiveSince: "2026-03-01",
+    banners: [],
+    ...gates,
+  });
+
 describe("the reactivate's gate on the editor", () => {
   /* The refusal is deterministic and the page already holds what decides it — the season's junction
      rows against the row's stored club — so the press is offered only where the endpoint takes it. */
   it("offers the press only while the row's club stands in the season", () => {
     assert.match(
       AUSTRAGEN_PANEL,
-      /const blockedReason = isRowTeamInSaison \? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
+      /const clubReason = isRowTeamInSaison \? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
       "the gate reads the wrong way round",
     );
     assert.match(AUSTRAGEN_PANEL, /isDisabled=\{isPending \|\| blockedReason !== null\}/, "the button no longer reads its own gate");
@@ -288,6 +318,40 @@ describe("the reactivate's gate on the editor", () => {
       AUSTRAGEN_PANEL.includes('<Hint mode="refusal" reason={isPending ? null : blockedReason}'),
       "the reason is no longer on the control",
     );
+  });
+
+  /* Both refusals reach one control, in the endpoint's own order: the club's is asked first there, a
+     full squad being no fact worth reporting about a club the season does not hold. */
+  it("asks the cap after the club, and composes the two", () => {
+    const open = austragenPanel({ isRowTeamInSaison: true, isRowSquadFull: false });
+    const capAlone = austragenPanel({ isRowTeamInSaison: true, isRowSquadFull: true });
+    const bothRefusals = austragenPanel({ isRowTeamInSaison: false, isRowSquadFull: true });
+
+    // The floor for the two reasons below, which a control closed whatever it is handed would carry
+    // anyway.
+    assert.doesNotMatch(open, /\sdisabled=""/, "the reactivate is closed on a row both gates clear");
+    assert.ok(!open.includes(REACTIVATION_NEEDS_ROOM_IN_SQUAD), "an open control still reports a full squad");
+
+    assert.match(capAlone, /\sdisabled=""/, "a full squad leaves the reactivate open");
+    assert.ok(capAlone.includes(`aria-label="${REACTIVATION_NEEDS_ROOM_IN_SQUAD}"`), "the cap gate reads the wrong way round");
+
+    // The club's reason on a row both refuse, which is the composition: reversed, the admin is sent to
+    // free a squad slot in a season the row's club has left.
+    assert.ok(
+      bothRefusals.includes(`aria-label="${REACTIVATION_NEEDS_A_TEAM_IN_SAISON}"`),
+      "the cap reason is reported ahead of the club's, or the two no longer compose",
+    );
+  });
+
+  /* The press returns the row to the club it already names, so a gate keyed on the picker above would
+     refuse a return the endpoint takes and offer one it refuses. */
+  it("derives the cap gate from the row's stored club, not the draft's", () => {
+    assert.match(
+      EDIT_FORM,
+      /const isRowSquadFull = storedMembership !== null && teams\.find\(\(team\) => team\.teamId === storedMembership\.team_id\)\?\.isSquadFull === true;/,
+      "the panel's cap gate is derived from something other than the row's own club",
+    );
+    assert.match(EDIT_FORM, /isRowSquadFull=\{isRowSquadFull\}/, "the panel is no longer handed the fact its gate reads");
   });
 
   /* The reactivate is judged against the season's own team list, which is the one collection
@@ -332,8 +396,13 @@ describe("the reactivate's gate on the list", () => {
     );
   });
 
-  it("gates the squad row's restore on it", () => {
-    assert.ok(rowActionSlice("Kadereintrag reaktivieren").includes("disabledReason={rowBlockedReason}"), "the row action is offered ungated");
+  /* Both refusals reach one control, in the endpoint's own order: `REQ-SQUAD-001` is asked first
+     there, a full squad being no fact worth reporting about a club the season does not hold. */
+  it("gates the squad row's restore on it, ahead of the cap", () => {
+    assert.ok(
+      rowActionSlice("Kadereintrag reaktivieren").includes("disabledReason={rowBlockedReason ?? rowSquadFullReason}"),
+      "the row action is offered ungated, or the two refusals reach it in the wrong order",
+    );
   });
 
   /* `stilllegen` and `austragen` are two subjects, and `POST /spieler/{id}/reactivate` refuses
@@ -347,6 +416,110 @@ describe("the reactivate's gate on the list", () => {
   it("says the refusal where the list's reader stands", () => {
     assert.notEqual(LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON, "the list borrowed the editor's sentence");
     assert.ok(!LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON.includes("oben"), "the list's sentence points at a place the list does not have");
+  });
+});
+
+describe("REQ-SQUAD-003 before the press", () => {
+  /* The editor offers the pick and then refuses the save, so the banner has to name the team the
+     DRAFT is on: keyed off the stored one it would go on standing through a transfer out of the
+     full squad. */
+  it("keys the editor's banner on the draft team, off a count the page took", () => {
+    assert.match(
+      EDIT_FORM,
+      /const isSquadFull = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.isSquadFull === true;/,
+      "the banner is derived from something other than the draft team's own answer",
+    );
+    assert.match(
+      PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
+      "the page counts another season's squad rows, or leaves the player being edited in the tally their own room is judged from",
+    );
+  });
+
+  /* The table is handed `filteredSpieler`, so a count folded there would shrink under a search and
+     report room in a squad the endpoint refuses. */
+  it("folds the list's counts on the page, where no search has narrowed the memberships", () => {
+    assert.match(
+      LIST_PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaisonId, exceptSpielerId: null \}\);/,
+      "the list's own fold counts against something other than the season the rows are shown for",
+    );
+    assert.ok(!TABLE.includes("countLiveSquadRows"), "the count moved into the component that only ever sees a filtered list");
+  });
+
+  /* The row's own club and no other: the count is per squad, and a gate reading the season's cap
+     against some other club's tally would refuse a return the endpoint takes. */
+  it("derives the list's cap gate from the row's stored club", () => {
+    assert.match(
+      TABLE,
+      /const rowSquadFullReason = saisonTeams\.find\(\(team\) => team\.teamId === row\?\.team_id\)\?\.isSquadFull === true \? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;/,
+      "the cap gate is derived from something other than the row's own club",
+    );
+  });
+
+  /* Two ways out and neither reader reaches either: the list is a page from the squad and the editor
+     is a page from the season's rules, so a sentence naming one of them strands somebody at the other. */
+  it("names both ways out of a full squad", () => {
+    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /trage zuerst einen anderen Spieler aus/);
+    assert.match(REACTIVATION_NEEDS_ROOM_IN_SQUAD, /maximale Kadergröße in den Saisonregeln/);
+    assert.ok(!REACTIVATION_NEEDS_ROOM_IN_SQUAD.includes("oben"), "the sentence points within a page that does not hold the repair");
+  });
+
+  /* Both stand over one club on page load — the rail banner off the DRAFT team, this sentence off
+     the STORED one — so a second wording leaves the reader deciding whether one obstacle is two. */
+  it("toasts the sentence this control shows, in one wording", () => {
+    const branch = squadBranch("REQ-SQUAD-003");
+    // Split rather than spelled again: a third copy of these two literals is a third thing to drift.
+    const [reason, repair] = REACTIVATION_NEEDS_ROOM_IN_SQUAD.replace(/\.$/, "").split(". ");
+
+    assert.ok(branch.includes(`reason: "${reason ?? ""}"`), "the toast opens on a state this control words differently");
+    assert.ok(branch.includes(`repair: "${repair ?? ""}"`), "the toast names the two ways out in another wording or another order");
+  });
+
+  /* The picker offers every write path its team, so a full squad barred here is barred on the create,
+     on the transfer and on the editor's entry at once. Hiding the row instead would say nothing. */
+  it("closes a full squad's row in the picker rather than dropping it", () => {
+    assert.match(TEAM_SELECT, /isDisabled=\{team\.isSquadFull === true\}/, "the picker offers a team the write path refuses");
+    assert.match(
+      TEAM_SELECT,
+      /\{team\.isSquadFull === true && <span [^>]*>Kader voll<\/span>\}/,
+      "a closed row carries no reason for being closed",
+    );
+  });
+
+  /* react-aria mirrors the collection into a hidden native `<select>` whose options carry no
+     `disabled`, so a key for a closed row still reaches `onChange` and the disable alone is cosmetic. */
+  it("re-reads the cap on the pick, not only on the row", () => {
+    assert.match(
+      TEAM_SELECT,
+      /if \(picked === undefined \|\| picked\.isSquadFull === true\) return;/,
+      "a pick past a closed row reaches the caller",
+    );
+  });
+
+  /* The create modal offers every running and planned season, and its picker's teams change with the
+     one chosen — a fold for the preselected season alone would report room in all the others. */
+  it("folds the create loader's counts for every season it offers", () => {
+    assert.match(
+      LIST_PAGE,
+      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: saison\.id, exceptSpielerId: null \}\);/,
+      "the create loader counts against one season rather than each offered one",
+    );
+    assert.match(
+      LIST_PAGE,
+      /isSquadFull: squadIsFull\(liveSquadRows\[team\.teamId\], saison\.rules\.max_kadergroesse\)/,
+      "the create loader's teams carry no cap answer, which the picker reads as unknown and offers",
+    );
+  });
+
+  /* A team can stand in both seasons and be full in only one, so the season switch has to drop it for
+     the same reason it drops a team the next season never had. */
+  it("drops a team the newly chosen season has no room in", () => {
+    assert.match(
+      CREATE_FORM,
+      /\(nextOption\?\.teams \?\? \[\]\)\.some\(\(team\) => team\.teamId === current\.team_id && team\.isSquadFull !== true\)/,
+      "a full squad survives the season switch and reaches the submit",
+    );
   });
 });
 
@@ -371,9 +544,15 @@ describe("the number's format as the admin reads it", () => {
       NUMMER_MUST_BE_DIGITS.includes(`1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern`),
       "the sentence names a bound the input does not enforce",
     );
+    // What `fl_backend/tests/shared/test_frontend_mirrors.py` cannot see: that this slice's own sentence
+    // names the same bound the constant enforces.
     assert.ok(
-      SCHEMAS.includes(`.regex(/^\\d{1,${String(NUMMER_MAX_LENGTH)}}$/, { error: NUMMER_MUST_BE_DIGITS })`),
+      SCHEMAS.includes(`const SQUAD_NUMMER_REGEX = /^\\d{1,${String(NUMMER_MAX_LENGTH)}}$/;`),
       "the schema's regex and the cap name different bounds",
+    );
+    assert.ok(
+      SCHEMAS.includes("z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS })"),
+      "the squad number is judged against something other than the named alphabet",
     );
   });
 });

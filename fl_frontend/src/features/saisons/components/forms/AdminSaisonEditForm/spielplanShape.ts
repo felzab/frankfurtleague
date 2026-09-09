@@ -1,17 +1,20 @@
 import type { FLSaisonRules, FLSpielplanShape } from "@/features/saisons/schemas";
 
-/** One of the three, as the panel both offers and reads it back. */
-export type ShapeField = { key: keyof FLSpielplanShape; label: string; minValue: number; maxValue?: number };
+/**
+ * One of the three, as the panel both offers and reads it back. No bounds: two of the three have
+ * none, their legal values skipping (`fl_frontend/src/features/saisons/shapeOffer.ts`), and the third
+ * derives its own from those two.
+ */
+export type ShapeField = { key: keyof FLSpielplanShape; label: string };
 
 /**
  * The three the fixture list is a function of, in the panel's order. **One table for the fields and
  * the confirmation both**, so no readout can label a number differently from the field above it.
- * The bounds are the schema's, pinned by this file's test.
  */
 export const SHAPE_FIELDS: readonly ShapeField[] = [
-  { key: "number_of_groups", label: "Gruppen", minValue: 1, maxValue: 4 },
-  { key: "teams_per_group", label: "Teams pro Gruppe", minValue: 2, maxValue: 16 },
-  { key: "qualifiers_per_group", label: "Qualifikanten pro Gruppe", minValue: 1 },
+  { key: "number_of_groups", label: "Gruppen" },
+  { key: "teams_per_group", label: "Teams pro Gruppe" },
+  { key: "qualifiers_per_group", label: "Qualifikanten pro Gruppe" },
 ];
 
 /** The season's stored three: what a replace starts from, and what a first draw leaves untouched. */

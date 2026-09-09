@@ -14,7 +14,7 @@ registerHooks({
   },
 });
 
-const { failingVariableNames, INTERNAL_API_KEY, refuseInvalidEnvironment } = await import("./config.ts");
+const { ADMIN_EMAIL_ALLOWLIST, failingVariableNames, INTERNAL_API_KEY, refuseInvalidEnvironment } = await import("./config.ts");
 
 const LENGTH = 64;
 const pad = (head: string): string => head + "k".repeat(LENGTH - [...head].length);
@@ -118,5 +118,36 @@ describe("the names a failed validation is reduced to", () => {
      variable the plain key names: read as a whole it renders `[object Object]`. */
   it("reads a variable wrapped as a path segment object", () => {
     assert.deepEqual(failingVariableNames([{ message: "invalid", path: [{ key: "AUTH_SECRET" }] }]), ["AUTH_SECRET"]);
+  });
+});
+
+describe("the administrator allowlist", () => {
+  const COMPOSED = "käthe@schule.de".normalize("NFC");
+  const DECOMPOSED = COMPOSED.normalize("NFD");
+
+  /* One refused entry fails the whole variable and `refuseInvalidEnvironment` throws, so an address
+     the sign-in box takes has to pass here or the site does not boot at all. */
+  it("takes every address the sign-in box takes", () => {
+    for (const raw of [COMPOSED, "erika@käthe-schule.example", "a!b@schule.de"]) {
+      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, true, `refused ${raw}`);
+    }
+  });
+
+  /* A separator nobody split on leaves one inert entry and every administrator locked out of a site
+     that came up green, which is the failure the boot refusal exists to turn into a red deploy. */
+  it("refuses an address no mailbox can be reached at, so a mis-split does not boot", () => {
+    for (const raw of ["a@b.de;c@d.de", "erika@ab-.de", "erika@schule", ""]) {
+      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, false, `accepted ${raw}`);
+    }
+  });
+
+  /* `@auth/core`'s `defaultNormalizer` NFKC-normalises before it lower-cases, and
+     `fl_frontend/src/core/auth.ts :: isUserAdmin` compares its output against these entries with
+     `includes`: the two spellings of an umlaut are different strings, so an entry left decomposed
+     matches nothing anybody can type. */
+  it("holds each entry in the form Auth.js hands the allowlist check", () => {
+    assert.notEqual(COMPOSED, DECOMPOSED);
+
+    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${COMPOSED.toUpperCase()} , ${DECOMPOSED} `).data, [COMPOSED, COMPOSED]);
   });
 });

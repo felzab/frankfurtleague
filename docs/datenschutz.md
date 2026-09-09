@@ -3,6 +3,8 @@
 **Purpose:** every data-protection decision I have taken for the league site, recorded once, so
 none is lost before the code, a spec sheet or a runbook carries it. A ruling leaves only when its
 text has reached its destination, and it moves rather than copies (`docs/_standard/standard.md` COR-2).
+**A section number is spent once taken**: a gap in the run below is a number that left with its
+ruling, and renumbering what stands would repoint every citation of it.
 
 Nothing here is a legal conclusion. A ruling marked **Datenschutzexperte consulted** was taken after
 consulting one; every other ruling is mine, taken on 2026-09-01 in a review of every open question
@@ -58,8 +60,19 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   three. That write is the contact person's own confirmation:
   they type their date on the confirmation page and
   `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. **The junction contacts editor is not that write** -- it requires a birthdate of the
-  administrator and bounds it at neither tier, so a seat entered there can hold any date at all. The consent vocabulary's `volljaehrig`
+  written. **That confirmation is also the only route by which the date reaches the database**: the
+  junction contacts editor accepts no birthdate, refusing the key outright rather than taking a null
+  (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries a date forward only where the
+  stored seat holds the same person — the same address and the same name, folded for case and inner
+  spacing (`fl_backend/app/api/teams/services.py :: _seat_held_by`). A renamed seat therefore keeps
+  nothing of whoever sat in it, a corrected typo costing that person a fresh confirmation because no
+  write can tell the two apart. An acceptance copies a seat's date into the season's junction row only
+  where that seat's own confirmation stamped it
+  (`fl_backend/app/api/teams/services.py :: compose_kontakte_at_entry`), which is what keeps an
+  application stored before the confirmation flow from carrying its applicant's answer into a second
+  collection. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
+  one is the remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than
+  something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
@@ -130,8 +143,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
-- **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
-  reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
+- **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
+  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`,
+  `READ-FREETEXT-003`).
 
 ## 5. Erasure reaches everyone who asks
 
@@ -142,10 +156,24 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
-  repeated and nobody is told a person's details are gone while they stand. A save putting the name
-  or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
+  repeated and nobody is told a person's details are gone while they stand. A save putting the name,
+  the school or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
   `docs/backend/spec.md :: I184`), closed seasons' fixtures included: an erasure a routine edit
   undoes is not an erasure, and the snapshot window is the only route back.
+- **A referee's erasure also ends their engagement, and the school goes with the name.** Booking a
+  person after they asked to be erased creates fresh personal data about them, with no lawful basis
+  standing for it, so the erasure retires the row — `REQ-BOOKING-001` then refuses it every new
+  fixture — and the reactivation that would undo that is refused in turn (`REQ-ANONYMISE-003`). A
+  booking already standing on a fixture still to be played is the same data on the same argument, so
+  the erasure empties it in the same transaction and the fixture surfaces under
+  `GET /spiele/action_required` until somebody assigns a referee to it; one fixture never vetoes a
+  request to be forgotten, and the retirement's own refusal (`REQ-RETIRE-004`) therefore has nothing
+  left to refuse. A
+  retirement the row already carried keeps its own day: a referee who stopped officiating last season
+  is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
+  the person, and beside a fixture list that never expires it narrows them to the few referees one
+  school ever sent; `default_payment` stays, being the league's rate for the job. A person who
+  officiates again is entered as a new referee.
 - **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
   are one subject to the match, so every seat the address holds is listed for confirmation before the
   write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather
@@ -171,7 +199,8 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   database at once and from backups within that window, and that sentence is what a requester
   receives, from the published notice and from the runbook alike
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). No replay of erasures after
-  a restore is built.
+  a restore is built, so a restore is followed by running each of them again by hand
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
@@ -208,7 +237,19 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `docs/backend/spec.md :: I196`): the provider accepts a send to a suppressed address and skips
   it, so erasing on a stamp saying the notice went out is erasing somebody who was told nothing,
   which is what ruling 87 refuses. It stands until an administrator enters a reachable address or
-  decides the application. Ruled 2026-09-08.
+  decides the application, and in neither case past the end of the season it applied for. Ruled
+  2026-09-08.
+- **An application still awaiting a decision when the season it applied for has ended is deleted,
+  those three people's contact details and every birthdate on it included, whatever its contact
+  persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
+  season's own `status` rather than counting a period from a day
+  (`fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`), so an application is
+  kept exactly as long as a decision could still be taken. This is the bound for every
+  application the fourteen-day clock above leaves standing: one every contact person confirmed and
+  nobody judged, one whose window no stored deadline bounds, and one held because the notice was
+  refused. The confirmation page states the period to the person whose details they are
+  (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
+  tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not

@@ -44,11 +44,15 @@ const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere 
  * seats the sentence under its field, and the generator, having no field, seats it in a message that
  * names where the repair is made.
  */
-const BRACKET_HAS_NO_SHAPE = `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
+const BRACKET_HAS_NO_SHAPE = `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
 const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
 const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
 const FORFEIT_CANNOT_DECIDE =
   "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.";
+// No count and no ceiling: both follow from the shape, and a figure typed into German is a second
+// bound nothing holds to the backend's own.
+const TOO_MANY_FIXTURES =
+  "Aus so vielen Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann. Senke eine der beiden Zahlen.";
 
 /**
  * `REQ-DATE-005`'s shared half: the dates repair every state, because
@@ -102,7 +106,8 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // turned `past` under an open page reaches this.
     case "REQ-RULES-005":
       return {
-        error: "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. Lade die Seite neu.",
+        error:
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben. Lade die Seite neu.",
       };
     // Bare like the freeze above, and a reload for the same reason: the panel holds the Tiebreak
     // closed once a KO fixture has been played, so only a result entered under an open page gets here.
@@ -114,13 +119,17 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // in one panel, and one answering through field paths would split that into two mechanisms.
     case "REQ-RULES-011":
       return {
-        // Wrapped so the second repair reads as one run: `undrawSpielplan.test.ts` matches the verb
-        // this message sends an admin looking for against the control that carries it.
+        // No window and no repair: `FormRegelnSection.tsx :: SHAPE_NOTE` states whichever of the
+        // three cases holds, unconditionally and on the state the reloaded panel is in, where a
+        // toast can only hand the reader the condition to evaluate.
         error:
-          "Für diese Saison sind schon Spiele angesetzt. Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl " +
-          "neu anlegst. Gruppen und Teams pro Gruppe hängen dagegen an den Teams, die in dieser Saison stehen: " +
-          "Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.",
+          "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe gesperrt. " +
+          "Lade die Seite neu; im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
       };
+    // Bare too, and for `REQ-DATE-005`'s reason rather than a freeze's: the two counts make the
+    // fixture total together, so neither is the field at fault.
+    case "REQ-RULES-013":
+      return { error: TOO_MANY_FIXTURES };
     case "REQ-RULES-006":
       return {
         error: "Mindestens ein Spieltag enthält mehr Spiele, als diese Regeln vorsehen. Erhöhe die Zahlen wieder.",
@@ -224,6 +233,10 @@ function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | nu
       return rulesFaultMessage(DRAW_BEATS_WIN);
     case "REQ-RULES-010":
       return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
+    // Through `shapeFault` rather than `rulesFaultMessage`: a replace carries the two counts this
+    // total is computed from, so on that path the panel holding them is the Spielplan's.
+    case "REQ-RULES-013":
+      return shapeFault(TOO_MANY_FIXTURES);
     // NOT through `shapeFault`, whose two tails both send the admin to change a number: the repair
     // that works whatever the numbers are is the season's dates. Only where a smaller one could be
     // typed differs, which is what the ternary carries.
@@ -582,7 +595,7 @@ export async function undrawSpielplanAction(
     const removedRows = undrawOperation.spieltage > 0 || undrawOperation.spiele > 0;
 
     const message = removedRows
-      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
+      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
       : undrawOperation.watermark_cleared
         ? `Saison ${validated.data.id} hielt weder Spieltage noch Spiele. Die Angabe, dass ihr Spielplan steht, ist jetzt entfernt.`
         : `Saison ${validated.data.id} hatte keinen Spielplan mehr, deshalb wurde nichts gelöscht.`;

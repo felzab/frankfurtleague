@@ -4,7 +4,7 @@ import { Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 
-import { formatSpielDisplay } from "../../utils";
+import { formatSpielDisplay, isAbgesagt } from "../../utils";
 import { SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
@@ -23,6 +23,16 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
     ergebnis: spielErgebnis,
     elfmeterschiessen: spielElfmeterschiessen,
   } = formatSpielDisplay(spielData);
+
+  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
+  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
+  // than a result still owed.
+  const ergebnisTint =
+    spielData.ergebnis !== null
+      ? "bg-success/15 text-success-strong"
+      : isAbgesagt(spielData.sonderereignis)
+        ? "bg-danger/15 text-danger-strong"
+        : "bg-warning/15 text-warning-strong";
 
   return (
     <Card className={`${card({ interactive: true })} relative w-full`}>
@@ -61,9 +71,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${
-              spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"
-            }`}
+            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${ergebnisTint}`}
           />
 
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>

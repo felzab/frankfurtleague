@@ -90,7 +90,7 @@ export function FormLoeschenSection({
              said, and the repair it names is on a different page. */
           <Callout
             severity="info"
-            title="Dieser Spieler ist nicht stillgelegt">
+            title="Diese Person ist nicht stillgelegt">
             {blockedReason}
           </Callout>
         )}

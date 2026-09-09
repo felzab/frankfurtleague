@@ -163,7 +163,7 @@ describe("the public application form", () => {
   it("asks for the Trainer last, behind the two seats its claim can name", () => {
     assert.deepEqual(
       [...FORMULAR.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((treffer) => treffer[1]),
-      ["Schule", "Ansprechperson", "Stellvertretung", "Trainerin oder Trainer", "Bestätigung", "Team"],
+      ["Schule", "Ansprechperson", "Stellvertretung", "Trainerin oder Trainer", "Kenntnisnahme", "Team"],
       "the form no longer asks the Trainer last, or renamed a panel",
     );
     // The payload's own keys in the same order, so a renamed panel heading cannot hide a reordering.
@@ -218,8 +218,8 @@ describe("what a refusal on a switch has to land on", () => {
   it("gives every switch on this form a control a refusal can reach", () => {
     const alle = schalter(FORMULAR);
 
-    // A floor of ONE: the confirmation is the only switch left, the claim having become a toggle
-    // group and the three per-seat consents one press.
+    // A floor of ONE: the Kenntnisnahme is the only switch left, the claim having become a toggle
+    // group and the three per-seat acknowledgements one press.
     assert.ok(alle.length >= 1, "the form renders no switches, so this case compares nothing");
     for (const control of alle) {
       assert.notEqual(control.name, "", "a switch carries no name, so a refusal on its path reaches no control");
@@ -245,15 +245,15 @@ describe("what a refusal on a switch has to land on", () => {
   });
 });
 
-describe("how the consent panel sits among the sections around it", () => {
+describe("how the Kenntnisnahme panel sits among the sections around it", () => {
   /* A panel titled below its siblings' level reads as a group inside the one before it, which is
-     where an applicant looked for their consent and found the Trainer's fields. */
+     where an applicant looked for their Kenntnisnahme and found the Trainer's fields. */
   it("wears the frame and the heading level every other section wears", () => {
     const panel = formPanel();
     const kopf = new RegExp(`<div class="${panel.header()}"><div><h2 class="${panel.heading()} inline">([^<]*)</h2>`, "g");
     const titel = [...FORMULAR.matchAll(kopf)].map((treffer) => treffer[1] ?? "");
 
-    assert.ok(titel.includes("Bestätigung"), "the consent panel titles itself some other way than its siblings do");
+    assert.ok(titel.includes("Kenntnisnahme"), "the Kenntnisnahme panel titles itself some other way than its siblings do");
     assert.equal(titel.length, 6, `the form frames ${String(titel.length)} sections rather than its six`);
   });
 
@@ -272,7 +272,7 @@ describe("how the consent panel sits among the sections around it", () => {
   it("starts the switch's refusal on the label's own edge", () => {
     const block = /<Switch\b[\s\S]*?<\/Switch>/.exec(SEATS)?.[0] ?? "";
 
-    assert.notEqual(block, "", "the consent section renders no switch, so this case compares nothing");
+    assert.notEqual(block, "", "the Kenntnisnahme section renders no switch, so this case compares nothing");
     assert.match(block, /<FieldError className=\{FIELD_ERROR_SWITCH\} \/>/, "the switch's message wears a text field's recipe");
     assert.ok(FIELD_ERROR_SWITCH.startsWith(FIELD_ERROR), "the switch recipe is no longer the field recipe with a start added");
     assert.match(FIELD_ERROR_SWITCH, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");

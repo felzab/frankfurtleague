@@ -80,10 +80,14 @@ select = [
     "F",  # pyflakes
     "I",  # isort (alphabetizes your imports!)
     "B",  # flake8-bugbear
-    # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case. Not the
-    # `UP` family, which is a real migration. Stable subset only: ruff holds part of FURB behind
-    # `preview`, and turning that on moves every other family too.
+    # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case.
+    # Stable subset only: ruff holds part of FURB behind `preview`, and turning that on moves every
+    # other family too.
     "FURB",  # refurb — mechanical modernisations
+    # One pass over the whole package rather than per module: a tree half on `collections.abc` and
+    # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
+    # they opened.
+    "UP",  # pyupgrade
     # Docstring FORMATTING only (docs/_standard/standard.md, INC-7). Deliberately NOT the D1xx
     # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
     # the standard asks for prose where there is a reason to record, not coverage for its own sake.

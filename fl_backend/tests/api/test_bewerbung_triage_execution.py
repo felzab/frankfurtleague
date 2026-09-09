@@ -1,5 +1,6 @@
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Mapping, cast
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -36,7 +37,7 @@ from app.api.bewerbungen.services import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
-from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
+from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_database, get_db_client
@@ -384,8 +385,12 @@ class TestAnAcceptanceEntersTheSchool:
         # The club's name as it stands TODAY, copied at entry rather than joined on read.
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
-    def test_the_three_people_reach_the_junction_row_as_the_application_held_them(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/admin/kontakte` then reads."""
+    def test_the_three_people_reach_the_junction_row_without_a_date_no_seat_of_theirs_stamped(self, mongo_replica_set_url: str):
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/admin/kontakte` then reads.
+
+        The seeded corpus is a pre-flow application, whose dates its applicant gave for three other
+        people.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
@@ -397,7 +402,15 @@ class TestAnAcceptanceEntersTheSchool:
         submitted, entered = on_a_league(mongo_replica_set_url, body)
 
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
-        assert entered == submitted == KONTAKTE
+        assert submitted == KONTAKTE
+        assert entered == {
+            slot: (
+                {**seat, "geburtsdatum": None, "einwilligung": {**seat["einwilligung"], **UNCONFIRMED_HERKUNFT}}
+                if isinstance(seat, dict)
+                else seat
+            )
+            for slot, seat in KONTAKTE.items()
+        }
 
     def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""

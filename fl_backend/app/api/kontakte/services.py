@@ -6,7 +6,8 @@ The slot names are read off `FLSaisonTeamKontakte` rather than typed here, the s
 """
 
 import re
-from typing import Any, Mapping, Sequence, get_args
+from collections.abc import Mapping, Sequence
+from typing import Any, get_args
 
 from app.api.teams.schemas import FLKontaktperson, FLSaisonTeamKontakte
 from app.core.collections import Collection

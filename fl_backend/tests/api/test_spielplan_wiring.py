@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from functools import cache
 from itertools import product
-from typing import Any, Mapping, get_args
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId

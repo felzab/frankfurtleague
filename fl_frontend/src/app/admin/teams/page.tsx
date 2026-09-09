@@ -93,5 +93,14 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
     };
   });
 
-  return <AdminTeamsView teams={rows} />;
+  // The group filter offers what this season runs rather than the league's closed set
+  // (`docs/glossary.md :: Gruppe`).
+  const numberOfGroups = saisons.find((saison) => saison.id === selectedSaisonId)?.rules.number_of_groups ?? null;
+
+  return (
+    <AdminTeamsView
+      teams={rows}
+      numberOfGroups={numberOfGroups}
+    />
+  );
 }

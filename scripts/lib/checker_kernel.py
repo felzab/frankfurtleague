@@ -15,7 +15,7 @@ import traceback
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal, TextIO, TypeVar
+from typing import Any, Final, Literal, TextIO
 
 # Three levels: this file sits in `scripts/lib/`, and a fixture copies the whole of `scripts/`
 # into a throwaway repository whose root is what every checker then has to resolve against.
@@ -29,35 +29,14 @@ EXIT_REFUSED: Final = 2
 EXIT_CRASH: Final = 3
 EXIT_INTERRUPTED: Final = 130
 
-PYTHON_FLOOR: Final = (3, 14)
-
-# The oldest interpreter that REACHES these files, not one that runs them: `.githooks/commit-msg`
-# falls back to a system `python3`. Below the floor they must still parse, or nothing can print.
-PARSE_FLOOR: Final = (3, 9)
-
 DEFAULT_BASE: Final = "main"
 
-# What reading a file in this repository can raise. Named rather than spelled inline, for
-# `scripts/checks/docs_gate/kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds a tuple into PEP
-# 758's `except A, B:`, newer than `PARSE_FLOOR`.
+# What reading a file in this repository can raise, so no checker spells its own pair.
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 # What launching git can raise. `ValueError` is the NUL: a token carrying one is exactly what
 # `binary-byte` exists to report, and reaching the child raises before any check can say so.
-# Named for `UNREADABLE`'s reason.
 UNLAUNCHABLE: Final = (OSError, ValueError)
-
-# At import rather than inside `run`: a checker importing this is already compiled, so this is the
-# first line of any of them an old interpreter reaches.
-
-# NOTHING HERE MAY USE SYNTAX NEWER THAN `PARSE_FLOOR`. A message about the runtime floor cannot
-# print from a file that will not compile, and the SyntaxError exits 1 -- a finding's code.
-if sys.version_info < PYTHON_FLOOR:
-    _have = ".".join(str(part) for part in sys.version_info[:3])
-    _want = ".".join(str(part) for part in PYTHON_FLOOR)
-    print(f"\n  This interpreter is python {_have}; the gate's checkers are written for {_want} or newer.", file=sys.stderr)
-    print("  Run them from the backend virtualenv, which `cd fl_backend && uv sync --dev` creates.\n", file=sys.stderr)
-    raise SystemExit(EXIT_CRASH)
 
 # A codepage must never decide whether a finding prints. The emoji ban is the sharp case: its
 # finding quotes the subject, so on a Windows cp1252 handle it cannot report at all.
@@ -146,17 +125,12 @@ def resolve_base(base: str = DEFAULT_BASE) -> str | None:
     return git("merge-base", ref, "HEAD") or None
 
 
-# The old spelling on purpose: PEP 695's `def failures[F: Finding]` is a SyntaxError below 3.12,
-# and a kernel that will not compile cannot name the interpreter it wanted.
-F = TypeVar("F", bound=Finding)
-
-
-def failures(findings: Iterable[F]) -> list[F]:
+def failures[F: Finding](findings: Iterable[F]) -> list[F]:
     """The findings that decide the exit code."""
     return [finding for finding in findings if finding.severity == "fail"]
 
 
-def reports(findings: Iterable[F]) -> list[F]:
+def reports[F: Finding](findings: Iterable[F]) -> list[F]:
     """The advisory findings — printed, never fatal."""
     return [finding for finding in findings if finding.severity != "fail"]
 

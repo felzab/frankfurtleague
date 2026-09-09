@@ -2,35 +2,53 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+
+// Every card below is reached with `await import`: this helper registers the JSX compile step as it
+// evaluates, and a static import beside it has already resolved (`docs/frontend/spec.md` §1.9).
+import { renderMarkup } from "../../shared/testing/renderTest.ts";
+import { FLSonderereignisSchema } from "./schemas.ts";
 import {
   adminSpielEditHref,
-  buildUndoPayloads,
   collectSpieltagTeamOccupancy,
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
   deriveSlotHerkunft,
   describeBracketFaultOnCard,
+  describeMovedSpiele,
   formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
   formatSpielDisplay,
   formatSpielUpdateMessage,
-  formatUndoScopeWarning,
   groupBracketFaultsBySpielId,
+  isAbgesagt,
   isFirstKnockoutRound,
   listDependentSpiele,
   listFeederSpiele,
-  listMovedSpiele,
   quelleKey,
   spielStateKey,
   toPatchPayload,
 } from "./utils.ts";
 
 import type { FLAustrittType } from "../teams/schemas.ts";
-import type { FLBracketFault, FLSpiel, FLSpielAdmin, FLSpielAdvancement, FLSpielBooking } from "./schemas.ts";
+import type {
+  FLBracketFault,
+  FLBracketFaultGruppe,
+  FLBracketFaultQuelle,
+  FLBracketFaultSlot,
+  FLSonderereignis,
+  FLSpiel,
+  FLSpielAdmin,
+  FLSpielAdvancement,
+  FLSpielQuelle,
+  FLSpielWithDraftFields,
+} from "./schemas.ts";
 
 const TODAY = "2026-07-29";
+
+/** One `spiel_id` per match number, so a report and the fixture it names agree without a lookup table. */
+const matchId = (spielNr: number): string => `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`;
 
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
 const TEAM_2 = "6890a1b2c3d4e5f607182933";
@@ -85,6 +103,51 @@ describe("computeSpielStatus", () => {
   it("compares correctly across month and year boundaries", () => {
     assert.equal(computeSpielStatus({ datum: "2026-08-01", sonderereignis: null, today: "2026-07-31" }), "ausstehend");
     assert.equal(computeSpielStatus({ datum: "2025-12-31", sonderereignis: null, today: "2026-01-01" }), "vergangen");
+  });
+});
+
+/**
+ * What the cancellation set holds and what it refuses, written out here rather than read off the
+ * production literals: a symbol replacing four of them can widen or narrow the set silently.
+ */
+const ABGESAGT: Record<FLSonderereignis, boolean> = {
+  ausgefallen: true,
+  nichtantreten_team1: true,
+  nichtantreten_team2: true,
+  abgebrochen: false,
+  annulliert: true,
+};
+
+describe("isAbgesagt", () => {
+  // Two listings reached by different routes: this fails where a member is added to the mirror
+  // alone, and where `options` resolves to nothing, which would leave every sweep below vacuous.
+  it("answers for every event the read model accepts", () => {
+    assert.deepEqual([...FLSonderereignisSchema.options].sort(), Object.keys(ABGESAGT).sort());
+  });
+
+  it("holds the four events meaning the fixture never took place, and refuses `abgebrochen`", () => {
+    for (const sonderereignis of FLSonderereignisSchema.options) {
+      assert.equal(isAbgesagt(sonderereignis), ABGESAGT[sonderereignis], sonderereignis);
+    }
+  });
+
+  it("reads a fixture carrying no event as one that took place", () => {
+    assert.equal(isAbgesagt(null), false);
+  });
+
+  // The ORDER alone: `computeSpielStatus` calls the predicate, so both sides move together and only
+  // the order can fail — the call sinking below a date branch, where an undated cancelled fixture
+  // answers `unbekannt`. `ABGESAGT` above pins the set.
+  it("decides `computeSpielStatus`'s `abgesagt` above every date branch", () => {
+    for (const sonderereignis of [...FLSonderereignisSchema.options, null]) {
+      for (const datum of ["2020-01-01", TODAY, "2099-01-01", null]) {
+        assert.equal(
+          computeSpielStatus({ datum, sonderereignis, today: TODAY }) === "abgesagt",
+          isAbgesagt(sonderereignis),
+          `${String(sonderereignis)} dated ${String(datum)}`,
+        );
+      }
+    }
   });
 });
 
@@ -201,12 +264,12 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle(null), null);
   });
 
-  it("names a match-fed slot by the match number, with the trailing period the bracket prints", () => {
-    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), "Sieger 25.");
+  it("names what a match-fed slot's number counts, so no trailing point reads it as a rank", () => {
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), "Sieger von Spiel 25");
   });
 
   it("distinguishes the losing side, which is how a third-place play-off is fed", () => {
-    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer von Spiel 29");
   });
 
   // One form for the whole set, so two slots compare at a glance and the picker reads as the
@@ -217,7 +280,7 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: 4 }), "4. der Gruppe B");
   });
 
-  // A source mid-edit drafts `NaN`, which every consumer printed as "Sieger NaN.".
+  // A source mid-edit drafts `NaN`, which every consumer would otherwise print as "Sieger von Spiel NaN".
   it("returns null while a match-fed slot's number is still unpicked", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: NaN, ausgang: "sieger" }), null);
   });
@@ -255,6 +318,7 @@ describe("deriveSlotHerkunft", () => {
 describe("formatSpielUpdateMessage", () => {
   /** A fixture that moved and lost nothing — the ordinary case. */
   const moved = (spielNr: number): FLSpielAdvancement => ({
+    spiel_id: matchId(spielNr),
     spiel_nr: spielNr,
     voided_ergebnis: null,
     voided_elfmeterschiessen: null,
@@ -263,6 +327,7 @@ describe("formatSpielUpdateMessage", () => {
 
   /** A fixture whose stored scoreline the same save deleted. */
   const voided = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
+    spiel_id: matchId(spielNr),
     spiel_nr: spielNr,
     voided_ergebnis: ergebnis,
     voided_elfmeterschiessen: null,
@@ -271,6 +336,7 @@ describe("formatSpielUpdateMessage", () => {
 
   /** A no-show fixture: the event and the forfeit it composed go together, as the write path pairs them. */
   const voidedNoShow = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
+    spiel_id: matchId(spielNr),
     spiel_nr: spielNr,
     voided_ergebnis: ergebnis,
     voided_elfmeterschiessen: null,
@@ -323,7 +389,17 @@ describe("formatSpielUpdateMessage", () => {
     const message = formatSpielUpdateMessage(
       [],
       [],
-      [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null }],
+      [
+        {
+          spiel_id: matchId(12),
+          spiel_nr: 12,
+          side: "team1",
+          team_name: "Adler",
+          voided_ergebnis: null,
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: null,
+        },
+      ],
     );
 
     assert.match(message, /Adler wurde aus Spiel 12 entfernt, da beide am selben Spieltag stattfinden/);
@@ -335,6 +411,7 @@ describe("formatSpielUpdateMessage", () => {
       [],
       [
         {
+          spiel_id: matchId(12),
           spiel_nr: 12,
           side: "team2",
           team_name: "Adler",
@@ -375,6 +452,7 @@ describe("formatSpielUpdateMessage", () => {
       [],
       [
         {
+          spiel_id: matchId(12),
           spiel_nr: 12,
           side: "team1",
           team_name: "Adler",
@@ -386,6 +464,30 @@ describe("formatSpielUpdateMessage", () => {
     );
 
     assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde; das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
+  });
+});
+
+describe("describeMovedSpiele", () => {
+  const voidedElsewhere: FLSpielAdvancement = {
+    spiel_id: matchId(30),
+    spiel_nr: 30,
+    voided_ergebnis: "2:0",
+    voided_elfmeterschiessen: null,
+    voided_sonderereignis: null,
+  };
+
+  it("says nothing at all where the write moved nothing", () => {
+    // The undo's toast reads as a clean restore off exactly this: an empty sentence would grade it a
+    // warning and send the admin looking for a loss nothing took.
+    assert.equal(describeMovedSpiele([]), undefined);
+  });
+
+  it("carries the save's own sentences without the save's lead", () => {
+    const described = describeMovedSpiele([voidedElsewhere]);
+
+    assert.doesNotMatch(described ?? "", /Die Spieldaten wurden aktualisiert/);
+    assert.match(described ?? "", /^Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. /);
+    assert.match(described ?? "", /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht$/);
   });
 });
 
@@ -405,8 +507,17 @@ function departedFault(austritt_type: FLAustrittType): FLBracketFault {
 }
 
 /** The id is read only as a key, so any valid one will do. */
-function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
+function gruppeFault(reason: FLBracketFaultGruppe["reason"], gruppe: FLBracketFaultGruppe["gruppe"], platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
+}
+
+function quelleFault(reason: FLBracketFaultQuelle["reason"], quelleSpielNr: number): FLBracketFault {
+  return { reason, spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, quelle_spiel_nr: quelleSpielNr };
+}
+
+/** The seat is `team1` throughout: which one it is only has to reach the wording. */
+function slotFault(reason: FLBracketFaultSlot["reason"], quelle: FLSpielQuelle): FLBracketFault {
+  return { reason, spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, side: "team1", quelle };
 }
 
 /** One appearance of a club that stands more than once on its Spieltag; the callers vary only the seat. */
@@ -422,10 +533,10 @@ function fieldedTwice(side: "team1" | "team2"): FLBracketFault {
   };
 }
 
-describe("toPatchPayload and buildUndoPayloads", () => {
+describe("toPatchPayload", () => {
   const fixture = (spielNr: number, ergebnis: string | null): FLSpielAdmin =>
     ({
-      id: `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`,
+      id: matchId(spielNr),
       spiel_nr: spielNr,
       sonderereignis: null,
       team1: { team_id: TEAM_1, name: "Team A", tore: ergebnis === null ? null : Number(ergebnis.split(":")[0]), shorthand: "TA" },
@@ -440,13 +551,9 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       ergebnis,
     }) as FLSpielAdmin;
 
-  /** The ordinary case, every moved fixture having been read back; the gap is its own test below. */
-  const bookingsFor = (moved: readonly FLSpiel[]): Map<string, FLSpielBooking> =>
-    new Map(moved.map((spiel) => [spiel.id, { ort: null, schiedsrichter: null }]));
-
   it("carries every field the write path would otherwise overwrite with nothing", () => {
-    // The payload is `$set` wholesale, so an omitted field is erased by the very request meant to
-    // restore it. Asserted as a key set, because that is exactly the failure: a value nobody notices.
+    // The key this feeds is what remounts the editor, so a field missing here is one the tree keeps
+    // showing from its seed. Asserted as a key set, because that is exactly the failure: a value nobody notices.
     assert.deepEqual(Object.keys(toPatchPayload(fixture(29, "2:0"))).sort(), [
       "datum",
       "elfmeterschiessen",
@@ -520,8 +627,8 @@ describe("toPatchPayload and buildUndoPayloads", () => {
   });
 
   it("keeps the rent and the Honorar on the payload, where the composed names do not travel", () => {
-    // Each is what THIS fixture pays rather than a copy of a default, so an omitted one is a rent
-    // silently rewritten to nothing by the very `$set` that was meant to leave it alone.
+    // Each is what THIS fixture pays rather than a copy of a default, so a rent changed elsewhere has
+    // to remount the editor — and the save's own `$set` would rewrite an omitted one to nothing.
     const booked = {
       ...fixture(29, null),
       ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "https://maps.example/nord", mietpreis: 120 },
@@ -531,91 +638,6 @@ describe("toPatchPayload and buildUndoPayloads", () => {
 
     assert.deepEqual(payload.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
     assert.deepEqual(payload.schiedsrichter, { schiedsrichter_id: "6890a1b2c3d4e5f607180202", payment: 35 });
-  });
-
-  it("puts the edited fixture first, so the resolution runs before the results go back", () => {
-    // The whole correctness argument: restoring a downstream result first would have the resolution
-    // triggered by the edited fixture clear it again, and the undo would report a success it did not
-    // achieve.
-    const edited = fixture(25, "1:3");
-    const later = fixture(30, "0:0");
-    const semi = fixture(29, "2:0");
-    // Deliberately not in bracket order: the season list's order must not decide the replay's.
-    const season = [later, edited, semi];
-
-    const moved = listMovedSpiele(edited, season, [29, 30]);
-
-    assert.deepEqual(
-      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
-      [edited.id, later.id, semi.id],
-    );
-  });
-
-  it("restores only the fixtures the save actually reported", () => {
-    const edited = fixture(25, "1:3");
-    const semi = fixture(29, "2:0");
-    const moved = listMovedSpiele(edited, [edited, semi, fixture(30, "0:0")], [29]);
-
-    assert.deepEqual(
-      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
-      [edited.id, semi.id],
-    );
-  });
-
-  it("never lists the edited fixture twice when the save also reported it", () => {
-    const edited = fixture(25, "1:3");
-    const moved = listMovedSpiele(edited, [edited], [25]);
-
-    assert.deepEqual(
-      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
-      [edited.id],
-    );
-  });
-
-  it("takes a moved fixture's rent from the booking read, the season list carrying none", () => {
-    const edited = fixture(25, "1:3");
-    const semi = fixture(29, "2:0");
-    const moved = listMovedSpiele(edited, [edited, semi], [29]);
-    const bookings: Map<string, FLSpielBooking> = new Map([
-      [semi.id, { ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "x", mietpreis: 120 }, schiedsrichter: null }],
-    ]);
-
-    assert.deepEqual(buildUndoPayloads(edited, moved, bookings)[1]?.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
-  });
-
-  it("leaves out a moved fixture whose booking never came back, rather than guessing its rent", () => {
-    // `$set` writes the payload wholesale, so a made-up rent would be stored as the agreed one.
-    const edited = fixture(25, "1:3");
-    const moved = listMovedSpiele(edited, [edited, fixture(29, "2:0")], [29]);
-
-    assert.deepEqual(
-      buildUndoPayloads(edited, moved, new Map()).map((payload) => payload.spiel_id),
-      [edited.id],
-    );
-  });
-});
-
-describe("formatUndoScopeWarning", () => {
-  /* The read behind the undo fails whole -- a forbidden session, a network fault, a malformed
-     answer -- so the warning covers every moved fixture or none, never a subset. */
-  it("names the one moved fixture the undo will not restore", () => {
-    assert.equal(
-      formatUndoScopeWarning([{ spiel_nr: 29 }]),
-      "Spielort und Schiedsrichter von Spiel 29 konnten nicht gelesen werden; „Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her",
-    );
-  });
-
-  it("names several in the plural, in the season's own list form", () => {
-    assert.equal(
-      formatUndoScopeWarning([{ spiel_nr: 29 }, { spiel_nr: 30 }, { spiel_nr: 31 }]),
-      "Spielort und Schiedsrichter der Spiele 29, 30 und 31 konnten nicht gelesen werden; " +
-        "„Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her",
-    );
-  });
-
-  // The save moved nothing, so the undo restores everything it was ever going to.
-  it("says nothing when the save moved no fixture", () => {
-    assert.equal(formatUndoScopeWarning([]), "");
   });
 });
 
@@ -696,6 +718,156 @@ describe("formatBracketFault", () => {
     for (const side of ["team1", "team2"] as const) {
       assert.doesNotMatch(formatBracketFault(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
       assert.doesNotMatch(describeBracketFaultOnCard(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
+    }
+  });
+
+  it("names the group a season does not run as that, rather than as a table too short", () => {
+    assert.equal(
+      formatBracketFault(gruppeFault("gruppe_not_run", "C", 1)),
+      "Spiel 25 verweist auf Platz 1 der Gruppe C, die es in dieser Saison nicht gibt",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(gruppeFault("gruppe_not_run", "C", 1)),
+      "Verweist auf Platz 1 der Gruppe C, die es in dieser Saison nicht gibt.",
+    );
+  });
+
+  it("says a placing feeds the opening round alone", () => {
+    assert.equal(
+      formatBracketFault(gruppeFault("seed_past_the_opening_round", "A", 1)),
+      "Spiel 25 verweist auf Platz 1 der Gruppe A, doch nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(gruppeFault("seed_past_the_opening_round", "A", 1)),
+      "Verweist auf Platz 1 der Gruppe A. Nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle.",
+    );
+  });
+
+  /* The card's own sentence carries the Gruppenphase inside it: a later round IS fed by a match
+     reference, so „In den KO-Baum führt nur die Gruppentabelle“ standing alone denies live wiring
+     an administrator could then clear. */
+  it("says a group match feeds no bracket slot, without denying the match references that do", () => {
+    assert.equal(
+      formatBracketFault(quelleFault("gruppenphase_feeder", 1)),
+      "Spiel 29 verweist auf Spiel 1 aus der Gruppenphase, doch in den KO-Baum führt nur die Gruppentabelle",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(quelleFault("gruppenphase_feeder", 1)),
+      "Verweist auf Spiel 1 aus der Gruppenphase, aus der nur die Gruppentabelle in den KO-Baum führt.",
+    );
+  });
+
+  // The rule is the ROUND, and a card claiming the dates is contradicted by the Spieltag it sits on.
+  it("says a source is not from an earlier round, without claiming a loop or a date", () => {
+    assert.equal(
+      formatBracketFault(quelleFault("feeder_not_played_first", 31)),
+      "Spiel 29 verweist auf Spiel 31, das nicht aus einer früheren Runde stammt",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(quelleFault("feeder_not_played_first", 31)),
+      "Verweist auf Spiel 31, das nicht aus einer früheren Runde stammt.",
+    );
+  });
+
+  it("names the seat and the reference on a wired group fixture", () => {
+    const fault = slotFault("gruppenphase_fixture_wired", { type: "spiel", spiel_nr: 25, ausgang: "sieger" });
+
+    assert.equal(
+      formatBracketFault(fault),
+      "In Spiel 29 verweist Team 1 auf den Sieger von Spiel 25, obwohl der Spielplan die Seiten eines Gruppenspiels setzt",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(fault),
+      "Team 1 verweist auf den Sieger von Spiel 25, obwohl der Spielplan die Seiten dieses Gruppenspiels setzt.",
+    );
+  });
+
+  // The reference is what pairs the two entries of one shared source, so both wordings carry it.
+  it("names the shared reference on each slot it feeds", () => {
+    const fault = slotFault("source_feeds_another_fixture", { type: "gruppe", gruppe: "A", platz: 1 });
+
+    assert.equal(
+      formatBracketFault(fault),
+      "In Spiel 29 verweist Team 1 auf Platz 1 der Gruppe A, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel",
+    );
+    assert.equal(
+      describeBracketFaultOnCard(fault),
+      "Team 1 verweist auf Platz 1 der Gruppe A, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.",
+    );
+  });
+
+  /* A losing side is a real source — a third-place play-off is fed by two of them
+     (`docs/glossary.md :: Ausgang`) — and it reaches a sentence through the same prose the winner takes. */
+  it("names a losing side's source as prose, not as the bracket's label", () => {
+    const fault = slotFault("source_feeds_another_fixture", { type: "spiel", spiel_nr: 25, ausgang: "verlierer" });
+
+    assert.match(formatBracketFault(fault), /verweist Team 1 auf den Verlierer von Spiel 25, und/);
+  });
+});
+
+// Every fixture of a variant carries the same placing and the same number, or two reasons sharing
+// one wording still render apart and the distinctness sweep below passes.
+/**
+ * One fault per reason, as a `Record` over the union: a reason the mirror gains with no fixture here
+ * fails to compile, so the sweeps below reach every one of them.
+ */
+const ONE_PER_REASON: Record<FLBracketFault["reason"], FLBracketFault> = {
+  gruppe_too_small: gruppeFault("gruppe_too_small", "A", 1),
+  gruppe_not_run: gruppeFault("gruppe_not_run", "A", 1),
+  seed_past_the_opening_round: gruppeFault("seed_past_the_opening_round", "A", 1),
+  tie_unresolved: gruppeFault("tie_unresolved", "A", 1),
+  spiel_missing: quelleFault("spiel_missing", 30),
+  reference_cycle: quelleFault("reference_cycle", 30),
+  gruppenphase_feeder: quelleFault("gruppenphase_feeder", 30),
+  feeder_not_played_first: quelleFault("feeder_not_played_first", 30),
+  same_team: { reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 },
+  gruppenphase_fixture_wired: slotFault("gruppenphase_fixture_wired", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }),
+  source_feeds_another_fixture: slotFault("source_feeds_another_fixture", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }),
+  departed_occupant: departedFault("rueckzug"),
+  fielded_twice: fieldedTwice("team1"),
+};
+
+// **The one defect no type checker can see.** A missing `case` fails to compile in both functions;
+// an arm returning nothing readable, or one reason's sentence under another's name, does not.
+describe("every bracket fault reaches words", () => {
+  const faults = Object.values(ONE_PER_REASON);
+  const toasts = faults.map(formatBracketFault);
+  const cards = faults.map(describeBracketFaultOnCard);
+
+  it("says something, and nothing a template left behind", () => {
+    for (const sentence of [...toasts, ...cards]) {
+      assert.notEqual(sentence.trim(), "");
+      assert.doesNotMatch(sentence, /undefined|null|NaN|\[object|\$\{/);
+    }
+  });
+
+  it("gives each reason a wording of its own", () => {
+    assert.equal(new Set(toasts).size, toasts.length);
+    assert.equal(new Set(cards).size, cards.length);
+  });
+
+  it("closes a card's note and leaves a toast's sentence open", () => {
+    // `formatSpielUpdateMessage` joins with ". ", so a toast sentence carrying its own point renders "..".
+    for (const sentence of toasts) assert.doesNotMatch(sentence, /\.$/);
+    for (const sentence of cards) assert.match(sentence, /\.$/);
+  });
+
+  /* The end alone is not enough: `formatQuelle`'s placing closes its ordinal on a point, so a sentence
+     embedding one reads „auf 1. der Gruppe A, obwohl“ and stops mid-clause. */
+  it("carries a full stop only where a sentence ends", () => {
+    // Wider than the record above: the placing is the only variant carrying a point, and both slot
+    // faults are fixtured there on a match reference.
+    const embedded = [
+      slotFault("gruppenphase_fixture_wired", { type: "gruppe", gruppe: "A", platz: 1 }),
+      slotFault("source_feeds_another_fixture", { type: "gruppe", gruppe: "A", platz: 1 }),
+    ];
+
+    for (const fault of [...faults, ...embedded]) {
+      for (const sentence of [formatBracketFault(fault), describeBracketFaultOnCard(fault)]) {
+        // Spared: a card's own second sentence, which opens on a capital, and the points inside a date,
+        // which stand between digits.
+        assert.doesNotMatch(sentence, /\.(?!$|\d| [A-ZÄÖÜ])/u, `„${sentence}“ closes a sentence part-way through`);
+      }
     }
   });
 });
@@ -983,4 +1155,92 @@ describe("adminSpielEditHref", () => {
   it("carries the season the caller is showing", () => {
     assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932", "9999"), "/admin/spiele/6890a1b2c3d4e5f607182932?saison_id=9999");
   });
+});
+
+/** Both sides unoccupied, so no card mounts a popover and every case below turns on the score alone. */
+const CARD_SPIEL = {
+  id: "6890a1b2c3d4e5f607182934",
+  spieltag_id: "6890a1b2c3d4e5f607182935",
+  saison_id: "2027",
+  saison_phase: "gruppenphase",
+  spiel_nr: 7,
+  team1: null,
+  team2: null,
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: "2026-07-28",
+  uhrzeit: "18:30",
+  ort: null,
+  schiedsrichter: null,
+  ergebnis: null,
+  elfmeterschiessen: null,
+  sonderereignis: null,
+  notiz: null,
+} as FLSpiel;
+
+/** `SpielScore` is the one element a card renders with `font-numeric`, whatever the layout around it. */
+function scoreClasses(markup: string): string {
+  const found = /class="([^"]*font-numeric[^"]*)"/.exec(markup);
+
+  assert.ok(found, "the rendered card holds no score");
+
+  return found[1] ?? "";
+}
+
+const { SpielCard } = await import("./components/ui/SpielCard.tsx");
+const { SpielCardCompact } = await import("./components/ui/SpielCardCompact.tsx");
+const { SpielCardUltraCompact } = await import("./components/ui/SpielCardUltraCompact.tsx");
+const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
+
+/** Every surface painting a score, each spelling the three tints in its own vocabulary. */
+const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => string }[] = [
+  { name: "SpielCard", markup: (spiel) => renderMarkup(SpielCard, { spielData: spiel, onOpenInfoModal: () => undefined, today: TODAY }) },
+  { name: "SpielCardCompact", markup: (spiel) => renderMarkup(SpielCardCompact, { spielData: spiel }) },
+  { name: "SpielCardUltraCompact", markup: (spiel) => renderMarkup(SpielCardUltraCompact, { spielData: spiel, onPress: () => undefined }) },
+  {
+    name: "SpielDraftPreview",
+    markup: (spiel) => renderMarkup(SpielDraftPreview, { previewSpiel: spiel as FLSpielWithDraftFields, today: TODAY, isDirty: false }),
+  },
+];
+
+describe("the tint a score carries", () => {
+  for (const { name, markup } of SCORE_SURFACES) {
+    /* Rendered rather than matched over the source: a regex reading the file passes on markup saying
+       the opposite, and on a component nothing renders at all (`docs/frontend/spec.md` §1.9). */
+    it(`${name} paints a called-off fixture carrying no result as danger`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "ausgefallen" }));
+
+      assert.match(classes, /text-danger-strong/);
+      assert.doesNotMatch(classes, /text-warning-strong/);
+    });
+
+    it(`${name} leaves a fixture that is merely unplayed pending`, () => {
+      const classes = scoreClasses(markup(CARD_SPIEL));
+
+      assert.match(classes, /text-warning-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+
+    /* The member no cancellation set holds: the match was played until it stopped, so its result is
+       still owed and the placeholder has to read as pending. */
+    it(`${name} leaves an abandoned fixture pending`, () => {
+      assert.match(scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "abgebrochen" })), /text-warning-strong/);
+    });
+
+    it(`${name} paints an entered result as played`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, ergebnis: "3:1" }));
+
+      assert.match(classes, /text-success-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+
+    /* A no-show is cancelled AND carries the awarded score, so the result has to outrank the event
+       — the reverse order would strike a figure the Saisontabelle counts off the card showing it. */
+    it(`${name} paints a forfeit's awarded result as played`, () => {
+      const classes = scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "nichtantreten_team1", ergebnis: "3:0" }));
+
+      assert.match(classes, /text-success-strong/);
+      assert.doesNotMatch(classes, /text-danger-strong/);
+    });
+  }
 });

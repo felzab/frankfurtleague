@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -25,7 +28,7 @@ class BaseAPIException(HTTPException):
         status_code: int,
         error_code: str,
         message: str,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ):
         # A real attribute, not only a key inside `detail`: every handler logs `exc.error_code` and
         # the response body carries it, so a code reachable only through the detail dict is one
@@ -89,7 +92,7 @@ class DocumentConflictException(BaseAPIException):
         )
 
     @classmethod
-    def from_refusal(cls, refusal: WriteRefusal) -> "DocumentConflictException":
+    def from_refusal(cls, refusal: WriteRefusal) -> DocumentConflictException:
         """The one route from a refused write to its response: a rule owns its code beside the check that raises it."""
 
         return cls(error_code=refusal.error_code, message=refusal.message)

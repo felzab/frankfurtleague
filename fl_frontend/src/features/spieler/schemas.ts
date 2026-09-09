@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
@@ -44,7 +45,7 @@ export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
  */
 export const FLSpielerPublicSchema = z.object({
   id: CustomObjectIdStringSchema,
-  vorname: z.string(),
+  vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
@@ -144,6 +145,10 @@ export const FLEraseSpielerPayloadSchema = z.object({
 });
 export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
 
+// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling.
+const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
+
 /**
  * No transforms — empty-to-null normalisation is the FORM boundary's. A schema that rewrote its
  * input would make `z.infer` disagree with what the form holds, and `apiContract.test.ts` compares
@@ -152,10 +157,7 @@ export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
 const saisonSpielerPayloadFields = {
   team_id: CustomObjectIdStringSchema,
   // A string on the wire — worn rather than counted — but free text was never meant to admit a name.
-  nummer: z
-    .string()
-    .regex(/^\d{1,4}$/, { error: NUMMER_MUST_BE_DIGITS })
-    .nullable(),
+  nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   // The create form derives this from the season's status rather than asking it, so it cannot be
@@ -169,7 +171,7 @@ const saisonSpielerPayloadFields = {
 export const FLPostSaisonSpielerPayloadSchema = z.object({
   // In the PATH on the wire; carried here because the form has to know which player it is entering.
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPayloadSchema>;
@@ -177,7 +179,7 @@ export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPaylo
 export const FLPatchSaisonSpielerPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPayloadSchema>;
@@ -185,7 +187,7 @@ export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPay
 /** The junction row's natural key, for the two endpoints that carry no body. */
 export const FLSaisonSpielerKeyPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
 });
 export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayloadSchema>;
 
@@ -199,7 +201,7 @@ export const FLCreateSpielerFormPayloadSchema = z.object({
   // Required here and nullable everywhere else: imported squads hold surnameless rows, but a player
   // entered through this form always has one.
   nachname: PersonNameSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPayloadSchema>;
@@ -211,7 +213,9 @@ export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPaylo
  */
 export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string().nonempty(),
+  // No floor, `FLSpielerSingleResponse` stating none: a read refusing what the API can serve reports
+  // the name-write that echoed it as failed.
+  vorname: z.string(),
   nachname: z.string().nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });

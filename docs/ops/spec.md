@@ -397,10 +397,11 @@ statement of which paths select which scope — the packaging list included — 
 than repeating it.
 
 **The checkers are python, and one kernel is what makes their answers comparable** —
-`scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). It fixes the interpreter
-floor (`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`), below which it exits at import as a crash — at
-the earliest line an old interpreter reaches, a checker's own body being free to use syntax it
-cannot parse. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
+`scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
+is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is
+handed a file: below it a checker dies compiling and python exits 1, which this scale reads as a
+finding about the change, so no checker's own body is written for an interpreter that cannot compile
+it. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
 repository, so `.github/workflows/pr-body.yml` is the only place it is addressable. The one
 javascript helper is `scripts/checks/ts_normalize.mjs`, whose comment at
 `scripts/checks/ts_normalize.mjs :: printer` argues the exception.
@@ -502,10 +503,10 @@ and which no two runs of the same work share. The pair is held to that by
 and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
 per stream. **The other exception is a machine below the checkers' floor**
-(`scripts/lib/checker_kernel.py :: PYTHON_FLOOR`): the pooled form probes for an interpreter that can
-import the kernel and, finding none, falls back to the serial path and prints a line naming the floor
-where the scopes are announced, while `--serial` sets both pool switches off ahead of that probe and
-can never print it
+(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form asks whether the interpreter it found clears
+the floor and, finding none that does, falls back to the serial path and prints a line naming the
+floor where the scopes are announced, while `--serial` sets both pool switches off ahead of that
+question and can never print it
 (`scripts/gate/verify.sh :: POOL_FALLBACK`). The pair of cases above cannot see that machine —
 `scripts/tests/test_gate_forms.py` puts an interpreter on the fixture's `PATH` as `python3` — so the
 two forms differ there by exactly that one line.
@@ -648,8 +649,12 @@ image that would not run at all is refused at exit 2 rather than graded, as `pub
 `scripts/tests/test_image_assertions.py` holds the two to each other.
 
 Docker is checked before any check runs on a run covering the ops, database or image scopes, and
-the backend virtualenv on one covering the scripts, documentation, backend or database scopes; the
-frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
+the backend virtualenv on one covering the scripts, documentation, backend or database scopes.
+**A prerequisite that is absent or not answering refuses the run at 2 rather than reporting a
+finding**, no scope having opened and §1.7 reserving 1 for what the change could be fixed to answer
+for; the virtualenv's half of that is driven by
+`scripts/tests/test_gate_prerequisites.py :: test_a_run_with_no_backend_virtualenv_refuses_and_reaches_no_scope`.
+The frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
 step running a tool out of `node_modules`. Each tool is its own step, tool output is captured and
 shown only when its step fails, and `--verbose` streams everything instead (§1.7). **The
 documentation gate is the one exception, because a passing run's output is worth reading**: its
@@ -714,12 +719,20 @@ stays honest in both directions. A compose construct outside the reader's parsed
 refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
 with it**, which is why I1 is held by a check of its own over both files rather than by that list.
 
-**Two arms reach across the boundary on purpose**, both in `scripts/gate/scope_map.sh`:
-`fl_backend/openapi.json` selects the **frontend** scope alongside the backend ones, because the
-frontend scope holds the Zod-mirror comparison; and the frontend modules that retype a mirrored
-bound by hand select the **backend** scopes, because `fl_backend/tests/shared/test_frontend_mirrors.py`
-is what compares the two sides. Without either arm, a change to one side would never run the check
-that exists to catch it.
+**An arm reaches across the package boundary wherever one package's suite reads the other's file as
+source text**, and what makes it necessary is that the assertion sits on the far side: a scope
+confined to the changed file's own package never runs the check written to catch that change, so the
+finding waits for the push to main. Four couplings take that shape — the generated contract both
+packages hold, the backend modules a frontend suite reads off disk, the frontend modules retyping a
+bound a backend suite compares, and the one frontend module a backend suite cuts a refusal's German
+out of. Which paths those are is in `scripts/gate/scope_map.sh`, and
+`scripts/tests/test_scope_decisions.py` holds each arm both to the
+scopes it must select and to the reads that earn it: it derives what each package reads of the other
+from the two trees and probes the mapping itself, so an arm short of a read and an arm outliving one
+are each a red branch. **A suite that discovers its subjects by walking the far tree is outside that
+equality**, an arm matching a path and a walk naming none, so those reaches are declared in that
+module and every path under one is spared — which is why a change anywhere in `fl_frontend/src` can
+still reach a backend assertion no arm carries.
 
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the
@@ -1007,6 +1020,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                               |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 a name its schema does not declare; every value stays the boot gate's                     | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key set `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/check-environment-names.test.mjs`                                     |
 | I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                               |
+| I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                  |
 
 ## 3. Violation → remedy
 
@@ -1058,6 +1072,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
 | The local database holds real contact records                     | Accepted — it holds a copy, and I1 keeps it off every interface but this host's; `--fresh` removes the volume, `.local-db/` and `.tmp-nginx-log/`                                                  |
-| A guard the database tier stays green without                     | Open — dropping the `session=` argument in `fl_backend/app/api/saisons/admin_router.py` reportedly leaves `--db` (§1.6) green, so that scope is not what holds it                                  |
+| A guard the database tier stays green without                     | Narrowed — dropping `session=` at `judge_and_write_the_rules` turns `--db` (§1.6) red; which other callbacks no case drives is [`docs/backend/spec.md`](../backend/spec.md) §4's                   |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |

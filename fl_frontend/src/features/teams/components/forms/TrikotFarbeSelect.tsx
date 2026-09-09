@@ -6,6 +6,7 @@ import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
@@ -70,6 +71,7 @@ export function TrikotFarbeSelect({
   const leerschluessel = isRequired ? null : KEINE_FARBE;
   const platzhalter = isRequired ? "Bitte auswählen" : "Keine Angabe";
 
+  const item = listboxRow({ layout: "adorned" });
   const optionen = offeredTrikotFarben({ vergeben, value });
 
   const handleChange = (key: Key | null) => {
@@ -102,7 +104,7 @@ export function TrikotFarbeSelect({
             <ListBox.Item
               id={KEINE_FARBE}
               textValue="Keine Angabe"
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={listboxRow({ layout: "plain" }).row()}>
               Keine Angabe
             </ListBox.Item>
           )}
@@ -111,7 +113,7 @@ export function TrikotFarbeSelect({
               key={option.value}
               id={option.value}
               textValue={option.label}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={item.row()}>
               <Swatch farbe={option.value} />
               {option.label}
             </ListBox.Item>

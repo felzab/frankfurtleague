@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any
 
 import pytest
 from bson import ObjectId

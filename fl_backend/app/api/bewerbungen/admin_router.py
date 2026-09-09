@@ -29,10 +29,12 @@ from app.api.bewerbungen.services import (
     parse_new_club,
     seat_named,
 )
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.teams.services import find_club_entry_refusal, find_entry_refusal
+from app.api.teams.crud import refuse_a_full_gruppe
+from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -80,7 +82,9 @@ async def annehmen_bewerbung(
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
     confirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no
-    confirmation block and is not held to it.
+    confirmation block and is not held to it. A seat of such an application enters the season without the birthdate
+    the applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own
+    to state.
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
@@ -142,24 +146,19 @@ async def annehmen_bewerbung(
             # field is composed twice and differently.
             name, shorthand = new_club["name"], new_club["shorthand"]
 
-        occupied_rows = await pull_many_from_db(
-            collection=saison_teams_collection,
-            db_filter={"saison_id": saison_id, "gruppe": annahme_data.gruppe},
-            projection=["_id"],
+        # The helper rather than `find_entry_refusal` directly: the count it takes is a read, which no
+        # snapshot re-validates, so the group's capacity holds only where the season is written inside
+        # this transaction too.
+        await refuse_a_full_gruppe(
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            saison_id=saison_id,
+            gruppe=annahme_data.gruppe,
+            saison_status=str(saison_raw["status"]),
+            # Validated, not read raw: a season missing the capacity keys fails here rather than
+            # admitting a school against a bound nobody chose.
+            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
-        )
-
-        # REUSED, never restated: `REQ-ENTER-001` through `-003` are the season's own entry rules,
-        # and a second copy of them here would be the copy that drifts.
-        refuse(
-            find_entry_refusal(
-                saison_status=str(saison_raw["status"]),
-                gruppe=annahme_data.gruppe,
-                # Validated, not read raw: a season missing the capacity keys fails here rather than
-                # admitting a school against a bound nobody chose.
-                rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-                occupied=len(occupied_rows),
-            )
         )
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.
@@ -177,9 +176,10 @@ async def annehmen_bewerbung(
                 "gruppe": annahme_data.gruppe,
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
-                # The three people arrive WITH the season's row rather than being typed in after it:
-                # they are what the application was, and `/admin/kontakte` reads them from here.
-                "kontakte": bewerbung_raw["kontakte"],
+                # The three people arrive WITH the row rather than in a later write: they are what the
+                # application was, and `/admin/kontakte` reads them from here. Composed, never copied:
+                # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
+                "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
                 "name": name,
                 "shorthand": shorthand,
@@ -211,7 +211,13 @@ async def annehmen_bewerbung(
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
     # so a retry after a write conflict judges the season as it stands then rather than as it stood.
     async with db.start_session() as session:
-        return await session.with_transaction(accept_and_enter_the_school)
+        accepted = await session.with_transaction(accept_and_enter_the_school)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
+
+    return accepted
 
 
 @router.post(f"{by_id('bewerbung_id')}/ablehnen", response_model=FLAblehnenBewerbungResponse, summary="Decline a Bewerbung")

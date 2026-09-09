@@ -7,7 +7,7 @@ import { parseDate } from "@internationalized/date";
 
 import { Button, Calendar, DateField, DatePicker, FieldError, Form, Label, Switch } from "@heroui/react";
 
-import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
+import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
@@ -94,7 +94,7 @@ function sprichtAmFeld(fieldErrors: FieldErrors | undefined): boolean {
 function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLBewerbungEinwilligungAntwortPayload {
   // Stamped on an objection as well: the record has to name the words that were on screen when the
   // seat was refused, and a null there would leave the refusal citing nothing.
-  const fassung = { token: token, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
+  const fassung = { token: token, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
 
   if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false };
 
@@ -208,7 +208,7 @@ export function BestaetigungAngaben({
           isSelected={entwurf.whatsapp}
           onChange={(whatsapp) => onEntwurf({ ...entwurf, whatsapp: whatsapp })}>
           <Switch.Content className={panel.switchContent()}>
-            {BESTAETIGUNG_EINWILLIGUNG.schalter}
+            {BESTAETIGUNG_KENNTNISNAHME.schalter}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
@@ -334,8 +334,11 @@ export function BestaetigungFormPanel({
     const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung", payload);
 
     if (!gesendet.answered) {
-      // Nothing typed is named here: no judgement of it reached this branch.
-      appToast.danger("Speichern fehlgeschlagen", { description: gesendet.error });
+      // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
+      // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
+      appToast.danger(gesendet.wroteNothing ? "Speichern fehlgeschlagen" : "Unklar, ob es bei uns angekommen ist", {
+        description: gesendet.error,
+      });
       return;
     }
 

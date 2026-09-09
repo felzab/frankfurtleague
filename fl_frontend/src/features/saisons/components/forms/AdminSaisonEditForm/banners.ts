@@ -29,7 +29,7 @@ export function buildSaisonBanners({
 }: {
   saisonStatus: FLSaisonStatus;
   isEndBeforeStart: boolean;
-  qualifiersPerGroup: number | null;
+  qualifiersPerGroup: number;
   teamsPerGroup: number | null;
   /** Whether the draft moves a rule under which every played fixture is scored again. */
   isRescoringChanged: boolean;
@@ -62,7 +62,7 @@ export function buildSaisonBanners({
       severity: "info",
       raisedBy: "state",
       title: "Der Aufbau der Saison steht fest",
-      body: "Gruppen, Teams pro Gruppe und Qualifikanten sind gesperrt, solange der Spielplan steht.",
+      body: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe sind gesperrt, solange der Spielplan steht.",
       inline: null,
     });
   }
@@ -78,9 +78,9 @@ export function buildSaisonBanners({
     });
   }
 
-  // Both entered or nothing said: an unanswered count cannot over-qualify, and a banner about a rule
-  // nobody has typed yet reads as a fault the admin caused.
-  if (qualifiersPerGroup !== null && teamsPerGroup !== null && qualifiersPerGroup > teamsPerGroup) {
+  // Entered or nothing said: an unanswered team count cannot be over-qualified, and a banner about a
+  // rule nobody has typed yet reads as a fault the admin caused.
+  if (teamsPerGroup !== null && qualifiersPerGroup > teamsPerGroup) {
     banners.push({
       id: "saison.qualifiers-overflow",
       severity: "danger",
@@ -89,7 +89,7 @@ export function buildSaisonBanners({
       // excess is refused rather than confirmed.
       raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten oder erhöhe die Teams pro Gruppe.",
+      body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten pro Gruppe oder erhöhe die Teams pro Gruppe.",
       inline: "regeln-qualifikanten",
     });
   }

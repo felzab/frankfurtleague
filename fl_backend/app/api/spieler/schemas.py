@@ -240,7 +240,9 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     surface renders a pupil's leaving date.
     """
 
-    inactive_since: str | None
+    # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
+    # the calendar rule `FLSpieler` states refuses nothing this echo can serve.
+    inactive_since: CustomOptionalDateString
 
 
 class FLSpielerWriteResponse(BaseAPIResponse):
@@ -266,7 +268,8 @@ class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
 
     spieler_id: CustomObjectId
     saison_id: str
-    inactive_since: str | None
+    # The stored row's own calendar rule, for `FLSpielerAdminSingleResponse.inactive_since`'s reason.
+    inactive_since: CustomOptionalDateString
 
 
 class FLSpielerMembership(_SaisonSpielerWritable):

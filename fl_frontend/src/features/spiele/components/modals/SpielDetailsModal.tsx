@@ -7,6 +7,7 @@ import { CircleInfo } from "@gravity-ui/icons";
 import { Modal, Separator } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
+import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
@@ -157,7 +158,7 @@ export function SpielDetailsModal({
                   </div>
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
-                    <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>
+                    <p className="text-foreground font-bold">{spielSchiedsrichterAnzeige(spielData.schiedsrichter)}</p>
                   </div>
                 </div>
 

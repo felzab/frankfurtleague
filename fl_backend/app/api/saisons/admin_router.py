@@ -1,4 +1,5 @@
-from typing import Annotated, Any, Mapping, NamedTuple, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -64,6 +65,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -272,8 +274,9 @@ async def patch_saison(
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
         """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I118)."""
 
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
-        # the season as it stands then. A season id naming nothing raises the 404 here.
+        # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
+        # against, so a rival writing `saisons` under the judgement conflicts instead of being
+        # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # Disqualified rows included: a team never leaves a season.
@@ -305,9 +308,15 @@ async def patch_saison(
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
             phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
+        # `RECORDED_FACT_FIELDS` beside `spieltag_id`, so ONE read answers `REQ-RULES-011`'s freeze
+        # and weighs the window its repair runs in: counted apart, the two could disagree about the
+        # same season and compose a repair for a window that is shut.
         per_spieltag: dict[Any, int] = {}
-        async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}, session=session):
+        recorded_fixtures = 0
+        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id", *RECORDED_FACT_FIELDS], session=session):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
+            if holds_a_recorded_fact(spiel):
+                recorded_fixtures += 1
 
         # Every fixture, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the draw, and
         # one on another season's matchday came out of this season's rules too. Only a draw or an
@@ -383,6 +392,7 @@ async def patch_saison(
                     largest_squad=figures.largest_squad,
                     attached_by_phase=attached_by_phase,
                     drawn_fixtures=drawn_fixtures,
+                    recorded_fixtures=recorded_fixtures,
                     played_knockout_fixtures=figures.played_knockout,
                 )
             )
@@ -406,8 +416,8 @@ async def patch_saison(
         )
 
         # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
-        # squad write, a matchday re-date and a knockout result raise no conflict and no retry
-        # (I53). One landing after this read still slips through.
+        # knockout result raises no conflict, where a squad entry or a matchday re-dating advances
+        # `bounded_writes` and does (I53). One landing after this read still slips.
         judge(await movable_figures(None))
 
         return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
@@ -651,7 +661,7 @@ async def swap_gruppen(
         )
 
         # Built BEFORE the junction writes and then written FROM: the model refuses a stored group
-        # outside A-D before anything lands, and the echo cannot disagree with what did.
+        # outside the closed set before anything lands, and the echo cannot disagree with what did.
         swapped = FLSwapGruppenResponse(
             saison_id=saison_id,
             team1_id=swap_data.team1_id,
@@ -721,8 +731,14 @@ async def generate_spielplan(
             # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
             # and `teams` may since have been renamed (`docs/backend/spec.md :: I19`).
             projection=["team_id", "gruppe", "name", "shorthand"],
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated entry
+        # list draws a season short of teams and weighs a group occupancy no group holds.
+        if len(entered_rows) > LIST_LIMIT_DEFAULT:
+            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
         occupancy: dict[FLGruppenNames, int] = {}
         for row in entered_rows:
@@ -739,8 +755,17 @@ async def generate_spielplan(
             # venue, a referee or an admin's note is work a replace would destroy, and
             # `REQ-SPIELPLAN-005`'s window closes on one exactly as on a result.
             projection=list(RECORDED_FACT_FIELDS),
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
+        # counts fewer records than the season holds, and `REQ-SPIELPLAN-005`'s window opens on work a
+        # replace would then destroy.
+        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
+            raise ValueError(
+                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
+            )
 
         refuse(
             find_spielplan_refusal(
@@ -806,6 +831,9 @@ async def generate_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
+            # NOT extracted, though `undraw_spielplan` repeats it: a shared helper takes both removals
+            # out of `tests/core/app_source.py :: transactional_callbacks`, which reads a callback's
+            # own lexical body, and a `session=` dropped inside it then stays green.
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -887,8 +915,17 @@ async def undraw_spielplan(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id},
             projection=list(RECORDED_FACT_FIELDS),
+            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
+
+        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
+        # counts fewer records than the season holds, and `REQ-SPIELPLAN-006`'s window opens on a
+        # result the removals below would destroy.
+        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
+            raise ValueError(
+                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"
+            )
 
         refuse(
             find_undraw_refusal(

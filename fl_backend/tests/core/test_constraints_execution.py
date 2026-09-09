@@ -1,6 +1,7 @@
 import secrets
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime
+from typing import Any, Final, get_args
 
 import pytest
 from bson import ObjectId
@@ -8,8 +9,11 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort
+from app.api.teams.schemas import FLGruppenNames
+from app.core.collections import Collection
 from app.core.constraints import (
     ABSENT_COLLECTION_NAME,
     COLLECTION_VALIDATORS,
@@ -195,6 +199,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
+            # Required of every row, so `uniq_schiedsrichter_name`'s filter can tell an erased
+            # referee from one whose data stand.
+            "anonymisiert_am": None,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
         # one carries a value, a write-path rule no validator of types and enums can state
@@ -227,7 +234,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "aktionen": {
             "_id": AKTION_OID,
             "at": "2026-03-15T09:30:00+00:00",
-            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=timezone.utc),
+            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
             "trace_id": secrets.token_hex(16),
             "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
@@ -247,6 +254,13 @@ def valid_document(collection: str, **overrides: Any) -> dict[str, Any]:
     document = valid_documents()[collection]
     document.update(overrides)
     return document
+
+
+def _a_gruppe_past_the_closed_set() -> str:
+    held = sorted(get_args(FLGruppenNames))
+    # Joined rather than spelled, while every member is one letter: a spelled letter goes legal the
+    # moment `FLGruppenNames` widens to reach it, and the case then asserts a refusal nothing makes.
+    return f"{held[0]}{held[1]}"
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -332,7 +346,7 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
             valid_document("spiele", ort={**valid_documents()["spiele"]["ort"], "mietpreis": 80.0}),
             "a rent stored as a double",
         ),
-        ("saison_teams", valid_document("saison_teams", gruppe="E"), "a fifth group"),
+        ("saison_teams", valid_document("saison_teams", gruppe=_a_gruppe_past_the_closed_set()), "a group the closed set does not hold"),
         ("saisons", valid_document("saisons", status="current"), "a status outside the Literal"),
         # "playoffs" is a query-only alias for "not gruppenphase" and is never a stored value.
         ("spiele", valid_document("spiele", saison_phase="playoffs"), "a query alias stored as a phase"),
@@ -430,6 +444,10 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_spieler_id_saison_id": (valid_documents()["saison_spieler"], valid_document("saison_spieler", nummer="11")),
     "uniq_saison_id_spiel_nr": (valid_documents()["spiele"], valid_document("spiele", ergebnis="0:0")),
     "uniq_shorthand": (valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")),
+    # The second row differs in its price and its fee: what the index refuses on is the name alone,
+    # and a pair differing in nothing else would pass while keyed on anything.
+    "uniq_spielort_name": (valid_documents()["spielorte"], valid_document("spielorte", _id=TEAM_OID, default_mietpreis=90)),
+    "uniq_schiedsrichter_name": (valid_documents()["schiedsrichter"], valid_document("schiedsrichter", _id=TEAM_OID, default_payment=25)),
     "uniq_saison_id_saison_phase_position": (
         valid_documents()["spieltage"],
         valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22"),
@@ -457,6 +475,39 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 
     # 11000 is DuplicateKey, not 121 — an index refuses the write before any validator sees it.
     assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+
+
+def test_a_second_erased_referee_is_fine(mongo_url: str):
+    """`uniq_schiedsrichter_name`'s `partial_filter` is what makes this pass: both rows carry a null name.
+
+    Without it the SECOND erasure the league ever performs is refused, and an administrator is shown
+    a create-collision on a deletion.
+    """
+
+    async def body(database: AsyncDatabase) -> int:
+        erased = {**valid_documents()["schiedsrichter"], "name": None, "anonymisiert_am": "2026-04-01"}
+        await database.schiedsrichter.insert_one(erased)
+        await database.schiedsrichter.insert_one({**erased, "_id": TEAM_OID, "anonymisiert_am": "2026-05-02"})
+        return await database.schiedsrichter.count_documents({})
+
+    assert on_the_shipped_schema(mongo_url, body) == 2
+
+
+def test_the_erasure_filter_reaches_a_row_written_before_the_field_existed(mongo_url: str):
+    """Seeded before the constraints, because the shipped validator requires the key: only a row stored under an older schema can lack it."""
+
+    async def body(database: AsyncDatabase) -> str:
+        pre_backfill = {key: value for key, value in valid_documents()["schiedsrichter"].items() if key != "anonymisiert_am"}
+        await database.schiedsrichter.insert_many([pre_backfill, {**pre_backfill, "_id": TEAM_OID}])
+
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            return "raised" if "uniq_schiedsrichter_name" in str(failure) else f"raised the wrong thing: {failure}"
+
+        return "carried on"
+
+    assert on_a_database(mongo_url, body) == "raised"
 
 
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_url: str):
@@ -673,6 +724,53 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_url: str):
     assert duplicate_groups == 1
 
 
+def test_the_check_mode_reports_two_venues_or_two_referees_sharing_a_name(mongo_url: str):
+    """`apply_constraints` raises on a duplicate and the boot then refuses, so this report is what an operator clears first.
+
+    There is no merge: the repair is a person renaming one row.
+    """
+
+    async def body(database: AsyncDatabase) -> dict[str, int]:
+        await database.spielorte.insert_many([valid_documents()["spielorte"], valid_document("spielorte", _id=TEAM_OID, default_mietpreis=90)])
+        await database.schiedsrichter.insert_many(
+            [valid_documents()["schiedsrichter"], valid_document("schiedsrichter", _id=TEAM_OID, default_payment=25)]
+        )
+
+        return {report.index.name: report.groups for report in await report_duplicates(database)}
+
+    groups = on_an_unconstrained_database(mongo_url, body)
+
+    assert groups["uniq_spielort_name"] == 1
+    assert groups["uniq_schiedsrichter_name"] == 1
+
+
+def test_the_check_mode_passes_over_two_erased_referees(mongo_url: str):
+    """A report the index would not raise sends an operator to rename a row that has no name left to rename.
+
+    The reported pair above is the control: without it a reader that matched nothing would pass this.
+    """
+
+    async def body(database: AsyncDatabase) -> int:
+        erased = {**valid_documents()["schiedsrichter"], "name": None, "anonymisiert_am": "2026-04-01"}
+        await database.schiedsrichter.insert_many([erased, {**erased, "_id": TEAM_OID, "anonymisiert_am": "2026-05-02"}])
+
+        return next(report.groups for report in await report_duplicates(database) if report.index.name == "uniq_schiedsrichter_name")
+
+    assert on_an_unconstrained_database(mongo_url, body) == 0
+
+
+@pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)
+def test_each_unique_index_is_built_with_the_reach_it_declares(mongo_url: str, index):
+    """A `partial_filter` the apply drops builds a rule over every row, which the pairs above cannot see: they seed no excluded row."""
+
+    async def body(database: AsyncDatabase) -> Any:
+        built = {row["name"]: row.get("partialFilterExpression") async for row in await database[index.collection].list_indexes()}
+
+        return built.get(index.name, "not built")
+
+    assert on_the_shipped_schema(mongo_url, body) == index.partial_filter
+
+
 def test_the_cross_document_rules_report_a_clean_database_as_clean(mongo_url: str):
     """Asserted FIRST and separately: a rule that fires on everything enforces nothing and reads exactly like one that works."""
 
@@ -788,6 +886,22 @@ AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
     {"collection": "teams"},
     {"operation": "patch_one"},
     {"collection": "teams", "operation": "patch_one"},
+    # A row's history action sends this one alone, and `aktionen_target` leads on `collection`, so
+    # nothing here is a prefix of it: what this pins is that the sort index still carries the read.
+    {"document_id": TEAM_OID},
+]
+
+# One trace the seeded rows share, so the narrowed tally below counts more than a single row.
+TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
+
+# Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
+# (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
+# for each.
+AKTIONEN_TALLY_FILTERS: list[dict[str, Any]] = [
+    {},
+    {"trace_id": TALLY_TRACE_ID},
+    {"document_id": TEAM_OID},
+    {"trace_id": TALLY_TRACE_ID, "document_id": TEAM_OID},
 ]
 
 
@@ -833,7 +947,7 @@ def winning_stages(explained: Mapping[str, Any]) -> list[str]:
 
 
 def counted_stages(explained: Mapping[str, Any]) -> list[str]:
-    """The same, for the pipeline `count_documents` issues, which explains in two shapes."""
+    """The same, for a pipeline explained through the command, which answers in two shapes."""
 
     # A pipeline pushed whole into the query layer answers a top-level `queryPlanner`; one left as
     # aggregation stages answers it under the cursor stage. Reading one alone reports the other as
@@ -845,8 +959,13 @@ def counted_stages(explained: Mapping[str, Any]) -> list[str]:
     return walk_stages(winning.get("queryPlan", winning))
 
 
+#: What the declared support set may not fall below. The equality beside it compares the registry's own
+#: length on both sides, so it holds no floor (`docs/_standard/standard.md :: PRE-4`).
+SUPPORT_INDEX_FLOOR: Final = 9
+
+
 def test_every_declared_support_index_is_built(mongo_url: str):
-    """`apply_constraints` creates each one. Only the unique indexes were checked before, so a typo here built nothing."""
+    """`apply_constraints` creates each one, and the declared set does not quietly shrink."""
 
     async def body(database: AsyncDatabase) -> int:
         for index in SUPPORT_INDEXES:
@@ -854,7 +973,9 @@ def test_every_declared_support_index_is_built(mongo_url: str):
             assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
         return len(SUPPORT_INDEXES)
 
-    assert on_the_shipped_schema(mongo_url, body) == len(SUPPORT_INDEXES)
+    built = on_the_shipped_schema(mongo_url, body)
+    assert built == len(SUPPORT_INDEXES)
+    assert built >= SUPPORT_INDEX_FLOOR, f"only {built} support index(es) are declared -- lower the floor only for one deliberately removed"
 
 
 def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url: str):
@@ -1007,3 +1128,37 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
     assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
     assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
     assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the whole log: {stages}"
+
+
+@pytest.mark.parametrize("db_filter", AKTIONEN_TALLY_FILTERS, ids=read_id)
+def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: str, db_filter: dict[str, Any]):
+    """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
+
+    async def body(database: AsyncDatabase) -> list[str]:
+        await database[Collection.AKTIONEN].insert_many(
+            [
+                valid_documents()["aktionen"]
+                | {
+                    "_id": ObjectId(),
+                    "trace_id": TALLY_TRACE_ID if row else secrets.token_hex(16),
+                    "collection": "teams" if row % 2 else "spiele",
+                    "operation": "patch_one" if row % 3 else "insert",
+                }
+                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
+            ]
+        )
+        explained = await database.command(
+            {
+                "explain": {"aggregate": str(Collection.AKTIONEN), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
+                "verbosity": "queryPlanner",
+            }
+        )
+        return counted_stages(explained)
+
+    stages = on_the_shipped_schema(mongo_url, body)
+
+    assert "IXSCAN" in stages, f"counting {db_filter or 'the whole log'} reached no index: {stages}"
+    assert "COLLSCAN" not in stages, f"counting {db_filter or 'the whole log'} scans the whole log: {stages}"
+    # The `$sort` is what makes the planner reach for an index at all, and it is free only while one
+    # provides the order: without `aktionen_facets` the same stage sorts the log in memory instead.
+    assert "SORT" not in stages, f"counting {db_filter or 'the whole log'} blocks on an in-memory sort: {stages}"

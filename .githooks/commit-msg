@@ -15,10 +15,26 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
+# Mirrored from `scripts/lib/_lib.sh :: PYTHON_FLOOR` and held to it by
+# `scripts/tests/test_python_floor.py`.
+PYTHON_FLOOR="3.14"
+
+# A copy rather than a call: sourcing `scripts/lib/_lib.sh` installs an ERR trap that exits 3, and a
+# non-zero status here aborts the commit — the one thing this hook may never do for a machine's sake.
+at_floor() { # $1 an interpreter
+  local said
+  said="$("$1" --version 2>/dev/null)" || return 1
+  [[ "$said" =~ ^Python[[:space:]]+([0-9]+)\.([0-9]+) ]] || return 1
+  (( (10#${BASH_REMATCH[1]} * 1000) + 10#${BASH_REMATCH[2]} \
+     >= (10#${PYTHON_FLOOR%%.*} * 1000) + 10#${PYTHON_FLOOR##*.} ))
+}
+
 for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
                  "${repo_root}/fl_backend/.venv/bin/python" \
                  python3 python; do
-  if command -v "$candidate" >/dev/null 2>&1; then
+  # Below the floor the checker dies compiling, and python exits 1 on a SyntaxError — a finding's
+  # code, which this hook would refuse the commit for. Passed over so a later candidate still runs.
+  if command -v "$candidate" >/dev/null 2>&1 && at_floor "$candidate"; then
     # `scripts/lib/checker_kernel.py :: run`'s contract: 0 passed, 1 findings, higher means the check
     # never ran. Only a finding is this hook's to refuse, which is why the checker is run
     # rather than `exec`ed.
@@ -33,6 +49,6 @@ for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
   fi
 done
 
-echo "  commit-msg hook: no python found — skipping." >&2
+echo "  commit-msg hook: no python at ${PYTHON_FLOOR} or newer here — skipping." >&2
 echo "  ./scripts/gate/verify.sh --docs and CI still check this." >&2
 exit 0

@@ -5,7 +5,8 @@ twice over -- an umlaut that belongs beside its base letter, and a lower-case in
 beside its capital.
 """
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -67,6 +68,7 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
+            "anonymisiert_am": None,
         }
         for index, name in enumerate(NAMES)
     ]

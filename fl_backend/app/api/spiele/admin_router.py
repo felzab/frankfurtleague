@@ -1,9 +1,13 @@
+from collections.abc import Sequence
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, Query
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     advance_bracket_winners,
     find_bracket_faults,
@@ -12,13 +16,18 @@ from app.api.spiele.crud import (
     pull_booked_venue,
     pull_saison_membership,
     release_spieltag_sides,
+    report_prior_paarungen,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
+    FLPatchSpielePaarungenPayload,
+    FLPatchSpielePaarungenResponse,
+    FLPatchSpielPaarungPayload,
     FLSpiel,
+    FLSpielAdvancement,
     FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
     FLSpieleAdminListResponse,
@@ -27,6 +36,7 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
     FLSpielListAdapter,
+    FLSpielReleasedSide,
 )
 from app.api.spiele.services import (
     BookedSlot,
@@ -36,6 +46,7 @@ from app.api.spiele.services import (
     build_spiele_filter,
     build_spiele_pipeline,
     build_spiele_sort,
+    days_a_clash_can_reach,
     find_booking_refusal,
     find_clash_refusal,
     find_eligibility_refusal,
@@ -190,37 +201,50 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
-@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
-async def patch_spiel_data(
-    spiel_id: CustomRouteObjectId,
-    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
-    db: DBClient,
-    spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spieltage_collection: SpieltageCollection,
-    spielorte_collection: SpielorteCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
-) -> FLPatchSpielDataResponse:
-    """
-    Update one Spiel and resolve the season's bracket.
+async def _write_spiel_data(
+    entries: Sequence[tuple[CustomObjectId, FLPatchSpielDataPayload | FLPatchSpielPaarungPayload]],
+    db: AsyncMongoClient,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    spieltage_collection: AsyncCollection,
+    spielorte_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+    dry_run: bool,
+) -> list[FLPatchSpielDataResponse]:
+    """One implementation behind every write route, so a narrowed restore meets every rule a wholesale save does.
 
-    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
-    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
+    A LIST because a replay commits every fixture or none (`docs/backend/spec.md :: I222`).
     """
 
-    # `saison_id` alone: everything the judgement and the normalisation read comes from the season
-    # slice below, and this read is what answers 404 for an id no fixture holds.
-    stored_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_id": 1})
-    saison_id = str(stored_raw["saison_id"])
+    async def season_of(session: AsyncClientSession | None, spiel_id: CustomObjectId) -> tuple[str, FLSaisonRules]:
+        """Which season a fixture is played in, and under which rules.
 
-    # Read outside any transaction: no season document is written here. Ahead of the normalisation
-    # because a forfeit is awarded from these rather than typed.
-    _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+        The `saison_id` read is what answers 404 for an id no fixture holds; inside the transaction
+        below, that raise takes every fixture already written back with it.
+        """
 
-    async def judge(session: AsyncClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
+        # `saison_id` alone: everything the judgement and the normalisation read comes from the
+        # season slice `judge` takes.
+        stored_raw = await pull_one_from_db(
+            collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_id": 1}, session=session
+        )
+        saison_id = str(stored_raw["saison_id"])
+
+        # Read off no session: no season document is written here. Ahead of the normalisation
+        # because a forfeit is awarded from these rather than typed.
+        _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+
+        return saison_id, saison_rules
+
+    async def judge(
+        session: AsyncClientSession | None,
+        spiel_id: CustomObjectId,
+        submitted: FLPatchSpielDataPayload | FLPatchSpielPaarungPayload,
+        saison_id: str,
+        saison_rules: FLSaisonRules,
+    ) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
         """Judge this payload against the season, and compose the fixture it saves to.
 
         Every refusal is raised here, so the `dry_run` preview cannot succeed where the save is
@@ -241,6 +265,15 @@ async def patch_spiel_data(
 
         season = FLSpielListAdapter.validate_python(season_raw)
 
+        # Ahead of every refusal rather than beside the date rule: a narrowed entry carries a subset,
+        # so a rule reading a field it omits sees the fixture's own value rather than nothing
+        # (`docs/backend/spec.md :: I108`).
+        stored = stored_in_slice(spiel_id, season)
+
+        # Completed HERE and never at the write, so the refusals, the composed result and the
+        # resolution below all judge the one shape they were written against.
+        spiel_data = submitted if isinstance(submitted, FLPatchSpielDataPayload) else submitted.completed_with(stored)
+
         # First, and on the payload alone: the event the admin just chose is what the rest of this
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
         refuse(find_state_refusal(spiel_data))
@@ -257,10 +290,6 @@ async def patch_spiel_data(
 
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
-
-        # The same slice the refusals above judged (`docs/backend/spec.md :: I108`), so this read
-        # cannot quietly skip the date rule over a fixture they already stood on.
-        stored = stored_in_slice(spiel_id, season)
 
         # `find_one` directly, because `pull_one_from_db` raises on a miss and this branches on one.
         # The session is what makes a matchday widened by a concurrent write visible.
@@ -300,7 +329,11 @@ async def patch_spiel_data(
         refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved))
 
         # No `saison_id` in the query below: a double booking crosses competitions.
-        if spiel_data.datum is not None:
+
+        # The same partition the read below filters on, asked of THIS payload: an event that frees
+        # the slot cannot double-book anything, and judging it would make the admin move the fixture
+        # before recording that it was called off.
+        if spiel_data.datum is not None and spiel_data.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT:
             claims: list[BookedSlot] = []
             # Annotated rather than inferred: a bare tuple literal widens `resource` to `str`, which
             # `BookedSlot` then refuses.
@@ -321,7 +354,10 @@ async def patch_spiel_data(
                     await spiele_collection.find(
                         {
                             field: chosen,
-                            "datum": spiel_data.datum,
+                            # The neighbouring days too: `REQ-CLASH-001` measures a real interval, so
+                            # a fixture at 00:30 is refused against one at 23:30 the evening before,
+                            # and a read scoped to the payload's own date would never fetch it.
+                            "datum": {"$in": days_a_clash_can_reach(spiel_data.datum)},
                             "uhrzeit": {"$ne": None},
                             "_id": {"$ne": spiel_id},
                             # An abandoned match used the ground and the referee; the rest freed both.
@@ -340,9 +376,11 @@ async def patch_spiel_data(
 
         return season, verdict.releases, apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved)
 
-    if dry_run:
-        # No transaction: a preview that took a write lock would be paying for a question.
-        season, releases, patched = await judge(session=None)
+    async def preview(spiel_id: CustomObjectId, spiel_data: FLPatchSpielDataPayload | FLPatchSpielPaarungPayload) -> FLPatchSpielDataResponse:
+        """What this payload would move and destroy, judged against the season as it stands and written nowhere."""
+
+        saison_id, saison_rules = await season_of(None, spiel_id)
+        season, releases, patched = await judge(None, spiel_id, spiel_data, saison_id, saison_rules)
         advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
             teams_collection=teams_collection,
             saison_id=saison_id,
@@ -351,38 +389,186 @@ async def patch_spiel_data(
             patched=patched,
             releases=releases,
         )
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+
+        return FLPatchSpielDataResponse(
+            advanced_to=advanced_to,
+            released_sides=released_sides,
+            bracket_faults=bracket_faults,
+            prior_paarungen=report_prior_paarungen(spiel_id, season, patched, advanced_to, released_sides),
+        )
+
+    if dry_run:
+        # No transaction: a preview that took a write lock would be paying for a question.
+        return [await preview(spiel_id, spiel_data) for spiel_id, spiel_data in entries]
+
+    async def write_and_resolve_the_bracket(session: AsyncClientSession) -> list[FLPatchSpielDataResponse]:
+        reports: list[FLPatchSpielDataResponse] = []
+
+        # The list's own order, never re-sorted here: a fixture fed by another is restorable only
+        # once that other one has put its winner back (`docs/backend/spec.md :: I223`).
+        for spiel_id, spiel_data in entries:
+            # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
+            saison_id, saison_rules = await season_of(session, spiel_id)
+            season, releases, patched = await judge(session, spiel_id, spiel_data, saison_id, saison_rules)
+
+            # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
+            # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
+            document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
+
+            await patch_one_in_db(
+                collection=spiele_collection,
+                db_filter={"_id": spiel_id},
+                update={"$set": document},
+                session=session,
+            )
+
+            # Before the resolution: a slot this release opens can be refilled by that same resolution,
+            # and the reverse order would leave the season one pass behind.
+            released_sides = await release_spieltag_sides(spiele_collection=spiele_collection, releases=releases, session=session)
+
+            advanced_to, bracket_faults = await advance_bracket_winners(
+                spiele_collection=spiele_collection,
+                teams_collection=teams_collection,
+                saison_id=saison_id,
+                rules=saison_rules,
+                session=session,
+            )
+
+            reports.append(
+                FLPatchSpielDataResponse(
+                    advanced_to=advanced_to,
+                    released_sides=released_sides,
+                    bracket_faults=bracket_faults,
+                    # `season` and not a read of its own: it is the slice this pass judged on, so a
+                    # fixture the two writes above both reached is reported as it stood before either.
+                    prior_paarungen=report_prior_paarungen(spiel_id, season, patched, advanced_to, released_sides),
+                )
+            )
+
+        return reports
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
-    # write-conflict on the same advanced fixture, and the callback is safe to retry.
-    async def write_result_and_resolve_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
-        # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
-        _, releases, patched = await judge(session=session)
-
-        # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
-        # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-        document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
-
-        await patch_one_in_db(
-            collection=spiele_collection,
-            db_filter={"_id": spiel_id},
-            update={"$set": document},
-            session=session,
-        )
-
-        # Before the resolution: a slot this release opens can be refilled by that same resolution,
-        # and the reverse order would leave the season one pass behind.
-        released_sides = await release_spieltag_sides(spiele_collection=spiele_collection, releases=releases, session=session)
-
-        advanced_to, bracket_faults = await advance_bracket_winners(
-            spiele_collection=spiele_collection,
-            teams_collection=teams_collection,
-            saison_id=saison_id,
-            rules=saison_rules,
-            session=session,
-        )
-
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
-
+    # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
+    # re-reading what it judges.
     async with db.start_session() as session:
-        return await session.with_transaction(write_result_and_resolve_bracket)
+        return await session.with_transaction(write_and_resolve_the_bracket)
+
+
+@router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
+async def patch_spiel_data(
+    spiel_id: CustomRouteObjectId,
+    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
+    db: DBClient,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
+) -> FLPatchSpielDataResponse:
+    """
+    Update one Spiel and resolve the season's bracket.
+
+    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
+    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
+    and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
+    leading the list, and carrying the fields beyond its Paarung that this payload replaced.
+    """
+
+    written = await _write_spiel_data(
+        [(spiel_id, spiel_data)],
+        db=db,
+        spiele_collection=spiele_collection,
+        teams_collection=teams_collection,
+        saisons_collection=saisons_collection,
+        saison_teams_collection=saison_teams_collection,
+        spieltage_collection=spieltage_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        dry_run=dry_run,
+    )
+
+    return written[0]
+
+
+# A static segment under the collection rather than a mode on the patch above: the body names the
+# fixtures it restores, and a tagged body would make every existing caller send the tag.
+@router.patch("/paarungen", response_model=FLPatchSpielePaarungenResponse, summary="Restore the Paarungen one save moved")
+async def patch_spiele_paarungen(
+    payload: Annotated[FLPatchSpielePaarungenPayload, Body()],
+    db: DBClient,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+) -> FLPatchSpielePaarungenResponse:
+    """
+    Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.
+
+    **All of it lands or none of it does.** A refusal on any entry takes the entries already written
+    back with it, so a replay never leaves a season half restored — which it otherwise would, the
+    leading entry's resolution being what empties the scorelines the entries after it put back.
+
+    **The list is replayed in the order it arrives and is never re-sorted**, that order being
+    `prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as
+    a hand-set team on a slot its `quelle` maintains.
+
+    Each entry carries the four fields a bracket resolution can rewrite, and beyond them only the
+    ones its `other_fields.replaced` names: the date, the venue, the referee, the note and both
+    `quelle`s are otherwise read from the stored document rather than from the request, so a value
+    somebody moved since that save survives. Every refusal, and the resolution itself, are
+    `PATCH /spiele/{spiel_id}`'s.
+
+    `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
+    restore; one it puts back afterwards is the order doing its work rather than a loss. No
+    `dry_run`: what these bodies would move is what the save they undo already reported.
+    """
+
+    reports = await _write_spiel_data(
+        [(paarung.spiel_id, paarung) for paarung in payload.paarungen],
+        db=db,
+        spiele_collection=spiele_collection,
+        teams_collection=teams_collection,
+        saisons_collection=saisons_collection,
+        saison_teams_collection=saison_teams_collection,
+        spieltage_collection=spieltage_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        dry_run=False,
+    )
+
+    # Where each fixture sits in the replay, which is what tells a rewrite this list repairs further
+    # down from one an admin has actually lost (`docs/backend/spec.md :: I223`).
+    restored_at = {paarung.spiel_id: position for position, paarung in enumerate(payload.paarungen)}
+
+    def restored_later(spiel_id: CustomObjectId, position: int) -> bool:
+        return restored_at.get(spiel_id, position) > position
+
+    # The FIRST report of a key wins: a later entry's resolution can rewrite a fixture an earlier one
+    # already emptied, and only the first names a result that was really standing there.
+    advanced_to: dict[CustomObjectId, FLSpielAdvancement] = {}
+
+    # Keyed on the side too, one fixture being able to give up both.
+    released_sides: dict[tuple[CustomObjectId, str], FLSpielReleasedSide] = {}
+
+    for position, report in enumerate(reports):
+        for advancement in report.advanced_to:
+            if not restored_later(advancement.spiel_id, position):
+                advanced_to.setdefault(advancement.spiel_id, advancement)
+
+        for release in report.released_sides:
+            if not restored_later(release.spiel_id, position):
+                released_sides.setdefault((release.spiel_id, release.side), release)
+
+    return FLPatchSpielePaarungenResponse(
+        advanced_to=list(advanced_to.values()),
+        released_sides=list(released_sides.values()),
+        # The LAST pass's, never a union: an earlier one's faults describe a season the replay moved
+        # past, and only the committed state is one an admin can act on.
+        bracket_faults=reports[-1].bracket_faults,
+    )

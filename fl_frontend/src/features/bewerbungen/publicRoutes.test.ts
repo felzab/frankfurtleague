@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
-import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_EINWILLIGUNG, fuelleFassung } from "@/core/einwilligung.ts";
+import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 
@@ -1055,7 +1055,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const text = textOf(FORMULAR);
     const beschrieben = [...FORMULAR.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((treffer) => (treffer[1] ?? "").split(" "));
 
-    assert.ok(text.includes(BESTAETIGUNG_EINWILLIGUNG.schalter), "the switch says something the stamped version does not hold");
+    assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
     assert.ok(beschrieben.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
       // Cut at the first close, which is this block's: the four points stand in a list, and no
@@ -1100,7 +1100,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     vorname: "Mira",
-    text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion,
+    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
@@ -1388,9 +1388,9 @@ describe("what one answered seat sets the confirmation route sending", () => {
   });
 
   /* `Absage` is the league's own rejection of a whole application and carries an administrator's
-     stated reason; a seat's refusal is `Ablehnung`, and the two read as different decisions. */
+     stated reason; a seat's refusal is a `Widerspruch`, and the two read as different decisions. */
   it("sends the seat's own decline notice rather than the league's rejection", () => {
-    assert.match(CONFIRM_ROUTE, /buildBewerbungAblehnungEmail/, "the decline no longer composes the message written for it");
+    assert.match(CONFIRM_ROUTE, /buildBewerbungWiderspruchEmail/, "the decline no longer composes the message written for it");
     assert.doesNotMatch(CONFIRM_ROUTE, /buildBewerbungAbsageEmail/, "a seat's refusal is reported as the league turning the school down");
   });
 
@@ -1423,7 +1423,7 @@ describe("what one answered seat sets the confirmation route sending", () => {
     // what the stamp produced.
     const gestempelt = FLBewerbungEinwilligungAntwortPayloadSchema.parse(stampEinwilligungFassung(fremd));
 
-    assert.equal(gestempelt.text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.equal(gestempelt.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.match(CONFIRM_ROUTE, /stampEinwilligungFassung\(body\)/, "the browser's own label reaches the endpoint");
     assert.doesNotMatch(CONFIRM_ROUTE, /safeParse\(body\)/, "the body is judged before its label is replaced");
   });
@@ -1448,7 +1448,7 @@ describe("what one answered seat sets the confirmation route sending", () => {
       token: "kein-echtes-token",
       antwort: "abgelehnt",
       geburtsdatum: null,
-      text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion,
+      text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
     };
     const refused = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: true });
 

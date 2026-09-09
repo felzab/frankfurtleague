@@ -80,6 +80,7 @@ from .kernel import (
     atx_heading,
     comment_runs,
     comment_style,
+    declared_cases,
     defined_symbols,
     fenced_lines,
     has_name,
@@ -2059,6 +2060,11 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
         return [Finding("fail", "citation", rel, f"cannot read {file_part}: {error}")]
 
     where = target.relative_to(REPO_ROOT).as_posix()
+    # Ahead of both arms below, which pass on a name declared twice: a case name is prose, so two
+    # suites in one module name their cases alike, and the citation is what cannot tell them apart.
+    if (cases := declared_cases(target).get(anchor, 0)) > 1:
+        detail = f"anchor '{anchor}' names {cases} test cases in {where} -- name them apart, a citation resolving to one"
+        return [Finding("fail", "citation", rel, detail)]
     # Presence is not resolution: `parse_unit` reads as alive inside `parse_units`, so a deleted
     # symbol surviving in a longer name certifies silently. Python's definitions list exactly; every
     # other kind resolves by presence.

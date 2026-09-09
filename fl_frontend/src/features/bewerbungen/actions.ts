@@ -90,7 +90,7 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
     case "REQ-BEWERBUNG-013":
       return {
         error: buildRefusal({
-          reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihre Einwilligung bestätigt",
+          reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihren Eintrag bestätigt",
           repair: "Lade die Seite neu",
         }),
       };

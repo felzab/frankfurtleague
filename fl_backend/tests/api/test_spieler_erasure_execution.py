@@ -1,5 +1,6 @@
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -127,6 +128,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],
+            db=database.client,
         )
         await patch_saison_spieler(
             spieler_id=spieler_id,
@@ -137,6 +139,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],
+            db=database.client,
         )
 
     # The earlier squad is LEFT, which is a shape the erasure has to reach as well: a row recording

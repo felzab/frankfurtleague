@@ -7,8 +7,9 @@ import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions, isFacetOptionReachable } from "@/shared/utils/facets";
 
-import { COUNT_BADGE } from "./badges";
+import { COUNT_BADGE, PILL_TINT } from "./badges";
 import { overlayPanel } from "./overlayPanel";
+import { PICKED_OPTION } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
@@ -16,13 +17,6 @@ import type { CSSProperties, RefObject } from "react";
 
 /** The type-to-filter threshold and the row count `CELL_CAP` is derived from: a field appears exactly where the list stops fitting. */
 const VISIBLE_OPTIONS = 5;
-
-/**
- * A picked row's whole fill, HeroUI shipping an empty selected block. Tint off `--accent-brand-solid`, never
- * `--accent-brand`: only the solid token holds one value in both themes.
- */
-const OPTION_SELECTED =
-  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-foreground";
 
 /** `40k + 46` for `k` = `VISIBLE_OPTIONS`: rows of 36px on 4px gaps, plus header, gap and padding. The `rem` form scales with the type. */
 const CELL_CAP = "max-h-[15.375rem]";
@@ -149,11 +143,11 @@ function FacetCell<TItem>({
               // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
               // colour. A selected row overrides the hover ink below at two variants, because brand ink on
               // that fill measures 3.31:1.
-              className={`${OPTION_SELECTED} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
+              className={`${PICKED_OPTION} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>
-              <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{count}</span>
+              <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>{count}</span>
             </ListBox.Item>
           );
         })}

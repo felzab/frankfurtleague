@@ -124,6 +124,13 @@ export type SaisonSpielplanContext = {
 };
 
 /**
+ * **Mirrors `fl_backend/app/api/saisons/services.py`'s `occupancy_by_gruppe`**, which counts junction
+ * rows and joins no club: a withdrawn or disqualified row occupies its group as a live one does. A
+ * group holding nobody carries no key.
+ */
+export type SaisonGruppenOccupancy = Readonly<Partial<Record<FLGruppenNames, number>>>;
+
+/**
  * One club as it stands in THIS season. Deliberately not the whole `FLTeam`: the derived `statistik`
  * behind every team read is a table this control never draws.
  */
@@ -208,12 +215,10 @@ export type SaisonReplacementContext = {
  */
 export type FLSaisonRulesDraft = Omit<
   FLSaisonRules,
-  "win_points" | "draw_points" | "qualifiers_per_group" | "number_of_groups" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
+  "win_points" | "draw_points" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
 > & {
   win_points: number | null;
   draw_points: number | null;
-  qualifiers_per_group: number | null;
-  number_of_groups: number | null;
   teams_per_group: number | null;
   max_kadergroesse: number | null;
   forfeit_ergebnis: { sieger_tore: number | null; verlierer_tore: number | null };

@@ -36,8 +36,20 @@ describe("buildSchiedsrichterBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.match(banner?.body ?? "", /Einsätze bleiben erhalten/, "the body stopped naming what survives");
+    assert.match(banner?.body ?? "", /Einsätze[^.]*bleiben erhalten/, "the body stopped naming what survives");
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
+  });
+
+  /* A referee can be a woman and the published notice writes both forms, so a masculine word here
+     names the wrong person for half the collection. Both lines, because one recast leaves the entry
+     disagreeing with itself. */
+  it("names the retired referee neutrally in its title and in its body", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /Diese Person/, "the title stopped naming the person neutrally");
+    assert.match(banner?.body ?? "", /dieser Person/, "the body stopped naming the person neutrally");
+    assert.ok(!/\b[Dd]ieser Schiedsrichter\b/.test(banner?.title ?? ""), "the title is back to a masculine demonstrative");
+    assert.ok(!/\bSein(e|em|en|er)?\b/.test(banner?.body ?? ""), "the body is back to a masculine possessive");
   });
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {

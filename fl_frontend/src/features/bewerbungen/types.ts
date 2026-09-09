@@ -25,6 +25,9 @@ type FLBewerbungenSortingOptions = "eingereicht_am";
  */
 export type FLBewerbungenFilterParams = {
   saison_id?: string;
+  // Which side of `saison_id` the read covers, the endpoint reading it beside that season alone: the
+  // bar offers the complement, and no season id can express it.
+  saisonbezug?: string;
   // Comma-joined rather than an array: `apiClient` serialises one value per key, and the endpoint
   // splits this back into the `$in` a multi-select facet's selection needs.
   status?: string;
@@ -39,8 +42,8 @@ export type FLBewerbungenFilterParams = {
  * the schema is what turns it into a field error rather than a type error.
  */
 export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
-  // `erteilt` starts `false`, which `z.literal(true)` refuses: an untouched box is a consent nobody
-  // gave, and the payload type admits no other value.
+  // `erteilt` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
+  // nobody made, and the payload type admits no other value.
   einwilligung: { text_version: string; erteilt: boolean };
 };
 

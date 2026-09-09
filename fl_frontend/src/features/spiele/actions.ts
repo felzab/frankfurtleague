@@ -2,8 +2,6 @@
 
 import { updateTag } from "next/cache";
 
-import z from "zod";
-
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
@@ -11,13 +9,12 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
-import { getAdminSpiel } from "./queries";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielBooking } from "./schemas";
+import type { FLSpielPriorPaarung } from "./schemas";
 
 /**
  * The `spiel_nr` of every other fixture a match write moved. Read by the edit page's live warning through
@@ -26,6 +23,14 @@ import type { FLSpielBooking } from "./schemas";
 type MovedFixtures = {
   voidedFixtures?: number[];
   releasedFixtures?: number[];
+};
+
+/**
+ * What the SAVE answers on top of that: each moved fixture as it stood before the write, which is the
+ * body its undo sends back. Off the preview, which writes nothing and so has nothing to put back.
+ */
+type SavedFixtures = MovedFixtures & {
+  priorPaarungen?: FLSpielPriorPaarung[];
 };
 
 /**
@@ -48,13 +53,15 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     };
   }
   // One code covers both references and the failure body names neither, so the message names both.
-  // Only a NEWLY chosen one is judged, so the remedy is to reactivate the retired entry or reload
-  // and pick another.
+
+  // A reactivation is one of two ways out rather than the way out: an erased referee cannot be
+  // reactivated (`REQ-ANONYMISE-003`), and a repair promising one sends a teacher into a second
+  // refusal.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
       error: buildRefusal({
         reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
-        repair: "Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen",
+        repair: "Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist",
       }),
     };
   }
@@ -66,10 +73,24 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       }),
     };
   }
+  // Mapped here rather than beside `REQ-SPIELTAG-001` in the shared fallback: that sentence points at
+  // the team the admin just picked, and this refusal is about a slot the KO-Baum fills by itself.
+  if (error.serverErrorCode === "REQ-SPIELTAG-002") {
+    return {
+      error: buildRefusal({
+        // Never a result: `find_advancement_occupancy_refusal` runs on every save and every dry run,
+        // so a re-pointed Herkunft raises this with no scoreline submitted at all.
+        reason: "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen",
+        // Neither appearance need be hand-set — the check reads the RESOLVED season, where the
+        // wiring fills both — so the article stays indefinite and `Seite` names a fixture's side.
+        repair: "Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele",
+      }),
+    };
+  }
   return null;
 }
 
-export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<MovedFixtures>> {
+export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -122,37 +143,9 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
-    };
-  });
-}
-
-/**
- * The grounds and referees of the fixtures a save moved, so the undo it offers can restore each
- * one whole: the season list the editor holds carries no money. Read AFTER the write, the
- * resolution rewriting slots and results and never a booking.
- */
-export async function readAdminSpielBookingsAction(
-  rawSpielIds: unknown,
-): Promise<ActionResult<{ bookings?: (FLSpielBooking & { id: string })[] }>> {
-  return runAdminMutation("readAdminSpielBookingsAction", async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
-    const spielIds = z.array(FLSpielSchema.shape.id).safeParse(rawSpielIds);
-    if (!spielIds.success) {
-      return { success: false, error: VALIDATION_FAILED };
-    }
-
-    const read = await Promise.all(spielIds.data.map((spielId) => getAdminSpiel(spielId)));
-
-    return {
-      success: true,
-      // A fixture that has since been deleted answers `null` and is simply absent, which is what
-      // makes the undo leave it out rather than restore it from a booking nobody holds.
-      bookings: read
-        .filter((response) => response !== null)
-        .map(({ spiel }) => ({ id: spiel.id, ort: spiel.ort, schiedsrichter: spiel.schiedsrichter })),
+      // Passed through untouched: the server built each entry from the slice it judged this write on,
+      // and anything composed here would be composed from a read taken before that write.
+      priorPaarungen: patch_operation.prior_paarungen,
     };
   });
 }

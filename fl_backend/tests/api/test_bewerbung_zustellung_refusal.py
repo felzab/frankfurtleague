@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from typing import Any, Mapping, get_args
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -117,7 +118,7 @@ class TestTheStampIsOneSpelling:
     def test_the_stored_spelling_is_the_one_the_log_rows_carry(self):
         """One clock across the database: an operator reading a delivery state beside an action row compares two strings."""
 
-        moment = datetime(2026, 3, 29, 12, 0, tzinfo=timezone.utc)
+        moment = datetime(2026, 3, 29, 12, 0, tzinfo=UTC)
 
         assert normalise_zustellzeitpunkt(moment.isoformat()) == moment.isoformat(timespec="microseconds")
 

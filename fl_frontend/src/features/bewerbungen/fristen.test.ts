@@ -17,12 +17,12 @@ registerHooks({
 });
 
 const {
-  buildBewerbungAblehnungEmail,
   buildBewerbungBestaetigungEmail,
   buildBewerbungEingangOffenEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
   buildBewerbungVollstaendigEmail,
+  buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
 const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
 
@@ -71,7 +71,7 @@ const NACHRICHTEN = [
   ],
   [
     "the seat's decline notice",
-    buildBewerbungAblehnungEmail({
+    buildBewerbungWiderspruchEmail({
       saisonId: "2627",
       origin: ORIGIN,
       rollenText: "Ansprechperson",
@@ -127,9 +127,9 @@ describe("the two clocks the workflow messages state", () => {
     assert.ok(alle.has(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE), "no message states the deletion's clock");
   });
 
-  /* The stamped text is never interpolated from the constant: the words are what somebody agreed to,
+  /* The stamped text is never interpolated from the constant: the words are what somebody was shown,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
-  it("holds the stamped consent texts to the deletion clock, written in a word", () => {
+  it("holds the stamped wordings to the deletion clock, written in a word", () => {
     const gefunden = Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => tageIn(fassung.absaetze.join(" ")));
 
     assert.ok(gefunden.length > 0, "no stored wording states a day count, so this case compares nothing");

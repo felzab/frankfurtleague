@@ -11,7 +11,8 @@ matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find
 directly -- and a write shaped like one of those would escape the log.
 """
 
-from typing import AbstractSet, Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
+from typing import Any
 
 from pydantic import BaseModel
 from pymongo import ReturnDocument
@@ -270,7 +271,7 @@ async def aggregate_many_from_db(
 def build_query(
     filters: BaseModel,
     *,
-    terms: AbstractSet[str],
+    terms: Set[str],
     include_inactive: bool | None = None,
     compiled: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:

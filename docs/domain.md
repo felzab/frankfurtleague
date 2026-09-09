@@ -128,7 +128,9 @@ being exactly the record the erasure exists to remove.
 fixtures, the three numbers those fixtures were drawn from move only with the fixtures they produced, because
 the shape and the draw are ONE fact. An `active` season is held to its shape and so is a `future` one.
 
-**The route back is an undraw**, and it is the whole reason `DELETE /saisons/{saison_id}/spielplan` exists:
+**The route back is an undraw, and it closes with the window below** — past that window there is no
+route back at all, and the three shape rules are fixed for the season's life. It is the whole reason
+`DELETE /saisons/{saison_id}/spielplan` exists:
 undraw, patch the rules, change the entries, draw again — with the group moves a drawn season locks
 (`REQ-ENTER-004`) open again in between. **Changing the entries can only mean adding them.** No endpoint
 takes a club back out of a season and an `austritt` leaves its row occupying the place, so a group's
@@ -165,9 +167,10 @@ finished season, correcting a mistyped one changing nothing anybody competed for
   better result (`REQ-RULES-008`).
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s `Gruppe`
   entry. The count and the size are the season's (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`,
-  `:: TeamsPerGroup`), and the size's ceiling is not a competition rule: it keeps the largest legal season
-  inside one page of a season-scoped read (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`),
-  past which those reads truncate and the refusals computed from them cannot be trusted.
+  `:: TeamsPerGroup`), and each is bounded as one field. What keeps a whole season inside one page of a
+  season-scoped read (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`) is `REQ-RULES-013`,
+  which weighs every group and the bracket together; past that page those reads truncate and the refusals
+  computed from them cannot be trusted.
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is matchday
   _k_, which is what keeps a club from standing twice on one matchday and makes every group finish together.
   An odd-sized group leaves one club on a bye each round rather than shortening the phase.

@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { GROUP_COUNT_UNIVERSE, groupCountOptions, SHAPE_COUNT_UNIVERSE } from "@/features/saisons/shapeOffer.ts";
+import { pickIfOffered } from "@/shared/components/ui/refusableOption.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -49,7 +51,10 @@ const PANEL: RegelnProps = {
   onStufenChange: () => undefined,
   isFinishedSaison: false,
   isKnockoutStarted: false,
+  // No club entered, so every occupancy rule closes nothing and each case below names its own.
+  gruppenOccupancy: {},
   isDrawnSaison: false,
+  spielplanWindow: "open",
   banners: [],
 };
 
@@ -57,11 +62,26 @@ const markup = (props: Partial<RegelnProps>): string =>
   renderTree(h(DraftStatusProvider, { status: STATUS, children: h(FormRegelnSection, { ...PANEL, ...props }) }));
 
 /**
- * The opening tag of the `<select>` react-aria mirrors the tiebreak picker into, named by the payload
- * path it writes: the panel's other closed controls wear the same attribute, so a count would answer
+ * The opening tag of the `<select>` react-aria mirrors a picker into, named by the payload path it
+ * writes: the panel's closed controls all wear the same attribute, so an unnamed one would answer
  * for whichever of them moved.
  */
-const tiebreakTag = (props: Partial<RegelnProps>): string => /<select [^>]*name="rules\.tiebreak_order"[^>]*>/.exec(markup(props))?.[0] ?? "";
+const selectTag = (path: string, props: Partial<RegelnProps>): string =>
+  new RegExp(`<select [^>]*name="${path.replaceAll(".", "\\.")}"[^>]*>`).exec(markup(props))?.[0] ?? "";
+
+const tiebreakTag = (props: Partial<RegelnProps>): string => selectTag("rules.tiebreak_order", props);
+
+/** Every count the mirrored `<select>` carries for one path, and which of them the season stands on. */
+function offeredCounts(path: string, props: Partial<RegelnProps>): { counts: number[]; selected: number | null } {
+  const list = new RegExp(`<select [^>]*name="${path.replaceAll(".", "\\.")}"[^>]*>(.*?)</select>`, "s").exec(markup(props))?.[1] ?? "";
+  const rows = [...list.matchAll(/<option value="(\d+)"([^>]*)>/g)];
+  const selected = rows.find(([, , attributes]) => attributes?.includes("selected"))?.[1];
+
+  return {
+    counts: rows.flatMap(([, value]) => (value === undefined ? [] : [Number(value)])),
+    selected: selected === undefined ? null : Number(selected),
+  };
+}
 
 describe("the rules panel's tiebreak freeze", () => {
   /* The floor for every case below: half of them are `doesNotMatch`, which a panel that rendered no
@@ -109,5 +129,180 @@ describe("the rules panel's tiebreak freeze", () => {
       "a finished season is explained past its own banner",
     );
     assert.doesNotMatch(markup({ isKnockoutStarted: true, isFinishedSaison: true }), /Nach dem Beginn der KO-Runde/, "explained twice over");
+  });
+});
+
+describe("the rules panel's shape offer", () => {
+  /* The entry's own instance: `REQ-RULES-001` admits only a power of two, so three groups is refused
+     at every qualifier count there is. A stepper cannot state a set that skips, and the mirrored
+     `<select>` is where the absence is legible. */
+  it("generates no group count the write path refuses", () => {
+    const { counts } = offeredCounts("rules.number_of_groups", {});
+
+    assert.deepEqual(counts, [...GROUP_COUNT_UNIVERSE]);
+    assert.ok(!counts.includes(3), "the picker offers three groups, which no season can be saved with");
+  });
+
+  it("generates the qualifier counts the offer holds and no others", () => {
+    assert.deepEqual(offeredCounts("rules.qualifiers_per_group", {}).counts, [...SHAPE_COUNT_UNIVERSE]);
+  });
+
+  /* A season can hold a count the offer does not carry. Clear the field and the save sends a number
+     nobody chose; the row stands instead, at its place and selected. */
+  it("keeps a stored count the offer does not carry, and leaves the season standing on it", () => {
+    const stored = { rules: { ...PANEL.rules, number_of_groups: 3 } };
+    const { counts, selected } = offeredCounts("rules.number_of_groups", stored);
+
+    assert.deepEqual(
+      counts,
+      [...GROUP_COUNT_UNIVERSE, 3].sort((first, second) => first - second),
+    );
+    assert.equal(selected, 3, "the season's own count is not what the picker stands on");
+  });
+
+  /* The mirrored `<select>` renders a closed row as a plain option, so the disabled flag is not what
+     stops the pick: `pickIfOffered` re-reads the refusal, and the panel drops a key it answers null. */
+  it("hands back nothing for a pick on a closed row", () => {
+    const options = groupCountOptions({ groups: 2, qualifiers: 2, occupancy: {} });
+
+    assert.equal(pickIfOffered(options, "16"), null, "sixteen groups qualifying two is a bracket of 32, and the picker takes it");
+    assert.equal(pickIfOffered(options, "4"), "4");
+  });
+
+  /* The occupancy rows obey the stored-count rule above. A season whose clubs stand past its own count
+     keeps every row, closed: drop one and the trigger shows a number the list denies. */
+  it("keeps every count on offer where the season's own groups close one", () => {
+    const occupancy = { A: 4, B: 4, C: 1 };
+    const { counts, selected } = offeredCounts("rules.number_of_groups", { gruppenOccupancy: occupancy });
+
+    assert.deepEqual(counts, [...GROUP_COUNT_UNIVERSE]);
+    assert.equal(selected, PANEL.rules.number_of_groups, "the season's own count is not what the picker stands on");
+    // The refusal reaches no markup at all: the mirrored `<select>` renders a closed row as a plain
+    // option, so the closure is read off the offer the panel was handed.
+    assert.equal(pickIfOffered(groupCountOptions({ groups: 2, qualifiers: 2, occupancy }), "2"), null);
+  });
+
+  /* Read rather than rendered, and a render is what proves it has to be: this panel's markup is
+     byte-identical whichever occupancy it is handed, so only the file says the two consumers read
+     the prop. */
+  it("builds its offer and its team floor from the occupancy it is handed, counted once for both panels", () => {
+    // The mirror is where a closure would be legible if it were legible anywhere, and it renders a
+    // closed row as a plain option, so the same list arrives whichever occupancy the panel is handed.
+    assert.deepEqual(
+      offeredCounts("rules.number_of_groups", { gruppenOccupancy: { A: 9, B: 9 } }),
+      offeredCounts("rules.number_of_groups", {}),
+      "an occupancy now reaches the option list, so a render can assert the closure",
+    );
+
+    /* One anchored match per consumer: this panel spells the pair twice, so a whole-file match is
+       held up by whichever copy survives while the other one goes. The gap crosses newlines, so a
+       Prettier reflow cannot fail it instead. */
+    assert.match(REGELN, /groupCountOptions\(\{[^}]*occupancy: gruppenOccupancy/, "the panel builds an offer against something else");
+    assert.match(REGELN, /teamsPerGroupFloor\(\{[^}]*occupancy: gruppenOccupancy/, "the team stepper's floor ignores the season's groups");
+    assert.doesNotMatch(REGELN, /buildGruppenOccupancy/, "the rules panel counts the groups itself");
+    assert.ok(EDIT_FORM.includes("buildGruppenOccupancy(ersatz.rows)"), "the edit form counts the groups some other way");
+    // BOTH panels, off that one count: two derivations could close different rows of one season.
+    assert.equal(EDIT_FORM.split("gruppenOccupancy={gruppenOccupancy}").length - 1, 2, "one of the two panels is handed no count");
+  });
+
+  /* Two selects around one stepper where three steppers stood: react-aria's `Select` has no read-only
+     state, so each freeze is spelled twice and a control left off either spelling takes a value the
+     save throws away. */
+  it("closes each count where its own freeze reaches it", () => {
+    assert.doesNotMatch(selectTag("rules.number_of_groups", {}), /\sdisabled=""/, "the groups are closed on a season nothing has frozen");
+    assert.doesNotMatch(selectTag("rules.qualifiers_per_group", {}), /\sdisabled=""/, "the qualifiers are closed on a season nothing froze");
+
+    assert.match(selectTag("rules.number_of_groups", { isDrawnSaison: true }), /\sdisabled=""/, "a drawn season still offers its groups");
+    assert.match(
+      selectTag("rules.qualifiers_per_group", { isDrawnSaison: true }),
+      /\sdisabled=""/,
+      "a drawn season still offers its qualifiers",
+    );
+
+    // The qualifiers alone are in the finished season's freeze: the table is scored from them, and
+    // `REQ-RULES-005` names them where it names no group count.
+    assert.doesNotMatch(
+      selectTag("rules.number_of_groups", { isFinishedSaison: true }),
+      /\sdisabled=""/,
+      "a finished season freezes its groups",
+    );
+    assert.match(
+      selectTag("rules.qualifiers_per_group", { isFinishedSaison: true }),
+      /\sdisabled=""/,
+      "a finished season still offers its qualifiers",
+    );
+  });
+});
+
+/** The two repairs the open window offers, which are what a season past that window may not be sent on. */
+const REDRAW = /den Spielplan mit der neuen Zahl neu anlegst/;
+const UNDRAW = /nimmst Du den Spielplan zurück/;
+
+/* One per closed state, and they are asserted against each other: both close the same three fields,
+   so a case matching only "some closed sentence rendered" would pass on either. */
+const RECORDED = /Solange zu mindestens einem Spiel/;
+const FROZEN = /Damit sind diese drei Zahlen festgeschrieben/;
+
+/* What a closed note says past the sentence that discriminates it: which writes are shut, where the
+   list of what closed them stands, and which window a season is past. */
+const BOTH_WRITES_SHUT = /lässt sich der Spielplan weder neu anlegen noch zurücknehmen/;
+const SPIELPLAN_PANEL = /Im Abschnitt Spielplan steht/;
+const PLANNED_ONLY = /nur, solange die Saison geplant ist/;
+
+describe("the rules panel's note on the frozen shape", () => {
+  /* The gate the cases below cannot see, each holding the note to a state that renders one: it
+     explains a freeze, so a season nothing has frozen is told to redraw a Spielplan it has not
+     got. */
+  it("renders no note at all on a season that holds no draw", () => {
+    for (const pattern of [REDRAW, UNDRAW, RECORDED, FROZEN, BOTH_WRITES_SHUT, SPIELPLAN_PANEL, PLANNED_ONLY])
+      assert.doesNotMatch(markup({}), pattern, "an undrawn season is told how to unfreeze fields nothing has frozen");
+  });
+
+  it("offers both repairs while the Spielplan window is open", () => {
+    const open = markup({ isDrawnSaison: true, spielplanWindow: "open" });
+
+    assert.match(open, REDRAW, "the qualifiers' own repair is missing where it is on offer");
+    assert.match(open, UNDRAW, "the group shape's repair is missing where it is on offer");
+    assert.doesNotMatch(open, FROZEN, "an open window is described as a freeze");
+  });
+
+  /* Read before any save is attempted, which is what makes it worse than a refusal: an admin acts on
+     it without ever provoking the 409 that would have corrected them. */
+  it("offers neither repair on a running or finished season, and states the freeze instead", () => {
+    const closed = markup({ isDrawnSaison: true, spielplanWindow: "closed" });
+
+    assert.doesNotMatch(closed, UNDRAW, "a season past the window is sent to take the Spielplan back");
+    assert.doesNotMatch(closed, REDRAW, "a season past the window is sent to draw the Spielplan again");
+    assert.match(closed, FROZEN, "the closure is unexplained");
+  });
+
+  /* The state that makes this three sentences and not two: nothing returns a season to `future`,
+     while a recorded fact can be removed, so the freeze the case above states would be false here. */
+  it("names the condition on a planned season holding a recorded fact, rather than a freeze", () => {
+    const recorded = markup({ isDrawnSaison: true, spielplanWindow: "recorded" });
+
+    assert.match(recorded, RECORDED, "the condition that closed both repairs is unnamed");
+    assert.doesNotMatch(recorded, FROZEN, "a state the admin can leave is called final");
+    assert.doesNotMatch(recorded, UNDRAW, "a closed window is sent to take the Spielplan back");
+    assert.doesNotMatch(recorded, REDRAW, "a closed window is sent to draw the Spielplan again");
+  });
+
+  /* `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal` holds only the code, so this panel
+     resolves the window itself. Drop a state's own words and a season in it is sent to a control it
+     finds closed, with nothing saying why. */
+  it("states the window the repair it names runs in, and what holds outside it", () => {
+    const recorded = markup({ isDrawnSaison: true, spielplanWindow: "recorded" });
+
+    assert.match(recorded, BOTH_WRITES_SHUT, "a recorded fact is described as closing only one of the two writes");
+    assert.match(recorded, SPIELPLAN_PANEL, "nothing sends the reader to the panel listing what counts as entered");
+    assert.match(markup({ isDrawnSaison: true, spielplanWindow: "closed" }), PLANNED_ONLY, "the window both writes run in is unnamed");
+  });
+
+  /* Read rather than rendered, for this file's own reason: the note is the same markup whichever
+     expression decided the state handed in. A flag decided beside that reason could confirm a
+     repair the control has closed. */
+  it("takes the window from the reason the undraw control is closed by", () => {
+    assert.match(EDIT_FORM, /spielplanUndrawBlockedReason\([^)]*\) === null/, "the edit form decides the window some other way");
+    assert.doesNotMatch(REGELN, /erfassteSpiele|saisonStatus/, "the rules panel reads the window itself");
   });
 });

@@ -7,6 +7,8 @@ import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { schiedsrichterFacetValue } from "@/features/spiele/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -14,7 +16,7 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatEuro } from "@/shared/utils/format";
+import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -43,9 +45,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   // rather than on the current one.
   const saisonHref = useSaisonHref();
 
-  const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
-    const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
-
+  const handleCopyKontakt = async (details: string) => {
     const copied = await copyTextToClipboard(details);
 
     if (copied) appToast.success("Kontaktdaten kopiert");
@@ -83,57 +83,100 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const renderRetiredBadge = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.inactive_since === null ? null : <RetiredBadge since={schiedsrichter.inactive_since} />;
 
+  // Italic where the name is gone, so a reader takes the word for the state it is rather than for
+  // somebody's name. The `title` carries the day, which no cell has room for.
+  const renderName = (schiedsrichter: FLSchiedsrichter) =>
+    schiedsrichter.anonymisiert_am === null ? (
+      <span className="fluid-sm text-foreground font-semibold">{schiedsrichter.name}</span>
+    ) : (
+      <span
+        className="fluid-sm text-foreground-muted font-semibold italic"
+        title={`Daten am ${formatSpielDatum(schiedsrichter.anonymisiert_am)} gelöscht`}>
+        {schiedsrichterAnzeigename(schiedsrichter.name)}
+      </span>
+    );
+
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
     <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
   );
 
-  const renderActions = (schiedsrichter: FLSchiedsrichter) => (
-    <RowActions>
-      {/* `schiedsrichter` as `buildSpielFacets` declares it, and admin-only there: the public
-          Spielsuche declares no such facet, so the same link would filter nothing. */}
-      <RowActionLink
-        href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
-        label="Einsätze anzeigen"
-        ariaLabel={`Einsätze von ${schiedsrichter.name} anzeigen`}>
-        <Magnifier
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      <RowActionCopy
-        label="Kontaktdaten kopieren"
-        ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
-        onPress={() => handleCopyKontakt(schiedsrichter)}
-      />
-      {/* A link and not a press: the referee form edits on a page of its own. */}
-      <RowActionLink
-        href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
-        label="Bearbeiten"
-        ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}>
-        <Pencil
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-      {schiedsrichter.inactive_since !== null ? (
-        <RowActionRestore
-          label="Reaktivieren"
-          ariaLabel={`Schiedsrichter ${schiedsrichter.name} reaktivieren`}
-          onPress={() => handleReactivate(schiedsrichter)}
-        />
-      ) : (
-        <RowActionDelete
-          label="Stilllegen"
-          ariaLabel={`Schiedsrichter ${schiedsrichter.name} stilllegen`}
-          onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
-        />
-      )}
-    </RowActions>
-  );
+  const renderActions = (schiedsrichter: FLSchiedsrichter) => {
+    // The value is `schiedsrichterFacetValue`'s, never the id: an anonymised referee shares one
+    // merged option, and an unoffered value is dropped rather than refused.
+    const facetValue = schiedsrichterFacetValue(schiedsrichter);
+    // Read off that value rather than off the erasure's own stamp, which the facet rule cannot see.
+    const zusammengefasst = facetValue !== schiedsrichter.id;
+    // The label names the merged set, because a fee is reconciled against what the link opened.
+    const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter mit gelöschten Daten anzeigen" : "Einsätze anzeigen";
+    const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
+
+    // An erased referee gets NEITHER state control below: the erasure retired them, and
+    // `REQ-ANONYMISE-003` refuses the reactivation, so offering one is a refusal the reader could not
+    // have avoided.
+    const isErased = schiedsrichter.anonymisiert_am !== null;
+    const isRetired = schiedsrichter.inactive_since !== null;
+
+    // The state and not `angezeigt`, which is the word „anonym“: the italics that mark it a state on
+    // screen reach a screen reader as nothing, so the name it reads out is a person's.
+    const bearbeitenLabel = isErased ? "Eintrag mit gelöschten Daten bearbeiten" : `Schiedsrichter ${angezeigt} bearbeiten`;
+
+    // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
+    // somebody could paste into a message.
+    const kontaktdaten = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
+
+    return (
+      <RowActions>
+        {/* Admin-only: the public Spielsuche declares no such facet, so the same link would filter nothing. */}
+        <RowActionLink
+          href={saisonHref(`/admin/spielsuche?schiedsrichter=${facetValue}`)}
+          label={einsatzLabel}
+          ariaLabel={zusammengefasst ? einsatzLabel : `Einsätze von ${angezeigt} anzeigen`}>
+          <Magnifier
+            aria-hidden="true"
+            width={18}
+            height={18}
+          />
+        </RowActionLink>
+        {/* No control where there is nothing to copy: an empty write is refused at
+            `fl_frontend/src/shared/utils/clipboard.ts :: copyTextToClipboard`, so the press could only
+            raise the failure toast. */}
+        {kontaktdaten !== "" && (
+          <RowActionCopy
+            label="Kontaktdaten kopieren"
+            ariaLabel={`Kontaktdaten von ${angezeigt} kopieren`}
+            onPress={() => handleCopyKontakt(kontaktdaten)}
+          />
+        )}
+        {/* A link and not a press: the referee form edits on a page of its own. */}
+        <RowActionLink
+          href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
+          label="Bearbeiten"
+          ariaLabel={bearbeitenLabel}>
+          <Pencil
+            aria-hidden="true"
+            width={18}
+            height={18}
+          />
+        </RowActionLink>
+        {!isErased && isRetired && (
+          <RowActionRestore
+            label="Reaktivieren"
+            ariaLabel={`Schiedsrichter ${angezeigt} reaktivieren`}
+            onPress={() => handleReactivate(schiedsrichter)}
+          />
+        )}
+        {!isErased && !isRetired && (
+          <RowActionDelete
+            label="Stilllegen"
+            ariaLabel={`Schiedsrichter ${angezeigt} stilllegen`}
+            onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
+          />
+        )}
+      </RowActions>
+    );
+  };
 
   return (
     <>
@@ -151,7 +194,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                 width={18}
                 height={18}
               />
-              <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{schiedsrichter.name}</span>
+              <span className="min-w-0 truncate">{renderName(schiedsrichter)}</span>
               <span className="ml-auto shrink-0">{renderHonorar(schiedsrichter)}</span>
             </div>
             {renderRetiredBadge(schiedsrichter)}
@@ -211,7 +254,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                           height={18}
                         />
                         <div className="flex flex-col items-start gap-1">
-                          <span className="fluid-sm text-foreground font-semibold">{schiedsrichter.name}</span>
+                          {renderName(schiedsrichter)}
                           {renderRetiredBadge(schiedsrichter)}
                         </div>
                       </div>

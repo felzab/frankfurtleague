@@ -6,7 +6,7 @@ import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { bewerbungenQueueStatus } from "./facets";
+import { bewerbungenQueueTerms } from "./facets";
 import { postEinwilligungAnsicht } from "./mutations";
 import {
   FLBewerbungenListResponseSchema,
@@ -54,8 +54,9 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
 export async function getBewerbungenQueue(
   params: Readonly<Record<string, string | string[] | undefined>>,
   order: "asc" | "desc",
+  saisonId: string | undefined,
 ): Promise<FLBewerbungenListResponse> {
-  return getBewerbungen({ order: order, status: bewerbungenQueueStatus(params) });
+  return getBewerbungen({ order: order, ...bewerbungenQueueTerms(params, saisonId) });
 }
 
 /**

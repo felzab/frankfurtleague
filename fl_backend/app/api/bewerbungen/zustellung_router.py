@@ -1,4 +1,5 @@
-from typing import Annotated, Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from typing import Annotated
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends

@@ -3,22 +3,45 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement as h } from "react";
+/* No `next/navigation` export carries either context, and these two components reach `useRouter` and
+   the season a link keeps between them (`fl_frontend/src/features/kontakte/editor.test.ts` mounts both). */
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { renderTree, textOf } from "../../shared/testing/renderTest.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
+const { AdminSchiedsrichterGeloeschtView } = await import("./components/views/AdminSchiedsrichterGeloeschtView.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-/** Whitespace-collapsed: the panel's copy is JSX text, so the formatter picks its line breaks. */
+// Whitespace-collapsed: the panel's copy is JSX text, so the formatter picks its line breaks.
+/**
+ * Read rather than rendered for the claims a resting render cannot carry: the copy a second press
+ * reveals, an absence spanning every state, and which name the displayed word is read from.
+ */
 const PANEL = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSchiedsrichterEditForm", "FormAnonymisierenSection.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
+/**
+ * Read rather than rendered for what it carries alone: which value the editor hands the panel. The
+ * panel's markup is the same whichever of the two it was given.
+ */
 const EDIT_FORM = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSchiedsrichterEditForm", "AdminSchiedsrichterEditForm.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-/** The page whose key is what makes the panel's refresh load-bearing. */
+/**
+ * Read rather than rendered for the `key` that makes the panel's refresh load-bearing: a remount is
+ * what one press produces, and a render answers with the mount it was given.
+ */
 const PAGE = readFileSync(
   path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "schiedsrichter", "[schiedsrichter_id]", "page.tsx"),
   "utf8",
@@ -49,8 +72,27 @@ const RENAME_ACTION = sliceBetween(
 
 const EDIT_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const EDIT_CODES = ["REQ-ANONYMISE-002"];
-/* The first mapper in the module, so its slice ends where the retirement's begins. */
 const EDIT_MAP = sliceBetween(ACTIONS, "function mapEditRefusal", "function mapRetireRefusal");
+
+/* The first mapper in the module, so its slice ends where the edit's begins. */
+const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapEditRefusal");
+const CREATE_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function postSchiedsrichterAction",
+  "export async function patchSchiedsrichterAction",
+);
+/* The venue's copy of the same sentence, read where it is written rather than retyped here. */
+const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
+
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
+const REACTIVATE_CODES = ["REQ-ANONYMISE-003"];
+/* Read per slice for the anonymisation's reason: three mappers live here now. */
+const REACTIVATE_MAP = sliceBetween(ACTIONS, "function mapReactivateRefusal", "function mapAnonymiseRefusal");
+const REACTIVATE_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function reactivateSchiedsrichterAction",
+  "export async function anonymiseSchiedsrichterAction",
+);
 const UNDO_ROUTE = readFileSync(
   path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
   "utf8",
@@ -66,8 +108,12 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
 
-    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's call is outside its slice");
+    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
     assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
+
+    assert.ok(REACTIVATE_MAP.includes("serverErrorCode"), "the reactivation's arms are outside its slice");
+    assert.ok(!REACTIVATE_MAP.includes("REQ-ANONYMISE-001"), "the reactivation's slice runs on into the anonymisation's mapper");
+    assert.ok(REACTIVATE_ACTION.includes("reactivateSchiedsrichter(validated.data)"), "the reactivation's call is outside its slice");
   });
 
   /* A re-entry landing mid-anonymisation is the one refusal here, and it needs a sentence: the write
@@ -106,11 +152,67 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
     assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
+
+  /* The erasure retires the referee, so this endpoint refuses one whose data are gone. It has no undo
+     route: the replay wording of `route.ts` covers the save alone. */
+  it("maps the refusal the reactivation declares", () => {
+    const declared = declaredCodes(REACTIVATE_OPERATION);
+
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
+    assert.deepEqual(declared, REACTIVATE_CODES);
+    for (const code of declared)
+      assert.ok(REACTIVATE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+
+    assert.ok(REACTIVATE_ACTION.includes("mapReactivateRefusal(error)"), "the reactivation consults no mapper at all");
+    assert.ok(!REACTIVATE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a reactivation");
+  });
+
+  /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
+     back: nothing in the system can restore the deleted values. */
+  it("words the reactivation's refusal without offering an undo", () => {
+    assert.match(REACTIVATE_MAP, /Daten löschen lassen/, "the refusal does not say why the entry is stilled");
+    assert.match(REACTIVATE_MAP, /neuen Schiedsrichter/, "the refusal names no way forward for a person who officiates again");
+    assert.doesNotMatch(REACTIVATE_MAP, /wiederherstell|zurückhol|rückgängig/i, "the refusal offers a restore no endpoint can honour");
+  });
+});
+
+describe("the referee name a unique index already holds", () => {
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  it("cuts the mapper and the create out of the file before reading them", () => {
+    assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
+    assert.ok(!NAME_MAP.includes("REQ-ANONYMISE-002"), "the duplicate name's slice runs on into the edit's mapper");
+
+    assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
+    assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
+  });
+
+  /* `uniq_schiedsrichter_name` is this collection's only unique index, so the 409 it raises is always
+     the name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about
+     an id, which names no box and no way out. */
+  it("lands the duplicate on the name box rather than in a banner", () => {
+    assert.match(NAME_MAP, /serverErrorCode === "DB-COMMON-002"/, "the duplicate name reaches the admin as an unhandled conflict");
+    assert.match(NAME_MAP, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the duplicate name lands as a bare sentence");
+    // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
+    assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
+  });
+
+  /* The edit weighs the erasure's refusal first and this one after: both are 409s on one save, and a
+     mapper consulted alone leaves the other code falling through to the conflict fallback. */
+  it("consults the mapper on the create and beside the edit's own refusal", () => {
+    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
+    assert.match(RENAME_ACTION, /mapEditRefusal\(error\) \?\? mapNameRefusal\(error\)/, "the edit weighs only one of its two refusals");
+  });
+
+  /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one
+     copy would tell two of them something the other two do not say. */
+  it("words a venue's duplicate name the same way", () => {
+    assert.match(SPIELORTE_ACTIONS, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the two slices word one refusal apart");
+  });
 });
 
 describe("what the anonymisation moves", () => {
-  /* The one cached read it moves: the label fans into every Spiel as a rename does, and without the
-     tag the erased name keeps being served from cache. The referee list and the log are uncached. */
+  /* The one cached read it moves: the nulled name lands on every Spiel as a rename does, and without
+     the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
   it("invalidates the fixture reads, as the rename does", () => {
     assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
     assert.ok(RENAME_ACTION.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
@@ -128,23 +230,121 @@ describe("what the anonymisation moves", () => {
   });
 });
 
+/** Nothing here is reached before a press: the refresh is what one produces. `bfcacheId` is a value. */
+const ROUTER = {
+  back: () => undefined,
+  forward: () => undefined,
+  refresh: () => undefined,
+  push: () => undefined,
+  replace: () => undefined,
+  prefetch: () => undefined,
+  bfcacheId: "",
+};
+
+/** The sentences a reader hears, tags gone and the JSX line breaks collapsed. */
+const gelesen = (element: Parameters<typeof renderTree>[0]): string =>
+  textOf(
+    renderTree(h(AppRouterContext.Provider, { value: ROUTER }, h(SearchParamsContext.Provider, { value: new URLSearchParams() }, element))),
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * The panel at rest, which is the state an administrator meets it in: the readout and the two
+ * paragraphs beside it are behind `ConfirmReveal` and reach no static render.
+ */
+const panelText = (): string =>
+  gelesen(
+    h(FormAnonymisierenSection, {
+      schiedsrichterId: "68c1f0a2b3c4d5e6f7a8b9c0",
+      name: "Anna Beispiel",
+      schule: "Musterschule",
+      kontakt: { email: "anna@example.de", telefon: "069 1234567" },
+      onBeforeAnonymise: () => true,
+    }),
+  );
+
+/** Both dates given, so every conditional row of the page stands and its whole copy is in the text. */
+const geloeschtText = (): string =>
+  gelesen(h(AdminSchiedsrichterGeloeschtView, { anonymisiertAm: "2026-03-01", inactiveSince: "2026-02-01", defaultPayment: 2500 }));
+
 describe("the anonymisation's copy", () => {
+  /* The school goes with the name, and both surfaces have to say so: an administrator who reads only
+     „Name und Kontaktdaten“ tells the person their school is still on the record. */
+  it("names the school among what goes, on the confirmation and on the page that replaces the form", () => {
+    const geloescht = geloeschtText();
+
+    // The list is the direct object of the panel's sentence and the subject of the other two, so its
+    // first member is accusative on one surface and nominative on the others.
+    for (const [read, where, list] of [
+      [panelText(), "the confirmation", /Namen, Schule, E-Mail und Telefonnummer/],
+      [geloescht, "the page that replaces the form", /Name, Schule, E-Mail und Telefonnummer/],
+      [ACTIONS, "the action's report", /Name, Schule, E-Mail und Telefonnummer/],
+    ] as const) {
+      assert.match(read, list, `${where} does not name the school among what goes`);
+    }
+
+    assert.doesNotMatch(geloescht, /Schule \/ Verein/, "the erased page still reads the school out as something that survives");
+  });
+
   it("says the name and the contact details go, in the row and in the log", () => {
-    assert.match(PANEL, /E-Mail und Telefonnummer/, "the confirmation does not name what is deleted");
-    assert.match(PANEL, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
-    assert.match(PANEL, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
+    const gezeigt = panelText();
+
+    assert.match(gezeigt, /E-Mail und Telefonnummer/, "the confirmation does not name what is deleted");
+    assert.match(gezeigt, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
+    assert.match(PANEL, /Zurückholen lässt sich das nicht/, "the armed confirmation does not refuse an undo in words");
     assert.ok(!PANEL.includes("Rückgängig"), "the panel offers an undo, and no endpoint can honour one");
   });
 
-  /* The name is replaced on every match and the ROW survives — every fixture embeds the id. Copy
-     saying the row goes, or that the name stays, describes an operation the backend does not run. */
-  it("says the name becomes the label on every match, and the referee survives", () => {
-    assert.match(PANEL, /auf jedem Spiel/, "the confirmation does not say the matches are reached");
-    assert.match(PANEL, /anonym/, "the confirmation does not name the label the referee is published under");
-    assert.match(PANEL, /bleibt als Schiedsrichter bestehen/, "the confirmation does not say the referee survives");
+  /* The name is nulled on every match and the ROW survives — every fixture embeds the id. Copy saying
+     the row goes, or that the name stays, describes an operation the backend does not run. */
+  it("says the name goes from every match, and the row survives with nothing left to edit", () => {
+    const gezeigt = panelText();
+
+    assert.match(gezeigt, /auf jedem gespielten Spiel/, "the confirmation does not say the played matches are reached");
+    assert.match(PANEL, /Der Eintrag bleibt mit allen Spielen bestehen/, "the armed confirmation does not say the row survives");
+    assert.match(gezeigt, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
     assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
-    assert.ok(!PANEL.includes("stillgelegt"), "the copy confuses the deletion with a retirement");
+  });
+
+  /* Next to the deletion rather than instead of it: an administrator told only that the entry is
+     stilled reports a retirement to the person who asked to be erased. */
+  it("names the retirement beside the deletion rather than in place of it", () => {
+    const gezeigt = panelText();
+
+    assert.match(gezeigt, /stillgelegt/, "the confirmation does not say the entry stops taking fixtures");
+    assert.match(gezeigt, /für neue Spiele nicht mehr angeboten/, "the confirmation does not say what the retirement costs");
+    assert.match(PANEL, /Zurückholen lässt sich das nicht/, "a copy naming only the retirement would read as reversible");
+  });
+
+  /* The subject is the ASSIGNMENT the erasure ends: it empties the booking on every fixture with no
+     result, so an administrator not told here leaves a match nobody is going to officiate. */
+  it("says on both surfaces that a fixture without a result needs a new referee", () => {
+    for (const [source, where] of [
+      [PANEL, "the armed confirmation"],
+      [ACTIONS, "the action's report"],
+    ] as const) {
+      assert.match(source, /Spiele ohne Ergebnis/, `${where} does not name the fixtures the erasure unassigns`);
+      assert.match(source, /neuen Schiedsrichter/, `${where} does not say such a fixture needs somebody else`);
+      assert.ok(!/behalten die Zuteilung/.test(source), `${where} still promises the assignment survives the erasure`);
+    }
+  });
+
+  /* Every other sentence about the erasure says „dieser Person“, and this one is the report an
+     administrator forwards: a referee can be a woman, and the notice writes both forms. */
+  it("reports the log redaction about a person rather than about a masculine referee", () => {
+    const report = sliceBetween(ANONYMISE_ACTION, "Im Änderungsprotokoll", null);
+
+    assert.match(report, /die diese Person betrifft/, "the report names the log rows by a masculine referee again");
+  });
+
+  /* The word is a frontend constant so it can be reworded without touching a stored document; typed
+     into the copy instead, a rewording would leave the panel promising a word nothing renders. */
+  it("names the displayed word by reading the constant rather than typing it", () => {
+    assert.match(PANEL, /SCHIEDSRICHTER_ANONYM_LABEL/, "the panel does not read the label from its one declaration");
+    assert.ok(!/„anonym|"anonym|>anonym/.test(PANEL), "the panel types the label as text, so rewording it leaves this copy behind");
+    assert.equal(SCHIEDSRICHTER_ANONYM_LABEL, "anonym");
   });
 
   it("arms before it writes", () => {
@@ -214,11 +414,11 @@ describe("how much of the log the copy claims", () => {
   it("matches what the redaction actually clears", () => {
     assert.match(RECORDING, /def build_redaction_update[\s\S]*?"before": None/, "the backend no longer clears the whole pre-image");
 
-    for (const [source, where] of [
-      [PANEL, "the panel"],
+    for (const [read, where] of [
+      [panelText(), "the panel"],
       [ACTIONS, "the action's report"],
     ] as const) {
-      assert.match(source, /gesicherte[rn]? Stand/, `${where} does not name the pre-image the log keeps`);
+      assert.match(read, /gesicherte[rn]? Stand/, `${where} does not name the pre-image the log keeps`);
     }
   });
 
@@ -231,7 +431,7 @@ describe("how much of the log the copy claims", () => {
   /* What survives is as load-bearing as what goes: the rows stay, so the log still shows that
      something happened and when. */
   it("says the rows themselves stay readable", () => {
-    assert.match(PANEL, /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
+    assert.match(panelText(), /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
   });
 });
 

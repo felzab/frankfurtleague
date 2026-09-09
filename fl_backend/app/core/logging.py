@@ -12,7 +12,7 @@ import logging.config
 import re
 import sys
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.config import BackendConfig
@@ -67,7 +67,7 @@ class LoggingColors:
 
 def format_timestamp(created: float) -> str:
     """UTC, ISO 8601, millisecond precision, `Z` suffix -- identical to the frontend's timestamps."""
-    return datetime.fromtimestamp(created, tz=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return datetime.fromtimestamp(created, tz=UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _structured_extras(record: logging.LogRecord) -> dict[str, Any]:

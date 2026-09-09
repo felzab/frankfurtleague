@@ -4,6 +4,7 @@ import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { listboxRow } from "@/shared/components/ui/refusableOption";
 
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -43,6 +44,8 @@ export function GruppeSelect({
    */
   isRequired?: boolean;
 }) {
+  const item = listboxRow();
+
   const handleChange = (key: Key | null) => {
     if (!key) return;
     onChange(key.toString() as FLGruppenNames);
@@ -75,11 +78,11 @@ export function GruppeSelect({
                 id={gruppe}
                 textValue={`Gruppe ${gruppe}`}
                 isDisabled={isFull}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                className={item.row()}>
                 Gruppe {gruppe}
                 {/* The fill state, always: it answers "why is that one disabled" and "how much room
                     is left" at once. */}
-                <span className="fluid-xs text-foreground-muted font-semibold">{isFull ? "voll" : `${occupied}/${capacity}`}</span>
+                <span className={item.note()}>{isFull ? "voll" : `${occupied}/${capacity}`}</span>
               </ListBox.Item>
             );
           })}

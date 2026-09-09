@@ -1,4 +1,5 @@
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection

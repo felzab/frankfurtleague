@@ -19,7 +19,8 @@ from typing import Final, Literal
 from .kernel import REPO_ROOT, Finding, _read_text, tracked_glob
 
 # Where a reader's German lives. The backend holds none: its refusals are mapped to German on this
-# side, so widening the root would add files and no strings.
+# side, and the German it spells itself is a line to the log rather than copy
+# (`fl_backend/app/api/saisons/schemas.py :: refuse_a_saison_year_outside_the_league`).
 COPY_ROOT: Final = "fl_frontend/src"
 COPY_GLOB: Final = f"{COPY_ROOT}/**/*.ts*"
 TEST_SUFFIXES: Final[tuple[str, ...]] = (".test.ts", ".test.tsx")

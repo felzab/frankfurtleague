@@ -7,7 +7,7 @@ import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
-import { COUNT_BADGE } from "@/shared/components/ui/badges";
+import { COUNT_BADGE, PILL_TINT } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
@@ -16,6 +16,7 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react";
 import type { FLActionUrgency } from "../../utils";
 
@@ -27,22 +28,20 @@ import type { FLActionUrgency } from "../../utils";
 const SECTION_PARAM = "section";
 
 /**
- * Success is reserved for a cleared category. `none` is `abgesagt` and shares `details`' blue on
- * purpose: a fixture that did not happen asks nothing, and a grey badge among coloured ones read as a
- * control that had been switched off.
+ * Success is reserved for a cleared category, and `none` — `abgesagt` — shares `details`' blue on
+ * purpose: a fixture that did not happen asks nothing.
  */
-const URGENCY_BADGE: Record<FLActionUrgency, string> = {
-  blocking: "bg-danger/15 text-danger-strong",
-  results: "bg-warning/15 text-warning-strong",
-  details: "bg-info/15 text-info-strong",
-  none: "bg-info/15 text-info-strong",
+const URGENCY_TINT: Record<FLActionUrgency, PillTone> = {
+  blocking: "danger",
+  results: "warning",
+  details: "info",
+  none: "info",
 };
 
-const CLEARED_BADGE = "bg-success/15 text-success-strong";
-
 /**
- * The selected count lies on `Tabs.Indicator`'s brand fill, so it borrows that fill's own foreground
- * rather than adding a third colour — a pairing that holds in both themes while `--fg-base` flips.
+ * The selected count lies on `Tabs.Indicator`'s brand fill rather than on `surface`, so no
+ * `PillTone` fits it: it borrows that fill's own foreground instead of adding a third colour, a
+ * pairing that holds in both themes while `--fg-base` flips.
  */
 const SELECTED_BADGE = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
 
@@ -124,6 +123,7 @@ export function AdminSpieleActionRequiredView({
                 const label = ACTION_REQUIRED_LABELS[section.category];
                 const isActive = section.category === activeSection.category;
                 const isCleared = section.spiele.length === 0;
+                const countTint = isActive ? SELECTED_BADGE : PILL_TINT[isCleared ? "success" : URGENCY_TINT[label.urgency]];
 
                 return (
                   <Tabs.Tab
@@ -133,9 +133,7 @@ export function AdminSpieleActionRequiredView({
                      share the rail equally and become slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
-                    <span className={`${COUNT_BADGE} ${isActive ? SELECTED_BADGE : isCleared ? CLEARED_BADGE : URGENCY_BADGE[label.urgency]}`}>
-                      {section.spiele.length}
-                    </span>
+                    <span className={`${COUNT_BADGE} ${countTint}`}>{section.spiele.length}</span>
                     <Tabs.Indicator className={TAB_INDICATOR} />
                   </Tabs.Tab>
                 );

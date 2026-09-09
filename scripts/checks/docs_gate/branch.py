@@ -3,17 +3,17 @@ from __future__ import annotations
 import ast
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path, PurePosixPath
-from typing import Final, Iterable, NamedTuple
+from typing import Final, NamedTuple
 
 from checker_kernel import git, git_input, resolve_base
 
 from .kernel import (
     DOCS_DIR,
-    INVARIANT_ROW_RE,
+    INVARIANT_ID_RE,
     OPS_FILENAMES,
     PROSE_FILENAMES,
     REPO_ROOT,
@@ -50,8 +50,7 @@ OPENAPI_PAGE: Final = "fl_backend/openapi.json"
 ENDPOINT_TREE: Final = "fl_backend/app/"
 ROUTE_METHODS: Final[frozenset[str]] = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 
-# What walking the published document raises where it is not shaped as this reader expects. Named
-# rather than spelled inline, for `kernel.py :: UNTOKENIZABLE`'s reason.
+# What walking the published document raises where it is not shaped as this reader expects.
 UNSHAPED: Final = (AttributeError, KeyError, TypeError, ValueError)
 
 
@@ -469,7 +468,7 @@ def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[st
     for rel, lines in additions.items():
         if not _spec_sheet(rel):
             continue
-        numbers = frozenset(match.group(1) for line in lines if (match := INVARIANT_ROW_RE.match(line)))
+        numbers = frozenset(match.group(1) for line in lines if (match := INVARIANT_ID_RE.match(line)))
         raw = _read_text(REPO_ROOT / rel)[0]
         tabled = frozenset() if raw is None else frozenset(invariant_rows(strip_fences(raw)))
         if allocated := numbers & tabled:
@@ -477,31 +476,36 @@ def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[st
     return declared
 
 
-# The digits of an `I<n>` id, a suffix included. `L<n>` is the logging sheet's own band, allocated
-# against that sheet (OUT-4), so the ceiling below never counts one.
-INVARIANT_NUMBER_RE: Final = re.compile(r"^I(\d{1,3})")
+# Captured apart because the two bands are separate namespaces (OUT-4): one ceiling across both
+# would make the next logging number a function of how far the surface band had grown, burning the
+# whole span between.
+INVARIANT_NUMBER_RE: Final = re.compile(r"^([IL])(\d{1,3})")
 # A suffixed row (`I24a`) extends the number above it rather than allocating one, so it answers to
 # the collision arm alone and takes no place in the run.
-ALLOCATING_RE: Final = re.compile(r"^I\d{1,3}$")
+ALLOCATING_RE: Final = re.compile(r"^[IL]\d{1,3}$")
 
 
-def _highest_at_fork(at_fork: dict[str, frozenset[str]]) -> int:
-    """The highest number the `I<n>` band reached at the fork, or 0 where none did.
+def _highest_at_fork(at_fork: dict[str, frozenset[str]]) -> dict[str, int]:
+    """The highest number each band reached at the fork, by band letter.
 
-    One namespace across the surface sheets (OUT-4), so the ceiling is the whole band's and never
-    the sheet under test's.
+    Over every sheet for both bands: giving `L<n>` a rule of its own would differ only where a sheet
+    already carries an `L` row OUT-4 forbids it.
     """
-    found = (INVARIANT_NUMBER_RE.match(number) for sheet in at_fork.values() for number in sheet)
-    return max((int(match.group(1)) for match in found if match is not None), default=0)
+    highest: dict[str, int] = {}
+    for sheet in at_fork.values():
+        for number in sheet:
+            if (match := INVARIANT_NUMBER_RE.match(number)) is not None:
+                highest[match.group(1)] = max(highest.get(match.group(1), 0), int(match.group(2)))
+    return highest
 
 
-def _run_named(highest: int, count: int) -> str:
-    """The numbers OUT-4 leaves a branch adding this many rows, as a finding spells them."""
-    return f"I{highest + 1}" if count == 1 else f"I{highest + 1} to I{highest + count}"
+def _run_named(band: str, highest: int, count: int) -> str:
+    """The numbers OUT-4 leaves a branch adding this many rows to one band, as a finding spells them."""
+    return f"{band}{highest + 1}" if count == 1 else f"{band}{highest + 1} to {band}{highest + count}"
 
 
 def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) -> list[Finding]:
-    """An invariant row this branch adds takes one past the fork's highest number, contiguously (OUT-4).
+    """An added invariant row takes one past its own band's highest at the fork, contiguously (OUT-4).
 
     Branch-scoped rather than over the corpus: failing a branch for a row it did not write is the
     standing tax CUR-6 refuses.
@@ -537,11 +541,20 @@ def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) 
             elif ALLOCATING_RE.match(number) is not None:
                 allocating[number] = rel
     highest = _highest_at_fork(at_fork)
-    run = {f"I{highest + offset}" for offset in range(1, len(allocating) + 1)}
-    span = _run_named(highest, len(allocating))
-    for number in sorted(set(allocating) - run):
-        detail = f"{number} is outside {span} -- OUT-4 allocates from one past I{highest}, the highest number any sheet defines at the fork"
-        found.append(Finding("fail", "invariant-number", allocating[number], detail))
+    # One run per band: a branch adding to both fills two runs, and counting its rows together would
+    # charge each band for the other's, leaving a correct row outside a run it never drew from.
+    banded: dict[str, list[str]] = {}
+    for number in allocating:
+        banded.setdefault(number[0], []).append(number)
+    for band, numbers in sorted(banded.items()):
+        ceiling = highest.get(band, 0)
+        run = {f"{band}{ceiling + offset}" for offset in range(1, len(numbers) + 1)}
+        span = _run_named(band, ceiling, len(numbers))
+        for number in sorted(set(numbers) - run):
+            detail = (
+                f"{number} is outside {span} -- OUT-4 allocates from one past {band}{ceiling}, the highest number any sheet defines at the fork"
+            )
+            found.append(Finding("fail", "invariant-number", allocating[number], detail))
     return found
 
 

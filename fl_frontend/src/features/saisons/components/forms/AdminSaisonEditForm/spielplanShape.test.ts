@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { FLSpielplanShapeSchema } from "@/features/saisons/schemas";
-
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape.ts";
 
 import type { FLSaisonRules, FLSpielplanShape } from "@/features/saisons/schemas";
@@ -41,31 +39,6 @@ describe("SHAPE_FIELDS", () => {
       SHAPE_FIELDS.map((field) => field.key),
       ["number_of_groups", "teams_per_group", "qualifiers_per_group"],
     );
-  });
-
-  /* Drift either bound and this fails. The field is what an admin can reach, so a floor below the
-     schema's offers a number the parse refuses, and a floor above it hides a legal season. */
-  it("bounds each field exactly where the schema does", () => {
-    for (const { key, minValue, maxValue } of SHAPE_FIELDS) {
-      const parse = (value: number) => FLSpielplanShapeSchema.safeParse({ ...shape(), [key]: value }).success;
-
-      assert.equal(parse(minValue), true, `${key}: the field's floor is refused by the schema`);
-      assert.equal(parse(minValue - 1), false, `${key}: the schema accepts a value below the field's floor`);
-
-      if (maxValue === undefined) continue;
-      assert.equal(parse(maxValue), true, `${key}: the field's ceiling is refused by the schema`);
-      assert.equal(parse(maxValue + 1), false, `${key}: the schema accepts a value above the field's ceiling`);
-    }
-  });
-
-  /* A field left unbounded above where the schema bounds it lets an admin type a season the parse
-     then refuses, which is the same defect the case above catches from the other side. */
-  it("leaves a field open above only where the schema does", () => {
-    for (const { key, maxValue } of SHAPE_FIELDS) {
-      if (maxValue !== undefined) continue;
-      // 99 is past every ceiling the three carry, so a schema bound would show up here.
-      assert.equal(FLSpielplanShapeSchema.safeParse({ ...shape(), [key]: 99 }).success, true, `${key}: the schema bounds an open field`);
-    }
   });
 });
 

@@ -3,8 +3,9 @@ import functools
 import importlib
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -45,6 +46,11 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-AUTH-005", "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
+
+# Spelled here as well as in `fl_frontend/src/core/refusalRegister.ts`, which cannot import a Python
+# constant: a rule declared against several endpoints joins them, and a reader taking the whole
+# string as one token would find no route serving it.
+OPERATION_SEPARATOR = " · "
 
 # The declaration's own module, which never answers for a reason's own text: it is dropped from
 # every listing built out of the source trees, and a citation naming it resolves against nothing
@@ -490,6 +496,14 @@ def test_every_rule_is_implemented_where_it_says(rule):
 
     assert callable(_import_symbol(rule.implemented_by))
     assert _reaches_code(rule.implemented_by, rule.code), f"{rule.implemented_by} reaches no constant holding {rule.code}"
+
+
+@pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
+def test_every_rule_names_operations_the_document_publishes(rule):
+    """No refusal is raised from `operation`, so a route it names wrongly is read by a person and caught by nothing."""
+
+    for token in rule.operation.split(OPERATION_SEPARATOR):
+        assert _classify(token) == ("endpoint", True), f"{rule.code} declares {token!r}, which the published document does not serve"
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)

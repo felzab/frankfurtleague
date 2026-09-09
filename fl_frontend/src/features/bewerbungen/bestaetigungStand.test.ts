@@ -220,7 +220,7 @@ describe("the reason the Zusage is closed", () => {
     const staende = staendeOf(sitze({ stellvertretung: person("Bernd", "2026-09-03") }));
     const satz = zusageHindernis(staende, TEAM);
 
-    assert.equal(satz, "Eine Zusage ist ohne alle Einwilligungen nicht möglich.");
+    assert.equal(satz, "Eine Zusage ist ohne alle Bestätigungen nicht möglich.");
     // A name in it would move with the seats, which is what makes it a list rather than a rule.
     assert.ok(!satz.includes("Meier"), "the reason names a person, so it reads as a list of today's outstanding seats");
   });

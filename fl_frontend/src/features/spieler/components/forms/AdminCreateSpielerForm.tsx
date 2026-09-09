@@ -39,9 +39,9 @@ const EMPTY_DRAFT_BASE = {
 } as const;
 
 /**
- * Creates the player AND puts them in a squad in one submit. One form on purpose: every squad read
- * joins the junction strictly (backend spec I33), so a player created without a row is invisible to
- * the very list this form sits on.
+ * Creates the player AND puts them in a squad in one submit. One form on purpose: the public squad
+ * read narrows by team and season, which joins the junction strictly, so a player with no row reaches
+ * no public page.
  */
 export function AdminCreateSpielerForm({
   saisonOptions,
@@ -163,10 +163,11 @@ export function AdminCreateSpielerForm({
                     // Follows the season, never the previous choice — that season's answer, not a
                     // preference the admin carries.
                     is_nachgetragen: nextOption?.isNachgetragen ?? false,
-                    // A team from another season must not ride along silently — the picker returns
-                    // to "wählen" instead.
+                    // A team from another season must not ride along silently, and no more may one the
+                    // next season has no room in — the picker returns to "wählen" instead.
                     team_id:
-                      current.team_id !== null && (nextOption?.teams ?? []).some((team) => team.teamId === current.team_id)
+                      current.team_id !== null &&
+                      (nextOption?.teams ?? []).some((team) => team.teamId === current.team_id && team.isSquadFull !== true)
                         ? current.team_id
                         : null,
                     // Same rule: the form must not submit a level its own picker never showed.
@@ -228,7 +229,7 @@ export function AdminCreateSpielerForm({
 
             {draft.is_nachgetragen && (
               <p className="fluid-xxs text-foreground-muted font-medium">
-                Dieser Spieler wird nachgetragen. Zu Beginn der Saison war er nicht im Kader.
+                Diese Person wird nachgetragen. Zu Beginn der Saison war sie nicht im Kader.
               </p>
             )}
           </>

@@ -1,5 +1,6 @@
 import json
-from typing import Any, Awaitable, Callable, Iterator, Mapping, Sequence, get_args
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId
@@ -9,6 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
+    FLSaisonSpielerResponse,
     FLSpieler,
     FLSpielerAdminSingleResponse,
     FLSpielerFilterParams,
@@ -196,6 +198,47 @@ class TestTheSinglePlayerShape:
         extra = set(FLSpielerAdminSingleResponse.model_fields) - set(FLSpielerSingleResponse.model_fields)
 
         assert extra == {"inactive_since"}
+
+
+# A body per echo rather than one shared: the two answer different writes and share no field but this one.
+RETIREMENT_ECHOES = {
+    "the person": (FLSpielerAdminSingleResponse, {"spieler_id": SPIELER_OIDS["Mueller"], "vorname": "Max", "nachname": "Mueller"}),
+    "the squad row": (
+        FLSaisonSpielerResponse,
+        {
+            "spieler_id": SPIELER_OIDS["Mueller"],
+            "saison_id": SAISON,
+            "team_id": TEAM_OID,
+            "nummer": "7",
+            "position": "Angriff",
+            "stufe": "Q2",
+            "is_nachgetragen": False,
+            "rolle": None,
+        },
+    ),
+}
+
+
+class TestTheRetirementDateTheAdminEchoesCarry:
+    """`fl_frontend/src/features/spieler/schemas.ts` refuses a day that does not exist, on seven mutations.
+
+    An echo declaring no rule reports a retirement that landed as failed;
+    `app/api/spieler/schemas.py` carries why stating the rule refuses nothing the API can serve.
+    """
+
+    @pytest.mark.parametrize("echo", RETIREMENT_ECHOES)
+    @pytest.mark.parametrize("stamped", ["2026-03-01", None], ids=["retired", "live"])
+    def test_it_takes_what_retire_and_reactivate_stamp(self, echo: str, stamped: str | None):
+        model, body = RETIREMENT_ECHOES[echo]
+
+        assert model.model_validate({**body, "inactive_since": stamped}).inactive_since == stamped
+
+    @pytest.mark.parametrize("echo", RETIREMENT_ECHOES)
+    @pytest.mark.parametrize("value", ["2026-02-31", "2026-3-1", "gestern"], ids=["no such day", "unpadded", "not a date"])
+    def test_it_refuses_a_value_no_stamp_composes(self, echo: str, value: str, assert_rejects):
+        model, body = RETIREMENT_ECHOES[echo]
+
+        assert_rejects(model, {**body, "inactive_since": value}, "inactive_since")
 
 
 class TestTheProjection:

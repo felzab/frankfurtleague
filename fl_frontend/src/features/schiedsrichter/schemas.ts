@@ -1,12 +1,18 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktSchema, PersonNameSchema } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  FLKontaktPayloadSchema,
+  FLKontaktSchema,
+  PersonNameSchema,
+} from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
   name: PersonNameSchema,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
-  kontakt: FLKontaktSchema,
+  kontakt: FLKontaktPayloadSchema,
   schule: z.string().nullable(),
 });
 export type FLPostSchiedsrichterPayload = z.infer<typeof FLPostSchiedsrichterPayloadSchema>;
@@ -15,7 +21,7 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   name: PersonNameSchema,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
-  kontakt: FLKontaktSchema,
+  kontakt: FLKontaktPayloadSchema,
   schule: z.string().nullable(),
 });
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
@@ -48,7 +54,9 @@ export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchieds
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
 
-  name: z.string().nonempty(),
+  // Null once the erasure has run, and only then: what a reader is shown instead is
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  name: z.string().nonempty().nullable(),
   schule: z.string().nullable(),
   // The standard fee. A Spiel's embedded `payment` is what was agreed for that match, and changing
   // this never rewrites it.
@@ -57,6 +65,9 @@ export const FLSchiedsrichterSchema = z.object({
   // The day the referee was retired, null while they officiate. Deactivation goes through
   // DELETE, so it is on no payload.
   inactive_since: CustomDateStringSchema.nullable(),
+  // The day their data were erased, null until then. On no payload, and the flag every surface reads
+  // rather than looking for a word in `name`.
+  anonymisiert_am: CustomDateStringSchema.nullable(),
 });
 export type FLSchiedsrichter = z.infer<typeof FLSchiedsrichterSchema>;
 
@@ -80,7 +91,8 @@ export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichter
 /**
  * What the retire, the reactivate and the anonymisation echo: one backend model for the three.
  *
- * The anonymisation answers with the referee still standing — cleared `kontakt`, `name` untouched.
+ * The anonymisation answers with the referee still standing: `kontakt` and `name` nulled and
+ * `anonymisiert_am` stamped, which is the state every fixture of theirs then mirrors.
  */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,

@@ -8,7 +8,14 @@ import { Form } from "@heroui/react";
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
-import { describeUnrestorableKontakte, emptiedSeatLabels, mirrorKontakte, teamPageHref, toKontaktePayload } from "@/features/kontakte/utils";
+import {
+  describeUnrestorableKontakte,
+  emptiedSeatLabels,
+  mirrorKontakte,
+  renamedConfirmedSeatLabels,
+  teamPageHref,
+  toKontaktePayload,
+} from "@/features/kontakte/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -31,26 +38,9 @@ import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
-import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-
-/** The stored block as a payload can spell it, seat by seat. */
-const replayableKontakte = (kontakte: FLSaisonTeamKontakte | null) =>
-  kontakte === null
-    ? null
-    : {
-        ...kontakte,
-        trainer: datierterSitz(kontakte.trainer),
-        ansprechperson: datierterSitz(kontakte.ansprechperson),
-        stellvertretung: datierterSitz(kontakte.stellvertretung),
-      };
-
-// A null `geburtsdatum` marks a seat whose contact has not confirmed. The editor never invents a
-// date for another person, so the empty string it maps to is refused at the save rather than
-// guessed at.
-const datierterSitz = (person: FLKontaktperson | null) => (person === null ? null : { ...person, geburtsdatum: person.geburtsdatum ?? "" });
 
 /**
  * The save answered without the token of what it left, so the undo has no precondition. One `Stand`
@@ -83,9 +73,9 @@ export function AdminKontakteEditForm({
   const [isPending, startTransition] = useTransition();
 
   const storedMembership = saison.membership;
-  // Mapped ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
+  // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
   // what the season holds.
-  const storedKontakte = replayableKontakte(storedMembership?.kontakte ?? null);
+  const storedKontakte = storedMembership?.kontakte ?? null;
   // The token the read served, echoed and never rebuilt here. A club outside the season has no row
   // and so no token, and the save that would carry the empty string is a 404 before it is judged.
   const kontakteStand = storedMembership?.kontakte_stand ?? "";
@@ -141,6 +131,9 @@ export function AdminKontakteEditForm({
     // Off the two COMPOSED blocks, never the controls: emptying the named seat empties the Trainer
     // with it, and neither seat's own control was pressed.
     emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
+    // Composed for the same reason: renaming the named seat renames the Trainer reading it, and the
+    // server unstamps the composed block it is sent.
+    renamedConfirmedSeatLabels: renamedConfirmedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const resetDraftToStored = () => {

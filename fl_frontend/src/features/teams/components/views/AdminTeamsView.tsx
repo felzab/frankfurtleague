@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { AdminTeamsTable } from "@/features/teams/components/collections/AdminTeamsTable";
 import { AdminDeleteTeamModal } from "@/features/teams/components/modals/AdminDeleteTeamModal";
-import { TEAM_FACETS } from "@/features/teams/facets";
+import { buildTeamFacets } from "@/features/teams/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminTeamRow } from "@/features/teams/types";
@@ -11,12 +13,16 @@ import type { AdminTeamRow } from "@/features/teams/types";
 const SEARCH_KEYS = ["name", "full_name", "shorthand"] as const;
 
 /** Club-centric rows spanning every season, with the selected season's junction data beside them. */
-export function AdminTeamsView({ teams }: { teams: AdminTeamRow[] }) {
+export function AdminTeamsView({ teams, numberOfGroups }: { teams: AdminTeamRow[]; numberOfGroups: number | null }) {
+  // Built here rather than handed down: a facet carries a `read` function, which a Server Component
+  // may not pass to a Client one (`.claude/rules/frontend.md`).
+  const facets = useMemo(() => buildTeamFacets(numberOfGroups), [numberOfGroups]);
+
   return (
     <AdminCrudView<AdminTeamRow>
       items={teams}
       searchKeys={SEARCH_KEYS}
-      facets={TEAM_FACETS}
+      facets={facets}
       renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminTeamsTable
           filteredTeams={filteredItems}

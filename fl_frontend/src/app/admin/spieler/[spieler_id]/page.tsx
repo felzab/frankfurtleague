@@ -8,7 +8,7 @@ import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminS
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
-import { collectHeldRollen } from "@/features/spieler/utils";
+import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -76,6 +76,9 @@ async function AdminSpielerEditContent({
   // Who leads each team this season, so the editor offers no role the write path would refuse
   // (`REQ-SQUAD-004`). The edited player's own row is excluded: their role is not held against them.
   const heldRollen = collectHeldRollen({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
+  // The same exclusion as the roles above, and it is what makes an untouched save survive its own
+  // place: a squad at the cap counting this player would refuse an edit that moves nobody.
+  const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
   // The picker offers the selected season's teams only: a transfer is meaningful within it alone.
   const teams: SpielerTeamOption[] = teamsRes.teams
@@ -85,6 +88,7 @@ async function AdminSpielerEditContent({
       name: team.name,
       shorthand: team.shorthand,
       heldRollen: heldRollen[team.id] ?? {},
+      isSquadFull: squadIsFull(liveSquadRows[team.id], selectedSaison.rules.max_kadergroesse),
     }));
 
   return (

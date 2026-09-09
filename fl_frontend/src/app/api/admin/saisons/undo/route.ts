@@ -11,18 +11,22 @@ import type { NextRequest } from "next/server";
 const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-004": "Mindestens ein Spieltag liegt außerhalb des ursprünglichen Zeitraums.",
   "REQ-DATE-005": "Der ursprüngliche Zeitraum ist zu kurz für die Spieltage, die diese Saison nach ihren Regeln braucht.",
-  "REQ-RULES-001": "Die ursprünglichen Zahlen für Gruppen und Qualifikanten ergeben keine KO-Runde, die diese Saison spielen kann.",
+  "REQ-RULES-001": "Die ursprünglichen Zahlen für Gruppen und Qualifikanten pro Gruppe ergeben keine KO-Runde, die diese Saison spielen kann.",
   "REQ-RULES-002": "Die ursprüngliche Zahl der Gruppen lässt eine Gruppe wegfallen, die inzwischen Teams hält.",
   "REQ-RULES-003": "Mindestens eine Gruppe hält inzwischen mehr Teams, als die ursprüngliche Zahl der Teams pro Gruppe zulässt.",
-  "REQ-RULES-004": "Ein Platz im KO-Baum verweist auf eine Platzierung, die es bei der ursprünglichen Zahl der Qualifikanten nicht gibt.",
-  "REQ-RULES-005": "Diese Saison ist inzwischen abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben.",
+  "REQ-RULES-004":
+    "Ein Platz im KO-Baum verweist auf eine Platzierung, die es bei der ursprünglichen Zahl der Qualifikanten pro Gruppe nicht gibt.",
+  "REQ-RULES-005": "Diese Saison ist inzwischen abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben.",
   "REQ-RULES-006": "Mindestens ein Spieltag enthält mehr Spiele, als die ursprünglichen Regeln vorsehen.",
   "REQ-RULES-007": "Die ursprünglichen Regeln qualifizieren mehr Teams aus einer Gruppe, als die Gruppe fasst.",
   "REQ-RULES-008": "Bei den ursprünglichen Punkten bringt ein Unentschieden mehr als ein Sieg.",
   "REQ-RULES-009": "Mindestens ein Kader hat inzwischen mehr Spieler, als die ursprüngliche maximale Kadergröße zulässt.",
   "REQ-RULES-010": "Diese Saison spielt eine KO-Runde, und das ursprüngliche Ergebnis für ein Nichtantreten bringt niemanden weiter.",
-  "REQ-RULES-011": "Für diese Saison sind inzwischen Spiele angesetzt, deshalb stehen Gruppen, Teams pro Gruppe und Qualifikanten fest.",
+  "REQ-RULES-011":
+    "Für diese Saison sind inzwischen Spiele angesetzt, deshalb stehen Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe fest.",
   "REQ-RULES-012": "Die KO-Runde dieser Saison hat inzwischen begonnen, deshalb ist der Tiebreak festgeschrieben.",
+  "REQ-RULES-013":
+    "Aus den ursprünglichen Zahlen für Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann.",
 };
 
 /** The second half of every refusal above: a cause alone leaves the admin unsure what the season now holds. */
@@ -42,10 +46,10 @@ export async function POST(request: NextRequest) {
         const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
         if (refusal === undefined) throw error;
 
-        return `${refusal} ${CHANGE_STANDS}`;
+        return { refusal: `${refusal} ${CHANGE_STANDS}` };
       }
 
-      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten.";
+      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
     },
     invalidate: () => {
       revalidateTag("saisons", { expire: 0 });

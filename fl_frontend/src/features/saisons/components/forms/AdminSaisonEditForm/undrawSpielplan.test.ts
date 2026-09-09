@@ -3,11 +3,22 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
+/**
+ * Read rather than rendered for what this file claims over it: which expression resolves a state, an
+ * absence spanning every state, and the label pair a second press parts. `spielplanReplace.test.ts`
+ * renders this panel.
+ */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
-/** The action file, for the one claim that is about two sites agreeing rather than about this panel. */
+/** The action file, for the claims that are about two sites agreeing rather than about this panel. */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "actions.ts"), "utf8");
+
+/**
+ * Its string concatenations joined: Prettier moves a `+` break at will, so a sentence asserted as
+ * written would fail on a re-wrap that changed nothing a reader sees. Every assertion against the
+ * action file reads this, never `ACTIONS`.
+ */
+const ACTION_COPY = ACTIONS.replaceAll(/" \+\s*"/g, "");
 
 /**
  * JSX's line breaks and its `{" "}` joins collapsed. **Every copy assertion reads this and not the
@@ -16,7 +27,10 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..",
  */
 const flatten = (jsx: string): string => jsx.replaceAll('{" "}', " ").replace(/\s+/g, " ");
 
-/** The armed alert alone: the shell's own parts are asserted at `ConfirmReveal`'s home. */
+/**
+ * The armed alert alone, which a second press reveals, so a static render answers with the resting
+ * form. The shell's own parts are asserted at `ConfirmReveal`'s home.
+ */
 const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "");
 
 /** The panel's own hint, which stands in the heading and ends with it. */
@@ -107,10 +121,11 @@ describe("the undraw half of the Spielplan panel", () => {
     assert.match(HINWEIS, /über die Teamseite/);
   });
 
-  /* Two sites, one verb: `REQ-RULES-011`'s message tells an admin to take the Spielplan back, and
-     this control is what they then go looking for. Rename either alone and this fails. */
+  /* Three sites, one verb: the refusal sends an admin to the reloaded Regeln panel, that panel names
+     taking the Spielplan back (`regelnFreeze.test.ts :: UNDRAW`), and this control is what they go
+     looking for. Rename one and the chain breaks silently. */
   it("carries the verb the rules refusal sends the admin looking for", () => {
-    assert.match(ACTIONS, /Nimm dafür zuerst den Spielplan zurück/);
+    assert.match(ACTION_COPY, /im Abschnitt Regeln steht dann/);
     assert.match(SOURCE, /"Spielplan zurücknehmen"/);
     assert.match(SOURCE, /"Ja, Spielplan zurücknehmen"/);
   });

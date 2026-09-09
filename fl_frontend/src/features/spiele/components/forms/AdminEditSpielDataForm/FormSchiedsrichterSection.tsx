@@ -1,6 +1,7 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
@@ -12,6 +13,7 @@ import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
 /** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
@@ -26,8 +28,35 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
+  // The DISPLAY name, so a nulled one never reaches the trigger as an empty space. Nothing written
+  // comes from here — `toSpielDataPayload` sends the id and the fee alone.
+  const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
+    ...candidate,
+    name: schiedsrichterAnzeigename(candidate.name),
+  }));
+
+  // The referee this fixture ALREADY holds, where the list offers nobody: the default read drops every
+  // retired row, and the erasure retires the person it erases. Without this the trigger renders blank
+  // on a fixture that HAS a referee.
+  const held: FLSchiedsrichterAngezeigt[] =
+    schiedsrichterPayload === null || offered.some((candidate) => candidate.id === schiedsrichterPayload.schiedsrichter_id)
+      ? []
+      : [
+          {
+            id: schiedsrichterPayload.schiedsrichter_id,
+            name: schiedsrichterAnzeigename(schiedsrichterPayload.name),
+            // The fixture's own agreed fee, never a default this list has no row to read one from:
+            // re-picking the held referee must not silently reprice the fixture.
+            default_payment: schiedsrichterPayload.payment ?? 0,
+            schule: null,
+            kontakt: { email: null, telefon: null },
+            inactive_since: null,
+            anonymisiert_am: null,
+          },
+        ];
+
   // The resolved record, as in `FormSpielortSection`: `name` arrives already parsed.
-  const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
+  const handleSchiedsrichterChange = (resolved: FLSchiedsrichterAngezeigt | null) => {
     onSchiedsrichterChange(
       resolved
         ? {
@@ -61,11 +90,11 @@ export function FormSchiedsrichterSection({
 
   return (
     <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <PickOrCreateAutocomplete<FLSchiedsrichter>
+      <PickOrCreateAutocomplete<FLSchiedsrichterAngezeigt>
         label="Schiedsrichter"
         fieldPath="schiedsrichter.schiedsrichter_id"
         placeholder="z.B. Pierluigi Collina"
-        items={schiedsrichter}
+        items={[...held, ...offered]}
         selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
         onSelect={handleSchiedsrichterChange}
         createLabel="Neuen Schiedsrichter anlegen"

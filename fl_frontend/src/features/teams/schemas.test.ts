@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  FLAustrittSchema,
+  FLKontaktKenntnisnahmePayloadSchema,
+  FLPatchSaisonTeamPayloadSchema,
   FLPatchTeamResponseSchema,
   FLPostTeamPayloadSchema,
   FLReplaceSaisonTeamResponseSchema,
@@ -17,6 +20,8 @@ import {
  */
 const pathsRefused = (
   schema:
+    | typeof FLKontaktKenntnisnahmePayloadSchema
+    | typeof FLPatchSaisonTeamPayloadSchema
     | typeof FLPatchTeamResponseSchema
     | typeof FLPostTeamPayloadSchema
     | typeof FLReplaceSaisonTeamResponseSchema
@@ -159,7 +164,6 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
-  geburtsdatum: "1990-01-01",
   einwilligung: { umfang: "kontaktdaten", text_version: "2025-08", datum: "2025-09-01" },
   ...overrides,
 });
@@ -190,6 +194,25 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
 
   it("refuses a seat that is neither a whole person nor empty", () => {
     assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
+  });
+
+  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a seat whose person
+     holds one has to save here rather than meet a field message no repair answers. */
+  it("takes a seat whose address carries an umlaut, in either part", () => {
+    for (const email of ["käthe@beispiel.de", "kaethe@käthe-schule.example"]) {
+      const seat = kontaktpersonPayload({ email });
+
+      assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: seat })), [], email);
+    }
+  });
+
+  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so nothing
+     would mark the box the admin has to change. */
+  it("refuses a seat whose address the API would refuse", () => {
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
+      ["trainer.email"],
+    );
   });
 });
 
@@ -252,5 +275,66 @@ describe("a club's website", () => {
     const { website_url: _absent, ...ohne } = payload(null);
 
     assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, ohne), ["website_url"]);
+  });
+});
+
+const postTeam = (overrides: Record<string, unknown> = {}) => ({
+  name: "SC Riederwald",
+  shorthand: "RW",
+  description: "",
+  full_name: "Sportclub Riederwald 1927",
+  website_url: "https://example.org",
+  address: { strasse: "Hanauer Landstraße", hausnummer: "12a", plz: "60314", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
+  schulform: null,
+  ...overrides,
+});
+
+const junctionPayload = (overrides: Record<string, unknown> = {}) => ({
+  team_id: "0123456789abcdef01234567",
+  saison_id: "2026",
+  gruppe: "A",
+  austritt: { type: "rueckzug", grund: "Kein Kader", datum: "2026-03-12" },
+  trikot_farbe: null,
+  ...overrides,
+});
+
+/* Every field the API strips before its floor counts. An untrimmed mirror takes a value of spaces
+   alone, which the endpoint then refuses with a bare `REQ-VAL-001` naming no field at all. */
+describe("the write payloads' floors, against the stripped floors at the API", () => {
+  const SPACES = "   ";
+
+  it("refuses a club name, full name or Kürzel of spaces alone", () => {
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ name: SPACES })), ["name"]);
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ full_name: SPACES })), ["full_name"]);
+    // A Kürzel of spaces alone satisfies an untrimmed width exactly, which is the arm a floor alone would miss.
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "  " })), ["shorthand"]);
+  });
+
+  it("takes a padded Kürzel and sends the two characters it holds", () => {
+    assert.equal(FLPostTeamPayloadSchema.parse(postTeam({ shorthand: " RW " })).shorthand, "RW");
+  });
+
+  it("carries the embedded address's own floors, which the club payload does not restate", () => {
+    const address = { ...postTeam().address, strasse: SPACES };
+
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ address })), ["address.strasse"]);
+  });
+
+  it("refuses a Kenntnisnahme whose Fassung is spaces alone, which cites no wording at all", () => {
+    const kenntnisnahme = { umfang: "kontaktdaten", text_version: SPACES, datum: "2025-09-01" };
+
+    assert.deepEqual(pathsRefused(FLKontaktKenntnisnahmePayloadSchema, kenntnisnahme), ["text_version"]);
+  });
+
+  it("refuses an austritt whose published reason is spaces alone", () => {
+    const austritt = { ...junctionPayload().austritt, grund: SPACES };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt })), ["austritt.grund"]);
+  });
+
+  /* The half the private payload schema exists for: put the trim on `FLAustrittSchema` instead and a
+     club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
+  it("leaves the read schema taking a stored reason of spaces alone", () => {
+    assert.equal(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success, true);
   });
 });

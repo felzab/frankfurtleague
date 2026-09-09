@@ -22,6 +22,8 @@ const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts")
 const BOUNDS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "bounds.py"), "utf8");
 /** The endpoint itself, which is what says which of the season's services an acceptance reaches. */
 const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
+/** The season's entry write, which the acceptance reaches the group rule through rather than calling it. */
+const TEAMS_CRUD = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "teams", "crud.py"), "utf8");
 /** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
@@ -58,8 +60,11 @@ const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/e
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
-/** The season's entry services, which `annehmen_bewerbung` calls rather than restating. */
+/** The season's entry services, which `annehmen_bewerbung` reaches rather than restating. */
 const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
+
+/** The group rule is reached through this helper rather than called (`docs/backend/spec.md :: I53`). */
+const ENTRY_CHOKE_POINT = "refuse_a_full_gruppe";
 
 /** The entry rules those services implement, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
@@ -182,9 +187,12 @@ describe("the triage's refusals against the backend's register", () => {
   /* Pinned through the SERVICES, not the operation strings: `REQ-ENTER-005` writes its operations
      as a parenthesised literal, which `refusalRegister.ts`'s single-literal parse reads as none. */
   it("maps the entry rules the acceptance reuses", () => {
-    for (const service of REUSED_SERVICES) {
-      assert.ok(ADMIN_ROUTER.includes(`${service}(`), `the acceptance no longer calls ${service}, so its codes cannot reach it`);
-    }
+    assert.ok(
+      ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
+      `the acceptance no longer reaches ${ENTRY_CHOKE_POINT}, so the group rules cannot refuse it`,
+    );
+    assert.ok(TEAMS_CRUD.includes("find_entry_refusal("), `${ENTRY_CHOKE_POINT} no longer judges the group's own rule`);
+    assert.ok(ADMIN_ROUTER.includes("find_club_entry_refusal("), "the acceptance no longer judges the club's own entry");
 
     for (const code of REUSED_ENTRY_CODES) {
       const rule = DECLARED_RULES.find((declared) => declared.code === code);
@@ -529,6 +537,13 @@ describe("the decline's bound", () => {
     assert.notEqual(backend, "", "the backend no longer states the bound under that name");
     assert.equal(frontend, backend, "the frontend mirror disagrees with the backend's bound");
     assert.ok(SCHEMAS.includes("BEWERBUNG_GRUND_MAX_LENGTH"), "the payload schema stopped reading the mirrored bound");
+    /* The ceiling the schema enforces, beside the mention of it: a wider one written beside the import
+       still reads the mirror, and the reason it lets through is the one the API marks no field for. */
+    assert.equal(
+      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "a".repeat(BEWERBUNG_GRUND_MAX_LENGTH + 1) }).success,
+      false,
+      "a reason one character past the mirrored bound is taken here and refused only by the backend",
+    );
   });
 
   /* A decline is stored on the application and mailed to the school in one irreversible step, so
@@ -999,8 +1014,8 @@ describe("the corrected contact address", () => {
     );
   });
 
-  /* Rulings 76 and 91: one press writes every seat the person holds, so the message names both or a
-     reader goes looking for a second link that will never come. */
+  /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
+     the message names both or a reader goes looking for a second link that will never come. */
   it("names every seat of a mirrored pair in the message it sends", () => {
     assert.match(
       KORREKTUR_ACTION,
@@ -1035,7 +1050,11 @@ describe("the seat row's correction control", () => {
   /* `docs/frontend/spec.md :: I66` gives a panel one action row, and a second open editor would put
      two: three rows each holding a draft is three ways to leave one unsaved. */
   it("is one editor for the whole strip rather than one per row", () => {
-    assert.match(STRIP, /useState<KontaktRolle \| null>\(null\)/, "the strip holds something other than one editor slot");
+    assert.match(
+      STRIP,
+      /const \[korrektur, setKorrektur\] = useState<KontaktRolle \| null>\(null\)/,
+      "the correction holds something other than one open row at a time",
+    );
     assert.match(STRIP, /\{bearbeitet && \(/, "the editor is mounted whether or not its row is the open one");
   });
 
@@ -1050,7 +1069,11 @@ describe("the seat row's correction control", () => {
   /* `.claude/rules/frontend.md` **forms**: a message between two keystrokes describes a value nobody
      finished entering, so the field is judged when it is left and at the press. */
   it("judges the typed address on blur and at the press, through the shared mechanism", () => {
-    assert.match(STRIP, /useDraftFieldErrors\(\{/, "the editor judges its field with something other than the shared hook");
+    assert.match(
+      STRIP,
+      /useDraftFieldErrors\(\{\s*schemas: \{ korrektur: FLBewerbungKontaktEmailPayloadSchema \},/,
+      "the editor judges the typed address with another hook, or against a schema other than the correction's own payload",
+    );
     assert.match(
       STRIP,
       /onBlur=\{\(\) => \{\s*validatePaths\("korrektur", payload, \["email"\]\);/,
@@ -1076,8 +1099,8 @@ describe("the seat row's correction control", () => {
     assert.match(STRIP, /stiftRef\.current\?\.focus\(\)/, "focus is left wherever the unmounted field was");
   });
 
-  /* Ruling 78: a grey chip on a coloured row reads as a control that has been switched off, and this
-     one is the row's most actionable fact. */
+  /* A refused delivery is the row's most actionable fact, and the tone set it draws from holds no
+     neutral member (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("grades a refused delivery with a tone rather than leaving it neutral", () => {
     assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
     assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");

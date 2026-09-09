@@ -1,12 +1,15 @@
-from typing import Annotated, Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.teams.crud import refuse_a_full_gruppe
 from app.api.teams.schemas import (
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
@@ -35,7 +38,6 @@ from app.api.teams.services import (
     build_team_pipeline,
     compose_kontakte_herkunft,
     find_club_entry_refusal,
-    find_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakte_precondition_refusal,
     find_replacement_refusal,
@@ -303,6 +305,7 @@ async def post_saison_team(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    db: DBClient,
 ) -> FLSaisonTeamResponse:
     """
     Enter a team into a season, in a group, under the name the club carries today.
@@ -311,42 +314,37 @@ async def post_saison_team(
     (`docs/backend/spec.md :: I11`).
     """
 
-    # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
-    # rather than inserting a row pointing at no club, and the season's own copy of the name and
-    # shorthand is seeded from it.
-    team_raw = await pull_one_from_db(
-        collection=teams_collection,
-        db_filter={"_id": team_id},
-        projection=["name", "shorthand", "inactive_since"],
-    )
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id})
+    async def enter_the_club(session: AsyncClientSession) -> Mapping[str, Any]:
+        """Judge, then write the row. Everything judged is read in-session, and the group's own count is `refuse_a_full_gruppe`'s."""
 
-    # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another
-    # group, so nobody should be handed a capacity figure to act on first.
-    refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+        # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
+        # rather than inserting a row pointing at no club, and the season's own copy of the name and
+        # shorthand is seeded from it.
+        team_raw = await pull_one_from_db(
+            collection=teams_collection,
+            db_filter={"_id": team_id},
+            projection=["name", "shorthand", "inactive_since"],
+            session=session,
+        )
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id}, session=session)
 
-    # Count-then-insert, not transactional: losing the race costs one team over a planning bound
-    # rather than corrupt data, on a single-admin surface.
-    occupied_rows = await pull_many_from_db(
-        collection=saison_teams_collection,
-        db_filter={"saison_id": saison_team_data.saison_id, "gruppe": saison_team_data.gruppe},
-        projection=["_id"],
-    )
+        # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another
+        # group, so nobody should be handed a capacity figure to act on first.
+        refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
 
-    refuse(
-        find_entry_refusal(
-            saison_status=str(saison_raw["status"]),
+        await refuse_a_full_gruppe(
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            saison_id=saison_team_data.saison_id,
             gruppe=saison_team_data.gruppe,
+            saison_status=str(saison_raw["status"]),
             # Validated, not read raw: a season missing the capacity keys fails here rather than
             # admitting a team against a bound nobody chose.
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-            occupied=len(occupied_rows),
+            session=session,
         )
-    )
 
-    await post_one_to_db(
-        collection=saison_teams_collection,
-        document={
+        document = {
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
@@ -361,8 +359,20 @@ async def post_saison_team(
             # rather than merely old.
             "name": team_raw["name"],
             "shorthand": team_raw["shorthand"],
-        },
-    )
+        }
+        await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
+
+        return document
+
+    # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
+    # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
+    # everything it judges.
+    async with db.start_session() as session:
+        entered = await session.with_transaction(enter_the_club)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
 
     return FLSaisonTeamResponse(
         saison_id=saison_team_data.saison_id,
@@ -371,8 +381,8 @@ async def post_saison_team(
         austritt=None,
         trikot_farbe=None,
         kontakte=None,
-        name=team_raw["name"],
-        shorthand=team_raw["shorthand"],
+        name=entered["name"],
+        shorthand=entered["shorthand"],
     )
 
 
@@ -388,6 +398,7 @@ async def patch_saison_team(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLSaisonTeamResponse:
     """
     Rewrite a team's row for one season: group, exit record and kit colour.
@@ -396,52 +407,64 @@ async def patch_saison_team(
     (`docs/backend/spec.md :: I31`). The contact block is `PATCH .../kontakte`'s.
     """
 
-    # The identity comes back with the group because this endpoint echoes the whole row and writes
-    # neither field: a group change and an austritt both leave the season's name where it was.
-    existing_raw = await pull_one_from_db(
-        collection=saison_teams_collection,
-        db_filter={"team_id": team_id, "saison_id": saison_id},
-        projection=["gruppe", "name", "shorthand"],
-    )
-    # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone.
-    if saison_team_data.gruppe != existing_raw["gruppe"]:
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+        """Judge the move, then rewrite the row. Everything judged is read in-session."""
 
-        # Both sides, because a fixture fields a team on either.
-        fixtures_drawn = await spiele_collection.count_documents(
-            {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
-        )
-        refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
-
-        occupied_rows = await pull_many_from_db(
+        # The identity comes back with the group because this endpoint echoes the whole row and
+        # writes neither field: a group change and an austritt both leave the season's name where it was.
+        existing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
-            db_filter={"saison_id": saison_id, "gruppe": saison_team_data.gruppe},
-            projection=["_id"],
+            db_filter={"team_id": team_id, "saison_id": saison_id},
+            projection=["gruppe", "name", "shorthand"],
+            session=session,
         )
-        refuse(
-            find_entry_refusal(
-                # A MOVE is not an entry -- the club already holds a row -- so the status gate on
-                # entering does not judge it, and only its two group gates below apply.
-                saison_status="future",
-                gruppe=saison_team_data.gruppe,
-                rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-                occupied=len(occupied_rows),
+        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone,
+        # and takes no season write either, so two austritte contend on nothing and need not.
+        if saison_team_data.gruppe != existing_raw["gruppe"]:
+            saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+            # Both sides, because a fixture fields a team on either.
+            fixtures_drawn = await spiele_collection.count_documents(
+                {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}, session=session
             )
+            refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
+
+            await refuse_a_full_gruppe(
+                saison_teams_collection=saison_teams_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                gruppe=saison_team_data.gruppe,
+                # A MOVE is not an entry -- the club already holds a row -- so the status gate on
+                # entering does not judge it, and only its two group gates apply.
+                saison_status="future",
+                rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+                session=session,
+            )
+
+        updated_raw = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter={"team_id": team_id, "saison_id": saison_id},
+            update={"$set": saison_team_data.model_dump(mode="json")},
+            session=session,
         )
 
-    updated_raw = await patch_one_in_db(
-        collection=saison_teams_collection,
-        db_filter={"team_id": team_id, "saison_id": saison_id},
-        update={"$set": saison_team_data.model_dump(mode="json")},
-    )
+        return existing_raw, updated_raw
+
+    # One transaction, because a group change makes two writes: this row and the season the group's
+    # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
+    async with db.start_session() as session:
+        existing_raw, updated_raw = await session.with_transaction(move_the_club)
+
+    # After the commit, and whatever field the refusal helper's own write moved: every season write
+    # drops the cache (`docs/backend/spec.md :: I131`).
+    invalidate_saison_cache()
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
     # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
     # still refuses, a keyword being validated like any other value.
 
-    # That write took no session and has committed by here, so such a block answers 500 after it
-    # landed. Accepted: the write is the one asked for, the retry is idempotent, and a session would
-    # abort a correct write over a field this endpoint never touches.
+    # Assembled after the commit rather than inside the callback, so such a block answers 500 for a
+    # write that landed rather than aborting a correct move over a field this endpoint never touches.
     return FLSaisonTeamResponse(
         saison_id=saison_id,
         team_id=team_id,
@@ -634,7 +657,7 @@ async def replace_saison_team(
         )
 
         # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
-        # stored `gruppe` outside A-D raises here and aborts the transaction rather than answering.
+        # stored `gruppe` outside the closed set raises here and aborts the transaction rather than answering.
         return FLReplaceSaisonTeamResponse(
             saison_id=saison_id,
             outgoing_team_id=team_id,

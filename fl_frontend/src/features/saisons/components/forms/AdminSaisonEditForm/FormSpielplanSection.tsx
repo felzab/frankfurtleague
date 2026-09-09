@@ -8,9 +8,10 @@ import { Calendar, CalendarXmark } from "@gravity-ui/icons";
 import { Button, Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
-import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { drawGroupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -31,7 +32,7 @@ import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spi
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
 import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
-import type { SaisonSpielplanContext } from "@/features/saisons/types";
+import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react";
 
 /** The two writes this panel offers, keyed as the operation picker below reads them back. */
@@ -52,6 +53,7 @@ export function FormSpielplanSection({
   rules,
   startDate,
   endDate,
+  gruppenOccupancy,
   spielplan,
   spieltageCount,
   schedule,
@@ -70,6 +72,12 @@ export function FormSpielplanSection({
   /** The season's STORED span: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
+  /**
+   * How full this season's groups stand. **`REQ-SPIELPLAN-004` asks each offered group for exactly
+   * `teams_per_group`**, so a redraw shape the entries do not fit is the one refusal here that costs a
+   * press rather than a save.
+   */
+  gruppenOccupancy: SaisonGruppenOccupancy;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
@@ -132,6 +140,11 @@ export function FormSpielplanSection({
   // reasons rather than off `closedReason`, which the unchosen prompt fills while both acts stand open.
   const isDestructiveOnOffer = holdsADraw && (drawBlockedReason === null || undrawBlockedReason === null);
   const panel = formPanel({ tone: isDestructiveOnOffer ? "danger" : "neutral" });
+
+  // ONE expression for all three boxes: react-aria's `Select` has no read-only state, so the trio's
+  // two halves spell the freeze differently and a control left off either spelling would still be
+  // live under a confirmation that has already read it.
+  const isShapeFrozen = isConfirming || isWriting;
 
   // Against the STORED rules, so the readout states the move an admin would otherwise only discover
   // afterwards. A first draw offers no fields, leaving every row unmoved.
@@ -209,7 +222,7 @@ export function FormSpielplanSection({
               points: [
                 { term: "Die Teams", text: "verteilst Du über die Teamseite." },
                 {
-                  term: "Gruppen, Teams pro Gruppe und Qualifikanten",
+                  term: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe",
                   text: "änderst Du im Abschnitt Regeln, sobald der Spielplan zurückgenommen ist.",
                 },
               ],
@@ -298,27 +311,71 @@ export function FormSpielplanSection({
         )}
 
         {/* Offered on a REPLACE alone, which is where the endpoint takes them: a first draw runs off
-            the season's rules unchanged. Read-only once armed, so the confirmation cannot describe
+            the season's rules unchanged. Frozen once armed, so the confirmation cannot describe
             numbers that moved under it. */}
         {isDrawing && replacesDraw && (
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
             <div className={FIELD_TRIO}>
-              {SHAPE_FIELDS.map(({ key: shapeKey, label, minValue, maxValue }) => (
-                <SaisonRuleNumberField
-                  key={shapeKey}
-                  // The payload's own path, so a refusal naming one of the three reaches the box that
-                  // holds it. Nothing on the season's save bar spells a `shape.` path, so neither form
-                  // can render the other's message.
-                  name={`shape.${shapeKey}`}
-                  label={<Label className={FIELD_LABEL}>{label}</Label>}
-                  minValue={minValue}
-                  maxValue={maxValue}
-                  isReadOnly={isConfirming || isWriting}
-                  value={shape[shapeKey]}
-                  onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
-                />
-              ))}
+              {/* `shapeKey` is destructured under that name and kept there:
+                  `fl_frontend/src/core/refusalPaths.test.ts` binds the identifier to the three paths
+                  these templates render, and a rename drops all three from the sweep silently. */}
+              {SHAPE_FIELDS.map(({ key: shapeKey, label }) => {
+                if (shapeKey === "teams_per_group")
+                  return (
+                    <SaisonRuleNumberField
+                      key={shapeKey}
+                      // The payload's own path, so a refusal naming one of the three reaches the box
+                      // that holds it. Nothing on the season's save bar spells a `shape.` path, so
+                      // neither form can render the other's message.
+                      name={`shape.${shapeKey}`}
+                      label={<Label className={FIELD_LABEL}>{label}</Label>}
+                      minValue={teamsPerGroupFloor({
+                        qualifiers: shape.qualifiers_per_group,
+                        held: shape.teams_per_group,
+                        occupancy: gruppenOccupancy,
+                      })}
+                      maxValue={MAX_TEAMS_PER_GROUP}
+                      isReadOnly={isShapeFrozen}
+                      value={shape[shapeKey]}
+                      // An emptied box is dropped rather than recorded: these three go straight into
+                      // the draw's payload, so a null would reach the confirmation as a figure and
+                      // the press as a refusal.
+                      onChange={(next) => {
+                        if (next !== null) setShape({ ...shape, [shapeKey]: next });
+                      }}
+                    />
+                  );
+
+                return (
+                  <SaisonCountSelect
+                    key={shapeKey}
+                    name={`shape.${shapeKey}`}
+                    ariaLabel={label}
+                    label={<Label className={FIELD_LABEL}>{label}</Label>}
+                    isDisabled={isShapeFrozen}
+                    // Against the DRAFT the boxes hold, so moving one moves what the next may reach:
+                    // the three are judged together, and an offer read off the stored season would
+                    // keep offering a product this press refuses.
+                    options={
+                      shapeKey === "number_of_groups"
+                        ? drawGroupCountOptions({
+                            groups: shape.number_of_groups,
+                            qualifiers: shape.qualifiers_per_group,
+                            teams: shape.teams_per_group,
+                            occupancy: gruppenOccupancy,
+                          })
+                        : qualifierCountOptions({
+                            groups: shape.number_of_groups,
+                            qualifiers: shape.qualifiers_per_group,
+                            teams: shape.teams_per_group,
+                          })
+                    }
+                    value={shape[shapeKey]}
+                    onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
+                  />
+                );
+              })}
             </div>
           </div>
         )}

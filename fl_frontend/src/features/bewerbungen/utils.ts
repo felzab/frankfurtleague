@@ -1,6 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_EINWILLIGUNG, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { BESTAETIGUNG_KENNTNISNAHME, LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -171,7 +171,7 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
 // Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
 // is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
 export function stampEinwilligungFassung<T extends object>(payload: T): T & { text_version: string } {
-  return { ...payload, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
+  return { ...payload, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
 }
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
@@ -355,31 +355,4 @@ export function bewerbungJudgedPaths(paths: readonly string[], mirroredSeat: FLT
     .map((path) => path.replace(`kontakte.${mirroredSeat}.`, "kontakte.trainer."));
 
   return copies.length === 0 ? paths : [...paths, ...copies];
-}
-
-/**
- * Which end of the queue a truncated read keeps. The default keeps the NEWEST, so a flood buries the
- * older genuine applications; reversing it is the one thing that puts them back in the window.
- */
-export type Leserichtung = "asc" | "desc";
-
-type RohParams = Record<string, string | string[] | undefined>;
-
-/** Anything else reads as the default, so a hand-edited URL falls back rather than 404s. */
-export function parseLeserichtung(params: RohParams): Leserichtung {
-  return params.order === "asc" ? "asc" : "desc";
-}
-
-/**
- * The link to the opposite end of the queue. Every other search parameter survives, so reversing the
- * read never silently drops the operator's search text or facet selection.
- */
-export function leserichtungHref(params: RohParams, richtung: Leserichtung): string {
-  const next = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (key === "order" || value === undefined) continue;
-    for (const einzeln of Array.isArray(value) ? value : [value]) next.append(key, einzeln);
-  }
-  next.set("order", richtung === "asc" ? "desc" : "asc");
-  return `?${next.toString()}`;
 }

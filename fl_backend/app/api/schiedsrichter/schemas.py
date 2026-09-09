@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomOptionalString
-from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -24,6 +24,8 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     # the whole list over one row (`docs/backend/spec.md :: I36`). Stripped first, so the padding
     # the pattern's trailing space class admits never reaches a match document.
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
+    kontakt: FLKontaktPayload
 
 
 # One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,
@@ -38,11 +40,18 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # Nullable where the payload is not, the erasure nulling the stored name
+    # (`docs/backend/spec.md :: I213`). The floor stays on the string branch, an empty one being the
+    # sentinel this design exists to remove.
+    name: CustomNonEmptyString | None
     # Redeclared without the payload's empty-string coercion: a read answers with the value as
     # stored, never a repaired copy of it.
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
+    # On no payload either, and the row's only record that the erasure ran: whoever renders the
+    # referee reads the word „anonym" off this rather than out of the name column.
+    anonymisiert_am: CustomOptionalDateString
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])

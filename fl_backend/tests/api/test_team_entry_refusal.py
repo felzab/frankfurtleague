@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -158,6 +159,7 @@ async def enter(database: AsyncDatabase, team_id: ObjectId, gruppe: str = "A") -
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        db=database.client,
     )
 
 

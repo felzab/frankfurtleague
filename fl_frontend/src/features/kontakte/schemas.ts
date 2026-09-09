@@ -4,19 +4,16 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
 // other response of this API publishes.
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { CustomObjectIdStringSchema, KONTAKT_EMAIL_MAX_LENGTH } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /**
  * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
  * a person and not a row. Its own declaration, so no value typed for a write reaches the deletion.
  */
 export const FLKontaktErasurePayloadSchema = z.object({
-  // Spelled as the team editor spells it: the backend types the field the same way, and its refusal
-  // carries no field detail, so an address only the server judged would mark no box.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
 });
 export type FLKontaktErasurePayload = z.infer<typeof FLKontaktErasurePayloadSchema>;
 
@@ -73,7 +70,7 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
   // are carried here because the form has to know which club's season it is writing.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: `Die Saison-ID besteht aus genau ${String(SAISON_ID_LENGTH)} Zeichen.` }),
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),

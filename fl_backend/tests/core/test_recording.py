@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import asyncio
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -60,7 +63,7 @@ class _FakeCollection:
         before: Mapping[str, Any] | None = None,
         after: Mapping[str, Any] | None = None,
         modified_count: int = 0,
-        log: "_FakeCollection | None" = None,
+        log: _FakeCollection | None = None,
     ) -> None:
         self.name = str(name)
         self.before = before
@@ -70,7 +73,7 @@ class _FakeCollection:
         self.sessions: list[Any] = []
         # A collection reaches the log through its own database handle, and for the log itself that
         # resolves back to the same collection -- the shape the recursion guard has to survive.
-        self.database: dict[str, "_FakeCollection"] = {Collection.AKTIONEN: self if log is None else log}
+        self.database: dict[str, _FakeCollection] = {Collection.AKTIONEN: self if log is None else log}
 
     async def find_one(self, *, filter: Any, projection: Any = None, session: Any = None) -> Mapping[str, Any] | None:
         """The post-image: a patch re-reads for the caller's echo once the update has carried the pre-image out."""

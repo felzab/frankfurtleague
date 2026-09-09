@@ -133,15 +133,18 @@ describe("deriveSaisonDraftStatus", () => {
   });
 
   it("carries a field error onto its own row", () => {
+    // `REQ-RULES-002`'s own sentence, against the narrowing that raises it: a fixture stating a
+    // ceiling of its own reads as false to anyone who checks what the group offer admits.
+    const groupHoldsTeams = "Eine Gruppe, die noch Teams hält, kann nicht wegfallen.";
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom(rules({ number_of_groups: 9 })),
-      fieldErrors: { "rules.number_of_groups": "Es gibt höchstens 4 Gruppen." },
+      draft: draftFrom(rules({ number_of_groups: 1 })),
+      fieldErrors: { "rules.number_of_groups": groupHoldsTeams },
     });
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
     // answers on a path no input carries.
-    assert.equal(status.byPath.get("rules.number_of_groups")?.error, "Es gibt höchstens 4 Gruppen.");
+    assert.equal(status.byPath.get("rules.number_of_groups")?.error, groupHoldsTeams);
   });
 
   it("reports the whole application window as one row, freischaltung included", () => {

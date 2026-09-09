@@ -1,13 +1,18 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+// The applications slice declares this width, a school proposing a Kürzel before any club exists to
+// hold it (`docs/glossary.md :: Kürzel`). `fl_backend/tests/shared/test_frontend_mirrors.py` pairs
+// that one declaration with the backend's, so a literal beside it is compared by nothing.
+import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
-  KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
 } from "@/shared/schemas";
@@ -15,6 +20,7 @@ import {
 import {
   DESCRIPTION_MAX_LENGTH,
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+  GRUPPEN_OPTIONS,
   KONTAKT_NAME_MAX_LENGTH,
   TEAM_FULL_NAME_MAX_LENGTH,
   TEAM_NAME_MAX_LENGTH,
@@ -32,7 +38,7 @@ export const OptionalExternalUrlSchema = ExternalUrlSchema.nullable();
  * Mirrors `FLGruppenNames` — a closed set, so a group outside it is a malformed response. German
  * error because the group picker binds this schema too, and an untouched picker submits null.
  */
-export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte wähle eine Gruppe." });
+export const FLGruppenNamesSchema = z.enum(GRUPPEN_OPTIONS, { error: "Bitte wähle eine Gruppe." });
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
@@ -51,6 +57,15 @@ export const FLAustrittSchema = z.object({
 });
 export type FLAustritt = z.infer<typeof FLAustrittSchema>;
 export type FLAustrittType = FLAustritt["type"];
+
+/**
+ * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: strip_austritt_grund`.
+ * Never on the read schema above: a stored blank must still parse, or one club's row fails the list
+ * it appears in (`docs/backend/spec.md :: I36`).
+ */
+const FLAustrittPayloadSchema = FLAustrittSchema.extend({
+  grund: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
+});
 
 /**
  * Mirrors `FLSchulform`. No German error: the club editor offers `Keine Angabe` beside the six, so an
@@ -106,7 +121,7 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  * the one-member literal.
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
-  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Einwilligung gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
+  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
   erfasst_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
@@ -122,12 +137,13 @@ export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema
 export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
-  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
+  umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
   // No `erfasst_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
   // could name either would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
-    .nonempty({ error: "Bitte gib an, welche Fassung unterschrieben wurde." })
+    .trim()
+    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
@@ -159,13 +175,10 @@ const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX
 export const FLKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  // The ceiling is stated here rather than left to the address validator, whose refusal carries no
-  // field detail, so nothing would mark the box.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  geburtsdatum: CustomDateStringSchema,
+  // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
+  // person has not confirmed yet (`docs/backend/spec.md :: I141`).
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
@@ -234,7 +247,7 @@ export const FLTeamSchema = z.object({
 
   // Out of THIS season. Joined from the junction on every read, so it cannot go stale.
   austritt: FLAustrittSchema.nullable(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
@@ -257,7 +270,7 @@ export type FLTeam = z.infer<typeof FLTeamSchema>;
 export const FLGruppenTeamSchema = z.object({
   id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   statistik: FLTeamStatistikSchema,
   // The record's TYPE alone, reusing the enum rather than restating it: a row marks that a club is
   // out of the season, and the club's own page publishes the reason and the date.
@@ -268,18 +281,12 @@ export const FLGruppenTeamSchema = z.object({
 });
 export type FLGruppenTeam = z.infer<typeof FLGruppenTeamSchema>;
 
+// Each list arrives in STANDING order. **Never re-sort one here** (`docs/frontend/spec.md :: 1.2`).
 /**
- * All four keys are required: the backend seeds every group, and an omitted one fails this parse.
- *
- * Each list arrives in STANDING order. **Never re-sort one here** — the same ordering seeds the
- * playoff bracket.
+ * A SUBSET of the closed set: the backend seeds the groups one season offers, so a key per name
+ * would fail every season running fewer than the set holds.
  */
-export const FLGruppenSchema = z.object({
-  A: z.array(FLGruppenTeamSchema),
-  B: z.array(FLGruppenTeamSchema),
-  C: z.array(FLGruppenTeamSchema),
-  D: z.array(FLGruppenTeamSchema),
-});
+export const FLGruppenSchema = z.partialRecord(FLGruppenNamesSchema, z.array(FLGruppenTeamSchema));
 export type FLGruppen = z.infer<typeof FLGruppenSchema>;
 
 export const FLTeamsListResponseSchema = BaseAPIResponseSchema.extend({
@@ -315,15 +322,20 @@ const teamPayloadFields = {
   // The ceilings are the application's, so both tiers refuse alike.
   name: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib einen Namen ein." })
     .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
-  // Exactly two characters, held unique across every club — retired ones included.
-  shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
+  // Held unique across every club, retired ones included (`fl_backend/app/core/constraints.py :: uniq_shorthand`).
+  shorthand: z
+    .string()
+    .trim()
+    .length(KUERZEL_LAENGE, { error: `Das Kürzel besteht aus genau ${String(KUERZEL_LAENGE)} Zeichen.` }),
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
   full_name: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib den vollständigen Namen ein." })
     .max(TEAM_FULL_NAME_MAX_LENGTH, {
       error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
@@ -363,7 +375,7 @@ export type FLReactivateTeamPayload = z.infer<typeof FLReactivateTeamPayloadSche
  */
 export const FLCreateTeamFormPayloadSchema = z.object({
   ...teamPayloadFields,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
 });
 export type FLCreateTeamFormPayload = z.infer<typeof FLCreateTeamFormPayloadSchema>;
@@ -377,7 +389,7 @@ export const FLTeamRecordSchema = z.object({
   id: CustomObjectIdStringSchema,
 
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   website_url: OptionalExternalUrlSchema,
@@ -438,7 +450,7 @@ export type FLTeamWriteResponse = z.infer<typeof FLTeamWriteResponseSchema>;
 export const FLPostSaisonTeamPayloadSchema = z.object({
   // In the PATH on the wire; carried here because the form has to know which club it is entering.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
 });
 export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSchema>;
@@ -450,11 +462,11 @@ export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSche
 export const FLPatchSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
-  austritt: FLAustrittSchema.nullable(),
+  austritt: FLAustrittPayloadSchema.nullable(),
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
@@ -466,7 +478,7 @@ export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSc
 export const FLReplaceSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the row being handed over is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
   // from the incoming club, so a client-supplied name could only disagree with it.
   incoming_team_id: CustomObjectIdStringSchema,
@@ -485,7 +497,7 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   // and rewritten by a rename only while the season is not `past`, so a client's copy could only be
   // stale.
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;
 
@@ -504,7 +516,7 @@ export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Reseeded from the incoming club, exactly as entry seeds them.
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string().length(KUERZEL_LAENGE),
   // Reported rather than assumed, as the rename's count is: this fan-out is the half of the endpoint
   // that fails silently.
   fanned_out_to_spiele: z.int().nonnegative(),

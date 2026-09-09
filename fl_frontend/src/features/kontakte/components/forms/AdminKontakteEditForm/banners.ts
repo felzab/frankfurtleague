@@ -1,7 +1,8 @@
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-type KontakteBannerId = "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.block-removed" | "kontakte.seats-emptied";
+type KontakteBannerId =
+  "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.block-removed" | "kontakte.seats-emptied" | "kontakte.confirmation-cleared";
 
 /** The one panel spot: the block switch is what raises every change banner this editor has. */
 type KontakteBannerSpot = "kontakte-block";
@@ -18,6 +19,7 @@ export function buildKontakteBanners({
   isMember,
   isBlockRemoved,
   emptiedSeatLabels,
+  renamedConfirmedSeatLabels,
 }: {
   saisonId: string;
   saisonStatus: TeamSaisonMembership["saisonStatus"];
@@ -26,6 +28,8 @@ export function buildKontakteBanners({
   isBlockRemoved: boolean;
   /** The seats that held somebody and hold nobody in the draft, in the panel's own order. */
   emptiedSeatLabels: readonly string[];
+  /** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */
+  renamedConfirmedSeatLabels: readonly string[];
 }): readonly KontakteBanner[] {
   const banners: KontakteBanner[] = [];
 
@@ -64,9 +68,9 @@ export function buildKontakteBanners({
       // resulting condition rather than counting what is lost.
       title: `Für Saison ${saisonId} ist danach niemand mehr hinterlegt`,
       body: "Die Angaben stehen danach nur noch im Änderungsprotokoll.",
-      // The block's own removal makes the per-seat sentence redundant: it names seats inside a block
+      // The block's own removal makes each per-seat sentence redundant: both name seats inside a block
       // that is going whole.
-      supersedes: ["kontakte.seats-emptied"],
+      supersedes: ["kontakte.seats-emptied", "kontakte.confirmation-cleared"],
       inline: "kontakte-block",
     });
   }
@@ -80,6 +84,20 @@ export function buildKontakteBanners({
       // what keeps the sentence right for one seat and for three.
       title: "Was hier entfernt wird, steht danach nur noch im Änderungsprotokoll",
       body: `Betroffen: ${emptiedSeatLabels.join(", ")}.`,
+      inline: "kontakte-block",
+    });
+  }
+
+  if (!isBlockRemoved && renamedConfirmedSeatLabels.length > 0) {
+    banners.push({
+      id: "kontakte.confirmation-cleared",
+      severity: "warning",
+      raisedBy: "change",
+      // „endgültig“ is the half the admin would otherwise get wrong: nothing writes a junction seat's
+      // `bestaetigt_am` but an acceptance, and the undo replays the old name against the new stored one,
+      // so it comes back unconfirmed too.
+      title: "Ein neuer Name oder eine neue E-Mail-Adresse kostet die Bestätigung endgültig",
+      body: `Betroffen: ${renamedConfirmedSeatLabels.join(", ")}.`,
       inline: "kontakte-block",
     });
   }

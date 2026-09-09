@@ -230,6 +230,7 @@ export function AdminSchiedsrichterEditForm({
           <FormAnonymisierenSection
             schiedsrichterId={schiedsrichter.id}
             name={schiedsrichter.name}
+            schule={schiedsrichter.schule}
             kontakt={schiedsrichter.kontakt}
             // The page keys this view on the STORED record, so the write's refresh remounts the form
             // onto the cleared one — an unsaved draft would go with it.

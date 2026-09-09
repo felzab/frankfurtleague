@@ -76,16 +76,22 @@ it is never on its own proof that the document is absent.
 each set behave that way:
 
 - **A season patch replaces `rules` wholesale**, so `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
-  `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`, `REQ-RULES-011` and `REQ-RULES-012`
-  arrive on the edit that introduces or worsens the violation and let a resubmission of the stored values
-  through.
+  `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`, `REQ-RULES-011`, `REQ-RULES-012`
+  and `REQ-RULES-013` arrive on the edit that introduces or worsens the violation and let a resubmission
+  of the stored values through.
 - **A matchday patch carries `beginn` and `ende` together**, so an `ende`-only edit resubmits the stored
   `beginn` and `REQ-DATE-008` judges the pair.
 - **A match patch carries both `quelle` fields**, so `REQ-WIRING-001`, `REQ-WIRING-002` and `REQ-WIRING-003`
   judge the side whose source the save MOVES and leave a fixture already wired out of rule editable.
 
 **`REQ-RULES-011` composes a repair per field that moved**, the three fields it names not sharing one. The
-freeze is absolute on the patch and is not a dead end, and which route leads back for which field is
+freeze is absolute on the patch, and **whether it is a dead end depends on the season**: both repairs run
+only while the season is planned and nothing is recorded against a fixture. **The German an admin sees
+carries neither the window nor the repair**, and deliberately: the 409 arm holds only the code, so a
+sentence worded there could offer the reader a condition to evaluate and nothing more.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx :: SHAPE_NOTE`
+states whichever of the three cases holds for the season in hand, and the toast sends the reader there.
+Which route leads back for which field is
 [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
 
 **`Worded by` cites the module answering a code with German rather than quoting the sentence.** The
@@ -97,9 +103,12 @@ write path that raises the code, never the undo route, which words a replayed re
 ([`docs/frontend/spec.md`](../frontend/spec.md#13-admin-mutations)); **where a rule declares several
 operations the cell names the FIRST**, so a code gaining an endpoint gains no second cell and the
 choice is derivable rather than remembered. The check holds neither of those two: both are read by a
-person. A row outside `RULES` carries `—`, an
-authentication, validation, ObjectId or database failure reaching German chosen by HTTP status: a
-per-code sentence for a 500 would name a repair that does not exist.
+person. A row outside `RULES` carries `—`, which
+`scripts/checks/docs_gate/error_codes.py :: _check_wording` refuses to see filled: an authentication,
+validation or ObjectId failure reaches German chosen by HTTP status, and a per-code sentence for a 500
+would name a repair that does not exist. **`DB-COMMON-002` is the one such code a slice words per
+code** — a unique index refusing a value a form can point at — so its German is found at the arm and
+never through this column.
 
 | Code                  | Status | Meaning                                                                                                                                                | Worded by                                                                    |
 | --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
@@ -120,8 +129,9 @@ per-code sentence for a 500 would name a repair that does not exist.
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                                         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                                         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                                      | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
-| `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from; the refusal names the repair each moved field has            | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
+| `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from                                                               | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-RULES-012`       | 409    | A season patch moved `tiebreak_order` with a knockout fixture already played, abandoned, forfeited, holding a goal count or a stored shoot-out         | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
+| `REQ-RULES-013`       | 409    | A step made the whole fixture list these rules imply larger than one season-scoped read holds                                                          | `fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`             |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                                       | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from                            | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                                      | `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`        |
@@ -169,10 +179,12 @@ per-code sentence for a 500 would name a repair that does not exist.
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                                   | `fl_frontend/src/features/teams/actions.ts :: deleteTeamAction`              |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                                       | `fl_frontend/src/features/spielorte/actions.ts :: mapRetireRefusal`          |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                                    | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapRetireRefusal`     |
-| `REQ-ANONYMISE-001`   | 409    | A referee's name or contact details were entered again while an anonymisation of them ran, so it cleared nothing                                       | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapAnonymiseRefusal`  |
-| `REQ-ANONYMISE-002`   | 409    | A save would write a name or a contact detail back onto a referee whose details were deleted on request                                                | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapEditRefusal`       |
+| `REQ-ANONYMISE-001`   | 409    | A referee's name, school or contact details were entered again while an anonymisation of them ran, so it cleared nothing                               | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapAnonymiseRefusal`  |
+| `REQ-ANONYMISE-002`   | 409    | A save would write a name, a school or a contact detail back onto a referee whose details were deleted on request                                      | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapEditRefusal`       |
+| `REQ-ANONYMISE-003`   | 409    | A referee the erasure retired was asked to come back; a booking would be fresh personal data about somebody who asked to be left out                   | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapReactivateRefusal` |
 | `REQ-PURGE-001`       | 409    | A player still in the league was asked to be erased; the erasure needs them retired first                                                              | `fl_frontend/src/features/spieler/actions.ts :: mapErasureRefusal`           |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                                          | `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`           |
+| `REQ-SPIELTAG-002`    | 409    | Resolving the bracket would field one team twice on a Spieltag; a pair already stored is reported instead                                              | `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal`              |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement                           | `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal`              |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                                               | `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal`              |
 | `REQ-WIRING-001`      | 409    | A save MOVED a side's source to bracket wiring the season cannot hold; a fixture already wired that way stays editable                                 | `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`         |
@@ -215,7 +227,7 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 | `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes); the mail transport raises it for a stalled send                                                                                                                                                                                                                                                                                                                                                                          |
 | `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `FE-ACT-001`    | An admin mutation or a public route handler threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`, `fl_frontend/src/shared/utils/publicRoute.ts`)                                                                                                                                                                                                                                                                                                                            |
-| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`)                                                                                                                                                                                                                                                                                                                                                                               |
+| `FE-ACT-002`    | An undo's cache invalidation did not run, whatever its restore wrote — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`)                                                                                                                                                                                                                                                                                                                                                               |
 | `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same trace id                                                                                                                                                                                                                                                                        |

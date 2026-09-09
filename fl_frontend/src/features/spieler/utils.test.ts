@@ -2,19 +2,25 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { collectHeldRollen, describeErasureUmfang } from "./utils.ts";
+import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, squadIsFull } from "./utils.ts";
 
 import type { FLSpielerWithMemberships } from "./schemas.ts";
 
 const TEAM_A = "6890a1b2c3d4e5f607180001";
 const TEAM_B = "6890a1b2c3d4e5f607180002";
 
-function person(id: string, memberships: Partial<FLSpielerWithMemberships["memberships"][number]>[]): FLSpielerWithMemberships {
+function person(
+  id: string,
+  memberships: Partial<FLSpielerWithMemberships["memberships"][number]>[],
+  // The PERSON's own retirement, which is a different fact from any row's: separate here because the
+  // squad count deliberately ignores it.
+  personInactiveSince: string | null = null,
+): FLSpielerWithMemberships {
   return {
     id,
     vorname: "X",
     nachname: null,
-    inactive_since: null,
+    inactive_since: personInactiveSince,
     memberships: memberships.map((membership) => ({
       saison_id: "2026",
       team_id: TEAM_A,
@@ -33,7 +39,7 @@ describe("describeErasureUmfang", () => {
   /* A person can be erased holding none: registered, and never put in a squad. Zero is a sentence
      rather than a figure, because German counts nothing with a word. */
   it("reports both counts, each with its own zero and its own singular", () => {
-    assert.equal(describeErasureUmfang(0, 0), "Kadereinträge gab es keine. Im Änderungsprotokoll stand nichts zu ihm.");
+    assert.equal(describeErasureUmfang(0, 0), "Kadereinträge gab es keine. Im Änderungsprotokoll stand nichts zu dieser Person.");
     assert.equal(describeErasureUmfang(1, 1), "Ein Kadereintrag wurde gelöscht. Ein Eintrag im Änderungsprotokoll wurde geleert.");
     assert.equal(describeErasureUmfang(3, 12), "3 Kadereinträge wurden gelöscht. 12 Einträge im Änderungsprotokoll wurden geleert.");
   });
@@ -103,5 +109,95 @@ describe("collectHeldRollen", () => {
     const held = collectHeldRollen({ spieler: [person("a", [{}])], saisonId: "2026", exceptSpielerId: "z" });
 
     assert.equal(held[TEAM_A], undefined);
+  });
+});
+
+describe("countLiveSquadRows", () => {
+  it("counts each club's live rows for the season", () => {
+    const counts = countLiveSquadRows({
+      spieler: [person("a", [{}]), person("b", [{}]), person("c", [{ team_id: TEAM_B }])],
+      saisonId: "2026",
+      exceptSpielerId: null,
+    });
+
+    assert.equal(counts[TEAM_A], 2);
+    assert.equal(counts[TEAM_B], 1);
+  });
+
+  /* The same rows the write path counts: counting a retired one would report a squad full that the
+     endpoint would still admit a player to. */
+  it("leaves a retired row out, because a player who left gave their place back", () => {
+    const counts = countLiveSquadRows({
+      spieler: [person("a", [{}]), person("b", [{ inactive_since: "2026-03-01" }])],
+      saisonId: "2026",
+      exceptSpielerId: null,
+    });
+
+    assert.equal(counts[TEAM_A], 1);
+  });
+
+  it("leaves another season out", () => {
+    const counts = countLiveSquadRows({
+      spieler: [person("a", [{ saison_id: "2025" }])],
+      saisonId: "2026",
+      exceptSpielerId: null,
+    });
+
+    assert.equal(counts[TEAM_A], undefined);
+  });
+
+  /* Both sides of the exclusion on one input: a player already in the squad must not be told it is
+     full by their own place, and a caller naming no writer counts every live row. */
+  it("leaves the writing player's own row out, and counts it where no writer is named", () => {
+    const spieler = [person("a", [{}]), person("b", [{}])];
+
+    assert.equal(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: "a" })[TEAM_A], 1);
+    assert.equal(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: null })[TEAM_A], 2);
+  });
+
+  /* `build_live_squad_filter` reads the junction alone. Skipping a retired person here would report
+     room the endpoint refuses, which is the direction that walks an admin onto a failing press. */
+  it("counts the live row of a player the league retired", () => {
+    const counts = countLiveSquadRows({
+      spieler: [person("a", [{}], "2026-04-01")],
+      saisonId: "2026",
+      exceptSpielerId: null,
+    });
+
+    assert.equal(counts[TEAM_A], 1);
+  });
+
+  /* Absent rather than zero, as `collectHeldRollen` reports no holder: one shape for "this club has
+     nothing to report", so a caller reads both maps the same way. */
+  it("reports no count for a club whose rows are all retired", () => {
+    const counts = countLiveSquadRows({
+      spieler: [person("a", [{ inactive_since: "2026-03-01" }])],
+      saisonId: "2026",
+      exceptSpielerId: null,
+    });
+
+    assert.equal(counts[TEAM_A], undefined);
+  });
+});
+
+describe("squadIsFull", () => {
+  /* `>` here would leave one place open in a squad the endpoint has already closed, and every picker
+     and row gate on three pages would then offer a write that comes back 409. */
+  it("closes a squad standing AT the cap and no earlier", () => {
+    assert.equal(squadIsFull(9, 10), false);
+    assert.equal(squadIsFull(10, 10), true);
+    assert.equal(squadIsFull(11, 10), true);
+  });
+
+  /* `countLiveSquadRows` reports a club with no live row as absent rather than as zero, so the
+     unbounded reading of that gap is what would refuse an empty squad. */
+  it("reads an uncounted club as empty", () => {
+    assert.equal(squadIsFull(undefined, 1), false);
+  });
+
+  /* A page that resolved no season reads no cap. Refusing there would take a write the endpoint
+     accepts, on a figure nothing on that page could show the admin. */
+  it("refuses nothing where the cap is unknown", () => {
+    assert.equal(squadIsFull(99, null), false);
   });
 });

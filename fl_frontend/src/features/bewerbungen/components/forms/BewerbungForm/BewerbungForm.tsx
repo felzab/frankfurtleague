@@ -242,8 +242,11 @@ export function BewerbungForm({
       const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload);
 
       if (!gesendet.answered) {
-        // Nothing of what was typed may be named here: no judgement of it reached this branch.
-        appToast.danger("Bewerbung nicht abgeschickt", { description: gesendet.error });
+        // No one title is true across both, the edge refusing the REQUEST ruling the write out where
+        // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
+        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
+          description: gesendet.error,
+        });
         return;
       }
 

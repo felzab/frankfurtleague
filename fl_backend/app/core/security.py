@@ -1,6 +1,7 @@
 import re
 import secrets
-from typing import Annotated, AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
+from typing import Annotated
 
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

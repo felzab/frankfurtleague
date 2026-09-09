@@ -1,4 +1,5 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
 import { computeSpielStatus } from "./utils";
@@ -20,6 +21,27 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
   value: event,
   label: SONDEREREIGNIS_LABELS[event],
 }));
+
+// Its own word rather than the label
+// `fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`, so rewording
+// what a reader sees does not change what a saved link selects.
+/**
+ * The merged option's value, in the URL and never on screen: no referee id collides with it, an id
+ * being an ObjectId string.
+ */
+export const ANONYMISED_SCHIEDSRICHTER_VALUE = "anonymisiert";
+
+/**
+ * The erasure nulls the name on the row and on every fixture, so an option keyed on the id would
+ * offer one wordless entry per erased person: identical to read, and selectable one at a time.
+ */
+export function schiedsrichterFacetValue({ id, name }: { id: string; name: string | null }): string {
+  return name === null ? ANONYMISED_SCHIEDSRICHTER_VALUE : id;
+}
+
+function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
+  return schiedsrichterFacetValue({ id: schiedsrichter.schiedsrichter_id, name: schiedsrichter.name });
+}
 
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
 function distinct(spiele: readonly FLSpiel[], read: (spiel: FLSpiel) => { id: string; label: string } | null): FacetOption[] {
@@ -158,9 +180,11 @@ export function buildSpielFacets({
     param: "schiedsrichter",
     label: "Schiedsrichter",
     options: distinct(spiele, (spiel) =>
-      spiel.schiedsrichter ? { id: spiel.schiedsrichter.schiedsrichter_id, label: spiel.schiedsrichter.name } : null,
+      spiel.schiedsrichter
+        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: schiedsrichterAnzeigename(spiel.schiedsrichter.name) }
+        : null,
     ),
-    read: (spiel) => (spiel.schiedsrichter === null ? [] : [spiel.schiedsrichter.schiedsrichter_id]),
+    read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
   };
 
   // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The

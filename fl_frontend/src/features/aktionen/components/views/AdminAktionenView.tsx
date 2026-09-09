@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { AKTIONEN_FACETS } from "@/features/aktionen/facets";
+import { AKTIONEN_FACETS, aktionenLogFacetCounts } from "@/features/aktionen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -11,7 +11,9 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
+import type { FLAktionenListResponse } from "@/features/aktionen/schemas";
 import type { AdminAktionRow } from "@/features/aktionen/types";
+import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
@@ -24,12 +26,25 @@ const SEARCH_KEYS = ["actor.email", "document_id", "trace_id", "request.path"] a
 export function AdminAktionenView({
   aktionen,
   vollstaendig,
+  anzahlJeCollection,
+  anzahlJeOperation,
+  anzahlJeHerkunft,
   dokumentId,
+  vorgangId,
+  richtung,
 }: {
   aktionen: AdminAktionRow[];
   vollstaendig: boolean;
+  /** The endpoint's own counts, one map per facet: `aktionen` holds only what the narrowing selected, so it cannot answer for the rest. */
+  anzahlJeCollection: FLAktionenListResponse["anzahl_je_collection"];
+  anzahlJeOperation: FLAktionenListResponse["anzahl_je_operation"];
+  anzahlJeHerkunft: FLAktionenListResponse["anzahl_je_herkunft"];
   /** The one document the list is narrowed to, or null for the whole log — set by a row's history action. */
   dokumentId: string | null;
+  /** The one Vorgang the list is narrowed to, or null — set by a row's copy action, and served under the same cap. */
+  vorgangId: string | null;
+  /** The end the rows below were served from, so the notice and the bar's control cannot name different ones. */
+  richtung: Leserichtung;
 }) {
   // The way out of the narrowing keeps the shell on the selector's season (`withSaisonId`).
   const searchParams = useSearchParams();
@@ -51,14 +66,39 @@ export function AdminAktionenView({
         </Callout>
       )}
 
+      {/* The number itself, so it can be read off the page and quoted in a support request: no cell
+          renders it, and the row action that led here put it in the URL rather than on screen. */}
+      {vorgangId !== null && (
+        <Callout
+          severity="info"
+          title="Nur ein Vorgang">
+          Angezeigt werden die Zeilen des Vorgangs <span className="font-mono break-all">{vorgangId}</span>
+          {vollstaendig && ", vollständig"}.{" "}
+          <Link
+            href={withSaisonId("/admin/aktionen", selectedFromUrl)}
+            className={textLink()}>
+            Alle Änderungen anzeigen
+          </Link>
+          .
+        </Callout>
+      )}
+
       {/* Not dismissible: a standing property of the answer, and a closed notice would leave a
           partial log looking whole. */}
+
+      {/* „Ein Filter holt dagegen auch Zeilen“ holds only while every facet narrows the read
+          (`fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS`). */}
+
+      {/* The tally narrows by the trace and document terms as well (`docs/backend/spec.md :: I208`),
+          so a sentence counting rows would need a scope word; what picking a value would leave holds
+          under every narrowing. */}
       {!vollstaendig && (
         <Callout
           severity="warning"
           title="Das Protokoll ist unvollständig">
-          Geladen sind nur die neuesten Änderungen; ältere stehen nicht auf dieser Seite. Auch die Suche und die Filter erfassen nur die
-          geladenen Zeilen.
+          Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen; die übrigen stehen nicht auf dieser Seite. Auch
+          die Suche erfasst nur die geladenen Zeilen. Ein Filter holt dagegen auch Zeilen, die hier fehlen. Jede Zahl an einem Filter sagt Dir,
+          wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst.
         </Callout>
       )}
 
@@ -66,6 +106,12 @@ export function AdminAktionenView({
         items={aktionen}
         searchKeys={SEARCH_KEYS}
         facets={AKTIONEN_FACETS}
+        facetCounts={aktionenLogFacetCounts({
+          anzahl_je_collection: anzahlJeCollection,
+          anzahl_je_operation: anzahlJeOperation,
+          anzahl_je_herkunft: anzahlJeHerkunft,
+        })}
+        leserichtung={richtung}
         renderTable={({ filteredItems, emptiness }) => (
           <AdminAktionenTable
             filteredAktionen={filteredItems}

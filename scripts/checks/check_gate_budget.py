@@ -15,7 +15,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Final
 
@@ -60,8 +60,8 @@ class Malformed(Exception):
 # ASCII digits alone: `str.isdigit` admits a superscript, which `int` then refuses.
 WHOLE: Final = re.compile(r"^[0-9]+$")
 
-# What reading the jobs payload can raise -- `json` answers a ValueError -- named for
-# `checker_kernel.py :: UNREADABLE`'s reason. Flat, or pyright reads the nested tuple as no class.
+# What reading the jobs payload can raise -- `json` answers a ValueError. Flat, or pyright reads the
+# nested tuple as no class.
 UNREADABLE_PAYLOAD: Final = (*UNREADABLE, ValueError, Malformed)
 
 
@@ -350,7 +350,7 @@ def main() -> int:
         # The base's copy is not this branch's to fix; the branch is held against what it can be.
         print(f"      the base's {REFERENCE} is not a table this check can read ({exc}), so the branch's figures are compared against nothing.")
         before = None
-    findings = check_raise(before, rows, datetime.now(timezone.utc).date())
+    findings = check_raise(before, rows, datetime.now(UTC).date())
     annotate(findings)
     code = report_findings(findings)
     if code == EXIT_OK:

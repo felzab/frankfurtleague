@@ -255,8 +255,8 @@ def drive(pool: Pool, submission: list[Unit]) -> int:
                 for unit in submission:
                     pool.futures[unit.name].result()
             except KeyboardInterrupt:
-                # Its own clause: `checker_kernel.py :: PARSE_FLOOR` predates `except A, B:`, and
-                # ruff's formatter drops the parentheses.
+                # Its own clause: the outer `except Terminated` is what answers `EXIT_INTERRUPTED`,
+                # so a Ctrl-C has to leave here as one.
                 terminate(pool)
                 raise Terminated from None
             except Terminated:

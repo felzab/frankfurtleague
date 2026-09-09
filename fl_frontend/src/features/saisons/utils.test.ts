@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
+  buildGruppenOccupancy,
   buildSpielplanBestand,
   buildSpielplanVorschau,
   buildSpieltagBound,
@@ -57,6 +58,27 @@ describe("holdsDrawnSpiele", () => {
 
   it("answers false only for a season with neither", () => {
     assert.equal(holdsDrawnSpiele({ gruppenSpiele: [], playoffSpiele: [] }), false);
+  });
+});
+
+describe("buildGruppenOccupancy", () => {
+  /* One key per group holding somebody, which is the shape `find_rules_refusal` and
+     `find_spielplan_refusal` both index into. */
+  it("counts the rows standing in each group", () => {
+    assert.deepEqual(buildGruppenOccupancy([{ gruppe: "A" }, { gruppe: "A" }, { gruppe: "B" }]), { A: 2, B: 1 });
+  });
+
+  /* A group the season runs but nobody stands in carries no key, so every reader has to take an absent
+     key as nobody — which is what `REQ-SPIELPLAN-004` reads it as. */
+  it("gives a group holding nobody no key at all", () => {
+    assert.deepEqual(buildGruppenOccupancy([{ gruppe: "B" }]), { B: 1 });
+    assert.deepEqual(buildGruppenOccupancy([]), {});
+  });
+
+  /* `buildReplacementContext` hands on a junction row whose club is gone, and its group is stored on
+     that row alone: no read this page makes carries one. Placing it would close a row on a guess. */
+  it("counts a row no club read reaches into no group", () => {
+    assert.deepEqual(buildGruppenOccupancy([{ gruppe: "A" }, { gruppe: null }]), { A: 1 });
   });
 });
 

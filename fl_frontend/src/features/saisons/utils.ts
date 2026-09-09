@@ -1,7 +1,8 @@
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
+import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "./schemas";
-import type { SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
+import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
 
 /**
  * The query string minus `saison_id`, relative on purpose: a Server Component cannot read its own
@@ -150,6 +151,20 @@ export function buildGruppenSwapContext({
     })),
     playedKnockoutSpiele: playoffSpiele.filter(hasTakenPlace).length,
   };
+}
+
+/**
+ * **A row whose `gruppe` is `null` reaches no group**: no read carries one for a junction row whose
+ * club is gone, so the endpoint stays the authority on a season holding such a row.
+ */
+export function buildGruppenOccupancy(rows: readonly { gruppe: FLGruppenNames | null }[]): SaisonGruppenOccupancy {
+  const held: Partial<Record<FLGruppenNames, number>> = {};
+
+  for (const row of rows) {
+    if (row.gruppe !== null) held[row.gruppe] = (held[row.gruppe] ?? 0) + 1;
+  }
+
+  return held;
 }
 
 /**

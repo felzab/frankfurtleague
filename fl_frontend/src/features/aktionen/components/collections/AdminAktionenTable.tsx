@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ClockArrowRotateLeft, Cpu, Globe, Person } from "@gravity-ui/icons";
 
@@ -57,12 +57,19 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   // season -- `AdminTeamsTable.tsx`'s row links carry it the same way.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
+  const router = useRouter();
 
+  /** Both halves of one press: the number for a support request, and the narrowing for its rows. */
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
     const copied = await copyTextToClipboard(aktion.trace_id);
 
-    if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Suche danach, um jede Zeile dieses Vorgangs zu sehen." });
+    if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Die Liste zeigt jetzt nur noch diesen Vorgang." });
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+
+    // Navigated rather than searched: the endpoint narrows on `trace_id` itself, where the search
+    // reaches only the rows the cap left. Still one capped read, so neither sentence here claims the
+    // Vorgang whole; the page's incompleteness callout reports the cut.
+    router.push(withSaisonId(`/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
   };
 
   // One source for both layouts, so the table's cells and the phone cards cannot disagree about a row.
@@ -191,8 +198,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         </RowActionLink>
       )}
       <RowActionCopy
-        label="Vorgangsnummer kopieren"
-        ariaLabel={`Vorgangsnummer der Änderung vom ${zeitpunktLabel(aktion)} kopieren`}
+        label="Vorgangsnummer kopieren und den Vorgang anzeigen"
+        ariaLabel={`Vorgangsnummer der Änderung vom ${zeitpunktLabel(aktion)} kopieren und den Vorgang anzeigen`}
         onPress={() => handleCopyVorgang(aktion)}
       />
     </RowActions>

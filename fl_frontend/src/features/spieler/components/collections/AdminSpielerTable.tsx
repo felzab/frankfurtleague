@@ -8,7 +8,12 @@ import { Pencil, Person, Persons } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
-import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } from "@/features/spieler/constants";
+import {
+  LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  REACTIVATION_NEEDS_ROOM_IN_SQUAD,
+  rolleKuerzel,
+  rolleLabel,
+} from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -107,6 +112,10 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     // replacement takes a club out of the season and leaves the squad rows still naming it.
     const isRowTeamInSaison = row === null || saisonTeams.some((team) => team.teamId === row.team_id);
     const rowBlockedReason = isRowTeamInSaison ? null : LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
+    // `REQ-SQUAD-003` asked second, the order the endpoint asks it in: a full squad is not a fact
+    // worth reporting about a club the season does not hold.
+    const rowSquadFullReason =
+      saisonTeams.find((team) => team.teamId === row?.team_id)?.isSquadFull === true ? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;
 
     return (
       <RowActions>
@@ -142,7 +151,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           <RowActionRestore
             label="Kadereintrag reaktivieren"
             ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
-            disabledReason={rowBlockedReason}
+            disabledReason={rowBlockedReason ?? rowSquadFullReason}
             onPress={() => handleReactivateRow(spieler)}
           />
         )}

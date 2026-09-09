@@ -1,6 +1,7 @@
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from itertools import combinations, product
-from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
+from typing import Any, get_args
 
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
@@ -265,9 +266,9 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     return pipeline
 
 
-# The walk tries every combination of outcomes, so the work is 3^n. Past the bound nothing is
-# reported as final, which is the safe direction.
-CERTAINTY_FIXTURE_LIMIT = 10
+# How much enumeration the transaction `fl_backend/app/api/spiele/crud.py` holds open will pay for.
+# Past it the separation test answers the group instead, soundly rather than exactly.
+CERTAINTY_FIXTURE_LIMIT = 8
 
 
 def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
@@ -352,7 +353,7 @@ def _head_to_head_table(
     teams: Sequence[FLTeam],
     spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> _MiniTable:
     """The mini-table over the matches `teams` played against EACH OTHER.
 
@@ -410,7 +411,7 @@ def _break_tie(
     band: Sequence[FLTeam],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> list[list[FLTeam]]:
     """Teams level on points, split by one criterion then the other; `tiebreak_order` picks which leads, where it can.
 
@@ -451,7 +452,7 @@ def _break_tie(
 def _tiers(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
-    settled: AbstractSet[CustomObjectId],
+    settled: Set[CustomObjectId],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
@@ -549,6 +550,22 @@ class DecidedStanding:
     by_platz: Mapping[int, FLTeam]
 
 
+def _endings(rules: FLSaisonRules) -> tuple[tuple[int, int, bool], ...]:
+    """The fourth ending is the call-off, which alone awards nothing to BOTH sides and alone leaves neither club it to play.
+
+    `fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_WITHOUT_A_RESULT` is the state a save
+    records for it.
+    """
+
+    # No losing side is added to: `FLSaisonRules` carries no `loss_points`.
+    return (
+        (rules.win_points, 0, True),
+        (rules.draw_points, rules.draw_points, True),
+        (0, rules.win_points, True),
+        (0, 0, False),
+    )
+
+
 def _decide_one_gruppe(
     teams: Sequence[FLTeam],
     spiele: Sequence[FLSpielCommon],
@@ -556,7 +573,7 @@ def _decide_one_gruppe(
     still_to_play: Mapping[CustomObjectId, int],
     has_unattributable: bool,
 ) -> DecidedStanding:
-    """One group's decided placings, by walking every way its outstanding fixtures could still go."""
+    """One group's decided placings: exact by walking every ending inside `CERTAINTY_FIXTURE_LIMIT`, and sound above it."""
 
     # `_spiele_by_gruppe` attributes only fixtures with both sides known, so the two side checks
     # below narrow the type rather than branch.
@@ -572,39 +589,59 @@ def _decide_one_gruppe(
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
     is_complete = not open_pairs and not has_unattributable
 
-    if has_unattributable or len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
+    if has_unattributable:
         return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz={})
 
     # Every member, never `placeable` alone: filtering before the ranking drops a departed club's
     # results from the mini-table the DISPLAYED table computes with them, so the two surfaces order
     # one group differently (`docs/backend/spec.md :: I24b`).
     settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
+
+    if len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
+        return DecidedStanding(
+            eligible=len(placeable),
+            is_complete=is_complete,
+            by_platz=_separated_placings(teams, spiele, rules, still_to_play, settled, placeable),
+        )
+
+    by_id = {team.id: team for team in teams}
     base = {team.id: team.statistik.punkte for team in teams}
     order = [team.id for team in teams]
+    # Every other club is in `placeable` under every ending, so only these need asking again: a club
+    # keeps its place in the set on the strength of one counted match, whatever a call-off takes.
+    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.anzahl_gespielte_spiele == 0]
 
-    # Deduplicated by the points table each outcome set produces, and ranked AS the walk goes, so it
-    # stops the moment no placing survives: this runs inside the write transaction.
+    # Ranked as the walk goes rather than after it, so a group deciding nothing costs one ranking:
+    # this runs inside the write transaction.
     decided: Mapping[int, FLTeam] | None = None
-    seen: set[tuple[int, ...]] = set()
-    for outcomes in product((1, 0, 2), repeat=len(open_pairs)):
+    seen: set[tuple[tuple[int, ...], frozenset[CustomObjectId]]] = set()
+    for endings in product(_endings(rules), repeat=len(open_pairs)):
         punkte = dict(base)
-        for (left, right), outcome in zip(open_pairs, outcomes, strict=True):
+        # A result leaves this count alone rather than moving the fixture into `anzahl_gespielte_spiele`:
+        # the walk hypothesises no `statistik`, and `_may_hold_a_platz` reads the two together.
+        left_to_play = {team_id: still_to_play.get(team_id, 0) for team_id in fragile}
+        for (left, right), (to_left, to_right, played) in zip(open_pairs, endings, strict=True):
             # Added to unguarded: `_spiele_by_gruppe` attributes a fixture to this group only when
             # both its teams are of it, so `base` already holds every side.
-            if outcome == 0:
-                for side in (left, right):
-                    punkte[side] += rules.draw_points
+            punkte[left] += to_left
+            punkte[right] += to_right
+            if played:
                 continue
+            for side in (left, right):
+                if side in left_to_play:
+                    left_to_play[side] -= 1
 
-            # Only the winner is added to: `FLSaisonRules` carries no `loss_points`.
-            punkte[left if outcome == 1 else right] += rules.win_points
-
+        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left))
         vector = tuple(punkte[team_id] for team_id in order)
-        if vector in seen:
+        # The points table stopped deciding the ranking on its own once a call-off became an ending,
+        # so a vector skipped on its table alone is one that ranks differently.
+        if (vector, dropped) in seen:
             continue
-        seen.add(vector)
+        seen.add((vector, dropped))
 
-        placings = _placings(teams, dict(zip(order, vector, strict=True)), settled, spiele, rules, placeable)
+        # `settled` stays as the fixtures leave it: a hypothesised one would put a club into a band
+        # `_tiers` breaks against a placeable set it derives itself, which is not the one here.
+        placings = _placings(teams, punkte, settled, spiele, rules, placeable - dropped)
 
         # A placing survives only while every table so far has put the SAME team there.
         if decided is None:
@@ -618,13 +655,53 @@ def _decide_one_gruppe(
     return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz=decided or {})
 
 
+def _separated_placings(
+    teams: Sequence[FLTeam],
+    spiele: Sequence[FLSpielCommon],
+    rules: FLSaisonRules,
+    still_to_play: Mapping[CustomObjectId, int],
+    settled: Set[CustomObjectId],
+    placeable: Set[CustomObjectId],
+) -> Mapping[int, FLTeam]:
+    """The placings no ending of an outstanding fixture can reach.
+
+    Sound rather than exact: a placing two clubs could each take but never both is declined, which
+    reports as not yet decided (`docs/backend/spec.md :: I24c`).
+    """
+
+    # The larger of the two, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a
+    # draw worth more than a win only where the excess grows, so a season already holding one arrives.
+    ceiling = max(rules.win_points, rules.draw_points)
+    lo = {team.id: team.statistik.punkte for team in teams}
+    hi = {team.id: lo[team.id] + ceiling * still_to_play.get(team.id, 0) for team in teams}
+
+    def separated(holder: FLTeam, other: FLTeam) -> bool:
+        if lo[other.id] > hi[holder.id] or hi[other.id] < lo[holder.id]:
+            return True
+
+        # A level pair is admitted only where `_break_tie` reads figures no ending can move. Where the
+        # holder itself has a match left, its band is never broken, so nothing below points decides it.
+        return holder.id in settled and other.id in settled and lo[other.id] == lo[holder.id]
+
+    return {
+        platz: holder
+        for platz, holder in _placings(teams, lo, settled, spiele, rules, placeable).items()
+        # `_placings` seeds only a club already in `placeable`, and the one way out of that set is a
+        # call-off emptying what it has left to play, which takes nothing counted with it.
+        if holder.statistik.anzahl_gespielte_spiele > 0
+        # Asked of EVERY club, a departed one included: `_tiers` leaves a band whole while any member
+        # is unsettled, so a club that can hold no placing of its own can still cost the holder one.
+        and all(other.id == holder.id or separated(holder, other) for other in teams)
+    }
+
+
 def _placings(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
-    settled: AbstractSet[CustomObjectId],
+    settled: Set[CustomObjectId],
     spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
-    placeable: AbstractSet[CustomObjectId],
+    placeable: Set[CustomObjectId],
 ) -> Mapping[int, FLTeam]:
     """The placings one points table pins down. A band holding several teams that can place pins none of them."""
 
@@ -644,10 +721,10 @@ def _placings(
 
 
 def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
-    """The four groups, each ordered by the competition's tiebreak chain.
+    """Every group the season offers.
 
-    Seeded with every group name, never from the teams present: a season with nobody in group D
-    would omit the key (`docs/backend/spec.md :: I10`).
+    Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
+    the closed set here would answer a smaller season groups it never ran (`docs/backend/spec.md :: I10`).
     """
 
     teams = list(teams)
@@ -657,12 +734,15 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
     by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
-    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_groups)}
     for team in teams:
-        # `model_construct` is the one way round `FLGruppenNames`. Tested against `grouped`, not for
-        # falsiness -- `not team.gruppe` lets "X" through to a KeyError.
+        # `model_construct` is one way round `FLGruppenNames`, a row in a group the season stopped
+        # offering the other. Membership, not falsiness: `not team.gruppe` lets "X" through to a
+        # KeyError, and a dropped club would go missing from a standing unnoticed.
         if team.gruppe not in grouped:
-            raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
+            raise ValueError(
+                f"Team {team.id} stands in group {team.gruppe}, which a season of {rules.number_of_groups} group(s) does not offer"
+            )
         grouped[team.gruppe].append(team)
 
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
@@ -701,7 +781,7 @@ def build_decided_standings(
     teams: Iterable[FLTeam],
     spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
-    gruppen: AbstractSet[FLGruppenNames] | None = None,
+    gruppen: Set[FLGruppenNames] | None = None,
 ) -> Mapping[FLGruppenNames, DecidedStanding]:
     """Which placing in each group is beyond doubt, and which is still anybody's.
 
@@ -762,31 +842,80 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
 
 
-def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
-    """The stored provenance where this slot holds a confirmation from the address being written, else `None`."""
+# Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
+# rather than a claim about which person sits there.
+SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 
-    if not isinstance(stored_slot, Mapping) or not isinstance(einwilligung := stored_slot.get("einwilligung"), Mapping):
+
+def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
+    """Who this seat holds, folded so two spellings of one person compare equal."""
+
+    # Case and inner whitespace folded, so re-typing „ida“ as „Ida“ costs nobody a fresh confirmation;
+    # the fold is the erasure's (`app/api/kontakte/services.py :: find_matching_slots`).
+    return tuple(" ".join(str(seat.get(field) or "").split()).casefold() for field in SEAT_IDENTITY_FIELDS)
+
+
+def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """This seat's consent record, or `None` where a stored row carries none."""
+
+    return einwilligung if isinstance(einwilligung := seat.get("einwilligung"), Mapping) else None
+
+
+def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
+    """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
+
+    return (einwilligung := _kenntnisnahme_of(seat)) is not None and einwilligung.get("bestaetigt_am") is not None
+
+
+def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The stored seat where it holds the same person as the one being written, else `None`."""
+
+    if not isinstance(stored_slot, Mapping):
         return None
 
-    if einwilligung.get("bestaetigt_am") is None:
+    # A difference the fold keeps is a handover even where it is a corrected typo: nothing here can
+    # tell the two apart, and only this direction refuses a record saying one person answered for
+    # another.
+    if _identity_of(stored_slot) != _identity_of(seat):
         return None
 
-    # The mailbox and never the seat, on the erasure's case-insensitive terms
-    # (`app/api/kontakte/services.py :: find_matching_slots`): a confirmation is what one address's
-    # owner clicked, so a seat handed to another address starts unconfirmed.
-    if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
+    return stored_slot
+
+
+def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The stored provenance where this slot holds a confirmation from the same person, else `None`."""
+
+    held = _seat_held_by(stored_slot, seat=seat)
+    if held is None or not _seat_is_stamped(held):
         return None
+
+    einwilligung = held["einwilligung"]
 
     # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
     # narrower one.
     return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's provenance, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
+def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
+    """The date this person already sits behind in this seat, or `None`."""
 
-    A confirmed seat keeps its stamp through an edit; every other seat is recorded as entered on
-    somebody's behalf.
+    # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
+    # and nulling one here would destroy it as a side effect of an edit to the telephone number.
+    held = _seat_held_by(stored_slot, seat=seat)
+    if held is None:
+        return None
+
+    # A stored blank is a date every read already answers as none
+    # (`app/api/teams/schemas.py :: _project_seat`), so writing it back would keep a value no reader
+    # can see and no token can tell from null.
+    return str(held.get("geburtsdatum")) if held.get("geburtsdatum") else None
+
+
+def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
+    """Each seat's provenance and its birthdate, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
+
+    A confirmed seat keeps its stamp while the same person holds it; every other seat is recorded as
+    entered on somebody's behalf.
     """
 
     if kontakte is None:
@@ -800,8 +929,43 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if not isinstance(seat, Mapping):
             continue
 
-        herkunft = _confirmation_held_by(stored_block.get(slot), email=seat.get("email")) or UNCONFIRMED_HERKUNFT
-        composed[slot] = {**seat, "einwilligung": {**seat["einwilligung"], **herkunft}}
+        stored_slot = stored_block.get(slot)
+        herkunft = _confirmation_held_by(stored_slot, seat=seat) or UNCONFIRMED_HERKUNFT
+        composed[slot] = {
+            **seat,
+            "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat),
+            "einwilligung": {**seat["einwilligung"], **herkunft},
+        }
+
+    return composed
+
+
+def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
+    """The application's contact block as the junction row takes it, every seat held to its own stamp.
+
+    A pre-flow application carries a birthdate its applicant gave about somebody else, and acceptance
+    refuses nothing over it (`docs/backend/spec.md :: I143`).
+    """
+
+    if not isinstance(kontakte, Mapping):
+        return kontakte
+
+    composed = dict(kontakte)
+
+    for slot in KONTAKT_SLOTS:
+        seat = composed.get(slot)
+        if not isinstance(seat, Mapping) or _seat_is_stamped(seat):
+            continue
+
+        # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
+        # a decided application mints no confirmation link, so the person has no route to enter theirs.
+        stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
+        # Left as it stands where a stored row carries no record at all: the two provenance keys alone
+        # would be a consent record short of the fields every reader of one requires.
+        if (einwilligung := _kenntnisnahme_of(seat)) is not None:
+            stripped["einwilligung"] = {**einwilligung, **UNCONFIRMED_HERKUNFT}
+
+        composed[slot] = stripped
 
     return composed
 

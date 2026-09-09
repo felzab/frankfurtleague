@@ -11,6 +11,7 @@ type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
+  | "spieler.kader-voll"
   | "spieler.rolle-vergeben";
 
 type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
@@ -27,6 +28,7 @@ export function buildSpielerBanners({
   isRowTeamInSaison,
   isNachgetragen,
   isTeamChanged,
+  isSquadFull,
   blockedRolle,
 }: {
   isRetired: boolean;
@@ -39,6 +41,8 @@ export function buildSpielerBanners({
   isRowTeamInSaison: boolean;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
+  /** Whether the DRAFT's team is at the season's `max_kadergroesse`, read off the draft as `blockedRolle` is. */
+  isSquadFull: boolean;
   /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
   blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
@@ -49,9 +53,9 @@ export function buildSpielerBanners({
       id: "spieler.retired",
       severity: "info",
       raisedBy: "state",
-      title: "Dieser Spieler erscheint in keiner Auswahlliste",
+      title: "Diese Person erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
-      body: "Seine Plätze im Kader bleiben erhalten.",
+      body: "Die Kadereinträge dieser Person bleiben erhalten.",
       inline: null,
     });
   }
@@ -61,8 +65,8 @@ export function buildSpielerBanners({
       id: "spieler.not-in-kader-entry",
       severity: "info",
       raisedBy: "state",
-      title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
-      body: "Wähle unten ein Team und nimm ihn auf.",
+      title: `In Saison ${saisonId} erscheint diese Person auf keiner Seite`,
+      body: "Wähle unten ein Team und nimm sie auf.",
       inline: "kader-eintritt",
     });
 
@@ -75,8 +79,8 @@ export function buildSpielerBanners({
         // `state` though it reads as a consequence: the panel's Aufnehmen button writes the flag on
         // its own, and nothing here waits on the editor's save.
         raisedBy: "state",
-        title: "Dieser Spieler wird nachgetragen",
-        body: "Zu Beginn der Saison war er nicht im Kader.",
+        title: "Diese Person wird nachgetragen",
+        body: "Zu Beginn der Saison war sie nicht im Kader.",
         inline: "kader-nachgetragen",
       });
     }
@@ -106,8 +110,8 @@ export function buildSpielerBanners({
       // `isNachgetragen` is a draft field the edit path never offers — `FormKaderSection` derives it
       // at entry — so this can only report the flag the row loaded with.
       raisedBy: "state",
-      title: "Dieser Spieler wurde nachgetragen",
-      body: "Zu Beginn der Saison war er nicht im Kader.",
+      title: "Diese Person wurde nachgetragen",
+      body: "Zu Beginn der Saison war sie nicht im Kader.",
       inline: null,
     });
   }
@@ -121,6 +125,23 @@ export function buildSpielerBanners({
       raisedBy: "change",
       title: "Teamwechsel wirkt sofort",
       body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
+      inline: null,
+    });
+  }
+
+  // Above the role, the order all three write paths ask the two questions in
+  // (`fl_backend/app/api/spieler/admin_router.py :: _refuse_a_full_squad`).
+  if (isSquadFull) {
+    banners.push({
+      id: "spieler.kader-voll",
+      // A standing situation rather than this save's doing — the squad was full before the picker
+      // moved — which is also what keeps a press the endpoint refuses out of the save dialog.
+      severity: "info",
+      raisedBy: "state",
+      title: "Der Kader dieses Teams ist für diese Saison voll",
+      body: "Erhöhe die maximale Kadergröße in den Saisonregeln oder trage zuerst einen anderen Spieler aus.",
+      // Rail-only, as the transfer's is: no spot stands beside the team picker, and the entry spot
+      // below is rendered in one branch alone where this banner is raised in both.
       inline: null,
     });
   }

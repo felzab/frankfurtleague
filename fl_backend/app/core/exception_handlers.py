@@ -1,5 +1,6 @@
 import re
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status

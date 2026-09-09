@@ -2,13 +2,14 @@ import { notFound, redirect } from "next/navigation";
 
 import z from "zod";
 
+import { SAISON_ID_LENGTH } from "./constants";
 import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSaisonStatus } from "./schemas";
 
-const saisonIdSchema = z.string().trim().length(4).optional().catch(undefined);
+const saisonIdSchema = z.string().trim().length(SAISON_ID_LENGTH).optional().catch(undefined);
 
 /**
  * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
@@ -55,7 +56,7 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
 export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
   const parsed = z
     .string()
-    .length(4)
+    .length(SAISON_ID_LENGTH)
     .safeParse((await paramsPromise).saison_id);
   if (!parsed.success) notFound();
 

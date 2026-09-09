@@ -1,7 +1,8 @@
 import asyncio
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest

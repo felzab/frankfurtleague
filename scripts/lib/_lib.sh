@@ -718,6 +718,36 @@ any_python() {
   fi
 }
 
+# In bash and nowhere else: a checker cannot report on the version that refuses to compile it
+# (`docs/ops/spec.md` §1.5).
+PYTHON_FLOOR="3.14"
+
+# What the last `python_at_floor` read, so a caller can name both halves. Empty where the
+# interpreter answered nothing a version could be taken from.
+PYTHON_FOUND=""
+
+# Called bare in a condition, for `verbose`'s reason. `--version` rather than a `-c` snippet, whose
+# own syntax an interpreter this refuses would have to be trusted to parse.
+python_at_floor() { # $1 an interpreter
+  local said major minor
+  PYTHON_FOUND=""
+  # A python 2 writes its version to stderr and a Windows Store stub prints nothing at all, so an
+  # answer no version reads out of counts as below the floor rather than passing unread.
+  said="$("$1" --version 2>/dev/null)" || return 1
+  [[ "$said" =~ ^Python[[:space:]]+([0-9]+)\.([0-9]+) ]] || return 1
+  major="${BASH_REMATCH[1]}"; minor="${BASH_REMATCH[2]}"
+  PYTHON_FOUND="python ${major}.${minor}"
+  # `10#`, or a component arriving with a leading zero is read as octal.
+  local -i found=$(( (10#$major * 1000) + 10#$minor ))
+  local -i floor=$(( (10#${PYTHON_FLOOR%%.*} * 1000) + 10#${PYTHON_FLOOR##*.} ))
+  (( found >= floor ))
+}
+
+require_python_floor() { # $1 the interpreter this run cannot go on without
+  python_at_floor "$1" || refuse "This is ${PYTHON_FOUND:-an interpreter no version could be read from}; the gate's checkers are written for ${PYTHON_FLOOR} or newer.
+Run them from the backend virtualenv, which 'cd fl_backend && uv sync --dev' creates."
+}
+
 require_file() { [[ -f "$1" ]] || refuse "Missing required file: $1${2:+
 $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+

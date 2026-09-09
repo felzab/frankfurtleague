@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import {
   BESTAETIGUNG_ABSAETZE,
-  BESTAETIGUNG_EINWILLIGUNG,
+  BESTAETIGUNG_KENNTNISNAHME,
   einwilligungFassung,
   fuelleFassung,
   LIGA_KENNTNISNAHME,
@@ -26,6 +26,7 @@ const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
   "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
   "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
   "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
+  "2026-09-bestaetigungsseite-4": "3e1b323c33619294f7f76112cd5ad2583461b04a1b729826dd584eaa71f204cf",
 };
 
 const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");
@@ -37,7 +38,7 @@ function publishedVersionMaxLength(): number {
   };
   const bound = document.components?.schemas?.FLBewerbungEinwilligungPayload?.properties?.text_version?.maxLength;
 
-  assert.ok(typeof bound === "number", `no maxLength on the submitted consent's text_version — regenerate with: ${REGENERATE}`);
+  assert.ok(typeof bound === "number", `no maxLength on the submitted Kenntnisnahme's text_version — regenerate with: ${REGENERATE}`);
   return bound;
 }
 
@@ -77,12 +78,21 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   /* The digests pin each label's words; nothing else pins WHICH label is live, and an earlier label
      states the fourteen days with no start, or with no carve-out for the reminder. */
   it("points both live labels at a wording naming when the fourteen days start and what does not restart them", () => {
-    for (const { textVersion, absaetze } of [LIGA_KENNTNISNAHME, BESTAETIGUNG_EINWILLIGUNG]) {
+    for (const { textVersion, absaetze } of [LIGA_KENNTNISNAHME, BESTAETIGUNG_KENNTNISNAHME]) {
       const text = absaetze.join(" ");
 
       assert.ok(text.includes("dem Versand"), `${textVersion} states the deadline without naming the day it starts`);
       assert.ok(text.includes("eine Erinnerung verschiebt sie nicht"), `${textVersion} lets a reminder read as a new deadline`);
     }
+  });
+
+  /* The three other periods read as exhausting the outcomes, so a reader whose own confirmation
+     produced the fourth is shown three periods and told nothing about theirs. */
+  it("points the live confirmation label at a wording naming the period for an application nobody decides", () => {
+    const text = BESTAETIGUNG_KENNTNISNAHME.absaetze.join(" ");
+
+    assert.ok(text.includes("ohne Entscheidung"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} states no period for an undecided application`);
+    assert.ok(text.includes("vorbei ist"), `${BESTAETIGUNG_KENNTNISNAHME.textVersion} names no day that period is counted to`);
   });
 
   it("answers nothing for a label no record was ever made under", () => {
@@ -121,9 +131,9 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   it("gives the confirmation page a label of its own, sharing no paragraph with the submitted one", () => {
     const eingereicht: readonly string[] = LIGA_KENNTNISNAHME.absaetze;
 
-    assert.notEqual(BESTAETIGUNG_EINWILLIGUNG.textVersion, LIGA_KENNTNISNAHME.textVersion, "both surfaces stamp one label");
+    assert.notEqual(BESTAETIGUNG_KENNTNISNAHME.textVersion, LIGA_KENNTNISNAHME.textVersion, "both surfaces stamp one label");
     assert.deepEqual(
-      BESTAETIGUNG_EINWILLIGUNG.absaetze.filter((absatz) => eingereicht.includes(absatz)),
+      BESTAETIGUNG_KENNTNISNAHME.absaetze.filter((absatz) => eingereicht.includes(absatz)),
       [],
       "a paragraph answers under both labels, so one of the two records cites words nobody read",
     );
@@ -132,7 +142,7 @@ describe("LIGA_KENNTNISNAHMEN", () => {
   /* The page reads its paragraphs by name and stamps the label beside them; resolved apart, the
      record would cite a version whose words the page had stopped rendering. */
   it("resolves the confirmation label to the very paragraphs the page reads", () => {
-    assert.deepEqual(einwilligungFassung(BESTAETIGUNG_EINWILLIGUNG.textVersion)?.absaetze, Object.values(BESTAETIGUNG_ABSAETZE));
+    assert.deepEqual(einwilligungFassung(BESTAETIGUNG_KENNTNISNAHME.textVersion)?.absaetze, Object.values(BESTAETIGUNG_ABSAETZE));
   });
 
   it("labels every version within the length the API accepts for a stored one", () => {

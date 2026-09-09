@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, get_args
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId
@@ -33,7 +34,7 @@ ACTOR = "admin@example.com"
 RECORDED_AT = "2026-03-15T18:00:00+00:00"
 # The same instant a real row holds twice, so the pair below is what `record_write` builds rather
 # than two stamps that merely both parse.
-RECORDED_AT_DATE = datetime(2026, 3, 15, 18, 0, 0, tzinfo=timezone.utc)
+RECORDED_AT_DATE = datetime(2026, 3, 15, 18, 0, 0, tzinfo=UTC)
 
 
 def team_document() -> dict[str, Any]:
@@ -154,7 +155,7 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
     # Typed rather than merely present: a TTL index over a string builds and then expires nothing.
     # The driver reads a BSON date back naive, so UTC is attached for the comparison against `at`.
     assert all(isinstance(row["at_date"], datetime) for row in rows)
-    assert [log_stamp(row["at_date"].replace(tzinfo=timezone.utc)) for row in rows] == [row["at"] for row in rows]
+    assert [log_stamp(row["at_date"].replace(tzinfo=UTC)) for row in rows] == [row["at"] for row in rows]
 
     assert rows[0]["document_id"] == TEAM_OID
     # The image the write replaced, which is the whole of what a restore would replay.

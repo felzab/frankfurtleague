@@ -719,13 +719,11 @@ step "13. The gate's comment-only classifier"
 # They sit under the repo root and are passed as relative paths: MSYS rewrites an absolute POSIX
 # path such as mktemp's into a Windows one the interpreter cannot open (`scripts/README.md`).
 CLASSIFIER="$(any_python || true)"
-CLASSIFIER_FLOOR=0
-if [[ -n "$CLASSIFIER" ]]; then
-  # `any_python` answers whether an interpreter exists; the question is whether it can host the
-  # checkers. Asked of the kernel, so one file owns the floor.
-  quietly "$CLASSIFIER" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" \
-    || CLASSIFIER_FLOOR=$?
-fi
+CLASSIFIER_AT_FLOOR=0
+# `any_python` answers whether an interpreter exists; whether it can host the checkers is the
+# separate question, and asking it before the classifier runs keeps a SyntaxError from being
+# reported as the classifier's own verdict.
+if [[ -n "$CLASSIFIER" ]] && python_at_floor "$CLASSIFIER"; then CLASSIFIER_AT_FLOOR=1; fi
 FIXTURES=".tmp-scope-fixtures/${RUN_ID}"
 if [[ -z "$CLASSIFIER" ]]; then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
@@ -733,9 +731,7 @@ if [[ -z "$CLASSIFIER" ]]; then
   else
     note_skip "no python found, so the classifier was not exercised"
   fi
-# 3 is `checker_kernel.py :: EXIT_CRASH`, raised by its import-time floor guard. A stale literal
-# here stops matching, and a broken classifier is then reported where an old python is the story.
-elif (( CLASSIFIER_FLOOR == 3 )); then
+elif (( ! CLASSIFIER_AT_FLOOR )); then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     note_fail "this python is below the checkers' floor, and this is CI, where the venv is installed to clear it"
   else

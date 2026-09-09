@@ -1,12 +1,16 @@
 import ast
 import asyncio
 import inspect
+import sys
 import textwrap
+from collections.abc import Mapping
+from types import FunctionType, ModuleType
 from typing import Any, cast
 
 import pytest
 from pymongo.asynchronous.collection import AsyncCollection
 
+import app
 from app.api.saisons import cache
 from app.api.saisons.cache import (
     CURRENT_SAISON_CACHE_KEY,
@@ -17,7 +21,7 @@ from app.api.saisons.cache import (
     store_cached_saison,
 )
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
-from app.core import crud
+from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import SYSTEM_WRITE_ROUTERS, WRITE_ROUTERS
 
@@ -235,8 +239,20 @@ class TestTheResolversUseIt:
 
 WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 
-# The injected parameter's name, which is what a call site spells and therefore what an AST sees.
+# The injected parameter's name, which is what a call site spells and therefore what an AST sees. A
+# helper taking the collection through names it the same, which is what lets one recogniser read both.
 SAISONS_COLLECTION_PARAM = "saisons_collection"
+
+# The dependency alias an endpoint's parameter carries. FastAPI injects by annotation rather than by
+# name, so a parameter renamed keeps the season injected and drops the endpoint from a name-only
+# recogniser.
+SAISONS_COLLECTION_ANNOTATION = "SaisonsCollection"
+
+# Spelled rather than read off the object, an `Annotated` alias carrying no name of its own, so the
+# spelling is checked against the module the way `CRUD_WRITERS` is.
+assert hasattr(dependencies, SAISONS_COLLECTION_ANNOTATION), (
+    f"app/core/dependencies.py no longer spells {SAISONS_COLLECTION_ANNOTATION}, so the annotation route reads nothing"
+)
 
 # `app/core/crud.py`'s writing half, checked against that module below: a rename there would
 # otherwise leave this sweep matching nothing and passing.
@@ -262,9 +278,50 @@ UNKNOWN_WRITERS = [name for name in CRUD_WRITERS if not hasattr(crud, name)]
 assert not UNKNOWN_WRITERS, f"{UNKNOWN_WRITERS} are no longer in app/core/crud.py, so this sweep would see no write"
 
 
-def _writes_the_season(tree: ast.AST) -> bool:
-    """Whether a handler's body writes a `saisons` document, through a crud helper or the driver."""
+def _alias_targets(node: ast.AST) -> tuple[tuple[str, ...], str | None]:
+    """The names a plain copy binds, and the name it copies from.
 
+    A copy alone: anything computed carries no promise about which collection it holds.
+    """
+
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
+        return tuple(target.id for target in node.targets if isinstance(target, ast.Name)), node.value.id
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and isinstance(node.value, ast.Name):
+        return (node.target.id,), node.value.id
+
+    return (), None
+
+
+def _season_collection_names(tree: ast.AST) -> frozenset[str]:
+    """Every name this source has bound to the seasons collection.
+
+    Three routes, because each alone goes blind on a rename costing no behaviour: the injected
+    parameter, a parameter the dependency alias annotates, and a plain copy of either.
+    """
+
+    names = {SAISONS_COLLECTION_PARAM}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and isinstance(node.annotation, ast.Name) and node.annotation.id == SAISONS_COLLECTION_ANNOTATION:
+            names.add(node.arg)
+
+    # Re-walked until it settles: an alias copied from an alias is one too, in whatever order the
+    # source spells the two.
+    while True:
+        copies: set[str] = set()
+        for node in ast.walk(tree):
+            targets, copied_from = _alias_targets(node)
+            if copied_from in names:
+                copies.update(targets)
+
+        if copies <= names:
+            return frozenset(names)
+        names |= copies
+
+
+def _writes_the_season(tree: ast.AST) -> bool:
+    """Whether this source writes a `saisons` document, through a crud helper or the driver."""
+
+    names = _season_collection_names(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -272,11 +329,11 @@ def _writes_the_season(tree: ast.AST) -> bool:
         called = node.func
         if isinstance(called, ast.Name) and called.id in CRUD_WRITERS:
             targets = (keyword for keyword in node.keywords if keyword.arg == "collection")
-            if any(isinstance(target.value, ast.Name) and target.value.id == SAISONS_COLLECTION_PARAM for target in targets):
+            if any(isinstance(target.value, ast.Name) and target.value.id in names for target in targets):
                 return True
 
         if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITERS:
-            if isinstance(called.value, ast.Name) and called.value.id == SAISONS_COLLECTION_PARAM:
+            if isinstance(called.value, ast.Name) and called.value.id in names:
                 return True
 
     return False
@@ -288,14 +345,70 @@ def _drops_the_cache(tree: ast.AST) -> bool:
     return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == dropped for node in ast.walk(tree))
 
 
-def _season_write_handlers() -> dict[str, ast.AST]:
+# Every function this sweep follows a call into is defined in this package: `inspect.getsource` has
+# nothing to give for a builtin, and no library spells this application's own collection parameter.
+APPLICATION_PACKAGE = app.__name__
+
+
+def _called_functions(tree: ast.AST, namespace: Mapping[str, Any]) -> list[FunctionType]:
+    """Every function of this package this source calls, resolved through the calling module's own namespace."""
+
+    resolved: list[FunctionType] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        called = node.func
+        # Both forms a call can name a function by, so neither is the one nobody checked: a bare
+        # name, defined in the module or imported into it, and an attribute of an imported module.
+        if isinstance(called, ast.Name):
+            candidate = namespace.get(called.id)
+        elif isinstance(called, ast.Attribute) and isinstance(called.value, ast.Name):
+            holder = namespace.get(called.value.id)
+            candidate = getattr(holder, called.attr, None) if isinstance(holder, ModuleType) else None
+        else:
+            # A name assembled at run time, a method, and a callable arriving through `Depends` are
+            # none of the two forms, so a season write behind one stays outside this sweep's reach.
+            continue
+
+        if isinstance(candidate, FunctionType) and candidate.__module__.split(".")[0] == APPLICATION_PACKAGE:
+            resolved.append(candidate)
+
+    return resolved
+
+
+def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
+    """The handler's own source and every helper it reaches, however deep.
+
+    A refusal helper takes the season's own write inside its caller's transaction
+    (`app/api/teams/crud.py :: refuse_a_full_gruppe`), where a handler-only sweep cannot see it.
+    """
+
+    reached: list[ast.AST] = []
+    walked: set[Any] = set()
+    pending: list[Any] = [endpoint]
+    while pending:
+        current = pending.pop()
+        if current in walked:
+            continue
+        walked.add(current)
+
+        # Dedented, so a handler that is not at column zero still parses.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(current)))
+        reached.append(tree)
+        pending.extend(_called_functions(tree, vars(sys.modules[current.__module__])))
+
+    return tuple(reached)
+
+
+def _season_write_handlers() -> dict[str, tuple[ast.AST, ...]]:
     """Every write endpoint that writes a season, by function name, whichever tier serves it.
 
     Scoped to the writers, not to every write endpoint: a handler touching only the junction rows or
     the fixtures changes nothing the cached projection carries.
     """
 
-    handlers: dict[str, ast.AST] = {}
+    handlers: dict[str, tuple[ast.AST, ...]] = {}
     # Both tiers, the rule being about writing a season rather than about who may: the retention
     # sweep stamps every season from a router of its own, which an admin-only walk cannot see.
     for router in (*WRITE_ROUTERS, *SYSTEM_WRITE_ROUTERS):
@@ -303,25 +416,32 @@ def _season_write_handlers() -> dict[str, ast.AST]:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
                 continue
-            # Dedented, so a handler that is not at column zero still parses.
-            tree = ast.parse(textwrap.dedent(inspect.getsource(endpoint)))
-            if _writes_the_season(tree):
-                handlers[endpoint.__name__] = tree
+            reached = _source_reached_by(endpoint)
+            if any(_writes_the_season(tree) for tree in reached):
+                handlers[endpoint.__name__] = reached
 
     return handlers
 
 
 SEASON_WRITE_HANDLERS = _season_write_handlers()
 
+# Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
+# set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
+# shrink the sweep and still report success.
+SEASON_WRITE_HANDLER_FLOOR = 13
+
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.
-assert SEASON_WRITE_HANDLERS, "no admin endpoint was seen writing a season; did the dependency or the crud helpers get renamed?"
+assert len(SEASON_WRITE_HANDLERS) >= SEASON_WRITE_HANDLER_FLOOR, (
+    f"only {sorted(SEASON_WRITE_HANDLERS)} were seen writing a season, under the {SEASON_WRITE_HANDLER_FLOOR} this sweep reaches; "
+    "lower the floor only for an endpoint deliberately removed -- otherwise the recogniser, not the handlers, is the likely cause"
+)
 
 
 class TestEverySeasonWriteDropsIt:
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
     def test_a_handler_writing_a_season_calls_the_invalidation(self, handler: str):
         """A source sweep, because the call leaves no trace on the wire: an execution test could only observe it through a stale read."""
-        assert _drops_the_cache(SEASON_WRITE_HANDLERS[handler]), (
+        assert any(_drops_the_cache(tree) for tree in SEASON_WRITE_HANDLERS[handler]), (
             f"{handler} writes a season without calling {invalidate_saison_cache.__name__}(), so the cache serves the old one"
         )

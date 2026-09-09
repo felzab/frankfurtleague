@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Any, Mapping, cast, get_args
+from collections.abc import Mapping
+from typing import Any, cast, get_args
 
 import pytest
 from bson import ObjectId
@@ -355,8 +358,8 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "text_version": "v3", "datum": TODAY}
 
 
-class TestNoBirthdateOnThePublicPayload:
-    """`docs/backend/spec.md :: I141`: the public form asks for no birthdate, so the key itself is refused, in any form."""
+class TestNoBirthdateOnAnyPayload:
+    """`docs/backend/spec.md :: I141`: the date reaches the league from its own person at their confirmation, so no payload spells the key."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
@@ -375,17 +378,22 @@ class TestNoBirthdateOnThePublicPayload:
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
 
-    def test_the_junction_payload_carries_no_such_bound(self):
-        """The date is the junction editor's to collect, and an administrator's own edit answers to nobody's age."""
+    def test_the_junction_payload_refuses_the_key_as_the_public_one_does(self):
+        """Refused rather than bounded: an age floor on this payload would still let an administrator name a date only its subject may give."""
 
         junction_person = {**person(), "geburtsdatum": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
 
-        assert FLKontaktpersonPayload.model_validate(junction_person).geburtsdatum == A_CHILDS_BIRTHDATE
+        with pytest.raises(ValidationError) as failure:
+            FLKontaktpersonPayload.model_validate(junction_person)
 
-    def test_the_junction_payload_still_requires_the_date(self, assert_rejects):
-        """Nullable on the stored shape and required here: the editor collects a whole person."""
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
 
-        assert_rejects(FLKontaktpersonPayload, {**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)}, "geburtsdatum")
+    def test_the_junction_payload_takes_a_whole_person_without_one(self):
+        """The floor under the case above: required, every save composed before that seat's person answers would be refused."""
+
+        composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
+
+        assert "geburtsdatum" not in composed.model_dump(mode="json")
 
     @pytest.mark.parametrize("stored", [pytest.param({}, id="no key"), pytest.param({"geburtsdatum": None}, id="a null")])
     def test_a_stored_contact_with_no_date_still_reads(self, stored: Mapping[str, Any]):
@@ -1290,10 +1298,10 @@ class _RecordingCursor:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self._documents = documents
 
-    def sort(self, *_: Any) -> "_RecordingCursor":
+    def sort(self, *_: Any) -> _RecordingCursor:
         return self
 
-    def limit(self, *_: Any) -> "_RecordingCursor":
+    def limit(self, *_: Any) -> _RecordingCursor:
         return self
 
     async def to_list(self, length: Any = None) -> list[dict[str, Any]]:

@@ -38,8 +38,8 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
         <PanelHeading
           className={panel.heading()}
           title="Einwilligung">
-          {/* Which of the two consents this is: the contact seat's block of the same name says only
-              that details may be held, and nothing on screen tells them apart. */}
+          {/* Which of the two blocks stored under `einwilligung` this is: a pupil's consent to
+              publication, where a contact seat's is a Kenntnisnahme that details may be held. */}
           <Hint
             mode="reveal"
             label="Hinweis zur Einwilligung"

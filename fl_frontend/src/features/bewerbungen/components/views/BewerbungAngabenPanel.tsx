@@ -194,15 +194,17 @@ export function BewerbungAngabenPanel({
                         </a>
                       )}
                     </Angabe>
-                    {/* One record, one fact, and no `Leer`: an outstanding seat has a state rather
-                        than a gap. An application from before the workflow reaches no state at all,
-                        and its stored record is then the whole truth about that seat. */}
-                    <Angabe label="Einwilligung">
+                    {/* The stored block's own name where no per-seat state exists: it says who entered
+                        these details and when, which on an application from before the workflow is
+                        nobody's answer — and a Zusage turns on that answer. */}
+                    <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
+                      {/* No `Leer`: an outstanding seat has a state rather than a gap, and a seat
+                          reaching no state has its stored record instead. */}
                       {stand === null
                         ? `${einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
                         : stand.satz}
-                      {/* Over a consent that has been given and no other: the version an
-                          outstanding seat stores is the wording the SUBMITTER agreed to, which
+                      {/* Over a confirmation that has been given and no other: the version an
+                          outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
                       {(stand === null || stand.stand.art === "bestaetigt") &&
                         person.einwilligung.text_version !== "" &&

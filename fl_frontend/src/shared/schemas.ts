@@ -1,18 +1,27 @@
 import { z } from "zod";
 
-// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`; looser makes the
-// message a lie, and a pattern is outside the contract comparison entirely.
+import { isDeliverableAddress } from "@/core/emailAddress";
 
+// Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
+// `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie, and a
+// pattern is outside the contract comparison entirely.
+
+// The final digit sits outside the class, so no accepted value is punctuation and spaces alone
+// (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
 /**
  * A literal space, never `\s`, which inside the anchors would admit newlines and tabs. Exported
  * because `FLKontaktpersonSchema` needs the same rule where the field is required rather than optional.
  */
-export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
+export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
 
 // Shared, because the payload redeclares the field for its ceiling and a duplicated alphabet would drift. `*` not
 // `+`, so "optional" is the pattern rather than a union: a union whose branches both fail surfaces zod's raw English.
 const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
 const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
+
+// Named rather than written into `FLAddressSchema`, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+const PLZ_REGEX = /^\d{5}$/;
 
 /**
  * `YYYY-MM-DD`, and a day that exists — `z.iso.date()` is a calendar regex rather than a shape one. The refinement
@@ -73,7 +82,7 @@ export const PersonNameSchema = z
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
   hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),
-  plz: z.string().regex(/^\d{5}$/, { error: "Die PLZ muss genau 5 Ziffern haben." }),
+  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
   stadtteil: z.string(),
   stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
 });
@@ -97,10 +106,12 @@ export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 export const FLAddressPayloadSchema = FLAddressSchema.extend({
   strasse: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib eine Straße ein." })
     .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
   stadt: z
     .string()
+    .trim()
     .nonempty({ error: "Bitte gib eine Stadt ein." })
     .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
   // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
@@ -124,7 +135,30 @@ export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
  */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
+/**
+ * Every address anybody types is judged here, a school's application and the sign-in box alike.
+ * `z.email()` cannot be it: its alphabet refuses the umlaut local part and the unicode host
+ * `EmailStr` stores, so a school with either could not apply.
+ */
+export const KontaktEmailSchema = z
+  .string()
+  // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
+  .trim()
+  .refine(isDeliverableAddress, { error: "Bitte gib eine gültige E-Mail-Adresse ein." })
+  .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` });
+
 export const FLKontaktSchema = z.object({
+  // Judged on the payload alone, as `email` is: `PHONE_REGEX` now wants a final digit, so a read stating
+  // it refuses a stored number the old rule took -- and one such row fails the whole referee list's parse.
+  telefon: z.string().nullable(),
+  // Judged on the payload alone: `EmailStr` normalises a punycode host to unicode and takes an umlaut
+  // local part, so a read stating an address rule refuses a value the API stored.
+  email: z.string().nullable(),
+});
+export type FLKontakt = z.infer<typeof FLKontaktSchema>;
+
+/** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
+export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
   // back to its own English.
   telefon: z
@@ -132,12 +166,11 @@ export const FLKontaktSchema = z.object({
       error: "Bitte gib eine gültige Telefonnummer ein.",
     })
     .nullable(),
-  // No local-part cap beside it: email-validator applies RFC 5321's 64 only under `strict`, which
-  // pydantic does not pass, so one here alone would refuse an address the API accepts.
+  // The empty branch is what a cleared box submits, and the union's message covers both: a branch's
+  // own sentence is unreachable once the union carries one, the ceiling's among them.
   email: z
-    .union([z.email().max(KONTAKT_EMAIL_MAX_LENGTH), z.string().trim().length(0)], {
+    .union([KontaktEmailSchema, z.string().trim().length(0)], {
       error: "Bitte gib eine gültige E-Mail-Adresse ein.",
     })
     .nullable(),
 });
-export type FLKontakt = z.infer<typeof FLKontaktSchema>;

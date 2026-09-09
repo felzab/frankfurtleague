@@ -4,6 +4,7 @@ import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
+import { listboxRow } from "./refusableOption";
 
 import type { Key } from "@heroui/react";
 
@@ -20,6 +21,8 @@ export function SaisonSelect({
   onChange: (saisonId: string) => void;
   saisonIds: readonly string[];
 }) {
+  const item = listboxRow({ layout: "plain" });
+
   const handleChange = (key: Key | null) => {
     if (!key) return;
     onChange(key.toString());
@@ -49,7 +52,7 @@ export function SaisonSelect({
               key={saisonId}
               id={saisonId}
               textValue={`Saison ${saisonId}`}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={item.row()}>
               Saison {saisonId}
             </ListBox.Item>
           ))}

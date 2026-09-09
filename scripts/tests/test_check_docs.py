@@ -307,6 +307,27 @@ SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
 WORDED_MEANING: Final = "The sample module refused another write"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
 
+# One test module per tier, the case readers differing. Every name below is English: this tree is
+# the copy sweep's corpus as well as the citation resolver's.
+CASE_MODULE: Final = "fl_frontend/src/sample.test.ts"
+CITED_SUITE: Final = "the suite one document cites into"
+SECOND_SUITE: Final = "a second suite of the same module"
+CITED_CASE: Final = "a case one document cites by name"
+SECOND_CASE: Final = "a second case of the citing suite"
+UNCITED_CASE: Final = "a case no document cites"
+# Spelled with an escape the anchor does not carry, which is what the presence arm refuses ahead of
+# any count.
+ESCAPED_CASE: Final = "a case naming a writer's own apostrophe"
+ESCAPED_SOURCE: Final = "'" + ESCAPED_CASE.replace("'", "\\'") + "'"
+# A string naming no case, spelled twice, which is what a reader counting literals rather than case
+# calls fails the clean corpus over.
+REPEATED_STRING: Final = "a label this module spells twice"
+PYTHON_CASE_CLASS: Final = "TestOneSubject"
+SECOND_PYTHON_CLASS: Final = "TestAnotherSubject"
+CITED_PYTHON_CASE: Final = "test_a_case_one_document_cites_by_name"
+SECOND_PYTHON_CASE: Final = "test_a_case_of_the_second_class"
+UNCITED_PYTHON_CASE: Final = "test_a_case_no_document_cites"
+
 
 def _code_row(code: str, meaning: str, worded: str | None) -> str:
     """One register row, its wording cell dropped where None -- the shape a row without the column keeps."""
@@ -513,6 +534,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             # The continuation form, resolving. A resolver that stopped placing one would fail every
             # case in the loop here, which is what parts a real placement from a silent skip.
             "`fl_backend/app/sample.py :: VALUE` and `:: S` are both defined there.",
+            "",
+            # Three the case-name arm reads and passes: one case, a string naming no case, and the
+            # other tier's reader. Each is the arm's silence, held by the clean corpus.
+            "One case answers " + _tick(CASE_MODULE + " :: " + CITED_CASE) + ".",
+            "",
+            "So does " + _tick(CASE_MODULE + " :: " + REPEATED_STRING) + ", which names none.",
+            "",
+            "And " + _tick(BACKEND_TEST + " :: " + CITED_PYTHON_CASE) + " on the other tier.",
             "",
             "A citation that wraps is still one citation: `docs/glossary.md ::",
             GLOSSARY_ANCHOR + "` resolves across the break.",
@@ -899,6 +928,21 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "// " + WORDED_CODES[-1] + " is named here and answered nowhere in this module.",
             "export const REMARKED = 1;",
         ),
+        CASE_MODULE: _page(
+            'describe("' + CITED_SUITE + '", () => {',
+            '  it("' + CITED_CASE + '", () => {});',
+            '  it("' + SECOND_CASE + '", () => {});',
+            "});",
+            "",
+            'describe("' + SECOND_SUITE + '", () => {',
+            '  it("' + UNCITED_CASE + '", () => {});',
+            # A comment quoting the cited case. A reader that stopped masking comments counts a
+            # second declaration of it and fails the clean corpus.
+            "  // The case " + _tick("it(" + QUOTE + CITED_CASE + QUOTE + ")") + " is declared above.",
+            '  const label = "' + REPEATED_STRING + '";',
+            '  const again = "' + REPEATED_STRING + '";',
+            "});",
+        ),
         DOMAIN_REGISTER: _page(
             QUOTES + "BACKEND · the rule register a refusal code's wording is cited against." + QUOTES,
             "",
@@ -957,6 +1001,16 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             QUOTES + "BACKEND · a test module, holding open the folder the `tests` row names." + QUOTES,
             "",
             "TESTED = 1",
+            "",
+            "",
+            "class " + PYTHON_CASE_CLASS + ":",
+            "    def " + CITED_PYTHON_CASE + "(self) -> None: ...",
+            "",
+            "    def " + UNCITED_PYTHON_CASE + "(self) -> None: ...",
+            "",
+            "",
+            "class " + SECOND_PYTHON_CLASS + ":",
+            "    def " + SECOND_PYTHON_CASE + "(self) -> None: ...",
         ),
         DOCKERFILE: _page(
             "# BACKEND · an image, reached by whole filename rather than by suffix.",
@@ -1255,6 +1309,11 @@ def _replace(rel: str, old: str, new: str) -> None:
 def _append(rel: str, *lines: str) -> None:
     root = _gate().root
     write(root, rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
+
+
+def _as_literal(name: str) -> str:
+    """A case name as the fixture module spells it, so a plant renames the declaration and not the comment quoting it."""
+    return QUOTE + name + QUOTE
 
 
 def _drop(rel: str, line: str) -> None:
@@ -2491,6 +2550,66 @@ def test_the_tail_line_of_a_wrapped_citation_proves_no_self_citation_of_its_anch
         _reset()
     assert tailed[("fail", "citation", SAMPLE)] == 1, "an anchor only a wrapped citation's tail spells passed: " + _shape(tailed)
     assert spelled[("fail", "citation", SAMPLE)] == 0, "an anchor the module's own sentence spells was failed: " + _shape(spelled)
+    _assert_corpus_restored()
+
+
+def test_a_cited_case_name_two_suites_of_one_module_declare_is_reported() -> None:
+    """Two describe blocks naming one case is what the runner permits and a citation cannot part.
+
+    The second run renames onto a name no document cites: what fires is the citation, never the
+    repetition.
+    """
+    _reset()
+    try:
+        _replace(CASE_MODULE, _as_literal(SECOND_CASE), _as_literal(CITED_CASE))
+        _, cited = _run()
+        _reset()
+        _replace(CASE_MODULE, _as_literal(SECOND_CASE), _as_literal(UNCITED_CASE))
+        _, uncited = _run()
+    finally:
+        _reset()
+    assert cited[("fail", "citation", NOTES)] == 1, "a cited case name two suites declare passed: " + _shape(cited)
+    assert not uncited, "a repeated case name no document cites was reported: " + _shape(uncited)
+    _assert_corpus_restored()
+
+
+def test_a_cited_case_name_two_classes_of_one_python_module_declare_is_reported() -> None:
+    """Python holds one method name on two classes without minding, and the definition listing loses the count.
+
+    The second run collides onto an uncited name, as the frontend tier's case does.
+    """
+    _reset()
+    try:
+        _replace(BACKEND_TEST, "def " + SECOND_PYTHON_CASE, "def " + CITED_PYTHON_CASE)
+        _, cited = _run()
+        _reset()
+        _replace(BACKEND_TEST, "def " + SECOND_PYTHON_CASE, "def " + UNCITED_PYTHON_CASE)
+        _, uncited = _run()
+    finally:
+        _reset()
+    assert cited[("fail", "citation", NOTES)] == 1, "a cited case name two classes declare passed: " + _shape(cited)
+    assert not uncited, "a repeated python case name no document cites was reported: " + _shape(uncited)
+    _assert_corpus_restored()
+
+
+def test_a_citation_of_a_case_name_the_source_escapes_is_refused_before_any_count() -> None:
+    """The count reads the literal's own body, so an escaped name and its anchor are different strings.
+
+    Free while presence refuses the citation first; the day presence resolves an escape, the count
+    must resolve it in that change.
+    """
+    _reset()
+    try:
+        # Twice, so the count is what the arm would report on if the two spellings ever met.
+        _replace(CASE_MODULE, _as_literal(UNCITED_CASE), ESCAPED_SOURCE)
+        _replace(CASE_MODULE, _as_literal(SECOND_CASE), ESCAPED_SOURCE)
+        _append(NOTES, "A citation of " + _tick(CASE_MODULE + " :: " + ESCAPED_CASE) + ".")
+        code, output = _output()
+    finally:
+        _reset()
+    assert code == 1, output
+    assert "no longer appears" in output, output
+    assert "test cases in" not in output, output
     _assert_corpus_restored()
 
 

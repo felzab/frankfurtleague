@@ -64,6 +64,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   // `CustomOptionalExternalUrl`, which is `CustomExternalUrl` with the absent case beside it.
   OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
+  KontaktEmail: "a shared validator applied per field; the backend spells it as EmailStr",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -95,7 +96,9 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
-  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all five variants are paired",
+  FLSpielRestorableField: "a Pydantic Literal alias, inlined as an enum on the restore report's `replaced` and on no component of its own",
+
+  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all six variants are paired",
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
@@ -336,7 +339,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 172;
+const EXPECTED_PAIRS = 181;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
@@ -475,18 +478,24 @@ describe("each pair agrees on the wire contract", () => {
       const converted = z.toJSONSchema(entry.schema, { io: "output" }) as JsonSchema;
       const frontend = describeObject(converted, converted, false);
 
-      // A `RootModel` over a constrained key map publishes `propertyNames` and no field list, so
-      // compare the key sets instead.
+      // A key-constrained map publishes `propertyNames` and no field list on either side, so the key
+      // set and `required` are the whole of what there is to compare here.
       const keyEnum = (node.propertyNames as JsonSchema | undefined)?.enum as unknown[] | undefined;
       if (keyEnum && backend.size === 0) {
+        const mirrorKeys = ((converted.propertyNames as JsonSchema | undefined)?.enum ?? []) as unknown[];
+        const backendRequired = [...((node.required ?? []) as string[])].sort();
+        const mirrorRequired = [...((converted.required ?? []) as string[])].sort();
+
         assert.deepEqual(
-          [...frontend.keys()].sort(),
+          mirrorKeys.map(String).sort(),
           keyEnum.map(String).sort(),
-          `${component} publishes keys [${keyEnum}] and ${mirror}Schema declares [${[...frontend.keys()]}].`,
+          `${component} publishes keys [${keyEnum}] and ${mirror}Schema declares [${mirrorKeys}].`,
         );
-        assert.ok(
-          [...frontend.values()].every((facts) => facts.required),
-          `${mirror}Schema must require every key: a response omitting an empty group would fail to parse.`,
+        assert.deepEqual(
+          mirrorRequired,
+          backendRequired,
+          `${component} requires [${backendRequired}] of its keys and ${mirror}Schema requires [${mirrorRequired}]: ` +
+            `one side guarantees a key the other takes as optional.`,
         );
         return;
       }

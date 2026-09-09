@@ -36,8 +36,8 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
     name === "" ? "Ohne Namen" : name,
     emptyAsNull(person.email) ?? "Keine E-Mail",
     emptyAsNull(person.telefon) ?? "Keine Telefonnummer",
-    // Null on a seat copied from an application whose contact has not confirmed yet; `""` on a seat
-    // an administrator opened and has not dated.
+    // Read out rather than judged: the date is the person's own to enter at their confirmation, so a
+    // seat without one is waiting on them rather than half filled in.
     person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : "Kein Geburtsdatum",
   ].join(", ");
 };
@@ -52,15 +52,11 @@ const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields
   return `${herkunft}, ${fassung} (${datum})`;
 };
 
-/** A seat's fields report under their own keys, so the row has to look for all of them. */
-const personErrorPaths = (path: string): string[] => [
-  path,
-  `${path}.vorname`,
-  `${path}.nachname`,
-  `${path}.email`,
-  `${path}.telefon`,
-  `${path}.geburtsdatum`,
-];
+/**
+ * A seat's fields report under their own keys, so the row has to look for all of them. No
+ * `geburtsdatum`: the payload carries none, so nothing can report a failure there.
+ */
+const personErrorPaths = (path: string): string[] => [path, `${path}.vorname`, `${path}.nachname`, `${path}.email`, `${path}.telefon`];
 
 const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.text_version`, `${path}.datum`];
 
@@ -92,7 +88,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.ansprechperson.einwilligung",
-    label: "Einwilligung",
+    label: "Kenntnisnahme",
     group: "Ansprechperson",
     read: readEinwilligung("ansprechperson"),
     errorPaths: einwilligungErrorPaths("kontakte.ansprechperson.einwilligung"),
@@ -106,7 +102,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.stellvertretung.einwilligung",
-    label: "Einwilligung",
+    label: "Kenntnisnahme",
     group: "Stellvertretung",
     read: readEinwilligung("stellvertretung"),
     errorPaths: einwilligungErrorPaths("kontakte.stellvertretung.einwilligung"),
@@ -120,7 +116,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
   },
   {
     path: "kontakte.trainer.einwilligung",
-    label: "Einwilligung",
+    label: "Kenntnisnahme",
     group: "Trainer",
     read: readEinwilligung("trainer"),
     errorPaths: einwilligungErrorPaths("kontakte.trainer.einwilligung"),

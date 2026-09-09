@@ -48,8 +48,9 @@ export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
 export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
 
 /**
- * A club's Kürzel is exactly this many characters. Read by the schema, the input's own cap and the
- * blur-time check, so no two of them can disagree about what a complete code looks like.
+ * A club's Kürzel is exactly this many characters, mirrored from
+ * `fl_backend/app/shared/schemas/bounds.py`. Every site that counts a code reads it from here, the
+ * application form and the club editor alike, so no two can disagree about a complete code.
  */
 export const KUERZEL_LAENGE = 2;
 
@@ -90,6 +91,13 @@ export const ALTER_AUSSERHALB =
  */
 export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14;
 export const BEWERBUNG_ERINNERUNG_TAGE = 3;
+
+/**
+ * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two
+ * consent payloads because a link mangled longer than any mint answers a bare `REQ-VAL-001`, which
+ * tells a visitor nothing about their link.
+ */
+export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

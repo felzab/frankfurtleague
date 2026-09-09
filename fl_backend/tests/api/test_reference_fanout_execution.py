@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -173,6 +174,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "default_payment": SEEDED_DEFAULT_PAYMENT,
         "kontakt": dict(KONTAKT),
         "inactive_since": None,
+        "anonymisiert_am": None,
     }
 
 

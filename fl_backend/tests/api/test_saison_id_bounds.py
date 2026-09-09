@@ -1,11 +1,18 @@
+import ast
 import importlib
 import inspect
+from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from app.api.bewerbungen.services import next_saison_id
+from app.api.saisons import schemas as saison_schemas
+from app.api.saisons.schemas import FIRST_SAISON_YEAR, FLPostSaisonPayload
 from app.api.teams.schemas import FLTeamMembership
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
@@ -82,3 +89,150 @@ def test_a_membership_model_still_accepts_a_stored_id_a_payload_would_refuse():
     membership = FLTeamMembership.model_validate({"saison_id": STORED_WRONG_LENGTH_ID, "gruppe": "A", "austritt": None})
 
     assert membership.saison_id == STORED_WRONG_LENGTH_ID
+
+
+# A digit `\d` matches and `[0-9]` does not: Arabic-Indic and fullwidth, each spelling 2026.
+NON_ASCII_YEARS = ["٢٠٢٦", "２０２６"]
+
+
+# Matched on the attribute name alone, so a clock reached through an alias or a module this sweep
+# has never heard of is still caught. Nothing legitimately calls one of these at import.
+CLOCK_READS = frozenset({"today", "now", "utcnow"})
+
+
+def _import_time_nodes(node: ast.AST) -> Iterator[ast.AST]:
+    """Every node the module evaluates while it is being imported.
+
+    A function's BODY is the one part that is not, which is the distinction this sweep draws; its
+    decorators and argument defaults run with the `def`.
+    """
+
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            decorators = getattr(child, "decorator_list", [])
+            for evaluated in (*decorators, *child.args.defaults, *(default for default in child.args.kw_defaults if default is not None)):
+                yield evaluated
+                yield from _import_time_nodes(evaluated)
+            continue
+
+        yield child
+        yield from _import_time_nodes(child)
+
+
+def _clock_reads(source: str) -> tuple[list[str], list[str]]:
+    """Every clock read in one module, parted into those evaluated at import and those a call defers."""
+
+    tree = ast.parse(source)
+    at_import = {id(node) for node in _import_time_nodes(tree)}
+    reads = [
+        node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in CLOCK_READS
+    ]
+
+    return (
+        [ast.unparse(node) for node in reads if id(node) in at_import],
+        [ast.unparse(node) for node in reads if id(node) not in at_import],
+    )
+
+
+class TestTheCreatedSeasonsIdIsAYear:
+    """The one field that MINTS a season id: every other declaration references one already stored, so the range is this field's alone."""
+
+    @pytest.fixture
+    def new_saison(self, saison) -> dict[str, Any]:
+        """Narrowed rather than passed whole: `extra="forbid"` refuses the three keys only storage carries."""
+
+        stored = saison()
+
+        return {
+            "id": stored["_id"],
+            "start_date": stored["start_date"],
+            "end_date": stored["end_date"],
+            "rules": stored["rules"],
+            "bewerbung": None,
+        }
+
+    def test_the_unmodified_body_is_accepted(self, new_saison):
+        """Non-vacuity: every case below moves the id alone, and a body refused for a second reason would pass them all."""
+
+        assert FLPostSaisonPayload.model_validate(new_saison).id == new_saison["id"]
+
+    @pytest.mark.parametrize(
+        "value",
+        ["20a6", "２0２6", *NON_ASCII_YEARS],
+        ids=["a letter", "two fullwidth digits", "arabic-indic", "fullwidth"],
+    )
+    def test_it_refuses_an_id_that_is_not_ascii_digits(self, new_saison, value, assert_rejects):
+        """The refusal is the PATTERN and not the range: `int` reads three of these as 2026, so a range check alone would store them."""
+
+        error = assert_rejects(FLPostSaisonPayload, {**new_saison, "id": value}, "id")
+
+        assert {entry["type"] for entry in error.errors()} == {"string_pattern_mismatch"}
+
+    @pytest.mark.parametrize(
+        "value",
+        [str(FIRST_SAISON_YEAR - 1), "1900", str(date.today().year + 2)],
+        ids=["the year before the first season", "long before the league", "two years out"],
+    )
+    def test_it_refuses_a_year_the_league_can_have_no_season_in(self, new_saison, value, assert_rejects):
+        """A digits-only pattern cannot express either bound, so the refusal has to arrive as the validator's rather than the pattern's."""
+
+        error = assert_rejects(FLPostSaisonPayload, {**new_saison, "id": value}, "id")
+
+        assert {entry["type"] for entry in error.errors()} == {"value_error"}
+
+    # Padded from the constant rather than spelled: the width is `SAISON_ID_LENGTH`'s alone, so a
+    # pattern restating it would refuse these ids the moment that constant moved.
+    @pytest.mark.parametrize(
+        "value",
+        [str(FIRST_SAISON_YEAR).zfill(SAISON_ID_LENGTH), str(date.today().year + 1).zfill(SAISON_ID_LENGTH)],
+        ids=["the league's first season", "next year"],
+    )
+    def test_it_accepts_a_year_inside_the_range(self, new_saison, value):
+        assert FLPostSaisonPayload.model_validate({**new_saison, "id": value}).id == value
+
+
+class TestTheCeilingIsComputedRatherThanBoundAtImport:
+    """A range computed once at import is frozen for the life of the process.
+
+    The first January after a long-running deploy then refuses next season's id, and every
+    clock-relative case here still passes, having asked the same frozen constant.
+    """
+
+    def test_no_name_in_the_schema_module_binds_a_clock_read_at_import(self):
+        at_import, _ = _clock_reads(inspect.getsource(saison_schemas))
+
+        assert at_import == []
+
+    def test_the_module_reads_the_clock_inside_a_call(self):
+        """The floor against vacuity: with the range gone the clause above passes over a module consulting no clock at all."""
+
+        _, deferred = _clock_reads(inspect.getsource(saison_schemas))
+
+        assert deferred
+
+    def test_the_sweep_reports_a_bind_this_module_could_grow(self):
+        """Planted as TEXT rather than in the tree: a sweep nobody has driven red is one that cannot fail."""
+
+        source = inspect.getsource(saison_schemas)
+        before, _ = _clock_reads(source)
+
+        at_import, _ = _clock_reads(f"{source}\n\nNEWEST_SAISON_YEAR = date.today().year + 1\n")
+
+        assert at_import.count("date.today()") == before.count("date.today()") + 1
+
+
+class TestTheSeasonAfterIsNamedInTheSameDigits:
+    @pytest.mark.parametrize("value", NON_ASCII_YEARS, ids=["arabic-indic", "fullwidth"])
+    def test_a_non_ascii_year_stops_the_retention_pass(self, value: str):
+        """`int` reads each of these as 2026 and the successor comes back ASCII.
+
+        The pass would then go looking for a season the one it was derived from cannot be matched to.
+        """
+
+        with pytest.raises(ValueError):
+            next_saison_id(value)
+
+    def test_an_ascii_year_still_names_its_successor(self):
+        """Non-vacuity: a guard refusing everything would pass the case above without naming any season at all."""
+
+        assert next_saison_id(str(FIRST_SAISON_YEAR)) == str(FIRST_SAISON_YEAR + 1)

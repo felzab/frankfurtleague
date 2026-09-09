@@ -1,4 +1,4 @@
-import type { FLAustrittType, FLGruppenNames, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
+import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -14,8 +14,12 @@ export const KONTAKTE_CRUD_COPY = {
   emptyOverall: "Für diese Saison wurden noch keine Kontakte hinterlegt.",
 } as const;
 
-/** In the order every picker offers them. The closed set is `FLGruppenNames`'s. */
-export const GRUPPEN_OPTIONS: readonly FLGruppenNames[] = ["A", "B", "C", "D"];
+/**
+ * The closed set, in the order every picker offers it. The ONE spelling on this surface, and here
+ * rather than beside `fl_frontend/src/features/teams/schemas.ts :: FLGruppenNamesSchema`, which
+ * derives from it: the runtime import runs this way.
+ */
+export const GRUPPEN_OPTIONS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"] as const;
 
 type AustrittOption = {
   readonly value: FLAustrittType;
@@ -131,14 +135,14 @@ export function trikotFarbeHex(farbe: FLTrikotFarbe): string {
 }
 
 /**
- * The agreement wording's version cap, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every
+ * The stamped wording's version cap, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every
  * frontend enforcement point reads it from here, so the schema and the input cannot disagree.
  */
 export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
 
 /**
- * The one scope a contact person's agreement covers. A single member because a second scope would be a
- * second agreement, gathered on its own terms.
+ * The one scope a contact person's Kenntnisnahme covers. A single member because a second scope would
+ * be a second acknowledgement, gathered on its own terms.
  */
 export const EINWILLIGUNG_UMFANG = "kontaktdaten" as const;
 
@@ -149,13 +153,13 @@ type EinwilligungHerkunftOption = {
 
 /** In the order the contacts facet offers them as filters — no form picks between the two. */
 export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[] = [
-  // Neither label may name a giver other than the person: the second is a transcription, and a label
-  // naming the school would record the school as having consented for somebody.
+  // Neither label may name a source other than the person: the second is a transcription, and a label
+  // naming the school would record the school as having acknowledged for somebody.
   { value: "person", label: "Von der Person selbst" },
   { value: "administrativ", label: "Von der Verwaltung übertragen" },
 ];
 
-/** What every surface renders for a stored agreement. */
+/** What every surface renders for a stored Kenntnisnahme. */
 export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfasst_von"]): string {
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }

@@ -1,7 +1,8 @@
 import ast
 import inspect
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -11,7 +12,7 @@ from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -42,7 +43,7 @@ from app.api.spiele.services import (
 from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler, post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
-from app.api.spieltage.admin_router import patch_spieltag
+from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
@@ -383,7 +384,13 @@ class TestAMatchdayOffItsImpliedCount:
     def test_the_matchday_write_refuses_on_its_dates_alone(self):
         """Matched on the suffix rather than the `find_` prefix, which the driver's own reads share: what is pinned is the refusals."""
 
-        assert {call for call in _calls_of(patch_spieltag) if call.endswith("_refusal")} == {
+        # Every depth under the endpoint, where `_calls_of` reads its top scope alone: the span
+        # refusal sits in the transactional callback and the order refusal in the helper beside it.
+        reached = {callee(call) for _, call in calls_in(declared(patch_spieltag), patch_spieltag.__name__)} | _calls_of(
+            _refuse_an_out_of_order_beginn
+        )
+
+        assert {call for call in reached if call.endswith("_refusal")} == {
             "find_spieltag_span_refusal",
             "find_spieltag_order_refusal",
         }
@@ -577,10 +584,13 @@ class TestAPersonWithNoSquadRow:
         # The REACTIVATE for the same reason as the other two: a club replacement retires the
         # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
         # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
+
+        # Named by the CALLBACK each endpoint runs its transaction over, which is the innermost
+        # scope around the call and so the scope this sweep attributes it to.
         assert _callers_of(module_of(post_spieler), find_squad_refusal.__name__) == {
-            "post_saison_spieler",
-            "patch_saison_spieler",
-            "reactivate_saison_spieler",
+            "add_the_player",
+            "move_the_player",
+            "bring_the_player_back",
         }
 
 
@@ -703,7 +713,7 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
         keyed_on = {
             key.value: ast.unparse(value)
-            for node in ast.walk(declared(patch_spieltag))
+            for node in ast.walk(declared(_refuse_an_out_of_order_beginn))
             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
             for key, value in zip(node.value.keys, node.value.values, strict=True)
             if isinstance(key, ast.Constant)
@@ -781,15 +791,28 @@ class TestAFutureSeasonHoldingRecordedResults:
         """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
 
         named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
-        # Nested scopes included: the endpoint runs most of these inside its transaction callback,
-        # and a sweep stopping at the outer body would find none of them and pass on emptiness.
+        # The shared writer rather than either route, and nested scopes included: both routes delegate
+        # their whole body to it, so a sweep over a route's own finds none of these and passes on
+        # emptiness.
         run = {
             callee(call)
-            for _, call in calls_in(declared(patch_spiel_data), patch_spiel_data.__name__)
+            for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)
             if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
         }
 
         assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
+
+    def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
+        """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
+
+        for route in (patch_spiel_data, patch_spiele_paarungen):
+            judged = {
+                callee(call)
+                for _, call in calls_in(declared(route), route.__name__)
+                if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
+            }
+
+            assert not judged, f"{route.__name__} judges {sorted(judged)} outside {_write_spiel_data.__name__}, where the sweep reads"
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
         """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""

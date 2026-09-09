@@ -1,6 +1,7 @@
 import re
 from collections import Counter
-from typing import Any, Callable, Iterator
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 from fastapi.routing import APIRoute

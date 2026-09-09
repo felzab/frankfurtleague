@@ -1,6 +1,7 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from itertools import product
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -259,6 +260,7 @@ async def call_entry(database: AsyncDatabase, *, gruppe: FLGruppenNames = "A") -
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        db=database.client,
     )
 
 

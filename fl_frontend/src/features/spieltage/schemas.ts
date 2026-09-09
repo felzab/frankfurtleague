@@ -3,6 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
+import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { FLSpielSchema } from "../spiele/schemas";
 
@@ -20,7 +21,7 @@ export const FLSpieltagSchema = z.object({
   // starts at one rather than at zero.
   position: z.int().min(1),
   saison_phase: FLSaisonPhaseSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(SAISON_ID_LENGTH),
 });
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 

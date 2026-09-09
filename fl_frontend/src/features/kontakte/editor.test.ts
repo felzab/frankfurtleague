@@ -103,7 +103,15 @@ const listMarkup = (row: AdminKontakteRow, query: string): string =>
 
 /** The editor's banner author, in the one state each case below is about. */
 const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>): readonly KontakteBanner[] =>
-  buildKontakteBanners({ saisonId: "2526", saisonStatus: "active", isMember: true, isBlockRemoved: false, emptiedSeatLabels: [], ...state });
+  buildKontakteBanners({
+    saisonId: "2526",
+    saisonStatus: "active",
+    isMember: true,
+    isBlockRemoved: false,
+    emptiedSeatLabels: [],
+    renamedConfirmedSeatLabels: [],
+    ...state,
+  });
 
 const bannerIds = (banners: readonly KontakteBanner[]): string[] => banners.map((banner) => banner.id);
 
@@ -346,7 +354,7 @@ describe("what the contacts write moves", () => {
     assert.match(PATCH_ACTION, /Nothing to invalidate/, "the absent invalidation is left unexplained");
   });
 
-  /* The whole block or nothing. A partial send would leave the row holding one half of an agreement,
+  /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,
      which is why the field is required with no default on either side. */
   it("sends the block whole, nullable, and with no default", () => {
     assert.ok(!PAYLOAD_SCHEMA.includes(".optional()"), "the block may be omitted, which leaves the stored one standing unannounced");
@@ -417,7 +425,7 @@ describe("the editor's shape", () => {
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SECTION, /onBlur=\{\(\) => onFieldLeft\(\[`kontakte\.\$\{rolle\}\.vorname`\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SECTION_SOURCE), "a change handler judges a seat's field between keystrokes");
-    // The claim is the one pick this panel still offers: the agreement's origin is the server's to
+    // The claim is the one pick this panel still offers: the Kenntnisnahme's origin is the server's to
     // compose, so nothing here judges it.
     assert.match(SECTION, /if \(revalidate\) revalidateSeats\(next\);/, "a pick that resolves what a seat holds is judged elsewhere");
   });
@@ -472,7 +480,7 @@ describe("the editor's shape", () => {
     ] as const) {
       for (const claim of CLAIMS) assert.ok(!html.includes(claim), `the editor says „${claim}“ at ${wo}, which the row records no field for`);
     }
-    // Nothing beneath the switch: an empty seat renders no sub-heading of its own, the agreement's included.
+    // Nothing beneath the switch: an empty seat renders no sub-heading of its own, the Kenntnisnahme's included.
     assert.deepEqual(headings(sectionMarkup(BLOCK_LEER), "h4"), [], "an empty seat renders something beneath its switch");
 
     const seats = [
@@ -646,12 +654,13 @@ describe("what the undo says when it cannot run", () => {
 });
 
 describe("what the banners say", () => {
-  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so the two removals are
-     what open the save dialog — and a standing situation, however grave, asks nothing. */
-  it("puts the two removals in front of the save dialog and neither situation", () => {
+  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so the two removals and the
+     cleared confirmation are what open the save dialog — and a standing situation, however grave, asks
+     nothing. */
+  it("puts what the save takes away in front of the save dialog, and neither situation", () => {
     const severities = (state: Parameters<typeof bannersFor>[0]) => bannersFor(state).map((banner) => banner.severity);
 
-    for (const state of [{ isBlockRemoved: true }, { emptiedSeatLabels: ["Trainer"] }]) {
+    for (const state of [{ isBlockRemoved: true }, { emptiedSeatLabels: ["Trainer"] }, { renamedConfirmedSeatLabels: ["Trainer"] }]) {
       assert.deepEqual(severities(state), ["warning"], `${JSON.stringify(state)} raises nothing, or grades a removal as ordinary`);
       assert.notEqual(resolveBlockingBanners(bannersFor(state)), null, `${JSON.stringify(state)} saves without confirming what it clears`);
     }
@@ -664,18 +673,26 @@ describe("what the banners say", () => {
     }
   });
 
-  /* The block's own removal takes every seat with it, so the per-seat sentence beneath it would name
+  /* The block's own removal takes every seat with it, so each per-seat sentence beneath it would name
      seats inside a block that is going whole. */
-  it("drops the per-seat sentence where the whole block goes", () => {
-    const [entfernt, ...beside] = bannersFor({ isBlockRemoved: true, emptiedSeatLabels: ["Trainer", "Ansprechperson"] });
+  it("drops both per-seat sentences where the whole block goes", () => {
+    const [entfernt, ...beside] = bannersFor({
+      isBlockRemoved: true,
+      emptiedSeatLabels: ["Trainer", "Ansprechperson"],
+      renamedConfirmedSeatLabels: ["Stellvertretung"],
+    });
 
     assert.equal(entfernt?.id, "kontakte.block-removed");
     assert.deepEqual(bannerIds(beside), [], "the whole block's removal is stated beside a sentence about seats inside it");
 
     // Declared as well as unraised: without it the rail would show both the day either is raised alone.
-    const paar = [...bannersFor({ emptiedSeatLabels: ["Trainer"] }), ...bannersFor({ isBlockRemoved: true })];
+    const paar = [
+      ...bannersFor({ emptiedSeatLabels: ["Trainer"] }),
+      ...bannersFor({ renamedConfirmedSeatLabels: ["Stellvertretung"] }),
+      ...bannersFor({ isBlockRemoved: true }),
+    ];
 
-    assert.deepEqual(entfernt?.supersedes, ["kontakte.seats-emptied"]);
+    assert.deepEqual(entfernt?.supersedes, ["kontakte.seats-emptied", "kontakte.confirmation-cleared"]);
     assert.deepEqual(bannerIds(resolveRailBanners(paar)), ["kontakte.block-removed"]);
   });
 
@@ -690,6 +707,19 @@ describe("what the banners say", () => {
     for (const banner of [einer, drei]) {
       assert.doesNotMatch(`${banner?.title ?? ""} ${banner?.body ?? ""}`, /\d/, "the banner counts the seats in a sentence that must agree");
     }
+  });
+
+  /* „endgültig“ is the half an admin would otherwise get wrong: no junction seat can be confirmed a
+     second time, so a title offering a way back would be spent the first time somebody looked. */
+  it("reads the renamed seats out and calls the lost confirmation final", () => {
+    const [einer] = bannersFor({ renamedConfirmedSeatLabels: ["Trainer"] });
+    const [zwei] = bannersFor({ renamedConfirmedSeatLabels: ["Ansprechperson", "Trainer"] });
+
+    assert.equal(einer?.id, "kontakte.confirmation-cleared");
+    assert.equal(einer?.body, "Betroffen: Trainer.");
+    assert.equal(zwei?.body, "Betroffen: Ansprechperson, Trainer.");
+    assert.equal(einer?.title, zwei?.title, "the title changes with the seats, so it has to agree with a count");
+    assert.match(einer?.title ?? "", /endgültig/, "the title leaves the loss open, which a fresh confirmation cannot repair");
   });
 });
 
@@ -765,6 +795,7 @@ describe("the way in and out of the editor", () => {
       { saisonStatus: "past" as const },
       { isBlockRemoved: true },
       { emptiedSeatLabels: ["Trainer"] },
+      { renamedConfirmedSeatLabels: ["Trainer"] },
     ])
       for (const banner of bannersFor(state))
         assert.ok(!`${banner.title} ${banner.body ?? ""}`.includes("Saisonteilnahme"), "a banner carries a second noun for the junction row");
@@ -878,14 +909,14 @@ describe("how the editor asks which person the Trainer is", () => {
   });
 });
 
-describe("what the editor says about a consent it may not write", () => {
+describe("what the editor says about a Kenntnisnahme it may not write", () => {
   /* The server composes both fields. A control offering either would let an administrator record a
-     consent as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
+     Kenntnisnahme as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
      surface would show afterwards. */
   it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
     const seiten = sectionMarkup(BLOCK);
 
-    assert.match(seiten, />Erteilt</, "the agreement's origin is no longer shown at all");
+    assert.match(seiten, />Erfasst</, "the Kenntnisnahme's origin is no longer shown at all");
     assert.match(seiten, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
     assert.ok(seiten.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
     assert.ok(seiten.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
@@ -898,9 +929,9 @@ describe("what the editor says about a consent it may not write", () => {
   });
 });
 
-describe("which consent wording a record cites", () => {
+describe("which wording a record cites", () => {
   /* The version NAMES the text. Kept apart, a rewording without a bump leaves every earlier record
-     claiming agreement to a text nobody was shown. */
+     citing a text nobody was shown. */
   it("keeps a version and the wording it names, both filled in", () => {
     // That the two are one object is this file's type error; what no type can say is that neither
     // half is a placeholder.
@@ -910,7 +941,7 @@ describe("which consent wording a record cites", () => {
     assert.notEqual(LIGA_KENNTNISNAHME.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
-  /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
+  /* Both surfaces gather the SAME Kenntnisnahme, so a copy per feature is two texts that drift and two
      versions that disagree about which one a record cites. */
   it("stamps that one version on a new record from either surface", () => {
     assert.equal(
@@ -931,14 +962,14 @@ describe("which consent wording a record cites", () => {
     ] as const) {
       assert.match(
         readFileSync(file, "utf8"),
-        /LIGA_KENNTNISNAHME|BESTAETIGUNG_EINWILLIGUNG/,
+        /LIGA_KENNTNISNAHME|BESTAETIGUNG_KENNTNISNAHME/,
         `${name} spells the version rather than reading it`,
       );
     }
   });
 
   /* Typed by hand, the version is a value nobody decided stored as though somebody had — and an edit
-     to a STORED one would rewrite which text that person agreed to, which is history. */
+     to a STORED one would rewrite which text that person was shown, which is history. */
   it("never lets the version be typed, on a new record or a stored one", () => {
     const box = /<input[^>]*name="kontakte\.trainer\.einwilligung\.text_version"[^>]*>/.exec(sectionMarkup(BLOCK))?.[0] ?? "";
 
@@ -956,7 +987,7 @@ describe("which consent wording a record cites", () => {
 
 describe("how the editor divides one person from the next", () => {
   /* Two depths drawn the same way is the defect: a rule between two people looked like the rule
-     between a person's details and their agreement, so neither read as a boundary. */
+     between a person's details and their Kenntnisnahme, so neither read as a boundary. */
   it("gives every seat its own panel rather than a rule inside one", () => {
     const panel = formPanel();
     const cards = seatCards(sectionMarkup(BLOCK));
@@ -1013,18 +1044,18 @@ describe("how the editor divides one person from the next", () => {
   });
 
   /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
-     agreement. One depth, one drawing. */
-  it("keeps exactly one rule inside a seat, for the agreement", () => {
+     Kenntnisnahme. One depth, one drawing. */
+  it("keeps exactly one rule inside a seat, for the Kenntnisnahme", () => {
     /* No address in any seat, so none offers the person's erasure: that control draws its own rule
        from its own file, and what this case is about is the division inside one person. */
     for (const { body } of seatCards(sectionMarkup(BLOCK_OHNE_ADRESSE))) {
       const regeln = [...body.matchAll(/class="[^"]*\bborder-t pt-\d[^"]*"/g)].map((found) => found[0]);
 
-      assert.equal(regeln.length, 1, `the seat draws ${String(regeln.length)} rules where the agreement needs one`);
+      assert.equal(regeln.length, 1, `the seat draws ${String(regeln.length)} rules where the Kenntnisnahme needs one`);
       assert.match(
         body.split(regeln[0] ?? "")[1] ?? "",
-        /^><h4[^>]*>Einwilligung</,
-        "the seat's one rule opens something other than the agreement",
+        /^><h4[^>]*>Kenntnisnahme</,
+        "the seat's one rule opens something other than the Kenntnisnahme",
       );
     }
     /* Counted over the file as well: a rule drawn BETWEEN the cards sits inside no seat's body, so
@@ -1127,14 +1158,15 @@ describe("which way the claim runs, at every site that reads it", () => {
     );
   });
 
-  /* Emptying the seat the claim names empties the composed Trainer with it. Read off the raw draft,
-     the banner would not name the seat the save is about to clear. */
-  it("warns about the seats the composed block empties", () => {
-    assert.match(
-      FORM_SOURCE,
-      /emptiedSeatLabels\(storedKontakte, kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
-      "the banner reads the raw draft, so a seat the save clears goes unnamed",
-    );
+  /* Emptying or renaming the seat the claim names reaches the composed Trainer. Read off the raw draft,
+     neither banner would name the seat the save is about to change. */
+  it("warns about the seats the composed block empties and renames", () => {
+    for (const helfer of ["emptiedSeatLabels", "renamedConfirmedSeatLabels"])
+      assert.match(
+        FORM_SOURCE,
+        new RegExp(`${helfer}\\(storedKontakte, kontakte === null \\? null : mirrorKontakte\\(kontakte\\)\\)`),
+        `${helfer} reads the raw draft, so a seat the save changes goes unnamed`,
+      );
   });
 
   /* The admin editor and the public form run one direction through one function. Divergence here is
@@ -1152,5 +1184,69 @@ describe("which way the claim runs, at every site that reads it", () => {
         `${name} judges the claim's copies the other way round`,
       );
     }
+  });
+});
+
+describe("whose birthdate a seat holds, and who may put one there", () => {
+  /** The readout in ONE seat's card: it carries no `name`, and every seat renders the same label. */
+  const geburtsdatumBox = (html: string, rolle: string): string => {
+    const card = seatCards(html).find(({ body }) => body.includes(`id="feld-kontakte.${rolle}"`))?.body ?? "";
+
+    return /Geburtsdatum<\/label>[\s\S]*?<input[^>]*>/.exec(card)?.[0] ?? "";
+  };
+
+  /** One seat whose person has not confirmed: `geburtsdatum` null is what the read serves for one. */
+  const OHNE_DATUM: FLSaisonTeamKontakte = {
+    ...BLOCK,
+    trainer: {
+      ...seatPerson("Ada", "Byron", "ada@example.org"),
+      geburtsdatum: null,
+      einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+    },
+  };
+
+  /* A date typed on somebody's behalf is the one field the published notice says only that person
+     fills, and it is what the age floor at the confirmation is there to judge (ruling 274). */
+  it("reads the stored date out and offers no box to type one into", () => {
+    const box = geburtsdatumBox(sectionMarkup(BLOCK), "trainer");
+
+    assert.notEqual(box, "", "the seat renders no birthdate at all");
+    assert.match(box, /readonly=""/i, "an administrator can type a date on another person's behalf");
+    assert.ok(box.includes('value="10.12.1990"'), "the stored date is not what the seat reads out");
+    assert.doesNotMatch(sectionMarkup(BLOCK), /name="kontakte\.[a-z]+\.geburtsdatum"/, "a birthdate box still reaches the payload by name");
+  });
+
+  /* `isReadOnly` and not `isDisabled`: a disabled control leaves the tab order and is announced as
+     unavailable, so the one reader who cannot see the value loses it entirely. */
+  it("leaves the readout reachable by keyboard and named by its label", () => {
+    const box = geburtsdatumBox(sectionMarkup(BLOCK), "trainer");
+
+    assert.match(box, /tabindex="0"/i, "the readout is out of the tab order, so a keyboard cannot reach the value");
+    assert.doesNotMatch(box, /\sdisabled/i, "the readout is disabled rather than read-only");
+    assert.match(box, /aria-labelledby="[^"]+"/, "the readout is announced without its label");
+  });
+
+  /* An empty box on a read-only field reads as a value that failed to load, and „noch offen“ reads as
+     something the administrator is expected to get round to. */
+  it("names who fills it where the seat holds none", () => {
+    const box = geburtsdatumBox(sectionMarkup(OHNE_DATUM), "trainer");
+
+    assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
+  });
+
+  /* A seat whose person has not confirmed holds no date: a payload requiring one refuses a body no
+     administrator can repair, taking the Kenntnisnahme, the address and every other field on that
+     seat down with it. */
+  it("saves a seat whose birthdate is null", () => {
+    const payload = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload(OHNE_DATUM),
+      kontakte_stand: "9f2c",
+    };
+
+    assert.deepEqual(Object.keys(payload.kontakte?.trainer ?? {}).sort(), ["einwilligung", "email", "nachname", "telefon", "vorname"]);
+    assert.ok(FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload).success, "an unconfirmed seat cannot be saved at all");
+    assert.equal(describeUnrestorableKontakte(payload), null, "the undo is withheld over a seat nobody has confirmed");
   });
 });

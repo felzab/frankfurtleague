@@ -14,9 +14,11 @@ import {
   FIELD_TRIGGER,
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
+import type { RefusableOption } from "@/shared/components/ui/refusableOption";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -160,6 +162,85 @@ export function SaisonRuleNumberField({
 }
 
 /**
+ * `number_of_groups` and `qualifiers_per_group`, whose legal values SKIP: a floor and a ceiling can
+ * only describe a set that skips by admitting the values between, which is the offer
+ * `.claude/rules/cross-surface.md`'s **saisons** clause bars.
+ */
+export function SaisonCountSelect({
+  name,
+  label,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+  isDisabled,
+}: {
+  /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
+  name: string;
+  label: ReactNode;
+  /** Names the popover's list, which inherits nothing from a label bound to the trigger. */
+  ariaLabel: string;
+  value: number;
+  /** `fl_frontend/src/features/saisons/shapeOffer.ts` builds them; a closed row keeps its reason. */
+  options: readonly RefusableOption[];
+  onChange: (next: number) => void;
+  /**
+   * DISABLED where `SaisonRuleNumberField` is read-only: react-aria's `Select` has no read-only
+   * state, and the payload is built from the caller's draft rather than from the DOM, so the frozen
+   * value still rides along for the freeze to compare.
+   */
+  isDisabled?: boolean;
+}) {
+  const item = listboxRow();
+
+  return (
+    <Select
+      isRequired
+      name={name}
+      isDisabled={isDisabled}
+      aria-label={ariaLabel}
+      value={String(value)}
+      onChange={(key: Key | null) => {
+        // The disabled flag alone does not stop a pick: react-aria's hidden native mirror renders a
+        // refused row as a plain option, which is why `pickIfOffered` re-reads the refusal.
+        const offered = pickIfOffered(options, key?.toString() ?? null);
+        if (offered !== null) onChange(Number(offered));
+      }}
+      className="w-full">
+      {label}
+      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+        {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
+            show HeroUI's English placeholder. Same reasoning as `SaisonTiebreakSelect`'s trigger. */}
+        <span>{String(value)}</span>
+        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+      </Select.Trigger>
+      {/* Not `RefusableSelect`, which carries neither a `name` nor this: a shape refusal names a
+          payload path, and the box holding it is where the message has to land. */}
+      <FieldError className={FIELD_ERROR} />
+      {/* `RefusableSelect`'s popover rather than `SELECT_POPOVER`, which pins the list to the trigger:
+          in a third-width cell a note beside a one-character number would have nowhere to stand. */}
+      <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
+        <ListBox aria-label={ariaLabel}>
+          {options.map((option) => (
+            <ListBox.Item
+              key={option.id}
+              id={option.id}
+              textValue={option.name}
+              isDisabled={option.refusal !== null}
+              className={item.row()}>
+              <span className="min-w-0 truncate">{option.name}</span>
+              {/* Visible and closed rather than dropped: a count legal beside another number is one the
+                  reader may have just come from, and the note says which neighbour shut it. */}
+              {option.refusal !== null && <span className={item.note()}>{option.refusal}</span>}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+/**
  * `rules.tiebreak_order`. **Nothing validates it as it is picked**: the closed set holds no value the
  * schema can refuse, so the only message it could ever carry is a server refusal, which `name` is what
  * delivers.
@@ -182,6 +263,8 @@ export function SaisonTiebreakSelect({
    */
   isDisabled?: boolean;
 }) {
+  const item = listboxRow({ layout: "plain" });
+
   return (
     <Select
       isRequired
@@ -231,7 +314,7 @@ export function SaisonTiebreakSelect({
               key={option.value}
               id={option.value}
               textValue={option.label}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className={item.row()}>
               {option.label}
             </ListBox.Item>
           ))}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "../../../constants.ts";
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "../../../constants.ts";
 import { buildSpielerBanners } from "./banners.ts";
 
 import type { SpielerBanner } from "./banners.ts";
@@ -17,6 +17,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isRowTeamInSaison: true,
     isNachgetragen: false,
     isTeamChanged: false,
+    isSquadFull: false,
     blockedRolle: null,
     ...overrides,
   });
@@ -33,7 +34,7 @@ describe("buildSpielerBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.match(banner?.body ?? "", /Plätze im Kader bleiben erhalten/, "the body stopped naming what survives");
+    assert.match(banner?.body ?? "", /Kadereinträge dieser Person bleiben erhalten/, "the body stopped naming what survives");
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
@@ -42,6 +43,30 @@ describe("buildSpielerBanners", () => {
 
     assert.equal(banner?.id, "spieler.not-in-kader-entry");
     assert.match(banner?.title ?? "", /Saison 2026/);
+  });
+
+  /* A pupil can be a girl and this slice's consent panel already writes both forms, so a masculine
+     word here is wrong about half the league. Title and body together: one recast leaves an entry
+     disagreeing with itself. */
+  it("names the pupil neutrally in every banner that stands for the person", () => {
+    const maskulin = /\bdieser spieler\b|\bsein(?:e|em|en|er|es)?\b|\b(?:er|ihn|ihm)\b/i;
+    const genannt: string[] = [];
+
+    for (const [id, raised] of [
+      ["spieler.retired", build({ isRetired: true })],
+      ["spieler.not-in-kader-entry", build({ isMember: false })],
+      ["spieler.entry-nachgetragen", build({ isMember: false, saisonStatus: "active" })],
+      ["spieler.nachgetragen", build({ isNachgetragen: true })],
+    ] as const) {
+      const banner = raised.find((candidate) => candidate.id === id);
+
+      assert.ok(banner !== undefined, `${id} is no longer raised, so this case judges nothing`);
+      assert.ok(banner.body !== undefined, `${id} carries no body, so half of this case judges nothing`);
+      if (maskulin.test(banner.title)) genannt.push(`${id}: title`);
+      if (maskulin.test(banner.body)) genannt.push(`${id}: body`);
+    }
+
+    assert.deepEqual(genannt, [], "a banner names the pupil with a masculine word");
   });
 
   it("dates the retirement of the squad row in its title", () => {
@@ -77,10 +102,10 @@ describe("buildSpielerBanners", () => {
     const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen");
     const standing = build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen");
 
-    assert.match(entering?.title ?? "", /Dieser Spieler wird nachgetragen/);
-    assert.match(standing?.title ?? "", /Dieser Spieler wurde nachgetragen/);
-    assert.match(entering?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
-    assert.match(standing?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
+    assert.match(entering?.title ?? "", /Diese Person wird nachgetragen/);
+    assert.match(standing?.title ?? "", /Diese Person wurde nachgetragen/);
+    assert.match(entering?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
+    assert.match(standing?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
     assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
@@ -95,6 +120,26 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.severity, "warning");
     assert.equal(banner?.title, "Teamwechsel wirkt sofort");
     assert.equal(banner?.body, "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
+  });
+
+  /* Both sides of the cap, because an id list asserted at the cap alone reads the same for a banner
+     that stands over every squad. `info`, so the save dialog never asks about a press it cannot let
+     through. */
+  it("raises the full squad at the cap and not below it, and names both ways out", () => {
+    const raised = build({ isSquadFull: true });
+
+    assert.deepEqual(ids(raised), ["spieler.kader-voll"]);
+    assert.deepEqual(ids(build({ isSquadFull: false })), [], "the banner stands over a squad that still has room");
+    assert.equal(raised[0]?.severity, "info");
+    assert.match(raised[0]?.body ?? "", /trage zuerst einen anderen Spieler aus/, "the nearer repair is gone");
+    assert.match(raised[0]?.body ?? "", /Saisonregeln/, "the reader is left with one way out where the season's rules are the other");
+  });
+
+  /* One wording for one rule: this banner and the disabled reason can stand over one club at once. */
+  it("states the cap in the wording every other surface uses", () => {
+    const raised = build({ isSquadFull: true })[0];
+
+    assert.equal(`${raised?.title ?? ""}. ${raised?.body ?? ""}`, REACTIVATION_NEEDS_ROOM_IN_SQUAD);
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {
@@ -125,6 +170,7 @@ describe("buildSpielerBanners", () => {
       ...build({ isRetired: true }),
       ...build({ isMember: false, saisonStatus: "active" }),
       ...build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false }),
+      ...build({ isSquadFull: true }),
     ];
 
     for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);

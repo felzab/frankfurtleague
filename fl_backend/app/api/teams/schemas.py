@@ -1,6 +1,7 @@
 import hashlib
 import json
-from typing import Annotated, Any, Literal, Mapping, Union
+from collections.abc import Mapping
+from typing import Annotated, Any, Final, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -42,7 +43,14 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLGruppenNames = Literal["A", "B", "C", "D"]
+# Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
+# to read them. `tests/api/test_reference_models.py` holds the spelling to one naming rule, so
+# widening the set is arithmetic rather than a choice.
+FLGruppenNames = Literal["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
+
+# Read off the closed set rather than chosen beside it: a cap over the set size is one
+# `app/api/teams/services.py :: offered_gruppen` serves short while refusing nothing.
+MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames))
 
 # Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
 # standing, and offering it invites one.
@@ -229,7 +237,8 @@ class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
 
 
 # Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
-# Pydantic cannot un-inherit a field: the application's payload takes no birthdate, so none is here.
+# Pydantic cannot un-inherit a field: no payload takes a birthdate, so none is here, and the two
+# below differ on the consent shape alone.
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -250,9 +259,8 @@ class _KontaktpersonWritablePayload(BaseModel):
 
 
 class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
-    # Required where the stored shape is nullable: the editor collects a whole person, and the one
-    # payload that takes no date is the application's (`docs/backend/spec.md :: I141`).
-    geburtsdatum: CustomDateString
+    # No birthdate on this payload or the public one: the date is the person's own to enter at their
+    # confirmation (`docs/backend/spec.md :: I141`, `:: I142`).
     einwilligung: FLKontaktKenntnisnahmePayload
 
 
@@ -363,7 +371,7 @@ class FLGruppenTeam(BaseModel):
 
 
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
-    """The four groups, always all four, in standing order.
+    """Every group the SEASON offers, all of them and no other, in standing order.
 
     Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
     chain, whose head-to-head criterion reads the season's matches.
@@ -553,7 +561,7 @@ class FLTeamsListResponse(BaseAPIResponse):
 
 
 class FLTeamsGroupedResponse(BaseAPIResponse):
-    """The four groups in standing order, and how many of each advance.
+    """The season's groups in standing order, and how many of each advance.
 
     `qualifiers_per_group` rides along rather than being fetched separately, so a page cannot mark a
     cutoff drawn from a different season than the table it marks.
@@ -661,6 +669,6 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
 
 
 FLTeamsResponse = Annotated[
-    Union[FLTeamsListResponse, FLTeamsGroupedResponse],
+    FLTeamsListResponse | FLTeamsGroupedResponse,
     Field(discriminator="format"),
 ]

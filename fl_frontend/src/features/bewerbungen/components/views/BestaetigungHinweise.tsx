@@ -167,6 +167,12 @@ export function BestaetigungHinweise({
               werte={werte}
             />
           </li>
+          <li>
+            <Absatz
+              schluessel="fristOhneEntscheidung"
+              werte={werte}
+            />
+          </li>
         </ul>
       </section>
 

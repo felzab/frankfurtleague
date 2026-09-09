@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
-import { pickIfOffered } from "./refusableOption";
+import { listboxRow, pickIfOffered } from "./refusableOption";
 
 import type { RefusableOption } from "./refusableOption";
 
@@ -88,5 +89,81 @@ describe("what the picker says before anyone opens it", () => {
   it("labels its trigger with an element rather than a string alone", () => {
     assert.match(LEER, /data-slot="label"[^>]*>Gruppe</, "the field's label is not an element the DOM can follow");
     assert.match(LEER, /<button[^>]*\saria-labelledby="/, "the trigger names no labelling element");
+  });
+});
+
+// Three levels up: this file sits at `src/shared/components/ui`, and a sweep rooted any lower reports
+// a clean tree while a feature spells its own picker rows.
+const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
+
+/* Test files are OUT: this file spells both markers below as literals, and a sweep reading itself
+   would take its own fixtures for the tree's (`.claude/rules/frontend.md`). */
+const isProduction = (name: string): boolean => name.endsWith(".tsx") && !isTestFile(name);
+
+/** Every component in the tree, each read once for both of the routes below. */
+const COMPONENTS: readonly (readonly [string, string])[] = filesUnder(SRC, isProduction, 200).map(
+  (file) => [path.relative(SRC, file).split(path.sep).join("/"), readFileSync(file, "utf8")] as const,
+);
+
+/**
+ * The popover a picker's rows sit in, never the recipe it draws them from: a population read off
+ * `listboxRow` could not fail (`docs/_standard/standard.md` PRE-4).
+ */
+const PICKER_POPOVER = "<Select.Popover";
+
+/**
+ * A filter surface marks the current row IN its list, its trigger being an icon or a chip that
+ * cannot; a picker's trigger carries the value instead, so a picker row draws no selected state
+ * (`fl_frontend/src/shared/components/ui/pickedOption.ts :: PICKED_OPTION`).
+ */
+const FILTER_ROW = "PICKED_OPTION";
+
+const PICKERS = COMPONENTS.filter(([, source]) => source.includes(PICKER_POPOVER) && !source.includes(FILTER_ROW));
+
+/** The two fragments a hand-spelled row and a hand-spelled note each open with. */
+const OWN_ROW = "data-hovered:bg-hover data-hovered:text-brand";
+const OWN_NOTE = "fluid-xs text-foreground-muted";
+
+describe("the row every picker's list is drawn with", () => {
+  /* The floor under the reads below. `Select.Popover` draws nothing until it opens — the option text
+     in the markup is react-aria's hidden native mirror, which carries no class of the row's. */
+  it("puts no drawn row in the markup before the popover opens", () => {
+    assert.ok(!LEER.includes(listboxRow().row()), "the row's own class reaches the markup now, so a render can assert it");
+  });
+
+  /* A marker that stopped matching would pass over every picker in silence, and the equality below
+     would then compare two empty lists. Floored under the count, so retiring a picker costs nothing. */
+  it("finds the pickers in the tree at all", () => {
+    assert.ok(PICKERS.length >= 8, `${String(PICKERS.length)} pickers found, so this sweep is reading almost nothing`);
+  });
+
+  /* One place decides what a row looks like and what its note reads as. Spell either at a call site
+     and that picker alone drifts — a duration literal beside the motion scale is the drift that shows. */
+  it("is taken from this module by every picker, none of them spelling one", () => {
+    const findings = PICKERS.filter(
+      ([, source]) => !source.includes("listboxRow(") || source.includes(OWN_ROW) || source.includes(OWN_NOTE),
+    ).map(([file]) => file);
+
+    assert.deepEqual(findings, [], `these draw a picker's rows some other way:\n  ${findings.join("\n  ")}`);
+  });
+
+  /* The recipe reached the other way, so neither listing can shrink quietly: a combobox's compact list
+     taking the picker row is as much a drift as a picker spelling its own. */
+  it("is reached from those pickers and from nowhere else in the tree", () => {
+    const drawing = COMPONENTS.filter(([, source]) => source.includes("listboxRow(")).map(([file]) => file);
+
+    assert.deepEqual(
+      drawing,
+      PICKERS.map(([file]) => file),
+      "a picker draws its rows some other way, or something that is not one draws them from here",
+    );
+  });
+
+  /* The variant is the row's content, so each one has to reach a different class: collapse two and a
+     label-only row reserves the space a note would have stood in. */
+  it("parts a label-only row from an adorned one and from a noted one", () => {
+    const spellings = new Set([listboxRow({ layout: "plain" }).row(), listboxRow({ layout: "adorned" }).row(), listboxRow().row()]);
+
+    assert.equal(spellings.size, 3, "two of the three layouts draw the same row");
   });
 });

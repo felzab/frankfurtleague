@@ -1,4 +1,5 @@
-from typing import Any, Iterator, Mapping, get_args
+from collections.abc import Iterator, Mapping
+from typing import Any, get_args
 
 import pytest
 from bson import ObjectId

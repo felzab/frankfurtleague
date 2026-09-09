@@ -17,7 +17,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "8. September 2026";
+const STAND = "9. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -85,7 +85,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
-    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel, in derselben Form",
+    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
@@ -103,16 +103,23 @@ const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
     frist:
-      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet; die angekündigte Löschung ginge sonst an niemanden",
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet, längstens bis zum Ende der beworbenen Saison; die angekündigte Löschung ginge sonst an niemanden",
   },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
     daten: "Angenommene Bewerbung samt den Daten der drei Kontaktpersonen",
     frist: "Bis zum Ende der Saison, die auf die beworbene Saison folgt",
   },
+  {
+    daten: "Bewerbung, über die nicht entschieden wurde, samt den Daten der drei Kontaktpersonen",
+    frist: "Bis zum Ende der beworbenen Saison",
+  },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
-  { daten: "Änderungsprotokoll der Verwaltung", frist: "12 Monate ab dem Eintrag" },
+  {
+    daten: "Änderungsprotokoll der Verwaltung",
+    frist: "12 Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+  },
   {
     daten: "Zugriffsprotokoll des Servers",
     frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
@@ -161,7 +168,10 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Für die Teilnahme an der Frankfurt League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
             </li>
-            <li className={ABSATZ}>Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens.</li>
+            <li className={ABSATZ}>
+              Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens; wie das bei Schiedsrichterinnen und
+              Schiedsrichtern genau aussieht, steht in Abschnitt 10.
+            </li>
             <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
@@ -402,9 +412,9 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Veröffentlicht werden dann
-            Vorname und erster Buchstabe des Nachnamens, bei einer Spielerin und einem Spieler dazu das Team, die Rückennummer und die Position,
-            soweit sie angegeben sind.
+            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Von einer Spielerin und einem
+            Spieler werden Vorname und erster Buchstabe des Nachnamens veröffentlicht, dazu das Team, die Rückennummer und die Position, soweit
+            sie angegeben sind.
           </p>
           <p className={ABSATZ}>
             Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
@@ -412,8 +422,10 @@ export function DatenschutzView() {
             wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
           </p>
           <p className={ABSATZ}>
-            Für Schiedsrichterinnen und Schiedsrichter gilt dieselbe Form: An einem Spiel stehen Vorname und erster Buchstabe des Nachnamens.
-            Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
+            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
+            und vom nächsten nur der Anfangsbuchstabe. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens,
+            und ist nur ein einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der
+            Liga.
           </p>
           <p className={ABSATZ}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
@@ -466,14 +478,18 @@ export function DatenschutzView() {
               </Angabe>
             ))}
           </dl>
+          {/* Two erasures, so two sentences: a referee's row and its copy on every match survive with the
+              name nulled (`docs/glossary.md :: Schiedsrichter`), where a pupil's erasure takes the person
+              and their squad rows outright (`:: inactive_since`). */}
           <p className={ABSATZ}>
-            Ergebnisse, Tabellen und Spielpläne vergangener Saisons bleiben als Chronik der Liga bestehen. Wer darin mit Namen steht, kann die
-            Löschung verlangen; danach erscheint dort ein neutraler Eintrag statt des Namens.
+            Ergebnisse, Tabellen und Spielpläne vergangener Saisons bleiben als Chronik der Liga bestehen. Der Name einer Schiedsrichterin oder
+            eines Schiedsrichters an einem vergangenen Spiel wird auf Wunsch gelöscht; dort steht dann ein neutraler Eintrag. Aus den
+            Kaderlisten verschwindet der Name einer Spielerin oder eines Spielers dagegen ganz.
           </p>
           <p className={ABSATZ}>
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
-            zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Es wird nach zwölf Monaten gelöscht, und bei
-            einer Löschung auf Wunsch werden Deine Einträge darin sofort geleert.
+            zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
+            Einträge darin sofort geleert.
           </p>
         </LegalSection>
 
@@ -515,7 +531,7 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
-            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden nach zwölf Monaten wie alle anderen gelöscht.
+            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht.
           </p>
         </LegalSection>
 

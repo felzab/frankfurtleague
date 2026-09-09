@@ -2,9 +2,12 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
-// Acyclic: the teams slice's schemas import nothing but `@/shared`.
+// Its `options` are read at module load below, so a VALUE cycle back into this file reads the set
+// before it is initialised rather than merely tangling the graph.
 import { FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+
+import { SAISON_ID_LENGTH } from "./constants";
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
 export type FLSaisonStatus = z.infer<typeof FLSaisonStatusSchema>;
@@ -47,15 +50,19 @@ export const FLSaisonRulesSchema = z.object({
   // Required on both sides: a season that never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
   qualifiers_per_group: z
-    .int({ error: "Bitte gib die Zahl der Qualifikanten ein." })
+    .int({ error: "Bitte gib die Zahl der Qualifikanten pro Gruppe ein." })
     .positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
-  // The season runs the first `number_of_groups` of the closed A-D set, hence the `.max(4)`.
+  // The season runs the first `number_of_groups` of the closed name set, so the set's own size is the
+  // ceiling: a literal under it is a group count no season can be created with.
   number_of_groups: z
     .int({ error: "Bitte gib die Zahl der Gruppen ein." })
     .positive({ error: "Eine Saison braucht mindestens 1 Gruppe." })
-    .max(4, { error: "Es gibt höchstens 4 Gruppen." }),
-  // The floor stops a group phase that generates no fixture at all; the ceiling keeps the largest
-  // legal season inside the list read's cap, past which a season-scoped read is truncated.
+    .max(FLGruppenNamesSchema.options.length, {
+      error: `Es gibt höchstens ${String(FLGruppenNamesSchema.options.length)} Gruppen.`,
+    }),
+  // The floor stops a group phase that generates no fixture at all; the ceiling bounds one GROUP,
+  // where what a whole season may play is `REQ-RULES-013`, weighing every group and the bracket at
+  // once.
   teams_per_group: z
     .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
     .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })
@@ -108,10 +115,17 @@ export const FLSaisonBewerbungSchema = z.object({
 });
 export type FLSaisonBewerbung = z.infer<typeof FLSaisonBewerbungSchema>;
 
+/**
+ * Every field naming a season already stored, at one width: unbounded, an id lets `SaisonSelector`
+ * offer a season the backend cannot hold. `saisonIdField` below MINTS one and carries the pattern
+ * and the year range besides.
+ */
+const saisonIdReference = z
+  .string()
+  .length(SAISON_ID_LENGTH, { error: `Die Saison-ID besteht aus genau ${String(SAISON_ID_LENGTH)} Zeichen.` });
+
 export const FLSaisonSchema = z.object({
-  // Exactly 4, mirroring the backend: an unbounded id lets `SaisonSelector` offer a season the
-  // backend cannot hold.
-  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  id: saisonIdReference,
 
   start_date: CustomDateStringSchema,
   end_date: CustomDateStringSchema,
@@ -152,7 +166,7 @@ const groupCannotOverQualify = {
 };
 
 const bracketMustHaveAShape = {
-  error: `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
+  error: `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
   path: ["rules", "qualifiers_per_group"],
 };
 
@@ -195,10 +209,48 @@ const saisonPayloadFields = {
   bewerbung: FLSaisonBewerbungSchema.nullable(),
 };
 
+/**
+ * Retyped from `fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_YEAR`, which
+ * `fl_frontend/src/features/saisons/saisonIdMirror.test.ts` holds it to. A literal on both sides, being a fact about this
+ * league's own history; the ceiling below is a fact about the calendar and is read from the clock.
+ */
+export const FIRST_SAISON_YEAR = 2026;
+
+// The width is the length bound beside it, on both tiers, so neither states one number twice.
+/**
+ * The ALPHABET, character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload`
+ * spells it and compared to that spelling by `saisonIdMirror.test.ts` — a form offering what the write
+ * path refuses being what drift looks like here.
+ */
+export const SAISON_ID_PATTERN = /^[0-9]+$/;
+
+/** Read PER PARSE: a ceiling taken once when the module loads pins the year the tab was opened, not the year it is now. */
+const newestSaisonYear = () => new Date().getFullYear() + 1;
+
+const yearTheLeagueCanPlay = (value: string) => {
+  const year = Number(value);
+
+  return year >= FIRST_SAISON_YEAR && year <= newestSaisonYear();
+};
+
+/**
+ * The one field that MINTS a season id, so the range binds here and nowhere else: every other id in
+ * this module references a season already stored, and narrowing those would refuse a stored row.
+ */
+const saisonIdField = z
+  .string()
+  // `abort` on both, as pydantic stops at the first failing constraint: without it one mistyped id
+  // raises three sentences at once and the range check is handed a `NaN`.
+  .length(SAISON_ID_LENGTH, { error: `Die Saison-ID besteht aus genau ${String(SAISON_ID_LENGTH)} Zeichen, z.B. 2027.`, abort: true })
+  .regex(SAISON_ID_PATTERN, { error: "Die Saison-ID ist ein Jahr aus den Ziffern 0 bis 9, z.B. 2027.", abort: true })
+  .refine(yearTheLeagueCanPlay, {
+    error: () => `Die Saison-ID muss ein Jahr zwischen ${String(FIRST_SAISON_YEAR)} und ${String(newestSaisonYear())} sein.`,
+  });
+
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2027." }),
+    id: saisonIdField,
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
@@ -210,7 +262,7 @@ export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
 export const FLPatchSaisonPayloadSchema = z
   .object({
     // In the PATH on the wire; here because the editor has to know which season it is saving.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+    id: saisonIdReference,
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
@@ -219,7 +271,7 @@ export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */
 export const FLActivateSaisonPayloadSchema = z.object({
-  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  id: saisonIdReference,
 });
 export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
@@ -242,7 +294,7 @@ export type FLSpielplanShape = z.infer<typeof FLSpielplanShapeSchema>;
  * fails. Both left out is the first draw, which destroys nothing.
  */
 export const FLGenerateSpielplanPayloadSchema = z.object({
-  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  id: saisonIdReference,
   replace: z.boolean().optional(),
   // Nullable as well as optional, mirroring `FLSpielplanShape | None`: either spelling means "draw
   // from the season's stored numbers", which is what `REQ-RULES-011` freezes every other route out of.
@@ -252,7 +304,7 @@ export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPaylo
 
 /** An id in the path and no request body. */
 export const FLUndrawSpielplanPayloadSchema = z.object({
-  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  id: saisonIdReference,
 });
 export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSchema>;
 
@@ -261,7 +313,7 @@ export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSc
  * a form built against a season that has since moved cannot write a group nobody stands in.
  */
 export const FLSwapGruppenPayloadSchema = z.object({
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: saisonIdReference,
   team1_id: CustomObjectIdStringSchema,
   team2_id: CustomObjectIdStringSchema,
 });
@@ -289,7 +341,7 @@ export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSc
  * two counts without a second request, and they are the same numbers the season's watermark keeps.
  */
 export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: saisonIdReference,
   spieltage: z.int().nonnegative(),
   spiele: z.int().nonnegative(),
   generiert_am: CustomDateStringSchema,
@@ -305,7 +357,7 @@ export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResp
  * the season was already undrawn.
  */
 export const FLUndrawSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: saisonIdReference,
   spieltage: z.int().nonnegative(),
   spiele: z.int().nonnegative(),
   watermark_cleared: z.boolean(),
@@ -317,7 +369,7 @@ export type FLUndrawSpielplanResponse = z.infer<typeof FLUndrawSpielplanResponse
  * is what lets the toast name them.
  */
 export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
+  saison_id: saisonIdReference,
   team1_id: CustomObjectIdStringSchema,
   team1_gruppe: FLGruppenNamesSchema,
   team2_id: CustomObjectIdStringSchema,

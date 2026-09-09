@@ -4,7 +4,7 @@ import { Label, ListBox, Select } from "@heroui/react";
 
 import { FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
-import { pickIfOffered } from "./refusableOption";
+import { listboxRow, pickIfOffered } from "./refusableOption";
 
 import type { Key } from "@heroui/react";
 import type { RefusableOption } from "./refusableOption";
@@ -39,6 +39,8 @@ export function RefusableSelect({
   /** Any width the parent grid owns. The field is `w-full` without one. */
   className?: string;
 }) {
+  const item = listboxRow();
+
   const handleChange = (key: Key | null) => {
     // The whole decision is `pickIfOffered`'s, where a unit test can call it: a key arrives here
     // through an event, and a static render draws none.
@@ -76,9 +78,9 @@ export function RefusableSelect({
                 // react-aria's hidden native mirror renders a refused row as a plain option, which
                 // is why `pickIfOffered` re-reads `refusal` rather than trusting this flag alone.
                 isDisabled={option.refusal !== null}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                className={item.row()}>
                 <span className="min-w-0 truncate">{option.name}</span>
-                {note !== null && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{note}</span>}
+                {note !== null && <span className={item.note()}>{note}</span>}
               </ListBox.Item>
             );
           })}

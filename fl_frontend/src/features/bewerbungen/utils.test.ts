@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
+import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 
 import { declaredCodes } from "../../core/refusalRegister.ts";
@@ -23,12 +23,10 @@ import {
   KUERZEL_UNGEPRUEFT,
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
-  leserichtungHref,
   mapBewerbungSubmitRefusal,
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
-  parseLeserichtung,
   stampEinwilligungFassung,
 } from "./utils.ts";
 
@@ -502,15 +500,6 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
   });
 });
 
-describe("parseLeserichtung", () => {
-  it("keeps the newest end unless the URL asks for the other one", () => {
-    for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
-      assert.equal(parseLeserichtung(params), "desc");
-    }
-    assert.equal(parseLeserichtung({ order: "asc" }), "asc");
-  });
-});
-
 describe("the confirmation's refusals against the backend's register", () => {
   /* As above: a loop over an operation the register does not name runs zero times and proves
      nothing. */
@@ -564,7 +553,7 @@ describe("the confirmation's refusals against the backend's register", () => {
   });
 });
 
-describe("which consent wording an answer is stored under", () => {
+describe("which stamped wording an answer is stored under", () => {
   const FREMD = {
     token: "kein-echtes-token",
     antwort: "erteilt" as const,
@@ -576,10 +565,10 @@ describe("which consent wording an answer is stored under", () => {
   /* The label names which words were on screen, and only this server knows that. Taken from the
      body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
   it("replaces whatever label the request carried with the registry's own", () => {
-    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.notEqual(
       FREMD.text_version,
-      BESTAETIGUNG_EINWILLIGUNG.textVersion,
+      BESTAETIGUNG_KENNTNISNAHME.textVersion,
       "the fixture already carries the label, so this compares nothing",
     );
   });
@@ -613,20 +602,5 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   it("leaves anything that is not a refusal to the caller", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
-  });
-});
-
-describe("leserichtungHref", () => {
-  it("offers the opposite end from either end", () => {
-    assert.equal(leserichtungHref({}, "desc"), "?order=asc");
-    assert.equal(leserichtungHref({ order: "asc" }, "asc"), "?order=desc");
-  });
-
-  it("rebuilds `order` rather than appending beside the old one", () => {
-    assert.equal(leserichtungHref({ order: "asc", q: "x" }, "asc"), "?q=x&order=desc");
-  });
-
-  it("carries every other parameter across, repeated keys included", () => {
-    assert.equal(leserichtungHref({ saison_id: "2025", status: ["a", "b"] }, "desc"), "?saison_id=2025&status=a&status=b&order=asc");
   });
 });

@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -22,7 +23,7 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
-  KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
 } from "@/shared/schemas";
@@ -33,6 +34,7 @@ import {
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
   BEWERBUNG_STUFENGROESSE_MAX,
+  BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
@@ -210,6 +212,16 @@ export const FLBewerbungenListResponseSchema = BaseAPIResponseSchema.extend({
    * narrowed on — so the triage bar can offer a state whose rows this answer does not carry.
    */
   anzahl_je_status: z.record(FLBewerbungStatusSchema, z.number().int().nonnegative()),
+  /**
+   * The same for the season relation, counted over everything but that relation — so the bar can offer the way
+   * out of the season the read narrowed to.
+   */
+  anzahl_je_saisonbezug: z.record(z.enum(["diese_saison", "andere_saison"]), z.number().int().nonnegative()),
+  /**
+   * Which collision keys two or more OPEN applications share, counted by the server over the whole
+   * queue — the only place a pair the read's cap parted is visible.
+   */
+  dubletten_schluessel: z.array(z.string()),
 });
 export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponseSchema>;
 
@@ -329,9 +341,9 @@ export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
 export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungEinwilligungPayload`. The public form submits WHAT was agreed to and that it
+ * Mirrors `FLBewerbungEinwilligungPayload`. The public form submits WHAT was acknowledged and that it
  * was; the server composes the stored record around it, so no visitor can claim an administrative
- * transcription or backdate a consent.
+ * transcription or backdate a Kenntnisnahme.
  */
 export const FLBewerbungEinwilligungPayloadSchema = z.object({
   // Written by the form from `LIGA_KENNTNISNAHME` rather than typed: the wording lives in the
@@ -339,13 +351,13 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
   text_version: z
     .string()
     .trim()
-    .nonempty({ error: "Die Einwilligung nennt keine Fassung. Lade die Seite neu." })
+    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-  // `true` alone, never a boolean: an unticked box is a consent nobody gave, and a payload carrying
-  // `false` would record the absence as an answer.
-  erteilt: z.literal(true, { error: "Ohne diese Bestätigung können wir die Bewerbung nicht annehmen." }),
+  // `true` alone, never a boolean: an unticked box is an acknowledgement nobody made, and a payload
+  // carrying `false` would record the absence as an answer.
+  erteilt: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
@@ -354,14 +366,12 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
 
 /**
  * Mirrors `FLBewerbungKontaktpersonPayload` — the four fields the applicant types, with the
- * confirmation the form gathers for all three seats at once.
+ * Kenntnisnahme the form gathers for all three seats at once.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
   // here so the API refuses one an older client still sends rather than storing an unchecked date.
@@ -405,13 +415,14 @@ function normalisiereTelefon(value: string): string {
 
 /**
  * Compared as digits, so `+49 (0)170 …` and `0170 …` are the one number the backend reads them as.
- * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` admits `().`, which normalises to nothing,
- * and Pydantic refuses two such seats.
+ * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` ends every accepted value in a digit, so
+ * none of them normalises to nothing.
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
-// By value, because `einwilligung` is an object and two equal consents are two objects. One level of
-// nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison is total.
+// By value, because `einwilligung` is an object and two equal acknowledgements are two objects. One
+// level of nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison
+// is total.
 const gleicherWert = (a: unknown, b: unknown): boolean =>
   typeof a === "object" && a !== null && typeof b === "object" && b !== null
     ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
@@ -591,7 +602,7 @@ export type FLBewerbungKaderPayload = z.infer<typeof FLBewerbungKaderPayloadSche
  */
 export const FLPostBewerbungPayloadSchema = z
   .object({
-    saison_id: z.string().trim().length(4, { error: "Diese Bewerbung nennt keine Saison. Lade die Seite neu." }),
+    saison_id: z.string().trim().length(SAISON_ID_LENGTH, { error: "Diese Bewerbung nennt keine Saison. Lade die Seite neu." }),
     team_id: CustomObjectIdStringSchema.nullable(),
     schule: FLBewerbungSchulePayloadSchema.nullable(),
     kontakte: FLBewerbungKontaktePayloadSchema,
@@ -629,8 +640,19 @@ export const FLPostBewerbungPayloadSchema = z
   });
 export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
-/** The one thing a visitor's body can be missing that no input renders: a link opened without its token. */
+/** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+
+/**
+ * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`, both consent payloads
+ * reading it from here. One sentence for the missing token and the over-long one: a visitor typed
+ * neither, so the repair is the same link opened again.
+ */
+const einwilligungToken = z
+  .string()
+  .trim()
+  .nonempty({ error: LINK_UNVOLLSTAENDIG })
+  .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
 // Mirrors `KONTAKT_ROLLEN`'s values as `FLTrainerZugleichSchema` mirrors its two: the wire names a
 // seat by this closed set.
@@ -644,7 +666,7 @@ export type FLKontaktRolle = z.infer<typeof FLKontaktRolleSchema>;
  * the credential, and a second URL carrying it is a second line the edge has to redact.
  */
 export const FLBewerbungEinwilligungAnsichtPayloadSchema = z.object({
-  token: z.string().trim().nonempty({ error: LINK_UNVOLLSTAENDIG }),
+  token: einwilligungToken,
 });
 export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEinwilligungAnsichtPayloadSchema>;
 
@@ -673,7 +695,7 @@ export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungE
  */
 export const FLBewerbungEinwilligungAntwortPayloadSchema = z
   .object({
-    token: z.string().trim().nonempty({ error: LINK_UNVOLLSTAENDIG }),
+    token: einwilligungToken,
     // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
     // answer, and the repair is the reload rather than a choice.
     antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
@@ -684,7 +706,7 @@ export const FLBewerbungEinwilligungAntwortPayloadSchema = z
     text_version: z
       .string()
       .trim()
-      .nonempty({ error: "Die Einwilligung nennt keine Fassung. Lade die Seite neu." })
+      .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
       .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
         error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
       }),
@@ -759,10 +781,7 @@ export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEi
 export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-  // The submission's own two sentences, so one address is judged alike wherever it is typed.
-  email: z
-    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
-    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  email: KontaktEmailSchema,
 });
 export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
 
@@ -779,28 +798,55 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
- * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
+ * The ceilings the two delivery writes state at their shared base, paired with that base's own by
+ * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_MODEL_BOUNDS`. Retyped here rather
+ * than left off: both endpoints answer 422 past one, and no caller of either retries.
  */
-export const FLBewerbungZustellungAngenommenPayloadSchema = z.object({
+export const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
+export const ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH = 64;
+export const ZUSTELLUNG_GRUND_MAX_LENGTH = 128;
+
+/**
+ * What both delivery writes name, mirroring the one private base they share on the backend. Spelled
+ * once for the reason the base exists: two copies would let the acceptance and the event judge one
+ * provider's message differently.
+ */
+const zustellungMeldungFields = {
   bewerbung_id: CustomObjectIdStringSchema,
   // Plural because one message answers a mirrored pair, and both seats' links stand or fall with it.
   rollen: z.array(FLKontaktRolleSchema).min(1),
-  nachricht_id: z.string(),
-  am: z.string(),
-});
+  // `.trim()` ahead of the floor, as `strip_whitespace=True` puts it there: a value of spaces alone
+  // is what the endpoint refuses and a bare `min(1)` would send.
+  nachricht_id: z
+    .string()
+    .trim()
+    // German though no reader meets one: this server composes both writes, and a refusal reaches the
+    // log rather than a box. `fl_frontend/src/core/schemaGerman.test.ts` holds every payload to it.
+    .min(1, { error: "Diese Meldung nennt keine Nachricht." })
+    .max(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH, { error: "Diese Nachrichten-ID ist zu lang." }),
+  am: z
+    .string()
+    .trim()
+    .min(1, { error: "Diese Meldung nennt keinen Zeitpunkt." })
+    .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
+};
+
+/**
+ * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
+ * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
+ */
+export const FLBewerbungZustellungAngenommenPayloadSchema = z.object(zustellungMeldungFields);
 export type FLBewerbungZustellungAngenommenPayload = z.infer<typeof FLBewerbungZustellungAngenommenPayloadSchema>;
 
 /** Mirrors `FLBewerbungZustellungEreignisPayload` — one event the provider sent about a message already recorded. */
 export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
-  bewerbung_id: CustomObjectIdStringSchema,
-  rollen: z.array(FLKontaktRolleSchema).min(1),
-  nachricht_id: z.string(),
+  ...zustellungMeldungFields,
   // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
   // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
   stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
-  grund: z.string().nullable(),
-  am: z.string(),
+  // No floor beside the ceiling, unlike the two above: the endpoint takes an empty reason and a
+  // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
+  grund: z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }).nullable(),
 });
 export type FLBewerbungZustellungEreignisPayload = z.infer<typeof FLBewerbungZustellungEreignisPayloadSchema>;
 
@@ -858,13 +904,14 @@ export const FLBewerbungSweepLoeschungSchema = z.object({
 });
 export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
 
-/** One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts. */
+/** One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts. */
 export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   erinnerungen: z.array(FLBewerbungSweepErinnerungSchema),
   loeschungen: z.array(FLBewerbungSweepLoeschungSchema),
   abgelehnte_geloescht: z.int().nonnegative(),
   angenommene_geloescht: z.int().nonnegative(),
+  ohne_entscheidung_geloescht: z.int().nonnegative(),
   kontaktbloecke_geleert: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
 });

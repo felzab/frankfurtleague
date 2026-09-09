@@ -1,4 +1,5 @@
-from typing import Any, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -12,9 +13,14 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielPriorOtherFields,
+    FLSpielPriorPaarung,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
+    FLSpielRestorableField,
     FLSpielTeamField,
+    FLSpielTeamFieldPayload,
+    other_fields_of,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -24,13 +30,23 @@ from app.api.spiele.services import (
     SlotAdvancement,
     SpieltagRelease,
     build_spiele_pipeline,
+    find_advancement_occupancy_refusal,
     find_departed_occupants,
     find_double_entries,
+    find_gruppen_not_run,
     resolve_bracket,
+    stored_in_slice,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
-from app.api.teams.services import ZERO_STATISTIK, DecidedStanding, build_decided_standings, build_statistik_by_team, build_team_pipeline
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
+from app.api.teams.services import (
+    ZERO_STATISTIK,
+    DecidedStanding,
+    build_decided_standings,
+    build_statistik_by_team,
+    build_team_pipeline,
+    offered_gruppen,
+)
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, refuse
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -52,8 +68,12 @@ async def _resolve_one_saison(
         quelle.gruppe for spiel in spiele for quelle in (spiel.team1_quelle, spiel.team2_quelle) if isinstance(quelle, FLSpielQuelleGruppe)
     }
 
+    # The groups the season RUNS alone: a standing built for any other would have the walk report a
+    # reference to it as a table too short, where `find_gruppen_not_run` names the group.
+    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_groups))
+
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
-    if referenced_gruppen:
+    if gruppen_to_decide:
         # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a hidden club must not hold a placing the bracket honours.
         # `rules=None` asks it for the ROWS alone.
@@ -80,10 +100,15 @@ async def _resolve_one_saison(
             teams=FLTeamListAdapter.validate_python([{**team, "statistik": by_team.get(team["_id"], ZERO_STATISTIK)} for team in teams_raw]),
             spiele=gruppenphase,
             rules=rules,
-            gruppen=referenced_gruppen,
+            gruppen=gruppen_to_decide,
         )
 
-    return resolve_bracket(spiele, standings)
+    resolution = resolve_bracket(spiele, standings)
+
+    return BracketResolution(
+        advancements=resolution.advancements,
+        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_groups=rules.number_of_groups)],
+    )
 
 
 async def find_bracket_faults(
@@ -245,12 +270,17 @@ async def preview_bracket_after_patch(
         current = substituted.get(release.spiel_id) or next(spiel for spiel in season if spiel.id == release.spiel_id)
         substituted[release.spiel_id] = apply_release_to_spiel(current, release)
 
+    would_hold = [substituted.get(spiel.id, spiel) for spiel in season]
     resolution = await _resolve_one_saison(
         teams_collection=teams_collection,
         saison_id=saison_id,
         rules=rules,
-        spiele=[substituted.get(spiel.id, spiel) for spiel in season],
+        spiele=would_hold,
     )
+
+    # Raised here as well as at the save, so the preview cannot report a resolution the save refuses:
+    # the rail would then invite an edit that 409s on the button beside it.
+    refuse(find_advancement_occupancy_refusal(would_hold, resolution.advancements))
 
     return (
         [report_advancement(advancement) for advancement in resolution.advancements],
@@ -305,6 +335,10 @@ async def advance_bracket_winners(
         session=session,
     )
 
+    # Before the first write, so the whole transaction goes back: a resolution refused halfway would
+    # leave the season part-advanced, which no later save reproduces and nothing reports as unfinished.
+    refuse(find_advancement_occupancy_refusal(spiele, resolution.advancements))
+
     for advancement in resolution.advancements:
         # The result goes with the occupant (`docs/backend/spec.md :: I25b`): what was scored here
         # was scored by a team no longer in the fixture.
@@ -332,6 +366,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
     """One advancement as the response reports it -- the one mapping to the wire shape, so save and preview report alike."""
 
     return FLSpielAdvancement(
+        spiel_id=advancement.spiel_id,
         spiel_nr=advancement.spiel_nr,
         voided_ergebnis=advancement.voided_ergebnis,
         voided_elfmeterschiessen=advancement.voided_elfmeterschiessen,
@@ -343,6 +378,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     """One released side as the response reports it, for the same reason `report_advancement` exists."""
 
     return FLSpielReleasedSide(
+        spiel_id=release.spiel_id,
         spiel_nr=release.spiel_nr,
         side=release.side,
         team_name=release.team_name,
@@ -350,6 +386,70 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
     )
+
+
+def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | None:
+    """One stored side as a payload names it. The display copies stay behind: the server composes them (`docs/backend/spec.md :: I3`)."""
+
+    return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
+
+
+def _prior_paarung(stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None) -> FLSpielPriorPaarung:
+    return FLSpielPriorPaarung(
+        spiel_id=stored.id,
+        team1=_payload_side(stored.team1),
+        team2=_payload_side(stored.team2),
+        elfmeterschiessen=stored.elfmeterschiessen,
+        sonderereignis=stored.sonderereignis,
+        other_fields=other_fields,
+    )
+
+
+def _fields_this_write_replaced(stored: FLSpiel, patched: FLSpiel) -> FLSpielPriorOtherFields | None:
+    """The stored value of every field outside the Paarung this write overwrote, `None` where it overwrote none.
+
+    Only the fixture the request named can have any: a bracket resolution reaches the Paarung alone.
+    """
+
+    before = other_fields_of(stored)
+    after = other_fields_of(patched)
+    # Annotated, or pyright widens the mapping's `Literal` key to `str` and the model refuses the list.
+    replaced: list[FLSpielRestorableField] = [field for field, value in before.items() if value != after[field]]
+
+    return None if not replaced else FLSpielPriorOtherFields(replaced=replaced, **before)
+
+
+def report_prior_paarungen(
+    edited: CustomObjectId,
+    season: Sequence[FLSpiel],
+    patched: FLSpiel,
+    advanced_to: Sequence[FLSpielAdvancement],
+    released_sides: Sequence[FLSpielReleasedSide],
+) -> list[FLSpielPriorPaarung]:
+    """Every fixture this write changed, off the slice it was judged on.
+
+    Not either report's own view: the releases land before the resolution reads, so a fixture both
+    name would report an occupant one write out of date.
+    """
+
+    # `edited` is dropped from the set and prepended below instead: the resolution can advance the
+    # fixture the request named, and two entries for it would write that fixture twice on one undo.
+    moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
+    stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
+
+    # `docs/backend/spec.md :: I108`'s reading: a restore silently short of one fixture leaves it
+    # holding exactly what the admin asked to undo.
+    if len(stored) != len(moved):
+        raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")
+
+    named = stored_in_slice(edited, season)
+
+    # LEADING, because a restore replays this list in order: putting the named fixture back frees the
+    # occupants the resolution then hands to the moved ones, where the reverse order overwrites them.
+    return [
+        _prior_paarung(named, _fields_this_write_replaced(named, patched)),
+        *(_prior_paarung(spiel, None) for spiel in stored),
+    ]
 
 
 def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:

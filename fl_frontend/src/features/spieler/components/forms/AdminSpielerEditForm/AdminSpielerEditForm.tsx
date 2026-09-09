@@ -159,8 +159,10 @@ export function AdminSpielerEditForm({
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
 
-  // Read off the DRAFT's team: moving the picker moves who already leads.
+  // Read off the DRAFT's team: moving the picker moves who already leads, and moves which squad the
+  // save would be admitted to.
   const heldRollen = teams.find((team) => team.teamId === teamId)?.heldRollen ?? {};
+  const isSquadFull = teams.find((team) => team.teamId === teamId)?.isSquadFull === true;
   const heldBy = rolle === null ? undefined : heldRollen[rolle];
   // Only where SOMEBODY ELSE holds it. The current holder keeps the control so they can give it up.
   const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
@@ -171,6 +173,9 @@ export function AdminSpielerEditForm({
   // The predicate `REQ-SQUAD-001` counts, asked of the same fact: `teams` is exactly this season's
   // junction rows, and a club replacement repoints one away from the squad rows still naming it.
   const isRowTeamInSaison = storedMembership === null || teams.some((team) => team.teamId === storedMembership.team_id);
+  // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
+  // the club it already names, which a transfer in the draft can have moved away from without it.
+  const isRowSquadFull = storedMembership !== null && teams.find((team) => team.teamId === storedMembership.team_id)?.isSquadFull === true;
 
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
@@ -181,6 +186,7 @@ export function AdminSpielerEditForm({
     isRowTeamInSaison,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
+    isSquadFull,
     blockedRolle,
   });
 
@@ -371,6 +377,7 @@ export function AdminSpielerEditForm({
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}
               isRowTeamInSaison={isRowTeamInSaison}
+              isRowSquadFull={isRowSquadFull}
               banners={banners}
             />
           )}

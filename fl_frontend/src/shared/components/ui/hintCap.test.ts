@@ -192,7 +192,7 @@ function sentenceBreaks(sentence: string): number {
   const body = stripped.replace(/[„“”"»«]/g, "").replace(/[.!?]\s*$/, "");
 
   // A period ends a sentence only before a capital, German capitalising every sentence's first word.
-  // What that admits is the ordinal in a rendered label like `Sieger 25.`, which no list can enumerate.
+  // What that admits is the ordinal in a rendered label like `1. der Gruppe A`, which no list can enumerate.
   return (body.match(/\.\s+\p{Lu}/gu) ?? []).length + (body.match(/[!?]/g) ?? []).length;
 }
 

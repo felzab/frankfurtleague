@@ -1,6 +1,7 @@
 from collections.abc import Iterator, Sequence
 from functools import cache
 from itertools import combinations, permutations, product
+from math import factorial
 from typing import Any, get_args
 
 import pytest
@@ -17,12 +18,13 @@ from app.api.saisons.schedule import (
 )
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal
-from app.api.saisons.spielplan import BRACKET_SEEDING, EnteredTeam, Spielplan, circle_rounds, draw_spielplan
+from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
 from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
+from tests.bracket_reference import BRACKET_SEEDING
 
 GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
 
@@ -47,9 +49,6 @@ SHAPES: tuple[tuple[int, int, int], ...] = (
     (2, 8, 8),
     (1, 16, 16),
 )
-
-# A one-group season has only the identity relabelling, so the symmetry test says nothing there.
-MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(sorted(key for key in BRACKET_SEEDING if key[0] > 1))
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
@@ -285,7 +284,7 @@ def band_seedings(groups: int, qualifiers: int) -> Iterator[Seeding]:
 
 @cache
 def permutations_of(offered: tuple[FLGruppenNames, ...]) -> tuple[tuple[FLGruppenNames, ...], ...]:
-    """Cached: the widest sweep would otherwise rebuild this list on every one of its 13824 steps."""
+    """Cached: the widest sweep would otherwise rebuild this list on every one of its `sweep_size` steps."""
 
     return tuple(permutations(offered))
 
@@ -314,16 +313,63 @@ def partner_consistent_seedings(groups: int, qualifiers: int) -> Iterator[Seedin
 
 @cache
 def optimum(groups: int, qualifiers: int) -> Score:
-    """The best score the banded space reaches, cached because the widest sweep walks 13824 seedings."""
+    """The best score the banded space reaches, cached because `sweep_size` is what one call walks."""
 
     return max(score(seeding) for seeding in band_seedings(groups, qualifiers))
 
 
-class TestTheTableCoversTheWritePath:
-    def test_it_holds_exactly_the_combinations_a_season_can_be_saved_in(self):
-        """Derived from the rules bounds and the refusal, so widening either strands a legal season with no row to draw from."""
+def sweep_size(groups: int, qualifiers: int) -> int:
+    """What one exhaustive sweep costs.
 
-        assert set(BRACKET_SEEDING) == legal_combinations()
+    `max(1, ...)`: at a single qualifier `product` walks one seeding and still builds every
+    permutation of the groups first, so the factorial is the floor rather than the exponent.
+    """
+
+    return factorial(groups) ** max(1, qualifiers - 1)
+
+
+# `permutations_of` builds every permutation of the offered groups before `product` walks anything, so
+# a ceiling on the count is what keeps an unreachable size a skipped key rather than a `MemoryError`.
+SWEEP_CEILING = 50_000
+
+SWEPT_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(BRACKET_SEEDING) if sweep_size(*key) <= SWEEP_CEILING)
+
+# Derived from the WRITE PATH rather than from the reference table, so a widened rules bound gains its
+# second witness without anybody hand-writing a row for the shape it opened.
+SWEEPABLE_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(legal_combinations()) if sweep_size(*key) <= SWEEP_CEILING)
+
+# A one-group season has only the identity relabelling, so the symmetry test says nothing there.
+MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in SWEPT_KEYS if key[0] > 1)
+
+
+def best_possible(groups: int, qualifiers: int) -> Score:
+    """The score no banded seeding beats, computed rather than swept.
+
+    Both objectives reach their own bound at once, so the optimum is no compromise between them.
+    """
+
+    # Members of one group, and of one placing alike, spread one per block, so a pair's round follows
+    # the two block indices and nothing inside a block can move it.
+    def spread(members: int, block_bits: int, copies: int) -> tuple[int, ...]:
+        rounds = [block_bits + (one ^ other).bit_length() for one in range(members) for other in range(one + 1, members)]
+        return tuple(sorted(rounds * copies))
+
+    return spread(qualifiers, groups.bit_length() - 1, groups), spread(groups, qualifiers.bit_length() - 1, qualifiers)
+
+
+class TestTheTableCoversTheWritePath:
+    def test_the_construction_answers_every_combination_a_season_can_be_saved_in(self):
+        """Derived from the rules bounds and the refusal, so widening either cannot strand a legal season with nothing to draw from."""
+
+        for groups, qualifiers in legal_combinations():
+            row = bracket_seeding(number_of_groups=groups, qualifiers_per_group=qualifiers)
+
+            assert sorted(row) == sorted((gruppe, platz) for gruppe in GRUPPEN[:groups] for platz in range(1, qualifiers + 1))
+
+    def test_no_reference_row_names_a_shape_a_season_cannot_be_saved_in(self):
+        """A row nothing can save is a row nothing drives, so no case below would see it go wrong."""
+
+        assert set(BRACKET_SEEDING) <= legal_combinations()
 
     def test_every_row_is_a_season_some_test_below_actually_draws(self):
         """A row exercised only against itself is one no season was ever generated from."""
@@ -357,23 +403,12 @@ class TestEveryRowIsAWholeDraw:
         assert [row[slot][1] + row[slot + 1][1] for slot in range(0, len(row), 2)] == [qualifiers + 1] * (len(row) // 2)
 
 
-class TestTheTableIsTheExhaustiveOptimum:
-    @pytest.mark.parametrize("key", MULTI_GROUP_KEYS)
-    def test_relabelling_the_groups_leaves_the_score_unchanged(self, key: tuple[int, int]):
-        """What lets the sweep hold one band fixed; without it a fixed band would only BOUND the optimum."""
-
-        offered = GRUPPEN[: key[0]]
-        row = BRACKET_SEEDING[key]
-
-        for order in permutations_of(offered):
-            relabelled: Seeding = tuple((order[offered.index(gruppe)], platz) for gruppe, platz in row)
-            assert score(relabelled) == score(row)
-
+class TestTheConstructionIsTheTable:
     @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
-    def test_the_stored_row_still_scores_the_optimum(self, key: tuple[int, int]):
-        """Re-run rather than trusted: the row is a literal, and only this sweep says it is the best one."""
+    def test_it_reproduces_the_reference_row(self, key: tuple[int, int]):
+        """A difference here is the construction wrong: the rows were checked by hand and outrank it."""
 
-        assert score(BRACKET_SEEDING[key]) == optimum(*key)
+        assert bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1]) == BRACKET_SEEDING[key]
 
     def test_two_rows_are_exactly_these(self):
         """Hand-written, so the table is pinned past what `score` cannot see.
@@ -385,25 +420,87 @@ class TestTheTableIsTheExhaustiveOptimum:
         assert BRACKET_SEEDING[(2, 2)] == (("A", 1), ("B", 2), ("B", 1), ("A", 2))
         assert BRACKET_SEEDING[(4, 2)] == (("A", 1), ("B", 2), ("C", 1), ("D", 2), ("B", 1), ("A", 2), ("D", 1), ("C", 2))
 
+    def test_a_shape_no_bracket_halves_is_refused(self):
+        """A field that is no power of two would index a group the season does not offer."""
 
-class TestThePinnedTableBeatsTheObviousRuntimeRule:
-    """`spielplan.py`'s comment argues the table earns its place by these numbers, so they are recounted rather than quoted."""
+        with pytest.raises(ValueError):
+            bracket_seeding(number_of_groups=3, qualifiers_per_group=2)
+
+    def test_a_group_count_the_closed_set_cannot_name_is_refused(self):
+        """The smallest power of two past the closed set: at any other field the size guard answers instead, and `match` pins which one did.
+
+        Unrefused, a slot indexes past the last name -- an `IndexError`, never a misseeding.
+        """
+
+        with pytest.raises(ValueError, match="the closed set holds"):
+            bracket_seeding(number_of_groups=1 << len(GRUPPEN).bit_length(), qualifiers_per_group=1)
+
+
+class TestTheConstructionScoresTheBestThereIs:
+    @pytest.mark.parametrize("key", sorted(legal_combinations()))
+    def test_it_reaches_the_closed_form_bound(self, key: tuple[int, int]):
+        """Every shape the write path admits, never the reference table's keys, which a widened rules bound may leave behind.
+
+        The closed form is linear in the field, so the proof follows that widening at no cost.
+        """
+
+        assert score(bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1])) == best_possible(*key)
+
+    @pytest.mark.parametrize("key", SWEEPABLE_KEYS)
+    def test_an_exhaustive_sweep_finds_that_same_bound(self, key: tuple[int, int]):
+        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula."""
+
+        assert optimum(*key) == best_possible(*key)
+
+    @pytest.mark.parametrize("key", SWEPT_KEYS)
+    def test_the_reference_row_still_scores_the_optimum(self, key: tuple[int, int]):
+        """Re-run rather than trusted: the row is a literal, and this sweep is what says it is the best one."""
+
+        assert score(BRACKET_SEEDING[key]) == optimum(*key)
+
+    @pytest.mark.parametrize("key", MULTI_GROUP_KEYS)
+    def test_relabelling_the_groups_leaves_the_score_unchanged(self, key: tuple[int, int]):
+        """What lets the sweep hold one band fixed; without it a fixed band would only BOUND the optimum."""
+
+        offered = GRUPPEN[: key[0]]
+        row = BRACKET_SEEDING[key]
+
+        for order in permutations_of(offered):
+            relabelled: Seeding = tuple((order[offered.index(gruppe)], platz) for gruppe, platz in row)
+            assert score(relabelled) == score(row)
+
+    def test_the_ceiling_admits_every_key_the_closed_set_reaches_and_refuses_the_one_nothing_can_build(self):
+        """A ceiling that quietly emptied either set would leave `best_possible` as its own only witness."""
+
+        assert SWEPT_KEYS == tuple(sorted(BRACKET_SEEDING))
+        # Every reference row is a legal shape this sweep affords, so no row is left resting on the
+        # formula it exists to check.
+        assert set(SWEPT_KEYS) <= set(SWEEPABLE_KEYS)
+        assert sweep_size(8, 2) <= SWEEP_CEILING < sweep_size(16, 1)
+
+
+class TestTheConstructionBeatsTheObviousRuntimeRule:
+    """Pairing partnered groups fixes WHO meets in round one and never WHERE, so the rule alone is not the construction."""
 
     @pytest.mark.parametrize(("key", "permitted", "sooner"), (((4, 2), 24, 8), ((4, 4), 576, 480)))
     def test_the_rule_leaves_this_much_open_and_this_much_of_it_is_worse(self, key: tuple[int, int], permitted: int, sooner: int):
-        """`sooner` counts the placements meeting a same-group pair in an EARLIER round than the stored row does."""
+        """`sooner` counts the placements meeting a same-group pair in an EARLIER round than the construction does.
+
+        Both keys are written out: `partner_consistent_seedings` walks `factorial(groups) **
+        qualifiers` candidates, so a wider one added here would not finish.
+        """
 
         placements = list(partner_consistent_seedings(*key))
-        best = optimum(*key)
+        best = best_possible(*key)
 
         assert len(placements) == permitted
         assert sum(1 for one in placements if score(one)[0][0] < best[0][0]) == sooner
 
     @pytest.mark.parametrize("key", ((4, 2), (4, 4)))
-    def test_the_stored_row_is_one_the_rule_permits(self, key: tuple[int, int]):
-        """So the table CHOOSES within the rule rather than departing from it, and what it adds is which placement to ship."""
+    def test_the_construction_is_one_the_rule_permits(self, key: tuple[int, int]):
+        """So it CHOOSES within the rule rather than departing from it, and what it adds is which placement to ship."""
 
-        assert BRACKET_SEEDING[key] in set(partner_consistent_seedings(*key))
+        assert bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1]) in set(partner_consistent_seedings(*key))
 
 
 class TestTheShapesAreSeasonsThatCanExist:
@@ -685,7 +782,7 @@ class TestAFixtureIsEitherDrawnOrWired:
                 assert spiel["team1_quelle"] is not None and spiel["team2_quelle"] is not None
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_the_first_bracket_round_reads_the_stored_table(self, shape: tuple[int, int, int]):
+    def test_the_first_bracket_round_wires_the_reference_row(self, shape: tuple[int, int, int]):
         """The one round no earlier fixture can feed, so its sides name a group and a placing instead."""
 
         groups, teams, qualifiers = shape

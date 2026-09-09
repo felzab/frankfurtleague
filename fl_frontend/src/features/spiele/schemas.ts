@@ -4,6 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLAustrittSchema, FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
+import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { NOTIZ_MAX_LENGTH } from "./constants";
 
@@ -98,7 +99,10 @@ export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsric
 /** The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason. */
 export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
+  // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
+  // list over one erased person; what a reader is shown instead is
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  name: z.string().nonempty().nullable(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
@@ -109,7 +113,7 @@ export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrich
  */
 export const FLSpielSchiedsrichterFieldSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
+  name: FLSpielSchiedsrichterFieldPublicSchema.shape.name,
   payment: FLSpielSchiedsrichterFieldPayloadSchema.shape.payment,
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
@@ -170,6 +174,10 @@ export const FLSpielElfmeterschiessenSchema = z
   });
 export type FLSpielElfmeterschiessen = z.infer<typeof FLSpielElfmeterschiessenSchema>;
 
+// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+const ERGEBNIS_REGEX = /^[0-9]+:[0-9]+$/;
+
 export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
@@ -194,10 +202,7 @@ export const FLSpielSchema = z.object({
 
   // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
   // silently rendered as a loss for both teams.
-  ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  ergebnis: z.string().regex(ERGEBNIS_REGEX, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'").nullable(),
 
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
@@ -208,7 +213,7 @@ export const FLSpielSchema = z.object({
   saison_phase: FLSaisonPhaseSchema,
   // Declared because zod's default strip mode discards an undeclared field silently, which is how
   // the patch action once lost the season id its granular cache tag needs.
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(SAISON_ID_LENGTH),
 
   // Nullable but never absent: a stored document may lack the key, but the backend fills its
   // default and serializes it on every response.
@@ -236,13 +241,6 @@ export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
   team1: FLSpielTeamField | null;
   team2: FLSpielTeamField | null;
 };
-
-/**
- * One fixture's ground and referee as the admin tier serves them. A base-tier read carries neither
- * figure, so a fixture the editor never opened reaches a write payload only with this supplied
- * beside it.
- */
-export type FLSpielBooking = Pick<FLSpielAdmin, "ort" | "schiedsrichter">;
 
 /**
  * The read counterpart to `FLPatchSpielDataPayloadDraft`, and admin-tier: a cleared money field is
@@ -330,12 +328,12 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
 };
 
 /**
- * `gruppe_too_small` is a typo and the slot keeps what it holds; `tie_unresolved` the tiebreak chain
- * cannot settle, so the slot IS emptied and needs a person. A group still being played is in
- * neither: an undecided placing is not one to show an admin.
+ * `tie_unresolved` empties the slot and needs a person; every other reason leaves it alone, naming
+ * wiring the season cannot hold. A group still being played is in none: an undecided placing is not
+ * one to show an admin.
  */
 export const FLBracketFaultGruppeSchema = z.object({
-  reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
+  reason: z.enum(["gruppe_too_small", "gruppe_not_run", "seed_past_the_opening_round", "tie_unresolved"]),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   gruppe: FLGruppenNamesSchema,
@@ -348,12 +346,25 @@ export type FLBracketFaultGruppe = z.infer<typeof FLBracketFaultGruppeSchema>;
  * none of them being derivable.
  */
 export const FLBracketFaultQuelleSchema = z.object({
-  reason: z.enum(["spiel_missing", "reference_cycle"]),
+  reason: z.enum(["spiel_missing", "reference_cycle", "gruppenphase_feeder", "feeder_not_played_first"]),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   quelle_spiel_nr: z.int().positive(),
 });
 export type FLBracketFaultQuelle = z.infer<typeof FLBracketFaultQuelleSchema>;
+
+/**
+ * The seat and its reference, where what is wrong is the seat carrying that reference at all. The
+ * reference travels whole because it is what groups the entries of a shared source.
+ */
+export const FLBracketFaultSlotSchema = z.object({
+  reason: z.enum(["gruppenphase_fixture_wired", "source_feeds_another_fixture"]),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  side: z.enum(["team1", "team2"]),
+  quelle: FLSpielQuelleSchema,
+});
+export type FLBracketFaultSlot = z.infer<typeof FLBracketFaultSlotSchema>;
 
 /** One fixture whose two references resolve to the same club, so it would be a team against itself. */
 export const FLBracketFaultSpielSchema = z.object({
@@ -409,6 +420,7 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultGruppeSchema,
   FLBracketFaultQuelleSchema,
   FLBracketFaultSpielSchema,
+  FLBracketFaultSlotSchema,
   FLBracketFaultOccupantSchema,
   FLBracketFaultSpieltagSchema,
 ]);
@@ -420,11 +432,11 @@ export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
  * anything destroyed" is a null check.
  */
 export const FLSpielAdvancementSchema = z.object({
+  // Beside the number, as a bracket fault carries it: a message names the fixture by `spiel_nr`, and
+  // a client matching that number against a list it read before the save can match the wrong one.
+  spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
-  voided_ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  voided_ergebnis: FLSpielSchema.shape.ergebnis,
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
   // occupant leaves each of them true and none of them is cleared.
@@ -438,18 +450,84 @@ export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
  * refused, emptying it being undone by the next resolution.
  */
 export const FLSpielReleasedSideSchema = z.object({
+  spiel_id: FLSpielAdvancementSchema.shape.spiel_id,
   spiel_nr: z.int().positive(),
   side: z.enum(["team1", "team2"]),
   team_name: z.string().nonempty(),
-  voided_ergebnis: z
-    .string()
-    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
-    .nullable(),
+  voided_ergebnis: FLSpielAdvancementSchema.shape.voided_ergebnis,
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // A no-show alone, for `FLSpielAdvancementSchema`'s reason.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),
 });
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
+
+/** Every wholesale-payload field outside the Paarung, which is the whole of what a save can move and a resolution cannot. */
+export const FLSpielRestorableFieldSchema = z.enum(["team1_quelle", "team2_quelle", "datum", "uhrzeit", "ort", "schiedsrichter", "notiz"], {
+  // German because the closed-set guards ask it of every set a payload binds, and no control binds
+  // this one: the undo's route answers its own sentence for an unreadable body, so nobody reads this.
+  error: "Eine Rücknahme kann nur Felder zurücksetzen, die ein Spiel hat.",
+});
+export type FLSpielRestorableField = z.infer<typeof FLSpielRestorableFieldSchema>;
+
+/**
+ * **The venue and the referee a restore names, identical on the wire to the payload blocks above** —
+ * the backend splits them because a class a read parses may not refuse an undeclared key. One schema,
+ * so no key drifts.
+ */
+export const FLSpielPriorOrtSchema = FLSpielOrtFieldPayloadSchema;
+export type FLSpielPriorOrt = z.infer<typeof FLSpielPriorOrtSchema>;
+
+export const FLSpielPriorSchiedsrichterSchema = FLSpielSchiedsrichterFieldPayloadSchema;
+export type FLSpielPriorSchiedsrichter = z.infer<typeof FLSpielPriorSchiedsrichterSchema>;
+
+/**
+ * One fixture's fields outside the Paarung as they stood before a save, and which of them that save
+ * REPLACED. `replaced` alone is what the restore writes, so a field moved after the save is not
+ * reverted by undoing it.
+ */
+export const FLSpielPriorOtherFieldsSchema = z.object({
+  replaced: z.array(FLSpielRestorableFieldSchema).min(1),
+
+  team1_quelle: FLPatchSpielDataPayloadSchema.shape.team1_quelle,
+  team2_quelle: FLPatchSpielDataPayloadSchema.shape.team2_quelle,
+  datum: FLPatchSpielDataPayloadSchema.shape.datum,
+  uhrzeit: FLPatchSpielDataPayloadSchema.shape.uhrzeit,
+  ort: FLSpielPriorOrtSchema.nullable(),
+  schiedsrichter: FLSpielPriorSchiedsrichterSchema.nullable(),
+  notiz: FLPatchSpielDataPayloadSchema.shape.notiz,
+});
+export type FLSpielPriorOtherFields = z.infer<typeof FLSpielPriorOtherFieldsSchema>;
+
+/**
+ * One fixture a save changed, as it stood before that save — everything an undo of it has to put back,
+ * and nothing else, so a date or a note somebody moved in between survives the undo.
+ */
+export const FLSpielPriorPaarungSchema = z.object({
+  spiel_id: CustomObjectIdStringSchema,
+  team1: FLSpielTeamFieldPayloadSchema.nullable(),
+  team2: FLSpielTeamFieldPayloadSchema.nullable(),
+  elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
+  sonderereignis: FLSonderereignisSchema.nullable(),
+  // Null on every fixture but the one the save named: a bracket resolution reaches the Paarung alone.
+  other_fields: FLSpielPriorOtherFieldsSchema.nullable(),
+});
+export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
+
+/**
+ * **The report above IS one entry of the body the restore sends**, `spiel_id` included: naming the
+ * shape twice is what would let one end gain a field the other never carries.
+ */
+export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
+export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
+
+/** Every fixture one save moved, in the order it reported them — one request, and one transaction behind it. */
+export const FLPatchSpielePaarungenPayloadSchema = z.object({
+  // Never empty: the report this replays leads with the fixture the save named, so an empty list is
+  // a body no save produced and a replay over it would answer as a restore having written nothing.
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
+});
+
+export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;
 
 /**
  * **`dry_run=true` answers with this same shape**, one schema being what stops a preview parsing
@@ -462,9 +540,25 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   advanced_to: z.array(FLSpielAdvancementSchema),
   released_sides: z.array(FLSpielReleasedSideSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
+
+  // The three above are what an admin READS; this is what the undo SENDS. One entry per fixture, so
+  // a fixture both of the first two name is restored once rather than twice.
+  prior_paarungen: z.array(FLSpielPriorPaarungSchema),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
+
+/**
+ * What a whole replay cost fixtures it was not asked to restore, and the faults the season it
+ * committed carries. No `prior_paarungen`: an undo is not itself undoable.
+ */
+export const FLPatchSpielePaarungenResponseSchema = BaseAPIResponseSchema.extend({
+  advanced_to: z.array(FLSpielAdvancementSchema),
+  released_sides: z.array(FLSpielReleasedSideSchema),
+  bracket_faults: z.array(FLBracketFaultSchema),
+});
+
+export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarungenResponseSchema>;
 
 /**
  * `spiele` carries the filter's matches plus every match a fault names, so the client always holds

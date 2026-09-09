@@ -129,6 +129,32 @@ export function emptiedSeatLabels(stored: SaisonTeamKontakteDraft | null, draft:
   return KONTAKT_ROLLEN.filter(({ value }) => stored?.[value] != null && (draft?.[value] ?? null) === null).map(({ label }) => label);
 }
 
+/** Who holds a seat, by the three fields `fl_backend/app/api/teams/services.py :: SEAT_IDENTITY_FIELDS` names. */
+function seatIdentity(seat: KontaktpersonDraft): readonly string[] {
+  // JavaScript has no `casefold`: lower-casing alone parts „Weiß“ from „Weiss“, which the server folds
+  // equal, so the banner would warn over a stamp the save keeps. Nothing normalises here, the server
+  // not normalising either.
+  return [seat.email, seat.vorname, seat.nachname].map((wert) => wert.trim().split(/\s+/).join(" ").toUpperCase().toLowerCase());
+}
+
+/** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */
+export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | null, draft: SaisonTeamKontakteDraft | null): readonly string[] {
+  return KONTAKT_ROLLEN.filter(({ value }) => {
+    const held = stored?.[value] ?? null;
+    const sent = draft?.[value] ?? null;
+    // Both halves: a seat nobody confirmed has no stamp for the save to take, and an unchanged one would
+    // raise the confirmation over a form nobody has touched (`docs/backend/spec.md :: I219`).
+    if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
+
+    // Field by field, never one joined run: „Anna Maria“ moved from the forename into the surname folds
+    // to the same words, and the server compares the three apart.
+    const gehalten = seatIdentity(held);
+    const getippt = seatIdentity(sent);
+
+    return gehalten.some((wert, index) => wert !== getippt[index]);
+  }).map(({ label }) => label);
+}
+
 /** The club's own page, where the season membership these seats hang off is entered. */
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on
@@ -172,8 +198,9 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         nachname: person.nachname,
         email: person.email,
         telefon: person.telefon,
-        // A date nobody entered stays the empty string the parse refuses, never one invented here.
-        geburtsdatum: person.geburtsdatum ?? "",
+        // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
+        // server carries the stored seat's forward and this editor may not name one at all
+        // (`docs/backend/spec.md :: I141`).
         einwilligung: {
           umfang: EINWILLIGUNG_UMFANG,
           text_version: person.einwilligung.text_version,

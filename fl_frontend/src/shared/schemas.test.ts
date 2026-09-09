@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { z } from "zod";
@@ -12,8 +15,11 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  FLKontaktPayloadSchema,
   FLKontaktSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
+  KontaktEmailSchema,
+  PHONE_REGEX,
 } from "./schemas.ts";
 
 const validAddress = {
@@ -79,6 +85,18 @@ describe("FLAddressPayloadSchema", () => {
     }
   });
 
+  // The API strips before its floor counts, so an untrimmed mirror takes what the endpoint refuses
+  // with a bare `REQ-VAL-001` carrying no field detail, leaving nothing to mark the box.
+  it("refuses a strasse or stadt of spaces alone, and sends a padded one stripped", () => {
+    for (const field of ["strasse", "stadt"] as const) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "   " }).success, false, `${field} spaces alone`);
+      // `.trim()` has to precede the floor: `.nonempty().trim()` type-checks, lints, and takes spaces alone.
+      const padded = FLAddressPayloadSchema.parse({ ...validAddress, [field]: `  ${validAddress[field]}  ` });
+
+      assert.equal(padded[field], validAddress[field], `${field} reaches the API padded`);
+    }
+  });
+
   // A venue can genuinely lack a house number or a district, so neither field carries a floor and a
   // redeclaration bounding its length must not turn it into a required one.
   it("keeps accepting an empty hausnummer or stadtteil", () => {
@@ -103,7 +121,195 @@ describe("FLAddressPayloadSchema", () => {
   });
 });
 
+describe("PHONE_REGEX", () => {
+  // The German spellings the tree's own fixtures use, plus the bracketed trunk zero with a grouping
+  // hyphen: refusing one of these refuses a school the only channel the league reaches it on.
+  const IN_USE = [
+    "+49 (0) 69 1234-567",
+    "069 1234567",
+    "+49 (0)170 1234567",
+    "0049-170-1234567",
+    "(0170) 123 45 67",
+    "069.123.4567",
+    "+4915112345678",
+    "030 123",
+  ];
+
+  it("accepts every spelling of a German number the tree already uses", () => {
+    for (const telefon of IN_USE) {
+      assert.equal(PHONE_REGEX.test(telefon), true, `expected ${JSON.stringify(telefon)} to be accepted`);
+    }
+  });
+
+  // The API stores what it is sent and the club page shows it, so a value with no digit in it is a
+  // number handed to whoever tries to ring the school.
+  it("refuses a value carrying no digit at all", () => {
+    for (const telefon of ["   ", "().", "---", "(  )"]) {
+      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+    }
+  });
+
+  // How the rule reaches the case above: every telephone number ends in a digit, and no floor over
+  // the digit count fits a pattern that carries its own ceiling as well.
+  it("refuses a value trailing off into a space or punctuation", () => {
+    for (const telefon of ["(069)", "069 ", "069-"]) {
+      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+    }
+  });
+
+  // The pattern carries the ceiling itself, no length bound standing beside it, so taking the final
+  // digit out of the run must leave the window where it was: a `{3,20}` run beside one stores 21.
+  it("keeps the twenty-character ceiling and the three-character floor", () => {
+    for (const [telefon, accepted] of [
+      ["0".repeat(3), true],
+      ["0".repeat(20), true],
+      ["0".repeat(2), false],
+      ["0".repeat(21), false],
+    ] as const) {
+      assert.equal(PHONE_REGEX.test(telefon), accepted, `expected ${String(telefon.length)} characters to be ${String(accepted)}`);
+    }
+  });
+});
+
 describe("FLKontaktSchema", () => {
+  // Values the API serves from storage that the write rule refuses. The reason the read judges neither
+  // member is at `FLKontaktSchema` itself; what this pins is that one such row does not fail the list.
+  it("serves every stored value the write rule would refuse", () => {
+    for (const telefon of ["069 1234567 ", "+49 (0) 69 1234-567 ", "069 1234-", "(069) 1234567.", "nicht bekannt"]) {
+      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected ${JSON.stringify(telefon)} to be served`);
+    }
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: "a".repeat(300) }).success, true);
+  });
+
+  it("rejects a missing field outright", () => {
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+  });
+});
+
+describe("FLKontaktPayloadSchema", () => {
+  it("accepts common German phone formats", () => {
+    for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
+    }
+  });
+
+  it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
+    for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success, false, `expected "${telefon}" to be rejected`);
+    }
+  });
+
+  // With `\s` inside `^...$` every one of these passed here and was refused by the API. Patterns are
+  // out of the contract comparison, so a unit test is what holds the two spellings together.
+  it("rejects a phone number carrying a control character, which the backend rejects too", () => {
+    for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
+      assert.equal(
+        FLKontaktPayloadSchema.safeParse({ telefon, email: null }).success,
+        false,
+        `expected ${JSON.stringify(telefon)} to be rejected`,
+      );
+    }
+  });
+
+  // Both fields accept null (not supplied) and "" (supplied but cleared); the two are distinct
+  // states in the admin forms, so both must stay valid.
+  it("accepts null and empty string for both fields", () => {
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: null }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: "" }).success, true);
+  });
+
+  // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
+  // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
+  it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: null }).success, true);
+  });
+
+  // Each is a value `EmailStr` takes and stores: a punycode host normalised to unicode, an umlaut
+  // local part, an atext character outside zod's class, and a local part past RFC 5321's 64.
+  it("takes every address the API stores, whose rule no zod pattern spells", () => {
+    for (const email of ["kaethe@käthe-schule.example", "käthe@example.de", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
+    }
+  });
+
+  it("rejects a missing field outright", () => {
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null }).success, false);
+  });
+});
+
+describe("KontaktEmailSchema", () => {
+  const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
+
+  // Each is a value `EmailStr` takes and stores unchanged, and `z.email()`'s alphabet refuses: a
+  // school whose contact address holds one could not submit an application at all.
+  it("takes every address the API stores, umlauts and atext characters and all", () => {
+    const addresses = [
+      "käthe@example.de",
+      "kaethe@käthe-schule.example",
+      "kaethe@xn--kthe-schule-l8a.example",
+      "a!b@example.de",
+      `${"a".repeat(70)}@example.de`,
+      "Anna@Example.DE",
+    ];
+
+    for (const email of addresses) {
+      assert.equal(KontaktEmailSchema.safeParse(email).success, true, `expected "${email}" to be accepted`);
+    }
+  });
+
+  // Each is one the API answers with a bare REQ-VAL-001 naming no field, so the box the applicant has
+  // to change would be marked by nothing.
+  it("refuses every address the API refuses on its characters and lengths", () => {
+    const addresses = [
+      "person@ab-.de",
+      "anna@-example.de",
+      `person@${"a".repeat(70)}.de`,
+      "anna@example",
+      "anna@1.2.3.4",
+      "anna@example..de",
+      "anna@example.de.",
+      "anna@ex_ample.de",
+      ".anna@example.de",
+      "anna.@example.de",
+      "an..na@example.de",
+      "an,na@example.de",
+      "an na@example.de",
+      "anna@@example.de",
+    ];
+
+    for (const email of addresses) {
+      assert.equal(KontaktEmailSchema.safeParse(email).success, false, `expected "${email}" to be rejected`);
+    }
+  });
+
+  // The label cap is 63 OCTETS of the punycoded host and an umlaut costs more than one, so read on the
+  // value as typed the second of these is 58 characters and passes.
+  it("measures the label cap on the punycoded host rather than on what was typed", () => {
+    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(57)}.de`).success, true);
+    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(58)}.de`).success, false);
+  });
+
+  // Pydantic strips before it validates, so the API takes this and stores it trimmed. The padding is
+  // invisible, which is what makes a refusal over it unactionable.
+  it("takes a pasted address padded with spaces and submits it trimmed", () => {
+    assert.equal(KontaktEmailSchema.parse("  erika@example.de  "), "erika@example.de");
+  });
+
+  // The API takes this one and stores the address alone. Refused rather than unwrapped: the name is on
+  // screen for the applicant to delete, where a quiet rewrite would submit what nobody typed.
+  it("refuses an address wrapped in a display name rather than unwrapping it", () => {
+    assert.equal(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success, false);
+  });
+
+  it("carries one German sentence per fault", () => {
+    assert.deepEqual(refusals("erika@"), ["Bitte gib eine gültige E-Mail-Adresse ein."]);
+    assert.deepEqual(refusals(`${"e".repeat(300)}@schule.de`), [
+      `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
+    ]);
+  });
+});
+
+describe("FLKontaktPayloadSchema", () => {
   // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
   function addressOfLength(total: number): string {
     const local = "a".repeat(64);
@@ -118,37 +324,10 @@ describe("FLKontaktSchema", () => {
     return `${local}@${labels.join(".")}`;
   }
 
-  it("accepts common German phone formats", () => {
-    for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
-    }
-  });
-
-  it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
-    for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, false, `expected "${telefon}" to be rejected`);
-    }
-  });
-
-  // With `\s` inside `^...$` every one of these passed here and was refused by the API. Patterns are
-  // out of the contract comparison, so a unit test is what holds the two spellings together.
-  it("rejects a phone number carrying a control character, which the backend rejects too", () => {
-    for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, false, `expected ${JSON.stringify(telefon)} to be rejected`);
-    }
-  });
-
-  // Both fields accept null (not supplied) and "" (supplied but cleared); the two are distinct
-  // states in the admin forms, so both must stay valid.
-  it("accepts null and empty string for both fields", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: null }).success, true);
-    assert.equal(FLKontaktSchema.safeParse({ telefon: "", email: "" }).success, true);
-  });
-
   it("validates email addresses", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success, true);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success, true);
     for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
+      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
     }
   });
 
@@ -157,9 +336,9 @@ describe("FLKontaktSchema", () => {
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
     const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
     assert.equal(atTheCap.length, KONTAKT_EMAIL_MAX_LENGTH);
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
 
-    const over = FLKontaktSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
+    const over = FLKontaktPayloadSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
     assert.equal(over.success, false, "one over the cap");
     // The union carries the message, so the ceiling must not have moved it to zod's own English.
     assert.deepEqual(
@@ -171,11 +350,7 @@ describe("FLKontaktSchema", () => {
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
-  });
-
-  it("rejects a missing field outright", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
   });
 });
 
@@ -226,6 +401,24 @@ describe("ExternalUrlSchema", () => {
     for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
       assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
     }
+  });
+
+  // A zod release moves `z.regexes.domain` without us, and the two ends then accept different hosts
+  // on either side of one stored URL.
+  it("checks the hostname against the regex the backend copied out of zod", () => {
+    // Source text rather than an import: `fl_backend/app/shared/schemas/custom.py :: DOMAIN_REGEX` is Python, which nothing here can load.
+    const custom = readFileSync(
+      path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"),
+      "utf8",
+    );
+    const copied = /^DOMAIN_REGEX = re\.compile\(r"(?<pattern>.+)"\)$/m.exec(custom)?.groups?.pattern;
+    // The INSTALLED package's own version, never `fl_frontend/package.json`'s range, which names no one regex.
+    const zod = JSON.parse(readFileSync(createRequire(import.meta.url).resolve("zod/package.json"), "utf8")) as { version: string };
+
+    assert.ok(copied, "custom.py no longer spells DOMAIN_REGEX as one compiled raw string, so this case compares nothing");
+    assert.equal(copied, z.regexes.domain.source, `the backend's copy no longer matches zod ${zod.version}`);
+    // A Python pattern string carries no flags, so a flag zod added would divide the two ends while the sources still compared equal.
+    assert.equal(z.regexes.domain.flags, "", `zod ${zod.version} gives its domain regex a flag`);
   });
 });
 

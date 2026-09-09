@@ -6,8 +6,7 @@ import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import { SchiedsrichterFormFields } from "./SchiedsrichterFormFields";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { SchiedsrichterDraft } from "@/features/schiedsrichter/types";
+import type { FLSchiedsrichterAngezeigt, SchiedsrichterDraft } from "@/features/schiedsrichter/types";
 
 /**
  * One mapping, read by the block and by the write alike: judging a shape the action does not send is how a form
@@ -37,7 +36,9 @@ export function AdminCreateSchiedsrichterForm({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated?: (created: FLSchiedsrichter) => void;
+  // The displayed shape rather than the stored one: a record created here carries a validated name,
+  // which is what lets a picker that must render a name take it without a null case.
+  onCreated?: (created: FLSchiedsrichterAngezeigt) => void;
 }) {
   return (
     <EntityForm<SchiedsrichterDraft>
@@ -64,8 +65,9 @@ export function AdminCreateSchiedsrichterForm({
             schule: draft.schule,
             kontakt: payload.kontakt,
             default_payment: payload.default_payment,
-            // Just created, so current — and `null` is what current means.
+            // Just created, so current — and `null` is what current means for both dates.
             inactive_since: null,
+            anonymisiert_am: null,
           });
         }
 

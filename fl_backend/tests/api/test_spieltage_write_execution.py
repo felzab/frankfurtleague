@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -168,6 +169,7 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str
         spieltage_collection=database.spieltage,
         saisons_collection=database.saisons,
         spiele_collection=database.spiele,
+        db=database.client,
     )
 
 

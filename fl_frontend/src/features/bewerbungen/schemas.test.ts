@@ -5,12 +5,24 @@ import { describe, it } from "node:test";
 
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { BEWERBUNG_STUFENGROESSE_MAX, BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import {
+  BEWERBUNG_STUFENGROESSE_MAX,
+  BEWERBUNG_TOKEN_MAX_LENGTH,
+  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+  SCHULE_NICHT_IN_LISTE,
+} from "./constants.ts";
+import {
+  FLBewerbungEinwilligungAnsichtPayloadSchema,
+  FLBewerbungEinwilligungAntwortPayloadSchema,
   FLBewerbungKontaktEmailPayloadSchema,
   FLBewerbungTrikotFarbenResponseSchema,
+  FLBewerbungZustellungAngenommenPayloadSchema,
+  FLBewerbungZustellungEreignisPayloadSchema,
   FLPostBewerbungPayloadSchema,
   gleicheAdresse,
+  ZUSTELLUNG_GRUND_MAX_LENGTH,
+  ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
+  ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
@@ -68,6 +80,25 @@ describe("what the public submission schema accepts", () => {
      make each of them pass over a refusal it did not cause. */
   it("accepts a whole submission at all", () => {
     assert.deepEqual(refusedPaths(gueltig()), []);
+  });
+
+  /* `EmailStr` takes an umlaut local part and a unicode host and stores both, so a school whose
+     contact address holds either has to be able to apply. */
+  it("accepts a submission whose contact address carries an umlaut, in either part", () => {
+    for (const email of ["käthe@beispiel.de", "erika@käthe-schule.example"]) {
+      const draft = gueltig();
+
+      assert.deepEqual(refusedPaths(gueltig({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } })), [], email);
+    }
+  });
+
+  /* The API answers a hyphen-final label with a bare REQ-VAL-001 carrying no field detail, so the box
+     the applicant has to change would be marked by nothing. */
+  it("refuses a contact address the API would refuse, on that seat's own box", () => {
+    const draft = gueltig();
+    const kaputt = gueltig({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email: "tim@ab-.de" }) } });
+
+    assert.deepEqual(refusedPaths(kaputt), ["kontakte.trainer.email"]);
   });
 });
 
@@ -210,12 +241,6 @@ describe("two spellings of one telephone number are one number", () => {
     });
   }
 
-  /* `PHONE_REGEX` admits `().`, which normalises to nothing, and Pydantic has no empty-guard, so it
-     refuses two such seats. Guarded here, the form would offer what the write path refuses. */
-  it("refuses two seats whose numbers both normalise to nothing", () => {
-    assert.deepEqual(refusedPaths(geteilteNummer("().", "().")), ["kontakte.stellvertretung.telefon"]);
-  });
-
   /* The fold may not over-match either: two different numbers that merely start alike are two people,
      and refusing them would cost a school a seat it filled correctly. */
   it("leaves two genuinely different numbers standing", () => {
@@ -224,9 +249,9 @@ describe("two spellings of one telephone number are one number", () => {
   });
 });
 
-describe("the consent each person gives", () => {
+describe("the Kenntnisnahme each seat carries", () => {
   /* `z.literal(true)` and not a boolean: an untouched switch submits `false`, and a payload carrying
-     that would record the absence of consent as an answer to the question. */
+     that would record the absence of an acknowledgement as an answer to the question. */
   it("refuses an unticked box on the seat that left it unticked", () => {
     const ohne = gueltig({
       kontakte: { ...gueltig().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", erteilt: false } }) },
@@ -235,9 +260,9 @@ describe("the consent each person gives", () => {
     assert.deepEqual(refusedPaths(ohne), ["kontakte.stellvertretung.einwilligung.erteilt"]);
   });
 
-  /* The version is what a stored record cites. Without it the record claims consent to wording
+  /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
      nobody can identify afterwards. */
-  it("refuses a consent citing no wording version", () => {
+  it("refuses a Kenntnisnahme citing no wording version", () => {
     const ohne = gueltig({
       kontakte: { ...gueltig().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", erteilt: true } }) },
     });
@@ -591,11 +616,161 @@ describe("the one field of a submitted application an administrator may move", (
     assert.ok(refusalFor({ ...KORREKTUR, email: "" })["email"] !== undefined);
   });
 
+  /* The correction exists to reach a mailbox the submission could not, so an address `EmailStr` stores
+     has to pass here: refused, the seat stays unreachable and no other route moves it. */
+  it("takes every address the API stores, so any mailbox can be corrected to", () => {
+    for (const email of ["käthe@schule.de", "erika@käthe-schule.example", "a!b@schule.de"]) {
+      assert.deepEqual(refusalFor({ ...KORREKTUR, email }), {}, email);
+    }
+  });
+
   /* Exported for the editor, which closes its own press on an address that has not moved: two
      spellings of one rule would let a press through that the submission's own comparison refuses. */
   it("compares two spellings of one address the way the submission does", () => {
     assert.equal(gleicheAdresse(" Erika@Schule.de ", "erika@schule.de"), true);
     assert.equal(gleicheAdresse("erika@schule.de", "mira@schule.de"), false);
     assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would close the press on a seat that has none");
+  });
+});
+
+describe("what the two delivery writes may put on the wire", () => {
+  const MELDUNG = {
+    bewerbung_id: "6890a1b2c3d4e5f607190001",
+    rollen: ["ansprechperson"],
+    nachricht_id: "b7f1c2d3-4e5a-6b7c-8d9e-0f1234567890",
+    am: "2026-03-15T09:30:00.000Z",
+  };
+
+  const angenommen = (overrides: Record<string, unknown>) =>
+    FLBewerbungZustellungAngenommenPayloadSchema.safeParse({ ...MELDUNG, ...overrides });
+  const ereignis = (overrides: Record<string, unknown>) =>
+    FLBewerbungZustellungEreignisPayloadSchema.safeParse({ ...MELDUNG, stand: "zugestellt", grund: null, ...overrides });
+
+  /* First, because every case below asserts a refusal: over an envelope already refused each of them
+     would pass on a shape it never named. */
+  it("takes the envelope each write composes", () => {
+    assert.equal(angenommen({}).success, true);
+    assert.equal(ereignis({}).success, true);
+  });
+
+  /* Past the ceiling the endpoint answers 422, and neither caller retries: the acceptance's is caught
+     and logged as `FE-MAIL-003`, and the event's route answers the provider 200 so it stops resending. */
+  for (const [was, meldung] of [
+    ["the acceptance", angenommen],
+    ["the event", ereignis],
+  ] as const) {
+    it(`refuses a message id past the endpoint's ceiling in ${was}, and takes one at it`, () => {
+      assert.equal(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success, true);
+      assert.equal(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success, false);
+    });
+
+    /* The LENGTH alone, which is what the endpoint states at this field; whether the value is an
+       instant at all is screened before either payload is composed. */
+    it(`refuses an instant past the endpoint's ceiling in ${was}, and takes one at it`, () => {
+      assert.equal(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success, true);
+      assert.equal(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success, false);
+    });
+
+    /* `strip_whitespace=True` runs ahead of the endpoint's own floor, so spaces alone is an empty
+       value there while a ceiling without the trim would send it. */
+    it(`refuses a message id of whitespace alone in ${was}`, () => {
+      assert.equal(meldung({ nachricht_id: "   " }).success, false);
+      assert.equal(meldung({ am: "   " }).success, false);
+    });
+  }
+
+  /* No floor on this one, unlike the two above: the endpoint bounds the reason's length and takes an
+     empty one, a bounce being a fact about the mailbox with or without the provider's token. */
+  it("bounds the reason and still takes an empty one", () => {
+    assert.equal(ereignis({ grund: "" }).success, true);
+    assert.equal(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH) }).success, true);
+    assert.equal(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH + 1) }).success, false);
+  });
+});
+
+/* `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` as text: the frontend holds no copy
+   of it that could be read instead, and `fl_frontend/src/core/apiContract.test.ts` leaves patterns out
+   of the contract comparison by design. */
+const BACKEND_SINGLE_LINE = /^SINGLE_LINE_PATTERN = r"([^"]+)"$/m.exec(
+  readFileSync(path.resolve(SRC_DIR, "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"), "utf8"),
+)?.[1];
+
+/* Latin-1 for the control characters and U+2000..U+20FF for the two separators, so every codepoint
+   either spelling names is probed -- a divergence over one neither names would reach no alphabet. */
+const SINGLE_LINE_PROBES = [...Array.from({ length: 0x100 }, (_, at) => at), ...Array.from({ length: 0x100 }, (_, at) => 0x2000 + at)];
+
+/** Interior, never padding: `trim` and `str.strip` disagree about U+0085, and that gap is a padded value's. */
+const brokenName = (point: number) => `Goethe${String.fromCodePoint(point)}Startgeld`;
+
+describe("the one-line rule the submission and the endpoint hold together", () => {
+  const endpointRefuses = (source: string) => {
+    const pattern = new RegExp(source, "u");
+
+    return SINGLE_LINE_PROBES.filter((point) => !pattern.test(brokenName(point)));
+  };
+
+  /* Compared by VERDICT and never as text: this module's `refine` spells the class positively where
+     the endpoint spells it as a negated full match, so two correct spellings differ character for
+     character. */
+  it("refuses on a submitted name exactly what the endpoint's pattern refuses", () => {
+    assert.ok(BACKEND_SINGLE_LINE !== undefined, "`SINGLE_LINE_PATTERN` is no longer one raw string on one line, so nothing was compared");
+
+    const refused = endpointRefuses(BACKEND_SINGLE_LINE);
+
+    // Both ends, because a pattern refusing nothing and one refusing everything each agree with anything.
+    assert.ok(refused.length > 0, "the endpoint's pattern refuses none of the probes");
+    assert.ok(refused.length < SINGLE_LINE_PROBES.length, "the endpoint's pattern refuses every probe");
+
+    const refusedHere = SINGLE_LINE_PROBES.filter((point) => {
+      const paths = refusedPaths(gueltig({ schule: schule({ team_name: brokenName(point) }) }));
+
+      assert.ok(
+        paths.length === 0 || (paths.length === 1 && paths[0] === "schule.team_name"),
+        `U+${point.toString(16)} was refused on ${paths.join()}`,
+      );
+
+      return paths.length === 1;
+    });
+
+    assert.deepEqual(refusedHere, refused);
+  });
+
+  /* The table above drives every character case in this module, so a row dropped from it stops
+     probing that character in silence. Pinned to the endpoint rather than to the class beside it. */
+  it("names in its own table exactly the codepoints that pattern refuses", () => {
+    assert.ok(BACKEND_SINGLE_LINE !== undefined);
+
+    assert.deepEqual(
+      [...new Set(EINZEILIG.flatMap(([, codes]) => [...codes]))].sort((first, second) => first - second),
+      endpointRefuses(BACKEND_SINGLE_LINE),
+    );
+  });
+});
+
+describe("the ceiling on the confirmation link's own token", () => {
+  /* A decline, so the body is whole without a date and no clock decides the case. */
+  const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, text_version: "2026-08" };
+
+  const verdicts = (token: string) => [
+    FLBewerbungEinwilligungAnsichtPayloadSchema.safeParse({ token: token }),
+    FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody }),
+  ];
+
+  /* No control renders the token, and past `CustomBewerbungToken`'s ceiling the endpoint refuses with
+     a bare `REQ-VAL-001` naming no field, so the page can only report a failed save. */
+  it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
+    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1))) {
+      assert.equal(parsed.success, false);
+      assert.deepEqual(
+        parsed.error?.issues.map((issue) => issue.message),
+        ["Bitte öffne den Link noch einmal aus Deiner E-Mail."],
+      );
+    }
+  });
+
+  it("takes a token at the ceiling, as the endpoint does", () => {
+    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH))) {
+      assert.equal(parsed.success, true);
+    }
   });
 });

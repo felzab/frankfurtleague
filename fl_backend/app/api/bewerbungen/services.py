@@ -1,11 +1,12 @@
 import hashlib
 import secrets
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
-from typing import Any, Mapping, Sequence, cast, get_args
+from typing import Any, Final, cast, get_args
 
 from pydantic import ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLKontaktRolle, refuse_age_outside_the_bounds
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerbungSaisonbezug, FLKontaktRolle, refuse_age_outside_the_bounds
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -757,7 +758,7 @@ def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand:
     return {"$set": written}
 
 
-# --- The retention SWEEP. Five clocks, each a pure predicate over one document and `today`, so
+# --- The retention SWEEP. Six clocks, each a pure predicate over one document and `today`, so
 # every boundary is pinned without a container. Dates, never instants: an instant would move the
 # boundary with the hour a pass happens to run.
 
@@ -769,8 +770,11 @@ def next_saison_id(saison_id: str) -> str:
     successor, so an absent one stops both for ever with nothing in any log.
     """
 
-    if not (saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
-        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} digits, and this season's is not one")
+    # `isascii()` beside `isdigit()`, which alone is true of Arabic-Indic and fullwidth digits: `int`
+    # reads those as a year and returns an ASCII successor, naming a season the original cannot be
+    # matched to.
+    if not (saison_id.isascii() and saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
+        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} ASCII digits, and this season's is not one")
 
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
 
@@ -936,18 +940,34 @@ def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> b
     return isinstance(getroffen_am, str) and one_month_after(day=getroffen_am) <= today
 
 
-def season_after_has_ended(*, next_saison_status: Any) -> bool:
-    """The accepted clock and the contact block share one test: the season after the one applied for is `past`.
+def season_has_ended(*, saison_status: Any) -> bool:
+    """Whether a season is over.
 
     Read off `saisons.status` rather than computed from a date, as the design fixes; a season not
     yet created is not past.
     """
 
-    return next_saison_status == "past"
+    return saison_status == "past"
+
+
+def season_after_has_ended(*, next_saison_status: Any) -> bool:
+    """The accepted clock and the contact block share one test: the season after the one applied for is `past`."""
+
+    return season_has_ended(saison_status=next_saison_status)
 
 
 def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], next_saison_status: Any) -> bool:
     return bewerbung_raw.get("status") == "angenommen" and season_after_has_ended(next_saison_status=next_saison_status)
+
+
+def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+    """Whether the season's own end takes this application: undecided, and its season is over.
+
+    Nothing else is asked: a confirmed seat, a missing deadline and a refused notice each drop an
+    application out of the fourteen-day clock.
+    """
+
+    return bewerbung_raw.get("status") == "eingereicht" and season_has_ended(saison_status=saison_status)
 
 
 def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, str]) -> str:
@@ -984,6 +1004,39 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
+def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonbezug, dict[str, Any]]:
+    """Each relation's own term, for the count its option is told.
+
+    A request naming no season is answered against `None`, which no application carries, so every row
+    falls under `andere_saison` -- where
+    `fl_frontend/src/features/bewerbungen/utils.ts :: buildBewerbungRows` files those same rows.
+    """
+
+    return {"diese_saison": {"saison_id": saison_id}, "andere_saison": {"saison_id": {"$ne": saison_id}}}
+
+
+def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequence[str] | None) -> dict[str, Any]:
+    """Which seasons the read covers, as the bar's relation to the season the caller named.
+
+    A relation rather than the id alone, the bar offering a complement no `saison_id` can express.
+    """
+
+    if saison_id is None:
+        return {}
+
+    # The parameter's older meaning, kept: a caller naming no relation asked for that season's queue.
+    if saisonbezug is None:
+        return {"saison_id": saison_id}
+
+    picked = [relation for relation in get_args(FLBewerbungSaisonbezug) if relation in saisonbezug]
+
+    # Every relation picked is every season, and so the facet turned off.
+    if len(picked) != 1:
+        return {}
+
+    return build_bewerbungen_saisonbezug_terms(saison_id=saison_id)[picked[0]]
+
+
 def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
     """`$in` rather than an equality, so a facet that offers all three has a request expressing any two of them.
 
@@ -1007,3 +1060,66 @@ def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]
     direction = 1 if order == "asc" else -1
 
     return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
+
+
+# One `$group` over the raw fields a collision is decided on, and never a `$match` on the count
+# beside it: two groups parted by a Kürzel's case are one collision, which only
+# `dubletten_schluessel_of`'s fold can see.
+DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
+    {
+        "$group": {
+            "_id": {"saison_id": "$saison_id", "team_id": "$team_id", "shorthand": "$schule.shorthand"},
+            "anzahl": {"$sum": 1},
+        }
+    },
+)
+
+
+def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Every open application the request's other terms leave, grouped and never bounded.
+
+    Named rather than inline so both test tiers assert on what the endpoint actually sends
+    (`fl_backend/tests/api/test_bewerbungen_read.py :: TestTheCollisionSurvivesTheReadsCap`).
+    """
+
+    # `eingereicht` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
+    # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.
+    return [{"$match": {**beyond_status, "status": "eingereicht"}}, *DUBLETTEN_TALLY]
+
+
+def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
+    """One application's collision key, `None` where it names neither a club nor a Kürzel.
+
+    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: dublettenSchluessel`
+    composes a served row's, which is the comparison that marks the row.
+    """
+
+    team_id = gruppe.get("team_id")
+
+    if team_id is not None:
+        return f"{gruppe.get('saison_id')} team {team_id}"
+
+    kuerzel = str(gruppe.get("shorthand") or "").strip().upper()
+
+    return None if kuerzel == "" else f"{gruppe.get('saison_id')} kuerzel {kuerzel}"
+
+
+def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Which keys more than one open application holds, over every row the tally covered.
+
+    `.strip().upper()` and never a collation: this has to fold as the served row's key does in
+    `fl_frontend/src/features/bewerbungen/duplicates.ts`, or a marked pair loses one half.
+    """
+
+    gehalten: dict[str, int] = {}
+
+    for cell in cells:
+        schluessel = _dublette_schluessel(cell["_id"])
+
+        if schluessel is None:
+            continue
+
+        gehalten[schluessel] = gehalten.get(schluessel, 0) + cell["anzahl"]
+
+    # Sorted, so an unchanged queue answers the same list twice.
+    return sorted(schluessel for schluessel, anzahl in gehalten.items() if anzahl > 1)

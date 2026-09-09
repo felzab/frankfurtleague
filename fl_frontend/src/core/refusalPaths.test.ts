@@ -211,7 +211,7 @@ const WRITTEN_NOT_PICKED = "the form writes it from a constant, so no control of
 const THE_SCHOOL_ITSELF = "the picker writes `team_id` or the new-school block; the object itself has no control";
 const A_STUFE_ROW = "the picker renders the whole set under one name, so a refusal on a single member has no control of its own";
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
-const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
+const THE_PAGE_SEASON = "the page's selected season, parsed at `SAISON_ID_LENGTH` before the control renders";
 
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
 
@@ -244,7 +244,7 @@ const THE_ROWS_OWN_IDENTITY = "the row this correction is on, carried in the pat
 const THE_TOKEN_THE_READ_SERVED = "the token the membership read served, carried through the page; no control offers it";
 
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
-const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
+const ONE_SCOPE = "the Kenntnisnahme's only scope, written by the panel rather than picked";
 
 /**
  * Sound because the three cannot be refused apart: one press writes all three, so the named control
@@ -614,11 +614,7 @@ describe("every path a refusal mapper emits", () => {
    * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and no
    * way out of the sweep: a listed file that assigns `fieldErrors` at all fails below.
    */
-  const BANNER_ONLY: Record<string, string> = {
-    "features/schiedsrichter/actions.ts":
-      "retiring is refused for fixtures still needing a result — a fact about the season, and no control on the form is at fault",
-    "features/spielorte/actions.ts": "the same refusal for a venue, and the fixtures it names are on another page entirely",
-  };
+  const BANNER_ONLY: Record<string, string> = {};
 
   /** What a module offers by name, so its callers are found rather than listed. */
   function exportedSymbols(text: string): string[] {

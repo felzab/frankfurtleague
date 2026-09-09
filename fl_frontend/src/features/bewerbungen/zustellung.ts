@@ -2,7 +2,13 @@ import z from "zod";
 
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { FLBewerbungZustellungEreignisPayloadSchema, FLKontaktRolleSchema } from "./schemas";
+import {
+  FLBewerbungZustellungEreignisPayloadSchema,
+  FLKontaktRolleSchema,
+  ZUSTELLUNG_GRUND_MAX_LENGTH,
+  ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
+  ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
+} from "./schemas";
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
@@ -55,6 +61,21 @@ const ZustellEreignisSchema = z.object({
 
 type ZustellEreignis = z.infer<typeof ZustellEreignisSchema>;
 
+// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`, applied there to `grund`
+// and copied again in `fl_frontend/src/features/bewerbungen/schemas.ts`. This copy is held to the
+// original by `fl_backend/tests/shared/test_frontend_mirrors.py :: SINGLE_LINE_SCREEN`, which reads
+// it as one line and refuses any flag but `u`.
+const EINZEILIG = /^[^\x00\n\v\f\r\u0085\u2028\u2029]*$/u;
+
+// The offset the endpoint requires, anchored to a time so a date alone cannot satisfy it. Nothing of
+// the instant before it: a check narrower than `datetime.fromisoformat` would drop an event the
+// endpoint takes.
+const UTC_VERSATZ = /\d:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:[Zz]|[+-]\d{2}(?::?\d{2}(?::?\d{2}(?:[.,]\d+)?)?)?)$/u;
+
+const ZustellNachrichtIdSchema = z.string().trim().min(1).max(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH);
+const ZustellZeitpunktSchema = z.string().trim().min(1).max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH).regex(UTC_VERSATZ);
+const ZustellGrundSchema = z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH).regex(EINZEILIG);
+
 /**
  * The state one event leaves, or `null` where the event says nothing about a seat — `email.sent`
  * among them, which the accepted send has already recorded.
@@ -105,19 +126,26 @@ export function leseZustellEreignis(raw: unknown): FLBewerbungZustellungEreignis
 
   const bewerbungId = CustomObjectIdStringSchema.safeParse(ereignis.data.tags?.["bewerbung_id"]);
   const rollen = rollenAus(ereignis.data.tags?.["rollen"]);
-  if (!bewerbungId.success || rollen === null) return null;
+  const nachrichtId = ZustellNachrichtIdSchema.safeParse(ereignis.data.email_id);
+  const am = ZustellZeitpunktSchema.safeParse(ereignis.created_at);
+
+  // The message and the instant are refused rather than repaired, unlike `grund` below: one the
+  // endpoint will not take names neither the link a seat holds nor the order two events fall in.
+  if (!bewerbungId.success || rollen === null || !nachrichtId.success || !am.success) return null;
 
   const meldung = {
     bewerbung_id: bewerbungId.data,
     rollen: rollen,
-    nachricht_id: ereignis.data.email_id,
+    nachricht_id: nachrichtId.data,
     stand: stand.stand,
-    grund: stand.grund,
-    am: ereignis.created_at,
+    // Null where the provider sent prose rather than its own token: the state is a fact about the
+    // mailbox with or without one, and a refused `grund` would take the whole bounce with it.
+    grund: ZustellGrundSchema.safeParse(stand.grund).data ?? null,
+    am: am.data,
   };
 
-  // Parsed against the wire's own mirror, so a payload this module composes cannot reach the backend
-  // in a shape the endpoint refuses with a 422 the provider then retries for thirty-two hours.
+  // The wire's own mirror last, over a payload already held to the ceilings above: nothing this
+  // module composes reaches the endpoint in a shape it refuses.
   return FLBewerbungZustellungEreignisPayloadSchema.safeParse(meldung).data ?? null;
 }
 

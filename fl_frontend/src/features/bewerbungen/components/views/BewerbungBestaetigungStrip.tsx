@@ -124,7 +124,7 @@ export function BewerbungBestaetigungStrip({
         <div className="flex w-full flex-row items-center gap-x-3">
           <PanelHeading
             className={panel.heading()}
-            title="Einwilligungen"
+            title="Bestätigungen"
           />
           <span className="shrink-0">
             <span className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP}`}>

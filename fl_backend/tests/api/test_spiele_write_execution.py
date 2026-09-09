@@ -1,5 +1,6 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -386,6 +387,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "default_payment": DEFAULT_PAYMENT,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": inactive_since,
+            "anonymisiert_am": None,
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]

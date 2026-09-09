@@ -9,6 +9,8 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { RECORDED_FACTS_ANY } from "@/features/saisons/constants.ts";
+import { drawGroupCountOptions, GROUP_COUNT_UNIVERSE } from "@/features/saisons/shapeOffer.ts";
+import { pickIfOffered } from "@/shared/components/ui/refusableOption.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { ContextType } from "react";
@@ -73,6 +75,9 @@ const PANEL: SpielplanProps = {
     { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
     { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
   ],
+  // Two groups of four, which is exactly what these rules ask for, so the stored shape is on offer
+  // and each case below moves the count rather than the entries.
+  gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
@@ -98,6 +103,23 @@ const gelesen = (props: Partial<SpielplanProps>): string =>
 
 /** The three shape boxes, counted by the payload path each writes rather than by the label above it. */
 const shapeFieldCount = (props: Partial<SpielplanProps>): number => (markup(props).match(/name="shape\.[a-z_]+"/g) ?? []).length;
+
+/** The opening tag of the `<select>` react-aria mirrors one count picker into, named by its payload path. */
+const shapeSelectTag = (path: string, props: Partial<SpielplanProps>): string =>
+  new RegExp(`<select [^>]*name="shape\\.${path}"[^>]*>`).exec(markup(props))?.[0] ?? "";
+
+/** Every count the mirrored `<select>` carries for one shape path, in the order the offer built them. */
+const shapeCounts = (path: string, props: Partial<SpielplanProps>): number[] => {
+  const list = new RegExp(`<select [^>]*name="shape\\.${path}"[^>]*>(.*?)</select>`, "s").exec(markup(props))?.[1] ?? "";
+
+  return [...list.matchAll(/<option value="(\d+)"/g)].flatMap(([, value]) => (value === undefined ? [] : [Number(value)]));
+};
+
+/**
+ * The stepper's own root, which is where a read-only state is legible: react-aria puts a number
+ * field's `name` on a hidden input, and a hidden input carries no `readonly`.
+ */
+const shapeStepperTag = (props: Partial<SpielplanProps>): string => /<div [^>]*data-slot="number-field"[^>]*>/.exec(markup(props))?.[0] ?? "";
 
 describe("the draw half of the Spielplan panel", () => {
   /* First, and half the assertions below are `doesNotMatch`, which an empty slice passes silently. */
@@ -138,10 +160,58 @@ describe("the draw half of the Spielplan panel", () => {
     assert.ok(offer < fields, "the shape fields stand outside the replace branch");
   });
 
+  /* `REQ-SPIELPLAN-004` asks every offered group for EXACTLY the team count, and the draw is where a
+     wrong guess costs a press rather than a save. */
+  it("closes a redraw count the entries do not fit, and drops no row for it", () => {
+    const occupancy = { A: 4, B: 4 };
+    const offer = drawGroupCountOptions({ groups: 2, qualifiers: 2, teams: 4, occupancy });
+
+    assert.equal(pickIfOffered(offer, "2"), "2", "the shape the entries fit is closed");
+    assert.equal(pickIfOffered(offer, "4"), null, "four groups from eight clubs is a draw the endpoint refuses");
+    // Rendered, because the closure itself reaches no markup: the mirrored `<select>` carries a closed
+    // row as a plain option, so what a render shows is that the row is still there to be closed.
+    assert.deepEqual(shapeCounts("number_of_groups", DRAWN), [...GROUP_COUNT_UNIVERSE]);
+  });
+
+  /* Read rather than rendered for the reason above. The two endpoints judge occupancy and the bracket
+     in opposite orders, so the panel taking the rules patch's offer would name the wrong number. */
+  it("takes the draw's own offer rather than the rules patch's, and the stepper's floor from the same groups", () => {
+    assert.match(SOURCE, /drawGroupCountOptions\(\{/, "the panel builds its group offer some other way");
+    assert.doesNotMatch(SOURCE, /\bgroupCountOptions\(/, "the draw offers the rules patch's order");
+    /* One anchored match per consumer: this panel spells the pair twice, so a whole-file match is
+       held up by whichever copy survives while the other one goes. The gap crosses newlines, so a
+       Prettier reflow cannot fail it instead. */
+    assert.match(
+      SOURCE,
+      /drawGroupCountOptions\(\{[^}]*occupancy: gruppenOccupancy/,
+      "the offer is built against something other than the season's groups",
+    );
+    assert.match(SOURCE, /teamsPerGroupFloor\(\{[^}]*occupancy: gruppenOccupancy/, "the team stepper's floor ignores the season's groups");
+  });
+
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would
      move between the two presses, and the second press sends whatever the fields hold then. */
   it("freezes the three numbers once the control is armed", () => {
-    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isWriting\}/);
+    for (const path of ["number_of_groups", "qualifiers_per_group"]) {
+      const tag = shapeSelectTag(path, DRAWN);
+
+      assert.notEqual(tag, "", `${path} renders no picker at all`);
+      assert.doesNotMatch(tag, /\sdisabled=""/, `${path} is shut before the panel is armed`);
+    }
+
+    const stepper = shapeStepperTag(DRAWN);
+
+    // Floored like the two above it: `doesNotMatch` passes over the empty string the reader answers
+    // with when it finds no such slot, so the stepper's half would report on nothing.
+    assert.notEqual(stepper, "", "the team stepper renders no number field at all");
+    assert.doesNotMatch(stepper, /data-readonly="true"/, "the team stepper is shut before the panel is armed");
+
+    // Arming is a press, so the render above says the three stand open and the source says what
+    // shuts them.
+    assert.match(SOURCE, /const isShapeFrozen = isConfirming \|\| isWriting;/);
+    // ONE expression, spelled twice because `Select` carries no read-only state: a control naming a
+    // freeze of its own would stay live under a confirmation that has already read the numbers.
+    assert.equal((SOURCE.match(/is(?:ReadOnly|Disabled)=\{isShapeFrozen\}/g) ?? []).length, 2);
   });
 
   /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws

@@ -41,7 +41,7 @@ async def get_teams(
     """
     List teams for a season.
 
-    `in_gruppen=true` returns the four groups keyed A-D, otherwise a plain list; check `format`.
+    `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
     Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.
     """
 

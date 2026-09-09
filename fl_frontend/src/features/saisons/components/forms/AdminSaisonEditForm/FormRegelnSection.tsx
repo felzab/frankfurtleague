@@ -2,8 +2,9 @@
 
 import { Label, Separator } from "@heroui/react";
 
-import { SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
+import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
+import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -11,7 +12,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import type { FLSaisonRulesDraft } from "@/features/saisons/types";
+import type { FLSaisonRulesDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
@@ -20,6 +21,27 @@ const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
 
 /** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const STUFEN_LABEL_ID = "erlaubte-stufen";
+
+/** Where a drawn season stands against the window the Spielplan's draw and its undraw both run in. */
+export type SpielplanWindowState = "open" | "recorded" | "closed";
+
+/**
+ * Three states and not two: the window shuts on a recorded fact and on the season starting, and only
+ * the first can be undone, so one sentence for both would be false about one of them.
+ */
+const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
+  // Two repairs and not one, as `find_rules_refusal` composes them per moved field: only the
+  // qualifiers move on a redraw, the other two standing on which clubs are entered.
+  open: "Die Qualifikanten pro Gruppe änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den Spielplan zurück, passt die Teams an und legst ihn danach neu an.",
+  // What counts as entered is the Spielplan panel's own list, stated there in full on exactly this
+  // state: a second copy would put one sentence on the page twice.
+  recorded:
+    "Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt. Im Abschnitt Spielplan steht, was dazu zählt.",
+  // The freeze stated rather than left conditional: nothing returns a season to `future`
+  // (`docs/backend/spec.md :: I18`), so a way out worded here would name one nobody can reach.
+  closed:
+    "Neu anlegen und zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist. Damit sind diese drei Zahlen festgeschrieben.",
+};
 
 /**
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
@@ -38,6 +60,8 @@ export function FormRegelnSection({
   isFinishedSaison,
   isKnockoutStarted,
   isDrawnSaison,
+  gruppenOccupancy,
+  spielplanWindow,
   banners,
 }: {
   rules: FLSaisonRulesDraft;
@@ -62,6 +86,16 @@ export function FormRegelnSection({
    * over, and `qualifiers_per_group` is in both.
    */
   isDrawnSaison: boolean;
+  /**
+   * `REQ-RULES-002` and `REQ-RULES-003`'s own figure. **Handed in, never derived here**: the endpoint
+   * counts it once per write, and a second reading could close a row the save would take.
+   */
+  gruppenOccupancy: SaisonGruppenOccupancy;
+  /**
+   * **Handed in, never derived here**: a state decided beside
+   * `blockedReasons.ts :: spielplanUndrawBlockedReason` could offer a repair that control has closed.
+   */
+  spielplanWindow: SpielplanWindowState;
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
@@ -174,40 +208,51 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
-          {/* Bounds mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`,
-              which says why each one is where it is: a stepper offering a number the submit refuses
-              is one that wasted the trip. */}
+          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `REQ-RULES-001`
+              leaves the two counts a set that SKIPS, which no floor-and-ceiling can state, and the
+              stepper between them takes its floor from whichever count stands beside it. */}
           <div className={FIELD_TRIO}>
-            <SaisonRuleNumberField
+            <SaisonCountSelect
               name="rules.number_of_groups"
-              isReadOnly={isDrawnSaison}
+              isDisabled={isDrawnSaison}
+              ariaLabel="Gruppen"
               label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
-              minValue={1}
-              maxValue={4}
               value={rules.number_of_groups}
+              options={groupCountOptions({
+                groups: rules.number_of_groups,
+                qualifiers: rules.qualifiers_per_group,
+                occupancy: gruppenOccupancy,
+              })}
               onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
-              onBlur={() => onFieldLeft(["rules.number_of_groups"])}
             />
             <SaisonRuleNumberField
               name="rules.teams_per_group"
               isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
-              minValue={2}
-              maxValue={16}
+              minValue={teamsPerGroupFloor({
+                qualifiers: rules.qualifiers_per_group,
+                held: rules.teams_per_group,
+                occupancy: gruppenOccupancy,
+              })}
+              maxValue={MAX_TEAMS_PER_GROUP}
               value={rules.teams_per_group}
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
               onBlur={() => onFieldLeft(["rules.teams_per_group"])}
             />
             {/* The one field both freezes reach: the table is scored from it and the fixtures were
                 drawn from it, so either condition alone closes it. */}
-            <SaisonRuleNumberField
+            <SaisonCountSelect
               name="rules.qualifiers_per_group"
-              isReadOnly={isFinishedSaison || isDrawnSaison}
-              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten</FieldLabel>}
-              minValue={1}
+              isDisabled={isFinishedSaison || isDrawnSaison}
+              ariaLabel="Qualifikanten pro Gruppe"
+              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
               value={rules.qualifiers_per_group}
+              options={qualifierCountOptions({
+                groups: rules.number_of_groups,
+                qualifiers: rules.qualifiers_per_group,
+                teams: rules.teams_per_group,
+              })}
               onChange={(qualifiers_per_group) => onRulesChange({ ...rules, qualifiers_per_group })}
-              onBlur={() => onFieldLeft(["rules.qualifiers_per_group"])}
             />
           </div>
 
@@ -252,15 +297,8 @@ export function FormRegelnSection({
           spot="regeln-status"
         />
 
-        {/* Panel-local: on the rail it would describe controls the reader cannot see. Two repairs and
-            not one, as `find_rules_refusal` composes them per moved field: only the qualifiers move
-            on a redraw, the other two standing on which clubs are entered. */}
-        {isDrawnSaison && (
-          <p className="fluid-xxs text-foreground-muted w-full font-medium">
-            Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den
-            Spielplan zurück, passt die Teams an und legst ihn danach neu an.
-          </p>
-        )}
+        {/* Panel-local: on the rail it would describe controls the reader cannot see. */}
+        {isDrawnSaison && <p className="fluid-xxs text-foreground-muted w-full font-medium">{SHAPE_NOTE[spielplanWindow]}</p>}
       </div>
     </section>
   );

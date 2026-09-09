@@ -1,4 +1,5 @@
 import copy
+import string
 from typing import Any, get_args
 
 import pytest
@@ -6,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
-from app.api.spiele.schemas import FLSpielBooking
+from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
     FLEinwilligung,
     FLPatchSaisonSpielerPayload,
@@ -22,6 +23,7 @@ from app.api.spieler.services import registration_einwilligung
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
+    MAX_NUMBER_OF_GROUPS,
     FLGruppenNames,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamPayload,
@@ -29,6 +31,62 @@ from app.api.teams.schemas import (
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
+
+_GRUPPEN_ALPHABET = string.ascii_uppercase
+
+
+def gruppe_name(index: int) -> str:
+    """The name at a zero-based `index`, by the rule `FLGruppenNames` is spelled to follow."""
+
+    name = ""
+    while True:
+        index, offset = divmod(index, len(_GRUPPEN_ALPHABET))
+        name = _GRUPPEN_ALPHABET[offset] + name
+        if index == 0:
+            return name
+        # What makes it BIJECTIVE base-26: there is no zero digit, so a full wheel borrows from the
+        # place above rather than leaving it a leading `A`.
+        index -= 1
+
+
+def gruppen_names(count: int) -> tuple[str, ...]:
+    """The first `count` group names, by the rule the closed set follows: A-Z, then AA, AB, onward.
+
+    Bijective base-26, so it is total: the 27th name is `AA` rather than an error met only once the
+    cap passes Z.
+    """
+
+    return tuple(gruppe_name(index) for index in range(count))
+
+
+class TestTheGroupNames:
+    def test_the_closed_set_is_the_naming_rule_s_own_prefix(self):
+        """The one pin on a set a type checker forces us to spell: a fifth name that is not `E` fails here rather than in a season."""
+
+        assert get_args(FLGruppenNames) == gruppen_names(MAX_NUMBER_OF_GROUPS)
+
+    @pytest.mark.parametrize(
+        ("count", "expected"),
+        [
+            pytest.param(1, ("A",), id="one group"),
+            pytest.param(8, ("A", "B", "C", "D", "E", "F", "G", "H"), id="eight groups"),
+            pytest.param(26, tuple(string.ascii_uppercase), id="the whole alphabet"),
+            pytest.param(28, (*string.ascii_uppercase, "AA", "AB"), id="past the alphabet"),
+        ],
+    )
+    def test_it_names_this_many_groups_exactly_like_this(self, count: int, expected: tuple[str, ...]):
+        """Asserted past the cap on purpose: a rule producing the right four names for four is indistinguishable from the list it replaced."""
+
+        assert gruppen_names(count) == expected
+
+    def test_the_set_is_exactly_as_wide_as_the_bracket(self):
+        """The width is arithmetic, in both directions.
+
+        A season sends one club per group at least, so a name past `MAX_QUALIFIERS` names a group
+        nothing can save; short of it, a group count the bracket admits has no name.
+        """
+
+        assert MAX_NUMBER_OF_GROUPS == MAX_QUALIFIERS
 
 
 class TestSpielort:
@@ -73,9 +131,12 @@ class TestSchiedsrichter:
         """Not every referee is attached to a school."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(schule=None)).schule is None
 
-    def test_rejects_a_malformed_email_through_the_nested_contact(self, schiedsrichter, kontakt):
-        with pytest.raises(ValidationError):
-            FLSchiedsrichter.model_validate(schiedsrichter(kontakt=kontakt(email="nope")))
+    def test_the_payload_rejects_a_malformed_email_through_the_nested_contact(self, kontakt, assert_rejects):
+        assert_rejects(
+            FLPostSchiedsrichterPayload,
+            {"kontakt": kontakt(email="nope"), "name": "Anna Referee", "schule": None, "default_payment": 20},
+            "email",
+        )
 
     def test_payload_accepts_a_valid_body(self, kontakt):
         parsed = FLPostSchiedsrichterPayload.model_validate(
@@ -96,6 +157,12 @@ class TestSchiedsrichter:
     def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
         """A read model refusing a stored name would answer 500 for the whole list because of one row."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(name="A. Referee")).name == "A. Referee"
+
+    def test_the_read_model_still_serves_a_stored_contact_the_payload_would_refuse(self, schiedsrichter, kontakt):
+        """The nested half of the case above, and the one a NARROWED rule reaches: the phone rule grew a final digit after rows existed."""
+        stored = kontakt(telefon="069 1234 ", email="a" * 250 + "@b.example")
+
+        assert FLSchiedsrichter.model_validate(schiedsrichter(kontakt=stored)).kontakt.telefon == "069 1234 "
 
     def test_payload_shares_the_same_constraints(self, kontakt, assert_rejects):
         assert_rejects(FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "", "schule": None, "default_payment": 0}, "name")
@@ -436,12 +503,12 @@ class TestSaison:
             FLSaison.model_validate(saison(rules=rules))
 
     def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
-        """The bound and `offered_gruppen`'s cap are two spellings of one number.
+        """`NumberOfGroups` reads the set's size, and this is what refuses a hand-written number back in its place.
 
-        `number_of_groups` carries a literal and `offered_gruppen` reads `get_args(FLGruppenNames)`,
-        so a fifth group name would refuse the season the entry path would then serve.
+        `offered_gruppen` slices `get_args(FLGruppenNames)`, so a cap over that size is a season the
+        entry path serves short of the groups it promised.
         """
-        cap = len(get_args(FLGruppenNames))
+        cap = MAX_NUMBER_OF_GROUPS
 
         assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap})).rules.number_of_groups == cap
 
@@ -612,7 +679,6 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "nachname": "Koerner",
             "email": "a.koerner@example.de",
             "telefon": "+49 170 1234567",
-            "geburtsdatum": "1984-05-09",
             "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-01-15"},
         }
         saison_team = {
