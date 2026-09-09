@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 import { z } from "zod";
 
-import { filesUnder } from "../../core/treeWalk.ts";
+import { filesUnder, isTestFile } from "../../core/treeWalk.ts";
 // Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
   applyVerdicts,
@@ -452,7 +452,7 @@ describe("applyVerdicts", () => {
 });
 
 const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200).map((file) => [
     path.relative(SRC_DIR, file).split(path.sep).join("/"),
     readFileSync(file, "utf8"),
   ]),

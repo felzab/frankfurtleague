@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import { runOnSubmit } from "./formSubmit.ts";
 
@@ -11,9 +11,11 @@ import type { FormEvent } from "react";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** Relative POSIX path → source text, for every component in the tree. */
+// The needles below are literals this file writes, so under the `.tsx` spelling it would be swept
+// into its own answer and counted among the editors it measures.
+/** Relative POSIX path → source text, for every component the tree ships. */
 const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200).map((file) => [
     path.relative(SRC_DIR, file).split(path.sep).join("/"),
     readFileSync(file, "utf8"),
   ]),

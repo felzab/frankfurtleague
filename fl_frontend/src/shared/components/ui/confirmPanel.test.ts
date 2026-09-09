@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement } from "react";
 
+import { openingTag } from "@/core/openingTag.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { formButton } from "./formButtons";
@@ -84,43 +86,29 @@ const beschriftungen = (html: string): string[] => [...html.matchAll(/<button\b[
 const abbrechen = (html: string): string => [...html.matchAll(/<button\b[^>]*>/g)][1]?.[0] ?? "";
 
 /**
- * Every panel that escalates a press, DISCOVERED rather than typed.
+ * Every panel that escalates a press, discovered rather than typed.
  *
- * A roster counted against its own length can never report an omission.
- * `useTwoPressConfirm` is the discriminator because it IS the shape.
+ * A roster counted against its own length reports no omission, and neither does one compared against
+ * a filter of itself: the two below are found independently and must agree.
  */
-function panelsUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return panelsUnder(full);
+const panelsUnder = (dir: string, holds: (source: string) => boolean): string[] =>
+  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).filter((full) => holds(readFileSync(full, "utf8")));
 
-    return entry.name.endsWith(".tsx") && readFileSync(full, "utf8").includes("useTwoPressConfirm(") ? [full] : [];
-  });
-}
+const FEATURES = path.resolve(import.meta.dirname, "..", "..", "..", "features");
+const named = (files: string[]): string[] =>
+  files.map((file) =>
+    path
+      .relative(import.meta.dirname, file)
+      .split(path.sep)
+      .join("/"),
+  );
 
-const PANELS = panelsUnder(path.resolve(import.meta.dirname, "..", "..", "..", "features")).map((file) =>
-  path
-    .relative(import.meta.dirname, file)
-    .split(path.sep)
-    .join("/"),
-);
+const PANELS = named(panelsUnder(FEATURES, (source) => source.includes("useTwoPressConfirm(")));
 
-/**
- * One JSX opening tag, from `<Name` to the `>` that closes it. Braces are counted, so a `>` inside an
- * attribute expression — an arrow, a comparison, a class list — does not end the tag early.
- */
-function openingTag(source: string, from: number): string {
-  let depth = 0;
-
-  for (let at = from; at < source.length; at++) {
-    const here = source[at];
-    if (here === "{") depth += 1;
-    else if (here === "}") depth -= 1;
-    else if (here === ">" && depth === 0) return source.slice(from, at + 1);
-  }
-
-  return "";
-}
+// The armed STATE rather than the import supplying it, so a panel arming its own never leaves the
+// roster silently. `ConfirmSaveModal` drops the parent editors, which confirm a save and escalate
+// nothing.
+const PANELS_BY_STATE = named(panelsUnder(FEATURES, (source) => source.includes("isConfirming") && !source.includes("ConfirmSaveModal")));
 
 describe("the source these files are read as", () => {
   /* First, and over cases rather than the files: a stripper that quietly stopped removing anything
@@ -256,12 +244,14 @@ describe("every panel that escalates a press", () => {
   /* The whole point of the extraction. A panel spelling the shell again is one that drifts from the
      rest the next time any of the three shared components moves. */
   it("render the shared mechanism rather than spelling their own", () => {
-    // Against the OTHER two discriminators, never against its own length: a roster counted against
-    // itself reports every omission as a pass.
+    // The reveal and the fill are filters of this roster, so they catch a panel spelling its own
+    // shell and never one the hook import left out of the walk. `PANELS_BY_STATE` is the route that
+    // catches that.
     const byReveal = panelsMatching("<ConfirmReveal>");
     const byFill = panelsMatching("confirmButton(isConfirming)");
 
     assert.ok(PANELS.length > 0, "the sweep found no panels at all, so every case below passes over nothing");
+    assert.deepEqual(PANELS, PANELS_BY_STATE, "a panel arms a press without taking the shared hook, or the reverse");
     assert.deepEqual(PANELS, byReveal, "a panel renders the shared reveal without the shared armed state, or the reverse");
     assert.deepEqual(PANELS, byFill, "a panel wears the shared armed fill without the shared armed state, or the reverse");
 

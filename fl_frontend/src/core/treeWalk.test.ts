@@ -26,6 +26,46 @@ describe("the one decision every sweep delegates", () => {
   });
 });
 
+describe("the predicate shape a sweep excluding its fixtures takes", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "treewalk-plant-"));
+  mkdirSync(path.join(root, "nested"));
+  /* The `.test.tsx` no tracked tree holds: every fixture in the estate is spelled `.test.ts`, so a
+     predicate deciding the wrong suffix reddens nothing and the mistake ships. */
+  for (const rel of ["Panel.tsx", "helper.ts", path.join("nested", "Panel.test.tsx"), path.join("nested", "helper.test.ts")]) {
+    writeFileSync(path.join(root, rel), "", { encoding: "utf8" });
+  }
+
+  const swept = (accepts: (name: string) => boolean): string[] =>
+    filesUnder(root, accepts, 1)
+      .map((file) => path.relative(root, file).split(path.sep).join("/"))
+      .sort();
+
+  it("keeps the plant out of a `.tsx` walk that names the exclusion, and not out of one that does not", () => {
+    assert.deepEqual(
+      swept((name) => name.endsWith(".tsx")),
+      ["Panel.tsx", "nested/Panel.test.tsx"],
+    );
+    assert.deepEqual(
+      swept((name) => name.endsWith(".tsx") && !isTestFile(name)),
+      ["Panel.tsx"],
+    );
+  });
+
+  /* A walk taking both suffixes may not answer for one of them alone (`.claude/rules/frontend.md`):
+     an exclusion spelled `.test.tsx` leaves every `.test.ts` in, and one spelled `.test.ts` leaves
+     this plant in. */
+  it("keeps both fixture spellings out of a walk that takes both suffixes", () => {
+    assert.deepEqual(
+      swept((name) => /\.tsx?$/.test(name)),
+      ["Panel.tsx", "helper.ts", "nested/Panel.test.tsx", "nested/helper.test.ts"],
+    );
+    assert.deepEqual(
+      swept((name) => /\.tsx?$/.test(name) && !isTestFile(name)),
+      ["Panel.tsx", "helper.ts"],
+    );
+  });
+});
+
 describe("the floor every sweep must name", () => {
   const root = mkdtempSync(path.join(tmpdir(), "treewalk-"));
   mkdirSync(path.join(root, "nested"));

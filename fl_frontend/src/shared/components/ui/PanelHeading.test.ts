@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 
 import { createElement } from "react";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { openingTag } from "@/core/openingTag.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
 /*
@@ -16,7 +17,7 @@ const { PanelHeading } = await import("./PanelHeading.tsx");
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx"), 200);
+const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
 const COMPONENT = path.join(SRC, "shared", "components", "ui", "PanelHeading.tsx");
 const rel = (file: string) => path.relative(SRC, file).split(path.sep).join("/");
 
@@ -34,9 +35,9 @@ function headings(source: string): Heading[] {
     const close = `</h${level}>`;
     let at = source.indexOf(`<h${level}`);
     while (at !== -1) {
-      const opens = source.indexOf(">", at);
+      const tag = openingTag(source, at);
       const ends = source.indexOf(close, at);
-      if (ends !== -1) found.push({ level, tag: source.slice(at, opens + 1), body: source.slice(opens + 1, ends) });
+      if (tag !== "" && ends !== -1) found.push({ level, tag, body: source.slice(at + tag.length, ends) });
       at = source.indexOf(`<h${level}`, at + 1);
     }
   }

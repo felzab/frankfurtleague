@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_BY_DEFAULT, KEY_TIER_EXTENSION, KEY_TIERS, keyTierOf } from "@/core/keyTiers.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import type { KeyTier } from "@/core/keyTiers.ts";
 
@@ -145,9 +145,13 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
   }
 }
 
+// Fixtures are out: one calling the client against an unpublished path fails here exactly as
+// production would, naming a test file to whoever then goes looking for a broken route.
+const isProduction = (name: string): boolean => /\.tsx?$/.test(name) && !isTestFile(name);
+
 // Every module MENTIONING the client, not the two conventional filenames: a call added under `app/`
 // or `shared/` has to fall under the same comparison.
-const callerFiles = filesUnder(SRC_DIR, (name) => /\.tsx?$/.test(name), 400).filter((file) => readFileSync(file, "utf8").includes("apiClient"));
+const callerFiles = filesUnder(SRC_DIR, isProduction, 400).filter((file) => readFileSync(file, "utf8").includes("apiClient"));
 
 // The second route, and deliberately not the walk above: the two listings must agree, so they are
 // reached by different readers — one recursing, this one reading a single level

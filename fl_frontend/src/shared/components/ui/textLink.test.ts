@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import { textLink } from "./textLink.ts";
 
@@ -11,8 +11,8 @@ import { textLink } from "./textLink.ts";
 // of `src` or it reports a clean tree while every feature spells its own links.
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** Every `.tsx` under `src`, which is where a link can be spelled. */
-const componentsUnder = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
+/** Every shipped `.tsx` under `src`, which is where a link a reader meets can be spelled. */
+const componentsUnder = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
 
 describe("the one treatment a link inside text wears", () => {
   /* Colour alone is not a link to a reader who cannot see it, which is why the underline is in the

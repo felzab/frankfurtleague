@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import {
   applyFacets,
@@ -425,8 +425,8 @@ const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
 
-/** Every `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
-const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name), floor);
+/** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
+const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
 
 // Stands in for I13 over the app tree; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 /**
@@ -455,6 +455,27 @@ function isClientModule(source: string): boolean {
   return source.startsWith('"use client"', at) || source.startsWith("'use client'", at);
 }
 
+/**
+ * The exported component's own parameter list. A window taken to the file's first `)` instead stops
+ * inside whatever precedes the component — a props type, a JSDoc, a helper's signature — with the
+ * props outside it.
+ */
+function parameterList(source: string, viewName: string): string {
+  // Blanked rather than dropped, so a `)` inside a comment cannot close the list early.
+  const blanked = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
+  const opener = `export function ${viewName}(`;
+  const opened = blanked.indexOf(opener);
+  if (opened === -1) throw new Error(`${viewName} exports no function of its own name, so this case reads nothing there`);
+
+  let depth = 1;
+  for (let offset = opened + opener.length; offset < blanked.length; offset++) {
+    if (blanked[offset] === "(") depth++;
+    if (blanked[offset] === ")") depth--;
+    if (depth === 0) return blanked.slice(opened + opener.length, offset);
+  }
+  throw new Error(`${viewName}'s parameter list is never closed`);
+}
+
 describe("who may hold a facet", () => {
   /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
      (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
@@ -462,7 +483,9 @@ describe("who may hold a facet", () => {
   it("keeps every facets module out of the server half of the app", () => {
     const leaks = sourcesUnder(APP_DIR, 50)
       .filter((file) => !isClientModule(readFileSync(file, "utf8")))
-      .filter((file) => /from "[^"]*facets"/.test(readFileSync(file, "utf8")))
+      // The extension optional: `tsconfig-alias-hook.mjs` resolves both spellings, so a specifier
+      // carrying one is the same import.
+      .filter((file) => /from "[^"]*facets(?:\.tsx?)?"/.test(readFileSync(file, "utf8")))
       .map((file) => asPosix(path.relative(APP_DIR, file)));
 
     assert.deepEqual(
@@ -479,10 +502,20 @@ describe("who may hold a facet", () => {
     const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
     assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
 
-    const nehmen = views
-      .filter((file) => /\bfacets\s*[,:}]/.test(readFileSync(file, "utf8").split(")")[0] ?? ""))
-      .map((file) => asPosix(path.relative(FEATURES_DIR, file)));
+    const unlesbar: string[] = [];
+    const nehmen: string[] = [];
 
+    for (const file of views) {
+      const params = parameterList(readFileSync(file, "utf8"), path.basename(file, ".tsx"));
+      const named = asPosix(path.relative(FEATURES_DIR, file));
+
+      // A parameter taken whole keeps its props in a type this reads nothing of, so the shape is
+      // reported rather than passed over.
+      if (!params.trimStart().startsWith("{")) unlesbar.push(named);
+      else if (/\bfacets\s*[,:}]/.test(params)) nehmen.push(named);
+    }
+
+    assert.deepEqual(unlesbar, [], `these views take a parameter object this case cannot read:\n  ${unlesbar.join("\n  ")}`);
     assert.deepEqual(nehmen, [], `these views take their facets as a prop instead of building them:\n  ${nehmen.join("\n  ")}`);
   });
 });

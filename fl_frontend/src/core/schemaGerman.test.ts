@@ -6,7 +6,8 @@ import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { openingTag } from "@/core/openingTag.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 /**
  * Zod's own wording, which is English. Matched rather than the German it replaces: a field MISSING its sentence
@@ -177,28 +178,74 @@ describe("what a bound schema says when a field is emptied", () => {
   }
 });
 
+const TAG = /<[A-Za-z][\w.]*/g;
+// The mark as a bare attribute: the tag carries its own `>`, so a boundary of whitespace alone
+// would lose `<X name="a" isRequired>`.
+const MARK = /\bisRequired(?![\w=])/;
+const LITERAL_NAME = /\bname="([^"]*)"/;
+/** A name built from one prop and a literal tail, which is `AddressFields`'s five controls. */
+const COMPUTED_NAME = /\bname=\{`\$\{(\w+)\}([^`${]*)`\}/;
+
 /**
  * A required control, read off ONE opening tag so `isRequired` and its `name` belong to the same
- * control (`docs/frontend/spec.md :: I17`). A computed name and a conditional `isRequired` are out of
- * reach, both failing toward finding less.
+ * control (`docs/frontend/spec.md :: I17`). A conditional `isRequired` is out of reach.
  */
-function requiredNamesIn(source: string): string[] {
+function requiredNamesIn(source: string, resolve: (identifier: string) => readonly string[]): string[] {
   const found: string[] = [];
 
-  for (const chunk of source.split("<")) {
-    const opening = chunk.slice(0, chunk.indexOf(">"));
-    if (!/\bisRequired(\s|$)/.test(opening)) continue;
+  for (const tag of source.matchAll(TAG)) {
+    const opening = openingTag(source, tag.index);
+    if (!MARK.test(opening)) continue;
 
-    const name = /\bname="([^"]*)"/.exec(opening);
-    if (name?.[1] !== undefined) found.push(name[1]);
+    const literal = LITERAL_NAME.exec(opening);
+    if (literal?.[1] !== undefined) {
+      found.push(literal[1]);
+      continue;
+    }
+
+    // Dropped rather than guessed at: a name paired with a path no control writes fails a branch
+    // that touched neither the control nor the schema.
+    const computed = COMPUTED_NAME.exec(opening);
+    if (computed?.[1] === undefined || computed[2] === undefined) continue;
+    for (const prefix of resolve(computed[1])) found.push(`${prefix}${computed[2]}`);
   }
   return found;
 }
 
-const collectComponents = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
+const collectComponents = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
+
+const COMPONENTS = new Map(collectComponents(SRC_DIR).map((file) => [file, readFileSync(file, "utf8")]));
+
+/** Every value a prop holds where a `name` is built from it, resolved from the tree rather than listed. */
+function propValues(file: string, identifier: string): string[] {
+  const text = COMPONENTS.get(file) ?? "";
+  const component = /export function (\w+)\s*\(/.exec(text)?.[1];
+  const declared = new RegExp(String.raw`\n\s{2}` + identifier + String.raw`(?:\s*=\s*"([^"]*)")?,`).exec(text);
+  if (component === undefined || declared === null) return [];
+
+  const fallback = declared[1];
+  const literal = new RegExp(String.raw`\b` + identifier + String.raw`="([^"]*)"`);
+  const expression = new RegExp(String.raw`\b` + identifier + String.raw`=\{`);
+  const values: string[] = [];
+
+  for (const [other, otherText] of COMPONENTS) {
+    if (other === file) continue;
+
+    for (const site of otherText.matchAll(new RegExp(String.raw`<` + component + String.raw`\b`, "g"))) {
+      const tag = openingTag(otherText, site.index);
+      const passed = literal.exec(tag);
+
+      if (passed?.[1] !== undefined) values.push(passed[1]);
+      // The default only where a site leaves the prop off, and nothing where one passes an
+      // expression: a default every site overrides names a path no form writes.
+      else if (!expression.test(tag) && fallback !== undefined) values.push(fallback);
+    }
+  }
+  return [...new Set(values)];
+}
 
 /** Every path some form marks required, discovered from the forms rather than listed beside them. */
-const REQUIRED_NAMES = new Set(collectComponents(SRC_DIR).flatMap((file) => requiredNamesIn(readFileSync(file, "utf8"))));
+const REQUIRED_NAMES = new Set([...COMPONENTS].flatMap(([file, text]) => requiredNamesIn(text, (identifier) => propValues(file, identifier))));
 
 /** One schema's path that a form marks required, with the emptiness that field's own control writes. */
 const marked = Object.entries(BOUND).flatMap(([name, schema]) =>
@@ -210,7 +257,7 @@ const marked = Object.entries(BOUND).flatMap(([name, schema]) =>
 describe("what a schema does with a field its form marks required", () => {
   it("reads a mark off the control that carries it, and off no other", () => {
     /* The reader on input, not on the tree: a discovery that silently finds nothing passes every case
-       below, and no count over 26 uniform marks can tell a correct reader from a truncating one. */
+       below, and no count over uniform marks can tell a correct reader from a truncating one. */
     const sample = [
       '<TextField isRequired name="vorname">',
       '<TextField name="stadtteil">',
@@ -218,9 +265,17 @@ describe("what a schema does with a field its form marks required", () => {
       '<TextField isRequired name={path("nachname")}>',
       '<TextField isRequired={isNeu} name="schule.shorthand">',
       '<TextField isRequired>Trag den name="verborgen" ein</TextField>',
+      '<TextField onChange={(next) => set(next)} isRequired name="vorname">',
+      "<TextField isRequired name={`${namePrefix}.strasse`}>",
+      "<TextField isRequired name={`${ungelesen}.plz`}>",
     ].join("\n");
 
-    assert.deepEqual(requiredNamesIn(sample), ["vorname", "kader.gute_spieler"]);
+    // Twice over for `vorname`: the arrow's own `>` truncated the second one, and a set would have
+    // hidden the loss behind the first.
+    assert.deepEqual(
+      requiredNamesIn(sample, (identifier) => (identifier === "namePrefix" ? ["address", "schule.address"] : [])),
+      ["vorname", "kader.gute_spieler", "vorname", "address.strasse", "schule.address.strasse"],
+    );
   });
 
   it("found the marks and the schema paths they land on", () => {
