@@ -3,11 +3,11 @@ from __future__ import annotations
 import ast
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path, PurePosixPath
-from typing import Final, Iterable, NamedTuple
+from typing import Final, NamedTuple
 
 from checker_kernel import git, git_input, resolve_base
 
