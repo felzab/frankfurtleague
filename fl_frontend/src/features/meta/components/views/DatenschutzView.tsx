@@ -103,16 +103,23 @@ const FRISTEN = [
   {
     daten: "Bewerbung, bei der nicht alle Kontaktpersonen bestätigt haben",
     frist:
-      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet; die angekündigte Löschung ginge sonst an niemanden",
+      "14 Tage ab dem Versand der Bestätigungslinks, dann Löschung; ein Ersatzlink setzt die Frist für die ganze Bewerbung neu, eine Erinnerung nicht. Ist die Adresse der Ansprechperson dauerhaft nicht erreichbar, bleibt die Bewerbung stehen, bis die Verwaltung eine erreichbare Adresse einträgt oder über die Bewerbung entscheidet, längstens bis zum Ende der beworbenen Saison; die angekündigte Löschung ginge sonst an niemanden",
   },
   { daten: "Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen", frist: "1 Monat nach der Entscheidung" },
   {
     daten: "Angenommene Bewerbung samt den Daten der drei Kontaktpersonen",
     frist: "Bis zum Ende der Saison, die auf die beworbene Saison folgt",
   },
+  {
+    daten: "Bewerbung, über die nicht entschieden wurde, samt den Daten der drei Kontaktpersonen",
+    frist: "Bis zum Ende der beworbenen Saison",
+  },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
-  { daten: "Änderungsprotokoll der Verwaltung", frist: "12 Monate ab dem Eintrag" },
+  {
+    daten: "Änderungsprotokoll der Verwaltung",
+    frist: "12 Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+  },
   {
     daten: "Zugriffsprotokoll des Servers",
     frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
@@ -481,8 +488,8 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ}>
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
-            zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Es wird nach zwölf Monaten gelöscht, und bei
-            einer Löschung auf Wunsch werden Deine Einträge darin sofort geleert.
+            zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
+            Einträge darin sofort geleert.
           </p>
         </LegalSection>
 
@@ -524,7 +531,7 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
-            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden nach zwölf Monaten wie alle anderen gelöscht.
+            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht.
           </p>
         </LegalSection>
 

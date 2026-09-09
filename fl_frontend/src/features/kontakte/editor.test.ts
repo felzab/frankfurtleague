@@ -103,7 +103,15 @@ const listMarkup = (row: AdminKontakteRow, query: string): string =>
 
 /** The editor's banner author, in the one state each case below is about. */
 const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>): readonly KontakteBanner[] =>
-  buildKontakteBanners({ saisonId: "2526", saisonStatus: "active", isMember: true, isBlockRemoved: false, emptiedSeatLabels: [], ...state });
+  buildKontakteBanners({
+    saisonId: "2526",
+    saisonStatus: "active",
+    isMember: true,
+    isBlockRemoved: false,
+    emptiedSeatLabels: [],
+    renamedConfirmedSeatLabels: [],
+    ...state,
+  });
 
 const bannerIds = (banners: readonly KontakteBanner[]): string[] => banners.map((banner) => banner.id);
 
@@ -646,12 +654,13 @@ describe("what the undo says when it cannot run", () => {
 });
 
 describe("what the banners say", () => {
-  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so the two removals are
-     what open the save dialog — and a standing situation, however grave, asks nothing. */
-  it("puts the two removals in front of the save dialog and neither situation", () => {
+  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so the two removals and the
+     cleared confirmation are what open the save dialog — and a standing situation, however grave, asks
+     nothing. */
+  it("puts what the save takes away in front of the save dialog, and neither situation", () => {
     const severities = (state: Parameters<typeof bannersFor>[0]) => bannersFor(state).map((banner) => banner.severity);
 
-    for (const state of [{ isBlockRemoved: true }, { emptiedSeatLabels: ["Trainer"] }]) {
+    for (const state of [{ isBlockRemoved: true }, { emptiedSeatLabels: ["Trainer"] }, { renamedConfirmedSeatLabels: ["Trainer"] }]) {
       assert.deepEqual(severities(state), ["warning"], `${JSON.stringify(state)} raises nothing, or grades a removal as ordinary`);
       assert.notEqual(resolveBlockingBanners(bannersFor(state)), null, `${JSON.stringify(state)} saves without confirming what it clears`);
     }
@@ -664,18 +673,26 @@ describe("what the banners say", () => {
     }
   });
 
-  /* The block's own removal takes every seat with it, so the per-seat sentence beneath it would name
+  /* The block's own removal takes every seat with it, so each per-seat sentence beneath it would name
      seats inside a block that is going whole. */
-  it("drops the per-seat sentence where the whole block goes", () => {
-    const [entfernt, ...beside] = bannersFor({ isBlockRemoved: true, emptiedSeatLabels: ["Trainer", "Ansprechperson"] });
+  it("drops both per-seat sentences where the whole block goes", () => {
+    const [entfernt, ...beside] = bannersFor({
+      isBlockRemoved: true,
+      emptiedSeatLabels: ["Trainer", "Ansprechperson"],
+      renamedConfirmedSeatLabels: ["Stellvertretung"],
+    });
 
     assert.equal(entfernt?.id, "kontakte.block-removed");
     assert.deepEqual(bannerIds(beside), [], "the whole block's removal is stated beside a sentence about seats inside it");
 
     // Declared as well as unraised: without it the rail would show both the day either is raised alone.
-    const paar = [...bannersFor({ emptiedSeatLabels: ["Trainer"] }), ...bannersFor({ isBlockRemoved: true })];
+    const paar = [
+      ...bannersFor({ emptiedSeatLabels: ["Trainer"] }),
+      ...bannersFor({ renamedConfirmedSeatLabels: ["Stellvertretung"] }),
+      ...bannersFor({ isBlockRemoved: true }),
+    ];
 
-    assert.deepEqual(entfernt?.supersedes, ["kontakte.seats-emptied"]);
+    assert.deepEqual(entfernt?.supersedes, ["kontakte.seats-emptied", "kontakte.confirmation-cleared"]);
     assert.deepEqual(bannerIds(resolveRailBanners(paar)), ["kontakte.block-removed"]);
   });
 
@@ -690,6 +707,19 @@ describe("what the banners say", () => {
     for (const banner of [einer, drei]) {
       assert.doesNotMatch(`${banner?.title ?? ""} ${banner?.body ?? ""}`, /\d/, "the banner counts the seats in a sentence that must agree");
     }
+  });
+
+  /* „endgültig“ is the half an admin would otherwise get wrong: no junction seat can be confirmed a
+     second time, so a title offering a way back would be spent the first time somebody looked. */
+  it("reads the renamed seats out and calls the lost confirmation final", () => {
+    const [einer] = bannersFor({ renamedConfirmedSeatLabels: ["Trainer"] });
+    const [zwei] = bannersFor({ renamedConfirmedSeatLabels: ["Ansprechperson", "Trainer"] });
+
+    assert.equal(einer?.id, "kontakte.confirmation-cleared");
+    assert.equal(einer?.body, "Betroffen: Trainer.");
+    assert.equal(zwei?.body, "Betroffen: Ansprechperson, Trainer.");
+    assert.equal(einer?.title, zwei?.title, "the title changes with the seats, so it has to agree with a count");
+    assert.match(einer?.title ?? "", /endgültig/, "the title leaves the loss open, which a fresh confirmation cannot repair");
   });
 });
 
@@ -765,6 +795,7 @@ describe("the way in and out of the editor", () => {
       { saisonStatus: "past" as const },
       { isBlockRemoved: true },
       { emptiedSeatLabels: ["Trainer"] },
+      { renamedConfirmedSeatLabels: ["Trainer"] },
     ])
       for (const banner of bannersFor(state))
         assert.ok(!`${banner.title} ${banner.body ?? ""}`.includes("Saisonteilnahme"), "a banner carries a second noun for the junction row");
@@ -1127,14 +1158,15 @@ describe("which way the claim runs, at every site that reads it", () => {
     );
   });
 
-  /* Emptying the seat the claim names empties the composed Trainer with it. Read off the raw draft,
-     the banner would not name the seat the save is about to clear. */
-  it("warns about the seats the composed block empties", () => {
-    assert.match(
-      FORM_SOURCE,
-      /emptiedSeatLabels\(storedKontakte, kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
-      "the banner reads the raw draft, so a seat the save clears goes unnamed",
-    );
+  /* Emptying or renaming the seat the claim names reaches the composed Trainer. Read off the raw draft,
+     neither banner would name the seat the save is about to change. */
+  it("warns about the seats the composed block empties and renames", () => {
+    for (const helfer of ["emptiedSeatLabels", "renamedConfirmedSeatLabels"])
+      assert.match(
+        FORM_SOURCE,
+        new RegExp(`${helfer}\\(storedKontakte, kontakte === null \\? null : mirrorKontakte\\(kontakte\\)\\)`),
+        `${helfer} reads the raw draft, so a seat the save changes goes unnamed`,
+      );
   });
 
   /* The admin editor and the public form run one direction through one function. Divergence here is

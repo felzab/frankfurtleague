@@ -8,6 +8,7 @@ import {
   emptiedSeatLabels,
   mirroredJudgedPaths,
   mirrorKontakte,
+  renamedConfirmedSeatLabels,
   resolveTeamSaisonMembership,
   teamPageHref,
 } from "./utils";
@@ -222,6 +223,62 @@ describe("emptiedSeatLabels", () => {
      list is read off the two blocks rather than off the controls. */
   it("names the seat the shared-seat claim emptied", () => {
     assert.deepEqual(emptiedSeatLabels(block(), block({ ansprechperson: null })), ["Ansprechperson"]);
+  });
+});
+
+describe("renamedConfirmedSeatLabels", () => {
+  /* Both halves. Without the stamp, a seat nobody confirmed raises the dialog over a save that loses
+     nothing; without the identity, correcting a telephone number raises it too. */
+  it("names a seat only where a confirmed person is replaced by another", () => {
+    assert.deepEqual(renamedConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) })), ["Trainer"]);
+    assert.deepEqual(renamedConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de" }) })), ["Trainer"]);
+    assert.deepEqual(renamedConfirmedSeatLabels(block(), block()), []);
+    assert.deepEqual(renamedConfirmedSeatLabels(block(), block({ trainer: person({ telefon: "069 999999" }) })), []);
+  });
+
+  /* A seat nobody confirmed has no stamp for the save to take, so a warning over one would name a seat
+     the save leaves exactly as it found it. */
+  it("stays silent where the stored seat carries no confirmation", () => {
+    const offen = person({ einwilligung: { ...person().einwilligung, erfasst_von: "administrativ", bestaetigt_am: null } });
+
+    assert.deepEqual(renamedConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ nachname: "Lovelace" }) })), []);
+  });
+
+  /* The server reads these as one person and keeps the stamp, so each is a save the banner must let
+     through silently — the „ß“ pair being the one a lower-casing fold gets wrong. */
+  it("stays silent where the case, the inner spacing or „ß“ against „ss“ is the whole difference", () => {
+    const wie = (gehalten: Partial<KontaktpersonDraft>, getippt: Partial<KontaktpersonDraft>): readonly string[] =>
+      renamedConfirmedSeatLabels(block({ trainer: person(gehalten) }), block({ trainer: person(getippt) }));
+
+    assert.deepEqual(wie({ vorname: "Erika" }, { vorname: "ERIKA" }), []);
+    assert.deepEqual(wie({ vorname: "Anna Maria" }, { vorname: " Anna   Maria " }), []);
+    assert.deepEqual(wie({ nachname: "Weiß" }, { nachname: "WEISS" }), []);
+    assert.deepEqual(wie({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
+  });
+
+  /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however
+     the two boxes split it, and the stamp the server clears would go unannounced. */
+  it("names a seat where a name moved from one box into the other", () => {
+    const gehalten = block({ trainer: person({ vorname: "Anna Maria", nachname: "Weiß" }) });
+    const getippt = block({ trainer: person({ vorname: "Anna", nachname: "Maria Weiß" }) });
+
+    assert.deepEqual(renamedConfirmedSeatLabels(gehalten, getippt), ["Trainer"]);
+  });
+
+  /* While the claim stands the composed Trainer READS the named seat, so renaming that seat unstamps two
+     seats, which is why the caller hands over the mirrored block. */
+  it("names the Trainer as well where the shared-seat claim points at the renamed seat", () => {
+    const gehalten = block({ trainer_ist_zugleich: "ansprechperson" });
+    const getippt = { ...gehalten, ansprechperson: person({ vorname: "Max", nachname: "Anders", email: "max@beispiel.de" }) };
+
+    assert.deepEqual(renamedConfirmedSeatLabels(mirrorKontakte(gehalten), mirrorKontakte(getippt)), ["Ansprechperson", "Trainer"]);
+  });
+
+  /* A block filled in for the first time has no stamp to lose, and one the draft clears whole is what
+     `kontakte.block-removed` states instead. */
+  it("names nothing where nothing was stored and nothing where the block goes", () => {
+    assert.deepEqual(renamedConfirmedSeatLabels(null, block()), []);
+    assert.deepEqual(renamedConfirmedSeatLabels(block(), null), []);
   });
 });
 

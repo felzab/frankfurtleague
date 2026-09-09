@@ -8,7 +8,14 @@ import { Form } from "@heroui/react";
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
-import { describeUnrestorableKontakte, emptiedSeatLabels, mirrorKontakte, teamPageHref, toKontaktePayload } from "@/features/kontakte/utils";
+import {
+  describeUnrestorableKontakte,
+  emptiedSeatLabels,
+  mirrorKontakte,
+  renamedConfirmedSeatLabels,
+  teamPageHref,
+  toKontaktePayload,
+} from "@/features/kontakte/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -124,6 +131,9 @@ export function AdminKontakteEditForm({
     // Off the two COMPOSED blocks, never the controls: emptying the named seat empties the Trainer
     // with it, and neither seat's own control was pressed.
     emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
+    // Composed for the same reason: renaming the named seat renames the Trainer reading it, and the
+    // server unstamps the composed block it is sent.
+    renamedConfirmedSeatLabels: renamedConfirmedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const resetDraftToStored = () => {

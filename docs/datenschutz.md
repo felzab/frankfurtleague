@@ -193,7 +193,8 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   database at once and from backups within that window, and that sentence is what a requester
   receives, from the published notice and from the runbook alike
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). No replay of erasures after
-  a restore is built.
+  a restore is built, so a restore is followed by running each of them again by hand
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The

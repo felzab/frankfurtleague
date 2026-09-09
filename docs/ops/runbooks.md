@@ -404,8 +404,9 @@ rather than restating it in the mail.
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
 application, an accepted one and a season's contact block are each removed by the retention sweep
 (`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
-submitter told first (`docs/backend/spec.md :: I151`); and a log row stamped with its write date
-expires on I119's bound.
+submitter told first (`docs/backend/spec.md :: I151`); an application nobody decided is deleted once
+the season it applied for has ended, whatever its seats answered
+(`docs/backend/spec.md :: I220`); and a log row stamped with its write date expires on I119's bound.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
 reading before you save: a club rename fans out into the matches of every season that is not `past`
