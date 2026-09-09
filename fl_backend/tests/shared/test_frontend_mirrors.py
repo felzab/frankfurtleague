@@ -1,10 +1,12 @@
 import math
 import re
+import string
 from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Final, NamedTuple, get_args
 
 import pytest
+from bson import ObjectId
 from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
@@ -13,6 +15,10 @@ from app.api.saisons.schemas import TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.core.config import INTERNAL_API_KEY_CHARACTERS
+from app.core.logging import NEEDS_QUOTING
+from app.core.middlewares import TRACEPARENT
+from app.core.routing import OBJECT_ID_REGEX
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
 from app.shared.schemas.custom import (
@@ -88,10 +94,14 @@ def _source(module: str) -> str:
     return (FRONTEND_SRC / module).read_text(encoding="utf-8")
 
 
-def _claimed_mirrors(source: str) -> set[str]:
-    """Every integer this module's own prose claims it mirrors, attributed to the comment block above the line."""
+def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[str]:
+    """Every name `declaration` matches whose own comment block names `claim`.
 
-    claimed: set[str] = set()
+    One reader for the bounds and the patterns alike, so a claim the two directions read differently
+    cannot be covered by one and passed over by the other.
+    """
+
+    named: set[str] = set()
     block = ""
     was_comment = False
     for line in source.splitlines():
@@ -101,10 +111,16 @@ def _claimed_mirrors(source: str) -> set[str]:
             # A blank line or a statement ends a block, so a claim never carries down to the next one.
             block = f"{block} {stripped}" if was_comment else stripped
         was_comment = is_comment
-        found = INTEGER_EXPORT.match(line)
-        if found is not None and MIRROR_CLAIM in block:
-            claimed.add(found["name"])
-    return claimed
+        found = declaration.match(line)
+        if found is not None and claim in block:
+            named.add(found["name"])
+    return named
+
+
+def _claimed_mirrors(source: str) -> set[str]:
+    """Every integer this module's own prose claims it mirrors, attributed to the comment block above the line."""
+
+    return _attributed(source, INTEGER_EXPORT, MIRROR_CLAIM)
 
 
 def _declared_bounds() -> dict[str, int]:
@@ -475,9 +491,42 @@ UNPAIRABLE_PATTERNS: Final = (
         "shared/schemas.ts",
         "OBJECT_ID_REGEX",
         "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
-        "the backend end builds a `bson.ObjectId` rather than stating a pattern, and takes 24-character strings this class refuses",
+        "the backend end builds a `bson.ObjectId` rather than stating a pattern, so no pattern string reaches `_pydantic_accepted`",
+    ),
+    Unpairable(
+        "features/bewerbungen/zustellung.ts",
+        "EINZEILIG",
+        "app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN",
+        "`MODELLED_ESCAPES` covers no codepoint escape, and every spelling of this class is written as codepoint escapes",
+    ),
+    Unpairable(
+        "features/bewerbungen/schemas.ts",
+        "NICHT_EINZEILIG",
+        "app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN",
+        "the same codepoint escapes, and this spelling is the class NEGATED: the form refuses the value it matches",
+    ),
+    Unpairable(
+        "core/logFormat.ts",
+        "NEEDS_QUOTING",
+        "app/core/logging.py :: NEEDS_QUOTING",
+        "codepoint escapes again, and neither end is anchored: both SEARCH a value where the comparison above full-matches one",
+    ),
+    Unpairable(
+        "core/trace.ts",
+        "TRACEPARENT",
+        "app/core/middlewares.py :: TRACEPARENT",
+        r"the backend end anchors with `\A` and `\Z`, which the Rust engine `_pydantic_accepted` grades through cannot compile",
+    ),
+    Unpairable(
+        "core/config.ts",
+        "INTERNAL_API_KEY",
+        "app/core/config.py :: INTERNAL_API_KEY_CHARACTERS",
+        "the frontend end is a literal inside a `z.string()` chain rather than the named constant `_typescript_pattern` reads",
     ),
 )
+
+# The third site of the ObjectId alphabet, and the only one on this side stating it AS a pattern.
+ROUTE_ID_SITE: Final = "app/core/routing.py :: OBJECT_ID_REGEX"
 
 # Only running it says what an id is: `CustomObjectIdAnnotation` states no pattern.
 OBJECT_ID_ADAPTER: Final = TypeAdapter(CustomObjectId)
@@ -768,10 +817,9 @@ def test_the_name_rule_is_spelled_one_way_at_both_tiers_and_still_grades_letters
 
 
 def test_every_id_the_frontend_class_takes_is_one_this_package_builds_and_serves_back():
-    """The two directions a person meets.
+    """One direction: an id the class takes has to reach the API and come back in a spelling the class takes again.
 
-    An id the class refuses never reaches the API, and one served back that it refuses fails a whole
-    list's parse.
+    An id served back that the class refuses fails a whole list's parse rather than one row.
     """
 
     record = _unpairable("OBJECT_ID_REGEX")
@@ -802,6 +850,61 @@ def test_every_id_the_frontend_class_takes_is_one_this_package_builds_and_serves
         assert _javascript_accepted(typescript, [str(stored)]), f"{record.python} stores {value} as {stored}, which {record.typescript} refuses"
 
 
+# A well-formed id carrying one ASCII whitespace character twice, once per character `bytes.fromhex`
+# skips. Composed from `string.whitespace` rather than retyped from
+# `fl_backend/tests/shared/test_custom.py`, so the two cases reach the same six by two routes.
+IDS_BSON_DECODES_SHORT: Final = tuple(f"6890a1b2{character}c3d4e5f6{character}071829" for character in string.whitespace)
+
+
+def test_every_id_this_package_takes_is_one_the_frontend_class_takes():
+    """The fold in `CustomObjectIdAnnotation` is what closes this direction.
+
+    bson keeps each of these as the eleven-byte id `bytes.fromhex` decoded, so a loosened fold stores
+    an id nobody sent and serves back one the class refuses.
+    """
+
+    record = _unpairable("OBJECT_ID_REGEX")
+    typescript, _ = _typescript_pattern(record.module, record.typescript)
+
+    # Both halves of the premise: a probe of another width would be refused for its width at either
+    # end, and one bson itself refuses would say nothing about the fold.
+    for probe in IDS_BSON_DECODES_SHORT:
+        assert len(probe) == 24, f"{probe!r} is not the width an id is, so refusing it says nothing about the alphabet"
+        assert ObjectId.is_valid(probe), f"bson refuses {probe!r}, so this package refusing it is not the fold's doing"
+
+    # A served id, its upper-case spelling, and one character outside the alphabet: the last is what
+    # no fold can make this package take, so the comparison below fails ahead of the guard over it.
+    probes = [*IDS_BSON_DECODES_SHORT, "6890a1b2c3d4e5f607182930", "6890A1B2C3D4E5F607182930", "6890a1b2c3d4e5f60718293g"]
+    taken: set[str] = set()
+    for probe in probes:
+        try:
+            OBJECT_ID_ADAPTER.validate_python(probe)
+        except ValidationError:
+            continue
+        taken.add(probe)
+
+    class_takes = _javascript_accepted(typescript, probes)
+
+    assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"
+    assert len(taken) < len(probes), f"{record.python} takes every probe, so agreeing with it proves nothing"
+    assert taken <= class_takes, f"{record.python} takes {sorted(taken - class_takes)}, which {record.typescript} refuses"
+
+
+def test_the_route_convertor_states_the_alphabet_the_frontend_class_states():
+    """A widened spelling routes a malformed id to the handler, which answers 422 where the path contract is a 404.
+
+    (`docs/backend/spec.md :: "A malformed id: 404 in a path, 422 in a query"`)
+    """
+
+    record = _unpairable("OBJECT_ID_REGEX")
+    typescript, flags = _typescript_pattern(record.module, record.typescript)
+
+    assert flags == "", f"{record.typescript} carries the flags '{flags}', which this comparison does not model"
+    # Compared as text: Starlette compiles this into the route's own expression, so nothing here can
+    # hand it a value; the anchors are the whole path's, which is why the convertor's spelling carries none.
+    assert typescript == f"^{OBJECT_ID_REGEX}$", f"{record.typescript} spells {typescript}, where {ROUTE_ID_SITE} states {OBJECT_ID_REGEX}"
+
+
 def test_the_backend_grader_reads_a_digit_class_the_way_production_does():
     r"""Neither half of this reaches a `\d` on the Python side alone.
 
@@ -815,9 +918,10 @@ def test_the_backend_grader_reads_a_digit_class_the_way_production_does():
     assert _javascript_accepted(r"^\d{5}$", probes) == set()
 
 
-# The delivery screen's copy of `SINGLE_LINE_PATTERN`, one of four spellings of that one rule.
-# `MIRRORED_PATTERNS` cannot take it: `MODELLED_ESCAPES` covers no codepoint escape.
-SINGLE_LINE_SCREEN: Final = ("features/bewerbungen/zustellung.ts", "EINZEILIG")
+# Both frontend spellings of `SINGLE_LINE_PATTERN`, and what each MATCHES: the value a screen takes,
+# or the character that makes a form refuse. Declared rather than read off the anchors, which a
+# negated class carrying them would fool.
+SINGLE_LINE_SCREEN: Final = (("EINZEILIG", True), ("NICHT_EINZEILIG", False))
 
 # `m` is the flag that would change what this class accepts, `$` then standing at every line break --
 # which is the whole rule. Neither `u` nor the bare spelling moves a BMP-only class.
@@ -843,26 +947,217 @@ def _spelled_codepoints(pattern: str) -> set[str]:
     return spelled
 
 
-def test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses():
-    """A copy admitting one character more composes a reason the endpoint answers 422 to.
+@pytest.mark.parametrize(("name", "matches_a_legal_value"), SINGLE_LINE_SCREEN)
+def test_each_frontend_copy_refuses_the_single_line_class_the_endpoint_refuses(name: str, matches_a_legal_value: bool):
+    """A copy admitting one character more composes a reason the endpoint refuses.
 
-    The event's route answers the provider 200, so the bounce is lost rather than retried.
+    The event route answers the provider 200, so that bounce is lost, not retried; the form's copy
+    turns a school away at a field the API would take.
     """
 
-    module, name = SINGLE_LINE_SCREEN
-    found = re.search(rf"^const {name} = /(?P<source>.+?)/(?P<flags>[a-z]*);$", _source(module), re.MULTILINE)
+    record = _unpairable(name)
+    found = re.search(rf"^const {name} = /(?P<source>.+?)/(?P<flags>[a-z]*);$", _source(record.module), re.MULTILINE)
 
-    assert found is not None, f"{module} no longer spells {name} as one regular-expression literal on one line"
+    assert found is not None, f"{record.module} no longer spells {name} as one regular-expression literal on one line"
     assert found["flags"] in SINGLE_LINE_FLAGS, f"{name} carries the flags '{found['flags']}', which change what the class accepts"
 
     alphabet = sorted(_spelled_codepoints(SINGLE_LINE_PATTERN) | _spelled_codepoints(found["source"]) | PROBE_CONTROLS)
     probes = [*alphabet, *(f"Goethe{character}Startgeld" for character in alphabet)]
 
     accepted = _pydantic_accepted(SINGLE_LINE_PATTERN, probes)
+    if matches_a_legal_value:
+        taken = _javascript_accepted(found["source"], probes)
+    else:
+        # `.test` SEARCHES, and this spelling is what the refinement refuses: the value carrying no
+        # member of the class is the one the form takes.
+        refuses = re.compile(found["source"])
+        taken = {probe for probe in probes if refuses.search(probe) is None}
 
-    assert accepted, f"SINGLE_LINE_PATTERN accepts none of {len(probes)} probes, so agreeing with it proves nothing"
-    assert len(accepted) < len(probes), "SINGLE_LINE_PATTERN accepts every probe, so agreeing with it proves nothing"
-    assert accepted == _javascript_accepted(found["source"], probes), f"{name} and SINGLE_LINE_PATTERN accept different values"
+    assert accepted, f"{record.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
+    assert len(accepted) < len(probes), f"{record.python} accepts every probe, so agreeing with it proves nothing"
+    assert accepted == taken, f"{name} and {record.python} accept different values"
+
+
+# The characters `fl_backend/app/core/logging.py :: NEEDS_QUOTING` names as why neither end takes a
+# shorthand: a class respelled as one parts from its twin here and nowhere else.
+QUOTING_DIVERGENCES: Final = ("\x1c", "\x1d", "\x1e", "\x1f", "\u0085", "\ufeff")
+
+# The whole plane, because the class names ranges rather than characters and a corpus built from the
+# characters it spells would never probe inside one.
+BMP: Final = 0x10000
+
+
+def test_the_console_quotes_the_field_the_frontend_logger_quotes():
+    """A school name pasted out of Word carries U+00A0.
+
+    One tier quoting that field while the other writes it bare parts a logfmt reader's pairs on the
+    ops console, and the two lines then say different things about one request.
+    """
+
+    record = _unpairable("NEEDS_QUOTING")
+    typescript, flags = _typescript_pattern(record.module, record.typescript)
+
+    assert flags == "u", f"{record.typescript} carries the flags '{flags}', and only 'u' leaves a BMP class reading as it is written"
+
+    frontend = re.compile(typescript)
+    parting = [point for point in range(BMP) if (NEEDS_QUOTING.search(chr(point)) is None) != (frontend.search(chr(point)) is None)]
+
+    assert not parting, f"{record.typescript} and {record.python} disagree about {[hex(point) for point in parting[:8]]}"
+    for character in (*QUOTING_DIVERGENCES, " "):
+        assert NEEDS_QUOTING.search(character), f"{record.python} no longer quotes U+{ord(character):04X}, which spelling the class out buys"
+
+
+def test_the_two_trace_header_readers_take_the_same_headers():
+    """A header one tier takes and the other mints over files one request under two ids."""
+
+    record = _unpairable("TRACEPARENT")
+    typescript, flags = _typescript_pattern(record.module, record.typescript)
+
+    assert flags == "", f"{record.typescript} carries the flags '{flags}', which this comparison does not model"
+    # Both anchors, because the grader below full-matches: an unanchored frontend spelling accepts a
+    # header with a well-formed one buried in it, and the comparison would call the two ends equal.
+    assert typescript.startswith("^") and typescript.endswith("$"), f"{record.typescript} is unanchored, which the grader models as anchored"
+
+    # A well-formed header, then the drifts each end could take alone: another version, a trailing
+    # newline, upper-case hex, a trace id one short, and a second span field.
+    probes = [
+        "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+        "01-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+        "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01\n",
+        "00-0AF7651916CD43DD8448EB211C80319C-b7ad6b7169203331-01",
+        "00-0af7651916cd43dd8448eb211c80319-b7ad6b7169203331-01",
+        "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01-b7ad6b7169203331",
+    ]
+    # `\A` and `\Z` rather than `^` and `$`, which is what refuses that trailing newline under a
+    # search as well as under the full match below.
+    assert TRACEPARENT.search(probes[2]) is None, f"{record.python} no longer refuses a header carrying a trailing newline"
+
+    taken = {probe for probe in probes if TRACEPARENT.fullmatch(probe) is not None}
+
+    assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"
+    assert len(taken) < len(probes), f"{record.python} takes every probe, so agreeing with it proves nothing"
+    assert taken == _javascript_accepted(typescript, probes), f"{record.typescript} and {record.python} take different headers"
+
+
+def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
+    """A key one tier boots on and the other refuses is a deployment already broken (`docs/ops/spec.md :: I11`)."""
+
+    record = _unpairable("INTERNAL_API_KEY")
+    source = _source(record.module)
+    # Cut out of that one declaration: a second `.regex()` anywhere in the module would otherwise
+    # answer for this alphabet.
+    declaration = source[source.index(f"export const {record.typescript} = z") :]
+    found = re.search(r"\.regex\(/(?P<source>.+?)/(?P<flags>[a-z]*), ", declaration[: declaration.index(";")])
+
+    assert found is not None, f"{record.module} no longer states {record.typescript}'s alphabet as one regular-expression literal"
+    assert found["flags"] == "", f"{record.typescript} carries the flags '{found['flags']}', which this comparison does not model"
+
+    # A legal key, then a space, a tab, DEL just past the range's top, an umlaut, and the empty
+    # string the `+` refuses.
+    probes = ["Kf7", "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", ""]
+    taken = {probe for probe in probes if INTERNAL_API_KEY_CHARACTERS.fullmatch(probe) is not None}
+
+    assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"
+    assert len(taken) < len(probes), f"{record.python} takes every probe, so agreeing with it proves nothing"
+    assert taken == _javascript_accepted(found["source"], probes), f"{record.typescript} and {record.python} pin different alphabets"
+
+
+# What a frontend comment writes when it says the class beside it is one this package also spells:
+# the path of the module holding the other end.
+PATTERN_CLAIM: Final = "fl_backend/"
+
+REGEX_EXPORT: Final = re.compile(r"^(?:export )?const (?P<name>[A-Z][A-Z0-9_]*) = (?:new RegExp\()?/.+?/[a-z]*\)?;$", re.MULTILINE)
+
+# Where a frontend spelling is paired by a register other than this one, with that register. An entry
+# here narrows the direction below to what this file can hold rather than dropping the claim.
+PATTERNS_HELD_ELSEWHERE: Final = (("features/saisons/schemas.ts", "SAISON_ID_PATTERN", "features/saisons/saisonIdMirror.test.ts"),)
+
+# The two shapes a module-level regular expression is written in here: a name this package reserves
+# for one, or a call that compiles one whatever it is called.
+NAMED_PATTERN: Final = re.compile(r"^(?P<name>[A-Z][A-Z0-9_]*(?:_PATTERN|_REGEX))(?::\s*[^=]+)?\s*=\s*r?[\"']", re.MULTILINE)
+
+COMPILED_PATTERN: Final = re.compile(r"^(?P<name>[A-Z][A-Z0-9_]*)(?::\s*[^=]+)?\s*=\s*re\.compile\(", re.MULTILINE)
+
+# Every regular expression this package declares that no frontend module spells a second time, with
+# why none does. One in neither this map nor a register above fails the direction below rather than
+# reading as covered.
+UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
+    "app/shared/schemas/custom.py :: TIME_REGEX": "paired through `CustomTimeString`, the alias the fields carry rather than this constant",
+    "app/shared/schemas/custom.py :: DATE_REGEX": "`fl_frontend/src/shared/schemas.ts` takes `z.iso.date()` and one refinement instead",
+    "app/shared/schemas/custom.py :: DOMAIN_REGEX": "byte-for-byte `z.regexes.domain`, which the frontend reads off zod rather than retyping",
+    "app/core/config.py :: HOSTNAME": "the shape `TrustedHostMiddleware` reads an allowlist entry in, which no request carries",
+    "app/core/config.py :: ORIGIN": "the shape `CORSMiddleware` reads an allowlist entry in; the browser composes what it grades",
+    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, where the frontend mirrors `EmailStr` instead",
+}
+
+
+def _claimed_pattern_mirrors() -> set[tuple[str, str]]:
+    """Every frontend regular-expression constant whose own comment block names a module in this package."""
+
+    claimed: set[tuple[str, str]] = set()
+    for path in FRONTEND_SRC.rglob("*.ts*"):
+        if path.name.endswith((".test.ts", ".test.tsx")):
+            continue
+        module = path.relative_to(FRONTEND_SRC).as_posix()
+        claimed.update((module, name) for name in _attributed(path.read_text(encoding="utf-8"), REGEX_EXPORT, PATTERN_CLAIM))
+    return claimed
+
+
+def _declared_backend_patterns() -> set[str]:
+    """`<module> :: <name>` for every module-level regular expression under `app/`.
+
+    Text rather than an import, so a module no register imports is walked too: exactly the module a
+    new pattern would be added to and compared by nothing.
+    """
+
+    declared: set[str] = set()
+    for path in (REPO_ROOT / "fl_backend" / "app").rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        module = path.relative_to(REPO_ROOT / "fl_backend").as_posix()
+        for reader in (NAMED_PATTERN, COMPILED_PATTERN):
+            declared.update(f"{module} :: {found['name']}" for found in reader.finditer(source))
+    return declared
+
+
+def test_every_frontend_pattern_claiming_a_twin_here_is_one_a_register_pairs():
+    """`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves patterns out of the contract comparison by design.
+
+    A hand-mirrored class in no register is therefore compared by nothing at all.
+    """
+
+    claimed = _claimed_pattern_mirrors()
+    covered = (
+        {(pattern.module, pattern.typescript) for pattern in MIRRORED_PATTERNS}
+        | {(record.module, record.typescript) for record in UNPAIRABLE_PATTERNS}
+        | {(module, name) for module, name, _ in PATTERNS_HELD_ELSEWHERE}
+    )
+
+    assert claimed, f"no frontend constant was attributed a claim on {PATTERN_CLAIM}, so this case passes over nothing"
+    assert claimed <= covered, f"{sorted(claimed - covered)} names this package beside a class and is paired by nothing"
+
+
+@pytest.mark.parametrize(("module", "name", "register"), PATTERNS_HELD_ELSEWHERE)
+def test_every_pattern_held_elsewhere_names_a_register_that_still_holds_it(module: str, name: str, register: str):
+    """Anti-vacuity on the one escape above: an entry naming a register that stopped reading it would narrow that case silently."""
+
+    assert name in _source(register), f"{register} no longer names {name}, so nothing pairs {module} :: {name}"
+
+
+def test_every_pattern_this_package_declares_is_paired_or_named_unmirrored():
+    """The direction that starts from this package.
+
+    Every case above starts from what the frontend spells, so a pattern no frontend module names is
+    compared by nothing and reads as covered.
+    """
+
+    declared = _declared_backend_patterns()
+    paired = {pattern.python for pattern in MIRRORED_PATTERNS} | {record.python for record in UNPAIRABLE_PATTERNS} | {ROUTE_ID_SITE}
+    named = set(UNMIRRORED_PATTERNS)
+
+    assert declared, "no regular expression was read off this package, so this case passes over nothing"
+    assert not paired & named, f"{sorted(paired & named)} is both paired with a mirror and named as spelled once"
+    assert named <= declared, f"{sorted(named - declared)} is named as spelled once and declared nowhere"
+    assert declared <= paired | named, f"{sorted(declared - (paired | named))} is spelled here and compared by nothing"
 
 
 ANSWER_PAYLOAD: Final = Path(bewerbungen_schemas.__file__)

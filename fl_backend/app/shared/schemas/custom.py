@@ -115,7 +115,7 @@ PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 # reads left to right. A name is a name and none belongs in one -- cheaper than reasoning about what
 # each renderer downstream does with them.
 
-# `fl_frontend/src/features/bewerbungen/schemas.ts :: einzeiligerName` carries this verbatim. One
+# `fl_frontend/src/features/bewerbungen/schemas.ts :: NICHT_EINZEILIG` carries this negated. One
 # asymmetry survives: `str.strip` removes U+0085 where JavaScript's `trim` does not, so a value
 # merely PADDED with it is accepted here and refused there.
 
