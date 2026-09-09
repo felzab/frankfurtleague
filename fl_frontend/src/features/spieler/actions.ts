@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -163,6 +163,7 @@ export async function postSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -190,6 +191,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -219,6 +221,7 @@ export async function deleteSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -248,6 +251,7 @@ export async function reactivateSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -287,6 +291,7 @@ export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Pro
     // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
     // is admin-tier and uncached.
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -326,6 +331,7 @@ export async function postSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -359,6 +365,7 @@ export async function patchSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -386,11 +393,12 @@ export async function deleteSaisonSpielerAction(
     const deleteOperation = await deleteSaisonSpieler(validated.data);
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
       saison_spieler: deleteOperation,
-      message: "Nummer und Position bleiben erhalten.",
+      message: "Nummer, Position und Stufe bleiben erhalten.",
     };
   });
 }
@@ -421,6 +429,7 @@ export async function reactivateSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,

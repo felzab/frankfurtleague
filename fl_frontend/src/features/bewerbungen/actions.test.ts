@@ -269,9 +269,9 @@ describe("what each decision moves", () => {
 
   /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("invalidates nothing on a decline, and says why", () => {
+  it("moves no tag on a decline, and says why", () => {
     assert.ok(!ABLEHNEN_ACTION.includes("updateTag("), "the decline clears a cached read its endpoint does not move");
-    assert.match(ABLEHNEN_ACTION, /Nothing to invalidate/, "the decline no longer says why it invalidates nothing");
+    assert.match(ABLEHNEN_ACTION, /No tag moves/, "the decline no longer says why it invalidates nothing");
   });
 });
 
@@ -957,9 +957,9 @@ describe("the re-sent confirmation link", () => {
 
   /* This moves the application's own confirmation block and its deadline, and no cached read holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
-    assert.match(ERNEUT_ACTION, /Nothing to invalidate/, "the re-send no longer says why it invalidates nothing");
+    assert.match(ERNEUT_ACTION, /No tag moves/, "the re-send no longer says why it invalidates nothing");
   });
 });
 
@@ -1033,9 +1033,9 @@ describe("the corrected contact address", () => {
     );
   });
 
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
-    assert.match(KORREKTUR_ACTION, /Nothing to invalidate/, "the correction no longer says why it invalidates nothing");
+    assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
   });
 
   /* The sentence stood when nothing edited an application. With the control beside it there is a way
@@ -1113,5 +1113,30 @@ describe("the seat row's correction control", () => {
   it("grades a refused delivery with a tone rather than leaving it neutral", () => {
     assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
     assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");
+  });
+});
+
+/** Each action's own source, ended where the next export begins, so a sibling's call cannot stand in. */
+const ACTION_BODIES = new Map<string, string>(
+  [...ACTIONS.matchAll(/export async function (\w+)/g)].map((match, index, all): [string, string] => [
+    match[1] ?? "",
+    ACTIONS.slice(match.index, all[index + 1]?.index),
+  ]),
+);
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+  });
+
+  /* Both triage reads are uncached, so three of these four have no tag to move at all and the
+     acceptance's `teams` pair reaches the public club reads rather than the queue. */
+  it("refreshes on every one of them, whatever tag the write also moves", () => {
+    for (const name of WRITE_ACTIONS) {
+      assert.match(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} writes and leaves the triage standing`);
+    }
   });
 });

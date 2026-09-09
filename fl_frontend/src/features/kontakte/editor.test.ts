@@ -349,9 +349,9 @@ describe("the contacts write against the backend's refusal register", () => {
 describe("what the contacts write moves", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
      render pass, and no public team read carries `kontakte` at all. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!PATCH_ACTION.includes("updateTag("), "the write clears a cached read its endpoint does not move");
-    assert.match(PATCH_ACTION, /Nothing to invalidate/, "the absent invalidation is left unexplained");
+    assert.match(PATCH_ACTION, /No tag moves/, "the absent invalidation is left unexplained");
   });
 
   /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,

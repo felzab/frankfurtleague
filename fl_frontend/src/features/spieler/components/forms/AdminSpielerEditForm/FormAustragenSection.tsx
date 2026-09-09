@@ -122,7 +122,7 @@ export function FormAustragenSection({
               onPress={() =>
                 run(
                   () => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
-                  "Spieler ausgetragen",
+                  "Kadereintrag ausgetragen",
                   "Austragen fehlgeschlagen",
                 )
               }

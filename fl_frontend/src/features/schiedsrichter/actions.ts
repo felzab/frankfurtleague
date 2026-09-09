@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -136,6 +136,8 @@ export async function postSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
+    refresh();
+
     return {
       success: true,
       created_id: postOperation.created_id,
@@ -182,6 +184,7 @@ export async function patchSchiedsrichterAction(
 
     // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
     updateTag("spiele");
+    refresh();
 
     return {
       success: true,
@@ -223,6 +226,8 @@ export async function deleteSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
+    refresh();
+
     return {
       success: true,
       updated_document: postOperation.updated_document,
@@ -232,8 +237,9 @@ export async function deleteSchiedsrichterAction(
 }
 
 /**
- * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
- * document carries. It refuses `REQ-ANONYMISE-003` alone — an erased referee stays retired.
+ * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
+ * the admin's own list, which is uncached. The write refuses `REQ-ANONYMISE-003` alone — an erased
+ * referee stays retired.
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
@@ -266,6 +272,8 @@ export async function reactivateSchiedsrichterAction(
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
+
+    refresh();
 
     return {
       success: true,
@@ -315,6 +323,7 @@ export async function anonymiseSchiedsrichterAction(
     // The NULLED name fans into every match as a rename does, so the same one cached read is stale
     // here. The referee list and the log are uncached.
     updateTag("spiele");
+    refresh();
 
     return {
       success: true,

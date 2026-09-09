@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -133,6 +133,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       updateTag(`spiele:saison_id:${saisonId.data}`);
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
+    refresh();
 
     // The faults the resolution walked past ride along: the save that introduces one is when its
     // cause is known.

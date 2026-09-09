@@ -200,3 +200,34 @@ describe("the junction edit's refusals when the undo replays it", () => {
     });
   }
 });
+
+/** Each action's own source, ended where the next export begins, so a sibling's call cannot stand in. */
+const ACTION_BODIES = new Map<string, string>(
+  [...ACTIONS.matchAll(/export async function (\w+)/g)].map((match, index, all): [string, string] => [
+    match[1] ?? "",
+    ACTIONS.slice(match.index, all[index + 1]?.index),
+  ]),
+);
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = [
+  "postTeamAction",
+  "patchTeamAction",
+  "deleteTeamAction",
+  "reactivateTeamAction",
+  "postSaisonTeamAction",
+  "patchSaisonTeamAction",
+  "replaceSaisonTeamAction",
+];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+  });
+
+  it("refreshes on every one of them, the admin team reads being uncached and no tag reaching one", () => {
+    for (const name of WRITE_ACTIONS) {
+      assert.match(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} writes and leaves the admin's list standing`);
+    }
+  });
+});

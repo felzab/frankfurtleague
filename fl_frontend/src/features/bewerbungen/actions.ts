@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
@@ -244,6 +244,7 @@ export async function annehmenBewerbungAction(
     // (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -318,8 +319,10 @@ export async function ablehnenBewerbungAction(
       return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, unlike the acceptance: this moves the application's own `status` and
-    // `entscheidung`, and no cached read holds an application — both triage reads are uncached.
+    // No tag moves, unlike the acceptance: this moves the application's own `status` and
+    // `entscheidung`, and no cached read holds an application. The refresh is what brings the
+    // uncached triage reads back.
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "ablehnenBewerbungAction",
@@ -504,8 +507,9 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own confirmation block
+    // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
+    refresh();
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
@@ -597,8 +601,9 @@ export async function kontaktEmailKorrigierenAction(
       return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own contact block and
+    // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
+    refresh();
 
     let zustellung;
     try {

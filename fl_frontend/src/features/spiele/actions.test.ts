@@ -116,3 +116,39 @@ describe("the match edit's refusals when the undo replays it", () => {
     });
   }
 });
+
+/** Each action's own source, ended where the next export begins, so a sibling's call cannot stand in. */
+const ACTION_BODIES = new Map<string, string>(
+  [...ACTIONS.matchAll(/export async function (\w+)/g)].map((match, index, all): [string, string] => [
+    match[1] ?? "",
+    ACTIONS.slice(match.index, all[index + 1]?.index),
+  ]),
+);
+
+/** The write this slice exports. A new action fails the sweep below until it is placed. */
+const WRITE_ACTIONS = ["patchAdminSpielDataAction"];
+
+/** The dry run, which moves nothing and so owes the page nothing. */
+const READ_ONLY_ACTIONS = ["previewAdminSpielDataAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports", () => {
+    assert.deepEqual(
+      [...ACTION_BODIES.keys()],
+      [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS],
+      "an action arrived or left without being placed as a write or a dry run",
+    );
+  });
+
+  it("refreshes on the save, the editor's own fixture read being uncached", () => {
+    for (const name of WRITE_ACTIONS) {
+      assert.match(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} writes and leaves the admin's page standing`);
+    }
+  });
+
+  it("leaves the dry run alone, which would re-render the editor on every keystroke", () => {
+    for (const name of READ_ONLY_ACTIONS) {
+      assert.doesNotMatch(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} refreshes a page nothing it did has moved`);
+    }
+  });
+});
