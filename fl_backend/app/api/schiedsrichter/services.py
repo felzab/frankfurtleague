@@ -114,9 +114,8 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
 def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any], patched: Mapping[str, Any]) -> WriteRefusal | None:
     """Why this edit must be refused, or `None`.
 
-    The stored side reads the erasure's own stamp rather than weighing values: a row holding no name
-    because nobody has typed one is not a row somebody asked to be erased from, and nothing but the
-    stamp tells the two apart.
+    A stored row holding no name because nobody has typed one is not a row somebody asked to be
+    erased from, and nothing but `ANONYMISIERT_AM` tells the two apart.
     """
 
     if stored.get(ANONYMISIERT_AM) is None or not holds_an_anonymisable_value(patched):

@@ -213,10 +213,10 @@ async def an_archived_fixture(database: AsyncDatabase) -> None:
 
 
 def a_patch(**overrides: Any) -> dict[str, Any]:
-    """A whole payload as the endpoint hands it over, defaulting to the referee's own values.
+    """A payload built through the model rather than as a literal.
 
-    Built through the model rather than as a literal, so no case can pass over a shape the endpoint
-    cannot receive -- which is what pins that the payload has no way to spell a nulled name.
+    No case can then pass over a shape the endpoint cannot receive, which is what pins that the
+    payload has no way to spell a nulled name.
     """
 
     fields: dict[str, Any] = {
@@ -253,10 +253,10 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
         assert all(value is None for value in cleared.model_dump().values())
 
     def test_the_name_and_the_school_ride_in_the_same_mapping_as_the_details(self):
-        """Two `$set`s could land apart, and a transaction retrying between them is what leaves a person named.
+        """One whole mapping asserted rather than membership, so a run that clears one member and forgets another fails.
 
-        The school is here because it is the PERSON's, and the fee is not because it is the league's
-        rate; asserting the whole mapping is what fails a run that clears one and forgets the other.
+        Two `$set`s could land apart, and a transaction retrying between them is what leaves a
+        person named.
         """
 
         assert ANONYMISED_SCHIEDSRICHTER == {**ANONYMISED_KONTAKT, "name": None, "schule": None}
@@ -318,10 +318,10 @@ A_NAMED_ROW: dict[str, Any] = {
 
 
 class TestTheErasureStampSurvivesEveryLaterRun:
-    """The stamp is the date a person was given, so a repeat has to leave it where it is.
+    """A second run is not hypothetical.
 
-    A second run happens whenever a re-entry refuses the first (`REQ-ANONYMISE-001`), which is
-    exactly when moving the date would be least visible.
+    One happens whenever a re-entry refuses the first (`REQ-ANONYMISE-001`), which is exactly when
+    moving the date would be least visible.
     """
 
     def test_a_row_already_stamped_keeps_its_own_day(self):
@@ -1229,12 +1229,7 @@ class TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused:
 
 
 class TestASecondPersonsErasureLandsAndTwoLiveNamesakesStillDoNot:
-    """`uniq_schiedsrichter_name` covers the rows whose data stand and no others.
-
-    An index over every row refuses the SECOND erasure the league ever performs, because the nulled
-    names collide; one over none lets two live referees be created under one name, which nothing
-    merges and only a person can undo.
-    """
+    """Both directions of the partial filter on `app/core/constraints.py :: uniq_schiedsrichter_name`."""
 
     @pytest.mark.db
     def test_both_referees_are_erased_in_succession(self, mongo_replica_set_url: str):
