@@ -2,7 +2,7 @@ import ast
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Iterator, get_type_hints
+from typing import Any, Callable, Iterator, Mapping, get_type_hints
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact
@@ -683,6 +683,53 @@ UNREADABLE_CREATES: frozenset[str] = frozenset(
 )
 
 
+def _base_name(node: ast.expr) -> str | None:
+    """The name a call chain starts from: `FLPostTeamPayload.model_validate(x).model_dump()` is that class."""
+
+    while True:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            node = node.value
+        elif isinstance(node, ast.Call):
+            node = node.func
+        else:
+            return None
+
+
+def _fields_of(dump: ast.expr, *, hints: Mapping[str, Any], module: Any) -> set[str]:
+    """The payload model a dump comes from: a parameter through the endpoint's hints, a class through its module."""
+
+    if not isinstance(dump, ast.Call) or "model_dump" not in ast.dump(dump.func):
+        return set()
+    name = _base_name(dump.func)
+    if name is None:
+        return set()
+    model = hints.get(name) or getattr(module, name, None)
+    return set(model.model_fields) if model is not None and hasattr(model, "model_fields") else set()
+
+
+def _through_a_local(name: str, *, endpoint: Callable[..., Any], module: Any) -> ast.expr | None:
+    """What a local was assigned, following one call into the app so a composed document resolves."""
+
+    for statement in ast.walk(declared(endpoint)):
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            continue
+        target = statement.targets[0]
+        if not isinstance(target, ast.Name) or target.id != name:
+            continue
+        assigned = statement.value
+        if isinstance(assigned, ast.Await):
+            assigned = assigned.value
+        helper: Callable[..., Any] | None = getattr(module, _base_name(assigned) or "", None)
+        if helper is not None and callable(helper) and not hasattr(helper, "model_fields"):
+            returned = next((node.value for node in ast.walk(declared(helper)) if isinstance(node, ast.Return) and node.value), None)
+            if returned is not None:
+                return returned
+        return assigned
+    return None
+
+
 @dataclass(frozen=True)
 class Creation:
     """One document a create composes, read off its own call site and its own payload model."""
@@ -739,64 +786,16 @@ def creations() -> tuple[list[Creation], frozenset[str]]:
                     unreadable.add(endpoint.__name__)
                     continue
 
-                def _base_name(node: ast.expr) -> str | None:
-                    """The name a call chain starts from: `FLPostTeamPayload.model_validate(x).model_dump()` is that class."""
-
-                    while True:
-                        if isinstance(node, ast.Name):
-                            return node.id
-                        if isinstance(node, ast.Attribute):
-                            node = node.value
-                        elif isinstance(node, ast.Call):
-                            node = node.func
-                        else:
-                            return None
-
-                def _fields_of(dump: ast.expr) -> set[str]:
-                    """The payload model a dump comes from, whether it is the endpoint's parameter or a class.
-
-                    Both ends are resolved rather than pattern-matched: a parameter through the
-                    endpoint's own type hints, a class through the module it is spelled in.
-                    """
-
-                    if not isinstance(dump, ast.Call) or "model_dump" not in ast.dump(dump.func):
-                        return set()
-                    name = _base_name(dump.func)
-                    if name is None:
-                        return set()
-                    model = hints.get(name) or getattr(module, name, None)
-                    return set(model.model_fields) if model is not None and hasattr(model, "model_fields") else set()
-
-                def _through_a_local(name: str) -> ast.expr | None:
-                    """What a local was assigned, following one call into the app so a composed document resolves."""
-
-                    for statement in ast.walk(declared(endpoint)):
-                        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
-                            continue
-                        target = statement.targets[0]
-                        if not isinstance(target, ast.Name) or target.id != name:
-                            continue
-                        assigned = statement.value
-                        if isinstance(assigned, ast.Await):
-                            assigned = assigned.value
-                        found_helper: Callable[..., Any] | None = getattr(module, _base_name(assigned) or "", None)
-                        if found_helper is not None and callable(found_helper) and not hasattr(found_helper, "model_fields"):
-                            returned = next((node.value for node in ast.walk(declared(found_helper)) if isinstance(node, ast.Return) and node.value), None)
-                            if returned is not None:
-                                return returned
-                        return assigned
-                    return None
-
                 # Two shapes: the payload dumped whole, or that dump spread into a literal adding
                 # what no payload carries. Anything else is recorded rather than skipped.
                 if isinstance(document, ast.Name):
-                    resolved_document = _through_a_local(document.id)
+                    resolved_document = _through_a_local(document.id, endpoint=endpoint, module=module)
                     if resolved_document is None:
                         unreadable.add(endpoint.__name__)
                         continue
                     document = resolved_document
                 if isinstance(document, ast.Call):
-                    literal, spread = set(), _fields_of(document)
+                    literal, spread = set(), _fields_of(document, hints=hints, module=module)
                     if not spread:
                         unreadable.add(endpoint.__name__)
                         continue
@@ -805,7 +804,7 @@ def creations() -> tuple[list[Creation], frozenset[str]]:
                     spread, unread_spread = set(), False
                     for key, value in zip(document.keys, document.values, strict=True):
                         if key is None:
-                            fields = _fields_of(value)
+                            fields = _fields_of(value, hints=hints, module=module)
                             # A spread this reader cannot resolve leaves the document PARTLY read, and a
                             # partial read is worse than none: it would report keys as missing that the
                             # unread half supplies.
