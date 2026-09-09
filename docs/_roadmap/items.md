@@ -111,7 +111,6 @@ deliverable.
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
-| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                     | FE, Docs, tests                                                             | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
@@ -1551,24 +1550,6 @@ same commit as the model, the admin editor rendering that record rather than off
 notice's referee publication row moved off the legitimate interest it rests on
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) to the consent the flow
 collects.
-
-### `qg8u-tbd6` · One test module is named for a function and holds the cases of two others
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**`fl_frontend/src/shared/hooks/focusFirstRefusal.test.ts` is named for one export of
-`fl_frontend/src/shared/hooks/useServerFieldErrors.ts`**, covers that module's other exports beside
-it, and then covers `fl_frontend/src/shared/hooks/useDraftFieldErrors.ts` as well — which already
-has `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` of its own.
-
-**Colocation is what says where a module's tests are** ([`docs/frontend/spec.md`](../frontend/spec.md)
-§1.9), and here it says the wrong thing twice: a session changing `useServerFieldErrors.ts` finds no
-test file beside it and reads that as untested, and one changing `useDraftFieldErrors.ts` finds one
-of its two files and stops.
-
-**Done when** each module's cases sit in the file named for it.
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
