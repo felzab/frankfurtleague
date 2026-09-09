@@ -2,7 +2,7 @@ import argparse
 import asyncio
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Awaitable, Callable, Mapping, Sequence
+from typing import Any, Awaitable, Callable, Mapping, Sequence, TypedDict
 
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -906,14 +906,20 @@ async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: M
         raise RuntimeError(f"Could not apply the validator for '{collection_name}': {failure}") from failure
 
 
+class _PartialFilterOption(TypedDict, total=False):
+    """Typed rather than a plain `dict`, which pyright unpacks against `create_index`'s `session` parameter and refuses."""
+
+    partialFilterExpression: Mapping[str, Any]
+
+
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
     # Omitted rather than passed as `None` where a rule reaches every row: an omitted key and
     # `partialFilterExpression=None` are different options under one name, and `create_index` refuses
     # a name already held at different ones (`docs/ops/runbooks.md` §2).
-    partial = {"partialFilterExpression": index.partial_filter} if index.partial_filter is not None else {}
+    partial_option: _PartialFilterOption = {"partialFilterExpression": index.partial_filter} if index.partial_filter is not None else {}
 
     try:
-        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True, **partial)
+        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True, **partial_option)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
 
