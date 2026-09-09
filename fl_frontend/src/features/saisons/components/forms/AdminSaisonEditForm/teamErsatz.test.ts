@@ -8,8 +8,8 @@ import { createElement as h } from "react";
    one Next keeps it on, as `fl_frontend/src/features/kontakte/editor.test.ts` mounts the search params. */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
-import { sliceBetween } from "@/core/refusalRegister.ts";
 import { describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import { describeUebernommeneSpiele } from "./replacementOffer.ts";
@@ -132,7 +132,7 @@ const closureTitles = (ersatz: ErsatzProps["ersatz"], isFinishedSaison = false):
 const OFFERED: ErsatzProps["ersatz"] = { rows: [row()], candidates: [candidate()] };
 
 describe("the replacement panel", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the handler and the armed alert out of the file before reading them", () => {
     assert.ok(HANDLER.includes("replaceSaisonTeamAction("), "the write is outside the handler's slice");
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");

@@ -52,5 +52,5 @@ German term, take the enclosing word rather than the substring, and widen rather
   endpoint declares refusals the undo `route.ts` words it again in its own `REPLAY_REFUSALS`. A code
   either path leaves unmapped falls through to the 409 fallback in
   `fl_frontend/src/shared/utils/actionError.ts`, which tells the admin an equivalent entry already
-  exists. Tests reading `fl_frontend/src/core/refusalRegister.ts :: declaredCodes` hold both paths to
-  this, per slice.
+  exists. Tests reading `fl_frontend/src/shared/testing/refusalRegister.ts :: declaredCodes` hold
+  both paths to this, per slice.

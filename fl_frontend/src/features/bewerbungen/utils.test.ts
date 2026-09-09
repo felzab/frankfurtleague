@@ -7,8 +7,8 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
 
-import { declaredCodes } from "../../core/refusalRegister.ts";
 import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,

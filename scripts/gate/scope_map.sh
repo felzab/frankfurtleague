@@ -117,8 +117,8 @@ else
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
       # Each is read as source text by the frontend suites as they load, domain.py through
-      # `fl_frontend/src/core/refusalRegister.ts`, so a change confined to fl_backend/ would
-      # otherwise reach the assertions over it no earlier than the push to main.
+      # `fl_frontend/src/shared/testing/refusalRegister.ts`, so a change confined to fl_backend/
+      # would otherwise reach the assertions over it no earlier than the push to main.
       fl_backend/app/core/domain.py|fl_backend/app/core/recording.py| \
       fl_backend/app/core/exception_handlers.py|fl_backend/app/shared/schemas/bounds.py| \
       fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \

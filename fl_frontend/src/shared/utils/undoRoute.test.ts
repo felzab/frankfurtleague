@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "@/core/refusalRegister.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 // Source text because the runner cannot import this module at all: `next/server` resolves to no file
 // through `fl_frontend/tsconfig-alias-hook.mjs`, so nothing here can call the spine and read what it did.

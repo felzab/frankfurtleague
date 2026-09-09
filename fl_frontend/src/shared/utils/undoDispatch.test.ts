@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "../../core/refusalRegister.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const FEATURES = path.resolve(import.meta.dirname, "..", "..", "features");
 const DISPATCH = readFileSync(path.resolve(import.meta.dirname, "undoDispatch.ts"), "utf8");

@@ -48,7 +48,7 @@ const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("re
 const UNDRAW_BRANCH = (HANDLER.split("} else {")[1] ?? "").split("\n      }")[0] ?? "";
 
 describe("the undraw half of the Spielplan panel", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the armed alert, the hint and the handler out of the file before reading them", () => {
     assert.ok(ARMED.includes("Was dabei gelöscht wird"), "the armed alert's readout is outside its slice");
     assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");

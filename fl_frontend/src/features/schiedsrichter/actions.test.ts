@@ -9,7 +9,8 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
 import { renderTree, textOf } from "../../shared/testing/renderTest.ts";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
 
@@ -99,7 +100,7 @@ const UNDO_ROUTE = readFileSync(
 );
 
 describe("the anonymisation against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
     assert.ok(ANONYMISE_MAP.includes("serverErrorCode"), "the anonymisation's arms are outside its slice");
     assert.ok(!ANONYMISE_MAP.includes("REQ-RETIRE-004"), "the anonymisation's slice runs back into the retire's mapper");
@@ -177,7 +178,7 @@ describe("the anonymisation against the backend's refusal register", () => {
 });
 
 describe("the referee name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the create out of the file before reading them", () => {
     assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
     assert.ok(!NAME_MAP.includes("REQ-ANONYMISE-002"), "the duplicate name's slice runs on into the edit's mapper");

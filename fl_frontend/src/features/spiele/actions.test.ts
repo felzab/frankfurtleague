@@ -4,9 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { APIBadStatusError } from "@/core/errors.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
-
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -60,7 +59,7 @@ function sharedAnswer(serverErrorCode: string): string {
 const FALLBACK = sharedAnswer("REQ-NOTHING-000");
 
 describe("the match editor's refusals against the backend's register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper out of the file before reading it", () => {
     assert.ok(SPIEL_MAP.includes("serverErrorCode"), "the mapper's arms are outside its slice");
     assert.ok(!SPIEL_MAP.includes("patchAdminSpielData(validated.data)"), "the mapper's slice runs on into the save");

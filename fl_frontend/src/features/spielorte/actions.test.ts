@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -20,7 +20,7 @@ const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielortA
 const EDIT_ACTION = sliceBetween(ACTIONS, "export async function patchSpielortAction", "export async function deleteSpielortAction");
 
 describe("the venue retirement against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
     assert.ok(RETIRE_MAP.includes("serverErrorCode"), "the retirement's arm is outside its slice");
     assert.ok(!RETIRE_MAP.includes("postSpielort("), "the retirement's slice runs on into the create");
@@ -52,7 +52,7 @@ describe("the venue retirement against the backend's refusal register", () => {
 });
 
 describe("the venue name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and both write paths out of the file before reading them", () => {
     assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
     assert.ok(!NAME_MAP.includes("REQ-RETIRE-003"), "the duplicate name's slice runs on into the retirement's mapper");

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-// Three levels, because this module sits at `src/core` rather than in a feature slice. Reading the
-// register from one place is what keeps that depth from being counted again in every test.
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
+// Four levels, because this module sits under `src/shared/testing` rather than in a feature slice.
+// Reading the register from one place is what keeps that depth from being counted again in every test.
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
 // Source text rather than an import: the register is Python. Nothing on this side can load it, and
 // the frontend holds no second copy that could be read instead.

@@ -615,9 +615,9 @@ section in place of one is the excuse that decision refuses.
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
 `fl_frontend/src/shared/components/ui/formSubmit.test.ts` (I32) among them.
-`fl_frontend/src/core/refusalRegister.ts` parses `fl_backend/app/core/domain.py` at test time, so
-each slice asserts its mapper covers the endpoint's own declared set rather than a list somebody
-typed. **A caller that ITERATES that answer asserts it first**, because a loop
+`fl_frontend/src/shared/testing/refusalRegister.ts` parses `fl_backend/app/core/domain.py` at test
+time, so each slice asserts its mapper covers the endpoint's own declared set rather than a list
+somebody typed. **A caller that ITERATES that answer asserts it first**, because a loop
 over an operation the register no longer names runs zero times and proves nothing; the assertion is
 the whole list where the codes are stable, and a floor on the count where one gets renumbered
 (`fl_frontend/src/features/spieltage/actions.test.ts`). **Each caller of `:: sliceBetween` pins its
