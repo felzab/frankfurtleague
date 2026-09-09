@@ -149,10 +149,10 @@ def test_the_three_anchors_advance_one_field():
 
 @pytest.mark.parametrize("function", CHOKE_POINT_FUNCTIONS, ids=lambda function: function.__name__)
 def test_a_choke_point_judges_on_reads_of_its_own_session(function: Callable[..., Any]):
-    """`tests/core/test_write_shapes.py` sweeps a callback's LEXICAL body, so a helper it calls answers here instead.
+    """Held by NAME where `tests/core/test_write_shapes.py` holds these three by reach.
 
-    A read left off the session judges what committed last, and the retry re-decides on that same
-    stale figure.
+    A choke point called from no transactional callback leaves that sweep's population and stays in
+    this one, and a read left off the session judges what committed last.
     """
 
     name = function.__name__

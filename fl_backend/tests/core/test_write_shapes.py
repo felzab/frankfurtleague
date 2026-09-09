@@ -29,6 +29,8 @@ from tests.core.app_source import (
     driver_reads_named_by_the_crud_header,
     parsed,
     removals,
+    session_carriers,
+    session_handoffs,
     transactional_callbacks,
 )
 
@@ -554,6 +556,118 @@ class TestEveryReadInsideATransactionCarriesIt:
             for helper, carries in callback.reads
             if not carries
         ]
+
+        assert loose == []
+
+
+# A profile rather than a set of loose sites: two calls to one helper collapse in a set, so turning
+# the in-session call into a second `None` would join an exemption in silence.
+
+# Each is a re-judgement after the write, reading what the transaction cannot
+# (`docs/backend/spec.md :: I118`).
+HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
+    "app/api/saisons/admin_router.py :: judge_and_write_the_rules hands movable_figures": ("session", "None"),
+    "app/api/saisons/admin_router.py :: judge_and_roll_the_league_over hands the_targets_status": ("session", "None"),
+    "app/api/schiedsrichter/admin_router.py :: clear_the_details_and_the_record hands stored_referee": ("session", "None"),
+}
+
+
+def _handed_profiles() -> dict[str, tuple[str, ...]]:
+    """In SOURCE order, which is what the pinned profile above reads: the in-session judgement comes before the re-judgement outside."""
+
+    profiles: dict[str, list[str]] = {}
+    for handoff in session_handoffs():
+        profiles.setdefault(f"{handoff.where} hands {handoff.called}", []).append(handoff.binding.argument)
+
+    return {key: tuple(arguments) for key, arguments in profiles.items()}
+
+
+class TestEverySessionHandOffInsideATransactionCarriesIt:
+    """Where the read clause above cannot reach: a helper handed `None` positionally still spells `session=` on every read in its own body."""
+
+    def test_the_sweep_reaches_a_hand_off_and_both_ways_of_binding_one(self):
+        """A matcher matching nothing, or a positional arm gone quiet, would pass the clause below over the calls it exists for."""
+
+        handoffs = session_handoffs()
+
+        assert handoffs
+
+        # Both arms: the keyword one every `app/core/crud.py` call takes, and the positional one a
+        # helper nested in a callback is reached through, which is the arm the exemptions above use.
+        assert {handoff.binding.by_position for handoff in handoffs} == {False, True}
+
+    def test_a_callee_is_resolved_lexically_rather_than_by_its_name(self):
+        """Two declarations here are named `judge` and one of them takes a session.
+
+        Read by name alone, the season patch's `judge(figures)` would be reported as a hand-off whose
+        first argument is no session at all.
+        """
+
+        resolved = {handoff.where for handoff in session_handoffs() if handoff.called == "judge"}
+
+        assert resolved, "no `judge` resolves to a session-taking declaration, so the clause below is vacuous"
+        assert "app/api/saisons/admin_router.py :: judge_and_write_the_rules" not in resolved
+
+    def test_the_two_listings_of_a_callbacks_crud_calls_agree(self):
+        """PRE-4's two listings: one matches a helper by NAME, the other resolves the declaration a call site reaches.
+
+        A resolver that quietly stops following a call takes that hand-off out of the clause below,
+        and neither listing alone would notice.
+        """
+
+        crud = READ_HELPERS | SESSION_TAKING_HELPERS
+
+        by_name: dict[str, list[str]] = {}
+        for callback in transactional_callbacks(SESSION_TAKING_HELPERS):
+            by_name.setdefault(callback.where, []).extend(helper for helper, _ in (*callback.reads, *callback.writes) if helper in crud)
+
+        resolved: dict[str, list[str]] = {where: [] for where in by_name}
+        for handoff in session_handoffs():
+            if handoff.called in crud:
+                resolved.setdefault(handoff.where, []).append(handoff.called)
+
+        assert {where: sorted(names) for where, names in resolved.items()} == {where: sorted(names) for where, names in by_name.items()}
+
+    def test_no_hand_off_inside_one_is_left_off_the_transactions_session(self):
+        """Take `movable_figures(session)` to `movable_figures(None)` and this fails, where the read clause above stays green.
+
+        The judged figures and the write then sit in two snapshots, so a refusal is decided on a
+        league state that never existed.
+        """
+
+        profiles = _handed_profiles()
+        loose = {f"{handoff.where} hands {handoff.called}" for handoff in session_handoffs() if not handoff.in_session}
+
+        assert {key: profiles[key] for key in loose} == dict(HANDED_OUTSIDE_THE_TRANSACTION)
+
+
+class TestEveryHelperTheTransactionReachesReadsInSession:
+    """`transactional_callbacks` reads a callback's own lexical body, so a read a module away answers in no clause above."""
+
+    def test_the_sweep_reaches_every_session_taking_crud_helper(self):
+        """The floor, derived on both sides rather than listed.
+
+        Every `app/core/crud.py` helper taking a session is reached from some callback, or the
+        resolver has stopped following calls and the clause below is asked of less than it reads.
+        """
+
+        carriers = session_carriers()
+        unreached = crud_helpers_taking_a_session() - {carrier.called for carrier in carriers}
+
+        assert unreached == frozenset(), f"{sorted(unreached)} is reached from no transactional callback"
+
+        # The receiver rule `tests/core/app_source.py :: reads_the_database` rests on cannot see this
+        # one: `app/core/crud.py` reads through its own `collection` parameter.
+        assert {read for carrier in carriers if carrier.called == "pull_one_from_db" for read, _ in carrier.reads} == {"find_one"}
+
+    def test_no_read_inside_one_is_left_off_the_session_it_was_handed(self):
+        """Drop `session=` from the count in `app/api/spieler/admin_router.py :: _refuse_a_taken_rolle` and this fails.
+
+        The refusal then decides on what committed last while the write beside it is in the
+        transaction, so the retry re-decides on that same stale count.
+        """
+
+        loose = [f"{carrier.where} reads with {read}" for carrier in session_carriers() for read, carries in carrier.reads if not carries]
 
         assert loose == []
 
