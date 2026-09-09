@@ -121,7 +121,6 @@ deliverable.
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                             | FE, Docs                                                                    | Open     |
-| `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                 | FE, Docs, ci, tests, saisons                                                | Standing |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                          | FE, tests, saisons                                                          | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                         | FE, tests, spieler                                                          | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                         | FE, BE, tests                                                               | Open     |
@@ -1952,56 +1951,6 @@ without moving a file.
 written where a session adding a module reads it —
 `docs/frontend/overview.md :: How it is organised` — with `docs/frontend/spec.md :: I9` keeping the
 direction it already holds.
-
-### `vspa-r35v` · One commit imports a frontend module the commit after it adds
-
-| Tags                         | Status   | Depends on |
-| ---------------------------- | -------- | ---------- |
-| FE, Docs, ci, tests, saisons | Standing | —          |
-
-**`fl_frontend/src/features/saisons/actions.test.ts` imports
-`fl_frontend/src/core/refusalRegister.ts`, and one commit on `main` holds that test file without
-the module**, the commit directly after it being the one that adds the module.
-`git log -S refusalRegister -- fl_frontend/` names the pair, which is how this entry has to be
-read: COR-6 keeps a hash out of the corpus because this history has been rewritten before and can
-be again, so a hash written here would go dead with nothing saying so. TypeScript answers that specifier with `TS2307: Cannot find module
-'../../core/refusalRegister.ts'`, reproduced 2026-08-26 under the resolution options
-`fl_frontend/tsconfig.json` sets, and both frontend commands reach it. **Not verified by checkout** —
-the tree at that commit was read rather than built, so that both commands fail there is taken from
-the absent module and the diagnostic, neither having been run at it.
-
-**One commit and one specifier, measured rather than assumed (2026-08-26).** Every relative and
-`@/`-aliased specifier in each `.ts` and `.tsx` file under `fl_frontend/src` was resolved against its
-own commit's tree, across a run of consecutive commits — 1850 specifiers at the last of them. That
-one commit is the only one carrying an unresolved specifier, and that import is the only one it
-carries.
-
-**Nothing is red, and a red build is not the symptom to look for.**
-`.github/workflows/verify.yml` triggers on `pull_request` and on a push to `main`. Both judge a
-tip — the pull request's merge result, and `main` after the merge commit — and neither checks out a
-commit in between, so no CI run visits it. **What it costs is a `git bisect` over the frontend**,
-which lands there and answers with a failure unrelated to whatever is being hunted;
-[`docs/_git/spec.md`](../_git/spec.md) §1.4 permits merge commits alone, so the commit reaches `main`
-verbatim and this does not age out.
-
-**Recognise it and skip it, which is the whole of the action.** git's documented shape for a revision
-that cannot be built is exit code 125 from a `git bisect run` script, marking it untestable. The
-residual is the one the manual names — skipping a commit adjacent to the culprit leaves git unable to
-say which of them was first bad — and this commit's entire frontend delta being one test file is what
-settles that by reading the diff. **`.git-blame-ignore-revs` does not reach it**: that file feeds
-`blame.ignoreRevsFile` and moves line attribution, where the attribution here is right and is
-nobody's complaint. git offers no in-repository list a bisect consults, so this entry is the whole of
-the durable warning — and a bisect stands at a detached `HEAD`, so
-`git show main:docs/_roadmap/items.md` is what reads this page from wherever it has stopped.
-
-**Rewriting the history is the repair, and it was declined.** Carrying
-`fl_frontend/src/core/refusalRegister.ts` one commit earlier means rewriting a pushed branch with a
-pull request open against it, which moves every line a review comment is anchored to; weighed against
-a bisect that skips one commit, the gap was taken — **so this entry records a decision rather than an
-outstanding repair**, and the window in which the fix was cheap closed at the push.
-
-**Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
-the argument for a per-commit resolution check, and the sweep above is what it would be built from.
 
 ### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
 

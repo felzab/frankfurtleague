@@ -306,19 +306,20 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 
 ## 2. Invariants
 
-| #   | Invariant                                                     | Enforced by                                           |
-| --- | ------------------------------------------------------------- | ----------------------------------------------------- |
-| I1  | `main` takes changes only through a pull request              | the ruleset                                           |
-| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            |
-| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
-| I4  | Every commit on a branch carries a body                       | `scripts/checks/check_commits.py`                     |
-| I5  | No commit is signed as AI-generated                           | `scripts/checks/check_commits.py :: BANNED`           |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/checks/check_scope.py`                       |
-| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
-| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
-| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |
-| I10 | The ruleset's bypass list is empty                            | the ruleset                                           |
-| I11 | A commit retiring a roadmap entry names it, and only then     | `scripts/checks/check_commits.py :: check_message`    |
+| #    | Invariant                                                                                                                                                          | Enforced by                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1   | `main` takes changes only through a pull request                                                                                                                   | the ruleset                                                                                                                                       |
+| I2   | Merge commits are the only permitted merge method                                                                                                                  | Settings → General, and linear history off                                                                                                        |
+| I3   | Every pull request a person opens is opened as a draft                                                                                                             | convention; a draft cannot be merged                                                                                                              |
+| I4   | Every commit on a branch carries a body                                                                                                                            | `scripts/checks/check_commits.py`                                                                                                                 |
+| I5   | No commit is signed as AI-generated                                                                                                                                | `scripts/checks/check_commits.py :: BANNED`                                                                                                       |
+| I6   | The gate's scope is checked against the diff before it runs                                                                                                        | `scripts/checks/check_scope.py`                                                                                                                   |
+| I7   | Required status checks are added by hand in the ruleset panel                                                                                                      | the ruleset                                                                                                                                       |
+| I8   | Every action is pinned to a full commit SHA                                                                                                                        | review of `.github/workflows/` and `.github/actions/`                                                                                             |
+| I9   | Every workflow triggers on `pull_request`                                                                                                                          | `.github/workflows/`                                                                                                                              |
+| I10  | The ruleset's bypass list is empty                                                                                                                                 | the ruleset                                                                                                                                       |
+| I11  | A commit retiring a roadmap entry names it, and only then                                                                                                          | `scripts/checks/check_commits.py :: check_message`                                                                                                |
+| I227 | A `git bisect run` over `fl_frontend/` answers 125 at the one commit whose test file imports `fl_frontend/src/core/refusalRegister.ts` before the commit adding it | nothing mechanical; `git log -S refusalRegister -- fl_frontend/` names both commits, and the earlier one's whole frontend delta is that test file |
 
 ## 3. Violation → remedy
 
