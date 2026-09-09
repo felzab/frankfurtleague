@@ -1,5 +1,3 @@
-import asyncio
-
 from fastapi import APIRouter, Depends
 
 from app.api.schiedsrichter.schemas import (
@@ -9,7 +7,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterSingleResponse,
 )
-from app.api.schiedsrichter.services import ANGABEN_TERMS, ANONYMISIERT_AM
+from app.api.schiedsrichter.services import ANONYMISIERT_AM
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
@@ -36,43 +34,26 @@ async def get_schiedsrichter(
     The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
     stay retrievable for a historical match.
 
-    A referee whose data were erased is OFF this list unless `include_anonymisiert` asks for them:
-    they can be booked, edited, reactivated and restored by nobody, so the list an administrator
-    works from does not offer them. `GET /{schiedsrichter_id}` answers for one whatever their state.
-
-    `anzahl_je_angabe` answers one count per option of the `angaben` facet, over the collection
-    rather than over the rows served and with this read's own erasure term left out, so each number
-    is what asking for that option alone would leave and the erased are counted while off the list.
+    A referee whose data were erased is OFF this list: they can be booked, edited, reactivated and
+    restored by nobody, so the list an administrator works from does not offer them.
+    `GET /{schiedsrichter_id}` answers for one whatever their state, which is the read a historical
+    fixture's link to them resolves through.
     """
 
-    # Every term this read carries but the erasure's own, which each count below adds back on the
-    # side its option selects.
-    beyond_the_erasure = build_query(filters, terms={"default_payment"}, include_inactive=filters.include_inactive)
-
-    # Gathered, so four counts and the read cost one round trip's latency rather than five.
-    counted, schiedsrichter_raw = await asyncio.gather(
-        asyncio.gather(*(schiedsrichter_collection.count_documents({**beyond_the_erasure, **term}) for term in ANGABEN_TERMS.values())),
-        pull_many_from_db(
-            collection=schiedsrichter_collection,
-            db_filter=build_query(
-                filters,
-                terms={"default_payment"},
-                include_inactive=filters.include_inactive,
-                # Translated as `include_inactive` is, never dumped: its False means "add a term", so a
-                # switch dumped by value would become a field to match on.
-                compiled=None if filters.include_anonymisiert else {ANONYMISIERT_AM: None},
-            ),
-            limit=filters.limit,
-            sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
-            collation=GERMAN_COLLATION,
+    schiedsrichter_raw = await pull_many_from_db(
+        collection=schiedsrichter_collection,
+        db_filter=build_query(
+            filters,
+            terms={"default_payment"},
+            include_inactive=filters.include_inactive,
+            compiled={ANONYMISIERT_AM: None},
         ),
+        limit=filters.limit,
+        sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
+        collation=GERMAN_COLLATION,
     )
-    schiedsrichter = FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw)
 
-    return FLSchiedsrichterListResponse(
-        schiedsrichter=schiedsrichter,
-        anzahl_je_angabe=dict(zip(ANGABEN_TERMS, counted, strict=True)),
-    )
+    return FLSchiedsrichterListResponse(schiedsrichter=FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw))
 
 
 @router.get(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterSingleResponse, summary="One Schiedsrichter")

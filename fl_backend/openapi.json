@@ -1829,7 +1829,7 @@
     "/api/v0/schiedsrichter": {
       "get": {
         "summary": "List Schiedsrichter",
-        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nA referee whose data were erased is OFF this list unless `include_anonymisiert` asks for them:\nthey can be booked, edited, reactivated and restored by nobody, so the list an administrator\nworks from does not offer them. `GET /{schiedsrichter_id}` answers for one whatever their state.\n\n`anzahl_je_angabe` answers one count per option of the `angaben` facet, over the collection\nrather than over the rows served and with this read's own erasure term left out, so each number\nis what asking for that option alone would leave and the erased are counted while off the list.",
+        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nA referee whose data were erased is OFF this list: they can be booked, edited, reactivated and\nrestored by nobody, so the list an administrator works from does not offer them.\n`GET /{schiedsrichter_id}` answers for one whatever their state, which is the read a historical\nfixture's link to them resolves through.",
         "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
         "security": [
           {
@@ -1861,16 +1861,6 @@
               "type": "boolean",
               "default": false,
               "title": "Include Inactive"
-            }
-          },
-          {
-            "name": "include_anonymisiert",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Include Anonymisiert"
             }
           },
           {
@@ -11119,27 +11109,11 @@
             },
             "type": "array",
             "title": "Schiedsrichter"
-          },
-          "anzahl_je_angabe": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "propertyNames": {
-              "enum": [
-                "kontakt",
-                "ohne_kontakt",
-                "schule",
-                "geloescht"
-              ]
-            },
-            "type": "object",
-            "title": "Anzahl Je Angabe"
           }
         },
         "type": "object",
         "required": [
-          "schiedsrichter",
-          "anzahl_je_angabe"
+          "schiedsrichter"
         ],
         "title": "FLSchiedsrichterListResponse"
       },

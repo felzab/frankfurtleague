@@ -7,10 +7,6 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString,
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
-# Spelled at the frontend too (`fl_frontend/src/features/schiedsrichter/facets.ts :: ANGABEN_LABELS`),
-# and a value differing there reads as a missing count, which offers the option and disables it.
-FLSchiedsrichterAngabe = Literal["kontakt", "ohne_kontakt", "schule", "geloescht"]
-
 
 class _SchiedsrichterWritable(BaseModel):
     kontakt: FLKontakt
@@ -64,9 +60,6 @@ FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 class FLSchiedsrichterFilterParams(BaseModel):
     default_payment: int | None = None
     include_inactive: bool = False
-    # The list shows what can be acted on, and an erased referee can be booked, edited, reactivated
-    # or restored by nobody (`docs/backend/spec.md :: I227`).
-    include_anonymisiert: bool = False
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name", "default_payment"] = Field(default="name")
@@ -75,7 +68,6 @@ class FLSchiedsrichterFilterParams(BaseModel):
 
 class FLSchiedsrichterListResponse(BaseAPIResponse):
     schiedsrichter: list[FLSchiedsrichter]
-    anzahl_je_angabe: dict[FLSchiedsrichterAngabe, int]
 
 
 class FLPostSchiedsrichterResponse(BaseAPIResponse):

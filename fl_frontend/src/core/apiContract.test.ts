@@ -39,7 +39,6 @@ const BACKEND_ONLY: Record<string, string> = {
   HTTPValidationError: "FastAPI's validation error body; thrown on any non-2xx before a schema parses it",
   ValidationError: "FastAPI's validation error body; thrown on any non-2xx before a schema parses it",
 
-  FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLAktionSingleResponse: "GET /{id} is the one read serving a pre-image, for the restore; nothing calls it yet",
   FLAktionMitStand: "the single read's row; the page consumes only the list's FLAktion, which carries no image",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
@@ -79,7 +78,6 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
-  FLSchiedsrichterAngabe: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -340,7 +338,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 181;
+const EXPECTED_PAIRS = 182;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

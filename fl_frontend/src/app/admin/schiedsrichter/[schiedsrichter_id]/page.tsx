@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
-import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { resolveSchiedsrichterId } from "@/features/schiedsrichter/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -25,14 +25,14 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // Both switches, each off the default read: this route is the retired referee's editor and the
-  // erased referee's record at once, and a missing one answers not-found for that half
+  // By id and never off the referee list, which serves what can still be acted on: this route is the
+  // erased referee's record too, and a fixture's link to them has to resolve
   // (`docs/backend/spec.md :: I227`).
-  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true, include_anonymisiert: true });
-  const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
-  if (!schiedsrichter) {
+  const schiedsrichterRes = await getSchiedsrichterById(schiedsrichterId);
+  if (schiedsrichterRes === null) {
     notFound();
   }
+  const { schiedsrichter } = schiedsrichterRes;
 
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).

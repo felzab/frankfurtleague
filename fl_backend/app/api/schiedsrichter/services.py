@@ -1,7 +1,6 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from app.api.schiedsrichter.schemas import FLSchiedsrichterAngabe
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -29,18 +28,6 @@ ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {
     # referees one school sent. `default_payment` stays, being the LEAGUE's rate for the job rather
     # than anything about them.
     "schule": None,
-}
-
-# Each term carries its own erasure side, so a count is what picking that option ALONE leaves: taken
-# over both sides, `ohne_kontakt` offers erased rows no selection of it reaches
-# (`docs/backend/spec.md :: I227`).
-ANGABEN_TERMS: Mapping[FLSchiedsrichterAngabe, Mapping[str, Any]] = {
-    # Read off the erasure's mapping, so a contact member added later is counted as it is cleared.
-    "kontakt": {ANONYMISIERT_AM: None, "$or": [{field: {"$ne": None}} for field in ANONYMISED_KONTAKT]},
-    # That same mapping IS the no-contact match: null on every member.
-    "ohne_kontakt": {ANONYMISIERT_AM: None, **ANONYMISED_KONTAKT},
-    "schule": {ANONYMISIERT_AM: None, "schule": {"$ne": None}},
-    "geloescht": {ANONYMISIERT_AM: {"$ne": None}},
 }
 
 # An erasure beats the last writer: a detail re-entered mid-anonymisation is a person's data

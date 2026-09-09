@@ -30,7 +30,7 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { formatEuro } from "@/shared/utils/format";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
@@ -74,17 +74,13 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     });
   };
 
-  // Italic where the name is gone, so a reader takes the word for the state it is rather than for
-  // somebody's name. The `title` carries the day, which no cell has room for.
+  // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
+  // rather than for somebody's name.
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
-    schiedsrichter.anonymisiert_am === null ? (
-      <span className={IDENTITY_NAME}>{schiedsrichter.name}</span>
+    schiedsrichter.name === null ? (
+      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{schiedsrichterAnzeigename(schiedsrichter.name)}</span>
     ) : (
-      <span
-        className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}
-        title={`Daten am ${formatSpielDatum(schiedsrichter.anonymisiert_am)} gelöscht`}>
-        {schiedsrichterAnzeigename(schiedsrichter.name)}
-      </span>
+      <span className={IDENTITY_NAME}>{schiedsrichter.name}</span>
     );
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
@@ -125,24 +121,22 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   );
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => {
-    // The value is `schiedsrichterFacetValue`'s, never the id: an anonymised referee shares one
-    // merged option, and an unoffered value is dropped rather than refused.
+    // The value is `schiedsrichterFacetValue`'s, never the id: a nameless referee shares one merged
+    // option, and an unoffered value is dropped rather than refused.
     const facetValue = schiedsrichterFacetValue(schiedsrichter);
-    // Read off that value rather than off the erasure's own stamp, which the facet rule cannot see.
+    // Read off that value rather than off the name again, so the link and the option it selects
+    // cannot part company.
     const zusammengefasst = facetValue !== schiedsrichter.id;
     // The label names the merged set, because a fee is reconciled against what the link opened.
     const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter mit gelöschten Daten anzeigen" : "Einsätze anzeigen";
     const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
 
-    // An erased referee gets NEITHER state control below: the erasure retired them, and
-    // `REQ-ANONYMISE-003` refuses the reactivation, so offering one is a refusal the reader could not
-    // have avoided.
-    const isErased = schiedsrichter.anonymisiert_am !== null;
     const isRetired = schiedsrichter.inactive_since !== null;
 
-    // The state and not `angezeigt`, which is the word „anonym“: the italics that mark it a state on
-    // screen reach a screen reader as nothing, so the name it reads out is a person's.
-    const bearbeitenLabel = isErased ? "Eintrag mit gelöschten Daten bearbeiten" : `Schiedsrichter ${angezeigt} bearbeiten`;
+    // The italics that mark „anonym“ a state on screen reach a screen reader as nothing, so a label
+    // built on `angezeigt` announces the state as this person's name.
+    const nennung = schiedsrichter.name === null ? "Eintrag ohne Namen" : `Schiedsrichter ${angezeigt}`;
+    const kontaktLabel = schiedsrichter.name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${angezeigt} kopieren`;
 
     // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
     // somebody could paste into a message.
@@ -168,7 +162,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {kontaktdaten !== "" && (
           <RowActionCopy
             label="Kontaktdaten kopieren"
-            ariaLabel={`Kontaktdaten von ${angezeigt} kopieren`}
+            ariaLabel={kontaktLabel}
             onPress={() => handleCopyKontakt(kontaktdaten)}
           />
         )}
@@ -176,24 +170,24 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
-          ariaLabel={bearbeitenLabel}>
+          ariaLabel={`${nennung} bearbeiten`}>
           <Pencil
             aria-hidden="true"
             width={18}
             height={18}
           />
         </RowActionLink>
-        {!isErased && isRetired && (
+        {isRetired && (
           <RowActionRestore
             label="Reaktivieren"
-            ariaLabel={`Schiedsrichter ${angezeigt} reaktivieren`}
+            ariaLabel={`${nennung} reaktivieren`}
             onPress={() => handleReactivate(schiedsrichter)}
           />
         )}
-        {!isErased && !isRetired && (
+        {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`Schiedsrichter ${angezeigt} stilllegen`}
+            ariaLabel={`${nennung} stilllegen`}
             onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
           />
         )}

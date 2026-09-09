@@ -4,16 +4,14 @@ import { connection } from "next/server";
 import { AdminCreateSchiedsrichterModal } from "@/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal";
 import { AdminSchiedsrichterView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterView";
 import { SCHIEDSRICHTER_CRUD_COPY } from "@/features/schiedsrichter/constants";
-import { getSchiedsrichterList } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-import type { NextPageProps } from "@/shared/types/types";
-
 // Not async, so the chrome never waits on the list: a static heading must not sit behind a
 // round-trip.
-export default function AdminSchiedsrichterPage(props: NextPageProps) {
+export default function AdminSchiedsrichterPage() {
   return (
     <AdminCrudShell
       search={
@@ -24,21 +22,17 @@ export default function AdminSchiedsrichterPage(props: NextPageProps) {
       }
       createModal={<AdminCreateSchiedsrichterModal />}>
       <Suspense fallback={<AdminCrudFallback />}>
-        <SchiedsrichterTable searchParams={props.searchParams} />
+        <SchiedsrichterTable />
       </Suspense>
     </AdminCrudShell>
   );
 }
 
-async function SchiedsrichterTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
+async function SchiedsrichterTable() {
   await connection();
-  const params = (await searchParams) ?? {};
-  const schiedsrichterRes = await getSchiedsrichterList(params);
+  // Retired included: this list is the only surface that can bring one back. Every facet on the bar
+  // narrows these rows client-side, so the query string reaches the endpoint through nothing.
+  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
 
-  return (
-    <AdminSchiedsrichterView
-      schiedsrichter={schiedsrichterRes.schiedsrichter}
-      anzahlJeAngabe={schiedsrichterRes.anzahl_je_angabe}
-    />
-  );
+  return <AdminSchiedsrichterView schiedsrichter={schiedsrichterRes.schiedsrichter} />;
 }

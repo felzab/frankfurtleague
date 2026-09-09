@@ -1,10 +1,10 @@
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { schiedsrichterListTerms } from "./facets";
-import { FLSchiedsrichterListResponseSchema } from "./schemas";
+import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
-import type { FLSchiedsrichterListResponse } from "./schemas";
+import type { FLSchiedsrichterListResponse, FLSchiedsrichterSingleResponse } from "./schemas";
 import type { FLSchiedsrichterFilterParams } from "./types";
 
 /**
@@ -24,12 +24,20 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
 }
 
 /**
- * The referee list as one route's query string selects it. Here rather than at the page: a facet carries a
- * `read` function, which a Server Component may not pass on
- * (`fl_frontend/src/shared/utils/facets.test.ts :: who may hold a facet`).
+ * One referee by id, whatever state they are in — the read a fixture's link to the person who
+ * officiated it resolves through, the list above serving what can still be acted on.
+ *
+ * **Uncached** for the reason the list is.
  */
-export async function getSchiedsrichterList(
-  params: Readonly<Record<string, string | string[] | undefined>>,
-): Promise<FLSchiedsrichterListResponse> {
-  return getSchiedsrichter(schiedsrichterListTerms(params));
+export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
+  return runWithIncomingTrace(() =>
+    // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
+    // status still throws.
+    apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
+      authType: "admin",
+    }).catch((error: unknown) => {
+      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      throw error;
+    }),
+  );
 }
