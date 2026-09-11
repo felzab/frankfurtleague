@@ -385,6 +385,11 @@ question that could move Mantine's rank.
 | --------------------------- | ------- | ----------- |
 | FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
 
+**The flow it waits on is skipped, so the wait is indefinite rather than a turn in a queue.** The
+`Depends on` beside it names `f3ar-m4qf`, the sign-up flow, which I deferred until the whole
+flow is built; `Skipped` is not declined and the work is still wanted, so the block stands and the
+status derives correctly. Nothing here is owed until that entry moves.
+
 **`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
 `fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
 `erteilt_von` as `erziehungsberechtigt` and `bestaetigt_am` as the same day; its one caller,
