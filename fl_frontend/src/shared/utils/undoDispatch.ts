@@ -74,7 +74,10 @@ export function offerUndo<TPayload>({
       onPress: () => {
         appToast.clear();
         if (unrestorable !== null) {
-          appToast.danger("Rücknahme nicht möglich", { description: unrestorable });
+          // One title for every way the change stands: the outcome is the same one, and the
+          // description separates a refusal from a dispatch that never landed
+          // (`docs/frontend/spec.md :: I42`).
+          appToast.danger("Änderung nicht zurückgenommen", { description: unrestorable });
           return;
         }
 
@@ -121,7 +124,7 @@ export function offerUndo<TPayload>({
               return;
             }
 
-            appToast.danger("Rücknahme konnte nicht gesendet werden", {
+            appToast.danger("Änderung nicht zurückgenommen", {
               // The connection alone: the request reached no judgement, so naming what was saved
               // would send the admin to inspect values nothing here read.
               description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",

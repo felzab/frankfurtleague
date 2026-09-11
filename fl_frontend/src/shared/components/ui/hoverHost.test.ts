@@ -108,13 +108,15 @@ function rootOf(tag: ts.JsxTagNameExpression): string | null {
   return ts.isIdentifier(at) ? at.text : null;
 }
 
-function hostOf(tag: ts.JsxTagNameExpression, source: ts.SourceFile, origins: Map<string, Origin>): string | null {
+function hostOf(tag: ts.JsxTagNameExpression, source: ts.SourceFile, origins: Map<string, Origin>): string {
   const spelled = tag.getText(source);
   // A lowercase first letter is JSX's own rule for an intrinsic element, which is a DOM node.
   if (/^[a-z]/.test(spelled)) return "intrinsic";
   const root = rootOf(tag);
   const origin = root === null ? undefined : origins.get(root);
-  if (root === null || origin === undefined) return null;
+  // Spelled where no import declares it, rather than collapsed into one anonymous key: a component
+  // this module defines is a host like any other, and its name is what a reader takes to the table.
+  if (root === null || origin === undefined) return `local::${spelled}`;
 
   return `${origin.module}::${origin.imported}${spelled.slice(root.length)}`;
 }
@@ -144,7 +146,7 @@ function dressedIn(file: string, text: string): Dressed[] {
         for (const token of tokens) {
           const arm = ARIA_ARM.test(token) ? "aria" : CSS_ARM.test(token) ? "css" : null;
           if (arm === null) continue;
-          found.push({ file, host: hostOf(node.tagName, source, origins) ?? "unknown", arm, token });
+          found.push({ file, host: hostOf(node.tagName, source, origins), arm, token });
         }
       }
     }
@@ -154,9 +156,12 @@ function dressedIn(file: string, text: string): Dressed[] {
   return found;
 }
 
-/* `.tsx` alone, JSX being the only place a host and its class sit together. A recipe module reached
-   through a prop spread carries its arm as a parameter instead, and is outside this sweep. */
+/* `.tsx` alone, JSX being the only place a host and its class sit together. */
 const MODULES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), MODULE_FLOOR);
+
+/* How far the class reader gets: the attribute's own text, and a name this module binds to a
+   string. An arm reaching its host from another module, an imported constant or a `tv` recipe,
+   is review's. */
 const DRESSED = MODULES.flatMap((file) => dressedIn(relative(file), readFileSync(file, "utf8")));
 
 describe("the population this rule is read over", () => {
@@ -172,8 +177,12 @@ describe("the population this rule is read over", () => {
   /* An unlisted host is a host nobody has checked: whether it writes `data-hovered` is the
      library's answer, not a guess, and the table is where that answer is recorded. */
   it("knows every host it meets", () => {
+    // Each with the module it stands in: a host named alone sends the reader hunting for the file
+    // that wears it, and a locally declared one is spelled the same in several.
     const unlisted = [
-      ...new Set(DRESSED.filter((one) => one.host !== "intrinsic" && HOVER_FOR_HOST[one.host] === undefined).map((one) => one.host)),
+      ...new Set(
+        DRESSED.filter((one) => one.host !== "intrinsic" && HOVER_FOR_HOST[one.host] === undefined).map((one) => `${one.file}  <${one.host}>`),
+      ),
     ].sort();
 
     assert.deepEqual(

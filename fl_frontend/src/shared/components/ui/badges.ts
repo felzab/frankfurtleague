@@ -29,8 +29,8 @@ export type PillTone =
 
 /**
  * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
- * pill sits on `surface` or `background` alone: on `muted` and on every hover fill its light ink
- * falls under the floor, and `PILL_SOLID` goes there instead.
+ * pill sits on `surface` or `background` alone: on any other fill its light ink composites under
+ * the floor, and `PILL_SOLID` goes there instead.
  */
 export const PILL_TINT: Record<PillTone, string> = {
   success: "bg-success/15 text-success-strong",
@@ -56,8 +56,8 @@ export const PILL_TINT: Record<PillTone, string> = {
 export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | "info">;
 
 /**
- * For a ground a tint cannot survive — a tab strip's `muted`, and every hover fill painted under a
- * pill: the tone's fill under its paired on-colour, a pair no ground moves
+ * For a ground a tint cannot survive — a tab strip's `muted`, and any fill painted under a pill:
+ * the tone's fill under its paired on-colour, a pair no ground moves
  * (`docs/frontend/spec.md :: I229`).
  */
 export const PILL_SOLID: Record<FeedbackTone, string> = {

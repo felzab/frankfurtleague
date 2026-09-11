@@ -24,39 +24,83 @@ const SLOT_FLOOR = 25;
  * `globals.css` under both the pointer and the keyboard; `RailSection`'s fold control paints the
  * same fill across the row its badge slot sits in.
  */
-const COLLECTION_OPTIONS = new Set(["ListBox.Item", "Menu.Item", "Dropdown.Item"]);
+// `RowActionMenuItem` stands beside the library's own: it wraps a `Dropdown.Item` and spells that
+// row's hover fill itself, so a pill handed to it sits on the fill as any option's does.
+const COLLECTION_OPTIONS = new Set(["ListBox.Item", "Dropdown.Item", "RowActionMenuItem"]);
 const BADGE_SLOT = { host: "RailSection", attribute: "badge" };
 
 /** The recipes that read a tone out of `PILL_TINT`, which is the alpha this rule is about. */
 const TINTED_CALLS = new Set(["countBadge", "labelBadge"]);
 
 /**
- * A tone whose `PILL_TINT` entry composites. Derived from the record rather than listed, so a tone
- * that stops being an alpha stops being flagged in the same edit that changes it.
+ * A tone whose `PILL_TINT` entry composites, against the fill class that makes it one. Derived from
+ * the record rather than listed, so a tone that stops being an alpha stops being flagged in the
+ * same edit that changes it.
  */
-const COMPOSITES = new Set(Object.entries(PILL_TINT).flatMap(([tone, classes]) => (/\/\d+(?:\s|$)/.test(classes) ? [tone] : [])));
+const COMPOSITE_FILL = new Map(
+  Object.entries(PILL_TINT).flatMap(([tone, classes]) => {
+    const fill = classes.split(/\s+/).find((token) => /\/\d+$/.test(token));
+    return fill === undefined ? [] : [[tone, fill] as const];
+  }),
+);
+
+/** The same fills keyed the way a class list meets them, which is how a hand-spelled tint is read. */
+const TONE_FOR_FILL = new Map([...COMPOSITE_FILL].map(([tone, fill]) => [fill, tone] as const));
 
 const relative = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
 
 /** Every tinted read inside one node, each as the reason it is one. */
-function tintedIn(node: ts.Node): string[] {
+function tintedIn(node: ts.Node, tinted: ReadonlySet<string>): string[] {
   const found: string[] = [];
+
+  // Read off the class list as well as off the recipes: the tint is one string of classes, and
+  // spelling it out rather than calling for it paints the same pixels.
+  const readClasses = (text: string): void => {
+    for (const token of text.split(/\s+/)) {
+      const tone = TONE_FOR_FILL.get(token);
+      if (tone !== undefined) found.push(`${token} (${tone})`);
+    }
+  };
+
   const visit = (inner: ts.Node): void => {
-    if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && TINTED_CALLS.has(inner.expression.text)) {
+    if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && tinted.has(inner.expression.text)) {
       const [tone] = inner.arguments;
       // An unreadable tone is flagged: nothing here can prove it lands on the one opaque member.
       const named = tone !== undefined && ts.isStringLiteralLike(tone) ? tone.text : null;
-      if (named === null || COMPOSITES.has(named)) found.push(`${inner.expression.text}(${named ?? "…"})`);
+      if (named === null || COMPOSITE_FILL.has(named)) found.push(`${inner.expression.text}(${named ?? "…"})`);
+    }
+    // The same name handed over rather than called, which is what a constant holding a tint is.
+    if (ts.isIdentifier(inner) && tinted.has(inner.text) && !(ts.isCallExpression(inner.parent) && inner.parent.expression === inner)) {
+      found.push(inner.text);
     }
     if (ts.isPropertyAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT") {
-      if (COMPOSITES.has(inner.name.text)) found.push(`PILL_TINT.${inner.name.text}`);
+      if (COMPOSITE_FILL.has(inner.name.text)) found.push(`PILL_TINT.${inner.name.text}`);
     }
     if (ts.isElementAccessExpression(inner) && ts.isIdentifier(inner.expression) && inner.expression.text === "PILL_TINT") {
       found.push("PILL_TINT[…]");
     }
+    if (ts.isStringLiteralLike(inner)) readClasses(inner.text);
+    if (ts.isTemplateExpression(inner))
+      for (const piece of [inner.head, ...inner.templateSpans.map((span) => span.literal)]) readClasses(piece.text);
     ts.forEachChild(inner, visit);
   };
   visit(node);
+  return found;
+}
+
+/**
+ * The recipes, plus every name this module binds to a tint of its own. One hop and no more: a helper
+ * two modules away carries no tone a reader of this file can resolve, and review has that pairing.
+ */
+function tintedNamesIn(source: ts.SourceFile): Set<string> {
+  const found = new Set(TINTED_CALLS);
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer !== undefined) {
+      if (tintedIn(node.initializer, found).length > 0) found.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
   return found;
 }
 
@@ -64,18 +108,19 @@ type Slot = { file: string; where: string; tinted: string[] };
 
 function slotsIn(file: string, text: string): Slot[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const tinted = tintedNamesIn(source);
   const found: Slot[] = [];
 
   const visit = (node: ts.Node): void => {
     if (ts.isJsxElement(node) && COLLECTION_OPTIONS.has(node.openingElement.tagName.getText(source))) {
-      found.push({ file, where: `<${node.openingElement.tagName.getText(source)}>`, tinted: tintedIn(node) });
+      found.push({ file, where: `<${node.openingElement.tagName.getText(source)}>`, tinted: tintedIn(node, tinted) });
     }
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       if (node.tagName.getText(source) === BADGE_SLOT.host) {
         for (const attribute of node.attributes.properties) {
           if (!ts.isJsxAttribute(attribute) || attribute.name.getText(source) !== BADGE_SLOT.attribute) continue;
           if (attribute.initializer === undefined) continue;
-          found.push({ file, where: `<${BADGE_SLOT.host} ${BADGE_SLOT.attribute}=>`, tinted: tintedIn(attribute.initializer) });
+          found.push({ file, where: `<${BADGE_SLOT.host} ${BADGE_SLOT.attribute}=>`, tinted: tintedIn(attribute.initializer, tinted) });
         }
       }
     }
@@ -98,10 +143,18 @@ describe("the population this rule is read over", () => {
     );
   });
 
+  /* A host the tree writes nowhere carries the rule to nothing, and reads to the next author as a
+     ground already covered. */
+  it("meets every host it names", () => {
+    const unmet = [...COLLECTION_OPTIONS, BADGE_SLOT.host].filter((host) => !SLOTS.some((slot) => slot.where.startsWith(`<${host}`)));
+
+    assert.deepEqual(unmet, [], `a named host stands in no module, so this rule reaches nothing through it:\n  ${unmet.join("\n  ")}`);
+  });
+
   /* Every tone opaque and the case below is true by construction, which is how a retinted palette
      turns this file green and silent. */
   it("still reads `PILL_TINT` as a record of alphas", () => {
-    assert.notEqual(COMPOSITES.size, 0, "no `PILL_TINT` tone reads as an alpha any more, so nothing below can be flagged");
+    assert.notEqual(COMPOSITE_FILL.size, 0, "no `PILL_TINT` tone reads as an alpha any more, so nothing below can be flagged");
   });
 });
 
@@ -112,7 +165,8 @@ describe("what a pill may be painted on", () => {
     assert.deepEqual(
       wrong,
       [],
-      `a tint composites against the hover fill under it and misses 4.5:1 -- use \`trackCountBadge\`, \`trackLabelBadge\` or \`PILL_SOLID\`:\n  ${wrong.join("\n  ")}`,
+      "a tint composites against the fill under it and misses 4.5:1. Take the tone's opaque twin -- `trackCountBadge`," +
+        ` \`trackLabelBadge\`, \`PILL_SOLID\`, or the \`brandSolid\` tone. A phase tone has no twin, so its pill moves off this ground:\n  ${wrong.join("\n  ")}`,
     );
   });
 });

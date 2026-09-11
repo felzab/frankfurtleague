@@ -84,7 +84,7 @@ export function AppShell<TIcon extends string>({
     <div
       data-app-shell
       className="flex h-dvh w-full flex-col">
-      <SkipToContentLink />
+      <SkipToContentLink isTargetInert={isMobileOpen} />
 
       <AppTopBar
         title={activeOption?.label ?? fallbackTitle}

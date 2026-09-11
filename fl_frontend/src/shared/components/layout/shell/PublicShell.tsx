@@ -9,7 +9,7 @@ import type React from "react";
 export function PublicShell({ serverStatusSlot, children }: { serverStatusSlot: React.ReactNode; children: React.ReactNode }) {
   return (
     <>
-      <SkipToContentLink />
+      <SkipToContentLink isTargetInert={false} />
 
       {/* `box-content` is load-bearing: the height becomes --navbar-height plus the border, which
           the <nav> inside also uses. Under border-box the nav overflows it by the border. */}

@@ -316,6 +316,7 @@ interface RegisteredTitle {
 const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Adresse kopiert": { variant: "success", identifies: "one site" },
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
+  "Adresse nicht kopiert": { variant: "danger", identifies: "one site" },
   "Adresse nicht korrigiert": { variant: "danger", identifies: "one site" },
   "Anmeldelink nicht gesendet": { variant: "danger", identifies: "one site" },
   "Bewerbung abgelehnt": { variant: "success", identifies: "one site" },
@@ -333,11 +334,11 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Kadereintrag reaktiviert": { variant: "success", identifies: "its description" },
   "Kein Spielplan vorhanden": { variant: "info", identifies: "one site" },
   "Kontaktdaten kopiert": { variant: "success", identifies: "the press" },
+  "Kontaktdaten nicht kopiert": { variant: "danger", identifies: "its description" },
   "Kontakte gelöscht": { variant: "success", identifies: "one site" },
   "Kontakte nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Kontaktperson gelöscht": { variant: "success", identifies: "one site" },
   "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Kopieren nicht möglich": { variant: "danger", identifies: "its description" },
   "Kürzel noch nicht geprüft": { variant: "warning", identifies: "one site" },
   "Link erneut gesendet": { variant: "success", identifies: "one site" },
   "Link nicht erneut gesendet": { variant: "danger", identifies: "one site" },
@@ -349,8 +350,6 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Nimmt Änderung zurück...": { variant: "pending", identifies: "one site" },
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
-  "Rücknahme konnte nicht gesendet werden": { variant: "danger", identifies: "its description" },
-  "Rücknahme nicht möglich": { variant: "danger", identifies: "one site" },
   "Saison angelegt": { variant: "success", identifies: "one site" },
   "Saison nicht umgestellt": { variant: "danger", identifies: "one site" },
   "Saison umgestellt": { variant: "success", identifies: "one site" },
@@ -392,14 +391,22 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Team stillgelegt": { variant: "success", identifies: "one site" },
   "Unklar, ob es bei uns angekommen ist": { variant: "danger", identifies: "its description" },
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },
+  "Vorgangsnummer nicht kopiert": { variant: "danger", identifies: "one site" },
   "Änderung gespeichert": { variant: "success", identifies: "its description" },
   "Änderung nicht gespeichert": { variant: "danger", identifies: "its description" },
-  "Änderung nicht zurückgenommen": { variant: "danger", identifies: "one site" },
+  "Änderung nicht zurückgenommen": { variant: "danger", identifies: "its description" },
   "Änderung zurückgenommen": { variant: "success", identifies: "one site" },
 };
 
 const registered = Object.keys(TOAST_TITLES).sort();
 const CONFIRMS: readonly ToastVariant[] = ["success", "pending"];
+
+/**
+ * The three endings that name the act rather than its outcome: the nominalised verb, the act
+ * refused as impossible, and the passive infinitive. Each is a spelling a machine reads; review
+ * carries every other way of writing that fault.
+ */
+const NAMES_THE_OPERATION: readonly RegExp[] = [/ fehlgeschlagen$/, / nicht möglich$/, / werden$/];
 
 describe("every toast title the product raises", () => {
   it("is found by the sweep at all", () => {
@@ -438,11 +445,14 @@ describe("every toast title the product raises", () => {
   });
 
   it("names the thing rather than the operation", () => {
-    // `docs/frontend/spec.md` §1.12 asks a title for what happened to the object, and a nominalised
-    // verb under `fehlgeschlagen` names the operation instead. That suffix is the one spelling of
-    // the fault a machine reads; review carries the rest.
-    const operationNamed = registered.filter((title) => title.endsWith(" fehlgeschlagen"));
-    assert.deepEqual(operationNamed, [], "a failure title names its operation. Negate the success title beside it instead.");
+    // `docs/frontend/spec.md` §1.12 asks a title for what happened, and each ending above answers
+    // with the step the machine took at it.
+    const operationNamed = registered.filter((title) => NAMES_THE_OPERATION.some((ending) => ending.test(title)));
+    assert.deepEqual(
+      operationNamed,
+      [],
+      "a failure title names its operation. Negate the success title beside it instead: `Adresse nicht kopiert`.",
+    );
   });
 
   it("is raised at the one variant its row declares", () => {

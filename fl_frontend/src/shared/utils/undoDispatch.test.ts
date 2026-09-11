@@ -43,12 +43,10 @@ describe("what the shared undo dispatch says when it never landed", () => {
   /* The reading above is only worth what its cut is worth: a handler that stopped being the rejected
      one would pass every case by holding no sentence at all. */
   it("reads the rejected dispatch rather than the answered one", () => {
-    assert.match(
-      DISPATCH_FAILURE,
-      /appToast\.danger\("Rücknahme konnte nicht gesendet werden"/,
-      "the cut no longer lands on the transport toast",
-    );
-    assert.ok(!DISPATCH_FAILURE.includes("Änderung nicht zurückgenommen"), "the cut reaches into the answered refusal beside it");
+    assert.match(DISPATCH_FAILURE, /appToast\.danger\("Änderung nicht zurückgenommen"/, "the cut no longer lands on the transport toast");
+    // Both raisings wear that one title, so the answered refusal is told from this one by the
+    // server's own word for it, which only that branch reads.
+    assert.ok(!DISPATCH_FAILURE.includes("result.error"), "the cut reaches into the answered refusal beside it");
   });
 });
 

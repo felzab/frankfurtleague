@@ -410,7 +410,7 @@ export function AdminEditSpielDataForm({
         // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
         // so no server log holds the diagnosis. One that reached the server stays generic.
         reportRejection: (dispatchError) =>
-          appToast.danger("Rücknahme konnte nicht gesendet werden", {
+          appToast.danger("Änderung nicht zurückgenommen", {
             description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
             timeout: DIAGNOSIS_TIMEOUT_MS,
           }),
