@@ -21,6 +21,13 @@ export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
 export const SCHIEDSRICHTER_OHNE_NAMEN_LABEL = "Eintrag ohne Namen";
 
 /**
+ * Neutral throughout: the published notice writes „Schiedsrichterinnen und Schiedsrichter“, so a
+ * masculine pronoun here names the wrong person for half the people the league books.
+ */
+export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
+  "Schon eingetragene Spiele behalten diese Person. Für neue Spiele steht sie nicht mehr zur Auswahl.";
+
+/**
  * Every surface rendering a referee's name reads it through here, so no cell, chip, tooltip or
  * aria-label can be the one that shows an empty space where a name was.
  */

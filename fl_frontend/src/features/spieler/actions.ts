@@ -8,7 +8,7 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { ERASURE_NEEDS_RETIREMENT } from "./constants";
+import { ALREADY_IN_SAISON, CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON, ERASURE_NEEDS_RETIREMENT, RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
   deleteSaisonSpieler,
   deleteSpieler,
@@ -45,12 +45,6 @@ import type {
   FLSpielerErasureResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
-
-// The index spans retired rows and creating never revives, so the message names the one path that does.
-const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
-  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
-});
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
@@ -157,9 +151,7 @@ export async function postSpielerAction(
         success: false,
         error:
           `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
-          // The noun rather than a pronoun: `because` can put a sentence of its own in front of this
-          // one, which a pronoun would then have to reach back past.
-          "Nimm den Spieler über die Spielerseite in eine Saison auf.",
+          CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON,
       };
     }
 
@@ -227,7 +219,7 @@ export async function deleteSpielerAction(
     return {
       success: true,
       spieler: deleteOperation,
-      message: "Die Kadereinträge dieser Person bleiben erhalten.",
+      message: RETIREMENT_KEEPS_SQUAD_ROWS,
     };
   });
 }

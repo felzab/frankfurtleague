@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteSpielerAction } from "@/features/spieler/actions";
+import { RETIREMENT_CONSEQUENCE } from "@/features/spieler/constants";
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
@@ -30,7 +31,7 @@ export function AdminDeleteSpielerModal({
       heading="Spieler stilllegen"
       entityLabel="den Spieler"
       entityName={spieler.fullName}
-      consequence="Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl."
+      consequence={RETIREMENT_CONSEQUENCE}
       successMessage="Spieler stillgelegt"
       onConfirm={() => deleteSpielerAction({ id: spieler.id })}
     />
