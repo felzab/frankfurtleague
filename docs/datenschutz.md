@@ -172,7 +172,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   retirement the row already carried keeps its own day: a referee who stopped officiating last season
   is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
   the person, and beside a fixture list that never expires it narrows them to the few referees one
-  school ever sent; `default_payment` stays, being the league's rate for the job. A person who
+  school ever sent; `default_payment` stays, and it is that referee's own agreed fee rather than a league-wide rate. A person who
   officiates again is entered as a new referee.
 - **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
   are one subject to the match, so every seat the address holds is listed for confirmation before the

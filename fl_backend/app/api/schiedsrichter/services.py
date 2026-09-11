@@ -25,7 +25,7 @@ ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {
     **ANONYMISED_KONTAKT,
     "name": None,
     # The PERSON's own attribute: beside a fixture list that never expires it narrows them to the few
-    # referees one school sent. `default_payment` stays, being the LEAGUE's rate for the job rather
+    # referees one school sent. `default_payment` stays, and is THAT referee's own agreed fee rather
     # than anything about them.
     "schule": None,
 }
