@@ -108,6 +108,26 @@ function answerOf(file: string | null): string {
   return markup;
 }
 
+/**
+ * `StatusPanel`'s badge mark, read off a reference render rather than spelled here. The badge text
+ * carries no variant arm, so one mark reads both panels.
+ */
+const BADGE_MARK = (() => {
+  const reference = renderTree(h(StatusPanel, { badgeLabel: "PROBE-BADGE", heading: "PROBE", message: "PROBE", children: null }));
+  const badge = /<span class="([^"]*)">PROBE-BADGE<\/span>/.exec(reference);
+  if (badge === null) throw new Error("the status panel renders no badge to read a mark off");
+
+  return badge[1]!;
+})();
+
+/** The word one answer badges itself with, read off its rendered markup. */
+function badgeOf(file: string | null): string {
+  const after = answerOf(file).split(`<span class="${BADGE_MARK}">`)[1];
+  if (after === undefined) throw new Error(`${String(file)} renders no badge to read`);
+
+  return after.split("</span>")[0]!;
+}
+
 const VARIANTS = ["page", "inline"] as const;
 const INTENTS = ["primary", "outline"] as const;
 const HOVERS = ["aria", "css"] as const;
@@ -213,6 +233,19 @@ describe("what each area answers a crash and a missing page with", () => {
         `${shown(dir)} answers its crash and its missing page with different panels, so the two read as two designs`,
       );
       assert.equal(variantOf(crash).length, 1, `${shown(dir)}'s answers are drawn by hand rather than from the status panel`);
+    }
+  });
+
+  /* One word per state across the whole tree. A reader who meets a dead end in two areas meets the
+     same object twice, and the badge is the loudest word on the panel. */
+  it("badges each state with one word sitewide", () => {
+    for (const [state, files] of [
+      ["crash", PAIRS.map((pair) => pair.crash)],
+      ["missing page", PAIRS.map((pair) => pair.missing)],
+    ] as const) {
+      const words = [...new Set(files.map(badgeOf))].sort();
+
+      assert.deepEqual(words.length, 1, `a ${state} is badged ${words.join(" and ")} depending on the area, so one state reads as two`);
     }
   });
 

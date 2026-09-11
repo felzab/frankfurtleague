@@ -12,7 +12,7 @@ export function DashboardError({ error, retry }: { error: Error & { digest?: str
     <StatusPanel
       variant="inline"
       tone="warning"
-      badgeLabel="Fehlpass"
+      badgeLabel="Spielunterbrechung"
       heading="Daten konnten nicht geladen werden."
       message="Dieser Bereich ist gerade nicht erreichbar."
       digestLabel="Ref"
