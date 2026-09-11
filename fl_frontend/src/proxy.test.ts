@@ -142,11 +142,10 @@ describe("where the admin proxy sends a signed-out request", () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ method: "POST" })), "/signin");
   });
 
-  it("lets a POST carrying `next-action` through, whose answer has to be an RSC payload and not a redirect", async () => {
-    const answer = await arriveAtAdmin({ method: "POST", action: true });
-
-    assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.status, 200);
+  // The case the whole file exists for: let this one through and Next answers it by rendering the
+  // admin layout into the action's response, which is the shell served to a caller with no session.
+  it("redirects a POST carrying `next-action`, the one arrival react-dom really does send an action on", async () => {
+    assert.equal(redirectedTo(await arriveAtAdmin({ method: "POST", action: true })), "/signin");
   });
 });
 
@@ -157,7 +156,18 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ token: ADMIN_TOKEN })), null);
   });
 
+  it("lets that administrator's action POST through, whose answer has to be an RSC payload and not a redirect", async () => {
+    const answer = await arriveAtAdmin({ method: "POST", action: true, token: ADMIN_TOKEN });
+
+    assert.equal(redirectedTo(answer), null);
+    assert.equal(answer.status, 200);
+  });
+
   it("sends a session whose address has left the allowlist to the public root", async () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ token: REMOVED_TOKEN })), "/");
+  });
+
+  it("sends that session's action POST to the public root as well", async () => {
+    assert.equal(redirectedTo(await arriveAtAdmin({ method: "POST", action: true, token: REMOVED_TOKEN })), "/");
   });
 });

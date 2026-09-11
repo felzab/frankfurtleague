@@ -7,14 +7,9 @@ import { auth } from "./core/auth";
  * the matcher stay scoped to `/admin` — `auth()` is a Mongo round trip, never on a public load.
  */
 export default auth((req) => {
+  // A server action's POST takes the checks below too: an action writing a cookie makes Next render
+  // the tree at the POSTed URL into its response, admin layout and all (`docs/frontend/spec.md :: I243`).
   const isLoggedIn = !!req.auth;
-
-  // POST alone: a GET carrying the header is an ordinary page render, and exempting one serves the
-  // admin shell to any caller. A server action's response must be an RSC payload, and
-  // `getAdminSession()` authorizes it (`docs/frontend/spec.md :: I7`).
-  if (req.method === "POST" && req.headers.has("next-action")) {
-    return NextResponse.next();
-  }
 
   // No callbackUrl: honouring one needs the destination checked against an allowlist first.
   if (!isLoggedIn) {

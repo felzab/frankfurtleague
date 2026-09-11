@@ -1,10 +1,11 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
 import { AuthError } from "next-auth";
 
-import { signIn, signOut } from "@/core/auth";
+import { CALLBACK_URL_COOKIE, signIn, signOut } from "@/core/auth";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -29,9 +30,13 @@ async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
   return result;
 }
 
+// What bounds the send is the allowlist: `@auth/core` calls the `signIn` callback before
+// `sendVerificationRequest`, so a rejected address is mailed nothing.
+
 /**
- * Public by necessity, so nginx rate-limits POSTs to `/signin` (ops spec I4) — the only thing
- * between this and an open email relay.
+ * Public by necessity. `nginx/prod.conf :: location = /signin` bounds that PATH rather than this
+ * action: a server action resolves from a process-wide module map, so the same POST to any other
+ * page reaches this and is metered by nothing.
  */
 // `_prevState` is required by `useActionState`'s calling convention -- the action receives the
 // previous state first -- and read by nothing: the form re-renders from the returned state alone.
@@ -66,6 +71,11 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
       // AccessDenied from the allowlist check arrives as an AuthError, and rethrowing one would
       // answer the rejected address with the error page while an allowlisted one gets a sentence.
       if (!(error instanceof AuthError)) throw error;
+    } finally {
+      // Equalises the side effects as `neutralResult` equalises the body: only the allowlisted branch
+      // reaches Auth.js's callback-url write, and that one `Set-Cookie`, the revalidation header it
+      // draws and the page render that follows each name the address as allowlisted.
+      (await cookies()).delete(CALLBACK_URL_COOKIE);
     }
 
     // The one exit both outcomes take. A second `return` above it is how the two become

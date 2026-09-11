@@ -16,9 +16,9 @@ function opensOnGuard(name: string, body: string): boolean {
   return at !== -1 && OPENS_ON_GUARD.test(body.slice(at + opener.length));
 }
 
-/* `fl_frontend/src/proxy.ts` lets a server action's POST past unauthenticated because the action
-   refuses the caller itself (`docs/frontend/spec.md :: I243`). An action arriving without that
-   refusal is exempt at the proxy and open here, and no other reader sees the pair. */
+/* The second of two layers: `fl_frontend/src/proxy.ts` turns an unauthenticated `/admin/:path*` POST
+   away (`docs/frontend/spec.md :: I243`), and this one holds whatever reaches an action anyway. No
+   other reader sees the pair. */
 describe("the session guard every admin server action opens on", () => {
   it("finds every slice's actions module, and places every export each one declares", () => {
     assert.ok(ACTION_MODULES.length >= 10, `expected at least 10 slice action modules, found ${String(ACTION_MODULES.length)}`);
@@ -51,7 +51,7 @@ describe("the session guard every admin server action opens on", () => {
       for (const [name, body] of bodies) {
         assert.ok(
           body.includes("getAdminSession()"),
-          `${file} :: ${name} never checks a session, and the proxy exempts the POST that reaches it`,
+          `${file} :: ${name} never checks a session, so the proxy's matcher is the only thing between it and any caller`,
         );
         guarded++;
       }
