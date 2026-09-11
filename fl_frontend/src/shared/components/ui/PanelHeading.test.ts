@@ -28,8 +28,12 @@ function code(source: string): string {
 
 type Heading = { level: string; tag: string; body: string };
 
-/** Every heading, found by scanning rather than by a pattern that would have to close itself. */
-function headings(source: string): Heading[] {
+/**
+ * Every heading, found by scanning rather than by a pattern that would have to close itself.
+ *
+ * `subject` is positional and undefaulted so no caller can throw without naming what it was reading.
+ */
+function headings(source: string, subject: string): Heading[] {
   const found: Heading[] = [];
   for (const level of ["1", "2", "3", "4", "5", "6"]) {
     const close = `</h${level}>`;
@@ -37,7 +41,11 @@ function headings(source: string): Heading[] {
     while (at !== -1) {
       const tag = openingTag(source, at);
       const ends = source.indexOf(close, at);
-      if (tag !== "" && ends !== -1) found.push({ level, tag, body: source.slice(at + tag.length, ends) });
+      // Thrown rather than skipped: a heading dropped here is a heading the cases below never judge,
+      // and each of them reads an empty list as a clean tree.
+      if (tag === "") throw new Error(`${subject}: an <h${level}> opening tag could not be read`);
+      if (ends === -1) throw new Error(`${subject}: an <h${level}> never closes`);
+      found.push({ level, tag, body: source.slice(at + tag.length, ends) });
       at = source.indexOf(`<h${level}`, at + 1);
     }
   }
@@ -81,7 +89,7 @@ describe("a panel's hint sits beside its heading", () => {
       const source = code(readFileSync(file, "utf8"));
       const names = hintBearingNames(source);
 
-      return headings(source).some(({ body }) => body.includes("<Hint") || mentions(body, names));
+      return headings(source, rel(file)).some(({ body }) => body.includes("<Hint") || mentions(body, names));
     });
 
     assert.deepEqual(nested.map(rel), []);
@@ -91,7 +99,7 @@ describe("a panel's hint sits beside its heading", () => {
     // What closes the route the case above cannot follow: a hint handed in as a PROP crosses a module
     // boundary no reader of one file can resolve. A panel that spells no heading can nest nothing in one.
     const spelled = FILES.filter(
-      (file) => file !== COMPONENT && headings(code(readFileSync(file, "utf8"))).some(({ tag }) => tag.includes("heading()")),
+      (file) => file !== COMPONENT && headings(code(readFileSync(file, "utf8")), rel(file)).some(({ tag }) => tag.includes("heading()")),
     );
 
     assert.deepEqual(spelled.map(rel), []);
@@ -108,7 +116,7 @@ describe("a panel's hint sits beside its heading", () => {
     // The shared component is now the only place that could nest them again, and the only place the
     // panel's heading LEVEL is decided.
     assert.deepEqual(
-      headings(HEADING).map(({ level, body }) => [level, body]),
+      headings(HEADING, "PanelHeading").map(({ level, body }) => [level, body]),
       [["2", "Kontaktpersonen"]],
       "the shared heading no longer renders exactly one `<h2>` holding its title alone",
     );
@@ -121,6 +129,13 @@ describe("a panel's hint sits beside its heading", () => {
     // `docs/frontend/spec.md :: I81`: a text run's mass sits above its box's centre, so a flex row
     // centring the pair looks wrong where the shared line box does not.
     assert.match(HEADING, /^<div><h2 /, "the pair is laid out by a box of its own rather than by the title's own line");
-    assert.ok(headings(HEADING)[0]?.tag.includes("inline"), "the heading takes the whole line, leaving the hint below it");
+    assert.ok(headings(HEADING, "PanelHeading")[0]?.tag.includes("inline"), "the heading takes the whole line, leaving the hint below it");
+  });
+
+  /* A heading this walk discards sits in no list, and both sweeps above read an empty list as a
+     clean tree — so the one shape that could hide a nested hint is the one they never see. */
+  it("fails on a heading it cannot read rather than dropping it", () => {
+    assert.throws(() => headings("<h2 title={x}<div>Kontaktpersonen</h2>", "unlesbar"), /could not be read/);
+    assert.throws(() => headings('<h2 className="fluid-md">Kontaktpersonen', "offen"), /never closes/);
   });
 });

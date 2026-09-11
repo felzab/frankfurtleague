@@ -30,9 +30,8 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const SHAPES: readonly AdminCrudShape[] = ["table", "cards", "sections"];
 
-/* The variant family the reader below must tell from a `has-` on the element itself. Nothing in the
-   tree wears that variant, so `@source inline` emits it rather than the scanner's reach into this
-   file's own literal. */
+/* The variant family the reader below must tell from a `has-` on the element itself, which nothing
+   in the tree wears. */
 const REACHES_UPWARD = "group-has-[tbody]:[--admin-region-held:var(--admin-placeholder-hold)]";
 
 type Compiled = { selector: string; banded: boolean; gated: boolean; declarations: Map<string, string> };
@@ -57,6 +56,8 @@ function subject(selector: string): { name: string; rest: string } | null {
 }
 
 const STYLESHEET = path.join(SRC, "app", "globals.css");
+/* Declared rather than left to the scanner, which reads this file and emits the candidate anyway: a
+   sweep asserting over a fixture it did not declare is `.claude/rules/cross-surface.md :: sweeps`. */
 const compiled = await postcss([tailwind()]).process(`${await readFile(STYLESHEET, "utf8")}\n@source inline("${REACHES_UPWARD}");\n`, {
   from: STYLESHEET,
 });
@@ -168,11 +169,15 @@ function lengthPx(value: string, variables: Readonly<Record<string, string>>): n
       return known;
     });
 
-  const tokens =
-    resolved
-      .replace(/calc/g, "")
-      .replace(/(\d+(?:\.\d+)?)(rem|px)/g, (_whole, size: string, unit: string) => String(Number(size) * (unit === "rem" ? REM : 1)))
-      .match(/\d+(?:\.\d+)?|[-+*/()]/g) ?? [];
+  const converted = resolved
+    .replace(/calc/g, "")
+    .replace(/(\d+(?:\.\d+)?)(rem|px)/g, (_whole, size: string, unit: string) => String(Number(size) * (unit === "rem" ? REM : 1)));
+  // A unit left standing here is dropped by the tokeniser below and its number read bare, so
+  // `100%` answers a hundred and the case reading it fails naming the wrong property.
+  const stray = /\d\s*(%|[A-Za-z]+)/.exec(converted);
+  assert.ok(stray === null, `${value} is measured in ${String(stray?.[1])}, which this arithmetic cannot resolve`);
+
+  const tokens = converted.match(/\d+(?:\.\d+)?|[-+*/()]/g) ?? [];
 
   let at = 0;
   const factor = (): number => {
@@ -507,6 +512,17 @@ describe("the reader behind the ancestor sweep", () => {
 
     for (const selector of [".a .b", ".a > .b", ".a + .b", ".a:is(:where(.g) *)"])
       assert.ok(reachesOutside(selector), `${selector}: read as reaching no further than the element`);
+  });
+});
+
+/* Every box claim above is this arithmetic's, so a length it reads wrongly fails a case naming a
+   property that is fine. */
+describe("the arithmetic behind the box claims", () => {
+  it("refuses a length in a unit it cannot resolve, and reckons the ones it can", () => {
+    assert.equal(lengthPx("calc(2rem + 4px)", {}), 36);
+    assert.equal(lengthPx("var(--probe)", { "--probe": "1.5rem" }), 24);
+    assert.throws(() => lengthPx("100%", {}), /measured in %/);
+    assert.throws(() => lengthPx("4vh", {}), /measured in vh/);
   });
 });
 

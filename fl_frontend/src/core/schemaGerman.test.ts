@@ -248,6 +248,12 @@ function requiredNamesIn(raw: string, resolve: (identifier: string) => readonly 
 
   for (const tag of source.matchAll(TAG)) {
     const opening = openingTag(source, tag.index);
+    // Reported before the mark is looked for, never after: an empty span carries no `isRequired` for
+    // the test below to find, so a marked control behind a lost brace count leaves in silence.
+    if (opening === "") {
+      unread.push(source.slice(tag.index).split("\n")[0] ?? "");
+      continue;
+    }
     if (!MARK.test(opening)) continue;
 
     const literal = LITERAL_NAME.exec(opening);
@@ -297,6 +303,9 @@ function propValues(sources: ReadonlyMap<string, string>, file: string, identifi
 
     for (const site of otherText.matchAll(new RegExp(String.raw`<` + component + String.raw`\b`, "g"))) {
       const tag = openingTag(otherText, site.index);
+      // Thrown rather than skipped: an empty span fails both tests below, so an unreadable site is
+      // credited the default and the sweep grades a path that site may have overridden.
+      if (tag === "") throw new Error(`${other}: a <${component}> site's opening tag could not be read`);
       const passed = literal.exec(tag);
 
       if (passed?.[1] !== undefined) values.push(passed[1]);
@@ -410,6 +419,29 @@ describe("what a schema does with a field its form marks required", () => {
     assert.deepEqual(unread, ["<TextField isRequired {...feld} />", '<TextField isRequired {...register("vorname")} />']);
   });
 
+  /* A type argument holds the one `<` an opening tag carries outside a brace, so a walk stopping
+     there hands the mark back an empty span — including the arrow inside a function type. */
+  it("reads a mark past a type argument written on the control's own name", () => {
+    const sample = [
+      '<PickOrCreateAutocomplete<SpielortAngebot> isRequired name="spielort_id">',
+      '<EntityForm<TeamCreateDraft> isRequired name="shorthand">',
+      '<Feld<(value: string) => void> isRequired name="kader.trikot">',
+    ].join("\n");
+
+    assert.deepEqual(requiredNamesIn(sample, () => []).names, ["spielort_id", "shorthand", "kader.trikot"]);
+  });
+
+  /* The span a lost brace count leaves behind carries no `isRequired` either, so a mark tested
+     against it is a mark this reader never saw. */
+  it("reports a control whose opening tag it could not read at all", () => {
+    const sample = '<TextField isRequired title={x}<div name="vorname">';
+
+    const { names, unread } = requiredNamesIn(sample, () => []);
+
+    assert.deepEqual(names, []);
+    assert.deepEqual(unread, ['<TextField isRequired title={x}<div name="vorname">']);
+  });
+
   it("finds a prop wherever the destructuring puts it, so a reflow drops no path", () => {
     /* Every prop on one line, which is what a short parameter list formats to: an anchor on the
        indentation stops seeing it, and every address path built from it leaves the sweep. */
@@ -421,16 +453,37 @@ describe("what a schema does with a field its form marks required", () => {
     assert.deepEqual(propValues(sources, "fields.tsx", "namePrefix"), ["schule.address", "address"]);
   });
 
+  /* A site that overrides the prop and a site that leaves it off are told apart by the tag alone, so
+     an unreadable one is a site this reader cannot classify rather than one that passed the prop. */
+  it("refuses a call site whose opening tag it could not read rather than crediting the default", () => {
+    const sources = new Map([
+      ["fields.tsx", 'export function AddressFields({ children, namePrefix = "address", onChange }: Props) {'],
+      ["form.tsx", "<AddressFields title={x}<div namePrefix={pfad} />"],
+    ]);
+
+    assert.throws(() => propValues(sources, "fields.tsx", "namePrefix"), /form\.tsx/);
+  });
+
   it("places every marked control in the tree", () => {
     /* A path this reader cannot build is a finding, never a member it drops: dropped, it takes its
        schema out of the grading below while every floor the rest of the population keeps stays green. */
     assert.deepEqual(UNREAD, []);
   });
 
+  it("lands every required name on a schema path", () => {
+    /* The mark and the path are written in two files, and a rename in either parts them: the pair
+       leaves `marked` below, its case with it, and no floor over the rest of the tree moves. */
+    const unplaced = [...REQUIRED_NAMES].filter((required) => !marked.some((probe) => covers(required, probe.path)));
+
+    assert.deepEqual(unplaced, [], `these forms mark a path no payload schema carries:\n  ${unplaced.join("\n  ")}`);
+  });
+
   it("found the marks and the schema paths they land on", () => {
-    // Floors, because a walk that stopped resolving would leave every case below true of nothing.
-    assert.ok(REQUIRED_NAMES.size >= 20, `expected at least 20 paths marked required, found ${String(REQUIRED_NAMES.size)}`);
-    assert.ok(marked.length >= 60, `expected at least 60 schema paths carrying a mark, found ${String(marked.length)}`);
+    /* Floors, because a walk that stopped resolving would leave every case below true of nothing.
+       Set one form section under the tree's own count, so a field made optional does not re-open
+       the number while a collapse still hits them. */
+    assert.ok(REQUIRED_NAMES.size >= 37, `expected at least 37 paths marked required, found ${String(REQUIRED_NAMES.size)}`);
+    assert.ok(marked.length >= 140, `expected at least 140 schema paths carrying a mark, found ${String(marked.length)}`);
   });
 
   for (const { schema, root, path: fieldPath, wrong } of marked) {

@@ -323,11 +323,11 @@ describe("the shape the second roster reads", () => {
     assert.throws(() => armsAPress("<Button title={x}<div></Button>", "wirr"), /could not be read/);
   });
 
-  /* The residue of the walk above: a generic type argument stops the tag being read, and a press on
-     such a tag belongs to a control this reader never judged. */
+  /* The residue of the walk above, on a tag whose name is no control's: a lost brace count stops the
+     tag being read, and a press on such a tag belongs to a control this reader never judged. */
   it("fails on a press it could not place rather than passing the file over", () => {
     assert.throws(
-      () => armsAPress("<Pressable<Sache> onPress={() => go()}>{armed ? 1 : 2}</Pressable>", "unlesbar"),
+      () => armsAPress("<Pressable title={x}<div> onPress={() => go()}>{armed ? 1 : 2}</Pressable>", "unlesbar"),
       /stands outside every control/,
     );
   });

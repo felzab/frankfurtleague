@@ -18,6 +18,13 @@ describe("the source a sweep reads", () => {
       /role="alert"/,
       "a comment marker inside a string ate the code after it",
     );
+    // Its own arm of the quote guard, and the one a class list reaches: a composed list is a template
+    // literal here, and an arbitrary value holding a URL puts a `//` inside one.
+    assert.match(
+      blankComments('const klassen = `${basis} bg-[url(https://x.test/a.svg)]`; role="alert"'),
+      /role="alert"/,
+      "a comment marker inside a template literal ate the code after it",
+    );
   });
 
   /* The shape that reaches `openingTag`: a comment between two attributes holds a `<` at brace depth
