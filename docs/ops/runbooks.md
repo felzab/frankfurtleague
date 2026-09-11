@@ -53,12 +53,15 @@ the machine is outside the repository. What it does tell you:
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
-  carries the schema's key set rather than the schema, so **a name the frontend does not declare
-  refuses the deploy at exit 2 with nothing recreated** and the remedy is one of three — delete the
-  line, correct its spelling, or declare the name in the schema, nothing in that schema reading an
-  undeclared one. A value it holds is judged at boot and nowhere else. It does catch the misspelling
-  whose value is EMPTY that the backend's reader drops, and a line its reader cannot take at all is
-  an advisory rather than a refusal ([`spec.md`](spec.md) §1.5).
+  carries the schema's two key sets rather than the schema, so **a name the frontend does not
+  declare, and a name it requires that the file never declares, each refuse the deploy at exit 2
+  with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
+  spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
+  **write a missing required one into the file**, which is where a release adding a required name
+  meets a host nobody edited. A value it holds is judged at boot and nowhere else, `AUTH_RESEND_KEY`
+  among them, which production alone demands. It does catch the misspelling whose value is EMPTY
+  that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
+  than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -712,13 +715,13 @@ are taken by hand in the mail provider's own console; step 3 is a line in the se
 file, and it is the one that stops the frontend booting.
 
 1. Create an endpoint at `https://<the league's domain>/api/mail/zustellung`.
-2. Subscribe exactly six events -- `email.delivered`, `email.bounced`, `email.complained`,
-   `email.suppressed`, `email.failed` and `email.delivery_delayed` -- and **neither `email.opened`
+2. Subscribe exactly six events — `email.delivered`, `email.bounced`, `email.complained`,
+   `email.suppressed`, `email.failed` and `email.delivery_delayed` — and **neither `email.opened`
    nor `email.clicked`**, which the published notice promises are not measured
    ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 3. Copy the signing secret into the frontend's environment as `RESEND_WEBHOOK_SECRET`. **It begins
    `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
-   the boot check does not, deliberately -- refusing at start beats answering 400 to every event.
+   the boot check does not, deliberately — refusing at start beats answering 400 to every event.
 4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
    step 2.
 

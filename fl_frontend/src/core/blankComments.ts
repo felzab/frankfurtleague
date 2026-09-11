@@ -4,7 +4,10 @@
  * lost brace count.
  */
 export function blankComments(source: string): string {
-  const out = [...source];
+  // Split by code unit rather than spread by code point: every offset below is `length`'s or
+  // `indexOf`'s, and an astral character puts the two a position apart from there on. The lone
+  // surrogates this leaves are rejoined by `join`.
+  const out = source.split("");
   const blank = (from: number, to: number): void => {
     for (let at = from; at < to; at++) if (out[at] !== "\n") out[at] = " ";
   };

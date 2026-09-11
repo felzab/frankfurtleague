@@ -85,12 +85,13 @@ function errnoCode(error: unknown): string | undefined {
 /** Sorts by name into the order the messages were written, and Windows takes no colon in a file name. */
 function sinkFileStem(subject: string, at: Date): string {
   const stamp = at.toISOString().replaceAll(":", "-");
-  // Folded rather than dropped, so „Bewerbung vollständig“ reaches the stem whole rather than broken
-  // at the umlaut.
+  // Folded rather than dropped, so a German subject reaches the stem whole rather than broken at the
+  // letter: `ß` is the one NFKD leaves standing, and the separator run below would eat it.
   const slug = subject
     .normalize("NFKD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
+    .replaceAll("ß", "ss")
     .replace(/[^a-z0-9]+/g, "-")
     .slice(0, SINK_SLUG_MAX)
     .replace(/^-+|-+$/g, "");

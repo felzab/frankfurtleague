@@ -27,12 +27,15 @@ const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-environment-names-"));
 // Dummy names throughout, and files this suite writes itself: nothing here reads, mounts or names a
 // real environment file.
 const DECLARED = ["ALPHA_NAME", "BETA_NAME"];
+// One of the two, rather than none: a default demanding nothing would let a case that forgets the
+// required half read as a pass on it.
+const SETS = { declared: DECLARED, required: ["ALPHA_NAME"] };
 
 /** One run of the checker over files written for the case, answering the code the deploy grades. */
-function check(contents, declared = DECLARED) {
+function check(contents, sets = SETS) {
   const stem = path.join(SCRATCH, `case-${String(process.hrtime.bigint())}`);
   writeFileSync(`${stem}.environment`, contents);
-  if (declared !== null) writeFileSync(`${stem}.json`, JSON.stringify(declared));
+  if (sets !== null) writeFileSync(`${stem}.json`, JSON.stringify(sets));
 
   return spawnSync(process.execPath, [CHECKER, `${stem}.environment`, `${stem}.json`], { encoding: "utf8" });
 }
@@ -116,6 +119,32 @@ describe("what the deploy grades the checker's answer as", () => {
     assert.equal(done.status, 4, done.stderr);
     assert.equal(done.stderr.trim(), "Error");
   });
+
+  // The half a file nobody edited fails: an undeclared name is a line somebody wrote, and a missing
+  // required one is a line nobody did, which no reader over the file's own names can see.
+  it("answers 3 naming a required variable the file never declares", () => {
+    const done = check("BETA_NAME=two\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
+  });
+
+  // Both lines in one run: a remedy held back until the next one is a second visit to the host.
+  it("names both kinds where the file carries one of each", () => {
+    const done = check("GAMMA_NAME=two\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Undeclared environment variables: GAMMA_NAME/);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
+  });
+
+  // The boundary of what this refusal proves: the name is declared and the value behind it stays
+  // the boot gate's, which is what `docs/ops/spec.md :: I183` fixes.
+  it("counts a required name whose value is empty as declared", () => {
+    const done = check("ALPHA_NAME=\n");
+
+    assert.equal(done.status, 0, done.stderr);
+  });
 });
 
 describe("the key set the image carries", () => {
@@ -137,8 +166,18 @@ describe("the key set the image carries", () => {
     const { frontend_config } = await import("./src/core/config.ts");
     const wired = Object.keys(frontend_config).sort();
 
+    const emitted = JSON.parse(readFileSync(destination, "utf8"));
+
     assert.ok(wired.length >= 10, `expected the schema to declare at least 10 names, read ${String(wired.length)}`);
-    assert.deepEqual(JSON.parse(readFileSync(destination, "utf8")), wired);
+    assert.deepEqual(emitted.declared, wired);
+    // Which names are required is derived by booting, in `fl_frontend/src/core/config.test.ts`; what
+    // this asks is that the file carry the set at all, an empty one reading to the checker as a
+    // schema demanding nothing of a host.
+    assert.ok(emitted.required.length > 0, "the emitted file demands no name of a host at all");
+    assert.deepEqual(
+      emitted.required.filter((name) => !wired.includes(name)),
+      [],
+    );
   });
 
   it("is copied to the paths the checker reads when the deploy gives it none, at a mode of its own", () => {

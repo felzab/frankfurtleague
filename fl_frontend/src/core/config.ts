@@ -179,9 +179,23 @@ export const frontend_config = createEnv({
   },
 });
 
+const DECLARATIONS: Record<string, z.ZodType> = { ...server, ...client };
+
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
  * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
  * serves production.
  */
-export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys({ ...server, ...client }).sort();
+export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys(DECLARATIONS).sort();
+
+/**
+ * The same preflight refuses a file that omits one of these. A name the file never declares reaches
+ * `createEnv` as `undefined`, so the container is recreated and then refuses to boot behind an edge
+ * already answering 502.
+ */
+export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = Object.entries(DECLARATIONS)
+  // Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
+  // spellings of one answer, and Zod publishes no introspection that gives it.
+  .filter(([, declaration]) => !declaration.safeParse(undefined).success)
+  .map(([name]) => name)
+  .sort();

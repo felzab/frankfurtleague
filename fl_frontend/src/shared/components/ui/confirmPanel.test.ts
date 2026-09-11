@@ -195,7 +195,9 @@ const zweige = (kinder: string): Set<string> => new Set([...kinder.matchAll(ZWEI
  */
 function armsAPress(source: string, file: string): boolean {
   const { gefunden, huellen } = controls(source, file);
-  const draussen = [...source];
+  // Split by code unit rather than spread by code point: every `von` and `bis` above is `indexOf`'s
+  // or `length`'s, and one astral character puts a code-point array a position out from there on.
+  const draussen = source.split("");
   // Blanked rather than cut out: two spans that overlap would join the text on either side of them
   // into a gate neither half holds.
   const leeren = ([von, bis]: [number, number]): void => {
@@ -287,6 +289,11 @@ const SCHREIBWEISEN: Record<string, string> = {
 
 const NATIV_UNTERWEGS = '{sendet && <Spinner />}\n<button disabled={sendet}>{sendet ? "Sendet..." : "Absenden"}</button>';
 
+/* The reveal stands against the wrapper's own `>` or this sample cannot fail: `armsAPress` blanks by
+   code-unit offsets, and a surrogate pair above the span moves what it blanks onto that reveal. */
+const umhuelltHinter = (kopf: string): string =>
+  `${kopf}<div onPress={guard}>{armed && <Alarm />}<Button isDisabled={laeuft} onPress={go}>{armed ? "Ja" : "Los"}</Button></div>`;
+
 describe("the shape the second roster reads", () => {
   /* The failure the pair exists to catch: a panel that arms without importing the hook. Its flag is
      spelled differently on purpose — the shared spelling is the one both routes already share. */
@@ -302,6 +309,17 @@ describe("the shape the second roster reads", () => {
     for (const [was, quelle] of Object.entries(SCHREIBWEISEN)) {
       assert.ok(armsAPress(blankComments(quelle), was), `${was}: absent from the roster`);
     }
+  });
+
+  it("finds a panel whose own copy carries an astral character", () => {
+    assert.ok(
+      armsAPress(blankComments(umhuelltHinter("<p>Postfach</p>\n")), "ohne"),
+      "the sample is off the roster with no glyph in it at all",
+    );
+    assert.ok(
+      armsAPress(blankComments(umhuelltHinter("<p>Postfach \u{1F4EC}</p>\n")), "mit"),
+      "one emoji in a panel's copy drops that panel out of the roster",
+    );
   });
 
   /* A flag saying the write is in flight reveals a region and rewords the control exactly as an

@@ -7,8 +7,8 @@ const ASSIGNMENT = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/;
 // file. It declares the name all the same, so a typo written this way is the fault this refuses.
 const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 
-// Where `fl_frontend/Dockerfile` puts the two: the WORKDIR the mount lands in, and the key set the
-// builder emitted from the schema (`scripts/ops/deploy.sh :: check_frontend_env_names`).
+// Where `fl_frontend/Dockerfile` puts the two: the WORKDIR the mount lands in, and the two key sets
+// the builder emitted from the schema (`scripts/ops/deploy.sh :: check_frontend_env_names`).
 export const ENVIRONMENT_FILE = "/app/.env";
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
@@ -80,9 +80,18 @@ export function undeclaredNames(found, declared) {
   return found.filter((name) => !known.has(name));
 }
 
+/**
+ * A required name the file never declares. The boot gate meets one after the recreate, where the
+ * edge is already answering 502 and the remedy is an edit at a keyboard on the host.
+ */
+export function missingNames(found, required) {
+  const present = new Set(found);
+  return required.filter((name) => !present.has(name));
+}
+
 function report(argv) {
   const [file = ENVIRONMENT_FILE, declaredFile = DECLARED_NAMES_FILE] = argv;
-  const declared = JSON.parse(readFileSync(declaredFile, "utf8"));
+  const { declared, required } = JSON.parse(readFileSync(declaredFile, "utf8"));
   const { names, unreadable } = scanNames(readFileSync(file, "utf8"));
 
   // Judged before the names are, and answered with line numbers rather than lines: a file this
@@ -93,9 +102,13 @@ function report(argv) {
   }
 
   const undeclared = undeclaredNames(names, declared);
-  if (undeclared.length === 0) return 0;
+  const missing = missingNames(names, required);
+  if (undeclared.length === 0 && missing.length === 0) return 0;
 
-  process.stderr.write(`Undeclared environment variables: ${undeclared.join(", ")}\n`);
+  // Both lines where both apply: one run of the preflight is one visit to the host, and a remedy
+  // held back until the next run is a second recreate to reach it.
+  if (undeclared.length > 0) process.stderr.write(`Undeclared environment variables: ${undeclared.join(", ")}\n`);
+  if (missing.length > 0) process.stderr.write(`Missing required environment variables: ${missing.join(", ")}\n`);
   return 3;
 }
 

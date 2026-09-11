@@ -354,6 +354,16 @@ describe("the sink a deployment that does not mail writes instead", () => {
     assert.ok(written.endsWith(MESSAGE.html), "the message was wrapped rather than written whole");
   });
 
+  /* The name is what a developer reads to find which message was withheld, and `ß` is the one German
+     letter the fold above leaves for the separator run to eat — „Größe“ arriving as `gro-e`. */
+  it("names the file for a subject carrying an Eszett rather than breaking at it", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail({ ...MESSAGE, subject: "Große Fußball-Saison" }));
+
+    assert.match(sinkFileNamedOn(logs[0]!), /-grosse-fussball-saison\.html$/);
+  });
+
   /* A Windows text-mode stream turns every `\n` into `\r\n`, and a message whose newlines flipped is
      a message that renders differently from the one the provider would have been given. */
   it("writes the newlines the message has, never the host's", async () => {

@@ -14,8 +14,14 @@ registerHooks({
   },
 });
 
-const { ADMIN_EMAIL_ALLOWLIST, DECLARED_ENVIRONMENT_NAMES, failingVariableNames, INTERNAL_API_KEY, refuseInvalidEnvironment } =
-  await import("./config.ts");
+const {
+  ADMIN_EMAIL_ALLOWLIST,
+  DECLARED_ENVIRONMENT_NAMES,
+  failingVariableNames,
+  INTERNAL_API_KEY,
+  refuseInvalidEnvironment,
+  REQUIRED_ENVIRONMENT_NAMES,
+} = await import("./config.ts");
 
 const LENGTH = 64;
 const pad = (head: string): string => head + "k".repeat(LENGTH - [...head].length);
@@ -193,6 +199,25 @@ describe("the credential a deployment that mails must hold", () => {
      file carrying a name the schema does not declare. */
   it("declares the deployment name, so a host may set it at all", async () => {
     assert.ok(DECLARED_ENVIRONMENT_NAMES.includes("APP_ENV"));
+  });
+});
+
+describe("the names the preflight demands a host's file carry", () => {
+  /* Derived by booting rather than read off the schema, which is the emitter's own route: two
+     listings that must agree (`docs/_standard/standard.md :: PRE-4`). */
+  it("names every variable no deployment may leave unset, and no other", async () => {
+    const refused: string[] = [];
+
+    await documentsWrittenByAsync(async () => {
+      for (const name of DECLARED_ENVIRONMENT_NAMES) {
+        // `local` rather than the complete environment's `production`: under production the schema
+        // demands `AUTH_RESEND_KEY` as well, which is a condition on a value and not a name the
+        // preflight can judge (`docs/ops/spec.md` §1.5).
+        await bootWith({ APP_ENV: "local", [name]: undefined }).catch(() => refused.push(name));
+      }
+    });
+
+    assert.deepEqual(refused, [...REQUIRED_ENVIRONMENT_NAMES]);
   });
 });
 

@@ -27,6 +27,20 @@ describe("the source a sweep reads", () => {
     );
   });
 
+  /* Asserted against the whole blanked string rather than by matching the code beside it: a span
+     that slipped by one still hides every word the comment carries, so a `doesNotMatch` passes over
+     the shift. */
+  it("blanks the comment's own span where an astral character stands above it", () => {
+    const comment = '/* role="alert" */';
+    const source = `<span>\u{1F4EC}</span>\n{${comment}}\n<div role="alert">`;
+
+    assert.equal(
+      blankComments(source),
+      `<span>\u{1F4EC}</span>\n{${" ".repeat(comment.length)}}\n<div role="alert">`,
+      "the blanked span sits where the surrogate pair put it rather than where the source does",
+    );
+  });
+
   /* The shape that reaches `openingTag`: a comment between two attributes holds a `<` at brace depth
      zero, and the tag walk answers nothing at all for the control carrying it. */
   it("keeps a tag's own span intact where a comment stands inside it", () => {
