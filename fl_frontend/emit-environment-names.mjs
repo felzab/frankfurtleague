@@ -13,8 +13,14 @@ process.env.SKIP_ENV_VALIDATION = "true";
 
 // A server module, so this needs `--conditions=react-server`; without it `server-only` resolves to
 // the module that throws. `package.json :: scripts` carries that flag and the alias hook.
-const { DECLARED_ENVIRONMENT_NAMES, REQUIRED_ENVIRONMENT_NAMES } = await import("./src/core/config.ts");
+const { DECLARED_ENVIRONMENT_NAMES, PRODUCTION_REQUIRED_ENVIRONMENT_NAMES, REQUIRED_ENVIRONMENT_NAMES } = await import("./src/core/config.ts");
 
-// One file rather than two: the reader mounts nothing extra for the second set, and two artefacts
-// emitted apart are two that can be copied apart.
-writeFileSync(destination, `${JSON.stringify({ declared: DECLARED_ENVIRONMENT_NAMES, required: REQUIRED_ENVIRONMENT_NAMES }, null, 2)}\n`);
+// One file rather than three: the reader mounts nothing extra for the sets beyond the first, and
+// artefacts emitted apart are artefacts that can be copied apart.
+const sets = {
+  declared: DECLARED_ENVIRONMENT_NAMES,
+  required: REQUIRED_ENVIRONMENT_NAMES,
+  productionRequired: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES,
+};
+
+writeFileSync(destination, `${JSON.stringify(sets, null, 2)}\n`);

@@ -20,8 +20,9 @@ const neutralResult = (submittedEmail: string): FormState => ({
   submittedEmail,
 });
 
-// A floor, not a delay: the allowlisted path does a Resend round-trip while the rejected path
-// returns at once, and that difference alone re-opens the oracle.
+// A floor, not a delay: the allowlisted path writes a verification token the rejected path never
+// reaches, and an unfloored answer times that write. The send is behind the response
+// (`fl_frontend/src/core/auth.ts`).
 const MIN_RESPONSE_MS = 700;
 
 async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {

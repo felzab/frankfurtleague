@@ -178,18 +178,21 @@ here says whether the backend accepts what it holds. Its own answer is above."
   fi
 }
 
-# Its own arm, because the frontend's reader judges names alone: the image carries the schema's two
-# key sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
-# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
+# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
+# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, `:: REQUIRED_ENVIRONMENT_NAMES`
+# and `:: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
 check_frontend_env_names() {
   local rc=0
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs || rc=$?
+  # `--production` because this script has one deployment, the production stack the compose file
+  # above names: the reader judges names, and the schema's production-only half rests on a VALUE.
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs --production || rc=$?
   if (( rc == 3 )); then
     refuse "the frontend refuses this host's environment file, and the line above names the variables.
 An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
 default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
 required name is one the boot gate would meet instead, after the recreate and behind an edge already
-answering 502 -- write it into the file.
+answering 502 -- write it into the file WITH A VALUE, a bare \`NAME\` line taking its value from the
+shell that ran compose, which here holds none.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.

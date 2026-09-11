@@ -17,8 +17,8 @@ const MAIL_ENDPOINT = "https://api.resend.com/emails";
 const MAIL_FROM = "no-reply@frankfurtleague.de";
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` bounds a
-// backend call: the sign-in action has a response floor and no ceiling, so a per-attempt budget
-// would multiply that floor by the attempts below.
+// backend call: a per-attempt budget would multiply by the attempts below, and the application-form
+// notices are awaited inside an admin's own save.
 const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */

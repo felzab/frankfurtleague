@@ -19,6 +19,7 @@ const {
   DECLARED_ENVIRONMENT_NAMES,
   failingVariableNames,
   INTERNAL_API_KEY,
+  PRODUCTION_REQUIRED_ENVIRONMENT_NAMES,
   refuseInvalidEnvironment,
   REQUIRED_ENVIRONMENT_NAMES,
 } = await import("./config.ts");
@@ -211,13 +212,27 @@ describe("the names the preflight demands a host's file carry", () => {
     await documentsWrittenByAsync(async () => {
       for (const name of DECLARED_ENVIRONMENT_NAMES) {
         // `local` rather than the complete environment's `production`: under production the schema
-        // demands `AUTH_RESEND_KEY` as well, which is a condition on a value and not a name the
-        // preflight can judge (`docs/ops/spec.md` §1.5).
+        // demands one name more, which is the case below rather than this one.
         await bootWith({ APP_ENV: "local", [name]: undefined }).catch(() => refused.push(name));
       }
     });
 
     assert.deepEqual(refused, [...REQUIRED_ENVIRONMENT_NAMES]);
+  });
+
+  /* Derived the same way, and the half the set above cannot hold: these refuse on a VALUE of
+     `APP_ENV`, and the deploy passes `--production` so that the reader demands them anyway. */
+  it("names every variable production alone may not leave unset, and no other", async () => {
+    const refused: string[] = [];
+
+    await documentsWrittenByAsync(async () => {
+      for (const name of DECLARED_ENVIRONMENT_NAMES) {
+        if (REQUIRED_ENVIRONMENT_NAMES.includes(name)) continue;
+        await bootWith({ APP_ENV: "production", [name]: undefined }).catch(() => refused.push(name));
+      }
+    });
+
+    assert.deepEqual(refused, [...PRODUCTION_REQUIRED_ENVIRONMENT_NAMES]);
   });
 });
 

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
@@ -55,7 +57,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // production must not mail production links (`docs/frontend/spec.md :: I186`).
         const { subject, html, text } = buildMagicLinkEmail(url, frontend_config.AUTH_URL);
 
-        await sendMail({ to, subject, html, text });
+        // Behind the response rather than inside it: a rejected sign-in cannot have the provider's
+        // latency, so awaiting this re-opens the membership oracle the action's floor only narrows
+        // (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`).
+        after(async () => {
+          try {
+            await sendMail({ to, subject, html, text });
+          } catch (failed) {
+            // The only line a failed link leaves: Auth.js's own logger sits in front of the
+            // response and never sees this.
+            logger.error("auth.link_send_failed", undefined, {
+              error_code: "FE-AUTH-002",
+              name: failed instanceof Error ? failed.name : "unknown",
+            });
+          }
+        });
       },
     }),
   ],

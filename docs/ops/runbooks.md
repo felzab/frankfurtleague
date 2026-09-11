@@ -53,13 +53,15 @@ the machine is outside the repository. What it does tell you:
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
-  carries the schema's two key sets rather than the schema, so **a name the frontend does not
-  declare, and a name it requires that the file never declares, each refuse the deploy at exit 2
+  carries the schema's key sets rather than the schema, so **a name the frontend does not
+  declare, and a name it requires that the file gives no value, each refuse the deploy at exit 2
   with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
   spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
-  **write a missing required one into the file**, which is where a release adding a required name
-  meets a host nobody edited. A value it holds is judged at boot and nowhere else, `AUTH_RESEND_KEY`
-  among them, which production alone demands. It does catch the misspelling whose value is EMPTY
+  **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
+  from the shell that ran compose and reaching the container as nothing at all. That is where a
+  release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
+  the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
+  judged at boot and nowhere else. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy

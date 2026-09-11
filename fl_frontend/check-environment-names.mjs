@@ -3,12 +3,15 @@ import { pathToFileURL } from "node:url";
 
 const ASSIGNMENT = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/;
 
-// Compose's pass-through form, taking the value from the shell that ran it rather than from this
-// file. It declares the name all the same, so a typo written this way is the fault this refuses.
+// Compose's pass-through form, which declares the name and carries no value of its own.
 const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 
-// Where `fl_frontend/Dockerfile` puts the two: the WORKDIR the mount lands in, and the two key sets
-// the builder emitted from the schema (`scripts/ops/deploy.sh :: check_frontend_env_names`).
+// Passed by the caller rather than read out of the file being judged: `APP_ENV` lives in that file,
+// so a host's own typo there would decide which names the host is held to.
+const PRODUCTION_FLAG = "--production";
+
+// Where `fl_frontend/Dockerfile` puts the two: the WORKDIR the mount lands in, and the key sets the
+// builder emitted from the schema (`scripts/ops/deploy.sh :: check_frontend_env_names`).
 export const ENVIRONMENT_FILE = "/app/.env";
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
@@ -33,6 +36,7 @@ function endOfQuoted(value, quote, from) {
  */
 export function scanNames(text) {
   const names = new Set();
+  const assigned = new Set();
   const unreadable = [];
   let open = "";
   let openedAt = 0;
@@ -46,10 +50,11 @@ export function scanNames(text) {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("#")) return;
 
-    const assigned = ASSIGNMENT.exec(line);
-    if (assigned !== null) {
-      names.add(assigned[1]);
-      const value = line.slice(assigned[0].length).trimStart();
+    const declaration = ASSIGNMENT.exec(line);
+    if (declaration !== null) {
+      names.add(declaration[1]);
+      assigned.add(declaration[1]);
+      const value = line.slice(declaration[0].length).trimStart();
       const quote = value[0];
       if ((quote === '"' || quote === "'") && endOfQuoted(value, quote, 1) < 0) {
         open = quote;
@@ -71,7 +76,7 @@ export function scanNames(text) {
   // whose every name below this line went unread.
   if (open !== "") unreadable.push(openedAt);
 
-  return { names: [...names].sort(), unreadable };
+  return { names: [...names].sort(), assigned: [...assigned].sort(), unreadable };
 }
 
 /** A `NEXT_PUBLIC_` name is judged here like any other: the client schema declares none, so one in the file reaches no bundle. */
@@ -81,18 +86,26 @@ export function undeclaredNames(found, declared) {
 }
 
 /**
- * A required name the file never declares. The boot gate meets one after the recreate, where the
- * edge is already answering 502 and the remedy is an edit at a keyboard on the host.
+ * A required name the file gives no value. A bare pass-through takes its value from the shell that
+ * ran compose, and a deploy's shell holds none, so the variable never reaches the container.
  */
-export function missingNames(found, required) {
-  const present = new Set(found);
+export function missingNames(valued, required) {
+  const present = new Set(valued);
   return required.filter((name) => !present.has(name));
 }
 
+/** Two sets rather than one merged at build: one image serves both deployments, and only its caller knows which one it is being run against. */
+function requiredFor(sets, production) {
+  if (!production) return sets.required;
+  return [...new Set([...sets.required, ...sets.productionRequired])].sort();
+}
+
 function report(argv) {
-  const [file = ENVIRONMENT_FILE, declaredFile = DECLARED_NAMES_FILE] = argv;
-  const { declared, required } = JSON.parse(readFileSync(declaredFile, "utf8"));
-  const { names, unreadable } = scanNames(readFileSync(file, "utf8"));
+  const positional = argv.filter((argument) => argument !== PRODUCTION_FLAG);
+  const [file = ENVIRONMENT_FILE, declaredFile = DECLARED_NAMES_FILE] = positional;
+  const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
+  const required = requiredFor(sets, positional.length !== argv.length);
+  const { names, assigned, unreadable } = scanNames(readFileSync(file, "utf8"));
 
   // Judged before the names are, and answered with line numbers rather than lines: a file this
   // cannot read whole is a file whose undeclared names would be guesses, and every line holds a value.
@@ -101,8 +114,8 @@ function report(argv) {
     return 4;
   }
 
-  const undeclared = undeclaredNames(names, declared);
-  const missing = missingNames(names, required);
+  const undeclared = undeclaredNames(names, sets.declared);
+  const missing = missingNames(assigned, required);
   if (undeclared.length === 0 && missing.length === 0) return 0;
 
   // Both lines where both apply: one run of the preflight is one visit to the host, and a remedy

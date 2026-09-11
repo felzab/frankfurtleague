@@ -199,3 +199,10 @@ export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = Object.entries(DECL
   .filter(([, declaration]) => !declaration.safeParse(undefined).success)
   .map(([name]) => name)
   .sort();
+
+/**
+ * Demanded of a production host besides, which the derivation above cannot reach:
+ * `createFinalSchema` conditions these on a VALUE the preflight's reader never opens, so the deploy
+ * asks for them by name instead (`scripts/ops/deploy.sh :: check_frontend_env_names`).
+ */
+export const PRODUCTION_REQUIRED_ENVIRONMENT_NAMES: readonly string[] = [...PRODUCTION_ONLY_REQUIRED].sort();

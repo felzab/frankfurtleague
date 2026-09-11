@@ -10,6 +10,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 const COLLECTIONS = "__flSignInCollections";
 const COOKIE_JAR = "__flSignInCookieJar";
 const SENT = "__flSignInSentMail";
+const DEFERRED = "__flSignInDeferredWork";
 
 /** A single-segment subpath such as `next/navigation`, leaving a deep `next/dist/…` path to Node. */
 const NEXT_SUBPATH = /^next\/[\w-]+$/;
@@ -18,9 +19,13 @@ const ALLOWLISTED = "vorstand@example.org";
 /** Absent from the allowlist below, so `@auth/core` throws `AccessDenied` before it mails anything. */
 const REJECTED = "fremde@example.org";
 
-const CONFIG_DOUBLE = `export const frontend_config = {
+/** The two deployments the cookie name turns on: `@auth/core` prefixes it under the second and not the first. */
+const PLAIN_URL = "http://localhost:3000";
+const SECURE_URL = "https://frankfurtleague.de";
+
+const configDouble = (authUrl: string) => `export const frontend_config = {
   ALLOWED_ADMIN_EMAILS: ["${ALLOWLISTED}"],
-  AUTH_URL: "http://localhost:3000",
+  AUTH_URL: "${authUrl}",
   LOG_LEVEL: "ERROR",
   LOG_FORMAT: "json",
 };`;
@@ -47,26 +52,56 @@ export const cookies = async () => globalThis.${COOKIE_JAR};`;
 
 const asDataUrl = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
+/**
+ * Collected rather than run: work the real `after` puts behind the response is work no case here may
+ * see inside one. `NextResponse` is the real export beside it, this file building the response itself.
+ */
+const nextServerDouble = (realUrl: string) => `export * from ${JSON.stringify(realUrl)};
+export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
+
+/** Carried down from the importer, one query on the action asking for the whole chain under it again. */
+const SECURE_PROBE = "flSecureCookies";
+
+/** The two modules reading `AUTH_URL` at module scope, so a second value needs a second instance of each. */
+const READS_THE_URL = /\/src\/core\/(auth|config)\.ts$/;
+
+const parts = (url: string): { pathname: string; secure: boolean } => {
+  const parsed = new URL(url);
+  return { pathname: parsed.pathname, secure: parsed.search === `?${SECURE_PROBE}` };
+};
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: asDataUrl(HEADERS_DOUBLE), shortCircuit: true };
     // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
     // path resolves. Both `next-auth` and the application import these bare.
+    if (specifier === "next/server")
+      return { url: asDataUrl(nextServerDouble(nextResolve("next/server.js", context).url)), shortCircuit: true };
     if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
+
+    const resolved = nextResolve(specifier, context);
+    const probed = context.parentURL !== undefined && parts(context.parentURL).secure;
+    if (probed && READS_THE_URL.test(parts(resolved.url).pathname)) return { ...resolved, url: `${resolved.url}?${SECURE_PROBE}` };
+
+    return resolved;
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
+    const { pathname, secure } = parts(url);
+    if (pathname.endsWith("/src/core/config.ts"))
+      return { format: "module", source: configDouble(secure ? SECURE_URL : PLAIN_URL), shortCircuit: true };
+    if (pathname.endsWith("/src/core/db.ts")) return { format: "module", source: DB_DOUBLE, shortCircuit: true };
+    if (pathname.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
 const sent: string[] = [];
 (globalThis as unknown as Record<string, unknown>)[SENT] = sent;
+
+const deferred: (() => Promise<void>)[] = [];
+(globalThis as unknown as Record<string, unknown>)[DEFERRED] = deferred;
 
 // No row for either address: the email provider mints a user on first sign-in, so `null` is what the
 // allowlisted branch really reads on the attempt this file drives.
@@ -90,16 +125,22 @@ after(() => {
 // is registered, so neither the alias nor the `next/server` extension would be in place yet.
 const { NextResponse } = await import("next/server");
 const { handleSignIn } = await import("./actions.ts");
+const secureAuth = (await import(`./actions.ts?${SECURE_PROBE}`)) as { handleSignIn: typeof handleSignIn };
 
 interface Attempt {
   /** The response's `Set-Cookie` lines, serialised by the same `ResponseCookies` Next hands an action. */
   readonly setCookie: readonly string[];
   /** One entry per jar mutation: Next flips `pathWasRevalidated` on the first, whatever it wrote. */
   readonly writes: readonly string[];
+  /** Recipients the send recorded while the caller was still waiting, which is the latency it would cost. */
+  readonly mailedWhileAnswering: readonly string[];
+  /** Recipients recorded once the work scheduled behind the response has been run here. */
+  readonly mailed: readonly string[];
+  readonly scheduled: number;
   readonly result: FormState;
 }
 
-async function signInWith(email: string): Promise<Attempt> {
+async function signInWith(action: typeof handleSignIn, email: string): Promise<Attempt> {
   const response = new NextResponse();
   const writes: string[] = [];
   const jar = {
@@ -117,11 +158,19 @@ async function signInWith(email: string): Promise<Attempt> {
   const submitted = new FormData();
   submitted.set("email", email);
 
+  const mailedBefore = sent.length;
+  deferred.length = 0;
+
   // Settled before the headers are read: an object literal evaluates its properties in order, so a
   // `setCookie` written ahead of this await reads the response the action has not touched yet.
-  const result = await handleSignIn(undefined, submitted);
+  const result = await action(undefined, submitted);
+  const setCookie = response.headers.getSetCookie();
+  const mailedWhileAnswering = sent.slice(mailedBefore);
 
-  return { setCookie: response.headers.getSetCookie(), writes, result };
+  const scheduled = deferred.splice(0);
+  for (const task of scheduled) await task();
+
+  return { setCookie, writes, mailedWhileAnswering, mailed: sent.slice(mailedBefore), scheduled: scheduled.length, result };
 }
 
 /** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
@@ -132,14 +181,21 @@ function bodyWithoutEcho(result: FormState): Record<string, unknown> {
   return copy;
 }
 
-const allowlisted = await signInWith(ALLOWLISTED);
-const rejected = await signInWith(REJECTED);
+const allowlisted = await signInWith(handleSignIn, ALLOWLISTED);
+const rejected = await signInWith(handleSignIn, REJECTED);
+const secureAllowlisted = await signInWith(secureAuth.handleSignIn, ALLOWLISTED);
+const secureRejected = await signInWith(secureAuth.handleSignIn, REJECTED);
 
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
      a config double that failed to land would reject both addresses and agree on everything. */
   it("really did take the two branches, one mailing a link and the other not", () => {
-    assert.deepEqual(sent, [ALLOWLISTED], `the send recorded ${JSON.stringify(sent)}, so the two attempts are not the two branches`);
+    assert.deepEqual(
+      [...allowlisted.mailed],
+      [ALLOWLISTED],
+      "the allowlisted attempt mailed nothing, so the two attempts are not the two branches",
+    );
+    assert.deepEqual([...rejected.mailed], []);
   });
 
   it("leaves the same `Set-Cookie` either way, which is the one tell a body and a floor cannot hide", () => {
@@ -158,5 +214,34 @@ describe("what a sign-in leaves behind on the response", () => {
   it("answers with the same body", () => {
     assert.deepEqual(bodyWithoutEcho(allowlisted.result), bodyWithoutEcho(rejected.result));
     assert.equal(allowlisted.result?.success, true);
+  });
+
+  /* The floor narrows the timing and cannot close it: the provider's own retries and timeout run far
+     past it, and an answer that ever exceeds the floor names the address as allowlisted. */
+  it("schedules the send behind the response instead of waiting for it", () => {
+    assert.deepEqual([...allowlisted.mailedWhileAnswering], [], "the caller waited on the provider, which the rejected branch never does");
+    assert.equal(allowlisted.scheduled, 1);
+    assert.equal(rejected.scheduled, 0);
+  });
+});
+
+describe("the same sign-in where the deployment's own URL turns secure cookies on", () => {
+  it("really did take the two branches under this flag too", () => {
+    assert.deepEqual([...secureAllowlisted.mailed], [ALLOWLISTED], "the second module instance did not reach the allowlisted branch");
+    assert.deepEqual([...secureRejected.mailed], []);
+  });
+
+  /* The name and the attribute are `@auth/core`'s under this flag, and a literal spelled without
+     either clears nothing in production while comparing equal under the flag above. */
+  it("clears the prefixed cookie the library writes, so both answers still serialise alike", () => {
+    assert.equal(secureAllowlisted.setCookie.length, 1, JSON.stringify(secureAllowlisted.setCookie));
+    assert.match(secureAllowlisted.setCookie[0] ?? "", /^__Secure-authjs\.callback-url=;/);
+    assert.match(secureAllowlisted.setCookie[0] ?? "", /; Secure;/);
+    assert.deepEqual([...secureAllowlisted.setCookie], [...secureRejected.setCookie]);
+  });
+
+  it("answers with the same body", () => {
+    assert.deepEqual(bodyWithoutEcho(secureAllowlisted.result), bodyWithoutEcho(secureRejected.result));
+    assert.equal(secureAllowlisted.result?.success, true);
   });
 });

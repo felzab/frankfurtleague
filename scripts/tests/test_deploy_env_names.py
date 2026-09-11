@@ -147,7 +147,19 @@ def test_the_reader_the_arm_runs_is_the_one_the_frontend_image_carries() -> None
     # Left to the builder's umask, a 0600 reader would answer this arm's advisory on every deploy
     # forever -- the one verdict no other case here can tell from a pass.
     assert copied.group(1) == "--chmod=644", copied.group(0)
-    assert argv[-2:] == ["node", Path(copied.group(3)).name], argv
+    # Located rather than sliced off the end, so a flag added after it fails its own case below and
+    # not this one.
+    reader = Path(copied.group(3)).name
+    assert reader in argv, argv
+    assert argv[argv.index(reader) - 1] == "node", argv
+
+
+def test_the_frontend_reader_is_told_that_this_deploy_is_the_production_one() -> None:
+    """Without the flag a host missing a name production alone demands passes preflight, is recreated, and then 502s at boot."""
+    _, _, fixture = _run(FRONTEND_ARM)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert argv[-1] == "--production", argv
 
 
 def test_the_mount_the_user_and_the_filter_are_one_function_both_arms_reach() -> None:
