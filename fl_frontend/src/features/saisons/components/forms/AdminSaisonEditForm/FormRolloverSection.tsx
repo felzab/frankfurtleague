@@ -9,6 +9,7 @@ import { Button } from "@heroui/react";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
+import { BRAND_INK } from "@/shared/components/ui/brandInk";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -172,9 +173,7 @@ export function FormRolloverSection({
                     </span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      // `textLink({ tone: "brand" })`'s own grades: the fill does not flip, so a bare
-                      // `hover:text-brand-solid` sinks into the dark card it sits on.
-                      className="text-brand hover:text-brand-solid dark:hover:text-brand-solid-accent fluid-xxs shrink-0 font-bold transition-colors">
+                      className={`${BRAND_INK} fluid-xxs shrink-0 font-bold`}>
                       Öffnen
                     </Link>
                   </li>

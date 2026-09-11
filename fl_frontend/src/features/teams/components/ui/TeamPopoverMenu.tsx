@@ -70,7 +70,10 @@ export function TeamPopoverMenu({
         {/* The trigger IS the control — no <button> inside. `Popover.Trigger` renders a focusable
             `div role="button"` (react-aria `Pressable`), so nesting a real button gives every team
             name TWO tab stops. */}
-        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
+        {/* The property list is spelled out because `transition-colors` replaces HeroUI's own rather
+            than extending it, dropping the `box-shadow` the focus ring rides.
+            `fl_frontend/src/app/globals.css :: .date-picker__trigger` is the same spelling. */}
+        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-[color,background-color,box-shadow] duration-(--motion-fast)">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 

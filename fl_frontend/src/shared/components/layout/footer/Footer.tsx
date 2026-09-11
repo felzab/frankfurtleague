@@ -61,6 +61,29 @@ function FooterNavColumn({ title, links }: { title: string; links: readonly { hr
   );
 }
 
+/**
+ * `mask` takes the whole utility rather than a URL: Tailwind scans source text for candidates, so a
+ * class assembled from a prop is one it never emits and the mark renders as a bare box.
+ */
+function FooterSocialLink({ href, label, mask }: { href: string; label: string; mask: string }) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      className="hover:bg-hover -m-1.5 rounded-md p-1.5 transition-colors">
+      {/* `inline-block` is load-bearing: width and height do not apply to a non-replaced inline box, so a
+          bare span renders 0×0. Each mask source must be a silhouette on a transparent background. */}
+      <span
+        aria-hidden="true"
+        className={`bg-foreground inline-block size-6 mask-contain mask-center mask-no-repeat ${mask}`}
+      />
+    </Link>
+  );
+}
+
 // `serverStatusSlot` is injected by the composition root rather than imported, so this layout primitive
 // keeps zero feature dependencies — the same technique as `Sidemenu`'s `saisonMetadataDisplay`.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
@@ -93,46 +116,23 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         <div className="flex flex-col gap-y-3">
           <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
           <div className="flex flex-wrap items-center gap-4">
-            <Link
+            <FooterSocialLink
               href="https://www.threads.com/@frankfurt.league"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Threads-Profil"
-              className="transition-opacity hover:opacity-80">
-              {/* `inline-block` is load-bearing: width and height do not apply to a non-replaced inline box, so a
-                  bare span renders 0×0. Each mask source must be a silhouette on a transparent background. */}
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="Threads-Profil"
+              mask="mask-[url('/icons/footer/threads/threads_logo_black.svg')]"
+            />
 
-            <Link
+            <FooterSocialLink
               href="https://github.com/felzab/frankfurtleague"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub-Profil"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/github/github_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="GitHub-Profil"
+              mask="mask-[url('/icons/footer/github/github_logo_black.svg')]"
+            />
 
-            <Link
+            <FooterSocialLink
               href={INSTAGRAM_URL}
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram-Profil"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="Instagram-Profil"
+              mask="mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]"
+            />
           </div>
         </div>
       </div>

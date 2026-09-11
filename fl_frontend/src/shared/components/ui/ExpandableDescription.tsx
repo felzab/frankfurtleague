@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { BRAND_INK } from "./brandInk";
+
 export function ExpandableDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -23,12 +25,12 @@ export function ExpandableDescription({ text }: { text: string }) {
         }
       }}>
       <p
-        className={`fluid-xs text-pretty transition-colors duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+        className={`fluid-xs text-pretty transition-colors duration-(--motion-base) ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 
       <button
-        className="fluid-xs text-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
+        className={`${BRAND_INK} fluid-xs mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>
