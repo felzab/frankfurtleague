@@ -19,7 +19,9 @@ export function DashboardError({ error, retry }: { error: Error & { digest?: str
       digest={error.digest}>
       <Button
         onPress={() => retry()}
-        className={`${ctaButton({ intent: "outline", hover: "aria" })} mt-8`}>
+        // The brand fill, as on every sole way out in the tree: `outline` is the grade of a peer or
+        // a second choice, and a panel offering one control has neither.
+        className={`${ctaButton({ intent: "primary", hover: "aria" })} mt-8`}>
         <ArrowRotateRight className="mr-2 h-4 w-4" />
         Ansicht neu laden
       </Button>
