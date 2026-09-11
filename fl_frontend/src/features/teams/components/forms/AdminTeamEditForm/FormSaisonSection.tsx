@@ -401,7 +401,7 @@ export function FormSaisonSection({
                 isDisabled={isEntering}
                 onPress={handleEnterSaison}
                 className={formButton({ intent: "submit" })}>
-                {isEntering ? "Speichert..." : `In Saison ${saison.saisonId} aufnehmen`}
+                {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
               </Button>
             </div>
           </div>

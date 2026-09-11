@@ -318,7 +318,6 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
   "Adresse nicht korrigiert": { variant: "danger", identifies: "one site" },
   "Anmeldelink nicht gesendet": { variant: "danger", identifies: "one site" },
-  "Aufnehmen fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Bewerbung abgelehnt": { variant: "success", identifies: "one site" },
   "Bewerbung angenommen": { variant: "success", identifies: "one site" },
   "Bewerbung nicht abgelehnt": { variant: "danger", identifies: "one site" },
@@ -365,6 +364,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Spieler angelegt": { variant: "success", identifies: "one site" },
   "Spieler aufgenommen": { variant: "success", identifies: "one site" },
   "Spieler gelöscht": { variant: "success", identifies: "one site" },
+  "Spieler nicht aufgenommen": { variant: "danger", identifies: "one site" },
   "Spieler nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Spieler nicht reaktiviert": { variant: "danger", identifies: "its description" },
   "Spieler nicht stillgelegt": { variant: "danger", identifies: "one site" },
@@ -435,6 +435,14 @@ describe("every toast title the product raises", () => {
         : `"${title}" [${[...entry.variants].join("/")}] ${String(entry.files.length)} site(s), ${String(entry.descriptions)} with a description`;
     };
     assert.deepEqual([...raised.keys()].sort().map(describeTitle), registered.map(describeTitle));
+  });
+
+  it("names the thing rather than the operation", () => {
+    // `docs/frontend/spec.md` §1.12 asks a title for what happened to the object, and a nominalised
+    // verb under `fehlgeschlagen` names the operation instead. That suffix is the one spelling of
+    // the fault a machine reads; review carries the rest.
+    const operationNamed = registered.filter((title) => title.endsWith(" fehlgeschlagen"));
+    assert.deepEqual(operationNamed, [], "a failure title names its operation. Negate the success title beside it instead.");
   });
 
   it("is raised at the one variant its row declares", () => {

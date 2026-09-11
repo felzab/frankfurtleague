@@ -260,7 +260,7 @@ export function BestaetigungEntscheidung({
               height={18}
             />
           )}
-          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Speichert..." : "Eintrag bestätigen"}
+          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Bestätigt..." : "Eintrag bestätigen"}
         </Button>
 
         {!isConfirming && (
