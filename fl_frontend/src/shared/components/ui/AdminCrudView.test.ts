@@ -158,7 +158,10 @@ function reachesOutside(selector: string): boolean {
 /** The document root declares no `font-size`, so a rem here is the browser's own. */
 const REM = 16;
 
-/** No runner here lays anything out, so arithmetic over the declared lengths is a test's only hold on the box. */
+/** The ceiling a released layer carries, which is a stand-in for none rather than a height anything was measured at. */
+const NO_CEILING = 100000;
+
+/** No runner here lays anything out, so arithmetic over the declared lengths is how a case reads the clamps. */
 function lengthPx(value: string, variables: Readonly<Record<string, string>>): number {
   let resolved = value;
   for (let depth = 0; resolved.includes("var(") && depth < 4; depth++)
@@ -280,7 +283,23 @@ function regionClasses(html: string): string[] {
   return opening[1]!.split(/\s+/).filter(Boolean);
 }
 
-const overlayClasses = (html: string): string[] => /<div aria-hidden="true" class="([^"]*)"/.exec(html)?.[1]?.split(/\s+/) ?? [];
+/** The classes of the element opening at `at`. */
+function classesAt(html: string, at: number): string[] {
+  const found = /^<[a-z][\w-]*\s[^>]*?class="([^"]*)"/.exec(html.slice(at));
+  assert.ok(found !== null, `the element at ${String(at)} carries no class`);
+
+  return found[1]!.split(/\s+/).filter(Boolean);
+}
+
+/** The utility nothing but the cover wears, which is what finds it without trusting its place in the markup. */
+const COVER = "opacity-(--admin-region-held)";
+
+const coverClasses = (html: string): string[] => classesAt(html, opensCarrying(html, COVER));
+
+/** Where the content layer opens: the region's first child, which is the layer the rows and the bar sit in. */
+const contentOpens = (html: string): number => html.indexOf(">") + 1;
+
+const contentClasses = (html: string): string[] => classesAt(html, contentOpens(html));
 
 /** Every class anywhere in a render: the element running the hold is not the region, so `regionClasses` cannot reach it. */
 const classesIn = (html: string): string[] => [...new Set([...html.matchAll(/ class="([^"]*)"/g)].flatMap((found) => found[1]!.split(/\s+/)))];
@@ -328,27 +347,24 @@ function settled(classes: readonly string[], property: string, band: Band): stri
   return value;
 }
 
-/** The region's own box variables, with the hold set where the caller puts it. */
-const boxVariables = (classes: readonly string[], band: Band, held: string): Readonly<Record<string, string>> => ({
-  "--admin-region-box": settled(classes, "--admin-region-box", band),
-  "--admin-region-bar": settled(classes, "--admin-region-bar", band),
-  "--admin-region-held": held,
-});
+/** Every value the classes leave a property at, banded and gated rules included: `settled` answers the winner, this answers the field. */
+function declared(classes: readonly string[], property: string): string[] {
+  return classes.flatMap(rulesFor).flatMap((rule) => {
+    const value = rule.declarations.get(property);
 
-const heightsAt = (classes: readonly string[], band: Band, held: string) => ({
-  floor: lengthPx(settled(classes, "min-height", band), boxVariables(classes, band, held)),
-  ceiling: lengthPx(settled(classes, "max-height", band), boxVariables(classes, band, held)),
-});
+    return value === undefined ? [] : [value];
+  });
+}
 
 describe("the box an admin CRUD region holds", () => {
   /* A class on the region proves nothing on its own: what decides the box is the rule Tailwind
      compiles it to. A `group-` variant compiles to a descendant selector, and the region is the group. */
   it("takes the box and the cover over it from inside the region, which is the element carrying both", () => {
-    const THE_BOX = ["min-height", "max-height", "overflow", "opacity", "--admin-region-held"];
+    const THE_BOX = ["max-height", "overflow", "opacity", "display", "grid-row-start", "grid-column-start", "--admin-region-held"];
 
     for (const shape of SHAPES) {
       const html = render({ shape, hasFacets: true });
-      const deciding = [...regionClasses(html), ...overlayClasses(html)].filter((className) =>
+      const deciding = [...regionClasses(html), ...contentClasses(html), ...coverClasses(html)].filter((className) =>
         rulesFor(className).some((rule) => THE_BOX.some((property) => rule.declarations.has(property))),
       );
 
@@ -360,54 +376,85 @@ describe("the box an admin CRUD region holds", () => {
     }
   });
 
-  it("scales its floor, its ceiling and the cover over it by one variable", () => {
+  it("scales the cover over it by the same variable the layers are clamped on", () => {
     for (const shape of SHAPES) {
-      const html = render({ shape, hasFacets: true });
-      const classes = regionClasses(html);
-      const opacity = settled(overlayClasses(html), "opacity", "wide");
-
-      for (const band of ["narrow", "wide"] as const) {
-        const held = heightsAt(classes, band, "1");
-        const released = heightsAt(classes, band, "0");
-
-        assert.equal(held.ceiling, held.floor, `${shape} at ${band}: the held region is not clipped to the box it reserves`);
-        assert.equal(released.floor, 0, `${shape} at ${band}: the released region keeps a floor of ${String(released.floor)}px`);
-        assert.ok(released.ceiling >= 100000, `${shape} at ${band}: the released region is capped at ${String(released.ceiling)}px`);
-      }
+      const opacity = settled(coverClasses(render({ shape, hasFacets: true })), "opacity", "wide");
 
       assert.equal(lengthPx(opacity, { "--admin-region-held": "1" }), 1, `${shape}: the cover is not opaque while the box is held`);
       assert.equal(lengthPx(opacity, { "--admin-region-held": "0" }), 0, `${shape}: the cover survives the box it covers`);
     }
   });
 
-  /* The bar reserved against the bar the placeholder draws — `h-10` inside the fallback's own `gap-4`
-     column — so a page drawing no bar reserves no strip under its placeholder. */
-  it("reserves for the filter bar the row its own placeholder draws, and nothing where it draws none", () => {
-    const bar = lengthPx(settled(["h-10"], "height", "wide"), {}) + lengthPx(settled(["gap-4"], "gap", "wide"), {});
-
+  /* One cell is what makes the region as tall as whichever layer is measuring it. Two cells, or a
+     third child taking a row of its own, and the region is the sum instead. */
+  it("stacks the cover over the content in one cell, and holds nothing else in it", () => {
     for (const shape of SHAPES) {
-      const withBar = regionClasses(render({ shape, hasFacets: true }));
-      const without = regionClasses(render({ shape, hasFacets: false }));
+      const html = render({ shape, hasFacets: true });
 
-      assert.equal(lengthPx(settled(withBar, "--admin-region-bar", "wide"), {}), bar, `${shape}: the bar reserved is not the bar drawn`);
-      assert.equal(lengthPx(settled(without, "--admin-region-bar", "wide"), {}), 0, `${shape}: a facet-less region still reserves a bar`);
+      assert.equal(settled(regionClasses(html), "display", "wide"), "grid", `${shape}: the region is not a grid`);
+
+      for (const [which, classes] of [
+        ["the content", contentClasses(html)],
+        ["the cover", coverClasses(html)],
+      ] as const) {
+        assert.equal(settled(classes, "grid-row-start", "wide"), "1", `${shape}: ${which} starts on a row of its own`);
+        assert.equal(settled(classes, "grid-column-start", "wide"), "1", `${shape}: ${which} starts in a column of its own`);
+      }
+
+      const closes = closesAfter(html, contentOpens(html));
+      assert.equal(opensCarrying(html, COVER), closes + "</div>".length, `${shape}: the cover does not open where the content closes`);
+      assert.equal(
+        closesAfter(html, opensCarrying(html, COVER)),
+        html.length - "</div></div>".length,
+        `${shape}: the cover is not the region's last child`,
+      );
     }
   });
 
-  /* Each band's widest width, where the region equals the placeholder it covers. No runner lays
-     anything out, so moving either figure needs a browser rather than a new number here. */
-  it("stands at the height its own placeholder was measured at, in both bands", () => {
-    const MEASURED: Record<AdminCrudShape, Record<Band, number>> = {
-      table: { narrow: 626, wide: 476 },
-      cards: { narrow: 626, wide: 641 },
-      sections: { narrow: 1302, wide: 761 },
-    };
+  /* The layer that is not clamped away is the one the cell is sized from, so the box follows
+     whatever the placeholder grows to rather than a height written down. */
+  it("is measured by the cover while the box is held and by its own content once released", () => {
+    for (const shape of SHAPES) {
+      const html = render({ shape, hasFacets: true });
+      const layers = { cover: coverClasses(html), content: contentClasses(html) };
+
+      for (const band of ["narrow", "wide"] as const) {
+        const ceiling = (which: keyof typeof layers, held: string): number =>
+          lengthPx(settled(layers[which], "max-height", band), { "--admin-region-held": held });
+
+        assert.equal(ceiling("content", "1"), 0, `${shape} at ${band}: the content measures the region while it is held`);
+        assert.ok(ceiling("cover", "1") >= NO_CEILING, `${shape} at ${band}: the held cover is capped at ${String(ceiling("cover", "1"))}px`);
+        assert.equal(ceiling("cover", "0"), 0, `${shape} at ${band}: the cover measures the region after it is released`);
+        assert.ok(
+          ceiling("content", "0") >= NO_CEILING,
+          `${shape} at ${band}: the released content is capped at ${String(ceiling("content", "0"))}px`,
+        );
+      }
+    }
+  });
+
+  /* What refuses a height read in a browser and carried here by hand: every one the region and its
+     two layers declare is nothing or no ceiling, and a figure between the two is a measurement. */
+  it("declares no height between nothing and no ceiling, at either end of the hold", () => {
+    const THE_AXIS = ["height", "min-height", "max-height"];
 
     for (const shape of SHAPES) {
-      const classes = regionClasses(render({ shape, hasFacets: true }));
+      const html = render({ shape, hasFacets: true });
+      const elements = { region: regionClasses(html), content: contentClasses(html), cover: coverClasses(html) };
 
-      for (const band of ["narrow", "wide"] as const)
-        assert.equal(heightsAt(classes, band, "1").floor, MEASURED[shape][band], `${shape} at ${band}: the box is not the measured height`);
+      let found = 0;
+      for (const [where, classes] of Object.entries(elements))
+        for (const property of THE_AXIS)
+          for (const value of declared(classes, property)) {
+            found += 1;
+
+            for (const held of ["1", "0"]) {
+              const px = lengthPx(value, { "--admin-region-held": held });
+              assert.ok(px === 0 || px >= NO_CEILING, `${shape}: ${where} declares a ${property} of ${String(px)}px at a hold of ${held}`);
+            }
+          }
+
+      assert.equal(found, 2, `${shape}: ${String(found)} declarations decide the region's height rather than the two clamps`);
     }
   });
 

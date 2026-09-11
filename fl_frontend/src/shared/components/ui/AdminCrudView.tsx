@@ -6,9 +6,9 @@ import { useFacetSelection } from "../../hooks/useFacetSelection";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlQuery } from "../../hooks/useUrlQuery";
 import { applyFacets } from "../../utils/facets";
-import { AdminCrudFallback, fallbackBox } from "./AdminCrudFallback";
+import { AdminCrudFallback } from "./AdminCrudFallback";
 import { FilterLeiste } from "./FilterLeiste";
-import { PLACEHOLDER_BOX } from "./placeholderBox";
+import { CONTENT_LAYER, COVER_LAYER, PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet, FacetCounts } from "../../utils/facets";
@@ -92,26 +92,29 @@ export function AdminCrudView<TItem extends { id: string }>({
   return (
     // No entrance: the placeholder reserves this box exactly, so a fade or a rise animates content
     // that is not out of place. Both were tried and both read as a fault.
-    <div className={`relative flex flex-col gap-4 ${fallbackBox(shape, hasFacets)} ${PLACEHOLDER_BOX[shape]}`}>
-      {/* Counted over the unfiltered rows, so an option answers what it would leave, not what the selection already left. */}
-      <FilterLeiste
-        facets={facets}
-        items={items}
-        facetCounts={facetCounts}
-        leserichtung={leserichtung}
-      />
+    <div className={PLACEHOLDER_BOX[shape]}>
+      <div className={`${CONTENT_LAYER} gap-4`}>
+        {/* Counted over the unfiltered rows, so an option answers what it would leave, not what the selection already left. */}
+        <FilterLeiste
+          facets={facets}
+          items={items}
+          facetCounts={facetCounts}
+          leserichtung={leserichtung}
+        />
 
-      {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
+        {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
 
-      {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+        {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+      </div>
 
       {/* The same placeholder the route already drew, over the whole region rather than the table alone,
           so the reader crosses one change instead of three. */}
+      {/* Last of the two layers: the markup orders what a cell paints, so a cover written first sits under the rows. */}
       <div
         aria-hidden="true"
-        className="bg-background pointer-events-none absolute inset-0 opacity-(--admin-region-held)">
-        {/* The overlay must draw what THIS resource's route drew: a second shape here, or a bar over a
-            facet-less page, is the boundary crossing the whole overlay exists to hide. */}
+        className={`bg-background pointer-events-none opacity-(--admin-region-held) ${COVER_LAYER}`}>
+        {/* The cover must draw what THIS resource's route drew: a second shape here, or a bar over a
+            facet-less page, is the boundary crossing the whole cover exists to hide. */}
         <AdminCrudFallback
           shape={shape}
           hasFacets={hasFacets}

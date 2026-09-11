@@ -11,28 +11,6 @@ const SECTION_ROW_ACTIONS = [0, 1];
 /** Which placeholder a resource draws, and with it whether its rows reach the DOM a pass late. */
 export type AdminCrudShape = "table" | "sections" | "cards";
 
-/** The card column, which the table shape draws below `md` too, so one height answers for both. */
-const CARD_COLUMN = "[--admin-region-box:35.625rem]";
-
-/**
- * Each shape's height, less the bar `fallbackBox` adds, at its band's widest width: under it the
- * region would clip the placeholder its overlay draws.
- */
-const SHAPE_BOX: Record<AdminCrudShape, string> = {
-  table: `${CARD_COLUMN} md:[--admin-region-box:26.25rem]`,
-  cards: `${CARD_COLUMN} md:[--admin-region-box:36.5625rem]`,
-  sections: "[--admin-region-box:77.875rem] md:[--admin-region-box:44.0625rem]",
-};
-
-/** Tracks the bar `hasFacets` draws: a box reserving a row the page never draws leaves a strip under the placeholder. */
-const BAR = "[--admin-region-bar:3.5rem]";
-const NO_BAR = "[--admin-region-bar:0rem]";
-
-/** The variables `fl_frontend/src/shared/components/ui/placeholderBox.ts`'s utilities read; nothing here sizes anything on its own. */
-export function fallbackBox(shape: AdminCrudShape, hasFacets: boolean): string {
-  return `${SHAPE_BOX[shape]} ${hasFacets ? BAR : NO_BAR}`;
-}
-
 /** How many targets decides only the cluster's width; its height comes from `ROW_ACTION_SIZE`, which `RowActions` reads too. */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
@@ -48,7 +26,7 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
 }
 
 /**
- * The only placeholder an admin CRUD page draws, rendered by the route, the page's fallback and the view's overlay alike.
+ * The only placeholder an admin CRUD page draws, rendered by the route, the page's fallback and the view's cover alike.
  * **It must not call a request-dynamic hook**: a fallback that suspends pushes the bailout up and undoes the split.
  */
 export function AdminCrudFallback({
