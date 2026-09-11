@@ -18,7 +18,7 @@ describe("what each referee route asks the endpoint for", () => {
     assert.doesNotMatch(DETAIL_PAGE, /getSchiedsrichter\(/);
   });
 
-  it("asks the list page's own read for the retired, whom this list is the only surface that can bring back", () => {
+  it("asks the list page's own read for the retired, whose row here is the only link into their editor", () => {
     assert.match(LIST_PAGE, /getSchiedsrichter\(\{\s*include_inactive:\s*true\s*\}\)/);
   });
 });
