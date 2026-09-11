@@ -129,6 +129,7 @@ function badgeOf(file: string | null): string {
 }
 
 const VARIANTS = ["page", "inline"] as const;
+const TONES = ["danger", "warning"] as const;
 const INTENTS = ["primary", "outline"] as const;
 const HOVERS = ["aria", "css"] as const;
 
@@ -149,6 +150,40 @@ function messageMarkOf(variant: (typeof VARIANTS)[number]): string {
 }
 
 const MESSAGE_MARK = new Map(VARIANTS.map((variant) => [variant, messageMarkOf(variant)]));
+
+type Dressed = { variant: (typeof VARIANTS)[number]; tone: (typeof TONES)[number] };
+
+/**
+ * `StatusPanel`'s dot, read off a reference render rather than spelled here. The dot is the one slot
+ * the tone reaches, and it carries the variant's arm beside it, so one mark names the pair.
+ */
+function dotMarkOf({ variant, tone }: Dressed): string {
+  const reference = renderTree(h(StatusPanel, { variant, tone, badgeLabel: "PROBE", heading: "PROBE", message: "PROBE", children: null }));
+  // Found by its neighbour: the dot is empty, so there is no text inside it to anchor on.
+  const dot = /<div class="([^"]*)"><\/div><span class="/.exec(reference);
+  if (dot === null) throw new Error(`the ${variant} panel at ${tone} renders no dot to read a mark off`);
+
+  return dot[1]!;
+}
+
+const DOT_MARKS = VARIANTS.flatMap((variant) => TONES.map((tone) => ({ variant, tone, mark: dotMarkOf({ variant, tone }) })));
+
+/** Which panel is dressed for which state, `danger` at the full-page answer and `warning` at the inline one. */
+const TONE_FOR_VARIANT: Record<(typeof VARIANTS)[number], (typeof TONES)[number]> = { page: "danger", inline: "warning" };
+
+/** The tone one answer dots itself with, and the variant that decided it, read off its rendered markup. */
+function dressedIn(file: string | null): Dressed {
+  const markup = answerOf(file);
+  const worn = DOT_MARKS.filter(({ mark }) => markup.includes(`<div class="${mark}"></div>`));
+
+  assert.equal(
+    worn.length,
+    1,
+    `${String(file)} renders ${String(worn.length)} status-panel dots, so no case below can name the tone it carries`,
+  );
+
+  return worn[0]!;
+}
 
 /** Every arm of the recipe a way out is dressed in, each held as the classes it emits. */
 const RECIPES = INTENTS.flatMap((intent) => HOVERS.map((hover) => ({ intent, hover, classes: classesOf(ctaButton({ intent, hover })) })));
@@ -246,6 +281,35 @@ describe("what each area answers a crash and a missing page with", () => {
       const words = [...new Set(files.map(badgeOf))].sort();
 
       assert.deepEqual(words.length, 1, `a ${state} is badged ${words.join(" and ")} depending on the area, so one state reads as two`);
+    }
+  });
+
+  /* The dot is where severity is carried, so an area dotting one of its two states red and the
+     other amber ranks a dead end above a crash or below it. */
+  it("dots both states alike inside an area, at the tone its panel is dressed for", () => {
+    assert.equal(
+      new Set(DOT_MARKS.map(({ mark }) => mark)).size,
+      DOT_MARKS.length,
+      "two of the panel's dots render alike, so this case cannot tell one tone or one variant from another",
+    );
+
+    for (const { dir, crash, missing } of PAIRS) {
+      const onCrash = dressedIn(crash);
+      const onMissing = dressedIn(missing);
+
+      assert.equal(
+        onCrash.tone,
+        onMissing.tone,
+        `${shown(dir)} dots its crash ${onCrash.tone} and its missing page ${onMissing.tone}, so one of the two reads as the graver`,
+      );
+
+      for (const worn of [onCrash, onMissing]) {
+        assert.equal(
+          worn.tone,
+          TONE_FOR_VARIANT[worn.variant],
+          `${shown(dir)} dots its ${worn.variant} panel ${worn.tone}, which is the other panel's severity`,
+        );
+      }
     }
   });
 

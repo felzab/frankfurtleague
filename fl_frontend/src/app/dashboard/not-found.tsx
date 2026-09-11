@@ -17,6 +17,7 @@ export default function DashboardNotFound() {
     <StatusPanel
       // `inline` rather than `page`: the shell above already carries the route's h1.
       variant="inline"
+      tone="warning"
       badgeLabel="Abseits"
       heading="Diese Seite existiert nicht."
       // Both arrivals: a `notFound()` from a matched segment, and a mistyped address the catch-all

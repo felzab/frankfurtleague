@@ -33,7 +33,17 @@ export function NotFound() {
           404
         </span>
       }>
-      <div className="mt-8 flex w-full flex-col-reverse justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
+      {/* Written in the phone's reading order and reversed from `sm` up, for
+          `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */}
+      <div className="mt-8 flex w-full flex-col justify-center gap-3 sm:mt-12 sm:flex-row-reverse sm:gap-4">
+        <Link
+          title="Zur Startseite"
+          aria-label="Zur Startseite"
+          href="/"
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full px-8 sm:w-auto`}>
+          Zur Startseite
+        </Link>
+
         <Button
           variant="ghost"
           aria-label="Zurück zur vorherigen Seite"
@@ -41,14 +51,6 @@ export function NotFound() {
           className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full px-8 sm:w-auto`}>
           Zurück
         </Button>
-
-        <Link
-          title="Startseite"
-          aria-label="Zur Startseite"
-          href="/"
-          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full px-8 sm:w-auto`}>
-          Zur Startseite
-        </Link>
       </div>
     </StatusPanel>
   );

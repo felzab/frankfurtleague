@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
@@ -16,11 +16,14 @@ import { DashboardError } from "./DashboardError";
 // and a client crash is in the browser's own console and posted by `useReportClientCrash`.
 export function DashboardErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
+  // `useTransition` rather than the bare `startTransition`: without the flag a slow re-fetch reports
+  // nothing and invites a second press, and nothing ends react-aria's hover on a tree the router keeps.
+  const [isRetrying, startRetrying] = useTransition();
 
   useReportClientCrash(error);
 
   const handleRetry = () => {
-    startTransition(() => {
+    startRetrying(() => {
       router.refresh();
       reset();
     });
@@ -30,6 +33,7 @@ export function DashboardErrorBoundary({ error, reset }: { error: Error & { dige
     <DashboardError
       error={error}
       retry={handleRetry}
+      isRetrying={isRetrying}
     />
   );
 }

@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { connection } from "next/server";
 
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { ctaButton } from "@/shared/components/ui/formButtons";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { getSpiele } from "../../queries";
@@ -25,8 +28,8 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
 const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`;
 
 /**
- * Roughly one card row. Without it an empty or failed section collapses to a single line, the page
- * ends far shorter than expected, and the footer rides up into view.
+ * Roughly one card row. Without it an empty section collapses to a single line, the page ends far
+ * shorter than expected, and the footer rides up into view.
  */
 const SECTION_MIN_HEIGHT = "min-h-44";
 
@@ -66,11 +69,22 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
 function SectionBody({ res, today, emptyTitle }: { res: Pick<FLSpieleListResponse, "spiele"> | null; today: string; emptyTitle: string }) {
   if (!res) {
     return (
-      <EmptyState
-        title="Spieldaten konnten nicht geladen werden."
-        hint="Lade die Seite neu."
-        className={SECTION_MIN_HEIGHT}
-      />
+      /* The same panel a failed dashboard region wears, so one event announces itself as one thing
+         sitewide. A link rather than that panel's retry: nothing on a server render can call a
+         boundary's `reset`. */
+      <StatusPanel
+        variant="inline"
+        tone="warning"
+        badgeLabel="Spielunterbrechung"
+        heading="Spieldaten konnten nicht geladen werden."
+        message="Dieser Bereich ist gerade nicht erreichbar.">
+        <Link
+          href="/dashboard/spielplan#top"
+          prefetch={false}
+          className={`${ctaButton({ intent: "primary", hover: "css" })} mt-8`}>
+          Zum Spielplan
+        </Link>
+      </StatusPanel>
     );
   }
 
