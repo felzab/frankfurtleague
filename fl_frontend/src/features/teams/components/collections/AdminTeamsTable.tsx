@@ -99,7 +99,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   /**
    * The Kürzel is the club's identity token rather than a column, as every other surface sets it
    * (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx`). The pills join the name's line: a
-   * column wide enough for „Stillgelegt seit …“ leaves the name almost nothing.
+   * column wide enough for „Stillgelegt 09.09.2026“ leaves the name almost nothing.
    */
   const renderIdentity = (team: AdminTeamRow, dimmed: boolean) => (
     <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>

@@ -93,9 +93,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       {/* An absence and not an exit: a person with no squad row this season takes the label tone,
           where „ausgetragen“ beside it grades a row that was in the Kader and came out. */}
       {spieler.selected === null && <span className={labelBadge("info")}>Nicht im Kader</span>}
+      {/* The widest pill the identity column seats, with no slack at the narrowest table width
+          (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`): a word added here lands on
+          the Position cell. */}
       {spieler.selected?.inactive_since != null && (
         <span className={labelBadge("warning")}>
-          Ausgetragen seit&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
+          Ausgetragen&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
