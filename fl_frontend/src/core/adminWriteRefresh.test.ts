@@ -1,41 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { ACTION_MODULES, actionBodies, ADMIN_ACTION_MODULES, opensMutation, SOURCES } from "@/core/actionSources.ts";
 
 /**
  * I233 is universal and each slice's own sweep is not: a tenth slice arriving with no sweep at all
  * fails nothing any slice owns. This fence is the one reader that can see that absence.
  */
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..");
-
-// Test files are IN: a slice's sweep is itself a test file, and this fence reads it as text.
-const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400).map((file) => [
-    path.relative(SRC_DIR, file).split(path.sep).join("/"),
-    readFileSync(file, "utf8"),
-  ]),
-);
-
 describe("every slice's admin writes, and the sweep each one owes", () => {
-  /** Comments blanked. Blanking can swallow a real call and red this reader; it cannot invent one. */
-  const blankComments = (text: string): string =>
-    text.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-
-  /** Each exported action's own source, ended at the next declaration of any kind, helpers included. */
-  function actionBodies(text: string): Map<string, string> {
-    const bare = blankComments(text);
-    const declarations = [...bare.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
-    return new Map(
-      declarations.flatMap((match, index): [string, string][] =>
-        match[1] === undefined ? [] : [[match[2] ?? "", bare.slice(match.index, declarations[index + 1]?.index)]],
-      ),
-    );
-  }
-
   /** A sweep's own classification, read as text: a test file cannot be imported without running it. */
   function declaredNames(text: string, constant: string): string[] | null {
     const opener = `const ${constant} = [`;
@@ -46,35 +19,23 @@ describe("every slice's admin writes, and the sweep each one owes", () => {
     return close === -1 ? null : [...text.slice(at + opener.length, close).matchAll(/"(\w+)"/g)].map((match) => match[1] ?? "");
   }
 
-  /** The wrapper an admin write opens, which is what puts its own statements at four spaces. */
-  const opensMutation = (name: string): string => `\n  return runAdminMutation("${name}", async () => {\n`;
   const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
 
-  const modules = [...sources]
-    .filter(([file]) => /^features\/[^/]+\/actions\.ts$/.test(file))
-    .map(([file, text]) => {
-      const bodies = actionBodies(text);
-      return { file, bodies, wrapped: [...bodies.values()].filter((body) => body.includes("runAdminMutation(")).length };
-    });
-
-  /* Admin by the wrapper and never by the slice's name: `features/auth/actions.ts` exports server
-     actions too, and runs them through `runWithIncomingTrace`, which owes no admin page anything. */
-  const admin = modules.filter((module) => module.wrapped > 0);
-  const sweepFor = (file: string): string => sources.get(file.replace(/\.ts$/, ".test.ts")) ?? "";
+  const sweepFor = (file: string): string => SOURCES.get(file.replace(/\.ts$/, ".test.ts")) ?? "";
 
   it("finds every slice's actions, each module wrapping all of its own or none", () => {
-    assert.ok(modules.length >= 10, `expected at least 10 slice action modules, found ${String(modules.length)}`);
-    for (const { file, bodies, wrapped } of modules) {
+    assert.ok(ACTION_MODULES.length >= 10, `expected at least 10 slice action modules, found ${String(ACTION_MODULES.length)}`);
+    for (const { file, bodies, wrapped } of ACTION_MODULES) {
       assert.ok(
         wrapped === 0 || wrapped === bodies.size,
         `${file} runs ${String(wrapped)} of its ${String(bodies.size)} actions through runAdminMutation, so neither answer places it`,
       );
     }
-    assert.ok(admin.length >= 9, `expected at least 9 admin action modules, found ${String(admin.length)}`);
+    assert.ok(ADMIN_ACTION_MODULES.length >= 9, `expected at least 9 admin action modules, found ${String(ADMIN_ACTION_MODULES.length)}`);
   });
 
   it("has a sweep beside every admin module, placing every action that module exports", () => {
-    for (const { file, bodies } of admin) {
+    for (const { file, bodies } of ADMIN_ACTION_MODULES) {
       const writes = declaredNames(sweepFor(file), "WRITE_ACTIONS");
       assert.notEqual(writes, null, `${file} has no sweep beside it declaring WRITE_ACTIONS -- a slice arrived carrying none`);
       assert.deepEqual(
@@ -87,7 +48,7 @@ describe("every slice's admin writes, and the sweep each one owes", () => {
 
   it("refreshes every placed write at its callback's top level, ahead of the success return", () => {
     let swept = 0;
-    for (const { file, bodies } of admin) {
+    for (const { file, bodies } of ADMIN_ACTION_MODULES) {
       for (const name of declaredNames(sweepFor(file), "WRITE_ACTIONS") ?? []) {
         const body = bodies.get(name) ?? "";
         const refreshAt = body.search(TOP_LEVEL_REFRESH);
@@ -103,7 +64,7 @@ describe("every slice's admin writes, and the sweep each one owes", () => {
 
   it("leaves every action a sweep placed as read-only without one", () => {
     let spared = 0;
-    for (const { file, bodies } of admin) {
+    for (const { file, bodies } of ADMIN_ACTION_MODULES) {
       for (const name of declaredNames(sweepFor(file), "READ_ONLY_ACTIONS") ?? []) {
         assert.doesNotMatch(bodies.get(name) ?? "", /^\s+refresh\(\);$/m, `${file} :: ${name} refreshes a page nothing it did has moved`);
         spared++;
