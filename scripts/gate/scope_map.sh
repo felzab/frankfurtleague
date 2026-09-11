@@ -95,7 +95,12 @@ else
       # Its own arm, the uv comparison above reading the Dockerfile alone: joined to it, an edit
       # here would buy the whole scripts scope for a file nothing outside the build reads.
       fl_backend/.dockerignore) images=true; docs=true ;;
-      fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
+      # Its own arm, ahead of the three below it: the mirror register reads this module's text for
+      # the internal key's alphabet, so it owes the backend scope as well as the image's. Folded
+      # into that arm it would buy the backend tier for two files no backend suite reads.
+      fl_frontend/src/core/config.ts)
+        frontend=true; images=true; backend=true; db=true; docs=true ;;
+      fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;
       # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both can
@@ -138,7 +143,7 @@ else
       fl_frontend/src/features/aktionen/constants.ts|fl_frontend/src/features/spieler/schemas.ts| \
       fl_frontend/src/features/spiele/schemas.ts|fl_frontend/src/features/spiele/utils.ts| \
       fl_frontend/src/features/bewerbungen/zustellung.ts|fl_frontend/src/core/logFormat.ts| \
-      fl_frontend/src/core/trace.ts|fl_frontend/src/core/config.ts)
+      fl_frontend/src/core/trace.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
       # module below and asserts over the German inside, so a renamed refusal code or a reworded
