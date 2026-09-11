@@ -49,8 +49,13 @@ const inside = (dir: string) => (file: string) => file.startsWith(dir + path.sep
 /** A segment matching what no sibling route does. Next prefers every static and dynamic sibling. */
 const CATCH_ALL = /^\[\.\.\..+\]$/;
 
-const catchAllsIn = (dir: string) =>
-  PAGES.filter((file) => path.dirname(path.dirname(file)) === dir && CATCH_ALL.test(path.basename(path.dirname(file))));
+/**
+ * Read off every page rather than off the areas: a catch-all no area lookup reaches would drop out
+ * of the list instead of failing the case below (`docs/_standard/standard.md` PRE-4).
+ */
+const CATCH_ALLS = PAGES.filter((file) => CATCH_ALL.test(path.basename(path.dirname(file))));
+
+const catchAllsIn = (dir: string) => CATCH_ALLS.filter((file) => path.dirname(path.dirname(file)) === dir);
 
 /** What `Link` reads off `useRouter`. `bfcacheId` is a value rather than a call. */
 const ROUTER = {
@@ -160,16 +165,14 @@ describe("where each area's 404 lives", () => {
     }
   });
 
-  /* Adding one to a root-mounted area would make its unmatched addresses match, which is what
-     turns the routing layer's own 404 into a streamed 200 (`docs/frontend/spec.md :: I232`). */
-  it("adds none to a root-mounted area", () => {
-    for (const dir of ROOT_MOUNTED) {
-      assert.deepEqual(
-        catchAllsIn(dir),
-        [],
-        `${path.basename(dir)} routes what nothing else does, spending the one real 404 the site still answers`,
-      );
-    }
+  /* A route group contributes no url segment, so a catch-all reached through groups alone is
+     mounted at the root however deep it sits (`docs/frontend/spec.md :: I242`). */
+  it("puts every catch-all at a prefixed area's root", () => {
+    assert.deepEqual(
+      CATCH_ALLS.filter((file) => !PREFIXED.includes(path.dirname(path.dirname(file)))),
+      [],
+      "these catch-alls sit at no prefixed area's root, spending the one real 404 the site still answers",
+    );
   });
 
   /* The hand-off itself, exercised rather than read off the source: a catch-all rendering anything
