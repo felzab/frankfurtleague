@@ -26,7 +26,6 @@ const TABLES = [
   // Two undeclared columns, the one row here that is two blocks of like weight, so `freeText` is
   // owed twice.
   { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 240 },
-  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 208 },
   { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 2, alternates: 0, freeText: 224 },
   { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 240 },
   { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 3, alternates: 1, freeText: 240 },
@@ -199,7 +198,7 @@ function selfCapped(token: string): boolean {
   return /^(?:max-)?w-/.test(utility) && utility !== "w-full" && utility !== "max-w-full";
 }
 
-describe("the seven admin CRUD tables", () => {
+describe("the six admin CRUD tables", () => {
   /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
      it could ever move: the drift worth catching is a ninth table added in some other slice. */
   it("are every collection in the tree that pairs the shared emptiness with a react-aria table", () => {

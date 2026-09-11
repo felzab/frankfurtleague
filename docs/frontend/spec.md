@@ -1379,11 +1379,22 @@ holds whether a conditional block renders or not
   identity block** — the entity's own token, its name, the row's
   pills and one or two muted lines
   (`fl_frontend/src/shared/components/ui/adminTable.ts :: IDENTITY_ROW`), the same block the phone
-  card draws, with content-sized columns beside it and the actions ended right. Every way the row
+  card draws, with content-sized columns beside it in a table or the card's own grid under it in a
+  list, and the actions ended right. Every way the row
   offers ELSEWHERE shares one overflow menu where it has two or more
   (`fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionMenu`); a row with one keeps it
   inline. Neither a column nor a cell exists at one width and not another, which
   `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` pins.
+- **A collection whose row is a line is a table; one whose row is a RECORD is a card list at every
+  width.** `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` derives the tables from the
+  tree and holds each floor under the narrowest content column a viewport gives; the card lists are
+  `fl_frontend/src/features/teams/components/collections/AdminKontakteList.tsx` and
+  `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx`. Three seats
+  of free text, and an application's date, confirmation count, marks and contact address, each need
+  more than one row of that column, so a table holding them at all clips its own payload. A card
+  keeps the identity block as its head and puts the rest in a grid, every cell headed by the fact it
+  holds, so no heading over the list can disagree with the block beneath it; a cell whose payload an
+  even split would clip spans more than one track.
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
 - **Every field-shaped control resolves to one height**
@@ -1411,9 +1422,9 @@ inset — a panel's `p-4 sm:p-5`, a pill's `px-1.5 py-0.5` — is §1.18's and i
 | `0.5` | Two lines of one fact: a name over its detail line, a `<dt>` over its `<dd>`, a panel title over its eyebrow              |
 | `1`   | Lines and items inside one control: a label over its control, a list box's options, a track's tabs, a glyph inside a pill |
 | `2`   | Siblings inside one row: a label and its badge, two pills, a glyph and the word beside it                                 |
-| `3`   | The items of a toolbar, the facet cells of a filter panel, a card's own rows, a row of form buttons                       |
+| `3`   | The items of a toolbar, a filter panel's facet cells, a card's own rows and the cards beside it, a row of form buttons    |
 | `4`   | Fields in a grid (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_PAIR`); a card grid below `sm`        |
-| `6`   | Blocks in a column: the panels of an editor, the cards of an admin list; a card grid from `sm`                            |
+| `6`   | Blocks in a column: the panels of an editor, the sections of an admin list; a card grid from `sm`                         |
 | `8`   | Sections in a page column; the editor's rail from its column at `2xl`                                                     |
 | `12`  | Sections in a public page column from `sm` up, the widest rhythm the ladder admits                                        |
 
@@ -1557,6 +1568,7 @@ collapsing into a column, or two controls joined at a seam — never a rung.
 | I232 | **An unmatched URL answers 404 with the public shell on it**, a status Next fixes at the first byte and cannot revise                                                                                                                      | `fl_frontend/src/shared/components/layout/publicShell.test.ts` for the shell; unenforced for the status, which only a request against a built stack reads                                                                                                                                                                |
 | I233 | **Every admin write action calls `refresh()` on its success path**, whatever tags it also moves                                                                                                                                            | each slice's `actions.test.ts`, in `describe("the refresh a write owes the list the admin is looking at")`                                                                                                                                                                                                               |
 | I234 | **Every `gap-*` is one of `0.5 1 2 3 4 6 8 12`, `gap-0` aside, and a responsive pair is two adjacent rungs**                                                                                                                               | review, against §1.20's table                                                                                                                                                                                                                                                                                            |
+| I237 | **A collection whose row is a record is a card list at every width, never a table**                                                                                                                                                        | `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: the six admin CRUD tables`, whose roster the tree must match                                                                                                                                                                                             |
 | I235 | **A collection row's hover fill is spelled on the row itself**: `globals.css`'s unlayered rule answers `data-focused`, which is the keyboard's alone                                                                                       | review — `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionMenuItem`, `fl_frontend/src/shared/components/layout/topnav/TopNav.tsx`                                                                                                                                                                        |
 
 ## 3. Violation → remedy

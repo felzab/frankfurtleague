@@ -7,7 +7,6 @@ import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
-import { IDENTITY_LINE } from "../../shared/components/ui/adminTable.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
@@ -40,9 +39,6 @@ const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"
 
 /** The page holding both decisions, which is what decides whether either panel is on screen at all. */
 const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungView.tsx"), "utf8").replace(/\s+/g, " ");
-
-/** The queue, whose columns are allocated rather than measured: fixed layout gives back nothing a cell overruns. */
-const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminBewerbungenTable.tsx"), "utf8");
 
 /** The readout, whose own `useRouter` is why its header is read rather than rendered. */
 const STRIP = readFileSync(path.resolve(import.meta.dirname, "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
@@ -637,45 +633,11 @@ describe("the readout's count", () => {
   });
 });
 
-describe("the queue's columns", () => {
-  /* One rule on the table rather than a class per cell: HeroUI's `Table.Column` takes no alignment
-     prop, so nothing else makes eight columns read from one edge. */
-  it("reads from one edge, with the controls the single exception", () => {
-    // The floor stays out of this case: `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-    // derives every table's own and holds it under the step a viewport gives.
-    assert.match(
-      TABLE,
-      /className="min-w-\S+ table-fixed text-left"/,
-      "the table declares no alignment, so each cell keeps whatever it inherits",
-    );
-
-    const geendet = [...TABLE.matchAll(/text-right/g)];
-
-    assert.equal(geendet.length, 1, `expected the Aktionen column alone to end right, found ${String(geendet.length)}`);
-    assert.match(TABLE.slice(geendet[0]!.index), /^text-right[\s\S]{0,120}Aktionen/, "a column other than Aktionen is ended right");
-  });
-
-  /* A pill that cannot break overruns a column too narrow for it instead of wrapping inside it, so
-     the widths are read off the pills rather than off the headings, which may wrap. */
+describe("the pills the queue's card wears", () => {
+  /* A pill that cannot break overruns the cell it sits in instead of wrapping inside it, and a
+     card's own grid track is where one gets narrow enough to break. */
   it("never lets a pill break across two lines", () => {
     assert.match(labelBadge("info"), /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
-  });
-
-  /* A calendar date is fixed-format: its column is sized to it, and a clipped one is another date.
-     Truncating it was the repair for a column too narrow, which is the wrong end of the problem. */
-  it("truncates the names and never the date", () => {
-    // The LAST rendering: the phone card above the table draws the same date, and it is the table's
-    // fixed column that a truncation would be hiding.
-    const eingereicht = TABLE.lastIndexOf("{formatSpielDatum(bewerbung.eingereicht_am)}");
-
-    assert.notEqual(eingereicht, -1, "the queue no longer renders the submission date where this case reads it");
-    assert.doesNotMatch(TABLE.slice(eingereicht - 120, eingereicht), /truncate/, "the submission date is clipped rather than given its width");
-    assert.match(
-      TABLE,
-      /className=\{IDENTITY_LINE\}>\{bewerbung\.schule\.full_name\}/,
-      "the school's full name is set outside the identity block's own line",
-    );
-    assert.match(IDENTITY_LINE, /\btruncate\b/, "the identity block's secondary line stopped truncating");
   });
 });
 

@@ -6,7 +6,7 @@ import { markBewerbungDubletten } from "@/features/bewerbungen/duplicates";
 import { BEWERBUNGEN_FACETS, bewerbungenQueueFacetCounts } from "@/features/bewerbungen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
-import { AdminBewerbungenTable } from "../collections/AdminBewerbungenTable";
+import { AdminBewerbungenList } from "../collections/AdminBewerbungenList";
 import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendigNotice";
 
 import type { FLBewerbungenListResponse } from "@/features/bewerbungen/schemas";
@@ -61,8 +61,11 @@ export function AdminBewerbungenView({
         facets={BEWERBUNGEN_FACETS}
         facetCounts={bewerbungenQueueFacetCounts({ anzahl_je_status: anzahlJeStatus, anzahl_je_saisonbezug: anzahlJeSaisonbezug })}
         leserichtung={richtung}
+        /* No react-aria collection here, so nothing ever grows a `tbody`: with the default the
+           placeholder overlay would never lift. */
+        isCollection={false}
         renderTable={({ filteredItems, emptiness }) => (
-          <AdminBewerbungenTable
+          <AdminBewerbungenList
             filteredBewerbungen={filteredItems}
             dubletten={dubletten}
             emptiness={emptiness}
