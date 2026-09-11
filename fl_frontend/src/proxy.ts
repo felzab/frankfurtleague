@@ -9,9 +9,10 @@ import { auth } from "./core/auth";
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
-  // A server action is never redirected: its response must be an RSC payload, and the action's own
-  // `getAdminSession()` refuses it anyway (frontend spec I7). Keyed on react-dom's header.
-  if (req.headers.has("next-action")) {
+  // POST alone: a GET carrying the header is an ordinary page render, and exempting one serves the
+  // admin shell to any caller. A server action's response must be an RSC payload, and
+  // `getAdminSession()` authorizes it (`docs/frontend/spec.md :: I7`).
+  if (req.method === "POST" && req.headers.has("next-action")) {
     return NextResponse.next();
   }
 
