@@ -126,6 +126,11 @@ Beyond that list:
   (`scripts/checks/check_commits.py :: SUBJECT_TARGET`); one longer still, past the width at which nothing
   wrapped it for any view, is refused instead (`scripts/checks/check_commits.py :: LINE_MAX`).
 - A scope outside the recorded set is reported, not refused.
+- A trailer line with no blank line over it is refused where it stands
+  (`scripts/checks/check_commits.py :: GLUED_TRAILER_RE`). Glued to the prose above it the line is
+  prose to git, so the paragraph is no trailer block at all and every arm reading that block — the
+  three comparing the message to the diff included — sees an absent trailer rather than a broken
+  one. It is a shape, so the `commit-msg` hook runs it.
 - A `Closes:` line whose value is not a token — a serial id, a heading slug, a mis-cased trailer
   name — is refused where it stands (`scripts/checks/check_commits.py :: CLOSES_RE`).
 - A body recording no verification is reported, not refused — and not reported at all for a commit

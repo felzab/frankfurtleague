@@ -162,6 +162,35 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         "a body closing on a colon-bearing sentence",
         _message("Ops: the gate proves it", CLEAN_BODY, "Verified: the four endings ran and the gate returned exit 0."),
     ),
+    # A trailer with no blank line over it is a shape fault, so it is refused with no diff to read --
+    # the hook, where the repair is a keystroke rather than a rebase.
+    Case(
+        "a Closes trailer glued to the paragraph above",
+        _message("Ops: the gate proves it", f"{CLEAN_BODY}\nCloses: {TOKEN}"),
+        (("fail", "a trailer needs a blank line over it"),),
+    ),
+    # The diagnosis this rule exists to replace. Alone it sends the author after a second trailer,
+    # leaving the glued one in prose where the roadmap reconciler never sees it.
+    Case(
+        "a glued Closes trailer on the commit retiring that entry",
+        _message("Ops: the gate proves it", f"{CLEAN_BODY}\nCloses: {TOKEN}"),
+        (("fail", "a trailer needs a blank line over it"), ("fail", "and the message carries no `Closes:` trailer")),
+        departed=frozenset({TOKEN}),
+    ),
+    # The class, not the instance: any trailer glued into prose is one git will not read, and the
+    # same trailer in its own paragraph is refused by the arm above.
+    Case(
+        "a trailer the convention refuses, glued to the paragraph above",
+        _message("Ops: the gate proves it", f"{CLEAN_BODY}\nRefs-Item: OPS-1"),
+        (("fail", "a trailer needs a blank line over it"),),
+    ),
+    # What the rule may not cost. A sign-off's value is a name and an address, so the bot exemption
+    # is untouched by it: the one trailer dependabot writes has no single-token value to match.
+    Case(
+        "a bot whose sign-off is glued to the paragraph above",
+        _message("Backend deps: bump httpx from 1.0 to 1.1", "Bumps httpx.\nSigned-off-by: dependabot[bot] <support@github.com>"),
+        is_bot=True,
+    ),
     # The five clauses of the `Closes:` contract, in order. A closing commit is the one message the
     # convention admits a trailer in, and the diff is what decides whether it may.
     Case(
@@ -500,6 +529,32 @@ def test_a_hyphenless_trailer_name_is_parted_from_a_body_s_closing_sentence() ->
     assert commits.trailer_block(trailer) == ["Refs: something"]
     for prose in ("Verified: the four endings ran and the gate returned exit 0.", "Verified: gate exit 0.", "pages: clean."):
         assert commits.trailer_block(_message("Ops: the gate proves it", CLEAN_BODY, prose)) == [], prose
+
+
+def test_a_wrapped_prose_line_is_not_read_as_a_glued_trailer() -> None:
+    """Four lines real bodies wrapped onto, every one of which `TRAILER_EVIDENCE_RE` reads as a trailer.
+
+    Reusing that pattern per line is the simplification this refuses: nothing corroborates a
+    hyphenated name here.
+    """
+    for prose in (
+        "Mutation-checked: hoisting the watermark clear out of the transaction, dropping",
+        "max-width: 16em, with truncate emitting the ellipsis triple. Nothing was seen",
+        "load-bearing: narrowing the rewritten keys to `team_id` alone failed the",
+        "non-executable: it is sourced, never run.",
+    ):
+        assert commits.TRAILER_EVIDENCE_RE.match(prose), prose
+        assert not commits.GLUED_TRAILER_RE.match(prose), prose
+    assert commits.GLUED_TRAILER_RE.match(f"Closes: {TOKEN}")
+    # Indented, which is dependabot's metadata block: git reads a trailer at column zero alone.
+    assert not commits.GLUED_TRAILER_RE.match("  dependency-type: direct:production")
+
+
+def test_a_trailer_glued_into_an_earlier_paragraph_is_found_beside_a_well_formed_one() -> None:
+    """The shape a message reaches by repairing a glued trailer with a second line instead of a blank one."""
+    repaired = _message("Ops: the gate proves it", f"{CLEAN_BODY}\nCloses: {TOKEN}", f"Closes: {TOKEN}")
+    assert commits.trailer_block(repaired) == [f"Closes: {TOKEN}"]
+    assert commits.glued_trailers(repaired) == [f"Closes: {TOKEN}"]
 
 
 def test_a_closing_trailer_is_not_an_issue_closing_keyword() -> None:
