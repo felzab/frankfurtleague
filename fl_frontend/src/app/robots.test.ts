@@ -20,6 +20,23 @@ const EVERYONE = RULES.find((rule) => rule.userAgent === "*");
 /** One rule's paths on the same terms, the convention taking a bare string as readily as a list. */
 const paths = (value: string | string[] | undefined): string[] => (value === undefined ? [] : [value].flat());
 
+/**
+ * Pinned whole rather than sampled. Nothing compares this list to the edge's own
+ * (`fl_frontend/src/app/robots.ts`), so a name dropped here is dropped from every record there is.
+ */
+const REFUSED = [
+  "Amazonbot",
+  "Applebot-Extended",
+  "Bytespider",
+  "CCBot",
+  "ClaudeBot",
+  "GPTBot",
+  "Google-Extended",
+  "Meta-ExternalAds",
+  "Meta-WebIndexer",
+  "meta-externalagent",
+];
+
 describe("where robots.txt sends a crawler", () => {
   /* The route the file convention serves `app/sitemap.ts` at. Pointed anywhere else, every crawler
      that asks is handed a 404 and falls back to guessing the site from its links. */
@@ -45,18 +62,20 @@ describe("what robots.txt keeps out of the crawl", () => {
     }
   });
 
+  /* A trainer dropped from the file is refused by whatever the dashboard still happens to hold, and
+     a name nobody can see is a name nobody restores. */
+  it("names every trainer the opt-out declares, and no other", () => {
+    const named = RULES.filter((rule) => rule.userAgent !== "*").map((rule) => String(rule.userAgent));
+
+    assert.deepEqual(named.toSorted(), REFUSED.toSorted());
+  });
+
   /* The named crawlers are refused whole, which is the only thing naming them achieves: a rule that
      refused part of the site would leave the rest of it training material. */
   it("refuses every crawler it names by name", () => {
     const named = RULES.filter((rule) => rule.userAgent !== "*");
 
     assert.notEqual(named.length, 0, "no crawler is named at all, so this case reads nothing");
-    for (const bot of ["ClaudeBot", "CCBot", "GPTBot", "Google-Extended"]) {
-      assert.ok(
-        named.some((rule) => rule.userAgent === bot),
-        `${bot} is no longer refused`,
-      );
-    }
     for (const rule of named) {
       assert.equal(rule.disallow, "/", `${String(rule.userAgent)} is named and then left part of the site`);
       assert.equal(rule.allow, undefined, `${String(rule.userAgent)} is refused and allowed in one rule`);

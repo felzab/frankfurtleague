@@ -113,34 +113,49 @@ const STEP =
   CARD_BORDER -
   SCROLLBAR;
 
-type Element = { tag: string; classes: readonly string[]; start: number; end: number };
+type Element = { tag: string; classes: readonly string[]; interpolated: readonly string[]; start: number; end: number };
+
+/** The class attribute of one element, however it is spelled, or `undefined` where the element declares none. */
+function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
+  const found = opening.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+
+  return found !== undefined && ts.isJsxAttribute(found) ? found.initializer : undefined;
+}
+
+/** The names a class attribute interpolates: a shared inset arrives as one of these and never as a token `classesOf` can read. */
+function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
+  const declared = classAttribute(opening, source);
+  if (declared === undefined || !ts.isJsxExpression(declared) || declared.expression === undefined) return [];
+
+  const expression = declared.expression;
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (!ts.isTemplateExpression(expression)) return [];
+
+  return expression.templateSpans.flatMap((span) => (ts.isIdentifier(span.expression) ? [span.expression.text] : []));
+}
 
 /** A template's own text counts, so a width written beside an interpolation is still declared. */
 function classesOf(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
-  for (const attribute of opening.attributes.properties) {
-    if (!ts.isJsxAttribute(attribute) || attribute.name.getText(source) !== "className") continue;
+  const declared = classAttribute(opening, source);
+  let written: string | null = null;
 
-    const declared = attribute.initializer;
-    let written: string | null = null;
-
-    if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
-    else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
-      const expression = declared.expression;
-      if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
-      else if (ts.isTemplateExpression(expression))
-        written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
-    }
-
-    return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
+  if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
+  else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
+    const expression = declared.expression;
+    if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
+    else if (ts.isTemplateExpression(expression))
+      written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
   }
 
-  return [];
+  return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
 }
 
 /* Parsed rather than matched as text: the Prettier plugin owns the order inside a class attribute, and
    a guard reading one as a string is the brittleness that already bit this file once. */
-function elementsOf(file: string): Element[] {
-  const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+function elementsIn(text: string, name: string): Element[] {
+  const source = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const found: Element[] = [];
 
   const visit = (node: ts.Node): void => {
@@ -149,6 +164,7 @@ function elementsOf(file: string): Element[] {
       found.push({
         tag: opening.tagName.getText(source),
         classes: classesOf(opening, source),
+        interpolated: interpolatedNames(opening, source),
         start: node.getStart(source),
         end: node.getEnd(),
       });
@@ -159,6 +175,8 @@ function elementsOf(file: string): Element[] {
 
   return found;
 }
+
+const elementsOf = (file: string): Element[] => elementsIn(read(file), file);
 
 /**
  * The one `Table.Content`, the columns fixed layout allocates over, and the cells under them: a
@@ -190,6 +208,15 @@ function widthConditional(token: string): boolean {
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
 
 const TABLE_BOX = new Set(["Table", "Table.ScrollContainer", "Table.Content"]);
+
+/** The shared inset each element kind takes, `fl_frontend/src/shared/components/ui/adminTable.ts`'s pair for a column and its cell's. */
+const INSETS: Record<string, readonly string[]> = {
+  "Table.Column": ["COLUMN_EDGE", "COLUMN_INNER"],
+  "Table.Cell": ["CELL_EDGE", "CELL_INNER"],
+};
+
+/** Every inset utility Tailwind spells, the logical sides among them: one written as a token is one the shared pair did not give. */
+const PADDING = /^-?p[trblsexy]?-/;
 
 /** `w-full` and `max-w-full` are the box taking what it is given; `min-w-*` is the floor above. */
 function selfCapped(token: string): boolean {
@@ -282,6 +309,30 @@ describe("the six admin CRUD tables", () => {
     }
   });
 
+  /* Each declared width above was measured against the inset its column carries, and the arithmetic
+     reads no inset at all (`fl_frontend/src/shared/components/ui/adminTable.ts :: COLUMN_INNER`). */
+  it("take every column inset from the shared pair rather than spelling one", () => {
+    for (const { file } of TABLES) {
+      const { columns, cells } = tableOf(file);
+
+      for (const element of [...columns, ...cells]) {
+        const taken = element.interpolated.filter((name) => INSETS[element.tag]?.includes(name) === true);
+        assert.equal(
+          taken.length,
+          1,
+          `${file}: a ${element.tag} takes ${taken.length === 0 ? "no inset from adminTable.ts" : `${String(taken.length)} of its insets — ${taken.join(", ")}`}`,
+        );
+
+        const spelled = element.classes.filter((token) => PADDING.test(utilityOf(token)));
+        assert.deepEqual(
+          spelled,
+          [],
+          `${file}: a ${element.tag} spells ${spelled.join(" ")} of its own, which no floor above was measured with`,
+        );
+      }
+    }
+  });
+
   /* The bar above the table takes `AdminCrudShell`'s whole capped column, and fixed layout hands the
      surplus to the one undeclared column. A table capping itself stops growing under a toolbar that
      does not. */
@@ -342,6 +393,41 @@ describe("the reader behind the hidden-column sweep", () => {
 
     for (const token of ["w-24", "min-w-156", "max-w-full", "text-right", "table-fixed", "border-b"])
       assert.ok(!widthConditional(token), `${token}: read as conditional`);
+  });
+});
+
+/* No table spells an inset of its own today, so the sweep over the tree cannot tell this reader from
+   one that matches nothing. A logical side, and one behind a variant, are caught here or nowhere. */
+describe("the reader behind the hand-spelled inset sweep", () => {
+  it("takes every side an inset can be written on, and leaves the utilities that set none", () => {
+    for (const token of ["p-4", "px-6", "py-4", "pt-2", "pb-1", "pl-4", "pr-4", "ps-3", "pe-3", "sm:px-6", "@2xl:py-2", "-p-1"])
+      assert.ok(PADDING.test(utilityOf(token)), `${token}: read as setting no inset`);
+
+    for (const token of ["pointer-events-none", "place-items-center", "peer", "w-24", "min-w-156", "text-right", "font-bold", "border-b"])
+      assert.ok(!PADDING.test(utilityOf(token)), `${token}: read as an inset`);
+  });
+
+  /* A column interpolates its inset inside a template and a cell passes the constant bare, so a
+     reader handling one shape reports the other as taking no inset and fails a compliant table. */
+  it("reads a shared inset out of either attribute shape, and a hand-spelled one out of neither", () => {
+    const [column, shared, spelling] = elementsIn(
+      "const T = () => (<Table.Content>" +
+        "<Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24 px-6`}>Gruppe</Table.Column>" +
+        "<Table.Cell className={CELL_EDGE}>x</Table.Cell>" +
+        '<Table.Cell className="px-6 py-4">y</Table.Cell>' +
+        "</Table.Content>);",
+      "sample.tsx",
+    ).filter((element) => element.tag !== "Table.Content");
+
+    assert.deepEqual(column?.interpolated, ["TABLE_HEADING", "COLUMN_INNER"]);
+    assert.deepEqual(shared?.interpolated, ["CELL_EDGE"]);
+    assert.deepEqual(spelling?.interpolated, []);
+
+    const insets = (element: Element | undefined) => (element?.classes ?? []).filter((token) => PADDING.test(utilityOf(token)));
+
+    assert.deepEqual(insets(column), ["px-6"], "an inset written beside the interpolation is missed");
+    assert.deepEqual(insets(shared), [], "the constant's own inset is read as a hand-spelled one");
+    assert.deepEqual(insets(spelling), ["px-6", "py-4"]);
   });
 });
 
