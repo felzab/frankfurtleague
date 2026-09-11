@@ -29,7 +29,11 @@ export function ExpandableDescription({ text }: { text: string }) {
         {text}
       </p>
 
+      {/* `type` because the default is `submit`: this sits outside a form today, and the day it does
+          not, pressing "Weiterlesen..." would send the form it was dropped into. */}
       <button
+        type="button"
+        aria-expanded={isExpanded}
         className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);

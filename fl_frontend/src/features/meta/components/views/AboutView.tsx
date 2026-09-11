@@ -131,8 +131,10 @@ function TeamChipSkeleton() {
   return (
     <div
       role="status"
-      aria-label="Teams werden geladen"
       className="flex flex-wrap gap-2">
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">Teams werden geladen</span>
       {TEAM_CHIP_SKELETON_WIDTHS.map((width, i) => (
         // Built from the real chip's own string, so a placeholder is exactly one chip tall at every
         // breakpoint.

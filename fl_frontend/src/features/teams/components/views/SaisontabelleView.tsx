@@ -4,6 +4,7 @@
 
 import { Badge, Table } from "@heroui/react";
 
+import { PILL_SOLID } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -145,12 +146,14 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                           <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                             {teamData.shorthand}
                           </span>
+                          {/* `PILL_SOLID` and not the tint: a qualifying row wears `bg-brand/5`, and
+                              a tint stacked on that ground measures 4.49:1 in the light theme. */}
                           {teamData.austritt_type !== null && (
                             <Badge
                               size="sm"
                               placement="top-right"
                               aria-label={austrittZustand(teamData.austritt_type)}
-                              className="fluid-xxs! bg-danger/15 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
+                              className={`fluid-xxs! ${PILL_SOLID.danger} translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6`}>
                               {austrittKuerzel(teamData.austritt_type)}
                             </Badge>
                           )}

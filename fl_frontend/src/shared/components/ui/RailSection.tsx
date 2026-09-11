@@ -22,7 +22,12 @@ export function RailSection({
   children,
 }: {
   title: string;
-  /** Rendered between the title and the chevron — a count, usually. Visible while collapsed. */
+  /**
+   * Rendered between the title and the chevron — a count, usually. Visible while collapsed.
+   *
+   * **A pill here is solid, never a tint**: the fold control below paints `--bg-hover` under this
+   * slot, where a tint misses 4.5:1.
+   */
   badge?: ReactNode;
   /** An `InfoHint`, rendered directly beside the title. */
   info?: ReactNode;
@@ -65,8 +70,11 @@ export function RailSection({
           {info && <span className="pointer-events-auto relative z-10">{info}</span>}
         </h2>
         {badge && <span className="pointer-events-none relative ml-auto">{badge}</span>}
+        {/* `motion-reduce:transition-none` rather than a dropped rotation: the glyph has to rest
+            pointing the way the section is folded, and only the travel there is movement. */}
         <ChevronDown
-          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-(--motion-base) ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
+          aria-hidden="true"
+          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-(--motion-base) motion-reduce:transition-none ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 

@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "@gravity-ui/icons";
 
-import { countBadge, labelBadge } from "@/shared/components/ui/badges";
+import { trackCountBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -58,7 +58,7 @@ export function SpielRail({
             body={{ lead: "Das Spiel, wie es nach dem Speichern erscheint." }}
           />
         }
-        badge={status.isDirty ? <span className={labelBadge("warning")}>Nicht gespeichert</span> : undefined}>
+        badge={status.isDirty ? <span className={trackLabelBadge("warning")}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
           today={today}
@@ -85,11 +85,11 @@ export function SpielRail({
         }
         badge={
           <span className="rail-marker">
-            {expectedScheduling.length > 0 && <span className={countBadge("warning")}>{expectedScheduling.length}</span>}
+            {expectedScheduling.length > 0 && <span className={trackCountBadge("warning")}>{expectedScheduling.length}</span>}
             {/* Tinted like every other badge — `/15` fill, `-strong` text:
                 the two solid-filled counts were the odd ones out and the least like their markers. */}
             {(expectedScoring.length > 0 || expectedScheduling.length === 0) && (
-              <span className={countBadge(expectedScoring.length > 0 ? "danger" : "success")}>{expectedScoring.length}</span>
+              <span className={trackCountBadge(expectedScoring.length > 0 ? "danger" : "success")}>{expectedScoring.length}</span>
             )}
           </span>
         }>

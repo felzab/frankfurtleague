@@ -41,7 +41,7 @@ export function AppTopBar({
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
-        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out lg:border-r ${
+        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
           railWidth
         } ${isDesktopCollapsed ? "lg:justify-center lg:px-0" : ""}`}>
         {/* Opens the drawer and only opens it: the open panel overlays this bar, so the close control is
@@ -71,7 +71,11 @@ export function AppTopBar({
 
       {/* No left padding below `lg`: the brand block's own `px-4` is already the gutter, and a second one doubles
           it on a narrow screen. From `lg` a border separates the two blocks, so each wants its own inset. */}
-      <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
+      {/* `inert` with `<main>` and for its reason: the open drawer overlays this bar, and this block is where the
+          stops it hides live. The block beside it keeps the hamburger, which is what closes the drawer. */}
+      <div
+        inert={isMobileOpen}
+        className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
         {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. The glyph
             sits inside the h1 to inherit its font size, so `InfoHint`'s 1em icon matches. */}
         <h1 className="fluid-base text-foreground min-w-0 truncate font-semibold tracking-wide">

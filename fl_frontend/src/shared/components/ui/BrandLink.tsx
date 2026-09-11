@@ -27,6 +27,9 @@ export function BrandLink({
     <Link
       href="/"
       title={title}
+      // The name is the wordmark whether or not the wordmark is painted: dropping it left `title` as
+      // the only source, so the collapsed rail renamed one control to a string no tap reaches.
+      aria-label="Frankfurt League"
       onNavigate={onNavigate}
       // `-m-1.5` against `p-1.5` leaves the margin box where it was, so the fill is the only thing
       // the hover adds and no caller's row reflows around it.

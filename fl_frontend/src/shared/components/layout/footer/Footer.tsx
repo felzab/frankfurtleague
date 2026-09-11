@@ -15,8 +15,10 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   return (
     <span
       role="status"
-      aria-label={label}
       className={`${skeletonBlock()} fluid-xxs inline-block rounded ${width}`}>
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">{label}</span>
       &nbsp;
     </span>
   );

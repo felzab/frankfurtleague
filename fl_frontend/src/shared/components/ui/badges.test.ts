@@ -7,7 +7,7 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { countBadge, labelBadge, PILL_SOLID, PILL_TINT, trackCountBadge } from "./badges.ts";
+import { countBadge, labelBadge, PILL_SOLID, PILL_TINT, trackCountBadge, trackLabelBadge } from "./badges.ts";
 
 import type { FeedbackTone, PillTone } from "./badges.ts";
 
@@ -162,6 +162,14 @@ describe("the closed set every pill takes its colour from", () => {
     }
     for (const tone of SOLID_TONES) {
       assert.ok(trackCountBadge(tone).endsWith(PILL_SOLID[tone]), `\`${tone}\` composes to ${trackCountBadge(tone)}, which drops its own fill`);
+    }
+  });
+
+  /* A word takes the same two shapes a count does, a ground the tint cannot survive carrying both
+     (`docs/frontend/spec.md :: I229`). */
+  it("carries the solid ground's own pair into the word it composes", () => {
+    for (const tone of SOLID_TONES) {
+      assert.ok(trackLabelBadge(tone).endsWith(PILL_SOLID[tone]), `\`${tone}\` composes to ${trackLabelBadge(tone)}, which drops its own fill`);
     }
   });
 });

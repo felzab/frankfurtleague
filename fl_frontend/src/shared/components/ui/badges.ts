@@ -28,9 +28,9 @@ export type PillTone =
   | "finale";
 
 /**
- * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), and a
- * pill sits on `surface` or `background`, never on `muted`: there the light inks fall under the
- * floor.
+ * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
+ * pill sits on `surface` or `background` alone: on `muted` and on every hover fill its light ink
+ * falls under the floor, and `PILL_SOLID` goes there instead.
  */
 export const PILL_TINT: Record<PillTone, string> = {
   success: "bg-success/15 text-success-strong",
@@ -56,8 +56,9 @@ export const PILL_TINT: Record<PillTone, string> = {
 export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | "info">;
 
 /**
- * A count on a recessed track — a tab strip's `muted` — where a tint's light ink falls under the
- * floor: the tone's fill under its paired on-colour, a pair no ground moves (`docs/frontend/spec.md :: I229`).
+ * For a ground a tint cannot survive — a tab strip's `muted`, and every hover fill painted under a
+ * pill: the tone's fill under its paired on-colour, a pair no ground moves
+ * (`docs/frontend/spec.md :: I229`).
  */
 export const PILL_SOLID: Record<FeedbackTone, string> = {
   success: "bg-success-solid text-success-solid-foreground",
@@ -71,7 +72,7 @@ export function countBadge(tone: PillTone): string {
   return `${COUNT_BADGE} ${PILL_TINT[tone]}`;
 }
 
-/** A count on a recessed track, where a tint's ink fails: solid, under its on-colour. */
+/** A count on a ground a tint's ink cannot survive: solid, under its on-colour. */
 export function trackCountBadge(tone: FeedbackTone): string {
   return `${COUNT_BADGE} ${PILL_SOLID[tone]}`;
 }
@@ -90,4 +91,9 @@ const LABEL_BADGE = `fluid-xxs inline-flex items-center ${PILL_RADIUS} px-1.5 py
  */
 export function labelBadge(tone: PillTone): string {
   return `${LABEL_BADGE} ${PILL_TINT[tone]}`;
+}
+
+/** A word on `trackCountBadge`'s grounds, where the tint would composite with the fill under it. */
+export function trackLabelBadge(tone: FeedbackTone): string {
+  return `${LABEL_BADGE} ${PILL_SOLID[tone]}`;
 }

@@ -30,11 +30,17 @@ const PILL_SHELL = `${CONTROL_BOX} border-border items-stretch overflow-hidden`;
 const FIELD_SHELL = `${CONTROL_BOX} border-control text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
-const ICON_SHELL = `${CONTROL_BOX} border-border text-foreground hover:bg-hover cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const ICON_SHELL = `${CONTROL_BOX} border-border items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
+/** The ink, the fill and the cursor sit here rather than in `ICON_SHELL`: the exhausted twin below wears the same box
+ *  and offers no press, and a fill on something unpressable is an affordance it does not have. */
+const ADD_FACE = `${ICON_SHELL} text-foreground hover:bg-hover cursor-pointer`;
+
+// `ring-inset` because `PILL_SHELL` clips its overflow and this box is flush with the pill's trailing
+// edge: HeroUI draws its ring outside, where the clip takes it and a keyboard reader sees nothing.
 /** Sized by `w-8` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
  *  make the width a property of the icon's margins, and the glyph's own side margins are the pill's right gap. */
-const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0";
+const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0 ring-inset";
 
 /**
  * The ceiling on a picked value, in `em` so it holds the same character count at every type size. `min-w-0` is what
@@ -104,9 +110,11 @@ function FilterPill<TItem>({
     <div className={PILL_SHELL}>
       <Popover>
         {/* `pr-0.5` because the control beside it centres its glyph in a wider box, so this reads as the pill's own gap. */}
+        {/* The negative offset for `CLEAR_FACE`'s reason: this stop is flush with the pill's leading edge, and
+            `globals.css`'s base outline for a `[tabindex]` draws two pixels outside the clip. */}
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
+          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
@@ -295,18 +303,21 @@ function FilterRow<TItem>({
             displaces nothing. */}
         {unfiltered.length === 0 ? (
           // Kept in place once every dimension is filtering: removing it would slide the whole row left.
-          <span
-            aria-disabled="true"
+          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, so both attributes
+          // were dropped and this stood silent.
+          <button
+            type="button"
+            disabled
             aria-label={ADD_HINT}
             className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
             {addFace}
-          </span>
+          </button>
         ) : (
           <IconTooltip label={ADD_HINT}>
             <Popover>
               <Popover.Trigger
                 aria-label={ADD_HINT}
-                className={ICON_SHELL}>
+                className={ADD_FACE}>
                 {addFace}
               </Popover.Trigger>
               <Popover.Content
