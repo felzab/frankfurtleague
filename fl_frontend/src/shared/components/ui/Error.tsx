@@ -71,7 +71,7 @@ export function Error({
           <span className="text-brand">Systemfehler</span>
         </>
       }
-      message="Der Schiedsrichter hat die Partie vorübergehend gestoppt, da ein unerwarteter Fehler aufgetreten ist. Die Platzwarte sind schon informiert."
+      message="Ein unerwarteter Fehler ist aufgetreten und wurde automatisch gemeldet."
       digest={error.digest}
       watermark={
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text

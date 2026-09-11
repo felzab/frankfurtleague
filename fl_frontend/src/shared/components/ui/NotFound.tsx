@@ -18,14 +18,14 @@ export function NotFound() {
     <StatusPanel
       /* `fl_frontend/src/app/not-found.tsx` renders this inside the public shell rather than as the whole document. */
       fills="shell"
-      badgeLabel="VAR Review"
+      badgeLabel="Abseits"
       heading={
         <>
           Entscheidung: <br className="sm:hidden" />
           <span className="text-foreground-muted">Kein Treffer</span>
         </>
       }
-      message="Nach Überprüfung der Bilder steht fest: Die gesuchte Seite befindet sich im Abseits oder wurde vom Platz gestellt."
+      message="Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht."
       watermark={
         /* `motion-safe:` rather than the global shortening, for `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */
         <span
