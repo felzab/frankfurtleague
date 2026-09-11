@@ -41,7 +41,10 @@ export function ConfirmSaveModal({
       role="alertdialog"
       icon={
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <TriangleExclamation className="text-danger-strong size-5" />
+          <TriangleExclamation
+            aria-hidden="true"
+            className="text-danger-strong size-5"
+          />
         </div>
       }>
       <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">

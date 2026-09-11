@@ -162,9 +162,8 @@ export function FormAnonymisierenSection({
             className={confirmButton(isConfirming)}>
             {!isConfirming && (
               <TrashBin
+                className="size-4.5"
                 aria-hidden="true"
-                width={18}
-                height={18}
               />
             )}
             {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig

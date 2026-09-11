@@ -116,6 +116,7 @@ export function SpielRail({
                   }}
                   className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-2 font-bold transition-colors">
                   <ArrowRight
+                    aria-hidden="true"
                     className={`size-3.5 shrink-0 ${field.expectedSeverity === "scoring" ? "text-danger-strong" : "text-warning-strong"}`}
                   />
                   {field.label}

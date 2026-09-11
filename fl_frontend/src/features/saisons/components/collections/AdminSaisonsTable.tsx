@@ -76,9 +76,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         label="Bearbeiten"
         ariaLabel={`Saison ${saison.id} bearbeiten`}>
         <Pencil
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
       {/* Both leave the row for another list, which is what sends them here rather than to an icon
@@ -88,13 +87,19 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
           id="spieltage"
           href={`/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
           label="Spieltage">
-          <Calendar className="text-foreground-muted size-4" />
+          <Calendar
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
         <RowActionMenuItem
           id="teams"
           href={`/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
           label="Teams">
-          <Persons className="text-foreground-muted size-4" />
+          <Persons
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
       </RowActionMenu>
     </RowActions>

@@ -48,7 +48,10 @@ export function AboutView() {
           <span
             aria-hidden="true"
             className={META_TILE}>
-            <StarFill className="size-5" />
+            <StarFill
+              aria-hidden="true"
+              className="size-5"
+            />
           </span>
           <p className="fluid-base text-foreground leading-relaxed font-medium text-pretty">
             Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball.
@@ -77,8 +80,8 @@ export function AboutView() {
 
                     <Accordion.Indicator className="text-brand shrink-0">
                       <ChevronsDownWide
-                        width={20}
-                        height={20}
+                        aria-hidden="true"
+                        className="size-5"
                       />
                     </Accordion.Indicator>
                   </Accordion.Trigger>

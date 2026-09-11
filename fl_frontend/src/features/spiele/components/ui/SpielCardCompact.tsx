@@ -61,7 +61,10 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                      reasons at the same control. `rounded-xl` is spelled, not inherited: HeroUI's
                      base radius clamps to a circle at this size. */
                   className="bg-muted text-foreground data-hovered:bg-hover-muted flex size-8 rounded-xl p-0 transition-colors duration-(--motion-base)">
-                  <CircleExclamation className="m-0 size-4" />
+                  <CircleExclamation
+                    aria-hidden="true"
+                    className="m-0 size-4"
+                  />
                 </Button>
               </IconTooltip>
             </span>

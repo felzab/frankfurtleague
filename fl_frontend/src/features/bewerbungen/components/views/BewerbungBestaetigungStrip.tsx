@@ -239,9 +239,8 @@ function SitzZeile({
               onPress={onKorrigieren}
               className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
               <Pencil
+                className="size-3.5"
                 aria-hidden="true"
-                width={14}
-                height={14}
               />
             </Button>
           </IconTooltip>
@@ -249,9 +248,8 @@ function SitzZeile({
 
         <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP} ml-auto gap-x-1`}>
           <Glyph
+            className="size-3.5"
             aria-hidden="true"
-            width={14}
-            height={14}
           />
           {sitz.satz}
         </span>
@@ -268,9 +266,8 @@ function SitzZeile({
             onPress={onSendeErneut}
             className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
             <PaperPlane
+              className="size-3.5"
               aria-hidden="true"
-              width={14}
-              height={14}
             />
             <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
           </Button>

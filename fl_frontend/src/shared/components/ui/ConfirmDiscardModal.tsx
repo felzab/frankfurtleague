@@ -33,7 +33,10 @@ export function ConfirmDiscardModal({
       role="alertdialog"
       icon={
         <div className="bg-warning/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <TriangleExclamation className="text-warning-strong size-5" />
+          <TriangleExclamation
+            aria-hidden="true"
+            className="text-warning-strong size-5"
+          />
         </div>
       }>
       <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">
@@ -53,7 +56,10 @@ export function ConfirmDiscardModal({
             variant="primary"
             className={formButton({ intent: "destructive", fullWidth: true })}
             onPress={onDiscard}>
-            <ArrowUturnCwLeft className="m-0 size-4.5 shrink-0" />
+            <ArrowUturnCwLeft
+              aria-hidden="true"
+              className="m-0 size-4.5 shrink-0"
+            />
             Verwerfen
           </Button>
           {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about cancelling is ambiguous about what it cancels. */}

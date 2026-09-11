@@ -124,9 +124,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         label="Bearbeiten"
         ariaLabel={`Team ${team.name} bearbeiten`}>
         <Pencil
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
       {team.inactive_since !== null ? (
@@ -156,7 +155,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           id="spieler"
           href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
           label="Spieler anzeigen">
-          <PersonPencil className="text-foreground-muted size-4" />
+          <PersonPencil
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
         {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
             hang off the junction, so without it this opens another season's three people. */}
@@ -164,7 +166,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           id="kontakte"
           href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
           label="Kontakte anzeigen">
-          <Envelope className="text-foreground-muted size-4" />
+          <Envelope
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
         {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
             fixtures whichever slot it occupies. */}
@@ -172,13 +177,19 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           id="spiele"
           href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
           label="Spiele anzeigen">
-          <Magnifier className="text-foreground-muted size-4" />
+          <Magnifier
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
         <RowActionMenuItem
           id="oeffentlich"
           href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
           label="Öffentliche Teamseite">
-          <Globe className="text-foreground-muted size-4" />
+          <Globe
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
       </RowActionMenu>
     </RowActions>

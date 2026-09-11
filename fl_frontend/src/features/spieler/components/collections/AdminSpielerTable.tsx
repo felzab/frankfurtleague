@@ -133,9 +133,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           label="Bearbeiten"
           ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
           <Pencil
+            className="size-4.5"
             aria-hidden="true"
-            width={18}
-            height={18}
           />
         </RowActionLink>
 

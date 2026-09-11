@@ -191,9 +191,8 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
             data-border-on-open="true"
             className={FIELD_SHELL}>
             <ArrowUpArrowDown
+              className="size-4"
               aria-hidden="true"
-              width={16}
-              height={16}
             />
             {/* From the prop, never `Select.Value`, which resolves its label out of the react-aria collection
                 and paints HeroUI's English placeholder on a render where that has not committed. */}
@@ -286,9 +285,8 @@ function FilterRow<TItem>({
   const addFace = (
     <>
       <Sliders
+        className="size-4"
         aria-hidden="true"
-        width={16}
-        height={16}
       />
       <span className="max-md:hidden">{ADD_LABEL}</span>
     </>

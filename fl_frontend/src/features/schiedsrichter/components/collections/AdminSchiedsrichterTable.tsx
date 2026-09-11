@@ -29,7 +29,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
-import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -62,7 +62,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const copied = await copyTextToClipboard(details);
 
     if (copied) appToast.success("Kontaktdaten kopiert");
-    else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+    else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
   // No confirmation step: the reactivation is undone by the retire control that takes its place.
@@ -101,9 +101,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
       <Person
         aria-hidden="true"
-        className="text-brand shrink-0"
-        width={18}
-        height={18}
+        className="text-brand size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
@@ -156,9 +154,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           label={einsatzLabel}
           ariaLabel={zusammengefasst ? einsatzLabel : `Einsätze von ${angezeigt} anzeigen`}>
           <Magnifier
+            className="size-4.5"
             aria-hidden="true"
-            width={18}
-            height={18}
           />
         </RowActionLink>
         {/* No control where there is nothing to copy: an empty write is refused at
@@ -177,9 +174,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           label="Bearbeiten"
           ariaLabel={`${nennung} bearbeiten`}>
           <Pencil
+            className="size-4.5"
             aria-hidden="true"
-            width={18}
-            height={18}
           />
         </RowActionLink>
         {isRetired && (

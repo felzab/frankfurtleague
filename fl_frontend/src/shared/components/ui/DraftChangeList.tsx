@@ -77,7 +77,12 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                     ) : (
                       <InfoHint
                         label={`Vorheriger Wert von ${field.label}`}
-                        trigger={<Icon className={`size-3.5 ${cls}`} />}>
+                        trigger={
+                          <Icon
+                            aria-hidden="true"
+                            className={`size-3.5 ${cls}`}
+                          />
+                        }>
                         <p>Vorher: {field.storedText}</p>
                       </InfoHint>
                     )}

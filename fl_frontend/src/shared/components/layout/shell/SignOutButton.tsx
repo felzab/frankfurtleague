@@ -38,7 +38,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       ) : (
         <ArrowRightFromSquare
           aria-hidden="true"
-          className="size-[18px] shrink-0"
+          className="size-4.5 shrink-0"
         />
       )}
     </button>

@@ -14,7 +14,7 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
-import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
@@ -72,7 +72,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
     const copied = await copyTextToClipboard([row.teamName, ...zeilen].join("\n"));
 
     if (copied) appToast.success("Kontaktdaten kopiert");
-    else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+    else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
   /** The eyebrow names the seat at the seat, so no header row can disagree with the block under it. */
@@ -132,9 +132,8 @@ export const AdminKontakteList = memo(function AdminKontakteList({
         label="Kontakte bearbeiten"
         ariaLabel={`Kontakte von ${row.teamName} bearbeiten`}>
         <Pencil
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
     </RowActions>

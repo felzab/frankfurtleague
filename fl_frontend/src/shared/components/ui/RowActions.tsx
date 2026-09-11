@@ -66,9 +66,8 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
         className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Copy
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </Button>
     </IconTooltip>
@@ -104,9 +103,8 @@ export function RowActionRestore({
       className={ACTION_BUTTON_CLASS}
       onPress={onPress}>
       <ArrowRotateLeft
+        className="size-4.5"
         aria-hidden="true"
-        width={18}
-        height={18}
       />
     </Button>
   );
@@ -144,9 +142,8 @@ export function RowActionDelete({
       className={DANGER_CLASS}
       onPress={onPress}>
       <TrashBin
+        className="size-4.5"
         aria-hidden="true"
-        width={18}
-        height={18}
       />
     </Button>
   );
@@ -187,9 +184,8 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
           aria-label={ariaLabel}
           className={ACTION_BUTTON_CLASS}>
           <Ellipsis
+            className="size-4.5"
             aria-hidden="true"
-            width={18}
-            height={18}
           />
         </Dropdown.Trigger>
       </IconTooltip>

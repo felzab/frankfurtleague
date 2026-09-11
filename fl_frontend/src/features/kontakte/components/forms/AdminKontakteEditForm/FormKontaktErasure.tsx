@@ -156,9 +156,8 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
               press, and step two is already announcing itself in words. */}
           {!isConfirming && (
             <TrashBin
+              className="size-4.5"
               aria-hidden="true"
-              width={18}
-              height={18}
             />
           )}
           {/* The object stays in the label: a bare „Ja, endgültig löschen“ reads as whatever the page

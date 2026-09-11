@@ -47,9 +47,8 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
       className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
+        aria-hidden="true"
         className="size-4 shrink-0 rotate-90 sm:rotate-0"
-        width={16}
-        height={16}
       />
       {first !== null && second !== null && (
         <span>
@@ -277,9 +276,8 @@ export function FormGruppenSwapSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}

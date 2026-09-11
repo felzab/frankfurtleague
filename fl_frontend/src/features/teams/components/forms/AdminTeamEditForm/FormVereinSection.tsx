@@ -187,7 +187,10 @@ export function FormVereinSection({
               <span className="fluid-sm text-foreground line-clamp-3 min-w-0 leading-relaxed font-medium">{draft.description}</span>
             )}
             <span className="text-foreground-muted group-hover:text-brand mt-0.5 flex shrink-0 items-center gap-x-2 transition-colors">
-              <Pencil className="size-4" />
+              <Pencil
+                aria-hidden="true"
+                className="size-4"
+              />
               <span className="fluid-xs font-bold">Bearbeiten</span>
             </span>
           </button>

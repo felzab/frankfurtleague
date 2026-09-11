@@ -171,9 +171,8 @@ export function AdminBewerbungAblehnenSection({
               className={confirmButton(isConfirming)}>
               {!isConfirming && (
                 <Ban
+                  className="size-4.5"
                   aria-hidden="true"
-                  width={18}
-                  height={18}
                 />
               )}
               {isDeclining ? "Sagt ab..." : isConfirming ? "Ja, Absage verbindlich verschicken" : "Bewerbung ablehnen"}

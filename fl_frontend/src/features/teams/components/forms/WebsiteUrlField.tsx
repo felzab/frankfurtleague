@@ -54,7 +54,10 @@ export function WebsiteUrlField({
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
         isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
       }`}>
-      <ArrowUpRightFromSquare className="size-4" />
+      <ArrowUpRightFromSquare
+        aria-hidden="true"
+        className="size-4"
+      />
     </a>
   );
 

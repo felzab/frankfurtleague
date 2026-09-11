@@ -255,9 +255,8 @@ export function BestaetigungEntscheidung({
           className={confirmButton(isConfirming)}>
           {!isConfirming && (
             <CircleCheck
+              className="size-4.5"
               aria-hidden="true"
-              width={18}
-              height={18}
             />
           )}
           {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Bestätigt..." : "Eintrag bestätigen"}

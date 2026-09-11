@@ -233,9 +233,8 @@ export function AdminBewerbungAnnehmenSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <SealCheck
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {/* The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what

@@ -136,7 +136,11 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                     variant="primary"
                     onPress={openCreateModal}
                     className={formButton({ intent: "submit" })}>
-                    <Plus width={16} /> Jetzt anlegen
+                    <Plus
+                      aria-hidden="true"
+                      className="size-4"
+                    />{" "}
+                    Jetzt anlegen
                   </Button>
                 </div>
               )}
@@ -161,7 +165,11 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                 variant="secondary"
                 className="text-brand w-full justify-start font-bold"
                 onPress={openCreateModal}>
-                <Plus width={18} /> {createLabel}
+                <Plus
+                  aria-hidden="true"
+                  className="size-4"
+                />{" "}
+                {createLabel}
               </Button>
             </div>
           )}

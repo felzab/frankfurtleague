@@ -481,15 +481,13 @@ export function FormSpielplanSection({
               {!isConfirming &&
                 (isDrawing ? (
                   <Calendar
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 ) : (
                   <CalendarXmark
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 ))}
               {/* The object stays in every label: under a danger heading a bare verb is agreed to

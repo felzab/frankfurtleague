@@ -135,9 +135,8 @@ export function FormKontakteLoeschenSection({
                 press, and step two is already announcing itself in words. */}
             {!isConfirming && (
               <TrashBin
+                className="size-4.5"
                 aria-hidden="true"
-                width={18}
-                height={18}
               />
             )}
             {/* The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the

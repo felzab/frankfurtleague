@@ -145,7 +145,7 @@ function SectionedFallback() {
               className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0`}>
               <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                 {/* Spelled rather than read from `ROW_ACTION_SIZE`, which it only happens to match. */}
-                <span className={`${skeletonBlock()} h-10 w-10 shrink-0 rounded-xl`} />
+                <span className={`${skeletonBlock()} size-10 shrink-0 rounded-xl`} />
                 <div className="flex min-w-0 flex-1 flex-col gap-y-1">
                   <span className={`${skeletonBlock()} fluid-sm block w-1/2 rounded`}>&nbsp;</span>
                   <span className={`${skeletonBlock()} fluid-xs block w-1/3 rounded`}>&nbsp;</span>

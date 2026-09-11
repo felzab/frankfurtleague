@@ -283,7 +283,10 @@ export function BewerbungForm({
           role="status"
           tabIndex={-1}
           className={ergebnisPanel({ tone: "erfolg" })}>
-          <CircleCheck className="text-success-strong size-10" />
+          <CircleCheck
+            aria-hidden="true"
+            className="text-success-strong size-10"
+          />
           <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
           {/* No seat is named, each holding a link of its own: the reader is the one person who can
               chase the other two, which is why the panel asks rather than reassures. */}

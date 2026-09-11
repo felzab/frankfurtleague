@@ -186,9 +186,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     <div className={IDENTITY_ROW}>
       <GraduationCap
         aria-hidden="true"
-        className="text-brand shrink-0"
-        width={18}
-        height={18}
+        className="text-brand size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
@@ -217,9 +215,8 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
         label="Bewerbung öffnen"
         ariaLabel={`Bewerbung von ${bewerbung.teamName ?? NO_TEAM} öffnen`}>
         <ArrowRightFromSquare
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
     </RowActions>

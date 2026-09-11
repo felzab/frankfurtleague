@@ -33,7 +33,7 @@ import {
 } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
-import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -68,7 +68,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     const copied = await copyTextToClipboard(`${ort.name}, ${formatAddressFull(ort.address)}`);
 
     if (copied) appToast.success("Adresse kopiert");
-    else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+    else appToast.danger("Adresse nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
   // No confirmation step: the reactivation is undone by the retire control that takes its place.
@@ -99,9 +99,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
       <MapPin
         aria-hidden="true"
-        className="text-brand shrink-0"
-        width={18}
-        height={18}
+        className="text-brand size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
@@ -132,9 +130,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         label="Bearbeiten"
         ariaLabel={`Spielort ${ort.name} bearbeiten`}>
         <Pencil
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
       {ort.inactive_since !== null ? (
@@ -157,7 +154,10 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           href={formatMapsLink(ort)}
           label="Auf Maps öffnen"
           external>
-          <Globe className="text-foreground-muted size-4" />
+          <Globe
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
         {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
             here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
@@ -165,7 +165,10 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           id="spiele"
           href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
           label="Spiele anzeigen">
-          <Magnifier className="text-foreground-muted size-4" />
+          <Magnifier
+            aria-hidden="true"
+            className="text-foreground-muted size-4"
+          />
         </RowActionMenuItem>
       </RowActionMenu>
     </RowActions>

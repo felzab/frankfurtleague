@@ -220,9 +220,8 @@ export function FormRolloverSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`}

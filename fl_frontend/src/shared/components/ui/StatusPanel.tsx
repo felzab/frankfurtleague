@@ -14,7 +14,7 @@ const statusPanel = tv({
     watermark: "pointer-events-none mb-4 flex items-center justify-center select-none sm:absolute sm:inset-0 sm:mb-0",
     panel: "border-border relative z-10 flex w-full flex-col items-center rounded-2xl border",
     badge: "bg-background border-border mb-6 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-sm",
-    dot: "h-2 w-2 animate-pulse rounded-full",
+    dot: "size-2 animate-pulse rounded-full",
     badgeText: "text-foreground fluid-xxs sm:fluid-xs font-extrabold tracking-widest uppercase",
     message: "text-foreground-muted leading-relaxed font-medium",
     digest: "text-foreground-muted fluid-xxs mt-4 font-mono tracking-wider",

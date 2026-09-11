@@ -35,7 +35,7 @@ export function AdminKontakteEditView({
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
             <span
-              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-sm`}>
+              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex size-10 items-center justify-center rounded-xl shadow-sm`}>
               {team.shorthand}
             </span>
           ),

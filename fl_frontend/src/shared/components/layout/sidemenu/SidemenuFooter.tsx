@@ -43,7 +43,10 @@ export function SidemenuFooter({
             isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
           }`}
           aria-label="Zur öffentlichen Website">
-          <ArrowRightToSquare className="size-[18px] shrink-0" />
+          <ArrowRightToSquare
+            aria-hidden="true"
+            className="size-4.5 shrink-0"
+          />
           {!isDesktopCollapsed && <span className="fluid-sm font-medium">Zur Website</span>}
         </Link>
       </IconTooltip>
@@ -61,9 +64,15 @@ export function SidemenuFooter({
           }`}
           aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
           {isDesktopCollapsed ? (
-            <LayoutSideContentRight className="size-[18px] shrink-0" />
+            <LayoutSideContentRight
+              aria-hidden="true"
+              className="size-4.5 shrink-0"
+            />
           ) : (
-            <LayoutSideContentLeft className="size-[18px] shrink-0" />
+            <LayoutSideContentLeft
+              aria-hidden="true"
+              className="size-4.5 shrink-0"
+            />
           )}
           {!isDesktopCollapsed && <span className="fluid-sm font-medium">Menü einklappen</span>}
         </button>

@@ -196,9 +196,8 @@ function GruppenTauschControl({
                 className={confirmButton(isConfirming)}>
                 {!isConfirming && (
                   <ArrowRightArrowLeft
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 )}
                 {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
@@ -324,7 +323,10 @@ export function FormSaisonSection({
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
-                  <LockFill className="text-foreground-muted size-3.5 shrink-0" />
+                  <LockFill
+                    aria-hidden="true"
+                    className="text-foreground-muted size-3.5 shrink-0"
+                  />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>

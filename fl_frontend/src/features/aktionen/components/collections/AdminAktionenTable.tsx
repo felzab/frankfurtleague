@@ -13,7 +13,7 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
-import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
@@ -65,7 +65,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const copied = await copyTextToClipboard(aktion.trace_id);
 
     if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Die Liste zeigt jetzt nur noch diesen Vorgang." });
-    else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+    else appToast.danger("Vorgangsnummer nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
 
     // Navigated rather than searched: the endpoint narrows on `trace_id` itself, where the search
     // reaches only the rows the cap left. Still one capped read, so neither sentence here claims the
@@ -82,9 +82,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       return (
         <div className="flex min-w-0 flex-row items-center gap-3">
           <Person
-            className="text-brand shrink-0"
-            width={18}
-            height={18}
+            aria-hidden="true"
+            className="text-brand size-4.5 shrink-0"
           />
           <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{aktion.actor.email}</span>
         </div>
@@ -96,9 +95,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     return (
       <div className="flex flex-row items-center gap-3">
         <Icon
-          className={`${iconClass} shrink-0`}
-          width={18}
-          height={18}
+          aria-hidden="true"
+          className={`size-4.5 ${iconClass} shrink-0`}
         />
         <span className={labelBadge(badge)}>{AKTION_HERKUNFT_LABELS[herkunft]}</span>
       </div>
@@ -214,9 +212,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           label="Änderungen an diesem Datensatz"
           ariaLabel={`Alle Änderungen an Datensatz ${aktion.document_id} anzeigen`}>
           <ClockArrowRotateLeft
+            className="size-4.5"
             aria-hidden="true"
-            width={18}
-            height={18}
           />
         </RowActionLink>
       )}

@@ -175,9 +175,8 @@ export function FormTeamErsatzSection({
                 className="bg-muted text-foreground-muted flex h-10 shrink-0 items-center justify-center justify-self-center rounded-full px-3">
                 {/* Downwards between two stacked pickers, rightwards once the grid puts them side by side. */}
                 <ArrowRight
+                  aria-hidden="true"
                   className="size-4 shrink-0 rotate-90 sm:rotate-0"
-                  width={16}
-                  height={16}
                 />
               </div>
               <RefusableSelect
@@ -254,9 +253,8 @@ export function FormTeamErsatzSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRight
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {isReplacing ? "Ersetzt..." : isConfirming ? "Ja, Team ersetzen" : "Team ersetzen"}

@@ -26,7 +26,12 @@ export function InfoHint({ label, children, trigger }: { label: string; children
         aria-label={label}
         className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
         onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
+        {trigger ?? (
+          <CircleInfo
+            aria-hidden="true"
+            className="size-(--hint-icon-size)"
+          />
+        )}
       </Popover.Trigger>
 
       <Popover.Content

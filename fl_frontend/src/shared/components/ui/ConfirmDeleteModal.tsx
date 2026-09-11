@@ -107,9 +107,8 @@ export function ConfirmDeleteModal({
       icon={
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TrashBin
-            className="text-danger-strong"
-            width={20}
-            height={20}
+            aria-hidden="true"
+            className="text-danger-strong size-5"
           />
         </div>
       }>
@@ -133,9 +132,8 @@ export function ConfirmDeleteModal({
               className={`${CONFIRM_DANGER_PANEL} flex flex-col gap-2`}>
               <div className="text-danger-strong flex items-center gap-2 font-bold">
                 <TriangleExclamation
+                  className="size-4.5"
                   aria-hidden="true"
-                  width={18}
-                  height={18}
                 />
                 Bist Du Dir sicher?
               </div>

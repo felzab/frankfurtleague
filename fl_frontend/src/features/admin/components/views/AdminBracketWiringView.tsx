@@ -213,7 +213,10 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
                                   href={adminSpielEditHref(spiel.id, saisonId)}
                                   aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
                                   className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base) md:h-[38px] md:w-[38px]">
-                                  <PencilToSquare className="m-0 size-5" />
+                                  <PencilToSquare
+                                    aria-hidden="true"
+                                    className="m-0 size-5"
+                                  />
                                 </Link>
                               </IconTooltip>
                             </div>

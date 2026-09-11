@@ -24,6 +24,7 @@
 | [1.18 The box](#118-the-box)                                                                          | What every box wears, and which corner and shadow a nesting takes                    |
 | [1.19 The component grammar](#119-the-component-grammar)                                              | The shape a heading, a hint, a pill, a strip or a glyph keeps                        |
 | [1.20 The gap ladder](#120-the-gap-ladder)                                                            | Which rung the space between two siblings takes, and what a responsive pair may step |
+| [1.21 The icon ladder](#121-the-icon-ladder)                                                          | Which rung an icon's size takes, and what a width prop breaks                        |
 | [2. Invariants](#2-invariants)                                                                        | The rules that must hold                                                             |
 | [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it                                        |
 | [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                                                    |
@@ -151,8 +152,12 @@ the server-action boundary redacted and replaces the admin page with the error p
 exception to every sentence above and below about a row.** `handleSignIn` is the only server action
 in this application reachable without a session, so it can no more open on `getAdminSession()` than
 the public route handlers below can, and it answers a neutral sentence rather than a `FormState`
-carrying a verdict — a distinguishable refusal there is a membership oracle. `signOutAction` ends
-the session it would otherwise check.
+carrying a verdict — a distinguishable refusal there is a membership oracle. **Everything else the
+answer carries is equalised too**: both branches clear the callback-url cookie that only the
+allowlisted one makes Auth.js write, and the magic-link send is scheduled behind the response
+(`next/server :: after`) rather than awaited, the provider's retries and timeout being latency no
+rejected address can have. What the floor under the response covers is the one verification-token
+write left between them. `signOutAction` ends the session it would otherwise check.
 
 **The sign-in form's send carries a boundary of its own**
 (`fl_frontend/src/features/auth/components/ui/SignInActionFallback.tsx`, wired by `catchError` in
@@ -1465,6 +1470,39 @@ margin box does not move, so no distance the ladder measures changes and only th
 — which is how a hover fill covers its control's padding without reflowing the row it sits in. A padding is an inset where the child draws a border or a fill; on a child drawing
 neither there is no edge for it to inset content from, and the reader adds it to the rung.
 
+### 1.21 The icon ladder
+
+**An icon's size is a spacing-scale class on one of eight rungs — `3`, `3.5`, `4`, `4.5`, `5`, `6`,
+`7`, `10`** (I246). The icon package renders `<svg width={16} height={16}>`, so a `width` prop sizes
+the glyph in pixels while a `size-*` class resolves through Tailwind's `--spacing`, which is a rem:
+a reader who raises their browser's font size rather than zooming grows every icon on a class and
+none on a prop, so a row that aligns for everybody else drifts apart for them. The prop sizes one
+axis at a time as well, and a `width` with no `height` leaves the package's own 16 standing — a
+glyph painted at 16 inside a wider box.
+
+| Rung  | What it sizes                                                                      |
+| ----- | ---------------------------------------------------------------------------------- |
+| `3`   | A glyph inside a field marker                                                      |
+| `3.5` | A glyph inside a pill, a chip or a dense strip                                     |
+| `4`   | The common case: a glyph beside a word, a menu row's trailing glyph, a nav entry's |
+| `4.5` | A row action, a form section's lead glyph, the sidemenu's own controls             |
+| `5`   | An icon-only control on a match card, a modal's tone mark                          |
+| `6`   | The admin shell's menu button                                                      |
+| `7`   | The public nav's menu button                                                       |
+| `10`  | The application receipt's success mark                                             |
+
+**Two sizings stand on no rung**, each because something else decides the size: `size-full`, on an
+icon filling a box the ladder already sized
+(`fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx`), and
+`size-(--hint-icon-size)`, on the hint glyph, whose variable is `1em` so it tracks the sentence it
+sits in (`fl_frontend/src/shared/components/ui/hintTrigger.ts :: hintTrigger`).
+
+**An icon is decorative and carries `aria-hidden="true"`** (I247). An unnamed `<svg>` contributes
+nothing to a name-from-content walk, so at any one site the mark changes nothing a reader hears;
+what it buys is that no site has to be judged, and a `<title>` arriving inside a glyph cannot start
+naming the control around it. Where an icon is the whole of what a control shows, that control
+carries an `aria-label` of its own and the glyph inside it is decorative like any other.
+
 ## 2. Invariants
 
 | #    | Invariant                                                                                                                                                                                                                                  | Enforced by                                                                                                                                                                                                                                                                                                              |
@@ -1611,6 +1649,8 @@ neither there is no edge for it to inset content from, and the reader adds it to
 | I243 | **Every `/admin/:path*` arrival takes the session check, a server action's POST included**: a cookie-writing action makes Next render the admin layout into its answer                                                                     | `fl_frontend/src/proxy.test.ts`, which drives a signed-out GET, POST and every other method carrying `next-action`, and an allowlisted administrator's own action POST                                                                                                                                                   |
 | I244 | **One badge word per state sitewide**: a reader meeting a dead end in two areas meets the same object twice                                                                                                                                | `fl_frontend/src/app/boundaryPairs.test.ts :: badges each state with one word sitewide`, which reads the word off each boundary's own render                                                                                                                                                                             |
 | I245 | **An area's crash and missing page are one object**: the same panel variant, dot tone and grade of way out; `page` dots `danger`, `inline` `warning`                                                                                       | `fl_frontend/src/app/boundaryPairs.test.ts`, which renders both boundaries of every area its layouts declare and reads each mark off that markup                                                                                                                                                                         |
+| I246 | **An icon's size is a spacing-scale class on one of eight rungs**, never a `width` or `height` prop                                                                                                                                        | `fl_frontend/src/shared/components/ui/iconLadder.test.ts`, which resolves an icon reached through a dictionary or an `icon` prop as well as one imported by name                                                                                                                                                         |
+| I247 | **Every icon carries `aria-hidden="true"`**, or the name that makes it the thing being named                                                                                                                                               | `fl_frontend/src/shared/components/ui/iconLadder.test.ts :: "carries the hidden mark, unless it is the thing being named"`                                                                                                                                                                                               |
 
 ## 3. Violation → remedy
 

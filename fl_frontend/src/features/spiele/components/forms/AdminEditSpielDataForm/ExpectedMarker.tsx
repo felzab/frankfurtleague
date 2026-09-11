@@ -20,7 +20,10 @@ export function ExpectedMarker({ path }: { path: string }) {
 
   const trigger = (
     <span className={`${FIELD_MARKER} ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
-      <CircleDashed className="size-3" />
+      <CircleDashed
+        aria-hidden="true"
+        className="size-3"
+      />
     </span>
   );
 
