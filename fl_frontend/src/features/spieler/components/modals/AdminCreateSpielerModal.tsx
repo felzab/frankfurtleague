@@ -33,8 +33,8 @@ export function AdminCreateSpielerModal({
         onPress={modalState.open}
         className={formButton({ intent: "trigger" })}>
         <Plus
-          width={18}
-          height={18}
+          aria-hidden="true"
+          className="size-4.5"
         />
         <span className="hidden sm:inline">Neuen Spieler anlegen</span>
       </Button>

@@ -26,7 +26,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -99,7 +98,7 @@ function GruppenTauschControl({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
 
       if (!res.success) {
-        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Gruppen nicht getauscht", { description: res.error });
         return;
       }
 
@@ -147,7 +146,7 @@ function GruppenTauschControl({
             Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
-          <div className="flex w-full flex-col gap-y-1.5">
+          <div className="flex w-full flex-col gap-y-2">
             <RefusableSelect
               label="Tauschen mit"
               placeholder="Team wählen"
@@ -183,7 +182,7 @@ function GruppenTauschControl({
             </ConfirmReveal>
           )}
 
-          <div className="flex w-full flex-col gap-y-1.5">
+          <div className="flex w-full flex-col gap-y-2">
             <ConfirmActionRow
               isConfirming={isConfirming}
               isPending={isSwapping}
@@ -197,9 +196,8 @@ function GruppenTauschControl({
                 className={confirmButton(isConfirming)}>
                 {!isConfirming && (
                   <ArrowRightArrowLeft
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 )}
                 {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
@@ -285,7 +283,7 @@ export function FormSaisonSection({
 
       if (res.success) {
         setEntryGruppeError(null);
-        appToast.success(res.message ?? "Team aufgenommen");
+        appToast.success("Team aufgenommen", { description: res.message });
         return;
       }
 
@@ -294,7 +292,7 @@ export function FormSaisonSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
       // also said in a toast that names no field.
       if (gruppeError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
+        appToast.danger("Team nicht aufgenommen", { description: res.error });
       }
     });
   };
@@ -325,7 +323,10 @@ export function FormSaisonSection({
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
-                  <LockFill className="text-foreground-muted size-3.5 shrink-0" />
+                  <LockFill
+                    aria-hidden="true"
+                    className="text-foreground-muted size-3.5 shrink-0"
+                  />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>
@@ -402,7 +403,7 @@ export function FormSaisonSection({
                 isDisabled={isEntering}
                 onPress={handleEnterSaison}
                 className={formButton({ intent: "submit" })}>
-                {isEntering ? "Speichert..." : `In Saison ${saison.saisonId} aufnehmen`}
+                {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
               </Button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { Button, TextArea, TextField } from "@heroui/react";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
 import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons";
+import { FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
@@ -48,25 +49,29 @@ export function DescriptionEditModal({
       isOpen={isOpen}
       onClose={onClose}
       heading="Beschreibung bearbeiten">
-      <div className="flex w-full flex-col gap-y-4 px-2">
-        <TextField
-          aria-label="Beschreibung"
-          value={draft}
-          onChange={setDraft}
-          maxLength={DESCRIPTION_MAX_LENGTH}>
-          <TextArea
-            ref={textAreaRef}
-            fullWidth
-            placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
-            className="border-border bg-surface text-foreground fluid-sm min-h-40 resize-none overflow-hidden rounded-lg border px-3 py-2 transition-colors"
-          />
-        </TextField>
-        <div className="flex w-full flex-row items-baseline justify-between gap-x-3">
-          <p className="fluid-xxs text-foreground-muted font-medium">Erscheint auf der öffentlichen Teamseite.</p>
-          <p
-            className={`fluid-xxs shrink-0 font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
-            {draft.length} / {DESCRIPTION_MAX_LENGTH}
-          </p>
+      <div className="flex w-full flex-col gap-y-6 px-2">
+        {/* The field and its counter keep a rung of their own, so the column above them is free to
+            give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
+        <div className="flex w-full flex-col gap-y-4">
+          <TextField
+            aria-label="Beschreibung"
+            value={draft}
+            onChange={setDraft}
+            maxLength={DESCRIPTION_MAX_LENGTH}>
+            <TextArea
+              ref={textAreaRef}
+              fullWidth
+              placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
+              className={`${FIELD_TEXTAREA} min-h-40 resize-none overflow-hidden`}
+            />
+          </TextField>
+          <div className="flex w-full flex-row items-baseline justify-between gap-x-3">
+            <p className="fluid-xxs text-foreground-muted font-medium">Erscheint auf der öffentlichen Teamseite.</p>
+            <p
+              className={`fluid-xxs shrink-0 font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
+              {draft.length} / {DESCRIPTION_MAX_LENGTH}
+            </p>
+          </div>
         </div>
 
         {/* `EntityForm`'s footer band, from the same constant, so every modal draws one boundary

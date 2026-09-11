@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
+import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 import type { FLSpiel, FLSpielWithDraftFields } from "../schemas.ts";
 
@@ -91,10 +92,24 @@ describe("what the draft preview renders where a referee's name was erased", () 
   });
 });
 
-/** The picker under both providers it reads, with the list offering NOBODY. */
-function pickerText(schiedsrichterPayload: { schiedsrichter_id: string; name: string | null; payment: number | null } | null): string {
+/** A row the admin list does serve, nameless because a hand-write left it so. */
+const NAMENLOS_IN_LIST: FLSchiedsrichter = {
+  id: "6890a1b2c3d4e5f607800002",
+  name: null,
+  schule: null,
+  default_payment: PAYMENT,
+  kontakt: { telefon: null, email: null },
+  inactive_since: null,
+  anonymisiert_am: null,
+};
+
+/** The picker under both providers it reads, with the list offering NOBODY unless a caller names somebody. */
+function pickerText(
+  schiedsrichterPayload: { schiedsrichter_id: string; name: string | null; payment: number | null } | null,
+  offered: FLSchiedsrichter[] = [],
+): string {
   const picker = h(FormSchiedsrichterSection, {
-    schiedsrichter: [],
+    schiedsrichter: offered,
     schiedsrichterPayload,
     onSchiedsrichterChange: () => {},
     onValidateFields: () => {},
@@ -114,5 +129,16 @@ describe("what the referee picker's trigger renders for a fixture whose referee 
 
   it("leaves the trigger empty where the fixture books nobody", () => {
     assert.ok(!pickerText(null).includes(SCHIEDSRICHTER_ANONYM_LABEL), "an unbooked fixture names an erased referee");
+  });
+});
+
+describe("which word the picker's two nameless arms take", () => {
+  /* The list serves no stamped row (`docs/backend/spec.md :: I227`), so a name missing there is what
+     a hand-write left, while a fixture's own embedded name is what the erasure nulled. */
+  it("offers a nameless list row under the other word", () => {
+    const gelistet = pickerText(null, [NAMENLOS_IN_LIST]);
+
+    assert.ok(gelistet.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the offered row renders no stand-in name: ${gelistet}`);
+    assert.ok(!gelistet.includes(SCHIEDSRICHTER_ANONYM_LABEL), "an offered row claims an erasure the list never serves");
   });
 });

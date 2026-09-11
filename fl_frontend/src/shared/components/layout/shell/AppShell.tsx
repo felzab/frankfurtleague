@@ -59,6 +59,18 @@ export function AppShell<TIcon extends string>({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [isMobileOpen]);
 
+  // `lg`, the width at which the rail becomes permanent and the dismiss layer goes. An open state
+  // carried across that line would leave `<main>` inert with nothing left on screen to close it.
+  useEffect(() => {
+    const rail = window.matchMedia("(min-width: 64rem)");
+    const closeOnRail = () => {
+      if (rail.matches) setIsMobileOpen(false);
+    };
+
+    rail.addEventListener("change", closeOnRail);
+    return () => rail.removeEventListener("change", closeOnRail);
+  }, []);
+
   // Matched on the first segment after the prefix, so a detail route resolves to its section's entry
   // and still gets a title and a hint.
   const baseSegment = pathname.replace(`${linkPrefix}/`, "").split("/")[0];
@@ -72,7 +84,7 @@ export function AppShell<TIcon extends string>({
     <div
       data-app-shell
       className="flex h-dvh w-full flex-col">
-      <SkipToContentLink />
+      <SkipToContentLink isTargetInert={isMobileOpen} />
 
       <AppTopBar
         title={activeOption?.label ?? fallbackTitle}
@@ -107,8 +119,11 @@ export function AppShell<TIcon extends string>({
           onToggleDesktopMenu={() => setIsDesktopCollapsed(!isDesktopCollapsed)}
         />
 
+        {/* `inert` while the drawer is open: the dismiss layer above is opaque and blurred, so every
+            tab stop under it is a control the reader is being sent to and cannot see (WCAG 2.4.11). */}
         <main
           id="main-content"
+          inert={isMobileOpen}
           className="bg-background relative flex min-w-0 flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
           {children}
         </main>

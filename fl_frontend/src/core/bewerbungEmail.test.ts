@@ -45,11 +45,20 @@ const ORIGIN = "http://localhost:3000";
  * apart unnoticed.
  */
 function readable(html: string): string {
+  let stripped = html;
+
+  // To a FIXPOINT: a pattern leaving a tag standing hands the caller markup to read as text
+  // (`fl_frontend/src/shared/testing/renderTest.ts :: textOf`).
+  for (let previous = ""; stripped !== previous;) {
+    previous = stripped;
+    // Element and contents both: tag-stripping alone would leave the rules standing as sentences.
+    stripped = stripped.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]*>/g, " ");
+  }
+
   return (
-    html
-      // Element and contents both: tag-stripping alone would leave the rules standing as sentences.
-      .replace(/<style[\s\S]*?<\/style>/g, " ")
-      .replace(/<[^>]*>/g, " ")
+    stripped
+      // Below the strip and never inside it: `&lt;script&gt;` decodes to a tag this file asserts a
+      // reader is served, and a strip running after would eat it.
       .replaceAll("&lt;", "<")
       .replaceAll("&gt;", ">")
       .replaceAll("&quot;", '"')

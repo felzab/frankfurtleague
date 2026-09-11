@@ -13,7 +13,7 @@ import {
   toStoredSide,
 } from "@/features/spiele/utils";
 import { austrittZustand, GRUPPEN_OPTIONS } from "@/features/teams/constants";
-import { labelBadge } from "@/shared/components/ui/badges";
+import { labelBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -24,7 +24,7 @@ import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
 
@@ -300,7 +300,9 @@ export function FormTeamPicker({
             variant="secondary"
             aria-label={`${label} suchen`}
             className="p-2">
-            <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5 transition-colors duration-200">
+            {/* The panel's own fill, not a recessed one: the border alone says "field", and
+                `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
+            <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-200">
               <SearchField.SearchIcon />
               <SearchField.Input
                 placeholder="Team finden..."
@@ -330,7 +332,7 @@ export function FormTeamPicker({
               const occupiedBy = spieltagOccupancy.get(item.id);
               // One chip per row, blocking reasons before the advisory one. The unqualified team
               // stays pickable: correcting a hand-run season needs it.
-              const chip: { text: string; tone: PillTone } | null =
+              const chip: { text: string; tone: FeedbackTone } | null =
                 item.austritt !== null
                   ? { text: austrittZustand(item.austritt.type), tone: "danger" }
                   : occupiedBy !== undefined
@@ -346,7 +348,9 @@ export function FormTeamPicker({
                   textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
                   className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                   <span className="min-w-0 truncate">{item.name}</span>
-                  {chip !== null && <span className={`${labelBadge(chip.tone)} ml-auto shrink-0`}>{chip.text}</span>}
+                  {/* Solid, never a tint: `globals.css` paints `--bg-hover` on the option a keyboard
+                      reaches, so the chip a reader arrows onto is the one compositing against it. */}
+                  {chip !== null && <span className={`${trackLabelBadge(chip.tone)} ml-auto shrink-0`}>{chip.text}</span>}
                 </ListBox.Item>
               );
             })}
@@ -404,7 +408,7 @@ export function FormTeamPicker({
                   <span className="min-w-0 truncate">{item.label}</span>
                   {/* Success-tinted, not brand: brand on brand was the least readable chip here.
                       `ml-auto` like every list chip, or two lists park it in two places. */}
-                  {isRecommended && <span className={`${labelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>}
+                  {isRecommended && <span className={`${trackLabelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>}
                 </ListBox.Item>
               );
             })}
@@ -550,7 +554,7 @@ export function FormTeamPicker({
                     className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
-                      <span className={`${labelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>
+                      <span className={`${trackLabelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>
                     )}
                   </ListBox.Item>
                 ))}
@@ -587,7 +591,7 @@ export function FormTeamPicker({
         teamPicker
       ) : (
         /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
-        <div className="flex w-full flex-col gap-y-1.5">
+        <div className="flex w-full flex-col gap-y-1">
           <span className={FIELD_LABEL}>{label}</span>
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>

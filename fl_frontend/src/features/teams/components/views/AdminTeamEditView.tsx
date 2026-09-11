@@ -8,7 +8,6 @@ import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
@@ -42,8 +41,8 @@ export function AdminTeamEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Team reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+      if (res.success) appToast.success("Team reaktiviert");
+      else appToast.danger("Team nicht reaktiviert", { description: res.error });
     });
   };
 
@@ -64,7 +63,7 @@ export function AdminTeamEditView({
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
             <span
-              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-sm`}>
+              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex size-10 items-center justify-center rounded-xl shadow-sm`}>
               {team.shorthand}
             </span>
           ),

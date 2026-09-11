@@ -10,7 +10,7 @@ import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
-import { COUNT_BADGE, PILL_TINT } from "./badges";
+import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
@@ -21,17 +21,26 @@ import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { Key } from "@heroui/react";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
-const CONTROL_BOX = "border-border bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
+const CONTROL_BOX = "bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
 
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
-const PILL_SHELL = `${CONTROL_BOX} items-stretch overflow-hidden`;
+const PILL_SHELL = `${CONTROL_BOX} border-border items-stretch overflow-hidden`;
+
+/** Split from `ICON_SHELL` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
+const FIELD_SHELL = `${CONTROL_BOX} border-control text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
-const ICON_SHELL = `${CONTROL_BOX} text-foreground hover:bg-hover cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const ICON_SHELL = `${CONTROL_BOX} border-border items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
+/** The ink, the fill and the cursor sit here rather than in `ICON_SHELL`: the exhausted twin below wears the same box
+ *  and offers no press, and a fill on something unpressable is an affordance it does not have. */
+const ADD_FACE = `${ICON_SHELL} text-foreground hover:bg-hover cursor-pointer`;
+
+// `ring-inset` because `PILL_SHELL` clips its overflow and this box is flush with the pill's trailing
+// edge: HeroUI draws its ring outside, where the clip takes it and a keyboard reader sees nothing.
 /** Sized by `w-8` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
  *  make the width a property of the icon's margins, and the glyph's own side margins are the pill's right gap. */
-const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0";
+const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0 ring-inset";
 
 /**
  * The ceiling on a picked value, in `em` so it holds the same character count at every type size. `min-w-0` is what
@@ -62,7 +71,7 @@ const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE =
-  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
+  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
 
 /**
  * In the facet's own option order rather than the click order, so one selection looks the same however it was arrived at.
@@ -101,11 +110,13 @@ function FilterPill<TItem>({
     <div className={PILL_SHELL}>
       <Popover>
         {/* `pr-0.5` because the control beside it centres its glyph in a wider box, so this reads as the pill's own gap. */}
+        {/* The negative offset for `CLEAR_FACE`'s reason: this stop is flush with the pill's leading edge, and
+            `globals.css`'s base outline for a `[tabindex]` draws two pixels outside the clip. */}
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
+          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
-          {chosen.length > 1 && <span className={`${COUNT_BADGE} ${PILL_TINT.brandSolid} shrink-0`}>+{chosen.length - 1}</span>}
+          {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
         <Popover.Content
           placement="bottom start"
@@ -178,11 +189,10 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
             // `SaisonSelector` carries why: react-aria hands focus back after a dismiss, and the field-focus
             // rule in `globals.css` would hold the brand border on a control clicked away from.
             data-border-on-open="true"
-            className={ICON_SHELL}>
+            className={FIELD_SHELL}>
             <ArrowUpArrowDown
+              className="size-4"
               aria-hidden="true"
-              width={16}
-              height={16}
             />
             {/* From the prop, never `Select.Value`, which resolves its label out of the react-aria collection
                 and paints HeroUI's English placeholder on a render where that has not committed. */}
@@ -275,9 +285,8 @@ function FilterRow<TItem>({
   const addFace = (
     <>
       <Sliders
+        className="size-4"
         aria-hidden="true"
-        width={16}
-        height={16}
       />
       <span className="max-md:hidden">{ADD_LABEL}</span>
     </>
@@ -292,18 +301,21 @@ function FilterRow<TItem>({
             displaces nothing. */}
         {unfiltered.length === 0 ? (
           // Kept in place once every dimension is filtering: removing it would slide the whole row left.
-          <span
-            aria-disabled="true"
+          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, so both attributes
+          // were dropped and this stood silent.
+          <button
+            type="button"
+            disabled
             aria-label={ADD_HINT}
             className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
             {addFace}
-          </span>
+          </button>
         ) : (
           <IconTooltip label={ADD_HINT}>
             <Popover>
               <Popover.Trigger
                 aria-label={ADD_HINT}
-                className={ICON_SHELL}>
+                className={ADD_FACE}>
                 {addFace}
               </Popover.Trigger>
               <Popover.Content

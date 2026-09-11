@@ -65,7 +65,8 @@ vocabulary on its own.
 `scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
 (`:: BANNED`), every trailer name but `Closes` in a closing paragraph it reads as trailers
 (`:: TRAILER_EVIDENCE_RE`), a line that paragraph carries twice, every `Closes:` value that is
-not a token (`:: CLOSES_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it
+not a token (`:: CLOSES_RE`), a trailer line with no blank line over it wherever below the subject
+it sits (`:: GLUED_TRAILER_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it
 unless git wrote the message (`:: GENERATED_SUBJECT`), a body line unless it is one unbroken token or
 carries a long URL, which wrapping would break (`:: UNWRAPPABLE`). A hyphenless name earns that reading on its value: one unbroken token ending in
 no sentence punctuation, so `Verified: green` is read as a trailer and refused while a closing

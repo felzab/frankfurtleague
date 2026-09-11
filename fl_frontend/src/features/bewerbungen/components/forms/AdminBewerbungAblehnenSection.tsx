@@ -13,13 +13,12 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 /** The sentence the disabled decline is described by. This control renders at most once per page. */
 const ABSAGE_BUTTON_HINT_ID = "bewerbung-absage-hinweis";
@@ -71,7 +70,7 @@ export function AdminBewerbungAblehnenSection({
         const fieldError = res.fieldErrors?.grund ?? null;
         setGrundError(fieldError);
 
-        if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Bewerbung nicht abgelehnt", { description: res.error });
         return;
       }
 
@@ -119,7 +118,7 @@ export function AdminBewerbungAblehnenSection({
           <TextArea
             fullWidth
             placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
-            className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+            className={`${FIELD_TEXTAREA} min-h-24`}
           />
           <FieldError className={FIELD_ERROR}>{error}</FieldError>
         </TextField>
@@ -158,7 +157,7 @@ export function AdminBewerbungAblehnenSection({
           </ConfirmReveal>
         )}
 
-        <div className="flex w-full flex-col gap-y-1.5">
+        <div className="flex w-full flex-col gap-y-2">
           <ConfirmActionRow
             isConfirming={isConfirming}
             isPending={isDeclining}
@@ -172,9 +171,8 @@ export function AdminBewerbungAblehnenSection({
               className={confirmButton(isConfirming)}>
               {!isConfirming && (
                 <Ban
+                  className="size-4.5"
                   aria-hidden="true"
-                  width={18}
-                  height={18}
                 />
               )}
               {isDeclining ? "Sagt ab..." : isConfirming ? "Ja, Absage verbindlich verschicken" : "Bewerbung ablehnen"}

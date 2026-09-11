@@ -123,7 +123,7 @@ export function SpielsucheView({
             replaying every surviving card's entrance for one row. */}
         <div
           role="list"
-          className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+          className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
           <SpielCardsList
             spiele={shown}
             today={today}

@@ -59,6 +59,14 @@ visible from a configuration file in this repository.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
   than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
   precompressed at build time ([`../../.claude/rules/ops.md`](../../.claude/rules/ops.md)).
+- **The AI-crawler opt-out is a request here and an enforcement there.**
+  `fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, which each crawler chooses
+  whether to obey; what the edge does about them is [`spec.md`](spec.md) §1.8. **The failure to
+  watch for is a link preview that silently stops rendering**, because previews are fetched by
+  `facebookexternalhit`, which that list does not name: consolidation moving preview fetching behind
+  an agent it does name would break every WhatsApp and Facebook preview with nothing here to explain
+  it. `curl -A` against the live site, one agent at a time, separates an edge block from a markup
+  problem.
 
 **Edge settings deliberately off**, each looking like free performance:
 

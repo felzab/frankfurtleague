@@ -3,6 +3,7 @@
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { FLPostSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { SchiedsrichterFormFields } from "./SchiedsrichterFormFields";
 
@@ -56,22 +57,24 @@ export function AdminCreateSchiedsrichterForm({
         // fee rather than the draft's, which still carries the empty case.
         const payload = FLPostSchiedsrichterPayloadSchema.parse(toPayload(draft));
         const res = await postSchiedsrichterAction(payload);
-        const success = res.success && !!res.created_id;
 
-        if (success && res.created_id) {
-          onCreated?.({
-            id: res.created_id,
-            name: draft.name,
-            schule: draft.schule,
-            kontakt: payload.kontakt,
-            default_payment: payload.default_payment,
-            // Just created, so current — and `null` is what current means for both dates.
-            inactive_since: null,
-            anonymisiert_am: null,
-          });
-        }
+        if (!res.success) return res;
+        // An acknowledged create that answered no id leaves the caller nothing to name, so the
+        // shared refusal stands in for a sentence the action never composed.
+        if (res.created_id === undefined) return { success: false, error: UNKNOWN_REFUSAL };
 
-        return { ...res, success };
+        onCreated?.({
+          id: res.created_id,
+          name: draft.name,
+          schule: draft.schule,
+          kontakt: payload.kontakt,
+          default_payment: payload.default_payment,
+          // Just created, so current — and `null` is what current means for both dates.
+          inactive_since: null,
+          anonymisiert_am: null,
+        });
+
+        return res;
       }}
       marksRequired
       successMessage="Schiedsrichter angelegt"

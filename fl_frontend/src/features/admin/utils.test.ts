@@ -1,32 +1,38 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { FLSpielSchema } from "../spiele/schemas.ts";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
 
 import type { FLSpiel } from "../spiele/schemas.ts";
 
 const TODAY = "2026-07-30";
 
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const SPIEL: FLSpiel = FLSpielSchema.parse({
+  id: "6890a1b2c3d4e5f607182930",
+  spieltag_id: "6890a1b2c3d4e5f607182931",
+  team1: { team_id: "6890a1b2c3d4e5f607182932", name: "Team A", tore: 2, shorthand: "TA", austritt_type: null },
+  team2: { team_id: "6890a1b2c3d4e5f607182933", name: "Team B", tore: 1, shorthand: "TB", austritt_type: null },
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: "2026-07-20",
+  uhrzeit: "18:00:00",
+  ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
+  schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref" },
+  ergebnis: "2:1",
+  elfmeterschiessen: null,
+  spiel_nr: 1,
+  sonderereignis: null,
+  saison_phase: "gruppenphase",
+  saison_id: "2026",
+  notiz: null,
+} satisfies FLSpiel);
+
 // Lands in no category, so each test knocks out one field and is unambiguous about the rule it
 // exercises.
 function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
-  return {
-    id: "6890a1b2c3d4e5f607182930",
-    spieltag_id: "6890a1b2c3d4e5f607182931",
-    team1: { team_id: "6890a1b2c3d4e5f607182932", name: "Team A", tore: 2, shorthand: "TA" },
-    team2: { team_id: "6890a1b2c3d4e5f607182933", name: "Team B", tore: 1, shorthand: "TB" },
-    team1_quelle: null,
-    team2_quelle: null,
-    datum: "2026-07-20",
-    uhrzeit: "18:00:00",
-    ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x", mietpreis: 50 },
-    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", payment: 20 },
-    ergebnis: "2:1",
-    spiel_nr: 1,
-    sonderereignis: null,
-    saison_phase: "gruppenphase",
-    ...overrides,
-  } as FLSpiel;
+  return { ...SPIEL, ...overrides };
 }
 
 describe("categorizeActionRequired", () => {

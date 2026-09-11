@@ -5,9 +5,9 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { FLSaisonPhaseSchema } from "../saisons/schemas.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
@@ -267,5 +267,47 @@ describe("the one date a final's Spieltag is given", () => {
      count is seen at all, and only the editor page's own fixture read fills the number it is seen by. */
   it("reports the count gap from the row the editor's fixture read filled", () => {
     assert.match(sliceBetween(EDIT_FORM, "buildSpieltagBanners({", "})"), /spieleAngelegt: spieltag\.spieleAngelegt/);
+  });
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** The one action this slice exports. A second fails the sweep below until it is placed. */
+const WRITE_ACTIONS = ["patchSpieltagAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+    for (const name of WRITE_ACTIONS) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  /* `spieltage` reaches the PUBLIC matchday read: `/admin/spieltage` reads through
+     `fl_frontend/src/features/spieltage/queries.ts :: getAdminSpieltage`, which is uncached. */
+  it("refreshes on the save, no tag reaching the read the admin page renders", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
   });
 });

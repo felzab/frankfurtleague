@@ -95,7 +95,13 @@ else
       # Its own arm, the uv comparison above reading the Dockerfile alone: joined to it, an edit
       # here would buy the whole scripts scope for a file nothing outside the build reads.
       fl_backend/.dockerignore) images=true; docs=true ;;
-      fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
+      # Its own arm, ahead of the three below it: the mirror register reads this module's text for
+      # the internal key's alphabet, so it owes the backend scope as well as the image's.
+      fl_frontend/src/core/config.ts)
+        frontend=true; images=true; backend=true; db=true; docs=true ;;
+      # Its own arm, the config.ts mapping above: joined to it, an edit here would buy the whole
+      # backend and database tier for two files no backend suite reads.
+      fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;
       # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both can
@@ -117,8 +123,8 @@ else
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
       # Each is read as source text by the frontend suites as they load, domain.py through
-      # `fl_frontend/src/core/refusalRegister.ts`, so a change confined to fl_backend/ would
-      # otherwise reach the assertions over it no earlier than the push to main.
+      # `fl_frontend/src/shared/testing/refusalRegister.ts`, so a change confined to fl_backend/
+      # would otherwise reach the assertions over it no earlier than the push to main.
       fl_backend/app/core/domain.py|fl_backend/app/core/recording.py| \
       fl_backend/app/core/exception_handlers.py|fl_backend/app/shared/schemas/bounds.py| \
       fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \
@@ -132,12 +138,20 @@ else
       # retyped by hand in these modules, so a diff editing the frontend side of a mirror would
       # otherwise reach that comparison no earlier than the push to main.
       fl_frontend/src/shared/schemas.ts|fl_frontend/src/features/bewerbungen/constants.ts| \
-      fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts)
+      fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts| \
+      fl_frontend/src/features/saisons/constants.ts|fl_frontend/src/features/saisons/schemas.ts| \
+      fl_frontend/src/features/saisons/shapeOffer.ts|fl_frontend/src/features/bewerbungen/schemas.ts| \
+      fl_frontend/src/features/aktionen/constants.ts|fl_frontend/src/features/spieler/schemas.ts| \
+      fl_frontend/src/features/spiele/schemas.ts|fl_frontend/src/features/spiele/utils.ts| \
+      fl_frontend/src/features/bewerbungen/zustellung.ts|fl_frontend/src/core/logFormat.ts| \
+      fl_frontend/src/core/trace.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
       # module below and asserts over the German inside, so a renamed refusal code or a reworded
       # phrase would reach that comparison no earlier than the push to main.
-      fl_frontend/src/features/saisons/actions.ts) frontend=true; backend=true; db=true; docs=true ;;
+      fl_frontend/src/features/saisons/actions.ts| \
+      fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx)
+        frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats

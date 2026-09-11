@@ -22,7 +22,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -95,7 +94,7 @@ export function AdminBewerbungAnnehmenSection({
 
         // Suppressed where the picker carries the message, so a refusal about the chosen group is
         // not also said in a toast that names no field.
-        if (fieldError === null) appToast.danger("Zusage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Bewerbung nicht angenommen", { description: res.error });
         return;
       }
 
@@ -220,7 +219,7 @@ export function AdminBewerbungAnnehmenSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
+            <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow
                 isConfirming={isConfirming}
                 isPending={isAccepting}
@@ -234,9 +233,8 @@ export function AdminBewerbungAnnehmenSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <SealCheck
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {/* The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what

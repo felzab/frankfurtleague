@@ -7,9 +7,10 @@ import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { buildKontakteFacets } from "./facets.ts";
+import { FLTeamWithMembershipsSchema } from "./schemas.ts";
 import { buildKontaktRows } from "./utils.ts";
 
-import type { FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
+import type { FLKontaktperson, FLSaisonTeamKontakte, FLTeamMembership, FLTeamWithMemberships } from "./schemas.ts";
 
 const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminTeamsTable.tsx"), "utf8");
 
@@ -24,19 +25,37 @@ const person = (vorname: string): FLKontaktperson => ({
   einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" },
 });
 
-const club = (id: string, name: string, kontakte: FLSaisonTeamKontakte): FLTeamWithMemberships =>
-  ({
-    id: id,
-    name: name,
-    shorthand: name.slice(0, 2).toUpperCase(),
-    full_name: name,
-    description: "",
-    website_url: null,
-    address: { strasse: "A", hausnummer: "1", plz: "60311", stadtteil: "Mitte", stadt: "Frankfurt" },
-    schulform: null,
-    inactive_since: null,
-    memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte: kontakte }],
-  }) as unknown as FLTeamWithMemberships;
+const MEMBERSHIP: FLTeamMembership = {
+  saison_id: SAISON,
+  gruppe: "A",
+  austritt: null,
+  trikot_farbe: null,
+  kontakte: null,
+  kontakte_stand: "",
+};
+
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const CLUB: FLTeamWithMemberships = FLTeamWithMembershipsSchema.parse({
+  id: "6890a1b2c3d4e5f607180001",
+  name: "Goethe",
+  shorthand: "GO",
+  full_name: "Goethe",
+  description: "",
+  website_url: null,
+  address: { strasse: "A", hausnummer: "1", plz: "60311", stadtteil: "Mitte", stadt: "Frankfurt" },
+  schulform: null,
+  inactive_since: null,
+  memberships: [MEMBERSHIP],
+} satisfies FLTeamWithMemberships);
+
+const club = (id: string, name: string, kontakte: FLSaisonTeamKontakte): FLTeamWithMemberships => ({
+  ...CLUB,
+  id: id,
+  name: name,
+  shorthand: name.slice(0, 2).toUpperCase(),
+  full_name: name,
+  memberships: [{ ...MEMBERSHIP, kontakte: kontakte }],
+});
 
 const seats = (): FLSaisonTeamKontakte => ({
   trainer: person("Tim"),

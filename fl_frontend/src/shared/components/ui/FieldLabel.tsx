@@ -45,7 +45,10 @@ export function FieldLabel({
             label="Geändert"
             trigger={
               <span className={`${FIELD_MARKER} bg-brand/15 text-brand`}>
-                <PencilToLine className="size-3" />
+                <PencilToLine
+                  aria-hidden="true"
+                  className="size-3"
+                />
               </span>
             }>
             {/* No bolded `Geändert.` in front of the previous value: the trigger's own `aria-label`

@@ -37,15 +37,19 @@ export function AppTopBar({
   const railWidth = RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   return (
-    <header className="bg-surface border-border z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b">
+    /* `inert` with `<main>` and for its reason: the open drawer covers the left of this bar and the
+       dismiss layer the rest, so nothing here is a stop the reader can see (WCAG 2.4.11). */
+    <header
+      inert={isMobileOpen}
+      className="bg-surface border-border z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b">
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
-        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out lg:border-r ${
+        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
           railWidth
         } ${isDesktopCollapsed ? "lg:justify-center lg:px-0" : ""}`}>
-        {/* Opens the drawer and only opens it: the open panel overlays this bar, so the close control is
-            `SidemenuDrawerHeader`'s. `aria-expanded` still reports the state for a screen reader. */}
+        {/* Opens the drawer and only opens it: the bar goes inert with `<main>` while the panel is open and
+            `SidemenuDrawerHeader`'s control closes it, so `Menü öffnen` names the one press on offer here. */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
@@ -54,9 +58,8 @@ export function AppTopBar({
           aria-label="Menü öffnen"
           className="text-foreground hover:bg-hover -ml-2 shrink-0 rounded-md p-1.5 transition-colors lg:hidden">
           <Bars
+            className="size-6"
             aria-hidden="true"
-            width={24}
-            height={24}
           />
         </button>
 

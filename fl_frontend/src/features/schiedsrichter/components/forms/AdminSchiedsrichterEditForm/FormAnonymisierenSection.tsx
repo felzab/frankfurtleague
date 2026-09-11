@@ -18,7 +18,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLKontakt } from "@/shared/schemas";
 
@@ -38,7 +37,8 @@ export function FormAnonymisierenSection({
   onBeforeAnonymise,
 }: {
   schiedsrichterId: string;
-  name: string;
+  /** `null` where a hand-write left the row nameless, so no sentence below may name a person outright. */
+  name: string | null;
   /** The STORED school, for `kontakt`'s reason: the readout names what this press clears, not what is typed. */
   schule: string | null;
   /**
@@ -59,7 +59,7 @@ export function FormAnonymisierenSection({
       const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
 
       if (!res.success) {
-        appToast.danger("Schiedsrichterdaten nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Schiedsrichterdaten nicht gelöscht", { description: res.error });
         return;
       }
 
@@ -91,12 +91,15 @@ export function FormAnonymisierenSection({
       </div>
 
       <div className={panel.body()}>
+        {/* The list is where an administrator meets a referee, and the erasure takes the row off it
+            (`docs/backend/spec.md :: I227`): copy promising a word there would send them looking for
+            an entry no read serves. */}
         <p className="muted-hint">
-          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem gespielten
-          Spiel steht dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
+          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name ?? "dieser Person"}</strong>. Danach steht auf jedem
+          gespielten Spiel nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
           die diese Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist,
-          bleibt lesbar. Der Eintrag selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht
-          mehr angeboten, und bearbeiten lässt er sich danach nicht mehr.
+          bleibt lesbar. In der Schiedsrichterliste erscheint der Eintrag nicht mehr. Er ist stillgelegt, wird für neue Spiele nicht mehr
+          angeboten, und bearbeiten lässt er sich danach nicht mehr.
         </p>
 
         {isConfirming && (
@@ -108,7 +111,7 @@ export function FormAnonymisierenSection({
                     afterwards: a bare „wird gelöscht“ would read as the referee losing their row. */}
                 <ConfirmReadoutRow
                   label="Name"
-                  value={`${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                  value={name === null ? NOT_RECORDED : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
                 />
                 {/* The school goes with the name: beside a fixture list that never expires it narrows the
                     person to the few referees one school ever sent. */}
@@ -159,9 +162,8 @@ export function FormAnonymisierenSection({
             className={confirmButton(isConfirming)}>
             {!isConfirming && (
               <TrashBin
+                className="size-4.5"
                 aria-hidden="true"
-                width={18}
-                height={18}
               />
             )}
             {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig

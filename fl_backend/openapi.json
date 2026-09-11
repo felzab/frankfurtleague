@@ -1829,7 +1829,7 @@
     "/api/v0/schiedsrichter": {
       "get": {
         "summary": "List Schiedsrichter",
-        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.",
+        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nA referee whose data were erased is OFF this list: they can be booked, edited, reactivated and\nrestored by nobody, so the list an administrator works from does not offer them.\n`GET /{schiedsrichter_id}` answers for one whatever their state, and is the only read that\nanswers for an erased one at all.",
         "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
         "security": [
           {

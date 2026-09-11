@@ -17,8 +17,9 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
-  // The not-found answer is decided here rather than in the body, whose read sits inside a boundary
-  // the response has already begun streaming past: the status is fixed from that first byte.
+  // Decided here rather than in the body: `generateMetadata` would otherwise compose a title, a
+  // canonical and an Open Graph card for a season no document names. The status is 200 either way
+  // (`docs/frontend/spec.md :: I242`).
 
   // Caught for the body's reason: a window this page could not read is a state it renders, and a
   // failed read answering not-found would take the season down with the backend.

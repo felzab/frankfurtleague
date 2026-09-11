@@ -26,7 +26,12 @@ export function InfoHint({ label, children, trigger }: { label: string; children
         aria-label={label}
         className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
         onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
+        {trigger ?? (
+          <CircleInfo
+            aria-hidden="true"
+            className="size-(--hint-icon-size)"
+          />
+        )}
       </Popover.Trigger>
 
       <Popover.Content
@@ -34,7 +39,7 @@ export function InfoHint({ label, children, trigger }: { label: string; children
         offset={8}>
         <Popover.Dialog
           ref={captureDialog}
-          className={`${overlayPanel()} fluid-xs text-foreground [&_strong]:text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none [&_strong]:font-bold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-y-1.5`}>
+          className={`${overlayPanel()} fluid-xs text-foreground [&_strong]:text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none [&_strong]:font-bold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-y-1`}>
           {children}
         </Popover.Dialog>
       </Popover.Content>

@@ -139,7 +139,7 @@ export function BewerbungAngabenPanel({
       </Panel>
 
       <Panel title="Kontaktpersonen">
-        <div className="flex w-full flex-col gap-y-5">
+        <div className="flex w-full flex-col gap-y-6">
           {KONTAKT_ROLLEN.map(({ value, label }) => {
             const person = kontakte[value];
             const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;

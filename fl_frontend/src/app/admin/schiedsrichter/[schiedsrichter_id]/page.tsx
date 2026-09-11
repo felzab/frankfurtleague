@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
-import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { resolveSchiedsrichterId } from "@/features/schiedsrichter/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -25,12 +25,13 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // `include_inactive`, or a retired referee's own editor answers not-found.
-  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
-  const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
-  if (!schiedsrichter) {
+  // By id and never off the referee list: this route is the erased referee's only record, and a read
+  // taken from the list would answer not-found for them (`docs/backend/spec.md :: I227`).
+  const schiedsrichterRes = await getSchiedsrichterById(schiedsrichterId);
+  if (schiedsrichterRes === null) {
     notFound();
   }
+  const { schiedsrichter } = schiedsrichterRes;
 
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).

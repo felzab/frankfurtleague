@@ -8,6 +8,9 @@ const SECTIONS = [0, 1];
 const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
 const SECTION_ROW_ACTIONS = [0, 1];
 
+/** Which placeholder a resource draws, and with it whether its rows reach the DOM a pass late. */
+export type AdminCrudShape = "table" | "sections" | "cards";
+
 /** How many targets decides only the cluster's width; its height comes from `ROW_ACTION_SIZE`, which `RowActions` reads too. */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
@@ -23,14 +26,15 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
 }
 
 /**
- * The only placeholder an admin CRUD page draws, rendered by the route, the page's fallback and the view's overlay alike.
+ * The only placeholder an admin CRUD page draws, rendered by the route, the page's fallback and the view's cover alike.
  * **It must not call a request-dynamic hook**: a fallback that suspends pushes the bailout up and undoes the split.
  */
 export function AdminCrudFallback({
   shape = "table",
   hasFacets = true,
 }: {
-  shape?: "table" | "sections";
+  /** `"cards"` is the card column at EVERY width, for the list that is cards at every width. */
+  shape?: AdminCrudShape;
   /**
    * Defaulted, so only a slice declaring no facets has to say so: `FilterLeiste` draws nothing for one, and a row
    * reserved for a bar that never arrives shrinks the page when the rows land — the direction the eye catches.
@@ -40,50 +44,58 @@ export function AdminCrudFallback({
   return (
     <div
       role="status"
-      aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so both blocks sit where they will sit once the rows land. */
       className="flex flex-col gap-4">
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">Daten werden geladen</span>
       {hasFacets && (
         <div className="flex w-full flex-row items-center gap-2">
           <div className={`${skeletonBlock()} h-10 w-28 rounded-xl`} />
         </div>
       )}
 
-      {shape === "sections" ? <SectionedFallback /> : <TableFallback />}
+      {shape === "sections" ? <SectionedFallback /> : shape === "cards" ? <CardsFallback /> : <TableFallback />}
     </div>
   );
 }
 
-/**
- * Claims a height and refuses to claim a column layout. **Every reserved height is the shortest real one, never an**
- * **average**: reserving under grows the page, the direction the eye forgives, where reserving over shrinks it.
- */
+/** The card column: under `md` for every table, at every width for the list that is cards everywhere. */
+function CardsFallback({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex w-full flex-col gap-3 ${className}`}>
+      {/* Every reserved height is the shortest real one, never an average: reserving under grows the
+          page, the direction the eye forgives, where reserving over shrinks it. */}
+      {CARD_ROWS.map((row) => (
+        <div
+          key={row}
+          className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+          {/* A non-breaking space inside the real type step is what gives each bar its height. */}
+          <div className="flex w-full flex-row items-center gap-3">
+            <span className={`${skeletonBlock()} fluid-xs block w-14 shrink-0 rounded-md px-3 py-1.5`}>&nbsp;</span>
+            <span className={`${skeletonBlock()} fluid-sm block w-24 rounded`}>&nbsp;</span>
+          </div>
+          {/* One child at `gap-0.5`, as the real cards nest their detail lines: as two siblings they would take
+              the card's own `gap-y-3` instead, and that difference is what the page moves when the rows land. */}
+          <div className="flex w-full flex-col gap-0.5">
+            <span className={`${skeletonBlock()} fluid-sm block w-3/4 rounded`}>&nbsp;</span>
+            <span className={`${skeletonBlock()} fluid-xs block w-1/2 rounded`}>&nbsp;</span>
+          </div>
+          <RowActionCluster
+            slots={TABLE_ROW_ACTIONS}
+            className="border-border/50 -mx-1 border-t pt-2"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Claims a height and refuses to claim a column layout. */
 function TableFallback() {
   return (
     <>
-      <div className="flex w-full flex-col gap-3 md:hidden">
-        {CARD_ROWS.map((row) => (
-          <div
-            key={row}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
-            {/* A non-breaking space inside the real type step is what gives each bar its height. */}
-            <div className="flex w-full flex-row items-center gap-3">
-              <span className={`${skeletonBlock()} fluid-xs block w-14 shrink-0 rounded-md px-3 py-1.5`}>&nbsp;</span>
-              <span className={`${skeletonBlock()} fluid-sm block w-24 rounded`}>&nbsp;</span>
-            </div>
-            {/* One child at `gap-0.5`, as the real cards nest their detail lines: as two siblings they would take
-                the card's own `gap-y-3` instead, and that difference is what the page moves when the rows land. */}
-            <div className="flex w-full flex-col gap-0.5">
-              <span className={`${skeletonBlock()} fluid-sm block w-3/4 rounded`}>&nbsp;</span>
-              <span className={`${skeletonBlock()} fluid-xs block w-1/2 rounded`}>&nbsp;</span>
-            </div>
-            <RowActionCluster
-              slots={TABLE_ROW_ACTIONS}
-              className="border-border/50 -mx-1 border-t pt-2"
-            />
-          </div>
-        ))}
-      </div>
+      <CardsFallback className="md:hidden" />
 
       <div className="hidden w-full md:block">
         {/* `h-fit` alone would size this to its own bars while the real table carries a minimum. */}
@@ -133,7 +145,7 @@ function SectionedFallback() {
               className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0`}>
               <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                 {/* Spelled rather than read from `ROW_ACTION_SIZE`, which it only happens to match. */}
-                <span className={`${skeletonBlock()} h-10 w-10 shrink-0 rounded-xl`} />
+                <span className={`${skeletonBlock()} size-10 shrink-0 rounded-xl`} />
                 <div className="flex min-w-0 flex-1 flex-col gap-y-1">
                   <span className={`${skeletonBlock()} fluid-sm block w-1/2 rounded`}>&nbsp;</span>
                   <span className={`${skeletonBlock()} fluid-xs block w-1/3 rounded`}>&nbsp;</span>

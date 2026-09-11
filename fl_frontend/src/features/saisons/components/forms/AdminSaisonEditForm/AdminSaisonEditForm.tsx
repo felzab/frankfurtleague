@@ -245,8 +245,8 @@ export function AdminSaisonEditForm({
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { saison: payload });
         // ALWAYS toasted, field errors or not: a failure belonging to no field would be silent.
-        appToast.danger("Speichern fehlgeschlagen", {
-          description: res.error ?? "Die Saison konnte nicht gespeichert werden.",
+        appToast.danger("Änderung nicht gespeichert", {
+          description: res.error,
         });
         return;
       }

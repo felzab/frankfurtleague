@@ -29,9 +29,9 @@ export function SaisonSelect({
   };
 
   return (
-    // A literal, and this note outside the tag: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn`
-    // reads the mark off the tag's own text, where `isRequired={…}` or a `>` would drop every schema
-    // asserted to refuse an empty `saison_id`, and the gate would stay green.
+    // A literal mark: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` cannot resolve
+    // `isRequired={…}`, and writing one here would drop every schema asserted to refuse an empty
+    // `saison_id` with the gate still green.
     <Select
       isRequired
       name="saison_id"

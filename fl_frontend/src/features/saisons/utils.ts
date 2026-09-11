@@ -1,7 +1,7 @@
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
 import type { FLGruppenNames } from "../teams/schemas";
-import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "./schemas";
+import type { FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "./schemas";
 import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
 
 /**
@@ -286,6 +286,42 @@ export function describeSpielplanUmfang(spieltage: number, spiele: number): stri
  */
 export function describeAngesetzteSpiele(angesetzt: number): string {
   return angesetzt === 0 ? "Keine" : angesetzt === 1 ? "ein Spiel" : `${String(angesetzt)} Spiele`;
+}
+
+/**
+ * What the replacement does to the outgoing club's squad rows, in the tense of the press about to
+ * happen. AUSTRAGEN and never STILLLEGEN: the write stamps `saison_spieler` rows in this season
+ * alone (`docs/glossary.md`).
+ */
+export function describeKaderAustragung(teamName: string): string {
+  return `Die Kadereinträge von ${teamName} werden ausgetragen.`;
+}
+
+/**
+ * The same rows once the press has run, which is a second fact and not a second tense: a further
+ * wechsel between the two clubs does not carry them back. AUSTRAGEN for the reason above
+ * (`docs/glossary.md`).
+ */
+export function describeKaderAustragungDanach(teamName: string): string {
+  return `Die Kadereinträge von ${teamName} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend erneut wechselst.`;
+}
+
+/**
+ * Whether the Spielplan press about to happen can be taken back. A FIRST draw on a planned season
+ * is the one that can: the undraw beside it removes exactly what it writes (`REQ-SPIELPLAN-006`),
+ * and nothing replays a removal.
+ */
+export function describeSpielplanPermanenz({ holdsADraw, saisonStatus }: { holdsADraw: boolean; saisonStatus: FLSaisonStatus }): string {
+  if (holdsADraw) return "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück.";
+
+  // The window as well as the status, because the undraw this promises is refused inside a season
+  // that holds an entry — the Spielplan panel's own list, which this sentence points at rather than
+  // spelling a second time.
+  if (saisonStatus === "future") {
+    return "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde.";
+  }
+
+  return "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück.";
 }
 
 /**

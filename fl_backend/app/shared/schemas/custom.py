@@ -28,9 +28,17 @@ class CustomObjectIdAnnotation:
 
         def validate_str_to_oid(v: str) -> ObjectId:
             try:
-                return ObjectId(v)
+                oid = ObjectId(v)
             except InvalidId as invalid_id_error:
                 raise ValueError("Invalid ObjectId") from invalid_id_error
+
+            # `bytes.fromhex` skips ASCII whitespace and bson re-checks no length, so a 24-character
+            # value holding two of them is kept as an eleven-byte id nobody sent. Folded, because
+            # bson lower-cases a well-formed upper-case id and that is not the defect.
+            if str(oid).lower() != v.lower():
+                raise ValueError("Invalid ObjectId")
+
+            return oid
 
         def serialize_oid(v: ObjectId, info: SerializationInfo) -> Any:
             if info.context and info.context.get("keep_oid"):
@@ -107,7 +115,7 @@ PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 # reads left to right. A name is a name and none belongs in one -- cheaper than reasoning about what
 # each renderer downstream does with them.
 
-# `fl_frontend/src/features/bewerbungen/schemas.ts :: einzeiligerName` carries this verbatim. One
+# `fl_frontend/src/features/bewerbungen/schemas.ts :: NICHT_EINZEILIG` carries this negated. One
 # asymmetry survives: `str.strip` removes U+0085 where JavaScript's `trim` does not, so a value
 # merely PADDED with it is accepted here and refused there.
 

@@ -1,19 +1,29 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
-import { beforeEach, describe, it, mock } from "node:test";
+import { after, afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
+
+import { filesUnder } from "./treeWalk.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 const LOG_RECORDER = "__flMailLogLines";
 
-// Replaced at the module boundary rather than the transport being reshaped to admit a seam: the key
-// the real config reads is a credential no test run holds, so the transport would authorise every
-// send below with `Bearer undefined`.
-const CONFIG_DOUBLE = `export const frontend_config = { AUTH_RESEND_KEY: "resend-key-double" };`;
+const APP_ENV_SWITCH = "__flMailAppEnv";
+const RESEND_KEY_SWITCH = "__flMailResendKey";
+
+// Replaced at the module boundary rather than the transport reshaped to admit a seam: the real key
+// is a credential no test run holds.
+
+// Getters, not fixed values: the guard reads both names on every send, and a case moving
+// `process.env` would decide every case after it in this one process.
+const CONFIG_DOUBLE = `export const frontend_config = {
+  get APP_ENV() { return globalThis.${APP_ENV_SWITCH}; },
+  get AUTH_RESEND_KEY() { return globalThis.${RESEND_KEY_SWITCH}; },
+};`;
 
 const LOGGER_DOUBLE = `export const logger = {
   info: (message, meta) => globalThis.${LOG_RECORDER}.push({ message, meta }),
@@ -40,8 +50,10 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 const logs: RecordedLine[] = [];
 (globalThis as unknown as Record<string, RecordedLine[]>)[LOG_RECORDER] = logs;
 
-const { sendMail } = await import("./mail.ts");
+const { sendMail, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
+
+const switches = globalThis as unknown as Record<string, string | undefined>;
 
 const SRC_ROOT = path.resolve(import.meta.dirname, "..");
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
@@ -55,6 +67,12 @@ const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
 /** The module's own timeout and retry pause, restated so a change to either has to be made here too. */
 const MAIL_TIMEOUT_MS = 15000;
 const MAIL_RETRY_DELAY_MS = 400;
+
+/** The module's own sink directory, restated for the reason above. */
+const SINK_DIR = path.join(process.cwd(), ".tmp-mail");
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
+
+const sinkNames = (): string[] => (existsSync(SINK_DIR) ? readdirSync(SINK_DIR).sort() : []);
 
 /** What the doubled transport was asked to send, and on what terms. */
 type RecordedSend = { url: string; init: RequestInit };
@@ -114,12 +132,40 @@ function assertHidesRecipient(subject: unknown, where: string): void {
   assert.ok(!carried.includes(MESSAGE.to), `${where} carried the recipient: ${carried}`);
 }
 
+// A deployment that mails, since that is what every case below the withheld ones is about: a default
+// of anything else would grade the whole transport against a guard that stops it before the fetch.
+function resetTransport(): void {
+  switches[APP_ENV_SWITCH] = "production";
+  switches[RESEND_KEY_SWITCH] = "resend-key-double";
+  sends.length = 0;
+  logs.length = 0;
+  respond = async () => jsonResponse({ id: "01HZ" }, 200);
+}
+
+/* Read off the line rather than off a listing, so a case that wrote nothing fails here instead of
+   grading whatever a developer's own stack left in the directory. */
+function sinkFileNamedOn(line: RecordedLine): string {
+  const name = line.meta?.["sink_file"];
+  assert.equal(typeof name, "string", "the withheld line named no sink file");
+
+  return String(name);
+}
+
+// Each case's own files, never the directory: a developer's local stack writes into this same one.
+afterEach(() => {
+  for (const line of logs) {
+    const written = line.meta?.["sink_file"];
+    if (typeof written === "string") rmSync(path.join(SINK_DIR, written), { force: true });
+  }
+});
+
+after(() => {
+  // Only when empty, for the same reason: a message still here is one this run did not write.
+  if (existsSync(SINK_DIR) && readdirSync(SINK_DIR).length === 0) rmdirSync(SINK_DIR);
+});
+
 describe("the mail transport", () => {
-  beforeEach(() => {
-    sends.length = 0;
-    logs.length = 0;
-    respond = async () => jsonResponse({ id: "01HZ" }, 200);
-  });
+  beforeEach(resetTransport);
 
   /* First, so a double that never ran fails here rather than under every assertion below. */
   it("posts one request to the provider's send endpoint", async () => {
@@ -188,12 +234,177 @@ describe("the mail transport", () => {
   });
 });
 
-describe("a refusal the mail transport tries again", () => {
-  beforeEach(() => {
-    sends.length = 0;
-    logs.length = 0;
-    respond = async () => jsonResponse({ id: "01HZ" }, 200);
+describe("the send a deployment that does not mail withholds", () => {
+  beforeEach(resetTransport);
+
+  /* The incident this guard exists for: an acceptance on a stack seeded from production, where every
+     address in the database reaches one of the league's real contact people. */
+  it("draws no request at all where the environment is not production", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
+    assert.equal(sends.length, 0, "a message left a stack that is not production");
   });
+
+  /* The other arm, so a guard that withheld EVERY send would fail here rather than read as a pass
+     above: what decides is the environment, not the module having stopped sending. */
+  it("sends where the environment is production", async () => {
+    assert.deepEqual(await sendMail(MESSAGE), { id: "01HZ" });
+    assert.equal(sends.length, 1);
+  });
+
+  /* The second half of the same guard. `Bearer undefined` is what a template literal renders for an
+     absent key, and neither the type checker nor the provider's 401 stops it being sent. */
+  it("withholds the send where the environment carries no key, whatever it calls itself", async () => {
+    switches[RESEND_KEY_SWITCH] = undefined;
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
+    assert.equal(sends.length, 0, "a message went out with no key to authorise it");
+  });
+
+  it("logs which message stayed behind, under its own code", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc", rollen: "trainer" } }));
+
+    assert.equal(logs.length, 1, `expected exactly one log line, saw ${logs.length}`);
+    assert.equal(logs[0]!.meta?.["error_code"], "FE-MAIL-004");
+    assert.equal(logs[0]!.meta?.["app_env"], "local");
+    assert.equal(logs[0]!.meta?.["subject"], MESSAGE.subject);
+    assert.deepEqual(logs[0]!.meta?.["tags"], { bewerbung_id: "abc", rollen: "trainer" });
+    assert.match(String(logs[0]!.meta?.["trace_id"]), /^[a-f0-9]{32}$/);
+  });
+
+  /* The withheld line names a message nobody sent, and `docs/logging/spec.md :: L9` binds it exactly
+     as it binds the provider's refusal above. */
+  it("names no recipient on the line, nor in what it throws", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    const error = await sendMail(MESSAGE).then(
+      () => assert.fail("the withheld send resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assertHidesRecipient(error, "the withheld refusal");
+    assertHidesRecipient(logs[0], "the withheld line");
+  });
+});
+
+describe("the sink a deployment that does not mail writes instead", () => {
+  beforeEach(resetTransport);
+
+  /* The whole point of the sink: until it existed nobody had seen a Zusage, an Absage, a reminder or
+     a deletion notice render anywhere but in a real recipient's inbox. */
+  it("writes the message to a file where the environment is not production, and draws no request", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail(MESSAGE));
+
+    assert.equal(sends.length, 0, "a message left a stack that is not production");
+    assert.ok(existsSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!))), "the withheld line named a file that is not there");
+  });
+
+  /* The other arm, so a sink that wrote on EVERY send would fail here rather than read as a pass
+     above: production mails, and a file there would leave a live sign-in token on the host's disk. */
+  it("posts the message and writes no file where the environment is production", async () => {
+    const before = sinkNames();
+
+    assert.deepEqual(await sendMail(MESSAGE), { id: "01HZ" });
+
+    assert.equal(sends.length, 1);
+    assert.deepEqual(sinkNames(), before, "production wrote a message to the checkout");
+  });
+
+  /* Production's own withheld arm, reached where `SKIP_ENV_VALIDATION` stood the key's requirement
+     down. It is still production, so a file here would leave a live sign-in token on the host. */
+  it("writes no file where production is the deployment and holds no key", async () => {
+    switches[RESEND_KEY_SWITCH] = undefined;
+    const before = sinkNames();
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
+
+    assert.deepEqual(sinkNames(), before, "production wrote a withheld message to the checkout");
+  });
+
+  /* `settleFanOut` branches on the accepted id to decide whether a delivery is recorded, so a sink
+     that answered the accepted shape would tell an administrator „Die Zusage ging an 3
+     Kontaktpersonen" for three messages nobody sent. */
+  it("refuses the send to its caller although the message is on disk", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    const error = await sendMail(MESSAGE).then(
+      () => assert.fail("the withheld send resolved once its message was written"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.ok(error instanceof MailWithheldError);
+    assert.ok(existsSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!))));
+  });
+
+  it("carries the recipient, the subject and both bodies into the file", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc" } }));
+    const written = readFileSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!)), "utf8");
+
+    for (const carried of [MESSAGE.to, MESSAGE.subject, MESSAGE.html, MESSAGE.text, "bewerbung_id=abc"]) {
+      assert.ok(written.includes(carried), `the file carried no ${carried}`);
+    }
+    // Ahead of the message and never around it, so what the file renders is what a client renders.
+    assert.ok(written.endsWith(MESSAGE.html), "the message was wrapped rather than written whole");
+  });
+
+  /* The name is what a developer reads to find which message was withheld, and `ß` is the one German
+     letter the fold above leaves for the separator run to eat — „Größe“ arriving as `gro-e`. */
+  it("names the file for a subject carrying an Eszett rather than breaking at it", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail({ ...MESSAGE, subject: "Große Fußball-Saison" }));
+
+    assert.match(sinkFileNamedOn(logs[0]!), /-grosse-fussball-saison\.html$/);
+  });
+
+  /* A Windows text-mode stream turns every `\n` into `\r\n`, and a message whose newlines flipped is
+     a message that renders differently from the one the provider would have been given. */
+  it("writes the newlines the message has, never the host's", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+
+    await assert.rejects(sendMail({ ...MESSAGE, html: "<p>eins</p>\n<p>zwei</p>", text: "eins\nzwei" }));
+
+    assert.ok(!readFileSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!)), "utf8").includes("\r"));
+  });
+
+  /* One application's three contact people are three messages inside one millisecond, and a name
+     collision would report two of them as never rendered. */
+  it("gives each of a fan-out's messages a file of its own", async () => {
+    switches[APP_ENV_SWITCH] = "local";
+    mock.timers.enable({ apis: ["Date"] });
+
+    try {
+      for (const to of ["trainer@example.org", "leitung@example.org", "vertretung@example.org"]) {
+        await assert.rejects(sendMail({ ...MESSAGE, to: to }));
+      }
+    } finally {
+      mock.timers.reset();
+    }
+
+    const written = logs.map(sinkFileNamedOn);
+    assert.equal(new Set(written).size, 3, `three messages at one instant left ${String(new Set(written).size)} files`);
+  });
+
+  /* The directory holds a magic link, which is a bearer credential: a name outside this pattern is
+     one git offers to commit and `prettier --check` then rewrites. */
+  it("writes into a directory both ignore files hold", () => {
+    for (const ignoreFile of [".gitignore", ".prettierignore"]) {
+      assert.match(readFileSync(path.join(REPO_ROOT, ignoreFile), "utf8"), /^\.tmp-\*\/$/m, `${ignoreFile} holds no rule for the sink`);
+    }
+
+    assert.ok(path.basename(SINK_DIR).startsWith(".tmp-"));
+  });
+});
+
+describe("a refusal the mail transport tries again", () => {
+  beforeEach(resetTransport);
 
   /** Answers the given statuses in order, and the accepted body after them. */
   function answersInTurn(statuses: readonly number[]): void {
@@ -282,11 +493,7 @@ describe("a refusal the mail transport tries again", () => {
 });
 
 describe("what the mail transport reports when a send fails", () => {
-  beforeEach(() => {
-    sends.length = 0;
-    logs.length = 0;
-    respond = async () => jsonResponse({ id: "01HZ" }, 200);
-  });
+  beforeEach(resetTransport);
 
   it("says nothing at all when the provider accepts the message", async () => {
     await sentRequest();
@@ -416,10 +623,11 @@ describe("what the mail transport reports when a send fails", () => {
   it("is the only place in the frontend that names the provider's endpoint", () => {
     assert.match(PROVIDER_ENDPOINT, PROVIDER_ENDPOINT_PATTERN, "the sweep's pattern and the asserted endpoint disagree");
 
-    const naming = readdirSync(SRC_ROOT, { recursive: true, encoding: "utf8" })
-      .filter((entry) => entry.endsWith(".ts") || entry.endsWith(".tsx"))
-      .filter((entry) => PROVIDER_ENDPOINT_PATTERN.test(readFileSync(path.join(SRC_ROOT, entry), "utf8")))
-      .map((entry) => entry.split(path.sep).join("/"))
+    // Fixtures are IN, and the expected answer below names this file: a test reaching the live
+    // provider is the failure this sweep exists to catch, so excluding them would hide it.
+    const naming = filesUnder(SRC_ROOT, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400)
+      .filter((file) => PROVIDER_ENDPOINT_PATTERN.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(SRC_ROOT, file).split(path.sep).join("/"))
       .sort();
 
     assert.deepEqual(naming, ["core/mail.test.ts", "core/mail.ts"]);

@@ -20,8 +20,8 @@ const production = [...sources].filter(([file]) => !isTestFile(file));
 /**
  * One argument's source, ended by the comma or bracket that closes it.
  *
- * Quote-aware because a title is German prose: „Kadereintrag reaktiviert. Nummer, Position …" ends at
- * its own comma otherwise, and the truncated half then resolves to nothing.
+ * Quote-aware because a title is German prose: „Unklar, ob es bei uns angekommen ist“ ends at its
+ * own comma otherwise, and the truncated half then resolves to nothing.
  */
 function argumentText(text: string, from: number): string {
   let depth = 0;
@@ -84,17 +84,6 @@ function optionKeys(text: string, from: number): string[] {
 const LITERAL = /^"([^"]*)"$/;
 const PLAIN_TEMPLATE = /^`([^`${]*)`$/;
 const IDENTIFIER = /^\w+$/;
-const CAPITALISED_HOLE = /^`\$\{(\w+)\}([^`${]*)`$/;
-
-/**
- * An identifier the tree computes rather than states, and the identifier it is computed FROM.
- * Declared rather than inferred: the transform is a closure this sweep does not evaluate, and an
- * unlisted one fails below rather than dropping its titles.
- */
-const DERIVED_FROM: Record<string, string> = {
-  // `ConfirmDeleteModal` capitalises its `verb` prop, German making a noun of an infinitive.
-  capitalized: "verb",
-};
 
 /** A module-level constant's value, wherever in the tree it is declared. */
 function constantValues(name: string): string[] {
@@ -209,14 +198,6 @@ function resolveTitles(expression: string, file: string): string[] | null {
   const fallback = /^.+? (?:\?\?|\|\|) (.+)$/.exec(trimmed);
   if (fallback?.[1] !== undefined) return resolveTitles(fallback[1], file);
 
-  const hole = CAPITALISED_HOLE.exec(trimmed);
-  if (hole?.[1] !== undefined && hole[2] !== undefined) {
-    const source = DERIVED_FROM[hole[1]] ?? hole[1];
-    const inner = resolveTitles(source, file);
-    const suffix = hole[2];
-    return inner === null ? null : inner.map((value) => `${value.charAt(0).toUpperCase()}${value.slice(1)}${suffix}`);
-  }
-
   if (IDENTIFIER.test(trimmed)) {
     const props = propValues(file, trimmed);
     if (props === null) return null;
@@ -226,9 +207,6 @@ function resolveTitles(expression: string, file: string): string[] | null {
   }
   return null;
 }
-
-/** Every `${…}` a title template interpolates, with the file it was written in. */
-const holes: { file: string; identifier: string }[] = [];
 
 type ToastVariant = "success" | "warning" | "danger" | "info" | "pending";
 
@@ -260,8 +238,6 @@ const unread: string[] = [];
 
 for (const [file, text] of production) {
   const record = (variant: ToastVariant, argument: string, keys: string[]) => {
-    for (const hole of argument.matchAll(/\$\{(\w+)\}/g)) if (hole[1] !== undefined) holes.push({ file, identifier: hole[1] });
-
     sites.push({
       file,
       variant,
@@ -338,57 +314,64 @@ interface RegisteredTitle {
 }
 
 const TOAST_TITLES: Record<string, RegisteredTitle> = {
-  "Abmelden fehlgeschlagen": { variant: "danger", identifies: "its description" },
-  "Absage fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Adresse kopiert": { variant: "success", identifies: "one site" },
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
+  "Adresse nicht kopiert": { variant: "danger", identifies: "one site" },
   "Adresse nicht korrigiert": { variant: "danger", identifies: "one site" },
-  "Anmeldung fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Aufnehmen fehlgeschlagen": { variant: "danger", identifies: "its description" },
-  "Austragen fehlgeschlagen": { variant: "danger", identifies: "one site" },
+  "Anmeldelink nicht gesendet": { variant: "danger", identifies: "one site" },
   "Bewerbung abgelehnt": { variant: "success", identifies: "one site" },
   "Bewerbung angenommen": { variant: "success", identifies: "one site" },
+  "Bewerbung nicht abgelehnt": { variant: "danger", identifies: "one site" },
   "Bewerbung nicht abgeschickt": { variant: "danger", identifies: "its description" },
+  "Bewerbung nicht angenommen": { variant: "danger", identifies: "one site" },
   "Erfolgreich abgemeldet": { variant: "success", identifies: "one site" },
   "Erst speichern": { variant: "warning", identifies: "one site" },
-  Gespeichert: { variant: "success", identifies: "its description" },
   "Gruppen getauscht": { variant: "success", identifies: "its description" },
-  "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.": { variant: "success", identifies: "one site" },
+  "Gruppen nicht getauscht": { variant: "danger", identifies: "its description" },
+  "Kadereintrag ausgetragen": { variant: "success", identifies: "one site" },
+  "Kadereintrag nicht ausgetragen": { variant: "danger", identifies: "one site" },
+  "Kadereintrag nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Kadereintrag reaktiviert": { variant: "success", identifies: "its description" },
   "Kein Spielplan vorhanden": { variant: "info", identifies: "one site" },
   "Kontaktdaten kopiert": { variant: "success", identifies: "the press" },
+  "Kontaktdaten nicht kopiert": { variant: "danger", identifies: "its description" },
   "Kontakte gelöscht": { variant: "success", identifies: "one site" },
   "Kontakte nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Kontaktperson gelöscht": { variant: "success", identifies: "one site" },
   "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Kopieren nicht möglich": { variant: "danger", identifies: "its description" },
   "Kürzel noch nicht geprüft": { variant: "warning", identifies: "one site" },
   "Link erneut gesendet": { variant: "success", identifies: "one site" },
   "Link nicht erneut gesendet": { variant: "danger", identifies: "one site" },
   "Link nicht gesendet": { variant: "warning", identifies: "one site" },
   "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
   "Mit Folgen zurückgenommen": { variant: "warning", identifies: "one site" },
+  "Nicht abgemeldet": { variant: "danger", identifies: "its description" },
   "Nichts gefunden": { variant: "warning", identifies: "one site" },
+  "Nimmt Änderung zurück...": { variant: "pending", identifies: "one site" },
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
-  "Reaktivieren fehlgeschlagen": { variant: "danger", identifies: "its description" },
-  "Rücknahme fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Rücknahme konnte nicht gesendet werden": { variant: "danger", identifies: "its description" },
-  "Rücknahme nicht möglich": { variant: "danger", identifies: "one site" },
   "Saison angelegt": { variant: "success", identifies: "one site" },
+  "Saison nicht umgestellt": { variant: "danger", identifies: "one site" },
   "Saison umgestellt": { variant: "success", identifies: "one site" },
   "Schiedsrichter angelegt": { variant: "success", identifies: "one site" },
+  "Schiedsrichter nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Schiedsrichter nicht stillgelegt": { variant: "danger", identifies: "one site" },
   "Schiedsrichter reaktiviert": { variant: "success", identifies: "the press" },
   "Schiedsrichter stillgelegt": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten gelöscht": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Speichern fehlgeschlagen": { variant: "danger", identifies: "its description" },
   "Spieler angelegt": { variant: "success", identifies: "one site" },
   "Spieler aufgenommen": { variant: "success", identifies: "one site" },
   "Spieler gelöscht": { variant: "success", identifies: "one site" },
+  "Spieler nicht aufgenommen": { variant: "danger", identifies: "one site" },
   "Spieler nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Spieler reaktiviert": { variant: "success", identifies: "one site" },
+  "Spieler nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Spieler nicht stillgelegt": { variant: "danger", identifies: "one site" },
+  "Spieler reaktiviert": { variant: "success", identifies: "the press" },
   "Spieler stillgelegt": { variant: "success", identifies: "one site" },
   "Spielort angelegt": { variant: "success", identifies: "one site" },
+  "Spielort nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Spielort nicht stillgelegt": { variant: "danger", identifies: "one site" },
   "Spielort reaktiviert": { variant: "success", identifies: "the press" },
   "Spielort stillgelegt": { variant: "success", identifies: "one site" },
   "Spielplan angelegt": { variant: "success", identifies: "one site" },
@@ -397,25 +380,33 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Spielplan nicht neu angelegt": { variant: "danger", identifies: "one site" },
   "Spielplan nicht zurückgenommen": { variant: "danger", identifies: "one site" },
   "Spielplan zurückgenommen": { variant: "success", identifies: "one site" },
-  "Stilllegen fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Tausch fehlgeschlagen": { variant: "danger", identifies: "its description" },
   "Team angelegt": { variant: "success", identifies: "one site" },
   "Team aufgenommen": { variant: "success", identifies: "one site" },
   "Team ersetzt": { variant: "success", identifies: "one site" },
+  "Team nicht aufgenommen": { variant: "danger", identifies: "one site" },
+  "Team nicht ersetzt": { variant: "danger", identifies: "one site" },
+  "Team nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Team nicht stillgelegt": { variant: "danger", identifies: "one site" },
   "Team reaktiviert": { variant: "success", identifies: "the press" },
   "Team stillgelegt": { variant: "success", identifies: "one site" },
-  "Umstellung fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Unklar, ob es bei uns angekommen ist": { variant: "danger", identifies: "its description" },
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },
-  "Wechsel fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Zusage fehlgeschlagen": { variant: "danger", identifies: "one site" },
+  "Vorgangsnummer nicht kopiert": { variant: "danger", identifies: "one site" },
   "Änderung gespeichert": { variant: "success", identifies: "its description" },
-  "Änderung wird zurückgenommen...": { variant: "pending", identifies: "one site" },
+  "Änderung nicht gespeichert": { variant: "danger", identifies: "its description" },
+  "Änderung nicht zurückgenommen": { variant: "danger", identifies: "its description" },
   "Änderung zurückgenommen": { variant: "success", identifies: "one site" },
 };
 
 const registered = Object.keys(TOAST_TITLES).sort();
 const CONFIRMS: readonly ToastVariant[] = ["success", "pending"];
+
+/**
+ * The three endings that name the act rather than its outcome: the nominalised verb, the act
+ * refused as impossible, and the passive infinitive. Each is a spelling a machine reads; review
+ * carries every other way of writing that fault.
+ */
+const NAMES_THE_OPERATION: readonly RegExp[] = [/ fehlgeschlagen$/, / nicht möglich$/, / werden$/];
 
 describe("every toast title the product raises", () => {
   it("is found by the sweep at all", () => {
@@ -434,33 +425,11 @@ describe("every toast title the product raises", () => {
     // An unresolved expression is a title nothing below can judge, so it fails here rather than
     // shrinking the register in silence.
     const unresolved = sites.filter((site) => site.titles === null).map((site) => `${site.file}: ${site.expression}`);
-    assert.deepEqual(unresolved, [], "a toast title reaches no literal this sweep can read. Name its source in DERIVED_FROM.");
-  });
-
-  it("names, for every hole in a title, the identifier it is really computed from", () => {
-    /* Both directions, as `EXEMPT` and `BANNER_ONLY` have them: a row nothing interpolates is stale,
-       and a row naming an identifier the derived one is not built from manufactures an answer. */
-    const interpolated = [...new Set(holes.map((hole) => hole.identifier))];
-    assert.ok(interpolated.length > 0, "no title interpolates anything, so the rows below are checked against nothing");
-
-    for (const identifier of Object.keys(DERIVED_FROM)) {
-      assert.ok(interpolated.includes(identifier), `DERIVED_FROM names \`${identifier}\`, which no title interpolates — drop the row`);
-    }
-
-    for (const { file, identifier } of holes) {
-      const source = DERIVED_FROM[identifier];
-      if (source === undefined) continue;
-
-      // The declaration is what settles it: a derived title is computed from something, and the row
-      // has to name what appears in that computation.
-      const declaration = new RegExp(String.raw`const ` + identifier + String.raw` = ([^;]*);`).exec(sources.get(file) ?? "")?.[1];
-      assert.ok(declaration !== undefined, `${file} interpolates \`${identifier}\` and declares it nowhere this can read`);
-      assert.match(
-        declaration,
-        new RegExp(String.raw`\b` + source + String.raw`\b`),
-        `DERIVED_FROM sends \`${identifier}\` to \`${source}\`, which its own declaration never mentions`,
-      );
-    }
+    assert.deepEqual(
+      unresolved,
+      [],
+      "a toast title reaches no literal this sweep can read. Write it as a literal, or as a prop every call site passes one for.",
+    );
   });
 
   it("has a row, and every row is raised", () => {
@@ -473,6 +442,17 @@ describe("every toast title the product raises", () => {
         : `"${title}" [${[...entry.variants].join("/")}] ${String(entry.files.length)} site(s), ${String(entry.descriptions)} with a description`;
     };
     assert.deepEqual([...raised.keys()].sort().map(describeTitle), registered.map(describeTitle));
+  });
+
+  it("names the thing rather than the operation", () => {
+    // `docs/frontend/spec.md` §1.12 asks a title for what happened, and each ending above answers
+    // with the step the machine took at it.
+    const operationNamed = registered.filter((title) => NAMES_THE_OPERATION.some((ending) => ending.test(title)));
+    assert.deepEqual(
+      operationNamed,
+      [],
+      "a failure title names its operation. Negate the success title beside it instead: `Adresse nicht kopiert`.",
+    );
   });
 
   it("is raised at the one variant its row declares", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { deleteSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE } from "@/features/schiedsrichter/constants";
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
@@ -20,15 +20,20 @@ export function AdminDeleteSchiedsrichterModal({
 
   if (!schiedsrichter) return null;
 
+  // The list is this modal's only caller and it serves no stamped row, so a missing name here is
+  // what a hand-write left and never the erasure's doing.
+  const nennung = schiedsrichter.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
+
   return (
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
       heading="Schiedsrichter stilllegen"
       entityLabel="den Schiedsrichter"
-      entityName={schiedsrichterAnzeigename(schiedsrichter.name)}
-      consequence="Schon eingetragene Spiele behalten diese Person. Für neue Spiele steht sie nicht mehr zur Auswahl."
+      entityName={nennung}
+      consequence={SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE}
       successMessage="Schiedsrichter stillgelegt"
+      failureMessage="Schiedsrichter nicht stillgelegt"
       onConfirm={() => deleteSchiedsrichterAction({ id: schiedsrichter.id })}
     />
   );

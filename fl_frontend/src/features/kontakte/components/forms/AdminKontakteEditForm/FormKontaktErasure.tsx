@@ -16,7 +16,6 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { FormKontaktReveal } from "./FormKontaktReveal";
 
@@ -110,7 +109,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
       const res = await eraseKontaktpersonAction({ email });
 
       if (!res.success) {
-        appToast.danger("Kontaktperson nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Kontaktperson nicht gelöscht", { description: res.error });
         return;
       }
 
@@ -157,9 +156,8 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
               press, and step two is already announcing itself in words. */}
           {!isConfirming && (
             <TrashBin
+              className="size-4.5"
               aria-hidden="true"
-              width={18}
-              height={18}
             />
           )}
           {/* The object stays in the label: a bare „Ja, endgültig löschen“ reads as whatever the page

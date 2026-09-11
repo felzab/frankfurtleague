@@ -40,10 +40,13 @@ export function SidemenuFooter({
           href="/"
           onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
+            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
           }`}
           aria-label="Zur öffentlichen Website">
-          <ArrowRightToSquare className="size-[18px] shrink-0" />
+          <ArrowRightToSquare
+            aria-hidden="true"
+            className="size-4.5 shrink-0"
+          />
           {!isDesktopCollapsed && <span className="fluid-sm font-medium">Zur Website</span>}
         </Link>
       </IconTooltip>
@@ -57,13 +60,19 @@ export function SidemenuFooter({
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
+            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
           }`}
           aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
           {isDesktopCollapsed ? (
-            <LayoutSideContentRight className="size-[18px] shrink-0" />
+            <LayoutSideContentRight
+              aria-hidden="true"
+              className="size-4.5 shrink-0"
+            />
           ) : (
-            <LayoutSideContentLeft className="size-[18px] shrink-0" />
+            <LayoutSideContentLeft
+              aria-hidden="true"
+              className="size-4.5 shrink-0"
+            />
           )}
           {!isDesktopCollapsed && <span className="fluid-sm font-medium">Menü einklappen</span>}
         </button>

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
@@ -47,7 +47,7 @@ function activateBranch(code: string): string {
 }
 
 describe("the saison actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts each mapper out of the file before reading it", () => {
     assert.ok(RULES_MAP.includes('case "REQ-DATE-005":'), "the editor's switch is outside its slice");
     // The arm rather than the code: the draw's mapper opens on `case "REQ-SPIELPLAN-001":`, so an
@@ -301,4 +301,53 @@ describe("the season edit's refusals when the undo replays it", () => {
       assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = [
+  "postSaisonAction",
+  "patchSaisonAction",
+  "activateSaisonAction",
+  "swapGruppenAction",
+  "generateSpielplanAction",
+  "undrawSpielplanAction",
+];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+    for (const name of WRITE_ACTIONS) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  /* `saisons` reaches the PUBLIC season reads: every admin page resolves its season through
+     `fl_frontend/src/features/saisons/queries.ts :: getAdminSaisons`, which is uncached. */
+  it("refreshes on every one of them, no tag reaching the read an admin page renders", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
+  });
 });

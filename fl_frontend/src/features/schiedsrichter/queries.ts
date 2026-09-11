@@ -1,9 +1,10 @@
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { FLSchiedsrichterListResponseSchema } from "./schemas";
+import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
-import type { FLSchiedsrichterListResponse } from "./schemas";
+import type { FLSchiedsrichterListResponse, FLSchiedsrichterSingleResponse } from "./schemas";
 import type { FLSchiedsrichterFilterParams } from "./types";
 
 /**
@@ -18,6 +19,25 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
     apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
       authType: "admin",
       params: filters,
+    }),
+  );
+}
+
+/**
+ * One referee by id, whatever state they are in — the only read that answers for an erased one, the
+ * list above serving what can still be acted on.
+ *
+ * **Uncached** for the reason the list is.
+ */
+export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
+  return runWithIncomingTrace(() =>
+    // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
+    // status still throws.
+    apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
+      authType: "admin",
+    }).catch((error: unknown) => {
+      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      throw error;
     }),
   );
 }

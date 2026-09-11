@@ -6,7 +6,8 @@ import { tv } from "tailwind-variants";
 const dismissControlStyle = tv({
   // `size-7` is a floor rather than a taste call: WCAG 2.5.8 (Target Size, Minimum) puts the
   // smallest hit target at 24px.
-  base: "text-foreground-muted size-7 shrink-0 rounded-md border-0 bg-transparent transition-[color,background-color,transform,opacity] duration-(--motion-fast) [&_svg]:size-4",
+  // Reduced motion drops `transform` alone and keeps the fades, which is the policy `globals.css` states.
+  base: "text-foreground-muted size-7 shrink-0 rounded-md border-0 bg-transparent transition-[color,background-color,transform,opacity] duration-(--motion-fast) motion-reduce:transition-[color,background-color,opacity] [&_svg]:size-4",
   variants: {
     hover: {
       aria: "data-hovered:text-foreground data-hovered:bg-hover",

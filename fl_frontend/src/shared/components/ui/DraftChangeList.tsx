@@ -48,7 +48,7 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
       {[...grouped.entries()].map(([group, fields]) => (
         <section
           key={group}
-          className="bg-muted/50 flex w-full flex-col gap-y-1.5 rounded-lg p-2.5">
+          className="bg-muted/50 flex w-full flex-col gap-y-2 rounded-lg p-2.5">
           <h3 className={FORM_SECTION_HEADING}>{group}</h3>
           <ul className="flex w-full flex-col gap-y-1">
             {fields.map((field) => {
@@ -77,7 +77,12 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                     ) : (
                       <InfoHint
                         label={`Vorheriger Wert von ${field.label}`}
-                        trigger={<Icon className={`size-3.5 ${cls}`} />}>
+                        trigger={
+                          <Icon
+                            aria-hidden="true"
+                            className={`size-3.5 ${cls}`}
+                          />
+                        }>
                         <p>Vorher: {field.storedText}</p>
                       </InfoHint>
                     )}

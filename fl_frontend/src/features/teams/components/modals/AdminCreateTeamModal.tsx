@@ -33,8 +33,8 @@ export function AdminCreateTeamModal({
         onPress={modalState.open}
         className={formButton({ intent: "trigger" })}>
         <Plus
-          width={18}
-          height={18}
+          aria-hidden="true"
+          className="size-4.5"
         />
         <span className="hidden sm:inline">Neues Team anlegen</span>
       </Button>

@@ -8,11 +8,12 @@ import { useUrlQuery } from "../../hooks/useUrlQuery";
 import { applyFacets } from "../../utils/facets";
 import { AdminCrudFallback } from "./AdminCrudFallback";
 import { FilterLeiste } from "./FilterLeiste";
-import { PLACEHOLDER_BOX } from "./placeholderBox";
+import { CONTENT_LAYER, COVER_LAYER, PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet, FacetCounts } from "../../utils/facets";
 import type { Leserichtung } from "../../utils/leserichtung";
+import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /** A stable stand-in for a resource with no facets: a fresh `[]` default would miss every memo below. */
 const NO_FACETS: readonly never[] = [];
@@ -39,7 +40,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   facets = NO_FACETS,
   facetCounts,
   leserichtung,
-  isCollection = true,
+  shape = "table",
   renderTable,
   renderDeleteModal,
 }: {
@@ -58,8 +59,11 @@ export function AdminCrudView<TItem extends { id: string }>({
    * surface, which then draws no read-order control; a surface passing one needs facets, the control riding in the bar.
    */
   leserichtung?: Leserichtung;
-  /** Whether `renderTable` returns a react-aria collection, which is what has an empty first pass to cover. */
-  isCollection?: boolean;
+  /**
+   * Which placeholder this region holds, and — `"table"` alone being a react-aria collection —
+   * whether the release waits for rows a later pass commits.
+   */
+  shape?: AdminCrudShape;
   /**
    * **Collection-identity constraint.** A re-rendering react-aria collection in a hidden Activity tree stops committing
    * rows, and this re-renders on every navigation: `React.memo` the table, and pass `items` + a render function.
@@ -78,6 +82,8 @@ export function AdminCrudView<TItem extends { id: string }>({
   const selection = useFacetSelection(facets);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 
+  const hasFacets = facets.length > 0;
+
   const narrowedItems = useMemo(() => applyFacets(items, facets, selection), [items, facets, selection]);
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
   // Derived once here rather than per table: only this component sees both stages, and a table seeing one would guess.
@@ -86,30 +92,34 @@ export function AdminCrudView<TItem extends { id: string }>({
   return (
     // No entrance: the placeholder reserves this box exactly, so a fade or a rise animates content
     // that is not out of place. Both were tried and both read as a fault.
-    <div className={`group relative flex flex-col gap-4 ${isCollection ? PLACEHOLDER_BOX : ""}`}>
-      {/* Counted over the unfiltered rows, so an option answers what it would leave, not what the selection already left. */}
-      <FilterLeiste
-        facets={facets}
-        items={items}
-        facetCounts={facetCounts}
-        leserichtung={leserichtung}
-      />
+    <div className={PLACEHOLDER_BOX[shape]}>
+      <div className={`${CONTENT_LAYER} gap-4`}>
+        {/* Counted over the unfiltered rows, so an option answers what it would leave, not what the selection already left. */}
+        <FilterLeiste
+          facets={facets}
+          items={items}
+          facetCounts={facetCounts}
+          leserichtung={leserichtung}
+        />
 
-      {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
+        {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
 
-      {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+        {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+      </div>
 
       {/* The same placeholder the route already drew, over the whole region rather than the table alone,
           so the reader crosses one change instead of three. */}
-      {isCollection && (
-        <div
-          aria-hidden="true"
-          className="bg-background pointer-events-none absolute inset-0 group-has-[tbody]:opacity-(--admin-placeholder-hold)">
-          {/* The overlay must reserve what THIS resource draws: a facet-less page has no bar, and a row held for one
-              would drop the table below where it lands. */}
-          <AdminCrudFallback hasFacets={facets.length > 0} />
-        </div>
-      )}
+      {/* Last of the two layers: the markup orders what a cell paints, so a cover written first sits under the rows. */}
+      <div
+        aria-hidden="true"
+        className={`bg-background pointer-events-none opacity-(--admin-region-held) ${COVER_LAYER}`}>
+        {/* The cover must draw what THIS resource's route drew: a second shape here, or a bar over a
+            facet-less page, is the boundary crossing the whole cover exists to hide. */}
+        <AdminCrudFallback
+          shape={shape}
+          hasFacets={hasFacets}
+        />
+      </div>
     </div>
   );
 }

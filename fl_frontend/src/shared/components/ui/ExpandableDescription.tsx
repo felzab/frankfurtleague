@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 
+import { BRAND_INK_OUTSIDE_PROSE } from "./textLink";
+
 export function ExpandableDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!text) return null;
 
   if (text.length < 120) {
-    return <p className="fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
+    return <p className="fluid-xs text-foreground font-medium text-pretty">{text}</p>;
   }
 
   // A pointer convenience: the button below toggles both directions, so this adds no capability a
@@ -16,19 +18,23 @@ export function ExpandableDescription({ text }: { text: string }) {
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
-      className="mt-2"
+      className="flex flex-col gap-y-1"
       onClick={() => {
         if (isExpanded) {
           setIsExpanded(false);
         }
       }}>
       <p
-        className={`fluid-xs text-pretty transition-colors duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+        className={`fluid-xs text-pretty transition-colors duration-(--motion-base) ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 
+      {/* `type` because the default is `submit`: this sits outside a form today, and the day it does
+          not, pressing "Weiterlesen..." would send the form it was dropped into. */}
       <button
-        className="fluid-xs text-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
+        type="button"
+        aria-expanded={isExpanded}
+        className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

@@ -1,19 +1,17 @@
+import { laufendDot } from "@/features/saisons/components/ui/laufendDot";
+import { PILL_TINT } from "@/shared/components/ui/badges";
+
 import type { ReactNode } from "react";
 
 /**
- * One component rather than the classes twice: the tint below is contrast-measured, and a second
- * spelling of it is one nobody re-measures.
+ * The public surface's box for the running season: a header element rather than a row label, so it
+ * keeps the chip rung the corner ladder gives it (`docs/frontend/spec.md` §1.18) and not a pill's.
  */
 export function SaisonChip({ children }: { children: ReactNode }) {
   return (
-    // `/15`, the one alpha every pill takes
-    // (`fl_frontend/src/shared/components/ui/badges.ts :: PILL_TINT`): a season chip at another alpha
-    // sits beside a phase badge as a paler grade of the same pill.
-    <div className="border-brand/30 bg-brand/15 fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
-      {/* Rests visible under `prefers-reduced-motion`: `animate-ping` starts at full opacity and
-          unscaled. `bg-brand`, never the solid fill, which does not flip and disappears into this
-          tint in the dark theme. */}
-      <span className="bg-brand size-2 animate-ping rounded-full" />
+    <div
+      className={`${PILL_TINT.brand} border-brand/30 fluid-xs inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs`}>
+      <span className={laufendDot("xs")} />
       {children}
     </div>
   );

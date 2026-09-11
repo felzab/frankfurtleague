@@ -87,11 +87,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     // the season's rules, so agreement is the ordinary season, and repeating the count on every
     // healthy heading spends what the divergence needs.
     if (progress.angelegt === progress.erwartet) {
-      return (
-        <span className="fluid-xs text-foreground-muted font-medium">
-          {progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}
-        </span>
-      );
+      return <span className="muted-meta">{progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}</span>;
     }
 
     // The noun agrees with the EXPECTED count, the number it belongs to: „2 von 1 Spieltag“.
@@ -114,9 +110,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         label="Spiele anzeigen"
         ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
         <Magnifier
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
       {/* A link rather than a press: the matchday form edits on a page, so the pencil is a navigation. */}
@@ -125,9 +120,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         label="Bearbeiten"
         ariaLabel={`${spieltag.label} bearbeiten`}>
         <Pencil
+          className="size-4.5"
           aria-hidden="true"
-          width={18}
-          height={18}
         />
       </RowActionLink>
     </RowActions>
@@ -166,7 +160,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold tabular-nums shadow-sm">
+                    className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-sm flex size-10 shrink-0 items-center justify-center rounded-xl font-extrabold tabular-nums shadow-sm">
                     {spieltag.position}
                   </span>
 
@@ -209,9 +203,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           href={`/dashboard/spielplan?saison_id=${encodeURIComponent(saisonId)}`}
           className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
           <Globe
+            className="size-4"
             aria-hidden="true"
-            width={16}
-            height={16}
           />
           Öffentlichen Spielplan ansehen
         </Link>

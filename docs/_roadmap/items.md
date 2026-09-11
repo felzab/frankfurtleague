@@ -77,86 +77,30 @@ deliverable.
 
 ## The items at a glance
 
-| Token       | Item                                                                                                                          | Tags                                                                        | Status   |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                        | FE                                                                          | Open     |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Open     |
-| `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
-| `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                               | FE, Ops, Docs, gate                                                         | Open     |
-| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope  | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
-| `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states               | FE, Docs, tests                                                             | Open     |
-| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
-| `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
-| `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
-| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                 | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
-| `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
-| `ex2m-qjkg` | The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
-| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing             | FE, Docs, tests                                                             | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
-| `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                       | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                              | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                               | FE, BE, tests, saisons                                                      | Open     |
-| `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                        | FE, tests                                                                   | Open     |
-| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                   | FE, Docs                                                                    | Open     |
-| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                            | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
-| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
-| `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
-| `nce5-j467` | Two hand-copied patterns sit outside the register that pairs the others                                                       | FE, BE, tests                                                               | Open     |
-| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Open     |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
-| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                     | FE, Docs, tests                                                             | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
-| `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
-| `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                               | FE, tests                                                                   | Open     |
-| `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
-| `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                              | FE, Ops, Docs, edge                                                         | Standing |
-| `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
-| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                           | FE, BE, Docs                                                                | Open     |
-| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                             | FE, Docs                                                                    | Open     |
-| `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                 | FE, Docs, ci, tests, saisons                                                | Standing |
-| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                          | FE, tests, saisons                                                          | Open     |
-| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                         | FE, tests, spieler                                                          | Open     |
-| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                         | FE, BE, tests                                                               | Open     |
+| Token       | Item                                                                                                                         | Tags                                                                        | Status   |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                          | FE, BE, DB, Docs, spiele                                                    | Skipped  |
+| `3s6w-kndn` | A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package             | BE, ci, tests, versions                                                     | Standing |
+| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                               | FE, Docs, versions                                                          | Standing |
+| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
+| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Skipped  |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
+| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
+| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 
 ## The items
 
-### `2v3g-9g2y` · The root not-found page renders without the shell every other page has
-
-| Tags | Status | Depends on |
-| ---- | ------ | ---------- |
-| FE   | Open   | —          |
-
-**`fl_frontend/src/app/not-found.tsx` renders no navigation and no footer**, so a visitor who
-lands on a retired address — `/team`, which this branch removed, is the live example, and every
-mistyped URL is another — meets a page whose only exits are a "Zurück" button and a link to the
-start page. Every other page on the site carries the public shell.
-
-**Why it matters.** A 404 is one of the most-reached pages on any site with an index history, and it
-is the page where a visitor is least sure where they are. Dropping the navigation there removes the
-one affordance that recovers them, and it makes the page look like a different site.
-
-**The trap.** The shell is a layout, and `not-found.tsx` at the app root sits ABOVE the
-`(public)` route group whose layout carries it, so wrapping it means either moving the file into
-that group — which changes which unmatched URLs it answers — or lifting the shell. Neither is a
-one-line change, which is why this is filed rather than folded into the brand refresh.
-
-**Done when** an unmatched URL renders the public navigation and footer, and a test pins that it
-does.
-
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
-| Tags                     | Status | Depends on |
-| ------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, spiele | Open   | —          |
+| Tags                     | Status  | Depends on |
+| ------------------------ | ------- | ---------- |
+| FE, BE, DB, Docs, spiele | Skipped | —          |
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
@@ -194,61 +138,6 @@ person to read rather than anything a restore can reach, which is a bound on thi
 work inside it.
 
 **How far the log page can reach past its one read is not this entry's.**
-
-### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| FE, Ops, gate, tests, saisons | Open   | —          |
-
-**A file the branch does not touch can fail the frontend section of `scripts/gate/verify.sh` at file
-level, with no case named under it.**
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/undrawSpielplan.test.ts` is
-the file it has happened to. Run on its own it passes, repeatedly; the whole suite run beside it
-passes with every case green; and a second full gate run is green. What separates the failing run
-from the passing ones is the load the section runs its suite under.
-
-**A file-level failure is the shape that hides the cause.** `node --test` reports a file whose
-process exits non-zero as a single failing test named for the path, so a worker killed under memory
-pressure, a module that never loaded and a case that never reported all arrive as one line with the
-same text. Nothing in the output tells them apart, which leaves another full gate run as the only
-available diagnosis — the most expensive one there is, and green more often than not.
-
-**Which half this is has not been established.** Whether it is this file interacting with the load —
-the frontend section runs the suite beside a type check, a lint and a formatter — or a runner-level
-fault that would land on whichever file was unlucky is unknown, and treating it as either is a guess.
-The entry is filed against the diagnostic rather than against the file for that reason: whichever
-half it turns out to be, the run that produces it has to say so.
-
-**Done when** a file-level failure in the frontend section carries something a reader can act on —
-the worker's exit status and its stderr, or the runner's own diagnosis — so the next occurrence is
-read off the run that produced it rather than off a rerun.
-
-**What is read and what is not** (COR-9). The passes are runs: the file alone, and the whole suite
-after it. The failure is one gate run's report, not reproduced since. Nothing was instrumented, no
-worker's exit status was captured, and no second file has been seen to fail this way, so the
-population this reaches is unmeasured.
-
-### `3pb5-7qyc` · `--accent-info` has no `-solid` grade and no on-colour, and nothing records why
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| FE, Ops, Docs, gate | Open   | —          |
-
-**`fl_frontend/src/app/schemes/2027.css` declares `--accent-brand-solid` with `--fg-on-brand`
-and `--accent-success-solid` with `--fg-on-success`, and gives `--accent-info` neither.** The tone
-therefore has no fill a white glyph may sit on, while `brand` and `success` do. Nothing in the
-scheme, in `docs/frontend/spec.md`'s token-role table or in the commit that wrote the file says
-whether that is a decision or an omission.
-
-**Why it matters.** The next surface needing a solid informational fill — a filled state badge, a
-tile, a selected day — has three moves available and no way to choose between them: invent the two
-tokens, spend `brand-solid` on something that is not the brand, or use a tint where a fill was
-wanted. The first is a scheme change that every future season file inherits, so it is the one that
-must not be made casually.
-
-**Done when** either the pair exists and `scripts/checks/docs_gate/scheme.py :: PAIRS` measures it,
-or a comment in the scheme file says which surfaces are meant to go without it.
 
 ### `3s6w-kndn` · A local gate run's wall clock is the scripts suite or the frontend build, and the one lever left is inside the scripts scope
 
@@ -488,69 +377,16 @@ pickers, table and overlays and taken from index pages for the rest; whether Man
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
 
-### `6zuv-9tkx` · Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**`.claude/rules/frontend.md` states that a Server Component may not pass a function to a Client
-Component and names the reason no tool catches it**, and a rule stated and enforced by nothing is
-worse than a gap nobody has written down, because it reads to every later reader as a guarantee
-somebody is keeping. Each layer misses it for its own reason and the reasons do not overlap: a prop
-typed `readonly Facet<Row>[]` is correct, the type system having no notion of the serialisation
-boundary, so a function is a good value on both sides of it; `next build` never renders a dynamic
-route, so the failure has no build-time moment; and no test renders an async Server Component, whose
-markup exists only once its own awaits have resolved. **So the three things a branch is cleared by are each right and each blind to
-the same defect** — which surfaced instead as a flash and a German error on an admin page, found by a
-person opening it.
-
-**What exists now closes one shape rather than the class**, which its author said plainly. Two
-source-level assertions in `fl_frontend/src/shared/utils/facets.test.ts` hold that no module under
-`fl_frontend/src/app/` lacking `"use client"` imports a facets module, and that no `Admin*View.tsx`
-takes `facets` as a prop — both reading source text rather than rendering anything. They are proxies
-for a runtime property, chosen because the runtime property is out of reach, and they cover the facet
-shape alone: the next render prop to cross that boundary will be a different name in a different
-file.
-
-**Done when the repository has chosen which of two things it wants, and the honest answer may be the
-smaller one.** A harness rendering each admin page's server half would test the property itself
-rather than a spelling of it, and would catch a boundary crossing nobody predicted — at the cost of a
-second runner, a React server runtime, and fixtures for pages that read a database. **Or source-level
-proxies per known shape are accepted as the ceiling**, in which case what is owed is a place that
-lists which shapes are covered, so the render-prop rule stops reading as though all of it were held.
-**Choosing the second is a real answer**; leaving the choice unmade is what currently reads as the
-first.
-
-**The shared render harness is not its answer.** `fl_frontend/src/shared/testing/renderTest.ts`
-compiles a `.tsx` and renders it synchronously, which reaches a Client Component and no async Server
-Component ([`docs/frontend/spec.md`](../frontend/spec.md) §1.9), so what that harness buys leaves
-this entry where it stands.
-
-### `7wne-u6hm` · Three test modules each open a cache scope through the same React internal
-
-| Tags                              | Status | Depends on |
-| --------------------------------- | ------ | ---------- |
-| FE, tests, saisons, spiele, teams | Open   | —          |
-
-**`fl_frontend/src/features/saisons/queries.test.ts`,
-`fl_frontend/src/features/spiele/queries.test.ts` and
-`fl_frontend/src/features/teams/queries.test.ts` each import React's `react-server` build and
-install a memo table on the internals object whose exported name says it may not be used**, and each
-carries its own assertion that the build still exposes it. What the three prove is that one render
-pass memoizes a filtered admin read, which is what a page relies on; what they rest on is React's
-private surface, so a release moving it fails three modules at once and the same repair is written
-three times.
-
-**Done when** one module opens the scope and the three take it from there. It has to be reached by a
-static import, the modules under test by `await import`: the opener installs itself as it evaluates,
-and a module already resolved by then gets the real cache rather than the harness's.
-
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
 | Tags                        | Status  | Depends on  |
 | --------------------------- | ------- | ----------- |
 | FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
+
+**The flow it waits on is skipped, so the wait is indefinite rather than a turn in a queue.** The
+`Depends on` beside it names `f3ar-m4qf`, the sign-up flow, which I deferred until the whole
+flow is built; `Skipped` is not declined and the work is still wanted, so the block stands and the
+status derives correctly. Nothing here is owed until that entry moves.
 
 **`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
 `fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
@@ -584,90 +420,6 @@ interest they rest on to the consent the flow collects. A pupil's birthdate is o
 until that registration and required from it, `fl_backend/app/core/domain.py :: UNENFORCED`
 carrying the state that ends there.
 
-### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
-
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| FE, Ops, gate, tests | Open   | —          |
-
-**`fl_frontend/src/core/emailShell.test.ts` guards its own parse with a lower bound rather
-than with the scheme's own count.** The assertion exists so that a parse returning nothing cannot
-make every later case pass vacuously — which is the right instinct — but the bound sits far enough
-below what the parse actually returns that the file could silently lose several tokens and the guard
-would still hold. `fl_frontend/src/app/brandAssets.test.ts` carries the same shape.
-
-**Why it matters.** These two files are the only route by which an email and a favicon follow the
-season scheme; both are pinned by parsing a stylesheet rather than by importing it, so a regex that
-stops matching is the failure mode they exist to catch, and a floor loose enough to absorb it is the
-one thing that would hide it.
-
-**The trap.** Pinning the exact count instead is a hardcoded number in the active repository, which
-the corpus rules refuse. What is wanted is a bound derived from the scheme file itself — the light
-block's declared token count, which `scripts/checks/docs_gate/scheme.py` already derives for the
-gate — so that the two blocks are compared with each other rather than with a literal.
-
-**Done when** neither test can pass on a parse that lost tokens, and neither states a number.
-
-### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**Ruled: an admin table is never scrolled sideways to be read.**
-
-**A table's floor is computed rather than chosen, and nothing compares it to the width it has.**
-`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: TABLES` is the roster — the admin
-lists whose rows sit in a react-aria table — and for each one the test adds the widths its columns
-declare to a free-text allowance per undeclared column, then requires the table's single `min-w-`
-floor to equal that sum exactly. The controls column has its own derivation,
-`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: ACTIONS_WIDTH`, which grows with the
-most controls one row can hold. Both are checks that the floor matches what the columns asked for.
-Neither asks whether the viewport can give it.
-
-**Below the floor the reader gets a scroll container, and the busiest table is the one it reaches
-first.** Each table renders cards below Tailwind's `md` step and the table layout from it up, so the
-narrowest viewport that shows a table is that step; a table whose controls and free-text columns push
-its floor past that step is scrolled sideways for every width between the two. The scroll container
-is deliberate as a last resort and says so at the line, deliberately keeping its bar visible — which
-is the right behaviour for a table that overflows and the wrong outcome for a table that should not.
-
-**The repair is a shared budget, not a trim per table.** Each table's floor is the sum of decisions
-taken in that table — how many controls a row offers, how much room a free-text column is owed — so
-narrowing one is a product decision about that list, and narrowing every member of the roster by
-hand still leaves the table added after it free to reintroduce the defect. What holds is a width no
-table may exceed, derived from the step its layout starts at, with the per-table sums measured
-against it.
-
-**Done when** no admin table declares a floor wider than the narrowest viewport its table layout is
-shown at, and a check refuses one that does — extending the roster's existing sums rather than
-adding a second reader of the same markup, with the bound recorded where a session adding a column
-meets it (`docs/frontend/spec.md`).
-
-### `cvub-qx5s` · `NOTICE` asserts the source copyright of a natural person while an association publishes the site
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, meta | Open   | —          |
-
-**`NOTICE` names an individual as the copyright holder of the source**, and the site is
-published by the association `fl_frontend/src/core/brand.ts :: VEREIN_NAME` names and
-`fl_frontend/src/features/meta/components/views/ImpressumView.tsx` renders. The two documents
-therefore disagree about who owns what, in the one place a reader goes to find out.
-
-**Why it matters.** The name reservation in the same file is the league's, and it is the half that
-gets read; the copyright line beside it is the half that decides whether a fork is licensed by the
-right party. An association that has not been assigned the source cannot license it, and an
-individual who has assigned it cannot keep asserting it.
-
-**The trap.** This is a legal question rather than a wording one — whether the source was assigned
-to the association at all, and whether the association exists yet in a form that can hold it. The
-Impressum still carries `i. G.`, so the answer may be that the individual line is correct today and
-becomes wrong on the day the register entry lands.
-
-**Done when** who holds the source copyright is decided, `NOTICE` says so, and, if the answer
-changes at registration, the condition is written where whoever files the registration meets it.
-
 ### `dgdv-27yw` · Ninety-four test files parse source by hand, and no rule engine has been measured against one
 
 | Tags                                         | Status | Depends on |
@@ -686,8 +438,9 @@ Resolving a call, reading a decorator, following an import and finding a JSX tag
 generic work; "a read inside a transaction carries its session" is ours and no purchased tool knows
 it. The repository has already begun separating the two — `fl_backend/tests/core/app_source.py` is
 shared by five modules — and that helper imports `fl_backend/app/core/collections.py`, so even the
-factored walker is coupled to the domain it walks. **Three open entries are each a defect in a reader
-and none in a property**: `w2c2-xc9j`, `w4tm-9khd` and `z82x-us4y`. That is where the cost is.
+factored walker is coupled to the domain it walks. **A defect in one of these readers is a defect in the walk and
+never in the property it asserts** — a JSX opening tag cut at the first `>`, a computed `name` left
+unresolved, a strip stopping one pass short of its fixpoint. That is where the cost is.
 
 **Thirty-five of these files cross the language boundary** — 27 under `fl_frontend/src/` read Python,
 8 under `fl_backend/tests/` read TypeScript — so a custom ESLint rule and a Python linter plugin
@@ -713,134 +466,11 @@ in `fl_frontend/package.json` or `fl_backend/pyproject.toml` states which gate s
 `.github/workflows/verify.yml` runs it. Where an answer rests on practice outside this repository it
 cites a public repository a reader can open, never a claim about what is usual.
 
-### `dq3b-mgpq` · Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there
-
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| FE, Ops, gate, admin | Open   | —          |
-
-**`fl_frontend/src/shared/components/ui/badges.ts :: PILL_TINT` states that a pill sits on
-`surface` or `background` and never on `muted`, and one live surface does exactly that.**
-`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` gives its tab
-strip `fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_TRACK`, whose ground is
-`bg-muted`, and puts a `COUNT_BADGE` wearing a `/15` tone tint inside each tab. Recomposited over
-that ground the four light inks measure 4.20:1 to 4.48:1 against the 4.5:1 a badge at this step
-answers to.
-
-**Why it matters.** `scripts/checks/docs_gate/scheme.py :: PAIRS` measures every pill on `surface`,
-which is the tighter of the two grounds a pill is allowed and therefore the right floor — but
-nothing measures a pill on a ground the rule forbids, so the rule is prose and the next tab strip
-carrying a count is the next instance.
-
-**The trap, which is why no repair is obvious.** Moving the track to `bg-surface` costs the strip
-its recessed reading AND kills the hover, because
-`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_ITEM`'s hover fill is `bg-surface`
-and would then equal the track. Keeping the track and dropping those badges to `/10` clears the floor
-but puts two tint strengths in the system, which the palette spent a round removing. Giving the
-unselected tabs their own opaque fill is a third answer and the largest change of the three. The
-figures predate this scheme, which moved them toward the floor without reaching it.
-
-**Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
-rule stops being prose.
-
-### `ex2m-qjkg` · The shape offer mirrors four backend numbers with nothing comparing them, and no panel is handed the occupancy its rules read
-
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, saisons, spiele, teams | Open   | —          |
-
-**The offer both shape selects are built from is a mirror of backend numbers that no check compares.**
-`fl_frontend/src/features/saisons/shapeOffer.ts` derives every row it opens from its own
-`:: MIN_TEAMS_PER_GROUP` and `:: MAX_TEAMS_PER_GROUP`, from
-`fl_frontend/src/features/saisons/schemas.ts :: MAX_QUALIFIERS` and from
-`fl_frontend/src/features/teams/constants.ts :: GRUPPEN_OPTIONS`, each written beside a comment naming
-the Python it mirrors. `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` names none
-of the four, and `.claude/rules/cross-surface.md` holds the Zod mirror to presence, required, nullable,
-type and enum, so `fl_frontend/src/core/apiContract.test.ts` compares no numeric bound either. **A
-ceiling moved on the Python side leaves the offer disagreeing with the write path and the whole gate
-green** — the **saisons** clause in `.claude/rules/cross-surface.md` bars offering what the write path
-refuses, and this is the direction nothing watches.
-
-**The offer's own guard is the strongest pairing reachable without parsing Python, and that is the
-limit.** `fl_frontend/src/features/saisons/shapeOffer.test.ts` holds every open row and every closed one
-to `fl_frontend/src/features/saisons/schemas.ts :: FLPostSaisonPayloadSchema` in both directions — but
-that schema is one of the mirrors in question, so the two agree by construction whatever the backend
-says. `fl_frontend/src/features/saisons/recordedFactMirror.test.ts` is the precedent for reading the
-Python side instead.
-
-**No panel is handed the season's occupancy, so the rules that read it can only refuse a submit.**
-`REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-006` weigh the season's own group fill and fixtures, and
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx` and
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx` receive
-freeze flags and fixture counts alone. `REQ-SPIELPLAN-004` demands that every offered group hold exactly
-`teams_per_group` after a redraw, so the redraw panel could offer only shapes whose group count times
-team count equals the clubs already entered — the one panel where a wrong guess costs a failed draw
-rather than a refused save. Threading the fill counts in is cheaper than it sounds: `REQ-RULES-011`
-freezes all three shape fields absolutely once a fixture exists, so the only editable case is an undrawn
-season, where occupancy is the sole remaining stored constraint.
-
-**No backend rule is removed, and this is written down so a later session does not reach for one.** A
-derived offer eliminates a round trip, never a rule: a stale tab holds an offer built from rules that
-have since changed, and the API is reachable without the form. Where a rule should genuinely stop
-holding, `fl_backend/app/core/domain.py :: UNENFORCED` is the mechanism and deletion is not.
-
-**No layout is sized per group, which is what keeps the widest legal season a design question rather
-than a breakage.** Every grid in `fl_frontend/src` is card responsiveness, no tab strip or filter row
-carries one entry per group, and no table has a column per group. Nothing on the frontend sorts group
-names either, so the byte-order hazard `docs/backend/spec.md :: I54` guards against does not reach this.
-The standings page stacks one card per group and grows.
-
-**Done when** the four numbers are compared against the declarations that fix them —
-`fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`,
-`fl_backend/app/api/teams/schemas.py :: MAX_NUMBER_OF_GROUPS` and
-`fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup`'s two bounds — by a check that reads the
-Python, `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` being the mechanism
-already built for exactly that pairing; and both shape panels are handed the season's group fill, so
-`REQ-RULES-002`, `REQ-RULES-003` and `REQ-SPIELPLAN-004` close a row instead of refusing a submit.
-
-**Not verified.** No admin session is available to the sessions that read this, so every claim here
-about a control is read off source. What `shapeOffer.test.ts` executes is the offer against the Zod
-payload; nothing was seen rendering.
-
-### `f38s-y3hj` · A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-Lands with: `z82x-us4y`
-
-**Every sweep collecting `.tsx` alone hands `fl_frontend/src/core/treeWalk.ts :: filesUnder` a
-predicate that decides no test file**, where the sweeps collecting `.ts` as well call
-`fl_frontend/src/core/treeWalk.ts :: isTestFile`, which reads either spelling. What holds the first
-set clean is that the estate spells every test file `.test.ts`, so a `.tsx` predicate drops them by
-accident rather than by decision.
-
-**The failure is a rename away, and a sweep is already sitting on it.**
-`fl_frontend/src/shared/components/ui/formSubmit.test.ts` collects the `.tsx` files whose text names
-`<ConfirmSaveModal` and holds the result to a floor — and it writes that literal itself, as the
-needle it searches for. Under the other spelling it would be swept into its own answer and counted
-among the editors it measures. The rest carry the same shape: what each searches for is text it also
-contains. Whether such a file would run is a separate question from whether it is swept, because the
-walk reads the directory and nothing about the runner's collection reaches it.
-
-**Nothing stands behind the rule that already names this.** `.claude/rules/frontend.md`'s **sweeps**
-clause bars taking a test file's fixtures as the production text a sweep asserts over; no gate check,
-lint rule or hook refuses the `.test.tsx` spelling, so what holds the clause here is the tree's
-current habit.
-
-**A blanket exclusion is not the repair.** `fl_frontend/src/core/mail.test.ts` sweeps the tree and
-asserts against a set naming its own file, so a sweep may legitimately want the test files. What
-none may do is leave the answer to whichever suffix it happened to want.
-
-**Done when** every sweep's predicate states its own answer to the test-file question, so the
-population each walks is the one it chose rather than the one the tree's current spelling gives it.
-
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                        | Status | Depends on |
-| --------------------------------------------------------------------------- | ------ | ---------- |
-| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open   | —          |
+| Tags                                                                        | Status  | Depends on |
+| --------------------------------------------------------------------------- | ------- | ---------- |
+| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped | —          |
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through a whole
 new season — its dates, which clubs play it, which clubs are new, and the rules it runs under — and the season
@@ -968,8 +598,7 @@ workflow is a page rather than a larger modal, and the pattern to copy is on
 the panels beside it, the Spielplan draw among them. The editor is where a wrong answer from the
 flow is corrected, so every field the flow collects has to be editable afterwards, and the narrowing
 refusals `find_rules_refusal` performs are what the flow has to state while a value is still being
-chosen — which is `ex2m-qjkg`'s subject, and building this flow before it means building that offer
-twice.
+chosen, and building this flow before that offer means building the offer twice.
 
 **Where a representative's contact is kept is fixed, and the flow inherits it rather than choosing
 it.** The block is embedded rather than given a collection of its own: on the `saison_teams`
@@ -1017,222 +646,6 @@ is in adds the third.
   filling a form in one break is a different shape of traffic on the same edge, so `zone=bewerbung`
   ([`docs/ops/spec.md`](../ops/spec.md) §1.3) is the nearest precedent rather than the answer.
 
-### `f4uf-jape` · A copy test compares source text against a literal its own author typed
-
-| Tags                                | Status | Depends on |
-| ----------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, saisons, teams | Open   | —          |
-
-**[`docs/frontend/spec.md`](../frontend/spec.md) §1.9 calls the frontend's `readFileSync` tests one
-kind — sweeps that hold a rule no linter can express — and they are two.** Each of one kind has an
-authority somewhere other than the test: `fl_frontend/src/core/apiContract.test.ts` and
-`fl_frontend/src/core/apiRequests.test.ts` compare the tree against `fl_backend/openapi.json`,
-`fl_frontend/src/features/saisons/actions.test.ts` requires every refusal code
-`fl_frontend/src/core/refusalRegister.ts :: declaredCodes` reads out of
-`fl_backend/app/core/domain.py` to reach a `case` in the German mapper, and
-`fl_frontend/src/core/refusalPaths.test.ts` and
-`fl_frontend/src/shared/components/ui/formSubmit.test.ts` hold structural rules across the tree.
-**The other kind regexes a component's German out of its own `.tsx` and asserts that it matches a
-literal** — `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/teamErsatz.test.ts`
-is the clearest, with `:: undrawSpielplan.test.ts`, `:: spielplanReplace.test.ts` and
-`:: oneWayGuards.test.ts` beside it — and can only restate what its author believed when they wrote
-the component, in the same commit, then defend that belief against every later reader.
-
-**Demonstrated rather than hypothesised.** The replacement panel's own copy test once required the
-panel to say a replaced club's players were _stillgelegt_ and forbade _ausgetragen_, under a comment
-arguing that wording it as a removal would mislead. **Both halves were the wrong way round** — the
-endpoint stamps `saison_spieler` and touches no `spieler` document, so the forbidden word was the
-correct one. The suite was green throughout, and the test was what would have had to be edited before
-the defect could be fixed.
-
-**Rendering the panel does not close it.** An assertion over the markup
-`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` produces fails in precisely the same
-way, because the fault is in what the assertion compares against rather than in how it reads the
-component.
-
-**Done when** the vocabulary has an authority and a test reads it — the pair of verbs declared once
-in [`docs/glossary.md`](../glossary.md), which today describes `inactive_since` as "the day something
-left" for every subject and fixes no German for any of them, and the consequential sentences composed
-by an exported function, as `fl_frontend/src/features/teams/utils.ts :: describeReplacementUmfang`
-and `fl_frontend/src/features/saisons/utils.ts :: describeSpielplanUmfang` already are, so the
-assertion is over a value rather than over a file's bytes. **What the answer must not be is a rule
-banning the shape outright**: several of these tests hold the only line there is under a real rule,
-and [`docs/frontend/spec.md`](../frontend/spec.md) §1.9 is right that a sweep is how such a rule is
-held. **The line to draw is the authority, not the mechanism** — a sweep that compares the tree
-against something outside itself is sound, and one that compares it against a literal in the same
-commit is a note about intent wearing a test's clothes.
-
-### `gbjj-9wfh` · A test fixture asserts its own type, and the assertion is the only thing holding it to the model
-
-| Tags                                                | Status | Depends on |
-| --------------------------------------------------- | ------ | ---------- |
-| FE, tests, admin, saisons, spiele, spieltage, teams | Open   | —          |
-
-**Object literals across the frontend suite are cast to `FLSpiel` or `FLSpielAdmin`, and a cast is
-what stops the compiler comparing the literal against the model.**
-`fl_frontend/src/features/spiele/utils.test.ts` holds most of them, with one apiece in
-`fl_frontend/src/features/admin/utils.test.ts`,
-`fl_frontend/src/features/spiele/draftStatus.test.ts`,
-`fl_frontend/src/features/spieltage/utils.test.ts` and
-`fl_frontend/src/features/teams/utils.test.ts`. **Some go through `as unknown as`**, which discards
-even the weak excess-property check a plain `as` keeps. The thinnest stand three fields in for the
-whole model: `fl_frontend/src/features/spieltage/utils.test.ts :: makeSpiel` returns a `spiel_nr` and
-the two `quelle` fields, where `fl_frontend/src/features/spiele/schemas.ts :: FLSpiel` is inferred
-from `:: FLSpielSchema`, a mirror of a document in which none of those fields may be missing.
-
-**Nothing is wrong today, and the entry opens by saying so.** Both thin factories feed wiring
-functions — `fl_frontend/src/features/spieltage/utils.ts :: orderRoundsByWiring` and
-`fl_frontend/src/features/spiele/utils.ts :: quelleKey` — which read the fixture's `spiel_nr` and its
-two `quelle` fields and nothing else, so every fixture supplies what its consumer asks for. **This is
-a hazard with no defect behind it.**
-
-**What makes it a hazard rather than a style note is the direction a predicate grows.** The functions
-these fixtures feed are exactly the ones that gain a clause: a wiring reader that later consults
-`sonderereignis`, a status derivation that later reads `elfmeterschiessen`. On the day one does, the
-fixture answers with an absent field — a value the model forbids and no stored document can hold —
-and the assertion written against it passes, describing behaviour over a document that cannot exist.
-**`tsc` cannot report it, because the cast is the author telling it not to.**
-
-**Done when** a stand-in can be checked. **Deleting the casts is not the fix** — a partial literal
-standing in for a large model is legitimate in a test and is why the casts are there — and
-`satisfies` does not reach it, verifying what is present and leaving the absent fields absent. **The
-shape that does is a factory building a complete, valid fixture and taking overrides**, validated
-once at construction through the Zod mirror already in the tree, so the fields nobody names are real
-values and a fixture that has drifted from the model fails where it is built rather than wherever it
-is eventually read; `fl_frontend/src/features/saisons/utils.test.ts` already works this way, its
-`spiel` helper spreading a complete base. The size is why it is an entry rather than a fix taken in
-passing: a few thousand lines across those files, none of it connected to whatever change happens to
-expose the question.
-
-**One thing this entry does not claim** (COR-9). A cast is not what makes a fixture describe the
-wrong state. A complete, type-correct literal can still represent something the domain does not
-produce, and no type-level mechanism reaches that — not a cast's removal, not a factory, not
-`satisfies`. What catches it is a reader, or a predicate that eventually disagrees with it. The two
-failures share a file and nothing else.
-
-### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| FE, BE, tests, saisons | Open   | —          |
-
-**`REQ-RULES-011`'s repair is composed per moved field on the backend and enumerated by hand in the
-German.** `fl_backend/app/api/saisons/services.py :: find_rules_refusal` builds its message from the
-fields that actually differ, against `:: SHAPE_RULES_FIELDS`, and
-`fl_backend/tests/api/test_rules_refusal.py` carries one row per field in `:: SHAPE_REPAIR_CASES` and
-asserts at module level that the row's field tuple equals the imported constant, so a further shape
-field fails at import rather than going untested. **That guard reaches one German site across the
-boundary and no further.** `fl_backend/tests/api/test_rules_refusal_mirror.py` reads
-`fl_frontend/src/features/saisons/actions.ts` as source text and requires the `REQ-RULES-011` arm to
-name a phrase for every field the constant holds — but that arm is a bare message, and the repair it
-sends the administrator to is stated somewhere else.
-
-**The panel holding the per-field repair is compared with nothing.**
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx :: SHAPE_NOTE`
-words the repair on the state the reloaded panel is in, and its `open` arm is where the split lives:
-the qualifiers move by drawing the Spielplan again, the other two only through an undraw. That is
-`fl_backend/app/api/saisons/services.py :: REDRAWABLE_SHAPE_FIELD`'s partition written a second time
-by hand. **It is correct and complete for the fields that exist, and it cannot fail in the dangerous
-direction** — it can never collapse to a single repair, which is the defect the backend's guard exists
-to catch. What it can do is go quietly incomplete if a further shape field is added, or wrong if
-which field a redraw reaches ever moves.
-
-**Severity is genuinely low and the entry should say so rather than inflate it.** A further shape field is
-unlikely — the ones that exist are what `fl_backend/app/api/saisons/schedule.py :: schedule_for` is a function
-of — and the failure is an incomplete sentence rather than a wrong instruction. **What makes it worth an entry
-is the asymmetry**: the repair is guarded where it is composed and unguarded where it is read, and a rule and its
-German being two sites is a shape that has already reached an administrator here as a generic message with the
-whole gate green.
-
-**No frontend test reaches the panel's wording, checked rather than assumed.** Several frontend tests do read
-backend declarations at test time — the per-feature `actions.test.ts` files reach
-`fl_backend/app/core/domain.py` through `fl_frontend/src/core/refusalRegister.ts` — but they couple
-at the level of refusal codes, not fields: `fl_frontend/src/features/saisons/actions.test.ts` asserts
-that every code `PATCH /saisons/{saison_id}` declares reaches a `case` in the mapper, `REQ-RULES-011`
-included, and reads nothing about what that case's message must name.
-
-**Done when** `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts `SHAPE_NOTE`'s `open` arm as
-well as the mapper's, requiring a German phrase for every field
-`fl_backend/app/api/saisons/services.py :: SHAPE_RULES_FIELDS` holds and requiring that arm to part
-`:: REDRAWABLE_SHAPE_FIELD` from the rest as `:: find_rules_refusal` parts them — so a further shape
-field, and a change in which field a redraw reaches, each fail that module rather than leaving one
-route named for some of them. **This is the concrete instance of `f4uf-jape`'s
-general case**, filed separately because its fix is one assertion and that one's is a convention;
-folding it in is a reasonable call and this is the half to fold.
-
-### `hq7d-2vnm` · The required-mark guard reads literal names only, so a shared field block is unguarded
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| FE, tests | Open   | —          |
-
-**`fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` pairs every control marked
-`isRequired` with the schema path it writes, and fails where that schema accepts the emptiness the
-control produces.** It reads the path off `name="…"` as a literal, so a control naming itself by
-template literal is invisible to it and generates no case.
-
-**`fl_frontend/src/shared/components/ui/AddressFields.tsx` names all five of its controls that
-way**, from a `namePrefix` prop, so the address block six callers embed contributes nothing to the
-pairing. One of the five carried a mark its schema never enforced, and every suite stayed green.
-
-**Done looks like the five reaching the pairing**, proven by putting `isRequired` back on the
-Hausnummer control and watching the suite go red — that field's regex is spelled with `*` rather
-than `+`, so it is the one whose schema accepts what a mark would promise to refuse.
-
-The limitation is deliberate and its docstring says so: a computed name and a conditional
-`isRequired` both fail toward finding less. **A widened reader must keep that direction** — a name
-it cannot resolve is skipped rather than guessed at, because a false pairing fails a branch that
-touched neither the control nor the schema, which is the standing tax CUR-6 refuses.
-
-### `huzh-hdfx` · A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**`.claude/rules/frontend.md` permits a toast to be styled from CSS at the shell and at the
-frontmost close button, and `fl_frontend/src/app/globals.css` styles a surface past both.** The
-block there sets `.toast` and each of its `--<variant>` modifiers, the close button under
-`[data-frontmost]`, and the timer bar — its animation, and the pause the region's hover and focus put
-on it.
-
-**The same rule is stated in a wider place, and the wider statement is the one that fits the code.**
-[`docs/frontend/spec.md`](../frontend/spec.md) I57 states it as a ban on adding — never a new
-`.toast*` rule in a stylesheet — which names the surface rather than counting it. The **toast**
-clause states it as a bound on what may be styled at all, and the bound it names falls short of what
-the stylesheet holds. PRE-1's ladder puts the code above the spec sheet and the spec sheet above
-`.claude/CLAUDE.md`, so the clause is the loser of both.
-
-**Ruled: replace the clause's first half with the spec sheet's formulation and keep the second
-half** (`docs/datenschutz.md` §10, 2026-09-02). That is a `.claude/CLAUDE.md`-governed edit only I
-authorise, and I do; naming the surface the way I57 does — the toast rules a stylesheet may hold are
-the ones markup cannot reach, and a new one is a breach — states the same bound without a figure
-that goes stale the next time a rule is genuinely forced into CSS.
-
-**Which parts are genuinely in question, verified against `@heroui/styles` 3.2.4 on 2026-08-20 by
-enumerating the selectors its `toast.css` declares:**
-
-- **The variant modifiers are the shell.** HeroUI writes `toast` and its `--<variant>` modifier onto
-  one element, so a rule tinting that element's border styles the shell rather than something beside
-  it. Every modifier the stylesheet overrides is declared by that file.
-- **`toast-region` is never a rule's subject.** It occurs only as the ancestor in the selectors that
-  pause the timer, and the property lands on the timer.
-- **The timer bar is this app's own element, and its rules are what the clause does not name.**
-  `toast.css` declares no `toast__timer` selector, and
-  `fl_frontend/src/core/providers/AppToaster.tsx :: toastCard` is what puts the class on the
-  element. Its keyframes and its paused state are keyed on an ancestor's hover and focus, which a
-  utility on the element cannot express — so a stylesheet is the only route, which is the argument
-  the close button's rule already rests on.
-
-**What the change may not sweep in.** `table__column` and the secondary variant's row hover are
-vendored selectors overridden in the same file, and no clause governs them. §1.11 of the frontend
-spec sheet is what governs both cases, and it already asks a stylesheet rule to name the HeroUI
-version it was written against.
-
-**Done when** the clause's first half reads as I57 does, and the stylesheet's toast comment, the
-block opening `THE TOAST, deliberately small:` and the one over-bound block in that file no pass has
-yet read, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
-
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
 | Tags                           | Status | Depends on |
@@ -1272,226 +685,11 @@ and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.m
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
 
-### `m4m3-hxmj` · The shared editor shell's widest layout step has never been rendered
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**`fl_frontend/src/shared/components/ui/EditFormLayout.tsx :: EditFormLayout` declares a layout step
-at the `2xl` breakpoint that nothing has ever exercised**, and every entity editor renders through
-it. What has been rendered is the single column below `xl` and the grid inside `xl`, where it
-resolves to `minmax(0px, 1fr) 340px` with the rail sticky at 24px. Past `2xl` — 96rem in the
-installed Tailwind 4.3.3, the theme declaring no breakpoint of its own — the rail becomes 380px and
-the gap widens, and nobody has looked at it.
-
-**Read from the source, the step moves width the wrong way.** The rail gains 40px and the gap gains
-8px, and both come out of the form column, so crossing that breakpoint narrows the fields by 48px
-while the viewport grows. Whether the wrapper is at `--container-page`'s cap or short of it does not
-change the transfer, only the widths either side of it. That arithmetic is derived from the class
-list and the token rather than measured in a browser, and confirming it is the work's first step.
-
-**The question is which way the step goes, not merely whether it is tested.** Either the wider rail
-earns the width it takes at that size and the step stays, or it is a default nobody chose and the
-shell keeps a single grid past `xl`. Both are cheap; neither is answerable without rendering it.
-
-**Where it has to be rendered, and why that is not free.** Every editor sits behind the admin
-sign-in, and the sidemenu takes its share of the viewport before the shell sees any of it, so the
-breakpoint and the space the shell actually gets are different numbers.
-[`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
-the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
-
-### `nadg-bnjb` · Every admin write states its success twice, and the second sentence cannot render
-
-| Tags                               | Status | Depends on |
-| ---------------------------------- | ------ | ---------- |
-| FE, auth, spiele, spielorte, teams | Open   | —          |
-
-Lands with: `njhn-pmtn`
-
-**Twenty distinct German sentences stand ready for a success that will never render one of them —
-24 occurrences across 23 files under `fl_frontend/src`, measured 2026-08-26.** Behind each of them
-is an action whose terminal return sets `message`, and each of them writes a fallback beside the
-value that always arrives.
-
-Three shapes:
-
-- **A fallback under a `success` guard**, twelve of them: `res.message ?? "Spielort reaktiviert"` and
-  its like, in the tables and views that reactivate a row and in the two panels that add one to a
-  season — for instance
-  `fl_frontend/src/features/spielorte/components/collections/AdminSpielorteTable.tsx :: handleReactivate`
-  and
-  `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx :: handleEnterSaison`.
-- **A `successMessage` prop**, nine of them.
-  `fl_frontend/src/shared/components/ui/EntityForm.tsx :: EntityForm` and
-  `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx :: ConfirmDeleteModal` each raise
-  `res.message || successMessage`, and the prop is required — so every create form and every
-  retirement dialog supplies a sentence it cannot show.
-- **Three one-offs**: the match editor's undo toast, the sign-in panel's confirmation, and
-  `fl_frontend/src/shared/hooks/useSignOut.ts :: useSignOut`, whose one supplier is `signOutAction`.
-  The sign-in one is the sharpest — `fl_frontend/src/features/auth/actions.ts :: neutralResult`
-  composes the neutral sentence deliberately, and
-  `fl_frontend/src/features/auth/components/forms/SignInForm.tsx :: SignInForm` writes the same
-  sentence out again as the fallback beneath it.
-
-**Why the runtime always wins.** `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`
-answers a thrown error through `toActionErrorResult`, which sets `success: false`; a `success` of
-true is therefore always the action's own terminal return, and at every site above, that return sets
-its `message`. The match editor is the case that looks like an exception and is not:
-`fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` composes its message
-through `fl_frontend/src/features/spiele/utils.ts :: formatSpielUpdateMessage`, whose first sentence
-is unconditional, so the empty string that would let its `||` through cannot be produced.
-
-**Nine of the twenty say something different from what renders**, which is what makes this more than
-dead weight. `successMessage="Spielort stillgelegt"` stands where the action sends `"Spielort
-stillgelegt. Seine Spiele bleiben erhalten."`; `"Team aufgenommen"` where the season is named;
-`"Gespeichert"` where the row's own verb is; and the match editor's `"Die Spieldaten wurden
-aktualisiert."` where the same sentence arrives without the full stop and with the fan-out behind
-it. So a copy pass can correct the wrong string, watch nothing change, and leave the rendered
-sentence standing.
-
-**Done is the type moving first.** `fl_frontend/src/shared/types/types.ts :: FormState` types
-`message` as optional, so the checker requires each fallback and cannot be shown that none is
-reachable — the same wall `njhn-pmtn` meets on `error`. Narrowing `FormState` into a union whose
-succeeding member requires its `message` turns every fallback into a compile error rather than a
-judgement per site, and the two shared components go with it: `successMessage` stops being required,
-or stops existing.
-
-**What must survive the sweep.** The undo toasts' fallbacks read the same way and are live:
-`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` renders `message ?? fallback`, and the
-`message` the entity editors pass is `undefined` on an ordinary save, so there the fallback is the
-ordinary case. **Reading the `??` alone does not separate the two.**
-
-### `nbcn-zvdk` · The panel a triage decision is taken from is rendered by no test
-
-| Tags                                    | Status  | Depends on |
-| --------------------------------------- | ------- | ---------- |
-| FE, BE, Docs, tests, admin, bewerbungen | Decided | —          |
-
-**`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` renders
-everything one school submitted, and no case anywhere renders it.**
-`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungView.tsx` is its one importer,
-and `fl_frontend/src/app/admin/bewerbungen/[bewerbung_id]/page.tsx` serves that. The single test file
-touching the panel, `fl_frontend/src/features/bewerbungen/routes.test.ts`, reads it as source text
-through the TypeScript syntax tree, and everything it asks is about where the applicant's wished
-opponent lands and whether the file writes raw markup.
-
-**How a component is held is settled, and this panel is inside what that reaches.**
-`docs/frontend/spec.md` §1.9 puts
-a claim about what a component renders against the markup it renders, and
-`.claude/rules/frontend.md`'s **tests** clause refuses asserting over source text what a render can
-show. The panel is none of the shapes that section lists as beyond a render, so what is open here is
-the work rather than the question.
-
-**Three branches the panel takes on stored data are held by nothing.**
-
-- **The club link is guarded on `bewerbung.team_id` and never on the school arm beside it.** An
-  acceptance writes that id onto the application
-  (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school`), so a decided
-  new-school application carries a school and a club at once, and a guard reading the arm drops the
-  link on exactly the applications that have one to offer. The constraint stands as a comment at the
-  line.
-- **The `mailto:` and `tel:` hrefs**, the second built off the stored telephone with its whitespace
-  stripped, so the dialler takes the number and the text keeps the punctuation a school typed.
-- **A fact row's empty value**, where a `null` is a school that answered nothing rather than one that
-  answered zero, and takes the panel's one empty grade.
-
-**Done when** the panel is rendered through
-`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` and each of those three is asserted
-against the markup that comes back. **The entry is the panel's absent render coverage and not any one
-of the three**: each is what a first pass covers, and filing them one at a time buys a case per
-branch and leaves the next one unheld. **Its `Hint` renders as a popover**, so the wording behind
-that press is one of §1.9's overlay bodies and out of reach; every other block here stands in the
-resting markup.
-
-### `nce5-j467` · Two hand-copied patterns sit outside the register that pairs the others
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, BE, tests | Open   | —          |
-
-**`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` resolves a declared list of
-pattern pairs against each other, and two hand copies of a backend rule are on no list at all.**
-`fl_backend/app/shared/schemas/custom.py :: TIME_REGEX` and
-`fl_frontend/src/shared/schemas.ts :: CustomTimeStringSchema` spell one rule byte for byte, as
-`fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` and
-`fl_frontend/src/shared/schemas.ts :: PersonNameSchema` spell another; each tier's suite lists cases
-against its own copy, and nothing resolves the two spellings against each other.
-`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` leaves patterns outside the contract
-comparison by design, so that register is the only place either pair can be held.
-
-**Neither pair fits the register's probe.** It compares two spellings by what each accepts over an
-alphabet derived from the patterns' own text, and refuses outright a construct it would model wrongly
-(`fl_backend/tests/shared/test_frontend_mirrors.py :: MODELLED_ESCAPES`). Nothing that probe
-generates is a well-formed time — every string up to three characters, then runs of one character —
-so the time pair accepts none of it and the register's own anti-vacuity assertion fails. The name
-pair is further out: `\p{L}` is a class pydantic's Rust engine reads and `re` cannot compile, and
-`re` is the only engine that register has.
-
-**Why it matters.** A divergence either way is a refusal nobody can act on: the looser frontend
-accepts a value the API answers with a 422 naming no field, and the tighter one refuses what the API
-stores. Every form taking a person's name carries the one rule and every kickoff time the other, so a
-recurrence is visible on the first value somebody types rather than lying latent.
-
-**Done when** each pair is resolved against its twin or recorded as unpairable with its reason, in
-`MIRRORED_PATTERNS` where a reader of the register stands. Two shapes stay inside that boundary: a
-case of its own per pair, as
-`fl_backend/tests/shared/test_frontend_mirrors.py :: test_the_delivery_screen_refuses_the_single_line_class_the_endpoint_refuses`
-already is for the one-line rule; or a probe composing a value from the pattern rather than repeating
-one character, which reaches the time pair and not the name pair. **Widening `MODELLED_ESCAPES` is
-neither of them** — that refusal exists so a construct the probe would model wrongly fails loudly
-instead of passing quietly.
-
-### `njhn-pmtn` · Every call site writes a fallback for a failure message that always arrives
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-Lands with: `nadg-bnjb`
-
-**Forty consumer sites under `fl_frontend/src`, across 28 files, spell `res.error ?? …` or
-`res.error || …` for a value that always arrives** (measured 2026-08-26).
-`fl_frontend/src/shared/types/types.ts :: FormState` types `error` as optional, so the checker
-requires each one; whether any can run is a runtime contract rather than a type claim, and the
-contract holds. `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation` answers a thrown
-error with `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`, whose every branch
-sets `error`, and every failing return under `fl_frontend/src` carries an `error` beside it.
-
-**Seventeen of those sites fall back to a sentence of their own rather than to the shared one**, in
-eight files, and one family inside them is a second sentence with no home: the undo's outcome
-`"Die Änderung steht weiterhin."` stands 20 times across 14 files (measured 2026-09-03) — the five
-undo route handlers, the five slice `actions.test.ts` files reading them, `undoDispatch.ts` with its
-test, `undoRoute.ts` and the public-route test — and no module owns it. **No page-owned editor
-carries it**, which is worth saying because that is where a reader looks first. §1.12 of
-[`docs/frontend/spec.md`](../frontend/spec.md) is where a refusal's vocabulary is fixed and it names
-the two homes a new failure message is written from —
-`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` for a refusal that can name a cause, and
-`:: UNKNOWN_REFUSAL` for one that cannot.
-
-**The type has moved half the way.** `fl_frontend/src/shared/types/types.ts :: ActionResult` is a
-union now and `:: ActionFailure` is its failing member, so the shape this entry asked for exists.
-`error` stays optional on that member, which is what keeps every fallback a judgement call rather
-than a compile error. **Done is requiring it there**, which turns the rest into a mechanical sweep;
-short of that, deleting one is an argument to be had at every site.
-
-**What makes it more than deleting a token.** `fl_frontend/src/shared/components/ui/EntityForm.tsx`
-and `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
-`res.error || res.message || …`, and their `res` comes from a caller-supplied function rather than
-from an action — so the narrowing has to reach the props those shared components declare, not the
-actions alone. And the seventeen own sentences are a copy decision each: **a fallback that is dead
-weight and a fallback that is the only sentence naming what did not happen read identically at the
-`??`.**
-
-**Not decided:** whether the shared sentence should stay generic at all. `toActionErrorResult`
-states its own reason for one — the diagnosis is already in the server log, and what an admin needs
-is whether retrying can help.
-
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
-| Tags           | Status | Depends on |
-| -------------- | ------ | ---------- |
-| FE, BE, spiele | Open   | —          |
+| Tags           | Status  | Depends on |
+| -------------- | ------- | ---------- |
+| FE, BE, spiele | Skipped | —          |
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as
 one** (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change the match
@@ -1513,9 +711,9 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
-| Tags                                                   | Status | Depends on |
-| ------------------------------------------------------ | ------ | ---------- |
-| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
+| Tags                                                   | Status  | Depends on |
+| ------------------------------------------------------ | ------- | ---------- |
+| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Skipped | —          |
 
 **A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
 `fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
@@ -1552,29 +750,11 @@ notice's referee publication row moved off the legitimate interest it rests on
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) to the consent the flow
 collects.
 
-### `qg8u-tbd6` · One test module is named for a function and holds the cases of two others
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**`fl_frontend/src/shared/hooks/focusFirstRefusal.test.ts` is named for one export of
-`fl_frontend/src/shared/hooks/useServerFieldErrors.ts`**, covers that module's other exports beside
-it, and then covers `fl_frontend/src/shared/hooks/useDraftFieldErrors.ts` as well — which already
-has `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` of its own.
-
-**Colocation is what says where a module's tests are** ([`docs/frontend/spec.md`](../frontend/spec.md)
-§1.9), and here it says the wrong thing twice: a session changing `useServerFieldErrors.ts` finds no
-test file beside it and reads that as untested, and one changing `useDraftFieldErrors.ts` finds one
-of its two files and stops.
-
-**Done when** each module's cases sit in the file named for it.
-
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
-| Tags                        | Status | Depends on |
-| --------------------------- | ------ | ---------- |
-| FE, BE, Docs, admin, spiele | Open   | —          |
+| Tags                        | Status  | Depends on |
+| --------------------------- | ------- | ---------- |
+| FE, BE, Docs, admin, spiele | Skipped | —          |
 
 **The Fehlt and Offen markers exist on the match editor alone, and putting them on the other entity editors is
 a domain question before it is a UI one.**
@@ -1701,194 +881,6 @@ every overlay still positions under the strict policy; both are read off the rea
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
 
-### `suuz-dged` · Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| FE, tests, versions | Open   | —          |
-
-**`fl_frontend/package.json`'s `test` script runs Node's own test runner, which gives every test file
-its own process**, and the suite counted 116 modules on 2026-09-02. The installed Node offers
-`--test-isolation=none`, which runs the whole suite in one process instead — **the one lever on this
-scope that removes work rather than moving it**.
-
-**The modules that stand a double in for another module make that mode unsafe, and they do it
-deliberately.** Each calls `registerHooks` from `node:module` to answer a `resolve` or a `load` for
-the whole process, standing a double in for a module the code under test imports —
-`fl_frontend/src/core/mail.test.ts` is the clearest, replacing `fl_frontend/src/core/config.ts` and
-`fl_frontend/src/core/logging.ts` because the test script stands that config's gate down without
-supplying a provider key, while the send is asserted by the header that key spells. That module also
-replaces `globalThis.fetch` outright. **A hook registered for the process is
-registered for every file in it**, so under one process those doubles reach modules that never asked
-for them, and the replaced `fetch` is every other test's `fetch` too. **The per-test-file recorder
-globals are not the obstacle**: each carries a name of its own, so no two collide.
-
-**Done when** one of two things is chosen. Either those modules are reshaped so that a double is
-installed and removed around the module that needs it — **which is a different testing style, not a
-smaller one** — or the mode stays closed and a sentence somewhere says why, so the next session
-reading `--test-isolation` in Node's help does not spend an afternoon discovering it. **Choosing the
-second is a real answer**, and it is the cheaper one; what is wrong today is that neither has been
-chosen and nothing records the constraint. What it costs is unmeasured and measuring it is half the
-work — each module pays a process start, the alias hook's registration and its own TypeScript load,
-all but one of which would go, and the suite already runs while the flag is one word.
-
-### `t3xf-s5hy` · The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, Docs, tests | Open   | —          |
-
-**The roster is discovered rather than typed, and discovered by the property the cases go on to
-assert.** `fl_frontend/src/shared/components/ui/confirmPanel.test.ts :: panelsUnder` walks the
-feature tree and keeps a `.tsx` file whose source contains a call to
-`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm`; every case then holds
-that roster to the shared reveal, the shared armed fill and the shared rows. A panel that escalates
-a press from state it arms itself matches no case, because it is not in the population the cases
-read — it drops out of the listing rather than failing it, which is the failure
-`docs/_standard/standard.md :: PRE-4` names when a check derives its subjects from the property it
-asserts.
-
-**The defence the file already carries answers the other half of the problem.** Its own note says a
-roster counted against its own length can never report an omission, and that is right: a floor over
-the roster's size is what discovery replaces. What discovery does not buy is independence, and the
-two listings the sweep requires to agree are both filtered out of that same roster, so they agree by
-construction wherever the discriminator is what went missing.
-
-**What a second route would have to key on is the panel, not the hook.** A confirm panel is a
-component that renders a destructive or confirming control behind a press the reader has to repeat —
-a shape reachable from the control and its copy rather than from an import, so a file that reaches
-the same behaviour another way is a subject that fails rather than a subject that is absent. Naming
-that shape is the work; keeping the hook as a discriminator beside it is what makes the pair
-independent rather than a rename.
-
-**Done when** the roster comes from what a panel is rather than from what it imports, with a case
-proving that a panel arming its own state is refused — planted in its real position and driven red
-before it is relied on.
-
-**What is read and what is not** (COR-9). The discovery, the discriminator and the cases that consume
-the roster were read off the file. No planted panel was driven against the sweep, so that a
-hand-rolled one passes silently is derived from the roster's construction rather than observed.
-
-### `tbh5-u4c3` · The browser's own chrome takes no colour from the season scheme
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| FE, tests | Open   | —          |
-
-**No `<meta name="theme-color">` reaches the document head.** `fl_frontend/src/app/manifest.ts`
-declares `theme_color`, which paints an installed app's chrome and its splash, and a browser tab
-visiting the site reads none of it: on a phone the address bar keeps the browser's default while the
-page under it is the season scheme's.
-
-**Why it matters.** This is the one brand surface a visitor sees before the page paints, and the
-brand refresh reached every other one. It is also the surface where a wrong answer is most visible,
-which is why it is filed rather than guessed at.
-
-**The decision it needs.** Two defensible answers, and they look different. Matching the page's own
-ground per scheme — `--bg-base`, near-white and near-black — makes the chrome continue the page, and
-is what most mature product sites ship. Matching the manifest's brand fill paints the bar Moselgrün
-on every phone, which is louder and agrees with the installed app. Next takes both through a
-`viewport` export with a `prefers-color-scheme` media pair.
-
-**Done when** the head carries the colour, whichever answer is taken, and it is pinned to the scheme
-by the same route `fl_frontend/src/app/brandAssets.test.ts` pins the manifest — parsed from the
-stylesheet rather than restated.
-
-### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, Ops, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/scheme.py :: PAIRS` measures text against its ground and nothing
-else, so three pairs that carry meaning without carrying text are unmeasured and each falls under
-WCAG's 3:1 floor for a user-interface component in the dark theme.** `fl_frontend/src/shared/components/ui/FilterPanel.tsx`'s selected row is
-carried by its fill; `border-border` parts a box from the page it sits on
-(`fl_frontend/src/shared/components/ui/card.ts :: card`); and a list box's focus ring marks which
-option the keyboard is on.
-
-**Why it matters.** Each is the only signal for the state it carries. A selection nobody can see is a
-control whose state is unknowable without moving it, and a focus ring nobody can see makes the
-keyboard route through a form unusable while the mouse route is fine — which is why it survives every
-sighted pass.
-
-**The trap.** Raising all three is not one change. A border at the 3:1 floor is a hairline that reads
-as a rule rather than as an edge, and the sheet's own depth rule says the hairline is what parts a box
-from a near-black page — so the border may be a deliberate exception rather than a defect, and the
-first move is deciding which of the three are components and which are decoration. WCAG exempts pure
-decoration from 1.4.11, and it does not exempt a state.
-
-**Done when** each of the three is either measured by a `PAIRS` row that passes, or recorded as
-decoration with the argument in the commit that records it.
-
-### `uayf-u7g4` · The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
-
-| Tags                | Status   | Depends on |
-| ------------------- | -------- | ---------- |
-| FE, Ops, Docs, edge | Standing | —          |
-
-**Found 2026-08-01 while diagnosing a missing WhatsApp link preview.**
-`fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, `meta-externalagent` among
-them, and **that file is a request**: robots.txt is advisory and a crawler chooses whether to obey
-it. Cloudflare is separately enforcing something stronger — measured against the live site on
-2026-08-01, `WhatsApp/2.x`, `facebookexternalhit/1.1` and `Twitterbot/1.0` each collected 200 for a
-page and for an image while `meta-externalagent/1.1` collected 403 for both, the 403 carrying
-`Server: cloudflare` and a `CF-RAY` where `nginx/prod.conf` contains no user-agent or `deny` rules.
-**The block is an edge setting, made in a dashboard this repository does not configure and does not
-record, and it is invisible from the codebase.**
-
-**Why it matters, and why it is not urgent.** Link previews on Meta's products are fetched by
-`facebookexternalhit`, which is served normally, so nothing is broken today. The risk is
-consolidation: if preview fetching ever moves behind `meta-externalagent`, every WhatsApp and
-Facebook preview for this site stops working, the failure is silent, and nothing in the repository
-would explain it.
-
-**What a rework has to decide rather than assume:** whether the AI opt-out belongs in robots.txt, at
-the edge, or both — and if both, which one is the source of truth when they disagree, since they
-already disagree in kind, one asking and one enforcing; whether blocking an agent Meta also uses for
-product features is the intended trade, the opt-out having been aimed at training rather than at
-previews; and whether the edge configuration should be recorded here at all, given
-[`docs/ops/overview.md`](../ops/overview.md) states that this repository does not configure
-Cloudflare — a setting that can break a user-visible feature and leaves no trace in the repo being
-the argument for writing it down somewhere.
-
-**Trigger to revisit:** any Cloudflare bot-protection change, or a report of broken previews.
-Re-running the measurement takes one `curl` per agent and distinguishes an edge block from a markup
-problem immediately.
-
-### `v7bs-d859` · The frontend keeps a visual system that no document states
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**`docs/frontend/spec.md` states no type scale, no colour role and no spacing rhythm.** The system
-lives in `fl_frontend/src/app/globals.css` and the recipes under
-`fl_frontend/src/shared/components/ui/`, so a session designing anything learns it by reading them or
-does not learn it. What that sheet does state on this surface — `:: I43`, `:: I44`, `:: I78`,
-`:: I79`, `:: I81` and `:: 1.12 The copy rules` — are the copy and link rules, and they match the
-files.
-
-**The visual conventions are kept by imitation and read by nothing.** Prose is `font-medium` and a
-bold run is a label, a pill, a button, a `<dt>` or a reader's own value; a decorative glyph is
-`aria-hidden` beside the words carrying the fact and never stands alone
-(`fl_frontend/src/shared/components/ui/Callout.tsx`); a panel's standing rule is a reveal hint beside
-its heading rather than a paragraph closing its body
-(`fl_frontend/src/shared/components/ui/formPanel.ts :: heading`); the corner ladder steps down one
-level per nesting, 3xl hero to md pill (`fl_frontend/src/shared/components/ui/badges.ts`); the social
-marks wear the ground's foreground and never brand
-(`fl_frontend/src/shared/components/layout/footer/Footer.tsx`). Each holds across at least three
-files, no gate reads any of them, and a design approved against none of them breaks one without
-anybody seeing it.
-
-**Writing the page against today's palette would date it before it is read**, the colour roles being
-the half most likely to move. That is what the work waits on, rather than a reason to leave the
-conventions underived.
-
-**Done when** a page a session meets before it designs anything carries the type scale, the weight
-rule, the spacing and radius ladders, the colour roles and the component grammar, and the conventions
-above are stated there rather than kept by imitation.
-
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
 | Tags         | Status | Depends on |
@@ -1938,167 +930,3 @@ the backend's are. Each line is proved by the surface's own suite the way the fa
 envelope, and the `aktionen` collection deliberately stores the values the stream may never carry
 (`fl_backend/app/core/recording.py`), so a transition line names ids and never the values the row
 holds.
-
-### `vgk8-btxt` · What decides whether a module belongs in `core` or in `shared` is written nowhere
-
-| Tags     | Status | Depends on |
-| -------- | ------ | ---------- |
-| FE, Docs | Open   | —          |
-
-**One rule holds the two folders apart, and it is a direction rather than a membership test.**
-`docs/frontend/spec.md :: I9` and `docs/frontend/overview.md :: How it is organised` fix that
-`fl_frontend/src/core` imports neither `fl_frontend/src/shared` nor `fl_frontend/src/features`, and
-that `fl_frontend/src/shared` does not import `fl_frontend/src/features`, enforced by ESLint. Every
-module importing nothing above it satisfies both readings, so which of the two folders a new module
-goes in is settled by whoever writes it.
-
-**The two have drifted apart in kind while the rule stayed a direction.**
-`fl_frontend/src/core/einwilligung.ts`, `fl_frontend/src/core/mail.ts` and
-`fl_frontend/src/core/logging.ts` sit beside `fl_frontend/src/shared/utils/refusal.ts` and
-`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx` — one set is what the server process does,
-the other what a rendered page is built from. That distinction is real and is stated on neither page,
-so a reader deriving the rule from the import direction alone arrives somewhere else.
-
-**A reorganisation is its own pull request, and is bounded before it starts.**
-`.claude/CLAUDE.md :: structure` refuses a barrel file, an unrequired default export and a second
-nesting level, so grouping either folder into subfolders is not the cheap half of this; and every
-module moved is an import path rewritten at each call site, which makes the diff wide and the review
-shallow exactly where a mistake is a runtime failure. **Naming the rule is separable from acting on
-it**, and is the half worth doing first: a rule that answers where a module goes stops the drift
-without moving a file.
-
-**Done when** the rule says what belongs in each folder rather than only what may import what,
-written where a session adding a module reads it —
-`docs/frontend/overview.md :: How it is organised` — with `docs/frontend/spec.md :: I9` keeping the
-direction it already holds.
-
-### `vspa-r35v` · One commit imports a frontend module the commit after it adds
-
-| Tags                         | Status   | Depends on |
-| ---------------------------- | -------- | ---------- |
-| FE, Docs, ci, tests, saisons | Standing | —          |
-
-**`fl_frontend/src/features/saisons/actions.test.ts` imports
-`fl_frontend/src/core/refusalRegister.ts`, and one commit on `main` holds that test file without
-the module**, the commit directly after it being the one that adds the module.
-`git log -S refusalRegister -- fl_frontend/` names the pair, which is how this entry has to be
-read: COR-6 keeps a hash out of the corpus because this history has been rewritten before and can
-be again, so a hash written here would go dead with nothing saying so. TypeScript answers that specifier with `TS2307: Cannot find module
-'../../core/refusalRegister.ts'`, reproduced 2026-08-26 under the resolution options
-`fl_frontend/tsconfig.json` sets, and both frontend commands reach it. **Not verified by checkout** —
-the tree at that commit was read rather than built, so that both commands fail there is taken from
-the absent module and the diagnostic, neither having been run at it.
-
-**One commit and one specifier, measured rather than assumed (2026-08-26).** Every relative and
-`@/`-aliased specifier in each `.ts` and `.tsx` file under `fl_frontend/src` was resolved against its
-own commit's tree, across a run of consecutive commits — 1850 specifiers at the last of them. That
-one commit is the only one carrying an unresolved specifier, and that import is the only one it
-carries.
-
-**Nothing is red, and a red build is not the symptom to look for.**
-`.github/workflows/verify.yml` triggers on `pull_request` and on a push to `main`. Both judge a
-tip — the pull request's merge result, and `main` after the merge commit — and neither checks out a
-commit in between, so no CI run visits it. **What it costs is a `git bisect` over the frontend**,
-which lands there and answers with a failure unrelated to whatever is being hunted;
-[`docs/_git/spec.md`](../_git/spec.md) §1.4 permits merge commits alone, so the commit reaches `main`
-verbatim and this does not age out.
-
-**Recognise it and skip it, which is the whole of the action.** git's documented shape for a revision
-that cannot be built is exit code 125 from a `git bisect run` script, marking it untestable. The
-residual is the one the manual names — skipping a commit adjacent to the culprit leaves git unable to
-say which of them was first bad — and this commit's entire frontend delta being one test file is what
-settles that by reading the diff. **`.git-blame-ignore-revs` does not reach it**: that file feeds
-`blame.ignoreRevsFile` and moves line attribution, where the attribution here is right and is
-nobody's complaint. git offers no in-repository list a bisect consults, so this entry is the whole of
-the durable warning — and a bisect stands at a detached `HEAD`, so
-`git show main:docs/_roadmap/items.md` is what reads this page from wherever it has stopped.
-
-**Rewriting the history is the repair, and it was declined.** Carrying
-`fl_frontend/src/core/refusalRegister.ts` one commit earlier means rewriting a pushed branch with a
-pull request open against it, which moves every line a review comment is anchored to; weighed against
-a bisect that skips one commit, the gap was taken — **so this entry records a decision rather than an
-outstanding repair**, and the window in which the fix was cheap closed at the push.
-
-**Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
-the argument for a per-commit resolution check, and the sweep above is what it would be built from.
-
-### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
-
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| FE, tests, saisons | Open   | —          |
-
-**`fl_frontend/src/shared/testing/renderTest.ts :: textOf` repeats its replacement until the string
-stops moving, and every other reader of markup as text in the estate makes one pass.** One pass over
-`<a<b>>` leaves `<a` standing for the caller to read as text, which is the shape
-`js/incomplete-multi-character-sanitization` names. The single-pass readers are
-`fl_frontend/src/core/authEmail.test.ts :: readable`,
-`fl_frontend/src/core/bewerbungEmail.test.ts :: readable`,
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/spielplanReplace.test.ts :: gelesen`
-and
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/teamErsatz.test.ts :: gelesen`.
-
-**No residue reaches any of them, and that is not what this asks about.** Each is handed markup its
-own module rendered or built, and the email shell escapes every interpolation through
-`fl_frontend/src/core/emailShell.ts :: escapeHtml` — read off the call sites rather than exercised,
-so an input that defeats one of them is not established either way. What the estate holds is one
-operation written in more than one shape, with nothing in the tree saying which is the answer, so
-the next reader copies whichever they open first.
-
-**One helper for all of them would be wrong.** The `readable` helpers strip `<style>` blocks and
-decode entities around the tag pass, so that shape is theirs. Each `gelesen` helper is `textOf`
-followed by a whitespace collapse, and can delegate.
-
-**Done when** no reader of markup as text stops after a single pass: the helpers whose shape the
-harness already serves delegate to it, and the ones it does not repeat their own strip until the
-string stops moving.
-
-### `w4tm-9khd` · A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population
-
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| FE, tests, spieler | Open   | —          |
-
-**`fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` cuts each candidate at
-`indexOf(">")` and reads the mark and the field name out of what is left.** Anything standing between
-the `<` and the tag's real close therefore truncates the read, and a JSX attribute value is allowed to
-contain a `>` — an arrow function most commonly. The sweep exits 0 either way, so what is lost is a
-schema's assertion that it refuses an empty value, not a test.
-
-**Today it holds by attribute order alone.**
-`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx` renders a control whose
-`onChange={(key) => …}` sits after `isRequired` and `name`, so the cut lands past both. Moving that
-attribute above them — a reformat, an alphabetisation, a prettier setting — drops the field from the
-population and takes every schema asserted through it. Nothing forbids the move and no check sees it.
-
-**Why a comment cannot be the answer.** The same reader is what
-`fl_frontend/src/shared/components/ui/SaisonSelect.tsx` keeps a literal `isRequired` for, and the note
-explaining that had to be moved above its own tag for exactly this reason: written inside the tag, one
-`>` in the sentence disarmed the sweep the sentence was defending. A convention that cannot be stated
-inside the construct it governs is one the next reader breaks.
-
-**Done when** the reader finds a tag's real close rather than its first `>` — comments and attribute
-values skipped, so attribute order carries nothing — and has been driven against a control whose
-arrow function is written first.
-
-### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, BE, tests | Open   | —          |
-
-Lands with: `f38s-y3hj`
-
-**`fl_frontend/src/core/apiRequests.test.ts` builds its caller set by walking the source tree for
-every `.ts` and `.tsx` whose text names the client**, and nothing in that walk decides a test file.
-Several of the files it takes are tests, and the sweep is green only because each of them names the
-client inside a string or a comment rather than calling it. Every comparison the module makes
-against `fl_backend/openapi.json` reads that one set.
-
-**A fixture calling the real client against an unpublished path would fail as though production
-had**, naming a test file to a reader who then goes looking for a broken route — and a fixture
-written to exercise a refusal is exactly the shape that calls an unpublished path on purpose.
-
-**Done when** the walk decides the test files for both suffixes it collects. Deciding one suffix
-where the walk takes two leaves a `.test.tsx` in the set and reads, from the code, as though the
-question had been settled.

@@ -18,8 +18,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 export default function LandingPage() {
   return (
     <>
-      <section className="max-w-page flex w-full flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <section className="max-w-page flex w-full flex-col gap-6 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="border-border bg-surface relative flex flex-col justify-between overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
@@ -63,7 +63,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-5 lg:grid-cols-1">
             <Link
               href="/dashboard/teams#top"
               prefetch={false}

@@ -34,14 +34,13 @@ export function FormAdresseSection({
         ? { href: buildMapsSearchUrl(formatAddressFull(address)), target: "_blank", rel: "noopener noreferrer" }
         : { "aria-disabled": true })}
       aria-label="Eingegebene Adresse auf Google Maps öffnen"
-      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+      className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
         isSearchable ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
       }`}>
       {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
       <ArrowUpRightFromSquare
+        className="size-4.5"
         aria-hidden="true"
-        width={18}
-        height={18}
       />
     </a>
   );

@@ -26,22 +26,31 @@ const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-environment-names-"));
 
 // Dummy names throughout, and files this suite writes itself: nothing here reads, mounts or names a
 // real environment file.
-const DECLARED = ["ALPHA_NAME", "BETA_NAME"];
+const DECLARED = ["ALPHA_NAME", "BETA_NAME", "OMEGA_NAME"];
+// One name per set rather than none: a default demanding nothing would let a case that forgets
+// either required half read as a pass on it.
+const SETS = { declared: DECLARED, required: ["ALPHA_NAME"], productionRequired: ["OMEGA_NAME"] };
 
 /** One run of the checker over files written for the case, answering the code the deploy grades. */
-function check(contents, declared = DECLARED) {
+function check(contents, { sets = SETS, flags = [] } = {}) {
   const stem = path.join(SCRATCH, `case-${String(process.hrtime.bigint())}`);
   writeFileSync(`${stem}.environment`, contents);
-  if (declared !== null) writeFileSync(`${stem}.json`, JSON.stringify(declared));
+  if (sets !== null) writeFileSync(`${stem}.json`, JSON.stringify(sets));
 
-  return spawnSync(process.execPath, [CHECKER, `${stem}.environment`, `${stem}.json`], { encoding: "utf8" });
+  return spawnSync(process.execPath, [CHECKER, `${stem}.environment`, `${stem}.json`, ...flags], { encoding: "utf8" });
 }
 
 describe("the names read out of an environment file", () => {
   it("takes an assignment and a pass-through name, and neither a comment nor a blank line", () => {
     const file = ["# ALPHA_NAME is set elsewhere", "", "BETA_NAME=a value", "GAMMA_NAME", "   DELTA_NAME = spaced "].join("\n");
 
-    assert.deepEqual(scanNames(file), { names: ["BETA_NAME", "DELTA_NAME", "GAMMA_NAME"], unreadable: [] });
+    assert.deepEqual(scanNames(file), {
+      names: ["BETA_NAME", "DELTA_NAME", "GAMMA_NAME"],
+      // `GAMMA_NAME` declares a name and gives no value: compose resolves a pass-through from the
+      // shell that ran it, so nothing of that variable comes off this file.
+      assigned: ["BETA_NAME", "DELTA_NAME"],
+      unreadable: [],
+    });
   });
 
   it("counts a name whose value is empty, which the backend's own reader drops before it is judged", () => {
@@ -71,7 +80,7 @@ describe("the names read out of an environment file", () => {
   it("reports the line an unterminated quote opened rather than passing over the rest of the file", () => {
     const file = 'ALPHA_NAME=fine\nBETA_NAME="never closed\nGAMMA_NAME=missed\n';
 
-    assert.deepEqual(scanNames(file), { names: ["ALPHA_NAME", "BETA_NAME"], unreadable: [2] });
+    assert.deepEqual(scanNames(file), { names: ["ALPHA_NAME", "BETA_NAME"], assigned: ["ALPHA_NAME", "BETA_NAME"], unreadable: [2] });
   });
 
   it("reports the number of a line it cannot read rather than passing over it", () => {
@@ -111,10 +120,77 @@ describe("what the deploy grades the checker's answer as", () => {
   });
 
   it("answers 4 where the declared set is not in the image, naming the error class and no path", () => {
-    const done = check("ALPHA_NAME=one\n", null);
+    const done = check("ALPHA_NAME=one\n", { sets: null });
 
     assert.equal(done.status, 4, done.stderr);
     assert.equal(done.stderr.trim(), "Error");
+  });
+
+  // The half a file nobody edited fails: an undeclared name is a line somebody wrote, and a missing
+  // required one is a line nobody did, which no reader over the file's own names can see.
+  it("answers 3 naming a required variable the file never declares", () => {
+    const done = check("BETA_NAME=two\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
+  });
+
+  // Both lines in one run: a remedy held back until the next one is a second visit to the host.
+  it("names both kinds where the file carries one of each", () => {
+    const done = check("GAMMA_NAME=two\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Undeclared environment variables: GAMMA_NAME/);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
+  });
+
+  // The boundary of what this refusal proves: the name is declared and the value behind it stays
+  // the boot gate's, which is what `docs/ops/spec.md :: I183` fixes.
+  it("counts a required name whose value is empty as declared", () => {
+    const done = check("ALPHA_NAME=\n");
+
+    assert.equal(done.status, 0, done.stderr);
+  });
+
+  /* The empty value above reaches the container as an empty string; this one reaches it as nothing
+     at all, compose dropping a pass-through it could not resolve. So it is the harder of the two. */
+  it("refuses a required name written bare, which carries no value off this file", () => {
+    const done = check("ALPHA_NAME\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
+  });
+
+  it("still reads a bare name as declared, so a typo written that way is refused as the undeclared line it is", () => {
+    const done = check("ALPHA_NAME=one\nGAMMA_NAME\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Undeclared environment variables: GAMMA_NAME/);
+    assert.doesNotMatch(done.stderr, /Missing required/);
+  });
+});
+
+describe("the names production alone is held to", () => {
+  /* The deploy has one deployment, so it asks for both sets; a file passing without the flag and
+     failing with it is the whole of what the flag does. */
+  it("refuses a production-only required name the file omits, under the flag the deploy passes", () => {
+    const done = check("ALPHA_NAME=one\n", { flags: ["--production"] });
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Missing required environment variables: OMEGA_NAME/);
+  });
+
+  it("demands it of nobody else, that half of the schema resting on a value this reader never opens", () => {
+    const done = check("ALPHA_NAME=one\n");
+
+    assert.equal(done.status, 0, done.stderr);
+  });
+
+  it("names both required halves in one line where the file holds neither", () => {
+    const done = check("BETA_NAME=two\n", { flags: ["--production"] });
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME, OMEGA_NAME/);
   });
 });
 
@@ -137,8 +213,19 @@ describe("the key set the image carries", () => {
     const { frontend_config } = await import("./src/core/config.ts");
     const wired = Object.keys(frontend_config).sort();
 
+    const emitted = JSON.parse(readFileSync(destination, "utf8"));
+
     assert.ok(wired.length >= 10, `expected the schema to declare at least 10 names, read ${String(wired.length)}`);
-    assert.deepEqual(JSON.parse(readFileSync(destination, "utf8")), wired);
+    assert.deepEqual(emitted.declared, wired);
+    // Which names are required is derived by booting, in `fl_frontend/src/core/config.test.ts`; what
+    // this asks is that the file carry each set at all, an empty one reading as a schema demanding
+    // nothing.
+    assert.ok(emitted.required.length > 0, "the emitted file demands no name of a host at all");
+    assert.ok(emitted.productionRequired.length > 0, "the emitted file demands no name of a production host in particular");
+    assert.deepEqual(
+      [...emitted.required, ...emitted.productionRequired].filter((name) => !wired.includes(name)),
+      [],
+    );
   });
 
   it("is copied to the paths the checker reads when the deploy gives it none, at a mode of its own", () => {

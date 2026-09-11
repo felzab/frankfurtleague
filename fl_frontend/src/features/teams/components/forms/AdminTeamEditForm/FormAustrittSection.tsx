@@ -16,6 +16,7 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
@@ -29,17 +30,6 @@ const ART_LABEL_ID = "austritt-art";
 
 /** The id the durability sentence publishes, carried by the reason's own field in `aria-describedby`. */
 const GRUND_HINT_ID = "austritt-grund-hinweis";
-
-/**
- * **No hover or press variant**: HeroUI's own fills are `@layer components` and these utilities are
- * declared last, so each state's resting background suppresses them. `StufenPicker`'s chip, widened
- * for word-length labels.
- */
-const ART_CHIP =
-  "border-border bg-transparent text-foreground-muted " +
-  "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
-  "data-[selected=true]:ring-brand-solid-foreground " +
-  "fluid-xs h-9 rounded-lg border px-4 font-extrabold tracking-wide transition-colors";
 
 /**
  * `austritt` is required with no default: lifting one sends an explicit `null`, not a quiet
@@ -136,7 +126,7 @@ export function FormAustrittSection({
                   <ToggleButton
                     key={option.value}
                     id={option.value}
-                    className={ART_CHIP}>
+                    className={OPTION_CHIP}>
                     {option.label}
                   </ToggleButton>
                 ))}

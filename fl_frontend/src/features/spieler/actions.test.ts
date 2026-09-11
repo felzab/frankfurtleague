@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
 import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import {
   ERASURE_NEEDS_RETIREMENT,
@@ -86,7 +86,7 @@ function squadBranch(code: string): string {
 }
 
 describe("the erasure action against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
     assert.ok(ERASURE_MAP.includes('serverErrorCode === "REQ-PURGE-001"'), "the erasure's branch is outside its slice");
     assert.ok(!ERASURE_MAP.includes("REQ-SQUAD-001"), "the erasure's slice runs on into the squad mapper's arms");
@@ -597,4 +597,66 @@ describe("the squad edit's refusals when the undo replays it", () => {
       assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = [
+  "postSpielerAction",
+  "patchSpielerAction",
+  "deleteSpielerAction",
+  "reactivateSpielerAction",
+  "eraseSpielerAction",
+  "postSaisonSpielerAction",
+  "patchSaisonSpielerAction",
+  "deleteSaisonSpielerAction",
+  "reactivateSaisonSpielerAction",
+];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+    for (const name of WRITE_ACTIONS) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  /* The base tag beside it reaches the PUBLIC squad read alone: `/admin/spieler` reads through
+     `fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`, which is uncached. */
+  it("refreshes on every one of them, no tag reaching the read the admin page renders", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
+  });
+
+  /* The create's rescue is the one admin path that fails with a row already added, so the case above
+     — which reads the callback's own top level — cannot reach the call that serves it. */
+  it("refreshes on the create's partial write too, where the person exists and the squad row does not", () => {
+    const body = ACTION_BODIES.get("postSpielerAction") ?? "";
+    const opensRescue = body.indexOf("} catch (error) {");
+
+    assert.notEqual(opensRescue, -1, "the create no longer rescues the squad row's failure where this case reads");
+    assert.match(body.slice(opensRescue).split("\n    }")[0] ?? "", /^ {6}refresh\(\);$/m, "the create's rescue leaves a person no list shows");
+  });
 });

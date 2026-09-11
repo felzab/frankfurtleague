@@ -103,8 +103,8 @@ class Rule:
 
     code: str
     #: The endpoints that perform it, ` · `-separated. Spell that separator otherwise and
-    #: `fl_frontend/src/core/refusalRegister.ts :: OPERATION_SEPARATOR` splits nothing, so every
-    #: slice's refusal check goes quiet rather than red.
+    #: `fl_frontend/src/shared/testing/refusalRegister.ts :: OPERATION_SEPARATOR` splits nothing,
+    #: so every slice's refusal check goes quiet rather than red.
     operation: str
     aggregate: str
     #: ONE CLAUSE naming what is refused, present tense, no closing period -- a table cell, not a

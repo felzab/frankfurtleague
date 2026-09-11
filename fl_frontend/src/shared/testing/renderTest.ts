@@ -92,15 +92,18 @@ export function renderTree(tree: ReactNode): string {
 }
 
 /**
- * The words inside markup. It repeats because one pass over `<a<b>>` leaves `<a` standing, which a
- * caller then reads as text — the shape CodeQL's incomplete-multi-character-sanitization names.
+ * The words inside markup, each tag replaced by `separator`. The empty default joins what stood either
+ * side of a tag; a caller reading across an element boundary passes a space, or two words become one.
  */
-export function textOf(html: string): string {
+export function textOf(html: string, separator = ""): string {
   let text = html;
 
+  // To a FIXPOINT rather than in one pass — the shape CodeQL's
+  // incomplete-multi-character-sanitization names: a pattern leaving a tag standing hands the caller
+  // markup to read as text, and this one is free to change.
   for (let previous = ""; text !== previous;) {
     previous = text;
-    text = text.replace(/<[^>]*>/g, "");
+    text = text.replace(/<[^>]*>/g, separator);
   }
 
   return text;

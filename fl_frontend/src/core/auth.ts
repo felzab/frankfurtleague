@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
@@ -14,6 +16,23 @@ import { setRequestActor } from "./requestScope";
 import type { Session } from "next-auth";
 
 const MONGO_DB_NAME = "authjs";
+
+// A string test, not `new URL(...)`: this runs at module scope, where the builder stage has no
+// AUTH_URL and the construction would fail the image build.
+const USE_SECURE_COOKIES = (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://");
+
+/**
+ * The callback-url cookie under the name and options `@auth/core` gives it: the `__Secure-` prefix
+ * follows the flag above, so a write spelled without both is one the browser drops. The emailed
+ * link carries its own `callbackUrl`, which outranks it.
+ */
+export const CALLBACK_URL_COOKIE = {
+  name: `${USE_SECURE_COOKIES ? "__Secure-" : ""}authjs.callback-url`,
+  path: "/",
+  httpOnly: true,
+  sameSite: "lax",
+  secure: USE_SECURE_COOKIES,
+} as const;
 
 function isUserAdmin(email?: string | null) {
   if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
@@ -38,7 +57,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // production must not mail production links (`docs/frontend/spec.md :: I186`).
         const { subject, html, text } = buildMagicLinkEmail(url, frontend_config.AUTH_URL);
 
-        await sendMail({ to, subject, html, text });
+        // Behind the response rather than inside it: a rejected sign-in cannot have the provider's
+        // latency, so awaiting this re-opens the membership oracle the action's floor only narrows
+        // (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`).
+        after(async () => {
+          try {
+            await sendMail({ to, subject, html, text });
+          } catch (failed) {
+            // The only line a failed link leaves: Auth.js's own logger sits in front of the
+            // response and never sees this.
+            logger.error("auth.link_send_failed", undefined, {
+              error_code: "FE-AUTH-002",
+              name: failed instanceof Error ? failed.name : "unknown",
+            });
+          }
+        });
       },
     }),
   ],
@@ -73,10 +106,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     updateAge: 60 * 60,
   },
 
-  // Set explicitly, so a change to @auth/core's cookie defaults cannot silently drop the flag. A
-  // string test, not `new URL(...)`: this runs at module scope, where the builder stage has no
-  // AUTH_URL and the construction would fail the image build.
-  useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
+  // Set explicitly, so a change to the `@auth/core` cookie defaults cannot silently drop the flag.
+  useSecureCookies: USE_SECURE_COOKIES,
 
   logger: {
     error(error) {

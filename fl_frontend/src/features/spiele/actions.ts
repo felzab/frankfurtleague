@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -12,7 +12,7 @@ import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielPriorPaarung } from "./schemas";
 
@@ -133,6 +133,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       updateTag(`spiele:saison_id:${saisonId.data}`);
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
+    refresh();
 
     // The faults the resolution walked past ride along: the save that introduces one is when its
     // cause is known.
@@ -155,7 +156,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * same code the save uses. **No `updateTag` here, ever** — nothing changed, so it would evict every
  * cached match list on every keystroke.
  */
-export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<ActionResult<MovedFixtures>> {
+export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

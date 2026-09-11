@@ -7,8 +7,8 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
 
-import { declaredCodes } from "../../core/refusalRegister.ts";
 import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
@@ -507,7 +507,7 @@ describe("the confirmation's refusals against the backend's register", () => {
     assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
   });
 
-  /* A declared code this maps nowhere reaches the contact person as a bare „Speichern fehlgeschlagen“
+  /* A declared code this maps nowhere reaches the contact person as a bare „Änderung nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation declares", () => {
     const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code)) !== null);

@@ -11,9 +11,9 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from "./utils.ts";
@@ -157,7 +157,7 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
 }
 
 describe("the erasure against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the action out of the file before reading it", () => {
     assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
@@ -191,11 +191,12 @@ describe("what the erasure moves", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
      render pass, the public team reads carry no `kontakte` at all, and the applications and the log
      are uncached too. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!ACTIONS.includes("updateTag("), "a contacts write clears a cached read its endpoint does not move");
-    assert.ok(!ACTIONS.includes('from "next/cache"'), "a contacts write reaches the cache API for something");
+    // The import spelled whole: the slice reaches `next/cache` for the router refresh and nothing else.
+    assert.match(ACTIONS, /^import \{ refresh \} from "next\/cache";$/m, "a contacts write reaches the cache API for more than a refresh");
     // Both of the module's writes, so a second one added without the reasoning fails here.
-    assert.equal([...ACTIONS.matchAll(/Nothing to invalidate/g)].length, 2, "an absent invalidation is left unexplained");
+    assert.equal([...ACTIONS.matchAll(/No tag moves/g)].length, 2, "an absent invalidation is left unexplained");
   });
 
   /* The address travels in the BODY. A path or a query segment would file it in the access log, in
@@ -383,5 +384,60 @@ describe("what the save hands the write", () => {
     assert.ok(validated.success, "the write refuses the block a confirmed seat leaves");
     assert.equal(validated.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten", "an administrative save asserts the person's own tick");
     assert.equal(validated.data.kontakte?.ansprechperson?.einwilligung.umfang, "kontaktdaten");
+  });
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** The writes this slice exports. A new action fails the sweep below until it is placed. */
+const WRITE_ACTIONS = ["eraseKontaktpersonAction", "patchSaisonTeamKontakteAction"];
+
+/** The erasure preview, which reads and moves nothing. */
+const READ_ONLY_ACTIONS = ["readKontaktErasureAnsichtAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual(
+      [...ACTION_BODIES.keys()],
+      [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS],
+      "an action arrived or left without being placed as a write or a read",
+    );
+    for (const name of [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS]) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  /* No tag exists to reach these: `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships`
+     is memoised per render pass rather than cached, so nothing here can be invalidated at all. */
+  it("refreshes on both writes, the contact block living in no cached read", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's page standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
+  });
+
+  it("leaves the erasure preview alone, which changes nothing to come back for", () => {
+    for (const name of READ_ONLY_ACTIONS) {
+      assert.doesNotMatch(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} refreshes a page nothing it did has moved`);
+    }
   });
 });

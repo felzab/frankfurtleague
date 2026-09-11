@@ -17,7 +17,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
@@ -102,7 +101,7 @@ export function FormKaderSection({
 
       if (res.success) {
         setEntryTeamError(null);
-        appToast.success(res.message ?? "Spieler aufgenommen");
+        appToast.success("Spieler aufgenommen", { description: res.message });
         return;
       }
 
@@ -111,7 +110,7 @@ export function FormKaderSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen team is not
       // also said in a toast that names no field.
       if (teamError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
+        appToast.danger("Spieler nicht aufgenommen", { description: res.error });
       }
     });
   };
@@ -210,7 +209,9 @@ export function FormKaderSection({
                     // Disabled only where SOMEBODY ELSE holds it: the current holder has to be able to
                     // press it again to give it up.
                     isDisabled={heldRollen[option.value] !== undefined && rolle !== option.value}
-                    className="border-border bg-surface hover:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
+                    // The selected arm takes a hover of its own because the two plain arms tie at
+                    // (0,2,0): without it the white label lands on grey, and source order decides.
+                    className="border-border bg-surface data-hovered:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground data-selected:data-hovered:bg-brand-solid-hover rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
                     {option.label}
                   </ToggleButton>
                 ))}
@@ -280,7 +281,7 @@ export function FormKaderSection({
                 isDisabled={isEntering}
                 onPress={handleEnterSaison}
                 className={formButton({ intent: "submit" })}>
-                {isEntering ? "Speichert..." : `In Kader ${saison.saisonId} aufnehmen`}
+                {isEntering ? "Nimmt auf..." : `In Kader ${saison.saisonId} aufnehmen`}
               </Button>
             </div>
 

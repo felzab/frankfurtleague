@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -11,7 +9,13 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
-import { ERASURE_NEEDS_RETIREMENT } from "./constants.ts";
+import {
+  ALREADY_IN_SAISON,
+  CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON,
+  ERASURE_NEEDS_RETIREMENT,
+  RETIREMENT_CONSEQUENCE,
+  RETIREMENT_KEEPS_SQUAD_ROWS,
+} from "./constants.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
@@ -123,36 +127,22 @@ describe("the note a create carries where the season has already begun", () => {
 });
 
 describe("the retirement dialog's second step", () => {
-  /* Read from source: the sentence is a prop the modal renders on its armed step alone, and arming
-     it takes a press this runner has no DOM to make. */
-  const MODAL = readFileSync(path.resolve(import.meta.dirname, "components", "modals", "AdminDeleteSpielerModal.tsx"), "utf8");
-
   it("names the pupil neutrally in the consequence it escalates to", () => {
-    const satz = /consequence="([^"]*)"/.exec(MODAL)?.[1];
-
-    assert.ok(satz !== undefined, "the dialog states no consequence this case can read");
-    assert.match(satz, /Die Kadereinträge dieser Person bleiben/, "the consequence stopped naming what survives");
-    assert.doesNotMatch(satz, MASKULIN, "the consequence names the pupil with a masculine word");
+    assert.match(RETIREMENT_CONSEQUENCE, /Die Kadereinträge dieser Person bleiben/, "the consequence stopped naming what survives");
+    assert.doesNotMatch(RETIREMENT_CONSEQUENCE, MASKULIN, "the consequence names the pupil with a masculine word");
   });
 });
 
 describe("the sentences the player's own write paths answer with", () => {
-  /* Read from source: a server action cannot be invoked in this runner, and two of these three are
-     literals inside one, the third a module-private refusal. */
-  const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-
   it("names the pupil neutrally in each of them", () => {
     const genannt: string[] = [];
 
     for (const [was, satz] of [
-      ["the duplicate squad row", /reason: "([^"]*schon einen Kadereintrag[^"]*)"/],
-      ["the create whose squad row failed", /"(Nimm [^"]*Spielerseite[^"]*)"/],
-      ["the retirement", /message: "(Spieler stillgelegt\.[^"]*)"/],
+      ["the duplicate squad row", ALREADY_IN_SAISON],
+      ["the create whose squad row failed", CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON],
+      ["the retirement", RETIREMENT_KEEPS_SQUAD_ROWS],
     ] as const) {
-      const gefunden = satz.exec(ACTIONS)?.[1];
-
-      assert.ok(gefunden !== undefined, `${was}: the action states no sentence this case can read`);
-      if (MASKULIN.test(gefunden)) genannt.push(was);
+      if (MASKULIN.test(satz)) genannt.push(was);
     }
 
     assert.deepEqual(genannt, [], "an answer names the pupil with a masculine word");

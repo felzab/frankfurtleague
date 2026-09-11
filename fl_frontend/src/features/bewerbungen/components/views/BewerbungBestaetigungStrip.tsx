@@ -23,7 +23,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -109,7 +108,7 @@ export function BewerbungBestaetigungStrip({
     router.refresh();
 
     if (!res.success) {
-      appToast.danger("Link nicht erneut gesendet", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Link nicht erneut gesendet", { description: res.error });
       return;
     }
 
@@ -212,7 +211,7 @@ function SitzZeile({
 
   return (
     <div className="flex w-full flex-col gap-y-2">
-      <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
+      <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP}`}>{sitz.label}</span>
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP}`}>Zugleich Trainer</span>}
 
@@ -240,9 +239,8 @@ function SitzZeile({
               onPress={onKorrigieren}
               className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
               <Pencil
+                className="size-3.5"
                 aria-hidden="true"
-                width={14}
-                height={14}
               />
             </Button>
           </IconTooltip>
@@ -250,9 +248,8 @@ function SitzZeile({
 
         <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP} ml-auto gap-x-1`}>
           <Glyph
+            className="size-3.5"
             aria-hidden="true"
-            width={14}
-            height={14}
           />
           {sitz.satz}
         </span>
@@ -269,11 +266,10 @@ function SitzZeile({
             onPress={onSendeErneut}
             className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
             <PaperPlane
+              className="size-3.5"
               aria-hidden="true"
-              width={14}
-              height={14}
             />
-            <span>{sendet ? "Wird gesendet..." : "Link erneut senden"}</span>
+            <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
           </Button>
         )}
       </div>
@@ -356,7 +352,7 @@ function AdresseKorrigieren({
       // time the administrator reads it.
       router.refresh();
       onFertig();
-      appToast.danger("Adresse nicht korrigiert", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Adresse nicht korrigiert", { description: res.error });
       return;
     }
 
@@ -412,7 +408,7 @@ function AdresseKorrigieren({
           aria-describedby={unveraendert ? hinweisId : undefined}
           isDisabled={sendet || unveraendert}
           className={formButton({ intent: "submit", stacks: true })}>
-          {sendet ? "Wird gesendet..." : "Korrigieren und Link senden"}
+          {sendet ? "Sendet..." : "Korrigieren und Link senden"}
         </Button>
         {/* Closed while the write runs: a press that unmounts this box mid-transition drops the toast
             that would have named the outcome. */}

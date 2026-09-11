@@ -255,12 +255,11 @@ export function BestaetigungEntscheidung({
           className={confirmButton(isConfirming)}>
           {!isConfirming && (
             <CircleCheck
+              className="size-4.5"
               aria-hidden="true"
-              width={18}
-              height={18}
             />
           )}
-          {isConfirming ? (isDeclining ? "Wird gesendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Wird gespeichert..." : "Eintrag bestätigen"}
+          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Bestätigt..." : "Eintrag bestätigen"}
         </Button>
 
         {!isConfirming && (
@@ -336,7 +335,7 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Speichern fehlgeschlagen" : "Unklar, ob es bei uns angekommen ist", {
+      appToast.danger(gesendet.wroteNothing ? "Änderung nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
         description: gesendet.error,
       });
       return;
@@ -356,7 +355,7 @@ export function BestaetigungFormPanel({
       // A refusal on a path this form renders already speaks at its field. One naming only paths the
       // form renders no control for would otherwise be shown nowhere at all.
       if (!sprichtAmFeld(antwort.fieldErrors)) {
-        appToast.danger("Speichern fehlgeschlagen", { description: antwort.error ?? NICHT_GESPEICHERT });
+        appToast.danger("Änderung nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
       }
       return;
     }
@@ -400,7 +399,7 @@ export function BestaetigungFormPanel({
       validationBehavior="aria"
       data-required-marks="on"
       validationErrors={fieldErrors}
-      className="flex w-full flex-col gap-5"
+      className="flex w-full flex-col gap-6"
       onSubmit={runOnSubmit(handleSubmit)}>
       <BestaetigungHinweise
         schule={schule}

@@ -12,8 +12,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { SpielerBanner } from "./banners";
 
 /**
@@ -49,13 +49,13 @@ export function FormAustragenSection({
   // reporting about a club the season does not hold.
   const blockedReason = clubReason ?? squadFullReason;
 
-  const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string, savedDetail: string) => {
+  const run = (write: () => Promise<ActionResult>, savedHeading: string, failureHeading: string) => {
     startWriting(async () => {
       const res = await write();
-      // The detail is the press's own: this panel saves two opposite things, and „Gespeichert“ alone
-      // leaves the reader holding whichever they pressed as the only evidence of what happened.
-      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
-      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
+      // A detail written here would be this panel's guess at what the write cost: the action sends
+      // that sentence, and `docs/frontend/spec.md` §1.12 leaves a server's message alone.
+      if (res.success) appToast.success(savedHeading, { description: res.message });
+      else appToast.danger(failureHeading, { description: res.error });
     });
   };
 
@@ -96,12 +96,12 @@ export function FormAustragenSection({
                 onPress={() =>
                   run(
                     () => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
-                    "Reaktivieren fehlgeschlagen",
-                    "Nummer, Position und Stufe sind wiederhergestellt.",
+                    "Kadereintrag reaktiviert",
+                    "Kadereintrag nicht reaktiviert",
                   )
                 }
                 className={formButton({ intent: "submit" })}>
-                {isPending ? "Speichert..." : "Kadereintrag reaktivieren"}
+                {isPending ? "Reaktiviert..." : "Kadereintrag reaktivieren"}
               </Button>
             </Hint>
           </>
@@ -122,12 +122,12 @@ export function FormAustragenSection({
               onPress={() =>
                 run(
                   () => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
-                  "Austragen fehlgeschlagen",
-                  "Der Spieler steht nicht mehr im Kader dieser Saison.",
+                  "Kadereintrag ausgetragen",
+                  "Kadereintrag nicht ausgetragen",
                 )
               }
               className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
-              {isPending ? "Speichert..." : `Aus Kader ${saisonId} austragen`}
+              {isPending ? "Trägt aus..." : `Aus Kader ${saisonId} austragen`}
             </Button>
           </>
         )}

@@ -1,7 +1,7 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
-import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
@@ -28,11 +28,13 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
-  // The DISPLAY name, so a nulled one never reaches the trigger as an empty space. Nothing written
-  // comes from here — `toSpielDataPayload` sends the id and the fee alone.
+  // The LIST's word for a nameless row rather than the erasure's, this read serving no stamped row
+  // (`docs/backend/spec.md :: I227`). Nothing written comes from here:
+  // `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchiedsrichterFieldPayloadSchema` carries
+  // the id and the fee alone.
   const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
     ...candidate,
-    name: schiedsrichterAnzeigename(candidate.name),
+    name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
   }));
 
   // The referee this fixture ALREADY holds, where the list offers nobody: the default read drops every

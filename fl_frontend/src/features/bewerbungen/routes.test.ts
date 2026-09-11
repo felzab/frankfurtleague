@@ -123,11 +123,9 @@ describe("how the triage renders what the applicant typed", () => {
   const PANEL = readFileSync(PANEL_FILE, "utf8");
   const gefunden = whereValueLands(PANEL, PANEL_FILE, "wunschgegner");
 
-  /* First: a panel that had stopped rendering the value would satisfy the sink assertion below by
-     rendering nothing at all, which is the one way a safety check must not pass. */
-  it("renders the wish somewhere in the panel", () => {
-    assert.ok(gefunden.children > 0, "the triage panel no longer renders the wished opponent at all");
-  });
+  // Floored by the render in
+  // `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.test.ts` and never
+  // by a second reader here: a panel rendering nothing at all would satisfy the case below.
 
   /* Applicant-controlled and read by an administrator. As element CONTENT React escapes it; in an
      attribute it is an `href` or a `srcDoc` away from executing. */

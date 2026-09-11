@@ -26,7 +26,7 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
           searchPlaceholder={BEWERBUNGEN_CRUD_COPY.searchPlaceholder}
         />
       }>
-      <Suspense fallback={<AdminCrudFallback />}>
+      <Suspense fallback={<AdminCrudFallback shape="cards" />}>
         <BewerbungenTable searchParams={props.searchParams} />
       </Suspense>
     </AdminCrudShell>

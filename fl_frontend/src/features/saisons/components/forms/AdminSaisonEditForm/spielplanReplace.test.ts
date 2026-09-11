@@ -10,8 +10,9 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 
 import { RECORDED_FACTS_ANY } from "@/features/saisons/constants.ts";
 import { drawGroupCountOptions, GROUP_COUNT_UNIVERSE } from "@/features/saisons/shapeOffer.ts";
+import { describeSpielplanPermanenz } from "@/features/saisons/utils.ts";
 import { pickIfOffered } from "@/shared/components/ui/refusableOption.ts";
-import { renderTree } from "@/shared/testing/renderTest.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ContextType } from "react";
 
@@ -34,6 +35,15 @@ const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 
 /** The press handler alone, so an ordering read off it is about the write and not about the markup. */
 const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("return (")[0] ?? "";
+
+/** The permanence sentence for the one press with a repair beside it: a FIRST draw on a planned season. */
+const ERSTER_ZUG = describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" });
+
+/* The product rather than a hand-picked few, minus the state above: a state nobody listed is exactly
+   where a permanence claim goes missing, and there are only six. */
+const ANDERE_ZUSTAENDE = (["future", "active", "past"] as const)
+  .flatMap((saisonStatus) => [true, false].map((holdsADraw) => ({ holdsADraw, saisonStatus })))
+  .filter((zustand) => zustand.holdsADraw || zustand.saisonStatus !== "future");
 
 type SpielplanProps = Parameters<typeof FormSpielplanSection>[0];
 
@@ -96,10 +106,9 @@ const markup = (props: Partial<SpielplanProps>): string =>
 
 /** What a reader meets, tags gone and whitespace collapsed. */
 const gelesen = (props: Partial<SpielplanProps>): string =>
-  markup(props)
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  // A SPACE for the tags: `</span><span>` is a word boundary a reader sees, and the harness's empty
+  // default would join the two German words either side of it.
+  textOf(markup(props), " ").replace(/\s+/g, " ").trim();
 
 /** The three shape boxes, counted by the payload path each writes rather than by the label above it. */
 const shapeFieldCount = (props: Partial<SpielplanProps>): number => (markup(props).match(/name="shape\.[a-z_]+"/g) ?? []).length;
@@ -128,6 +137,7 @@ describe("the draw half of the Spielplan panel", () => {
     assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");
     assert.ok(HANDLER.includes("generateSpielplanAction("), "the draw's write is outside the handler's slice");
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
+    assert.equal(ANDERE_ZUSTAENDE.length, 5, "the states below are not the product minus the one press with a repair");
   });
 
   /* Hardcode the flag and this fails: `false` asks for a draw the endpoint refuses, `true` confirms
@@ -275,12 +285,17 @@ describe("the draw half of the Spielplan panel", () => {
   });
 
   /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a
-     permanence claim there sends an admin away from a control this panel offers. The other two
-     destroy rows nothing replays. */
-  it("points a first draw on a planned season at the undraw, and claims no way back on the other two", () => {
-    assert.match(ARMED, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
-    assert.equal(ARMED.match(/Es gibt in der Verwaltung keinen Weg zurück\./g)?.length, 2);
-    assert.doesNotMatch(ARMED, /Verwaltung nicht/);
+     permanence claim there sends an admin away from a control this panel offers. */
+  it("points a first draw on a planned season at the undraw, and claims no way back on every other state", () => {
+    assert.match(ERSTER_ZUG, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
+    assert.doesNotMatch(ERSTER_ZUG, /keinen Weg zurück/);
+
+    for (const zustand of ANDERE_ZUSTAENDE) {
+      const satz = describeSpielplanPermanenz(zustand);
+
+      assert.match(satz, /Es gibt in der Verwaltung keinen Weg zurück\./, `${JSON.stringify(zustand)} promises a way back`);
+      assert.doesNotMatch(satz, /Verwaltung nicht/, `${JSON.stringify(zustand)} words the refusal as the Verwaltung's own`);
+    }
   });
 
   /* A venue or a referee is what `holds_a_recorded_fact` counts, so either CLOSES the replace and no
@@ -290,11 +305,12 @@ describe("the draw half of the Spielplan panel", () => {
     assert.doesNotMatch(ARMED, /Schiedsrichter/);
   });
 
-  /* Write "noch kein Spiel gewertet" anywhere and this fails: the window closes on anything
+  /* Write "noch kein Spiel gewertet" in either home and this fails: the window closes on anything
      entered, cancellations and bookings included, which that wording understates. */
   it("states the window as nothing entered rather than nothing scored", () => {
+    assert.match(ERSTER_ZUG, /zu keinem ihrer Spiele etwas eingetragen wurde/);
+    assert.doesNotMatch(ERSTER_ZUG, /noch kein Spiel gewertet/);
     assert.doesNotMatch(SOURCE, /noch kein Spiel gewertet/);
-    assert.match(SOURCE, /zu keinem ihrer\s+Spiele\s+etwas\s+eingetragen wurde/);
   });
 
   /* Write "genau einmal" anywhere in the panel and this fails: inside `REQ-SPIELPLAN-005`'s window

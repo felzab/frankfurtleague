@@ -54,9 +54,11 @@ export function Sidemenu<TIcon extends string>({
   return (
     /* Each fails silently if changed: `lg:h-auto`, or the page scrolls as one; `invisible`, or the closed
        drawer stays in the tab order; `translate` in the transition list, the property v4 actually animates. */
+    /* `motion-reduce:transition-none` takes the whole list rather than `translate` alone: the drawer has
+       no fade to keep, so what is left once the slide goes is an instant arrival. */
     <aside
       id="app-sidemenu"
-      className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,translate,visibility] duration-300 ease-in-out lg:visible lg:h-auto ${
+      className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,translate,visibility] duration-300 ease-in-out motion-reduce:transition-none lg:visible lg:h-auto ${
         isMobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
       } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${railWidth}`}>
       <SidemenuDrawerHeader onClose={onMobileClose} />

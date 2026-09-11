@@ -97,7 +97,7 @@ describe("what the picker says before anyone opens it", () => {
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /* Test files are OUT: this file spells both markers below as literals, and a sweep reading itself
-   would take its own fixtures for the tree's (`.claude/rules/frontend.md`). */
+   would take its own fixtures for the tree's (`.claude/rules/cross-surface.md`). */
 const isProduction = (name: string): boolean => name.endsWith(".tsx") && !isTestFile(name);
 
 /** Every component in the tree, each read once for both of the routes below. */

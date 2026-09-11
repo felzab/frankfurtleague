@@ -98,10 +98,12 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
 }
 
 /**
- * The tint pair is `BewerbungForm.tsx`'s receipt panel, one formula for both tones: a third spelling
- * of a tinted box is one nobody re-measures against the scheme.
+ * The receipt panel at both ends of the application — this page's states and the form's own
+ * „eingegangen“ box
+ * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`) — one
+ * formula for both tones, a second spelling being one nobody re-measures against the scheme.
  */
-const ergebnisPanel = tv({
+export const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",
   variants: {
     tone: {

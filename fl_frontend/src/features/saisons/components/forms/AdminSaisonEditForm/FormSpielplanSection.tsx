@@ -12,7 +12,12 @@ import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/com
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { drawGroupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
-import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
+import {
+  buildSpielplanVorschau,
+  describeAngesetzteSpiele,
+  describeSpielplanPermanenz,
+  describeSpielplanUmfang,
+} from "@/features/saisons/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -26,7 +31,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons";
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
@@ -162,7 +166,7 @@ export function FormSpielplanSection({
 
         if (!res.success) {
           appToast.danger(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", {
-            description: res.error ?? UNKNOWN_REFUSAL,
+            description: res.error,
           });
           return;
         }
@@ -172,7 +176,7 @@ export function FormSpielplanSection({
         const res = await undrawSpielplanAction({ id: saisonId });
 
         if (!res.success) {
-          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error ?? UNKNOWN_REFUSAL });
+          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error });
           return;
         }
 
@@ -455,16 +459,7 @@ export function FormSpielplanSection({
               )}
             </div>
 
-            {/* A first draw on a PLANNED season is the one branch with a repair: the undraw beside it
-                removes what this press writes (`REQ-SPIELPLAN-006`). Nothing replays the rows
-                elsewhere, the log's images being a record to read rather than a restore. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
-              {holdsADraw
-                ? "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück."
-                : saisonStatus === "future"
-                  ? "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde."
-                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück."}
-            </p>
+            <p className="fluid-xxs text-foreground leading-normal font-medium">{describeSpielplanPermanenz({ holdsADraw, saisonStatus })}</p>
           </ConfirmReveal>
         )}
 
@@ -486,15 +481,13 @@ export function FormSpielplanSection({
               {!isConfirming &&
                 (isDrawing ? (
                   <Calendar
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 ) : (
                   <CalendarXmark
+                    className="size-4.5"
                     aria-hidden="true"
-                    width={18}
-                    height={18}
                   />
                 ))}
               {/* The object stays in every label: under a danger heading a bare verb is agreed to
@@ -502,8 +495,8 @@ export function FormSpielplanSection({
               {isDrawing
                 ? isWriting
                   ? replacesDraw
-                    ? "Wird neu angelegt..."
-                    : "Wird angelegt..."
+                    ? "Legt neu an..."
+                    : "Legt an..."
                   : isConfirming
                     ? replacesDraw
                       ? "Ja, löschen und neu anlegen"
@@ -512,7 +505,7 @@ export function FormSpielplanSection({
                       ? "Spielplan neu anlegen"
                       : "Spielplan anlegen"
                 : isWriting
-                  ? "Wird zurückgenommen..."
+                  ? "Nimmt zurück..."
                   : isConfirming
                     ? "Ja, Spielplan zurücknehmen"
                     : "Spielplan zurücknehmen"}

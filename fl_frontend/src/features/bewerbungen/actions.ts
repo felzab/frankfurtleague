@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
@@ -231,7 +231,7 @@ export async function annehmenBewerbungAction(
       annahmeOperation = await annehmenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -244,6 +244,7 @@ export async function annehmenBewerbungAction(
     // (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -310,7 +311,7 @@ export async function ablehnenBewerbungAction(
       absageOperation = await ablehnenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -318,8 +319,10 @@ export async function ablehnenBewerbungAction(
       return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, unlike the acceptance: this moves the application's own `status` and
-    // `entscheidung`, and no cached read holds an application — both triage reads are uncached.
+    // No tag moves, unlike the acceptance: this moves the application's own `status` and
+    // `entscheidung`, and no cached read holds an application. The refresh is what brings the
+    // uncached triage reads back.
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "ablehnenBewerbungAction",
@@ -345,28 +348,24 @@ export async function ablehnenBewerbungAction(
 }
 
 /** A re-send 409 as the message it should render, or `null` when the code is none of these. */
-function mapEinwilligungErneutRefusal(error: unknown): { error?: string } | null {
+function mapEinwilligungErneutRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
     // The code the two decisions answer, given the re-send's own words: a link minted against a
     // decided application would ask somebody to confirm a seat nothing is waiting for.
     case "REQ-BEWERBUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
-          repair: "Lade die Seite neu",
-        }),
-      };
+      return buildRefusal({
+        reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
+        repair: "Lade die Seite neu",
+      });
     // Answered, declined, or a seat an application from before the workflow holds: one sentence for
     // all three, because the control is offered from a page whose state has since moved.
     case "REQ-BEWERBUNG-011":
-      return {
-        error: buildRefusal({
-          reason: "Für diese Rolle steht keine Bestätigung mehr aus",
-          repair: "Lade die Seite neu",
-        }),
-      };
+      return buildRefusal({
+        reason: "Für diese Rolle steht keine Bestätigung mehr aus",
+        repair: "Lade die Seite neu",
+      });
     default:
       return null;
   }
@@ -500,7 +499,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       erneutOperation = await erneutSendenEinwilligung(validated.data);
     } catch (error) {
       const refusal = mapEinwilligungErneutRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
@@ -508,8 +507,9 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own confirmation block
+    // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
+    refresh();
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
@@ -593,7 +593,7 @@ export async function kontaktEmailKorrigierenAction(
       korrekturOperation = await korrigierenKontaktEmail(validated.data);
     } catch (error) {
       const refusal = mapKontaktEmailRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -601,8 +601,9 @@ export async function kontaktEmailKorrigierenAction(
       return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own contact block and
+    // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
+    refresh();
 
     let zustellung;
     try {

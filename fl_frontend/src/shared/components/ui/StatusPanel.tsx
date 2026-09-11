@@ -5,16 +5,16 @@ import { DISPLAY_HEADING } from "./displayType";
 import type { ReactNode } from "react";
 
 /**
- * The status-panel family: `page` is the full-viewport treatment, a watermark behind a blurred panel, and `inline` the
- * softer card for an error taking down one dashboard region. The copy stays at each call site; the chrome lives here.
+ * The status-panel family: `page` is the display treatment, a watermark behind a blurred panel, and `inline` the softer
+ * card for an error taking down one dashboard region. The copy stays at each call site; the chrome lives here.
  */
 const statusPanel = tv({
   slots: {
     root: "relative flex flex-col items-center justify-center text-center",
     watermark: "pointer-events-none mb-4 flex items-center justify-center select-none sm:absolute sm:inset-0 sm:mb-0",
     panel: "border-border relative z-10 flex w-full flex-col items-center rounded-2xl border",
-    badge: "bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm",
-    dot: "h-2 w-2 animate-pulse rounded-full",
+    badge: "bg-background border-border mb-6 flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-sm",
+    dot: "size-2 animate-pulse rounded-full",
     badgeText: "text-foreground fluid-xxs sm:fluid-xs font-extrabold tracking-widest uppercase",
     message: "text-foreground-muted leading-relaxed font-medium",
     digest: "text-foreground-muted fluid-xxs mt-4 font-mono tracking-wider",
@@ -22,17 +22,31 @@ const statusPanel = tv({
   variants: {
     variant: {
       page: {
-        root: "bg-background min-h-[100dvh] overflow-hidden p-4 sm:p-6",
+        root: "bg-background overflow-hidden p-4 sm:p-6",
         panel: "bg-surface/70 max-w-2xl p-6 text-center shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-12 md:p-16",
         badge: "sm:mb-8 sm:px-4",
         dot: "sm:h-2.5 sm:w-2.5",
-        message: "fluid-base mt-4 max-w-md sm:mt-5",
+        message: "fluid-base mt-4 max-w-md sm:mt-6",
       },
       inline: {
-        root: "h-full min-h-[400px] w-full p-6",
+        root: "w-full p-6",
         panel: "bg-surface/50 max-w-lg p-8 shadow-sm",
         message: "fluid-sm mt-3",
       },
+    },
+    /**
+     * Which box the panel is asked to fill. `page` grounds on `document`, so a panel moved under a
+     * shell keeps a ground that is a navbar too tall until this is passed with it.
+     */
+    fills: {
+      document: { root: "min-h-[100dvh]" },
+      /*
+        The public shell's own floor: a taller box pushes the footer up onto the first screen, and
+        `flex-1` is what covers a shell floor risen past this one. `w-full` because that shell
+        centres its children (`fl_frontend/src/shared/components/layout/shell/PublicShell.tsx`).
+      */
+      shell: { root: "min-h-[calc(100dvh-var(--navbar-height)-1px)] w-full flex-1" },
+      region: { root: "h-full min-h-[400px]" },
     },
     tone: {
       danger: { dot: "bg-danger" },
@@ -45,6 +59,7 @@ const statusPanel = tv({
 export function StatusPanel({
   variant = "page",
   tone = "danger",
+  fills,
   watermark,
   badgeLabel,
   heading,
@@ -55,10 +70,11 @@ export function StatusPanel({
 }: {
   variant?: "page" | "inline";
   tone?: "danger" | "warning";
+  fills?: "document" | "shell" | "region";
   /** The oversized glyph behind the page variant ("ERROR", "404"). Sized by the caller. */
   watermark?: ReactNode;
   badgeLabel: string;
-  /** Rendered as h1 on `page` (the route's only content) and h2 on `inline` (the shell has the h1). */
+  /** Rendered as h1 on `page`, which carries the route's only one, and h2 on `inline` (the shell has the h1). */
   heading: ReactNode;
   message: string;
   digestLabel?: string;
@@ -66,7 +82,7 @@ export function StatusPanel({
   /** The action row — `ctaButton()`-styled links/buttons supplied by the caller. */
   children: ReactNode;
 }) {
-  const styles = statusPanel({ variant, tone });
+  const styles = statusPanel({ variant, tone, fills: fills ?? (variant === "page" ? "document" : "region") });
   const Heading = variant === "page" ? "h1" : "h2";
 
   return (

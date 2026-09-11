@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement } from "react";
 
+import { blankComments } from "@/core/blankComments.ts";
+import { openingTag } from "@/core/openingTag.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { formButton } from "./formButtons";
@@ -16,51 +19,15 @@ import { PANEL_REVEAL } from "./motion";
 */
 const { ConfirmActionRow } = await import("./ConfirmActionRow.tsx");
 const { ConfirmReadoutRow } = await import("./ConfirmReadoutRow.tsx");
-const { ConfirmReveal } = await import("./ConfirmReveal.tsx");
+const { ConfirmReveal, CONFIRM_DANGER_PANEL } = await import("./ConfirmReveal.tsx");
 
-/**
- * Source text with every comment blanked first. `ConfirmReveal`'s JSDoc names `role="alert"` while
- * explaining it, so a raw match survives the attribute's deletion — and a panel's `doesNotMatch` of
- * the same string fails it for saying so.
- */
-function code(source: string): string {
-  const out = [...source];
-  const blank = (from: number, to: number): void => {
-    for (let at = from; at < to; at++) if (out[at] !== "\n") out[at] = " ";
-  };
-
-  for (let at = 0; at < source.length; at++) {
-    const here = source.slice(at, at + 2);
-
-    if (here === "//" || here === "/*") {
-      const ends = here === "//" ? source.indexOf("\n", at) : source.indexOf("*/", at + 2);
-      const to = ends === -1 ? source.length : here === "//" ? ends : ends + 2;
-      blank(at, to);
-      at = to - 1;
-      continue;
-    }
-
-    // Skipped whole rather than scanned: a `//` inside a URL or a class list would otherwise blank
-    // the rest of its line. Comments are consumed above first, so an apostrophe inside one is safe.
-    const quote = source[at];
-    if (quote === '"' || quote === "'" || quote === "`") {
-      for (at += 1; at < source.length; at++) {
-        if (source[at] === "\\") {
-          at += 1;
-          continue;
-        }
-        if (source[at] === quote) break;
-      }
-    }
-  }
-
-  return out.join("");
-}
-
-const read = (file: string): string => code(readFileSync(path.resolve(import.meta.dirname, file), "utf8"));
+/* Blanked rather than raw: `ConfirmReveal`'s JSDoc names `role="alert"` while explaining it, so a
+   panel's `doesNotMatch` of that string fails it for saying so. */
+const read = (file: string): string => blankComments(readFileSync(path.resolve(import.meta.dirname, file), "utf8"));
 
 const REVEAL_SOURCE = read("ConfirmReveal.tsx");
 const ACTION_ROW_SOURCE = read("ConfirmActionRow.tsx");
+const DELETE_MODAL_SOURCE = read("ConfirmDeleteModal.tsx");
 
 /** The armed shell as a panel renders it, around a child of the panel's own. */
 const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: "folge" }, "Der Spielplan wird gelöscht.") });
@@ -84,56 +51,304 @@ const beschriftungen = (html: string): string[] => [...html.matchAll(/<button\b[
 const abbrechen = (html: string): string => [...html.matchAll(/<button\b[^>]*>/g)][1]?.[0] ?? "";
 
 /**
- * Every panel that escalates a press, DISCOVERED rather than typed.
+ * Every panel that escalates a press, discovered rather than typed.
  *
- * A roster counted against its own length can never report an omission.
- * `useTwoPressConfirm` is the discriminator because it IS the shape.
+ * A roster counted against its own length reports no omission, and neither does one compared against
+ * a filter of itself: the two below are found independently and must agree.
  */
-function panelsUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return panelsUnder(full);
+const panelsUnder = (dir: string, holds: (source: string, file: string) => boolean): string[] =>
+  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).filter((full) => holds(readFileSync(full, "utf8"), full));
 
-    return entry.name.endsWith(".tsx") && readFileSync(full, "utf8").includes("useTwoPressConfirm(") ? [full] : [];
+const FEATURES = path.resolve(import.meta.dirname, "..", "..", "..", "features");
+const named = (files: string[]): string[] =>
+  files.map((file) =>
+    path
+      .relative(import.meta.dirname, file)
+      .split(path.sep)
+      .join("/"),
+  );
+
+const PANELS = named(panelsUnder(FEATURES, (source) => source.includes("useTwoPressConfirm(")));
+
+/** What makes a tag a control: a panel arming under a component this cannot name sits in neither
+    roster, and two rosters missing the same file agree. */
+const PRESS = /\bon(?:Press|Click)=\{/;
+/** The Button family beside the press, so a control taking a press by a route this cannot see is still found. */
+const CONTROL_NAME = /^[\w.]*[Bb]utton$/;
+const CONTROL_INSIDE = /<[\w.]*[Bb]utton\b|\bon(?:Press|Click)=\{/;
+
+type Kontrolle = { tag: string; kinder: string; von: number; bis: number };
+
+/**
+ * Every control in one source, as its opening tag and the region it branches on, and every wrapper
+ * whose own press guards the control inside it rather than committing anything.
+ */
+function controls(source: string, file: string): { gefunden: Kontrolle[]; huellen: [number, number][] } {
+  const gefunden: Kontrolle[] = [];
+  const huellen: [number, number][] = [];
+
+  for (let at = 0; ;) {
+    const treffer = /<([A-Za-z][\w.]*)/.exec(source.slice(at));
+    if (treffer === null) return { gefunden, huellen };
+
+    const oeffnet = at + treffer.index;
+    const name = treffer[1]!;
+    const tag = openingTag(source, oeffnet);
+    const benannt = CONTROL_NAME.test(name);
+    // Throw rather than skip: a control this cannot read drops its whole panel out of the roster,
+    // which is the silent loss a second discriminator exists to prevent.
+    if (benannt && tag === "") throw new Error(`${file}: a control's opening tag could not be read`);
+
+    if (!benannt && !(tag !== "" && PRESS.test(tag))) {
+      at = oeffnet + 1;
+      continue;
+    }
+
+    if (tag.endsWith("/>")) {
+      // Its own attributes are the region it branches on: a control with no children rewords itself
+      // through a prop, and a panel spelled that way would otherwise sit in neither roster.
+      gefunden.push({ tag, kinder: tag, von: oeffnet, bis: oeffnet + tag.length });
+      at = oeffnet + tag.length;
+      continue;
+    }
+
+    const schliesst = source.indexOf(`</${name}>`, oeffnet);
+    if (schliesst === -1) throw new Error(`${file}: a control never closes`);
+    const kinder = source.slice(oeffnet + tag.length, schliesst);
+
+    if (!benannt && CONTROL_INSIDE.test(kinder)) {
+      // A press around a control guards that control rather than committing anything, so judging the
+      // outer tag would read the inner one's branches against the outer one's `isDisabled`.
+      huellen.push([oeffnet, oeffnet + tag.length]);
+      at = oeffnet + tag.length;
+      continue;
+    }
+
+    gefunden.push({ tag, kinder, von: oeffnet, bis: schliesst });
+    at = schliesst + 1;
+  }
+}
+
+/** The braced value of one attribute, brace-counted so a nested object or an arrow does not end it. */
+function attributWert(tag: string, name: string, file: string): string {
+  // Bounded on the left so `isDisabled={…}` and `aria-disabled={…}` are not read as the plain
+  // spelling: a control closed by one this misses is promoted onto the roster as an arming one.
+  const geschrieben = new RegExp(String.raw`(?<![\w-])` + name + String.raw`=\{`).exec(tag);
+  if (geschrieben === null) return "";
+
+  const von = tag.indexOf("{", geschrieben.index);
+  let tiefe = 0;
+
+  for (let at = von; at < tag.length; at++) {
+    if (tag[at] === "{") tiefe += 1;
+    else if (tag[at] === "}") {
+      tiefe -= 1;
+      if (tiefe === 0) return tag.slice(von + 1, at);
+    }
+  }
+
+  throw new Error(`${file}: ${name} never closes`);
+}
+
+/** The `||` operands at the top level: a flag nested inside one does not close the control alone. */
+function disjunkte(ausdruck: string): string[] {
+  const teile: string[] = [];
+  let tiefe = 0;
+  let von = 0;
+
+  for (let at = 0; at < ausdruck.length; at++) {
+    const hier = ausdruck[at]!;
+
+    if ("([{".includes(hier)) tiefe += 1;
+    else if (")]}".includes(hier)) tiefe -= 1;
+    else if (tiefe === 0 && hier === "|" && ausdruck[at + 1] === "|") {
+      teile.push(ausdruck.slice(von, at).trim());
+      at += 1;
+      von = at + 1;
+    }
+  }
+
+  teile.push(ausdruck.slice(von).trim());
+
+  return teile;
+}
+
+/** A flag as a reader writes one: a bare name, or a member of the object holding the panel's state. */
+const FLAG = String.raw`([A-Za-z_$][\w$]*(?:\.[\w$]+)*)`;
+/** The condition of a branch wherever one stands, a reveal computed into a variable included. */
+const GEZWEIGT = new RegExp(String.raw`[{=(,:]\s*!?\s*` + FLAG + String.raw`\s*(?:&&|\?)`, "g");
+/** A flag handed to a component, which reveals whatever that component renders. */
+const GEREICHT = new RegExp(String.raw`\b[\w-]+=\{\s*!?\s*` + FLAG + String.raw`\s*\}`, "g");
+
+/** The identifiers a region outside every control is revealed by, gated in a brace or handed on. */
+const enthuellt = (source: string): Set<string> =>
+  new Set([...source.matchAll(GEZWEIGT), ...source.matchAll(GEREICHT)].map((treffer) => treffer[1]!));
+
+const ZWEIG = new RegExp(String.raw`[{:(]\s*!?\s*` + FLAG + String.raw`\s*(?:&&|\?)`, "g");
+
+/** The identifiers a control's children branch on, a negation and a ternary's later arms included. */
+const zweige = (kinder: string): Set<string> => new Set([...kinder.matchAll(ZWEIG)].map((treffer) => treffer[1]!));
+
+/**
+ * An ARMING flag reveals a region outside the control, rewords the control that commits, and leaves
+ * it pressable. The last clause parts it from a flag that only says a write is in flight, which
+ * closes the control.
+ */
+function armsAPress(source: string, file: string): boolean {
+  const { gefunden, huellen } = controls(source, file);
+  // Split by code unit rather than spread by code point: every `von` and `bis` above is `indexOf`'s
+  // or `length`'s, and one astral character puts a code-point array a position out from there on.
+  const draussen = source.split("");
+  // Blanked rather than cut out: two spans that overlap would join the text on either side of them
+  // into a gate neither half holds.
+  const leeren = ([von, bis]: [number, number]): void => {
+    for (let at = von; at < bis; at++) if (draussen[at] !== "\n") draussen[at] = " ";
+  };
+  for (const { von, bis } of gefunden) leeren([von, bis]);
+  for (const huelle of huellen) leeren(huelle);
+
+  const aussen = draussen.join("");
+  // A press standing here belongs to no control above — a tag whose generic argument stopped the
+  // walk reading it — and a panel this reader skipped whole is in neither roster.
+  if (PRESS.test(aussen)) throw new Error(`${file}: a press stands outside every control this reader can read`);
+
+  // Read off what is left when every control is gone, so a flag branching the control's own label
+  // can never stand in for the region it is supposed to reveal.
+  const gates = enthuellt(aussen);
+
+  return gefunden.some(({ tag, kinder }) => {
+    // Both spellings: a native `<button>` takes `disabled`, and a submitting form whose control this
+    // reads as open lands on the roster beside the panels that actually arm.
+    const geschlossen = new Set([...disjunkte(attributWert(tag, "isDisabled", file)), ...disjunkte(attributWert(tag, "disabled", file))]);
+
+    return [...zweige(kinder)].some((flag) => gates.has(flag) && !geschlossen.has(flag));
   });
 }
 
-const PANELS = panelsUnder(path.resolve(import.meta.dirname, "..", "..", "..", "features")).map((file) =>
-  path
-    .relative(import.meta.dirname, file)
-    .split(path.sep)
-    .join("/"),
-);
+/* What a panel IS rather than what it imports: `isConfirming` is the name the shared hook's return
+   is destructured to, so a roster reading that name is the roster above under a second spelling. */
+const PANELS_BY_SHAPE = named(panelsUnder(FEATURES, (source, file) => armsAPress(blankComments(source), file)));
 
-/**
- * One JSX opening tag, from `<Name` to the `>` that closes it. Braces are counted, so a `>` inside an
- * attribute expression — an arrow, a comparison, a class list — does not end the tag early.
- */
-function openingTag(source: string, from: number): string {
-  let depth = 0;
+/* Every panel in the tree arms under one name, so no count over the tree separates a reader of the
+   shape from a reader of that name. These are what the tree cannot show. */
+const HANDGEROLLT = [
+  "export function FormLoeschenSection() {",
+  "  const [bestaetigt, setBestaetigt] = useState(false);",
+  "  const [laeuft, setLaeuft] = useState(false);",
+  "  return (",
+  "    <section>",
+  "      {bestaetigt && (",
+  '        <div role="alert">',
+  "          <p>Bist Du Dir sicher?</p>",
+  "        </div>",
+  "      )}",
+  "      <Button",
+  "        isDisabled={laeuft}",
+  "        onPress={() => (bestaetigt ? loeschen() : setBestaetigt(true))}",
+  '        className={bestaetigt ? "bg-danger" : "bg-default"}>',
+  "        {!bestaetigt && <TrashBin />}",
+  '        {laeuft ? "Löscht..." : bestaetigt ? "Ja, endgültig löschen" : "Löschen"}',
+  "      </Button>",
+  "    </section>",
+  "  );",
+  "}",
+].join("\n");
 
-  for (let at = from; at < source.length; at++) {
-    const here = source[at];
-    if (here === "{") depth += 1;
-    else if (here === "}") depth -= 1;
-    else if (here === ">" && depth === 0) return source.slice(from, at + 1);
-  }
+const NUR_UNTERWEGS = [
+  "export function BewerbungForm() {",
+  "  const [sendet, setSendet] = useState(false);",
+  "  return (",
+  "    <Form>",
+  "      {sendet && <Spinner />}",
+  "      <Button",
+  "        isDisabled={sendet}>",
+  "        {!sendet && <Paperclip />}",
+  '        {sendet ? "Sendet..." : "Absenden"}',
+  "      </Button>",
+  "    </Form>",
+  "  );",
+  "}",
+].join("\n");
 
-  return "";
-}
+/* One escalation per spelling, each defeating a reader anchored on `{flag && …}` beside a `<Button>`
+   with children: a panel wearing one sits in neither roster, and the two then agree over nothing. */
+const SCHREIBWEISEN: Record<string, string> = {
+  "a control named for the press rather than the element":
+    '{armed && <Alarm />}\n<PressButton isDisabled={laeuft} onPress={go}>{armed ? "Ja" : "Los"}</PressButton>',
+  "a control with no Button anywhere in its name":
+    '{armed && <Alarm />}\n<Pressable isDisabled={laeuft} onPress={go}>{armed ? "Ja" : "Los"}</Pressable>',
+  "a Button-family control taking its press from the form":
+    '{armed && <Alarm />}\n<DangerButton isDisabled={laeuft} type="submit">{armed ? "Ja" : "Los"}</DangerButton>',
+  "a self-closing control taking its label as a prop":
+    '{armed && <Alarm />}\n<Button isDisabled={laeuft} label={armed ? "Ja" : "Los"} onPress={go} />',
+  "a reveal gated on a member of the state object":
+    '{zustand.armed && <Alarm />}\n<Button isDisabled={laeuft}>{zustand.armed ? "Ja" : "Los"}</Button>',
+  "a reveal handed to a component as a prop": '<Alarm isOpen={armed} />\n<Button isDisabled={laeuft}>{armed ? "Ja" : "Los"}</Button>',
+  "a reveal computed into a variable the brace renders":
+    'const folge = armed ? <Alarm /> : null;\n{folge}\n<Button isDisabled={laeuft}>{armed ? "Ja" : "Los"}</Button>',
+};
 
-describe("the source these files are read as", () => {
-  /* First, and over cases rather than the files: a stripper that quietly stopped removing anything
-     would put every negative case below back to passing over a comment, and every positive one back
-     to passing off a JSDoc. */
-  it("blanks every comment form and leaves the code beside them", () => {
-    for (const comment of ['/** role="alert" */', '// role="alert"', '{/* role="alert" */}']) {
-      assert.doesNotMatch(code(comment), /role="alert"/, `${comment}: survived the stripper`);
+const NATIV_UNTERWEGS = '{sendet && <Spinner />}\n<button disabled={sendet}>{sendet ? "Sendet..." : "Absenden"}</button>';
+
+/* The reveal stands against the wrapper's own `>` or this sample cannot fail: `armsAPress` blanks by
+   code-unit offsets, and a surrogate pair above the span moves what it blanks onto that reveal. */
+const umhuelltHinter = (kopf: string): string =>
+  `${kopf}<div onPress={guard}>{armed && <Alarm />}<Button isDisabled={laeuft} onPress={go}>{armed ? "Ja" : "Los"}</Button></div>`;
+
+describe("the shape the second roster reads", () => {
+  /* The failure the pair exists to catch: a panel that arms without importing the hook. Its flag is
+     spelled differently on purpose — the shared spelling is the one both routes already share. */
+  it("finds a panel arming its own state under a name of its own", () => {
+    assert.ok(!HANDGEROLLT.includes("useTwoPressConfirm(") && !HANDGEROLLT.includes("isConfirming"), "the sample takes the shared spelling");
+    assert.ok(
+      armsAPress(blankComments(HANDGEROLLT), "handgerollt"),
+      "a panel arming its own state under its own name is absent from the roster",
+    );
+  });
+
+  it("finds a panel arming a press however its control and its reveal are spelled", () => {
+    for (const [was, quelle] of Object.entries(SCHREIBWEISEN)) {
+      assert.ok(armsAPress(blankComments(quelle), was), `${was}: absent from the roster`);
     }
+  });
 
-    assert.match(code('<div role="alert">'), /role="alert"/, "the attribute did not survive the stripper");
-    assert.match(code('href="https://x.test" role="alert"'), /role="alert"/, "a URL inside a string ate the code after it");
-    assert.match(code('const label = "a // b"; role="alert"'), /role="alert"/, "a comment marker inside a string ate the code after it");
+  it("finds a panel whose own copy carries an astral character", () => {
+    assert.ok(
+      armsAPress(blankComments(umhuelltHinter("<p>Postfach</p>\n")), "ohne"),
+      "the sample is off the roster with no glyph in it at all",
+    );
+    assert.ok(
+      armsAPress(blankComments(umhuelltHinter("<p>Postfach \u{1F4EC}</p>\n")), "mit"),
+      "one emoji in a panel's copy drops that panel out of the roster",
+    );
+  });
+
+  /* A flag saying the write is in flight reveals a region and rewords the control exactly as an
+     arming one does, so a reader taking those two alone puts every submitting form on the roster. */
+  it("passes over a control that only closes while its write is in flight", () => {
+    assert.ok(!armsAPress(blankComments(NUR_UNTERWEGS), "unterwegs"), "a form that only reports its own request is on the roster");
+  });
+
+  /* `isDisabled` is HeroUI's spelling and a native control takes `disabled`, so a reader holding
+     only the first reads an ordinary submitting form as one that escalates. */
+  it("passes over a native button closed by the plain `disabled` spelling", () => {
+    assert.ok(!armsAPress(blankComments(NATIV_UNTERWEGS), "nativ"), "a native control closing on its own request is on the roster");
+  });
+
+  /* A control the reader cannot parse would otherwise leave its panel out of the population, where a
+     missing member reads as agreement between the two routes. */
+  it("fails on a control it cannot read rather than dropping its panel", () => {
+    assert.throws(() => armsAPress("<Button isDisabled={x}>{y ? 1 : 2}", "offen"), /never closes/);
+    assert.throws(() => armsAPress("<Button title={x}<div></Button>", "wirr"), /could not be read/);
+  });
+
+  /* The residue of the walk above, on a tag whose name is no control's: a lost brace count stops the
+     tag being read, and a press on such a tag belongs to a control this reader never judged. */
+  it("fails on a press it could not place rather than passing the file over", () => {
+    assert.throws(
+      () => armsAPress("<Pressable title={x}<div> onPress={() => go()}>{armed ? 1 : 2}</Pressable>", "unlesbar"),
+      /stands outside every control/,
+    );
   });
 });
 
@@ -168,6 +383,18 @@ describe("the armed reveal", () => {
 
     // A knob nobody has passed yet changes nothing it renders, so the declaration is where one shows.
     assert.doesNotMatch(REVEAL_SOURCE, /\bvariant\b|\bgap\?:|\btone\b/, "the shell grew a knob");
+  });
+
+  /* The delete dialog takes the box and not the reveal, for the reason its own step-2 comment gives
+     (`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx`). Two spellings of that box render
+     identically, so which of them stands there is legible in the source alone. */
+  it("draws its tint from the constant the delete dialog draws from", () => {
+    for (const token of CONFIRM_DANGER_PANEL.split(" ")) {
+      assert.ok(wurzelKlassen(REVEAL).includes(token), `the reveal is missing ${token}, which the shared box carries`);
+    }
+
+    assert.match(DELETE_MODAL_SOURCE, /\$\{CONFIRM_DANGER_PANEL\}/, "the delete dialog's step two dresses a box of its own");
+    assert.doesNotMatch(DELETE_MODAL_SOURCE, /bg-danger\/5\b|border-danger\/20\b/, "the delete dialog spells the box beside the constant");
   });
 });
 
@@ -256,12 +483,14 @@ describe("every panel that escalates a press", () => {
   /* The whole point of the extraction. A panel spelling the shell again is one that drifts from the
      rest the next time any of the three shared components moves. */
   it("render the shared mechanism rather than spelling their own", () => {
-    // Against the OTHER two discriminators, never against its own length: a roster counted against
-    // itself reports every omission as a pass.
+    // The reveal and the fill are filters of this roster, so they catch a panel spelling its own
+    // shell and never one the hook import left out of the walk. `PANELS_BY_SHAPE` is the route that
+    // catches that.
     const byReveal = panelsMatching("<ConfirmReveal>");
     const byFill = panelsMatching("confirmButton(isConfirming)");
 
     assert.ok(PANELS.length > 0, "the sweep found no panels at all, so every case below passes over nothing");
+    assert.deepEqual(PANELS, PANELS_BY_SHAPE, "a panel arms a press without taking the shared hook, or the reverse");
     assert.deepEqual(PANELS, byReveal, "a panel renders the shared reveal without the shared armed state, or the reverse");
     assert.deepEqual(PANELS, byFill, "a panel wears the shared armed fill without the shared armed state, or the reverse");
 

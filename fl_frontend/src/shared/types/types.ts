@@ -44,7 +44,11 @@ export type SidemenuStructure<TIcon extends string> = SidemenuStructureEntry<TIc
 
 export type ActionFailure = {
   success: false;
-  error?: string;
+  /**
+   * Required, so no reader writes a fallback beside it: `toActionErrorResult` answers every thrown
+   * error with one, and a call site's second sentence would stand where nothing can reach it.
+   */
+  error: string;
   /** Keyed by the field's dotted payload path. `error` stays the transport-level fallback: a 500 belongs to no field. */
   fieldErrors?: FieldErrors;
   /**
@@ -60,10 +64,17 @@ export type ActionFailure = {
  */
 export type ActionSuccess<TPayload extends object = object> = TPayload & {
   success: true;
-  message?: string;
+  /** Required: every write composes one, and a caller may raise it unguarded. */
+  message: string;
 };
 
 export type ActionResult<TPayload extends object = object> = ActionSuccess<TPayload> | ActionFailure;
+
+/**
+ * The arm for a read or a dry run routed through `runAdminMutation`: its answer is data a caller
+ * places itself, so requiring a success sentence here would compose German nothing renders.
+ */
+export type QueryResult<TPayload extends object = object> = (TPayload & { success: true; message?: string }) | ActionFailure;
 
 type SubmittedEmail = {
   /** Safe to echo back: it is the user's own input rather than a lookup result, so it reveals no registration. */

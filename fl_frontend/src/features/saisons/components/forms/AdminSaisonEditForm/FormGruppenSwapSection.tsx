@@ -19,7 +19,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -45,12 +44,11 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
   return (
     <div
       aria-hidden="true"
-      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-1.5 justify-self-center rounded-full px-3 font-bold">
+      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
+        aria-hidden="true"
         className="size-4 shrink-0 rotate-90 sm:rotate-0"
-        width={16}
-        height={16}
       />
       {first !== null && second !== null && (
         <span>
@@ -149,7 +147,7 @@ export function FormGruppenSwapSection({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
 
       if (!res.success) {
-        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Gruppen nicht getauscht", { description: res.error });
         return;
       }
 
@@ -264,7 +262,7 @@ export function FormGruppenSwapSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
+            <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow
                 isConfirming={isConfirming}
                 isPending={isSwapping}
@@ -278,9 +276,8 @@ export function FormGruppenSwapSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}

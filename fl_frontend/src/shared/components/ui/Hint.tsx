@@ -106,7 +106,12 @@ function RevealHint({ label, body, trigger }: { label: string; body: HintBody; t
         aria-label={label}
         className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
         onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
+        {trigger ?? (
+          <CircleInfo
+            aria-hidden="true"
+            className="size-(--hint-icon-size)"
+          />
+        )}
       </Popover.Trigger>
 
       <Popover.Content
@@ -117,7 +122,7 @@ function RevealHint({ label, body, trigger }: { label: string; body: HintBody; t
           className={`${overlayPanel()} fluid-xs text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none`}>
           <p>{body.lead}</p>
           {body.points !== undefined && body.points.length > 0 && (
-            <ul className="flex flex-col gap-y-1.5">
+            <ul className="flex flex-col gap-y-1">
               {body.points.map((point) => (
                 <li key={point.text}>
                   {point.term !== undefined && (

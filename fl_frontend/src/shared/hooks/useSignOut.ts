@@ -42,16 +42,18 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         const result = await onSignOut();
 
         if (result && !result.success) {
-          appToast.danger("Abmelden fehlgeschlagen", { description: result.error ?? "Versuche es erneut." });
+          appToast.danger("Nicht abgemeldet", { description: result.error });
           return;
         }
 
+        // The fallback stands for `null`, which `FormState` admits and no sign-out sends: the catch
+        // below is what answers a round trip that did not land.
         appToast.success(result?.message ?? "Erfolgreich abgemeldet");
         // `refresh()` drops the cached server render of the admin shell just left behind.
         router.push("/");
         router.refresh();
       } catch {
-        appToast.danger("Abmelden fehlgeschlagen", { description: "Versuche es erneut." });
+        appToast.danger("Nicht abgemeldet", { description: "Versuche es erneut." });
       }
     });
   };

@@ -45,7 +45,10 @@ function ClearFieldButton({ label, onClear, groupRef }: { label: string; onClear
         groupRef.current?.focus();
         onClear();
       }}>
-      <Xmark />
+      <Xmark
+        aria-hidden="true"
+        className="size-4"
+      />
     </button>
   );
 }

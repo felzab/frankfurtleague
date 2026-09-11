@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 
+import { FLSpielSchema } from "../spiele/schemas.ts";
 import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
+import { FLGruppenTeamSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
@@ -23,17 +25,38 @@ import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMe
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const GRUPPEN_TEAM: FLGruppenTeam = FLGruppenTeamSchema.parse({
+  id: TEAM_ID(0),
+  name: "SV Beispiel",
+  shorthand: "SB",
+  // Every counter at zero, so no fixture here states what a played match is worth: the ladder is the
+  // backend's and `.claude/CLAUDE.md` §7 **table** keeps it out of this surface entirely.
+  statistik: {
+    anzahl_gespielte_spiele: 0,
+    siege: 0,
+    niederlagen: 0,
+    unentschieden: 0,
+    tore_geschossen: 0,
+    tore_kassiert: 0,
+    punkte: 0,
+    anzahl_abgesagte_spiele: 0,
+  },
+  austritt_type: null,
+  anzahl_ausstehende_spiele: 0,
+} satisfies FLGruppenTeam);
+
 /**
- * One row of a standing, reduced to the fields this derivation reads. A team is walked past because
- * `austritt_type` is non-null, never because of which route out of the season it names.
+ * One row of a standing. A team is walked past because `austritt_type` is non-null, never because of
+ * which route out of the season it names.
  */
-const row = (seed: number, { gespielt = 3, ausstehend = 0, disqualified = false } = {}) =>
-  ({
-    id: TEAM_ID(seed),
-    austritt_type: disqualified ? "disqualifikation" : null,
-    statistik: { anzahl_gespielte_spiele: gespielt },
-    anzahl_ausstehende_spiele: ausstehend,
-  }) as FLGruppenTeam;
+const row = (seed: number, { gespielt = 3, ausstehend = 0, disqualified = false } = {}): FLGruppenTeam => ({
+  ...GRUPPEN_TEAM,
+  id: TEAM_ID(seed),
+  austritt_type: disqualified ? "disqualifikation" : null,
+  statistik: { ...GRUPPEN_TEAM.statistik, anzahl_gespielte_spiele: gespielt },
+  anzahl_ausstehende_spiele: ausstehend,
+});
 
 const marked = (teams: FLGruppenTeam[], qualifiersPerGroup = 2) => [...computeQualifyingTeamIds({ teams, qualifiersPerGroup })];
 
@@ -128,7 +151,35 @@ describe("computePlatzByTeamId", () => {
 const SUBJECT = TEAM_ID(1);
 const OPPONENT = TEAM_ID(2);
 
-/** One fixture, reduced to the fields the season's progress is read from. */
+const seite = (teamId: string): FLSpiel["team1"] => ({
+  team_id: teamId,
+  tore: null,
+  name: "SV Beispiel",
+  shorthand: "SB",
+  austritt_type: null,
+});
+
+/** Complete and parsed at construction, for `GRUPPEN_TEAM`'s reason. */
+const SPIEL: FLSpiel = FLSpielSchema.parse({
+  id: "6890a1b2c3d4e5f607190101",
+  spieltag_id: "6890a1b2c3d4e5f607190102",
+  team1: seite(SUBJECT),
+  team2: seite(OPPONENT),
+  team1_quelle: null,
+  team2_quelle: null,
+  datum: null,
+  uhrzeit: null,
+  ort: null,
+  schiedsrichter: null,
+  ergebnis: null,
+  elfmeterschiessen: null,
+  spiel_nr: 1,
+  sonderereignis: null,
+  saison_phase: "gruppenphase",
+  saison_id: "2026",
+  notiz: null,
+} satisfies FLSpiel);
+
 const fixture = ({
   phase,
   ergebnis = null,
@@ -139,13 +190,13 @@ const fixture = ({
   ergebnis?: string | null;
   heim?: string;
   gast?: string;
-}) =>
-  ({
-    saison_phase: phase,
-    ergebnis,
-    team1: { team_id: heim },
-    team2: { team_id: gast },
-  }) as FLSpiel;
+}): FLSpiel => ({
+  ...SPIEL,
+  saison_phase: phase,
+  ergebnis,
+  team1: seite(heim),
+  team2: seite(gast),
+});
 
 const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf({ spiele, teamId });
 

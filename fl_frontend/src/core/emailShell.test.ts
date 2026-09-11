@@ -4,6 +4,8 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
+
 import type * as EmailShell from "./emailShell.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -73,15 +75,7 @@ function constant(name: string): string {
  * The site's own tokens, read out of the season scheme rather than restated here. Nothing else pins
  * the email's palette to the app's: both are hand-written hex, and a token moving alone is invisible.
  */
-function tokens(theme: "light" | "dark"): Map<string, string> {
-  const css = readFileSync(path.resolve(import.meta.dirname, "..", "app", "schemes", "2027.css"), "utf8");
-  const opener = theme === "light" ? ":root," : `[data-theme="dark"] {`;
-  const block = css.slice(css.indexOf(opener));
-
-  return new Map(
-    [...block.slice(0, block.indexOf("\n  }")).matchAll(/(--[a-z-]+):\s*(#[0-9a-f]{3,8});/g)].map((m) => [m[1] ?? "", m[2] ?? ""]),
-  );
-}
+const SCHEME = readFileSync(path.resolve(import.meta.dirname, "..", "app", "schemes", "2027.css"), "utf8");
 
 /** The one stylesheet, contents included -- the only part of a message not stated inline. */
 function stylesheet(html: string): string {
@@ -254,12 +248,10 @@ describe("the shared email shell", () => {
 
   /* I asked for the site's dark mode rather than a dark mode of the email's own. */
   it("draws both themes in the site's own tokens", () => {
-    const hell = tokens("light");
-    const dunkel = tokens("dark");
+    const hell = schemeTokens(SCHEME, "light");
+    const dunkel = schemeTokens(SCHEME, "dark");
 
-    // Far above the eight the register below reads: a scheme declares its whole set in both blocks,
-    // so a parse finding a handful has stopped at the first thing it matched.
-    assert.ok(hell.size > 30 && dunkel.size > 30, "the season scheme was not parsed, so this test proves nothing");
+    assertEveryTokenIsRead(SCHEME);
     for (const [name, token, palette] of [
       ["CARD_COLOR", "--bg-base", hell],
       ["SURFACE_COLOR", "--bg-surface", hell],

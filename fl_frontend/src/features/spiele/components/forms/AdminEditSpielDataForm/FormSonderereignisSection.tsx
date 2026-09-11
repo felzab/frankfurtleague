@@ -98,7 +98,7 @@ export function FormSonderereignisSection({
             className="w-full">
             <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
 
-            <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
+            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
               {/* From the prop rather than `Select.Value`, which resolves its label out of the
                   react-aria collection and shows HeroUI's English placeholder on a render where that
                   collection has not committed — `SaisonSelector`'s reason. */}

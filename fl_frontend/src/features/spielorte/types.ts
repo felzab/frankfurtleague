@@ -10,7 +10,7 @@ type FLSpielorteSortingOptions = "name";
 
 export type FLSpielorteFilterParams = {
   // A switch, not a value to match on: retirement is a date, and a caller wanting the retired venues
-  // wants them beside the live ones — the admin list, which is where one is reactivated.
+  // wants them beside the live ones.
   include_inactive?: boolean;
 
   limit?: number;

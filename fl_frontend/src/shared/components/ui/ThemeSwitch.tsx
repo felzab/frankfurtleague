@@ -22,7 +22,7 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   // `compact` keeps the menu row as tall as its neighbour: `.menu-item` floors a row and spends part of
   // that floor on its own padding, so a taller control here grows the row.
-  const buttonSize = compact ? "h-6" : "h-8 w-8 sm:h-9 sm:w-9";
+  const buttonSize = compact ? "h-6" : "size-8 sm:size-9";
 
   return (
     <ToggleButtonGroup
@@ -44,14 +44,20 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
         // with it, or an icon-only half ends up taller than it is wide.
         className={buttonSize}
         aria-label="Helle Darstellung">
-        <Sun className="size-4" />
+        <Sun
+          aria-hidden="true"
+          className="size-4"
+        />
       </ToggleButton>
       <ToggleButton
         id="dark"
         isIconOnly
         className={buttonSize}
         aria-label="Dunkle Darstellung">
-        <Moon className="size-4" />
+        <Moon
+          aria-hidden="true"
+          className="size-4"
+        />
       </ToggleButton>
     </ToggleButtonGroup>
   );

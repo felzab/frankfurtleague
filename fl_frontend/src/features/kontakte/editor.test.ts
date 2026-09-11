@@ -17,9 +17,9 @@ import { FLTeamMembershipSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
@@ -55,7 +55,7 @@ const TEAM_FORM = readFileSync(path.resolve(TEAM_FORM_DIR, "AdminTeamEditForm.ts
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormKontakteLinkSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormKontakteLinkSection.tsx");
-const { AdminKontakteTable } = await import("@/features/teams/components/collections/AdminKontakteTable.tsx");
+const { AdminKontakteList } = await import("@/features/teams/components/collections/AdminKontakteList.tsx");
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { AdminKontakteEditView } = await import("./components/views/AdminKontakteEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
@@ -97,7 +97,7 @@ const listMarkup = (row: AdminKontakteRow, query: string): string =>
     h(
       SearchParamsContext.Provider,
       { value: new URLSearchParams(query) },
-      h(AdminKontakteTable, { filteredKontakte: [row], emptiness: "none" }),
+      h(AdminKontakteList, { filteredKontakte: [row], emptiness: "none" }),
     ),
   );
 
@@ -268,7 +268,7 @@ function statementsOf(slice: string): string[] {
 }
 
 describe("the contacts write against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts each declaration out of its file before reading it", () => {
     assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
     assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
@@ -349,9 +349,9 @@ describe("the contacts write against the backend's refusal register", () => {
 describe("what the contacts write moves", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
      render pass, and no public team read carries `kontakte` at all. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!PATCH_ACTION.includes("updateTag("), "the write clears a cached read its endpoint does not move");
-    assert.match(PATCH_ACTION, /Nothing to invalidate/, "the absent invalidation is left unexplained");
+    assert.match(PATCH_ACTION, /No tag moves/, "the absent invalidation is left unexplained");
   });
 
   /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,

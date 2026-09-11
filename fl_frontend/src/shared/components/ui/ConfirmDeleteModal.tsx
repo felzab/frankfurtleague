@@ -7,15 +7,13 @@ import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import { CONFIRM_DANGER_PANEL } from "./ConfirmReveal";
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { ReactNode } from "react";
-
-/** What a delete action has to return for this modal to report it. */
-type DeleteResult = { success: boolean; message?: string; error?: string };
 
 /**
  * **Every admin delete here retires a row rather than removing one**, so the verb and the consequence are the caller's while the
@@ -32,7 +30,8 @@ export function ConfirmDeleteModal({
   consequence,
   onConfirm,
   successMessage,
-  verb = "stilllegen",
+  failureMessage,
+  verb = { infinitive: "stilllegen", running: "Legt still..." },
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -43,16 +42,28 @@ export function ConfirmDeleteModal({
   entityName: string;
   /** The step-2 sentence after the reactivation promise. */
   consequence: ReactNode;
-  onConfirm: () => Promise<DeleteResult>;
+  onConfirm: () => Promise<ActionResult>;
+  /**
+   * The title the retirement raises, and the action's own sentence stands beside it: this literal is
+   * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
+   */
   successMessage: string;
-  /** The infinitive the question and the confirm button use. */
-  verb?: string;
+  /**
+   * The refusal's title, and the exact negation of `successMessage`: the pair names one object, so
+   * the reader meets the same words whichever way the press went.
+   */
+  failureMessage: string;
+  /**
+   * The infinitive the question and the confirm button use, beside the label the button wears while
+   * the write runs. One prop, so a re-verbed question cannot leave that label on another action.
+   */
+  verb?: { infinitive: string; running: string };
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
 
   // German capitalises an infinitive used as a noun, which is what a verb on a button is.
-  const capitalized = `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
+  const capitalized = `${verb.infinitive.charAt(0).toUpperCase()}${verb.infinitive.slice(1)}`;
 
   // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
@@ -72,14 +83,15 @@ export function ConfirmDeleteModal({
       const res = await onConfirm();
 
       if (!res.success) {
-        // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
-        appToast.danger(`${capitalized} fehlgeschlagen`, {
-          description: res.error || res.message || UNKNOWN_REFUSAL,
+        appToast.danger(failureMessage, {
+          description: res.error,
         });
         return;
       }
 
-      appToast.success(res.message || successMessage);
+      // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+      // the title: an action with nothing to add sends the title's own words.
+      appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       onClose();
     });
   };
@@ -95,61 +107,63 @@ export function ConfirmDeleteModal({
       icon={
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TrashBin
-            className="text-danger-strong"
-            width={20}
-            height={20}
+            aria-hidden="true"
+            className="text-danger-strong size-5"
           />
         </div>
       }>
-      <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
-        {confirmStep === 1 ? (
-          <p className="fluid-sm text-foreground-muted leading-relaxed">
-            Möchtest Du {entityLabel}
-            <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
-              {entityName}
-            </span>
-            wirklich {verb}?
-          </p>
-        ) : (
-          /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
-             button label changing. Deliberately not animated: a danger escalation should register at once. */
-          <div
-            role="alert"
-            className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
-            <div className="text-danger-strong flex items-center gap-2 font-bold">
-              <TriangleExclamation
-                aria-hidden="true"
-                width={18}
-                height={18}
-              />
-              Bist Du Dir sicher?
-            </div>
+      {/* `ModalShell`'s body is a plain block, so the two blocks under it need a column of their own
+          to take the band's distance as a gap rather than a margin (`docs/frontend/spec.md :: I240`). */}
+      <div className="flex flex-col gap-y-6">
+        <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
+          {confirmStep === 1 ? (
             <p className="fluid-sm text-foreground-muted leading-relaxed">
-              Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
+              Möchtest Du {entityLabel}
+              <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
+                {entityName}
+              </span>
+              wirklich {verb.infinitive}?
             </p>
-          </div>
-        )}
-      </div>
+          ) : (
+            /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
+             button label changing. Deliberately not animated: a danger escalation should register at once. */
+            <div
+              role="alert"
+              className={`${CONFIRM_DANGER_PANEL} flex flex-col gap-2`}>
+              <div className="text-danger-strong flex items-center gap-2 font-bold">
+                <TriangleExclamation
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+                Bist Du Dir sicher?
+              </div>
+              <p className="fluid-sm text-foreground-muted leading-relaxed">
+                Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
+              </p>
+            </div>
+          )}
+        </div>
 
-      {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
-      <div className={`${MODAL_FOOTER_ROW} mt-6`}>
-        <Button
-          type="button"
-          variant="secondary"
-          isDisabled={isPending}
-          className={formButton({ intent: "cancel" })}
-          onPress={onClose}>
-          Abbrechen
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          isDisabled={isPending}
-          className={formButton({ intent: "destructive" })}
-          onPress={handleDelete}>
-          {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-          {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : `Ja, ${verb}`}
-        </Button>
+        {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
+        <div className={MODAL_FOOTER_ROW}>
+          <Button
+            type="button"
+            variant="secondary"
+            isDisabled={isPending}
+            className={formButton({ intent: "cancel" })}
+            onPress={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            isDisabled={isPending}
+            className={formButton({ intent: "destructive" })}
+            onPress={handleDelete}>
+            {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
+            {isPending ? verb.running : confirmStep === 1 ? capitalized : `Ja, ${verb.infinitive}`}
+          </Button>
+        </div>
       </div>
     </ModalShell>
   );

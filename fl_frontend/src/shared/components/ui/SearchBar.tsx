@@ -31,7 +31,7 @@ export function SearchBar({
       onChange={onChange}
       className={className}>
       <SearchField.Group
-        className={`bg-surface border-border flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-200 lg:h-15 ${
+        className={`bg-surface border-control flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-(--motion-base) lg:h-15 ${
           attachEnd ? "max-sm:rounded-r-none max-sm:border-r-0" : ""
         }`}>
         <SearchField.SearchIcon className="text-foreground-muted shrink-0" />

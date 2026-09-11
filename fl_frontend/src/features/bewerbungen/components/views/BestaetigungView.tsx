@@ -43,7 +43,7 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The application page's own column, so the two ends of the workflow are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-5 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 const rollenLangform = (rolle: KontaktRolle): string => KONTAKT_ROLLEN.find((eintrag) => eintrag.value === rolle)?.langform ?? "";
 
@@ -211,7 +211,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
 /** The two actions this page offers, in the width the panel gives them rather than the page's. */
 function Aktion({ children }: { children: ReactNode }) {
-  return <div className="mt-2 flex w-full max-w-xs flex-col">{children}</div>;
+  return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 
 function ZurLiga() {

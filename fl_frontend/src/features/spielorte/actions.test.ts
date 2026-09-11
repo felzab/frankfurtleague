@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -20,7 +20,7 @@ const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielortA
 const EDIT_ACTION = sliceBetween(ACTIONS, "export async function patchSpielortAction", "export async function deleteSpielortAction");
 
 describe("the venue retirement against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
     assert.ok(RETIRE_MAP.includes("serverErrorCode"), "the retirement's arm is outside its slice");
     assert.ok(!RETIRE_MAP.includes("postSpielort("), "the retirement's slice runs on into the create");
@@ -52,7 +52,7 @@ describe("the venue retirement against the backend's refusal register", () => {
 });
 
 describe("the venue name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and both write paths out of the file before reading them", () => {
     assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
     assert.ok(!NAME_MAP.includes("REQ-RETIRE-003"), "the duplicate name's slice runs on into the retirement's mapper");
@@ -76,5 +76,45 @@ describe("the venue name a unique index already holds", () => {
   it("consults the mapper on the create and on the edit, the two writes that send a name", () => {
     assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
     assert.ok(EDIT_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
+  });
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = ["postSpielortAction", "patchSpielortAction", "deleteSpielortAction", "reactivateSpielortAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+    for (const name of WRITE_ACTIONS) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  it("refreshes on every one of them, the venue list being uncached and no tag reaching it", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
   });
 });

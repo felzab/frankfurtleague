@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "./draftStatus.ts";
+import { FLSpielAdminSchema } from "./schemas.ts";
 
 import type { FLSpielDraftFields } from "./draftStatus.ts";
 import type { FLSpielAdmin, FLSpielTeamFieldJoined } from "./schemas.ts";
@@ -24,28 +25,32 @@ const side = (team_id: string, name: string, shorthand: string, tore: number | n
   austritt_type: null,
 });
 
-/** Fully populated, so every descriptor has something to compare against. */
+/**
+ * Fully populated, so every descriptor has something to compare against, and parsed at construction:
+ * a drifted field fails where the fixture is built rather than wherever it is read.
+ */
+const STORED: FLSpielAdmin = FLSpielAdminSchema.parse({
+  id: "6890a1b2c3d4e5f607182900",
+  spieltag_id: "6890a1b2c3d4e5f607182901",
+  spiel_nr: 12,
+  saison_id: "2026",
+  saison_phase: "gruppenphase",
+  sonderereignis: null,
+  datum: "2026-08-12",
+  uhrzeit: "18:30:00",
+  ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
+  schiedsrichter: { schiedsrichter_id: SCHIRI, name: "Pierluigi Collina", payment: 40 },
+  team1: side(TEAM_1, "Team A", "TA", 3),
+  team2: side(TEAM_2, "Team B", "TB", 1),
+  team1_quelle: null,
+  team2_quelle: null,
+  ergebnis: "3:1",
+  elfmeterschiessen: null,
+  notiz: null,
+} satisfies FLSpielAdmin);
+
 function makeStored(overrides: Partial<FLSpielAdmin> = {}): FLSpielAdmin {
-  return {
-    id: "6890a1b2c3d4e5f607182900",
-    spieltag_id: "6890a1b2c3d4e5f607182901",
-    spiel_nr: 12,
-    saison_id: "2026",
-    saison_phase: "gruppenphase",
-    sonderereignis: null,
-    datum: "2026-08-12",
-    uhrzeit: "18:30:00",
-    ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
-    schiedsrichter: { schiedsrichter_id: SCHIRI, name: "Pierluigi Collina", payment: 40 },
-    team1: side(TEAM_1, "Team A", "TA", 3),
-    team2: side(TEAM_2, "Team B", "TB", 1),
-    team1_quelle: null,
-    team2_quelle: null,
-    ergebnis: "3:1",
-    elfmeterschiessen: null,
-    notiz: null,
-    ...overrides,
-  } as FLSpielAdmin;
+  return { ...STORED, ...overrides };
 }
 
 /** The draft the form holds when nothing has been touched: exactly the stored fields. */

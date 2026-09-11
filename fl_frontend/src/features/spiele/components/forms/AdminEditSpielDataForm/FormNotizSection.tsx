@@ -7,7 +7,7 @@ import { FieldError, TextArea, TextField } from "@heroui/react";
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -76,7 +76,7 @@ export function FormNotizSection({
             ref={notizRef}
             fullWidth
             placeholder="z.B. Nachholspiel wegen Regen"
-            className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+            className={`${FIELD_TEXTAREA} min-h-24`}
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
 
@@ -104,7 +104,7 @@ export function FormNotizSection({
                   notizRef.current?.focus();
                   onNotizChange(null);
                 }}
-                className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
+                className="border-border text-foreground-muted hover:bg-hover-danger hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors">
                 <Xmark
                   aria-hidden="true"
                   className="size-3.5 shrink-0"

@@ -28,9 +28,9 @@ export type PillTone =
   | "finale";
 
 /**
- * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), and a
- * pill sits on `surface` or `background`, never on `muted`: there the light inks fall under the
- * floor.
+ * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
+ * pill sits on `surface` or `background` alone: on any other fill its light ink composites under
+ * the floor, and `PILL_SOLID` goes there instead.
  */
 export const PILL_TINT: Record<PillTone, string> = {
   success: "bg-success/15 text-success-strong",
@@ -52,6 +52,31 @@ export const PILL_TINT: Record<PillTone, string> = {
   finale: "bg-phase-finale/15 text-phase-finale",
 };
 
+/** The four tones that carry a `-solid` fill. Brand's is `brandSolid`, and a phase has none. */
+export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | "info">;
+
+/**
+ * For a ground a tint cannot survive — a tab strip's `muted`, and any fill painted under a pill:
+ * the tone's fill under its paired on-colour, a pair no ground moves
+ * (`docs/frontend/spec.md :: I229`).
+ */
+export const PILL_SOLID: Record<FeedbackTone, string> = {
+  success: "bg-success-solid text-success-solid-foreground",
+  warning: "bg-warning-solid text-warning-solid-foreground",
+  danger: "bg-danger-solid text-danger-solid-foreground",
+  info: "bg-info-solid text-info-solid-foreground",
+};
+
+/** A count on `surface` or `background`, tinted as a label pill is. */
+export function countBadge(tone: PillTone): string {
+  return `${COUNT_BADGE} ${PILL_TINT[tone]}`;
+}
+
+/** A count on a ground a tint's ink cannot survive: solid, under its on-colour. */
+export function trackCountBadge(tone: FeedbackTone): string {
+  return `${COUNT_BADGE} ${PILL_SOLID[tone]}`;
+}
+
 /**
  * A word in a pill — "Empfohlen", "Disqualifiziert", "Nicht gespeichert".
  *
@@ -66,4 +91,9 @@ const LABEL_BADGE = `fluid-xxs inline-flex items-center ${PILL_RADIUS} px-1.5 py
  */
 export function labelBadge(tone: PillTone): string {
   return `${LABEL_BADGE} ${PILL_TINT[tone]}`;
+}
+
+/** A word on `trackCountBadge`'s grounds, where the tint would composite with the fill under it. */
+export function trackLabelBadge(tone: FeedbackTone): string {
+  return `${LABEL_BADGE} ${PILL_SOLID[tone]}`;
 }

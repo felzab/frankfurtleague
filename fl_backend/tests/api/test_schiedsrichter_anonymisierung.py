@@ -15,7 +15,13 @@ from app.api.schiedsrichter.admin_router import (
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
+from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
+from app.api.schiedsrichter.schemas import (
+    FLPatchSchiedsrichterPayload,
+    FLSchiedsrichter,
+    FLSchiedsrichterFilterParams,
+    FLSchiedsrichterWriteResponse,
+)
 from app.api.schiedsrichter.services import (
     ANONYMISATION_UNDONE_BY_AN_EDIT,
     ANONYMISED_KONTAKT,
@@ -676,6 +682,71 @@ def test_the_erasure_retires_the_referee(mongo_replica_set_url: str):
     assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == TODAY
     # The control, without which retiring the whole collection would pass.
     assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None
+
+
+async def listed_ids(database: AsyncDatabase) -> list[ObjectId]:
+    """Read by id: the erasure nulls the name, so there is none to find a row under.
+
+    `include_inactive` is on, which is what makes these cases about the erasure rather than the
+    retirement beside it.
+    """
+
+    answered = await get_schiedsrichter(
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        filters=FLSchiedsrichterFilterParams(include_inactive=True),
+    )
+
+    return [row.id for row in answered.schiedsrichter]
+
+
+def after_anonymising_the_working_list(url: str) -> list[ObjectId]:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_anonymisation(database, client)
+
+        return await listed_ids(database)
+
+    return on_a_league(url, body)
+
+
+def after_anonymising_the_single_read(url: str) -> FLSchiedsrichter:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_anonymisation(database, client)
+        answered = await get_schiedsrichter_by_id(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        )
+
+        return answered.schiedsrichter
+
+    return on_a_league(url, body)
+
+
+@pytest.mark.db
+def test_the_erased_referee_is_off_the_list_an_administrator_works_from(mongo_replica_set_url: str):
+    """An erased referee can be booked, edited, reactivated or restored by nobody, and the list offers what can be acted on.
+
+    Kills serving the row anyway: a permanent line in the list an administrator scans for somebody to book.
+    """
+
+    working_list = after_anonymising_the_working_list(mongo_replica_set_url)
+
+    assert SCHIEDSRICHTER_OID not in working_list
+    # The control: a read narrowed to nothing satisfies the line above without excluding anything.
+    assert OTHER_SCHIEDSRICHTER_OID in working_list
+
+
+@pytest.mark.db
+def test_the_single_read_still_answers_for_an_erased_referee(mongo_replica_set_url: str):
+    """A fixture names its referee by id, and the page that id opens is the one saying they were erased.
+
+    Kills carrying the list's narrowing onto this read, which would answer 404 for the fixtures whose
+    referee the erasure reached.
+    """
+
+    schiedsrichter = after_anonymising_the_single_read(mongo_replica_set_url)
+
+    assert (schiedsrichter.id, schiedsrichter.name) == (SCHIEDSRICHTER_OID, None)
+    assert schiedsrichter.anonymisiert_am == TODAY
 
 
 def after_anonymising_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:

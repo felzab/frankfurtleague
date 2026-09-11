@@ -42,12 +42,12 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
       {/* Two rows, always: date and time, then the chips. One wrapping row
           broke exactly on narrow cards — one chip on the first line, the other bleeding onto the
           next — and a layout that is sometimes one row and sometimes two reads as two designs. */}
-      <div className="flex w-full flex-col gap-y-1.5">
+      <div className="flex w-full flex-col gap-y-1">
         <div className="flex w-full flex-row items-baseline gap-x-2">
           <span className="fluid-xs text-foreground font-bold">{datum}</span>
           <span className="muted-meta">{uhrzeit}</span>
         </div>
-        <div className="flex w-full flex-row flex-wrap items-center gap-1.5">
+        <div className="flex w-full flex-row flex-wrap items-center gap-2">
           <SpielStatusChip spielStatus={spielStatus} />
           <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
         </div>

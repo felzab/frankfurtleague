@@ -110,13 +110,26 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--fg-muted", "#525252", "#a3a3a3"),
     ("--fg-on-brand", "#ffffff", "#ffffff"),
     ("--border-base", "#d4d4d4", "#333333"),
+    # Solved against this fixture's own two page grounds with room above 3:1, not copied from the
+    # season, whose grey clears that floor in the third decimal: the clean corpus would then be
+    # proving a rounding rather than the arm.
+    ("--border-control", "#8a8a8a", "#666666"),
     ("--bg-hover", "#dfdfdf", "#212121"),
     ("--bg-hover-muted", "#cfcfcf", "#373737"),
     ("--bg-hover-danger", "#f2d9d2", "#321a14"),
     ("--bg-hover-field", "#3f7043", "#2f5633"),
     ("--accent-brand-solid-hover", "#1b5123", "#1b5123"),
     ("--accent-danger-solid-hover", "#c74434", "#c74434"),
+    # A picked row's fill and its hover, held to one 6.7-point step by
+    # `scripts/checks/docs_gate/scheme.py :: HOVERS`. The season's hexes because this fixture's page
+    # grounds are the same, so the rule that derived them lands here too.
+    ("--bg-picked", "#c1cdc1", "#2b352b"),
+    ("--bg-picked-hover", "#abb8ac", "#3b473b"),
     ("--accent-brand", "#216c2d", "#8fc752"),
+    # HeroUI's checked-`Switch` track and the thumb on it, the pair
+    # `scripts/checks/docs_gate/scheme.py :: PAIRS` measures at a 3:1 floor.
+    ("--accent", "#216c2d", "#8dbf6c"),
+    ("--accent-foreground", "#ffffff", "#0a0a0a"),
     # The one token the light block alone declares, and the reason the two blocks differ by one.
     ("--focus", "var(--fg-base)", ""),
     ("--accent-brand-solid", "#033f11", "#033f11"),
@@ -132,9 +145,11 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--accent-success-solid", "#007864", "#007864"),
     ("--accent-warn-solid", "#f2c94c", "#f2c94c"),
     ("--accent-danger-solid", "#b02d1f", "#b02d1f"),
+    ("--accent-info-solid", "#3560b3", "#3560b3"),
     ("--fg-on-success", "#ffffff", "#ffffff"),
     ("--fg-on-warn", "#0a0a0a", "#0a0a0a"),
     ("--fg-on-danger", "#ffffff", "#ffffff"),
+    ("--fg-on-info", "#ffffff", "#ffffff"),
     ("--accent-phase-gruppenphase", "#026a73", "#00c1d1"),
     ("--accent-phase-achtelfinale", "#026799", "#47b5fa"),
     ("--accent-phase-viertelfinale", "#5d53ae", "#a29dff"),
@@ -275,6 +290,12 @@ QUALIFIED_BE_ROW: Final = BE_DERIVATION_ROW.replace(_tick("tests/"), _tick("test
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
 STATUS_COLUMN_ROW: Final = "| # | When | Status |"
+# The derivation's closing rule, spelled once: the corpus writes it and the widening case below
+# anchors a new rule on it, renumbering this one as a real addition to the ladder would.
+OTHERWISE_RULE: Final = "| 4 | Otherwise | **Open** |"
+# A rule deriving the same word the refusal cases put outside the set, so that pair and the
+# widening case differ in this row alone rather than in the word each plants.
+ADDED_STATUS_RULE: Final = "| 4 | A rule the derivation gains | **Parked** |"
 # The sheet `scripts/gate/selfcheck.sh` reads its output vocabulary out of, with the lead-in that
 # arms that reader and one row under it in the shape it keeps.
 OPS_SPEC: Final = "docs/ops/spec.md"
@@ -803,7 +824,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "| 1 | An entry this one waits on is still filed here | **Blocked** |",
             "| 2 | A caution, or a finding carrying a recorded trigger | **Standing** |",
             "| 3 | The argument is settled where the next reader stands | **Decided** |",
-            "| 4 | Otherwise | **Open** |",
+            OTHERWISE_RULE,
         ),
         TEMPLATES: _page(
             _heading(1, "Templates"),
@@ -2015,9 +2036,9 @@ CASES: Final[tuple[Case, ...]] = (
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
     Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
-    # Ten on the season: the dark brand darkened for the ordering arm fails five floored pairs on
-    # the way, and a plant dodging that would be one no scheme file could ever carry.
-    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 10, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
+    # The dark brand darkened for the ordering arm fails eight floored pairs on the way, and a plant
+    # dodging that would be one no scheme file could ever carry.
+    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 13, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
     Case(
         "section-reference",
         _fails("section-reference", NOTES, NOTES, NOTES, BACKEND_SPEC),
@@ -2246,6 +2267,24 @@ def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a table outside section four widened the vocabulary: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
+    """A vocabulary retyped in the checker would pass both refusal cases and fail this one alone.
+
+    The word is the one those cases put outside the set, so the three differ in the planted row
+    alone.
+    """
+    _reset()
+    _replace(PROTOCOL, OTHERWISE_RULE, ADDED_STATUS_RULE + "\n" + OTHERWISE_RULE.replace("| 4 |", "| 5 |"))
+    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
+    _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a status the table derives was refused: " + _shape(reported)
     _assert_corpus_restored()
 
 

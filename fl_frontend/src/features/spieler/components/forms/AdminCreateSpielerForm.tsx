@@ -22,6 +22,7 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/spieler/types";
 
@@ -239,7 +240,9 @@ export function AdminCreateSpielerForm({
       toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postSpielerAction(draft);
-        return { ...res, success: res.success && !!res.spieler_id };
+        // An acknowledged create that answered no id leaves the caller nothing to name, so the
+        // shared refusal stands in for a sentence the action never composed.
+        return res.success && res.spieler_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;
       }}
       marksRequired
       successMessage="Spieler angelegt"

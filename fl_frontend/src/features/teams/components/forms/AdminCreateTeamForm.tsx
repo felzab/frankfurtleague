@@ -7,6 +7,7 @@ import { FLCreateTeamFormPayloadSchema } from "@/features/teams/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { TeamCreateDraft, TeamCreateSaisonOption } from "@/features/teams/types";
 
@@ -70,9 +71,9 @@ export function AdminCreateTeamForm({
                 saisonIds={saisonOptions.map((option) => option.saisonId)}
               />
 
-              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` reads a literal
-                  mark off a literal `name`, and this picker spells both through props.
-                  `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
+              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn`
+                  spares a control that names no path of its own, and this picker's own `name` is a
+                  prop. `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
               <GruppeSelect
                 isRequired
                 value={draft.gruppe}
@@ -87,7 +88,9 @@ export function AdminCreateTeamForm({
       toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postTeamAction(draft);
-        return { ...res, success: res.success && !!res.created_id };
+        // An acknowledged create that answered no id leaves the caller nothing to name, so the
+        // shared refusal stands in for a sentence the action never composed.
+        return res.success && res.created_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;
       }}
       marksRequired
       successMessage="Team angelegt"

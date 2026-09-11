@@ -8,7 +8,9 @@ import { createElement as h } from "react";
    one Next keeps it on, as `fl_frontend/src/features/kontakte/editor.test.ts` mounts the search params. */
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
-import { renderTree } from "@/shared/testing/renderTest.ts";
+import { describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import { describeUebernommeneSpiele } from "./replacementOffer.ts";
 
@@ -22,22 +24,36 @@ const { FormTeamErsatzSection } = await import("./FormTeamErsatzSection.tsx");
  */
 const PANEL = readFileSync(path.resolve(import.meta.dirname, "FormTeamErsatzSection.tsx"), "utf8");
 
-function sliceBetween(from: string, to: string): string {
-  const start = PANEL.indexOf(from);
-  const end = PANEL.indexOf(to, start + from.length);
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
 
-  return start === -1 || end === -1 ? "" : PANEL.slice(start, end);
-}
+/**
+ * The ruling the verbs below answer to. Its own file rather than a copy: which verb a squad row
+ * takes is a domain decision, and a test restating it could only pin what its author believed.
+ */
+const VERB_REGEL = sliceBetween(
+  readFileSync(path.resolve(REPO_ROOT, "docs", "glossary.md"), "utf8"),
+  "The German verb pair is fixed:",
+  " — each stamps this field",
+);
+
+/** The two verbs in the ruling's own order: the league-wide one, then the one a squad row takes. */
+const [LEAGUE_VERB = "", SQUAD_VERB = ""] = [...VERB_REGEL.matchAll(/_([a-zäöüß]+)_/g)].map((treffer) => treffer[1] ?? "");
+
+/**
+ * The form each infinitive takes in a sentence, which no rule derives from it — German's participle
+ * is irregular here. The PAIR is the ruling's; only its written form is this file's.
+ */
+const PARTIZIP: Record<string, string> = { austragen: "ausgetragen", stilllegen: "stillgelegt" };
 
 /* Bounded by the next statement rather than by the comment above it: a slice ending at a comment
    grows silently the moment that comment is reworded, and the assertions over it stop being about
    the handler. */
-const HANDLER = sliceBetween("const handleReplace = () => {", "const missingPickHint");
+const HANDLER = sliceBetween(PANEL, "const handleReplace = () => {", "const missingPickHint");
 /**
  * What this panel puts INSIDE the shared shell; the announcement itself is `ConfirmReveal`'s. Read
  * rather than rendered because a second press reveals it, and a static render produces the resting form.
  */
-const ARMED = sliceBetween("<ConfirmReveal>", "</ConfirmReveal>");
+const ARMED = sliceBetween(PANEL, "<ConfirmReveal>", "</ConfirmReveal>");
 
 /**
  * The panel with JSX's line breaks collapsed, `undrawSpielplan.test.ts`'s idiom: Prettier rewraps a
@@ -93,10 +109,17 @@ const markup = (ersatz: ErsatzProps["ersatz"], isFinishedSaison = false): string
  * attribute is the author's spelling and never the sentence anybody is served.
  */
 const gelesen = (ersatz: ErsatzProps["ersatz"], isFinishedSaison = false): string =>
-  markup(ersatz, isFinishedSaison)
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  // A SPACE for the tags: `</span><span>` is a word boundary a reader sees, and the harness's empty
+  // default would join the two German words either side of it.
+  textOf(markup(ersatz, isFinishedSaison), " ").replace(/\s+/g, " ").trim();
+
+/** Every text node the markup carries, whitespace collapsed as `gelesen` collapses it. */
+const textknoten = (html: string): string[] =>
+  [...html.matchAll(/>([^<>]+)</g)].flatMap((treffer) => {
+    const inhalt = (treffer[1] ?? "").replace(/\s+/g, " ").trim();
+
+    return inhalt === "" ? [] : [inhalt];
+  });
 
 /**
  * Every `Callout` title the panel renders, in document order. A list rather than a search, so a
@@ -109,11 +132,29 @@ const closureTitles = (ersatz: ErsatzProps["ersatz"], isFinishedSaison = false):
 const OFFERED: ErsatzProps["ersatz"] = { rows: [row()], candidates: [candidate()] };
 
 describe("the replacement panel", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the handler and the armed alert out of the file before reading them", () => {
     assert.ok(HANDLER.includes("replaceSaisonTeamAction("), "the write is outside the handler's slice");
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
     assert.ok(ARMED.includes("Angesetzte Spiele"), "the armed alert's readout is outside its slice");
+  });
+
+  /* Second, over the reader every case below uses: delegate to the harness with its empty default
+     and two elements' words weld into one, which each `match` under it goes on passing. */
+  it("parts the words two adjacent elements hold", () => {
+    const worte = gelesen(OFFERED);
+    const knoten = textknoten(markup(OFFERED));
+
+    assert.ok(knoten.length > 1, "the offered panel renders one text node, so this parts nothing");
+
+    for (const inhalt of knoten) {
+      const at = worte.indexOf(inhalt);
+      const ende = at + inhalt.length;
+
+      assert.notEqual(at, -1, `„${inhalt}“ is not in what the reader meets: ${worte}`);
+      assert.ok(at === 0 || worte[at - 1] === " ", `„${inhalt}“ is welded to the element before it: ${worte}`);
+      assert.ok(ende === worte.length || worte[ende] === " ", `„${inhalt}“ is welded to the element after it: ${worte}`);
+    }
   });
 
   /* The draw deletes what it replaces and says so; this endpoint deletes nothing, so that register
@@ -138,23 +179,38 @@ describe("the replacement panel", () => {
     assert.match(ARMED, /Platz in der Saison/);
     assert.match(ARMED, /Angesetzte Spiele/);
     assert.match(ARMED, /Austritt von/);
-    assert.match(ARMED, /ausgetragen/);
+    assert.match(ARMED, /describeKaderAustragungDanach\(outgoing\.name\)/);
   });
 
-  /* Both wrong directions at once: `stillgelegt` would claim these pupils left every season there
-     is, and a deletion word that the rows went rather than being stamped. */
-  it("words the squad as its entries being ausgetragen, never as a Stilllegung or a deletion", () => {
-    /* Every mention rather than one: the panel names the squad rows at the press and again after it,
-       so one sentence losing the word is a single match away from invisible. */
-    const mentions = (PANEL.match(/Kadereinträge/g) ?? []).length;
+  /* The ruling before the verbs read out of it: a ruling this file fails to cut leaves both of
+     them empty and every comparison below vacuous. */
+  it("cuts the glossary's ruling out and holds a written form against each verb it names", () => {
+    assert.notEqual(VERB_REGEL, "", "the glossary fixes the pair somewhere other than where this file cuts it");
+    assert.deepEqual([LEAGUE_VERB, SQUAD_VERB].sort(), Object.keys(PARTIZIP).sort());
+  });
 
-    assert.ok(mentions >= 2, "the panel no longer names the squad rows both at the press and after it");
-    assert.equal(
-      (PANEL.match(/Kadereinträge[\s\S]{0,160}ausgetragen/g) ?? []).length,
-      mentions,
-      "a sentence naming the squad rows no longer says they are ausgetragen",
-    );
-    assert.doesNotMatch(PANEL, /Kadereinträge[\s\S]{0,160}(gelöscht|entfernt|stillgelegt)/);
+  /* Both wrong directions at once: the league-wide verb would claim these pupils left every season
+     there is, and a deletion word that the rows went rather than being stamped. */
+  it("words the squad rows with the verb the ruling gives a squad row, at the press and after it", () => {
+    const squadForm = PARTIZIP[SQUAD_VERB];
+    const leagueForm = PARTIZIP[LEAGUE_VERB];
+
+    assert.ok(squadForm !== undefined && leagueForm !== undefined, `the ruling names a verb with no written form here: ${VERB_REGEL}`);
+
+    for (const satz of [describeKaderAustragung("SG Alpha"), describeKaderAustragungDanach("SG Alpha")]) {
+      assert.ok(satz.includes("Kadereinträge"), `the sentence names the squad rows no more: ${satz}`);
+      assert.ok(satz.includes("SG Alpha"), `the sentence names the outgoing club no more: ${satz}`);
+      assert.ok(satz.includes(squadForm), `„${satz}“ does not say the rows are ${squadForm}`);
+      assert.ok(!satz.includes(leagueForm), `„${satz}“ claims a ${leagueForm}, which reaches every season there is`);
+      assert.doesNotMatch(satz, /gelöscht|entfernt/, `„${satz}“ says the rows went rather than being stamped`);
+    }
+  });
+
+  /* A literal spelling the same two sentences renders identically, so which of the two the panel
+     seats is legible in the source alone (`fl_frontend/src/features/saisons/utils.ts`). */
+  it("seats the two composers rather than sentences of its own", () => {
+    assert.match(PANEL, /describeKaderAustragung\(outgoing\.name\)/);
+    assert.doesNotMatch(PANEL, /Kadereinträge/, "the panel spells a squad sentence beside the ones it composes");
     // A CLUB's league-wide retirement keeps the word, which is why only its use on people is forbidden.
     assert.doesNotMatch(PANEL, /Spieler[\s\S]{0,160}stillgelegt/);
   });

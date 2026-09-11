@@ -44,7 +44,9 @@ function TeamNameLine({
       teamAustritt={team.austritt_type}
       placement="top"
       onNavigate={onNavigate}>
-      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>
+      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-(--motion-base)">
+        {team.name}
+      </strong>
     </TeamPopoverMenu>
   );
 }
@@ -101,7 +103,10 @@ export function SpielDetailsModal({
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
                   <Modal.Heading className="fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
                   <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
-                    <CircleInfo className="size-full" />
+                    <CircleInfo
+                      aria-hidden="true"
+                      className="size-full"
+                    />
                   </Modal.Icon>
                 </div>
                 <div className="flex h-fit w-full flex-row items-center justify-start gap-x-2">

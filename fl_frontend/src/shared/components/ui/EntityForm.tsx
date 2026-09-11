@@ -7,17 +7,13 @@ import { Button, Form } from "@heroui/react";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { runOnSubmit } from "./formSubmit";
 
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { ActionResult } from "@/shared/types/types";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ZodType } from "zod";
-
-/** What the `post*`/`patch*` server actions return, after the caller has folded in its own guard. */
-type SubmitResult = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
 
 /**
  * The create and edit form skeleton, once. The success guard stays at the call site on purpose: create checks
@@ -35,7 +31,8 @@ export function EntityForm<TDraft>({
 }: {
   initialDraft: TDraft;
   renderFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
-  onSubmit: (draft: TDraft) => Promise<SubmitResult>;
+  /** The action's own answer, after the caller has folded in its own guard on the record it created. */
+  onSubmit: (draft: TDraft) => Promise<ActionResult>;
   /** The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18). */
   schema: ZodType;
   /**
@@ -43,6 +40,10 @@ export function EntityForm<TDraft>({
    * silent identity would judge the wrong shape and pass everything.
    */
   toPayload: (draft: TDraft) => unknown;
+  /**
+   * The title the create raises, and the action's own sentence stands beside it: this literal is
+   * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
+   */
   successMessage: string;
   onClose: () => void;
   /**
@@ -80,8 +81,8 @@ export function EntityForm<TDraft>({
 
         // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
         if (!hasFieldErrors(res.fieldErrors)) {
-          appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || res.message || UNKNOWN_REFUSAL,
+          appToast.danger("Änderung nicht gespeichert", {
+            description: res.error,
           });
         }
         return;
@@ -89,7 +90,9 @@ export function EntityForm<TDraft>({
 
       setSubmitFieldErrors({}, {});
       setDraft(initialDraft);
-      appToast.success(res.message || successMessage);
+      // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+      // the title: an action with nothing to add sends the title's own words.
+      appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       onClose();
     });
   };
@@ -103,7 +106,7 @@ export function EntityForm<TDraft>({
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only
       // when on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
-      className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
+      className="flex h-fit w-full flex-col gap-y-6 rounded-xl shadow-sm"
       onSubmit={runOnSubmit(handleSubmit)}>
       {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>

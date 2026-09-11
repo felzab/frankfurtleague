@@ -103,8 +103,20 @@ describe("a row action the endpoint already refuses", () => {
 
   /* A literal spelling ACTION_BUTTON_CLASS's classes renders identically, so the markup above
      cannot tell the shared constant from a copy of it that stops tracking. */
-  it("dresses both controls from the shared constant rather than a copy", () => {
-    assert.equal(SOURCE.match(/className=\{ACTION_BUTTON_CLASS\}/g)?.length, AKTIONEN.length);
+  it("dresses every icon control from a shared constant rather than a copy", () => {
+    // Found by their own elements: counting the constant's uses is a population filtered on the very
+    // property this asserts, so a control spelling the classes out drops out instead of failing.
+    const kontrollen = [...SOURCE.matchAll(/<(?:Button|Link|Dropdown\.Trigger)\b[^>]*>/g)].map((treffer) => treffer[0]);
+
+    // `Dropdown.Item` is outside this: a menu's rows are full-width and dressed at their own line.
+    assert.equal(kontrollen.length, 5, `expected the five icon controls, found ${String(kontrollen.length)}`);
+    for (const kontrolle of kontrollen) {
+      assert.match(
+        kontrolle,
+        /className=\{(?:ACTION_BUTTON_CLASS|ACTION_LINK_CLASS|DANGER_CLASS)\}/,
+        `an icon control is dressed by hand: ${kontrolle}`,
+      );
+    }
   });
 
   /* Read as text, optionality being erased before anything renders: most call sites pass no reason,

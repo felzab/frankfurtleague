@@ -4,9 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { APIBadStatusError } from "@/core/errors.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
-
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -50,7 +49,7 @@ function sharedAnswer(serverErrorCode: string): string {
     serverErrorCode,
   });
 
-  return toActionErrorResult(refusal).error ?? "";
+  return toActionErrorResult(refusal).error;
 }
 
 /**
@@ -60,7 +59,7 @@ function sharedAnswer(serverErrorCode: string): string {
 const FALLBACK = sharedAnswer("REQ-NOTHING-000");
 
 describe("the match editor's refusals against the backend's register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper out of the file before reading it", () => {
     assert.ok(SPIEL_MAP.includes("serverErrorCode"), "the mapper's arms are outside its slice");
     assert.ok(!SPIEL_MAP.includes("patchAdminSpielData(validated.data)"), "the mapper's slice runs on into the save");
@@ -116,4 +115,57 @@ describe("the match edit's refusals when the undo replays it", () => {
       assert.doesNotMatch(row, /\b(?:dieses|diesem|das)\s+Spiels?\b/i, `${code}'s row points at a single fixture the replay may not have`);
     });
   }
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** The write this slice exports. A new action fails the sweep below until it is placed. */
+const WRITE_ACTIONS = ["patchAdminSpielDataAction"];
+
+/** The dry run, which moves nothing and so owes the page nothing. */
+const READ_ONLY_ACTIONS = ["previewAdminSpielDataAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual(
+      [...ACTION_BODIES.keys()],
+      [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS],
+      "an action arrived or left without being placed as a write or a dry run",
+    );
+    for (const name of [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS]) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  it("refreshes on the save, the editor's own fixture read being uncached", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's page standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
+  });
+
+  it("leaves the dry run alone, which would re-render the editor on every keystroke", () => {
+    for (const name of READ_ONLY_ACTIONS) {
+      assert.doesNotMatch(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} refreshes a page nothing it did has moved`);
+    }
+  });
 });

@@ -23,6 +23,7 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
@@ -38,6 +39,15 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
 
 /**
+ * The undo's refusal for a row this save gave its first name. `PersonNameSchema` refuses an empty
+ * one, so the pre-save state is no legal write and the replay is judged here rather than dispatched.
+ */
+const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
+  reason: "Vor dem Speichern war zu diesem Eintrag kein Name hinterlegt, und ohne Namen lässt er sich nicht zurückschreiben",
+  repair: "Öffne den Eintrag erneut, wenn der Name falsch ist",
+});
+
+/**
  * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
  * no junction row, so the patch carries the whole draft and a partial failure is not a state this
  * form can reach.
@@ -47,7 +57,8 @@ export function AdminSchiedsrichterEditForm({
   isRetired,
   pageHeader,
 }: {
-  schiedsrichter: { id: string; name: string; schule: string | null; kontakt: FLKontakt; default_payment: number };
+  /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */
+  schiedsrichter: { id: string; name: string | null; schule: string | null; kontakt: FLKontakt; default_payment: number };
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -56,7 +67,9 @@ export function AdminSchiedsrichterEditForm({
   const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
 
-  const [name, setName] = useState(schiedsrichter.name);
+  // The BOX is a string where the record may hold no name: an empty one is what the admin then types
+  // into, and `PersonNameSchema` refuses it at the submit rather than storing the sentinel back.
+  const [name, setName] = useState(schiedsrichter.name ?? "");
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
@@ -72,6 +85,10 @@ export function AdminSchiedsrichterEditForm({
 
   // The widening `fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterPayloadDraft` states in full.
   type SchiedsrichterPatchDraft = Omit<FLPatchSchiedsrichterPayload, "default_payment"> & { default_payment: number | null };
+
+  // The STORED record replayed as it stood, which the payload type cannot hold: an undo restoring a
+  // nameless row is refused at the offer rather than being sent as a body no schema admits.
+  type SchiedsrichterUndoBody = Omit<FLPatchSchiedsrichterPayload, "name"> & { name: string | null };
 
   const buildPayload = (): SchiedsrichterPatchDraft => ({
     id: schiedsrichter.id,
@@ -110,11 +127,12 @@ export function AdminSchiedsrichterEditForm({
 
   const banners = buildSchiedsrichterBanners({
     isRetired,
+    isNameless: schiedsrichter.name === null,
     isNameChanged: isChanged("name"),
   });
 
   const resetDraftToStored = () => {
-    setName(schiedsrichter.name);
+    setName(schiedsrichter.name ?? "");
     setSchule(schiedsrichter.schule);
     setKontakt(schiedsrichter.kontakt);
     setDefaultPayment(schiedsrichter.default_payment);
@@ -149,7 +167,7 @@ export function AdminSchiedsrichterEditForm({
     startTransition(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
-      const undoPayload: FLPatchSchiedsrichterPayload = {
+      const undoPayload: SchiedsrichterUndoBody = {
         id: schiedsrichter.id,
         name: schiedsrichter.name,
         schule: schiedsrichter.schule,
@@ -163,7 +181,7 @@ export function AdminSchiedsrichterEditForm({
       const res = await patchSchiedsrichterAction(payload);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Die Schiedsrichterdaten konnten nicht gespeichert werden." });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 
@@ -175,6 +193,9 @@ export function AdminSchiedsrichterEditForm({
         body: undoPayload,
         message: renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined,
         fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
+        // Judged here and not left to the undo route: the shared spine can only answer a body the
+        // schema refuses with a reload nothing would change.
+        unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : null,
         router,
       });
 

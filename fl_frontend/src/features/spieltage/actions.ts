@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -76,6 +76,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     invalidateSpieltage();
+    refresh();
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
   });

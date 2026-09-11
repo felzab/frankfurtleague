@@ -172,7 +172,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   retirement the row already carried keeps its own day: a referee who stopped officiating last season
   is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
   the person, and beside a fixture list that never expires it narrows them to the few referees one
-  school ever sent; `default_payment` stays, being the league's rate for the job. A person who
+  school ever sent; `default_payment` stays, and it is that referee's own agreed fee rather than a league-wide rate. A person who
   officiates again is entered as a new referee.
 - **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
   are one subject to the match, so every seat the address holds is listed for confirmation before the
@@ -345,7 +345,7 @@ the `Entry` column carries a token only where one still resolves in that file.
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
 | —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
-| `huzh-hdfx` | Replace the §7 clause's first half with the spec's formulation and keep the second half — a `.claude/CLAUDE.md` edit only I authorise, and I do here                                                                |
+| —           | The toast clause's first half now reads as [`frontend/spec.md`](frontend/spec.md) I57 does and its second half stands, in `.claude/rules/frontend.md`                                                               |
 | —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
 | —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 

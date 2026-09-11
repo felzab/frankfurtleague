@@ -6,7 +6,7 @@ import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
 
 import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { toWebsiteUrl } from "@/features/teams/utils";
-import { FIELD_ERROR, FIELD_HEIGHT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_GROUP, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { ExternalUrlSchema } from "@/shared/schemas";
@@ -54,7 +54,10 @@ export function WebsiteUrlField({
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
         isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
       }`}>
-      <ArrowUpRightFromSquare className="size-4" />
+      <ArrowUpRightFromSquare
+        aria-hidden="true"
+        className="size-4"
+      />
     </a>
   );
 
@@ -72,7 +75,7 @@ export function WebsiteUrlField({
         {/* `flex-1` over `fullWidth`'s `w-full`, so the shrinking lands here and the link keeps its own 28px. */}
         <InputGroup
           fullWidth
-          className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} min-w-0 flex-1 rounded-lg border transition-colors`}>
+          className={`${FIELD_GROUP} min-w-0 flex-1`}>
           {/* Muted, because it is furniture: always there, never editable. */}
           <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
             {WEBSITE_URL_SCHEME}

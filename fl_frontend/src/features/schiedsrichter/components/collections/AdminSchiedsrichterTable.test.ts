@@ -7,8 +7,8 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { renderTree } from "@/shared/testing/renderTest.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "../../schemas.ts";
 
@@ -26,16 +26,20 @@ const LIVE: FLSchiedsrichter = {
   anonymisiert_am: null,
 };
 
-/** The state one press of the erasure leaves: every value it clears is null and the stamp carries the day. */
-const ERASED: FLSchiedsrichter = {
+/**
+ * A stored row carrying no name and nothing to copy. `name` is nullable on the read model, and the
+ * write path never sends a null, so this row is what a hand-write leaves behind.
+ */
+const NAMENLOS: FLSchiedsrichter = {
   ...LIVE,
   id: "6890a1b2c3d4e5f607800002",
   name: null,
   schule: null,
   kontakt: { telefon: null, email: null },
-  inactive_since: "2026-09-09",
-  anonymisiert_am: "2026-09-09",
 };
+
+/** Nameless with details still on it, which is the row that keeps every control a named one has. */
+const NAMENLOS_MIT_KONTAKT: FLSchiedsrichter = { ...NAMENLOS, id: "6890a1b2c3d4e5f607800003", kontakt: LIVE.kontakt };
 
 const ROUTER = {
   back: () => undefined,
@@ -66,22 +70,22 @@ const namen = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)
 describe("the referee row's copy control", () => {
   /* `navigator.clipboard.writeText("")` resolves, so a row with nothing to copy would clear the
      clipboard the administrator was holding and the toast would report it as a copy. */
-  it("is offered for a referee whose details are there and withheld once the erasure has cleared them", () => {
+  it("is offered for a referee whose details are there and withheld for a row holding none", () => {
     const gelebt = namen(table([LIVE])).filter((name) => name.startsWith("Kontaktdaten"));
-    const geloescht = namen(table([ERASED])).filter((name) => name.startsWith("Kontaktdaten"));
+    const leer = namen(table([NAMENLOS])).filter((name) => name.startsWith("Kontaktdaten"));
 
     assert.ok(gelebt.length > 0, "the live row stopped offering the copy, so the case below proves nothing");
-    assert.deepEqual(geloescht, [], "the erased row still offers a copy that would clear the clipboard");
+    assert.deepEqual(leer, [], "the empty row still offers a copy that would clear the clipboard");
   });
 
-  /* The rest of the row survives the erasure, so a change that dropped every control would pass the
+  /* The rest of the row survives an empty one, so a change that dropped every control would pass the
      case above for the wrong reason. */
-  it("leaves the erased row its other controls", () => {
-    const geloescht = namen(table([ERASED]));
+  it("leaves the nameless row its other controls", () => {
+    const leer = namen(table([NAMENLOS]));
 
     assert.ok(
-      geloescht.some((name) => name.includes("bearbeiten")),
-      "the erased row lost the link to its readout",
+      leer.some((name) => name.includes("bearbeiten")),
+      "the nameless row lost the link to its editor",
     );
   });
 });
@@ -89,21 +93,34 @@ describe("the referee row's copy control", () => {
 describe("what a screen reader is told a row is about", () => {
   /* The word is rendered in italics precisely so a reader takes it for a state, and italics reach a
      screen reader as nothing: a label carrying it announces „anonym“ as this person's name. */
-  it("names the state on an erased row and the referee on a live one", () => {
-    const geloescht = namen(table([ERASED]));
+  it("names the state on a nameless row and the referee on a named one", () => {
+    // Both nameless rows, because a control withheld for want of a value is a control the assertion
+    // never reaches: the copy is the one this row's empty twin does not render.
+    const leer = [...namen(table([NAMENLOS])), ...namen(table([NAMENLOS_MIT_KONTAKT]))];
     const gelebt = namen(table([LIVE]));
 
     assert.ok(
-      geloescht.every((name) => !name.includes(SCHIEDSRICHTER_ANONYM_LABEL)),
-      `a control announces „${SCHIEDSRICHTER_ANONYM_LABEL}“ as a name: ${geloescht.join(" · ")}`,
+      leer.every((name) => !name.includes(SCHIEDSRICHTER_ANONYM_LABEL)),
+      `a control announces „${SCHIEDSRICHTER_ANONYM_LABEL}“ as a name: ${leer.join(" · ")}`,
     );
     assert.ok(
-      geloescht.some((name) => name.includes("gelöschten Daten")),
-      "no control on the erased row says the data are gone",
+      leer.some((name) => name.includes("ohne Namen")),
+      "no control on the nameless row says the name is missing",
     );
     assert.ok(
       gelebt.some((name) => name.includes(LIVE.name ?? "")),
-      "a live row stopped naming the referee its controls act on",
+      "a named row stopped naming the referee its controls act on",
     );
+  });
+});
+
+describe("what the name cell shows where the row holds no name", () => {
+  /* This list serves no stamped row (`docs/backend/spec.md :: I227`), so the erasure's word in the
+     cell would claim a deletion that never ran. */
+  it("shows the word for a row left nameless rather than the erasure's", () => {
+    const zelle = textOf(table([NAMENLOS]), " ");
+
+    assert.ok(zelle.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the nameless row renders no stand-in name: ${zelle}`);
+    assert.ok(!zelle.includes(SCHIEDSRICHTER_ANONYM_LABEL), `the name cell claims an erasure this list never serves: ${zelle}`);
   });
 });

@@ -11,7 +11,7 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -98,7 +98,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <TextArea
           fullWidth
           placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
-          className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+          className={`${FIELD_TEXTAREA} min-h-24`}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["description"]}</FieldError>
       </TextField>

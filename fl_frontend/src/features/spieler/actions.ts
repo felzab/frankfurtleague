@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -8,7 +8,7 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { ERASURE_NEEDS_RETIREMENT } from "./constants";
+import { ALREADY_IN_SAISON, CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON, ERASURE_NEEDS_RETIREMENT, RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
   deleteSaisonSpieler,
   deleteSpieler,
@@ -45,12 +45,6 @@ import type {
   FLSpielerErasureResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
-
-// The index spans retired rows and creating never revives, so the message names the one path that does.
-const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
-  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
-});
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
@@ -145,6 +139,7 @@ export async function postSpielerAction(
       });
     } catch (error) {
       invalidateSpieler();
+      refresh();
       // A 409 here cannot be the player's own duplicate row, but it CAN be a squad refusal naming
       // something the admin can act on, so the reason is appended.
       const refusal = mapSquadRefusal(error);
@@ -156,13 +151,12 @@ export async function postSpielerAction(
         success: false,
         error:
           `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
-          // The noun rather than a pronoun: `because` can put a sentence of its own in front of this
-          // one, which a pronoun would then have to reach back past.
-          "Nimm den Spieler über die Spielerseite in eine Saison auf.",
+          CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON,
       };
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -190,6 +184,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -219,11 +214,12 @@ export async function deleteSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
       spieler: deleteOperation,
-      message: "Spieler stillgelegt. Die Kadereinträge dieser Person bleiben erhalten.",
+      message: RETIREMENT_KEEPS_SQUAD_ROWS,
     };
   });
 }
@@ -248,6 +244,7 @@ export async function reactivateSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -287,6 +284,7 @@ export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Pro
     // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
     // is admin-tier and uncached.
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -326,11 +324,14 @@ export async function postSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen`,
+      // The body under `Spieler aufgenommen`, never a second telling of that title: the panel's
+      // heading and its button already name the season (`docs/frontend/spec.md` §1.12).
+      message: "Nummer, Rolle, Position und Stufe sind noch offen.",
     };
   });
 }
@@ -359,6 +360,7 @@ export async function patchSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
@@ -386,11 +388,14 @@ export async function deleteSaisonSpielerAction(
     const deleteOperation = await deleteSaisonSpieler(validated.data);
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
       saison_spieler: deleteOperation,
-      message: "Spieler aus dem Kader ausgetragen. Nummer und Position bleiben erhalten.",
+      // The role is on the list although another live row can take it meanwhile: this stamp empties no
+      // field, the reactivate brings all four back, and `REQ-SQUAD-004` is what refuses a role given away.
+      message: "Nummer, Rolle, Position und Stufe bleiben erhalten.",
     };
   });
 }
@@ -421,11 +426,12 @@ export async function reactivateSaisonSpielerAction(
     }
 
     invalidateSpieler();
+    refresh();
 
     return {
       success: true,
       saison_spieler: reactivateOperation,
-      message: "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.",
+      message: "Nummer, Rolle, Position und Stufe sind wiederhergestellt.",
     };
   });
 }

@@ -16,14 +16,16 @@ export function NotFound() {
 
   return (
     <StatusPanel
-      badgeLabel="VAR Review"
+      /* `fl_frontend/src/app/not-found.tsx` renders this inside the public shell rather than as the whole document. */
+      fills="shell"
+      badgeLabel="Abseits"
       heading={
         <>
           Entscheidung: <br className="sm:hidden" />
           <span className="text-foreground-muted">Kein Treffer</span>
         </>
       }
-      message="Nach Überprüfung der Bilder steht fest: Die gesuchte Seite befindet sich im Abseits oder wurde vom Platz gestellt."
+      message="Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht."
       watermark={
         /* `motion-safe:` rather than the global shortening, for `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */
         <span
@@ -31,7 +33,17 @@ export function NotFound() {
           404
         </span>
       }>
-      <div className="mt-8 flex w-full flex-col-reverse justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+      {/* Written in the phone's reading order and reversed from `sm` up, for
+          `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */}
+      <div className="mt-8 flex w-full flex-col justify-center gap-3 sm:mt-12 sm:flex-row-reverse sm:gap-4">
+        <Link
+          title="Zur Startseite"
+          aria-label="Zur Startseite"
+          href="/"
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full px-8 sm:w-auto`}>
+          Zur Startseite
+        </Link>
+
         <Button
           variant="ghost"
           aria-label="Zurück zur vorherigen Seite"
@@ -39,14 +51,6 @@ export function NotFound() {
           className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full px-8 sm:w-auto`}>
           Zurück
         </Button>
-
-        <Link
-          title="Startseite"
-          aria-label="Zur Startseite"
-          href="/"
-          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full px-8 sm:w-auto`}>
-          Zur Startseite
-        </Link>
       </div>
     </StatusPanel>
   );

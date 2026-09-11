@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
@@ -38,9 +39,6 @@ const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"
 
 /** The page holding both decisions, which is what decides whether either panel is on screen at all. */
 const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungView.tsx"), "utf8").replace(/\s+/g, " ");
-
-/** The queue, whose columns are allocated rather than measured: fixed layout gives back nothing a cell overruns. */
-const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminBewerbungenTable.tsx"), "utf8");
 
 /** The readout, whose own `useRouter` is why its header is read rather than rendered. */
 const STRIP = readFileSync(path.resolve(import.meta.dirname, "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
@@ -121,7 +119,7 @@ const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map(
 const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 describe("the slices these assertions read", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and both actions out of the file before reading them", () => {
     assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
     assert.ok(!MAPPER.includes("annehmenBewerbung(validated.data)"), "the mapper's slice reaches the acceptance");
@@ -267,9 +265,9 @@ describe("what each decision moves", () => {
 
   /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("invalidates nothing on a decline, and says why", () => {
+  it("moves no tag on a decline, and says why", () => {
     assert.ok(!ABLEHNEN_ACTION.includes("updateTag("), "the decline clears a cached read its endpoint does not move");
-    assert.match(ABLEHNEN_ACTION, /Nothing to invalidate/, "the decline no longer says why it invalidates nothing");
+    assert.match(ABLEHNEN_ACTION, /No tag moves/, "the decline no longer says why it invalidates nothing");
   });
 });
 
@@ -635,38 +633,11 @@ describe("the readout's count", () => {
   });
 });
 
-describe("the queue's columns", () => {
-  /* One rule on the table rather than a class per cell: HeroUI's `Table.Column` takes no alignment
-     prop, so nothing else makes eight columns read from one edge. */
-  it("reads from one edge, with the controls the single exception", () => {
-    assert.match(
-      TABLE,
-      /className="min-w-7xl table-fixed text-left"/,
-      "the table declares no alignment, so each cell keeps whatever it inherits",
-    );
-
-    const geendet = [...TABLE.matchAll(/text-right/g)];
-
-    assert.equal(geendet.length, 1, `expected the Aktionen column alone to end right, found ${String(geendet.length)}`);
-    assert.match(TABLE.slice(geendet[0]!.index), /^text-right[\s\S]{0,120}Aktionen/, "a column other than Aktionen is ended right");
-  });
-
-  /* A pill that cannot break overruns a column too narrow for it instead of wrapping inside it, so
-     the widths are read off the pills rather than off the headings, which may wrap. */
+describe("the pills the queue's card wears", () => {
+  /* A pill that cannot break overruns the cell it sits in instead of wrapping inside it, and a
+     card's own grid track is where one gets narrow enough to break. */
   it("never lets a pill break across two lines", () => {
     assert.match(labelBadge("info"), /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
-  });
-
-  /* A calendar date is fixed-format: its column is sized to it, and a clipped one is another date.
-     Truncating it was the repair for a column too narrow, which is the wrong end of the problem. */
-  it("truncates the names and never the date", () => {
-    // The LAST rendering: the phone card above the table draws the same date, and it is the table's
-    // fixed column that a truncation would be hiding.
-    const eingereicht = TABLE.lastIndexOf("{formatSpielDatum(bewerbung.eingereicht_am)}");
-
-    assert.notEqual(eingereicht, -1, "the queue no longer renders the submission date where this case reads it");
-    assert.doesNotMatch(TABLE.slice(eingereicht - 120, eingereicht), /truncate/, "the submission date is clipped rather than given its width");
-    assert.match(TABLE, /min-w-0 truncate[^"]*">\{bewerbung\.schule\.full_name\}/, "the school's full name no longer truncates at its column");
   });
 });
 
@@ -948,9 +919,9 @@ describe("the re-sent confirmation link", () => {
 
   /* This moves the application's own confirmation block and its deadline, and no cached read holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
-    assert.match(ERNEUT_ACTION, /Nothing to invalidate/, "the re-send no longer says why it invalidates nothing");
+    assert.match(ERNEUT_ACTION, /No tag moves/, "the re-send no longer says why it invalidates nothing");
   });
 });
 
@@ -1024,9 +995,9 @@ describe("the corrected contact address", () => {
     );
   });
 
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
-    assert.match(KORREKTUR_ACTION, /Nothing to invalidate/, "the correction no longer says why it invalidates nothing");
+    assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
   });
 
   /* The sentence stood when nothing edited an application. With the control beside it there is a way
@@ -1104,5 +1075,47 @@ describe("the seat row's correction control", () => {
   it("grades a refused delivery with a tone rather than leaving it neutral", () => {
     assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
     assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");
+  });
+});
+
+/**
+ * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
+ * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
+ * real call; it cannot invent one.
+ */
+const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
+const ACTION_BODIES = new Map<string, string>(
+  DECLARATIONS.flatMap((match, index): [string, string][] =>
+    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
+  ),
+);
+
+/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
+
+/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
+const WRITE_ACTIONS = ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"];
+
+describe("the refresh a write owes the list the admin is looking at", () => {
+  it("places every action the slice exports, each in the callback the case below reads", () => {
+    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
+    for (const name of WRITE_ACTIONS) {
+      assert.ok(
+        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
+        `${name} opens some other callback, so the indentation the next case reads means nothing`,
+      );
+    }
+  });
+
+  /* Both triage reads are uncached, so three of these four have no tag to move at all and the
+     acceptance's `teams` pair reaches the public club reads rather than the queue. */
+  it("refreshes on every one of them, whatever tag the write also moves", () => {
+    for (const name of WRITE_ACTIONS) {
+      const body = ACTION_BODIES.get(name) ?? "";
+      const refreshAt = body.search(TOP_LEVEL_REFRESH);
+      assert.notEqual(refreshAt, -1, `${name} writes and leaves the triage standing`);
+      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
+    }
   });
 });

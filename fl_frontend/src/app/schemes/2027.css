@@ -14,6 +14,10 @@
        which measures 1.62:1 on that fill. Re-check the pair if the fill ever moves. */
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
+    /* The lightest grey clearing 3:1 on --bg-surface, which a field wears as its own fill: darker
+       shrinks the step the brand focus border makes off it, and no grey clears that floor on
+       --bg-muted as well. */
+    --border-control: #8e8e8e;
 
     /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
        page's own lightness. Never an alpha — it composites against what is behind,
@@ -29,6 +33,12 @@
     --accent-brand-solid-hover: #1b5123;
     /* 5.03:1 against the white it carries — re-measure if either half moves. */
     --accent-danger-solid-hover: #d22e30;
+
+    /* A picked row in a multi-select list, two hover steps off the page's own lightness: one step
+       clear of --bg-hover, so a hovered unpicked row never reads as picked
+       (`docs/frontend/spec.md :: I162`). Its own hover is a third step. */
+    --bg-picked: #c1cdc1;
+    --bg-picked-hover: #abb8ac;
 
     /* Lifted off the fill's own lightness to 3.06:1 against --fg-base (WCAG G183), so an accent
        word and a link separate from the sentence around them; neither is underlined here. */
@@ -71,11 +81,16 @@
     --accent-success-solid: #007742;
     --accent-warn-solid: #ecae30;
     --accent-danger-solid: #b71920;
+    /* At the lightness the two white-ink fills share (OKLab L 0.500), on the text grade's hue:
+       6.23:1 under white. Spent under a count on a recessed track and nowhere else; everywhere
+       else the informational tone is a tint. */
+    --accent-info-solid: #1e59cd;
     --fg-on-success: #ffffff;
-    /* Near-black, alone among the three, and a literal because an on-colour does not flip: white
+    /* Near-black, alone among the four, and a literal because an on-colour does not flip: white
        on this fill measures 1.96:1, and an amber dark enough to carry white reads as brown. */
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
+    --fg-on-info: #ffffff;
 
     /* Tournament rounds are an ordered sequence, not a semantic state, so no feedback accent
        fits. A hue arc from 205° to 357°, so they run in hue order with the phases. */
@@ -89,12 +104,12 @@
        `--bg-muted` block under it in both. */
     --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
 
-    /* HeroUI's --accent fills a checked `Switch`'s track under --accent-foreground on its thumb,
-       and tints the squad page's `Avatar`; nothing else here reaches it. Taken as a token because
-       a CSS rule may not reach past a toast's shell. */
-    /* The brand text grade restated, and it moves with --accent-brand: a checked control wears the
-       primary colour, and on the info blue every switch read as a notice. */
+    /* A token rather than a CSS rule, which may not reach past a toast's shell: the brand text
+       grade restated, so it moves with --accent-brand. On the info blue every switch read as a
+       notice. */
     --accent: #216c2d;
+    /* The thumb riding the track above, measured against it in
+       `scripts/checks/docs_gate/scheme.py :: PAIRS`. */
     --accent-foreground: #ffffff;
   }
 
@@ -107,6 +122,9 @@
     /* Same value as the light theme: the fill it sits on does not flip either. */
     --fg-on-brand: #ffffff;
     --border-base: #333333;
+    /* The darkest grey clearing that floor on --bg-surface here: lighter shrinks the focus step,
+       and --bg-muted is out of reach in this theme too. */
+    --border-control: #616161;
 
     /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
     --bg-hover: #212121;
@@ -116,6 +134,10 @@
     --bg-hover-danger: #321918;
     --accent-brand-solid-hover: #1b5123;
     --accent-danger-solid-hover: #d22e30;
+
+    /* The same two steps in the other direction, so a picked row reads identically in both themes. */
+    --bg-picked: #2b352b;
+    --bg-picked-hover: #3b473b;
 
     /* Lightened for dark surfaces: the light value is 2.90:1 on --bg-surface, this is 8.74:1.
        Lindengrün's hue under the chroma `--accent-on-brand` carries: full chroma glows on a
@@ -144,9 +166,11 @@
     --accent-success-solid: #007742;
     --accent-warn-solid: #ecae30;
     --accent-danger-solid: #b71920;
+    --accent-info-solid: #1e59cd;
     --fg-on-success: #ffffff;
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
+    --fg-on-info: #ffffff;
 
     /* The same arc, lifted for the dark surface: each at the lightness its own /15 tint pair
        needs, and the chroma its hue's ceiling leaves there. */

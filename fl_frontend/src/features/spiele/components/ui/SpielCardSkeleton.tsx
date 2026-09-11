@@ -58,8 +58,10 @@ export function SpielCardSkeletonGrid() {
   return (
     <div
       role="status"
-      aria-label="Spiele werden geladen"
-      className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">Spiele werden geladen</span>
       {VISIBILITY.map((visibility, i) => (
         <div
           key={i}

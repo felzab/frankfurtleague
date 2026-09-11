@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 // Source text because the table is module-private, and a test-only export of it would be a seam.
 const ROUTE = readFileSync(path.resolve(import.meta.dirname, "route.ts"), "utf8");
@@ -126,7 +126,7 @@ beforeEach(() => {
 });
 
 describe("the undo route's replay refusals against the endpoint it replays", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the replay table out of the route before reading it", () => {
     assert.notEqual(TABLE, "", "the table's opening or the declaration closing it stopped matching");
     assert.ok(!TABLE.includes("export async function POST"), "the cut runs on into the handler, whose lines this reader would take for rows");

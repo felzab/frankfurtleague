@@ -7,6 +7,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterSingleResponse,
 )
+from app.api.schiedsrichter.services import ANONYMISIERT_AM
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
@@ -32,18 +33,27 @@ async def get_schiedsrichter(
 
     The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
     stay retrievable for a historical match.
+
+    A referee whose data were erased is OFF this list: they can be booked, edited, reactivated and
+    restored by nobody, so the list an administrator works from does not offer them.
+    `GET /{schiedsrichter_id}` answers for one whatever their state, and is the only read that
+    answers for an erased one at all.
     """
 
     schiedsrichter_raw = await pull_many_from_db(
         collection=schiedsrichter_collection,
-        db_filter=build_query(filters, terms={"default_payment"}, include_inactive=filters.include_inactive),
+        db_filter=build_query(
+            filters,
+            terms={"default_payment"},
+            include_inactive=filters.include_inactive,
+            compiled={ANONYMISIERT_AM: None},
+        ),
         limit=filters.limit,
         sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
         collation=GERMAN_COLLATION,
     )
-    schiedsrichter = FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw)
 
-    return FLSchiedsrichterListResponse(schiedsrichter=schiedsrichter)
+    return FLSchiedsrichterListResponse(schiedsrichter=FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw))
 
 
 @router.get(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterSingleResponse, summary="One Schiedsrichter")

@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -505,7 +505,7 @@ describe("every path a refusal mapper emits", () => {
    * Read as text because a `"use server"` module exports only async functions, so it cannot be
    * imported and asked.
    */
-  const production = [...sources].filter(([file]) => !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"));
+  const production = [...sources].filter(([file]) => !isTestFile(file));
 
   /**
    * A mapper by its RETURN TYPE, which is what a module writing one cannot avoid declaring. Anchored on

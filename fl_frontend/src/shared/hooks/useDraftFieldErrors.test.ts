@@ -6,10 +6,12 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 import { z } from "zod";
 
-import { filesUnder } from "../../core/treeWalk.ts";
+import { filesUnder, isTestFile } from "../../core/treeWalk.ts";
 // Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
   applyVerdicts,
+  BLOCKED_SUBMIT_TITLE,
+  blockedSubmitDetail,
   differsFromSubmitted,
   forgivenVerdicts,
   mergeFieldVerdicts,
@@ -339,6 +341,32 @@ describe("missingVerdicts", () => {
   });
 });
 
+describe("what a blocked submit announces", () => {
+  it("says how many answers are missing, spelled per count", () => {
+    // A `FieldError` is a plain span in no live region, so without a toast the press is silent to a reader.
+    assert.match(blockedSubmitDetail(1), /^Ein Feld/);
+    assert.match(blockedSubmitDetail(4), /^4 Felder/);
+  });
+
+  it("points at the marks rather than restating them", () => {
+    assert.match(blockedSubmitDetail(2), /markiert/);
+  });
+
+  it("sends the reader in no direction, on either count", () => {
+    // Every editor on the site shares this sentence, and on the public application form the marked field
+    // stands above the button that raised it. `focusFirstRefusal` moves the caret to the mark regardless.
+    const richtung = /\bunten\b|\boben\b|darunter|darüber/i;
+    const gesagt = "the toast names a place only some of the forms sharing it put the mark";
+
+    assert.doesNotMatch(blockedSubmitDetail(1), richtung, gesagt);
+    assert.doesNotMatch(blockedSubmitDetail(4), richtung, gesagt);
+  });
+
+  it("says the save did not happen, in a title distinct from every other refusal", () => {
+    assert.equal(BLOCKED_SUBMIT_TITLE, "Noch nicht abgeschickt");
+  });
+});
+
 describe("submitRefusals", () => {
   it("says nothing about a draft every schema accepts", () => {
     const clean = submitRefusals({ payloads: { team: { shorthand: "FC", full_name: "FC Beispiel" } }, schemas: { team: TEAM_SCHEMA } });
@@ -424,7 +452,7 @@ describe("applyVerdicts", () => {
 });
 
 const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200).map((file) => [
     path.relative(SRC_DIR, file).split(path.sep).join("/"),
     readFileSync(file, "utf8"),
   ]),

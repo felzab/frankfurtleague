@@ -17,11 +17,11 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { BRAND_INK_OUTSIDE_PROSE } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { rolloverBlockedReason } from "./blockedReasons";
 
@@ -73,7 +73,7 @@ export function FormRolloverSection({
       const res = await activateSaisonAction({ id: saisonId });
 
       if (!res.success) {
-        appToast.danger("Umstellung fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Saison nicht umgestellt", { description: res.error });
         return;
       }
 
@@ -168,14 +168,10 @@ export function FormRolloverSection({
                       {spiel.spielNr}
                     </span>
                     <span className="fluid-xs text-foreground min-w-0 flex-1 truncate font-semibold">{spiel.paarung}</span>
-                    <span className="fluid-xxs text-foreground-muted shrink-0">
-                      {spiel.datum === null ? "Ohne Datum" : formatSpielDatum(spiel.datum)}
-                    </span>
+                    <span className="fluid-xxs text-foreground-muted shrink-0">{formatSpielDatum(spiel.datum)}</span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      // `textLink({ tone: "brand" })`'s own grades: the fill does not flip, so a bare
-                      // `hover:text-brand-solid` sinks into the dark card it sits on.
-                      className="text-brand hover:text-brand-solid dark:hover:text-brand-solid-accent fluid-xxs shrink-0 font-bold transition-colors">
+                      className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xxs shrink-0 font-bold`}>
                       Öffnen
                     </Link>
                   </li>
@@ -224,9 +220,8 @@ export function FormRolloverSection({
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
                   )}
                   {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`}

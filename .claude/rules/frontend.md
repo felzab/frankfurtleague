@@ -23,19 +23,15 @@ own config files included, on §7's terms.
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
 - **undo** — Route-handle an undo outside a page-owned editor; revert before E592
 - **saisons** — Fetch the season list when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
-- **spiele** — Make `ausstehend` a partition, or `computeSpielStatus` a filter
 - **auth** — Add a `callbackUrl` to the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
-- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
-- **tests** — Justify a source-text assertion by the runner's inability to render, in its own words or by citing a file that carries that excuse; assert over source text what a render can show
-- **sweeps** — Take a test file's fixtures as the production text a sweep asserts over; decide the test files for one suffix where the walk takes two
 
 ## Styling and motion
 
 - **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
 - **css** — Pick `admin.css` membership by folder name, not the import graph
-- **toast** — Style a toast from CSS past the shell and the frontmost close button; call `toast` at a call site rather than `appToast`
+- **toast** — Add a new `.toast*` rule to a stylesheet rather than building the appearance in `AppToaster`; call `toast` at a call site rather than `appToast`
 - **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a `@layer`
 - **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
 

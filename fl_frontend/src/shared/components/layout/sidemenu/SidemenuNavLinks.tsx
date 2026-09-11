@@ -36,23 +36,23 @@ export function SidemenuNavLinks<TIcon extends string>({
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {structure.map((group) => (
         <div
           // The first item's id, not the category name: a category may deliberately have none, and every
           // id is a route segment and so unique across the structure.
           key={group.sub_options[0]?.id ?? group.category_name}
-          className="flex flex-col gap-1">
+          className="flex flex-col gap-2">
           {/* An unnamed category renders neither a label nor a rule; the gap between groups still separates it. */}
           {isDesktopCollapsed ? (
-            <Separator className="bg-border my-1 w-1/2 self-center" />
+            <Separator className="bg-border w-1/2 self-center" />
           ) : (
-            group.category_name !== "" && <span className="muted-hint px-2 pb-1">{group.category_name}</span>
+            group.category_name !== "" && <span className="muted-hint px-2">{group.category_name}</span>
           )}
 
           {/* `items-center` while collapsed, matching the footer's own container: the two must agree or the rail
               reads as two columns of different widths. */}
-          <div className={`flex flex-col gap-[2px] ${isDesktopCollapsed ? "items-center" : ""}`}>
+          <div className={`flex flex-col gap-0.5 ${isDesktopCollapsed ? "items-center" : ""}`}>
             {group.sub_options.map((sub_option) => {
               const targetPath = `${linkPrefix}/${sub_option.id}`;
               const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;

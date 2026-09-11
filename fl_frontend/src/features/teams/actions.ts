@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -174,6 +174,7 @@ export async function postTeamAction(
     }
 
     invalidateSeasonScoped("teams", saison_id);
+    refresh();
 
     return {
       success: true,
@@ -222,6 +223,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
     // entries, and no granular tag names them all.
     updateTag("teams");
     updateTag("spiele");
+    refresh();
 
     return {
       success: true,
@@ -266,11 +268,12 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
     // Base tag only: retirement hides the club from every season's default list at once. `spiele` is
     // untouched — a match keeps its embedded copies.
     updateTag("teams");
+    refresh();
 
     return {
       success: true,
       updated_document: deleteOperation.updated_document,
-      message: "Team stillgelegt. Seine Spiele und Saisons bleiben erhalten.",
+      message: "Seine Spiele und Saisons bleiben erhalten.",
     };
   });
 }
@@ -293,6 +296,7 @@ export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload):
     }
 
     updateTag("teams");
+    refresh();
 
     return {
       success: true,
@@ -336,11 +340,14 @@ export async function postSaisonTeamAction(
     // The `teams` pair only: the row is seeded with `austritt: null` and the match join reads
     // nothing else from it (backend spec I32), so no match changes.
     invalidateSeasonScoped("teams", validated.data.saison_id);
+    refresh();
 
     return {
       success: true,
       saison_team: saisonTeam,
-      message: `Team in die Saison ${validated.data.saison_id} aufgenommen`,
+      // The body under `Team aufgenommen`, never a second telling of that title: the panel's heading
+      // and its button already name the season (`docs/frontend/spec.md` §1.12).
+      message: "Ein Austritt gibt den Platz in der Gruppe nicht wieder frei.",
     };
   });
 }
@@ -376,6 +383,7 @@ export async function patchSaisonTeamAction(
     // so `teams` alone leaves a card showing a badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
+    refresh();
 
     return {
       success: true,
@@ -429,6 +437,7 @@ export async function replaceSaisonTeamAction(
     // the public squad read matches on `inactive_since`. Base tag only, which is `invalidateSpieler`'s
     // rule — that read spans every season.
     updateTag("spieler");
+    refresh();
 
     // Both halves said at zero too: the squad is the half of this write that reaches no page the
     // admin is looking at, so "none were" is as much the answer as a number is.
