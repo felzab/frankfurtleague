@@ -81,7 +81,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
      writes the one without the other, the list serving no stamped row at all. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
-      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{schiedsrichterAnzeigename(schiedsrichter.name)}</span>
+      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
     ) : (
       <span className={IDENTITY_NAME}>{schiedsrichter.name}</span>
     );

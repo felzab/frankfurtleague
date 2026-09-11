@@ -339,7 +339,7 @@ export async function postSaisonSpielerAction(
       saison_spieler: saisonSpieler,
       // The body under `Spieler aufgenommen`, never a second telling of that title: the panel's
       // heading and its button already name the season (`docs/frontend/spec.md` §1.12).
-      message: "Nummer, Position und Stufe sind noch offen.",
+      message: "Nummer, Rolle, Position und Stufe sind noch offen.",
     };
   });
 }
@@ -401,7 +401,9 @@ export async function deleteSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: deleteOperation,
-      message: "Nummer, Position und Stufe bleiben erhalten.",
+      // The role is on the list although another live row can take it meanwhile: this stamp empties no
+      // field, the reactivate brings all four back, and `REQ-SQUAD-004` is what refuses a role given away.
+      message: "Nummer, Rolle, Position und Stufe bleiben erhalten.",
     };
   });
 }
@@ -437,7 +439,7 @@ export async function reactivateSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: reactivateOperation,
-      message: "Nummer, Position und Stufe sind wiederhergestellt.",
+      message: "Nummer, Rolle, Position und Stufe sind wiederhergestellt.",
     };
   });
 }

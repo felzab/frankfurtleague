@@ -98,7 +98,7 @@ export function FormAnonymisierenSection({
           Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name ?? "dieser Person"}</strong>. Danach steht auf jedem
           gespielten Spiel nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
           die diese Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist,
-          bleibt lesbar. In der Schiedsrichterliste erscheint der Eintrag nicht mehr: Er ist stillgelegt, wird für neue Spiele nicht mehr
+          bleibt lesbar. In der Schiedsrichterliste erscheint der Eintrag nicht mehr. Er ist stillgelegt, wird für neue Spiele nicht mehr
           angeboten, und bearbeiten lässt er sich danach nicht mehr.
         </p>
 

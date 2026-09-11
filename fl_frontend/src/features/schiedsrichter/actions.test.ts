@@ -314,9 +314,9 @@ describe("the anonymisation's copy", () => {
   it("says the name goes from every match, and the row survives with nothing left to edit", () => {
     const gezeigt = panelText();
 
-    assert.match(gezeigt, /auf jedem gespielten Spiel/, "the confirmation does not say the played matches are reached");
+    assert.match(gezeigt, /[Aa]uf jedem gespielten Spiel/, "the confirmation does not say the played matches are reached");
     assert.match(PANEL, /Der Eintrag bleibt mit allen Spielen bestehen/, "the armed confirmation does not say the row survives");
-    assert.match(gezeigt, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
+    assert.match(gezeigt, /[Bb]earbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
     assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
   });
@@ -337,7 +337,7 @@ describe("the anonymisation's copy", () => {
     const gezeigt = namenlosPanelText();
 
     assert.match(gezeigt, /Telefonnummer von dieser Person\./, "the sentence deletes the details of nobody");
-    assert.match(gezeigt, /auf jedem gespielten Spiel/, "the nameless row's panel stopped saying which matches are reached");
+    assert.match(gezeigt, /[Aa]uf jedem gespielten Spiel/, "the nameless row's panel stopped saying which matches are reached");
   });
 
   /* Next to the deletion rather than instead of it: an administrator told only that the entry is

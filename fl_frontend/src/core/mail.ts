@@ -85,7 +85,8 @@ function errnoCode(error: unknown): string | undefined {
 /** Sorts by name into the order the messages were written, and Windows takes no colon in a file name. */
 function sinkFileStem(subject: string, at: Date): string {
   const stamp = at.toISOString().replaceAll(":", "-");
-  // Folded rather than dropped, so „Zusage für die Elly-Heuss-Schule" keeps a stem naming the school.
+  // Folded rather than dropped, so „Bewerbung vollständig“ reaches the stem whole rather than broken
+  // at the umlaut.
   const slug = subject
     .normalize("NFKD")
     .replace(/\p{Diacritic}/gu, "")

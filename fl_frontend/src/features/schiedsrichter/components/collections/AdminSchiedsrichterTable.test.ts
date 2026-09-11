@@ -7,8 +7,8 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { renderTree } from "@/shared/testing/renderTest.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "../../schemas.ts";
 
@@ -111,5 +111,16 @@ describe("what a screen reader is told a row is about", () => {
       gelebt.some((name) => name.includes(LIVE.name ?? "")),
       "a named row stopped naming the referee its controls act on",
     );
+  });
+});
+
+describe("what the name cell shows where the row holds no name", () => {
+  /* This list serves no stamped row (`docs/backend/spec.md :: I227`), so the erasure's word in the
+     cell would claim a deletion that never ran. */
+  it("shows the word for a row left nameless rather than the erasure's", () => {
+    const zelle = textOf(table([NAMENLOS]), " ");
+
+    assert.ok(zelle.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the nameless row renders no stand-in name: ${zelle}`);
+    assert.ok(!zelle.includes(SCHIEDSRICHTER_ANONYM_LABEL), `the name cell claims an erasure this list never serves: ${zelle}`);
   });
 });
