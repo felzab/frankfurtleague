@@ -64,10 +64,7 @@ export type ActionFailure = {
  */
 export type ActionSuccess<TPayload extends object = object> = TPayload & {
   success: true;
-  /**
-   * Required: every write composes one, and a caller may raise it unguarded. The literal still
-   * standing beside it at a toast is `docs/frontend/spec.md :: I42`'s register copy, not a fallback.
-   */
+  /** Required: every write composes one, and a caller may raise it unguarded. */
   message: string;
 };
 

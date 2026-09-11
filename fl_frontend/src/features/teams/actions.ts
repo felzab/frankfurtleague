@@ -345,7 +345,9 @@ export async function postSaisonTeamAction(
     return {
       success: true,
       saison_team: saisonTeam,
-      message: `Team in die Saison ${validated.data.saison_id} aufgenommen`,
+      // The body under `Team aufgenommen`, never a second telling of that title: the panel's heading
+      // and its button already name the season (`docs/frontend/spec.md` §1.12).
+      message: "Ein Austritt gibt den Platz in der Gruppe nicht wieder frei.",
     };
   });
 }

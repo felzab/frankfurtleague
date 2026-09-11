@@ -101,7 +101,7 @@ export function FormKaderSection({
 
       if (res.success) {
         setEntryTeamError(null);
-        appToast.success(res.message ?? "Spieler aufgenommen");
+        appToast.success("Spieler aufgenommen", { description: res.message });
         return;
       }
 

@@ -284,7 +284,7 @@ export function FormSaisonSection({
 
       if (res.success) {
         setEntryGruppeError(null);
-        appToast.success(res.message ?? "Team aufgenommen");
+        appToast.success("Team aufgenommen", { description: res.message });
         return;
       }
 

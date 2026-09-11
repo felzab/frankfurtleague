@@ -88,7 +88,6 @@ deliverable.
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `nadg-bnjb` | Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere               | FE, Docs, tests, spieler, teams                                             | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Skipped  |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
@@ -685,50 +684,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `nadg-bnjb` · Two season-entry panels raise the server's sentence as a toast title, and the registered title renders nowhere
-
-| Tags                            | Status | Depends on |
-| ------------------------------- | ------ | ---------- |
-| FE, Docs, tests, spieler, teams | Open   | —          |
-
-**`docs/frontend/spec.md` §1.12 puts the sentence the server sent in a toast's body, and two panels
-raise it as the title.**
-`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx :: handleEnterSaison`
-raises `res.message ?? "Spieler aufgenommen"` as the toast's only argument, and
-`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx :: handleEnterSaison`
-raises `res.message ?? "Team aufgenommen"` the same way.
-`fl_frontend/src/shared/types/types.ts :: ActionSuccess` requires `message`, and both actions compose
-one on the path that gets there — `fl_frontend/src/features/spieler/actions.ts :: postSaisonSpielerAction`
-and `fl_frontend/src/features/teams/actions.ts :: postSaisonTeamAction` — so what an admin reads is
-the server's sentence in the title slot and the literal beside it reaches no screen.
-
-**The literal is the only copy the title register can read, so deleting it is no repair.**
-`fl_frontend/src/core/toastTitles.test.ts :: resolveTitles` takes the right side of a `??` and
-resolves a member expression to nothing, which is what puts `Spieler aufgenommen` and
-`Team aufgenommen` in the register `docs/frontend/spec.md :: I42` holds. Each of those two rows
-therefore names a title the product never raises, and no case can catch it: the register reads a
-call site's source and never the sentence that arrives at runtime. Teaching it to follow
-`res.message` is refused for that same reason — a register following a server field holds no
-readable copy of any title at all.
-
-**What the repair costs is copy nobody has ratified.** Each action's sentence names the season it
-entered the row into, so it is not the registered title plus a cost, and standing it under
-`Spieler aufgenommen` would say the same thing twice, which `docs/frontend/spec.md` §1.12 refuses.
-Both panels already name the season in their heading and on the button that was pressed, which is
-what makes a shorter body arguable rather than obvious.
-
-**Done when** each of the two raises a title `fl_frontend/src/core/toastTitles.test.ts` resolves and
-an admin reads, with whatever stands beneath it saying what the title does not — or
-`docs/frontend/spec.md` §1.12 admits a server sentence in the title slot and I42's register is held
-to something the product actually raises.
-
-**A `??` elsewhere in this shape is live and stays.** `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`
-renders `message ?? fallback`, and the `message` the entity editors pass is `undefined` on an
-ordinary save, so there the fallback is the ordinary case;
-`fl_frontend/src/shared/hooks/useSignOut.ts :: useSignOut` falls back for the `null`
-`fl_frontend/src/shared/types/types.ts :: FormState` admits. **Reading the `??` alone does not
-separate them from the two above.**
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 

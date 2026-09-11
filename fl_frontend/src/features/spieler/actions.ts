@@ -337,7 +337,9 @@ export async function postSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen`,
+      // The body under `Spieler aufgenommen`, never a second telling of that title: the panel's
+      // heading and its button already name the season (`docs/frontend/spec.md` §1.12).
+      message: "Nummer, Position und Stufe sind noch offen.",
     };
   });
 }
