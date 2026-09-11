@@ -121,6 +121,10 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--accent-brand-solid-hover", "#1b5123", "#1b5123"),
     ("--accent-danger-solid-hover", "#c74434", "#c74434"),
     ("--accent-brand", "#216c2d", "#8fc752"),
+    # HeroUI's checked-`Switch` track and the thumb on it, the pair
+    # `scripts/checks/docs_gate/scheme.py :: PAIRS` measures at a 3:1 floor.
+    ("--accent", "#216c2d", "#8dbf6c"),
+    ("--accent-foreground", "#ffffff", "#0a0a0a"),
     # The one token the light block alone declares, and the reason the two blocks differ by one.
     ("--focus", "var(--fg-base)", ""),
     ("--accent-brand-solid", "#033f11", "#033f11"),
