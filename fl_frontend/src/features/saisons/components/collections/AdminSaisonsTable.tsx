@@ -17,6 +17,14 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSaisonRow } from "../../types";
 
+/**
+ * The season id wears the same chip fill a team's Kürzel does
+ * (`fl_frontend/src/features/spieler/shorthandChip.ts :: SHORTHAND_CHIP`): both are the short
+ * identifier a reader scans a column for.
+ */
+const ID_CHIP =
+  "bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm";
+
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Saisons für diese Suche.",
   filtered: "Keine Saisons für diese Filter.",
@@ -103,9 +111,9 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             key={saison.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm">
-                {saison.id}
-              </span>
+              {/* `shrink-0` here alone: this row is a flex row and the status badge beside the id
+                  would otherwise squeeze it. */}
+              <span className={`${ID_CHIP} shrink-0`}>{saison.id}</span>
               {renderStatusBadge(saison)}
             </div>
             {renderZeitraum(saison)}
@@ -150,11 +158,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     id={saison.id}
                     className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className={CELL_EDGE}>
-                      {/* The season id wears the same chip fill a team's Kürzel does: both are the short
-                          identifier a reader scans a column for. */}
-                      <span className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm">
-                        {saison.id}
-                      </span>
+                      <span className={ID_CHIP}>{saison.id}</span>
                     </Table.Cell>
 
                     <Table.Cell className={CELL_INNER}>{renderZeitraum(saison)}</Table.Cell>

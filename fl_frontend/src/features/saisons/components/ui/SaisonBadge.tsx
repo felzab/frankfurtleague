@@ -1,3 +1,4 @@
+import { laufendDot } from "@/features/saisons/components/ui/laufendDot";
 import { labelBadge } from "@/shared/components/ui/badges";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
@@ -21,10 +22,9 @@ const WORT: Record<FLSaisonStatus, string> = { active: "Laufend", future: "Gepla
 export function SaisonBadge({ status, className = "" }: { status: FLSaisonStatus; className?: string }) {
   return (
     <span className={`${labelBadge(TINT[status])} gap-1 ${className}`}>
-      {/* The live dot `SaisonChip` gives this season on the public pages: in the light theme the
-          brand tint and `past`'s success tint are one colour, so the state cannot ride on hue
-          alone. */}
-      {status === "active" && <span className="bg-brand size-1.5 animate-ping rounded-full" />}
+      {/* In the light theme the brand tint and `past`'s success tint are one colour, so `active`
+          cannot ride on hue alone. */}
+      {status === "active" && <span className={laufendDot("xxs")} />}
       {WORT[status]}
     </span>
   );

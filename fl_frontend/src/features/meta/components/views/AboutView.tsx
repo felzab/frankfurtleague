@@ -18,8 +18,7 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-
-const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
+import { META_TILE } from "../ui/tile";
 
 const CHIP = `${PILL_RADIUS} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
 // The border answers the hover and not the text: `TeamPopoverMenu`'s trigger already spells
@@ -48,7 +47,7 @@ export function AboutView() {
         <div className={`${card()} grid grid-cols-1 gap-3 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-4 sm:p-6 lg:p-8`}>
           <span
             aria-hidden="true"
-            className={TILE}>
+            className={META_TILE}>
             <StarFill className="size-5" />
           </span>
           <p className="fluid-base text-foreground leading-relaxed font-medium text-pretty">

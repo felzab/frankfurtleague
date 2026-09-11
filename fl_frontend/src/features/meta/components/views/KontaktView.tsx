@@ -9,11 +9,10 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
+import { META_TILE } from "../ui/tile";
 
 import type { ReactNode } from "react";
 import type { KontaktChannelId } from "../../types";
-
-const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
 
 const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
 
@@ -73,7 +72,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                 <div className="flex flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={TILE}>
+                    className={META_TILE}>
                     {GLYPH[channel.id]}
                   </span>
                   <span className="fluid-base text-foreground font-bold">{channel.name}</span>

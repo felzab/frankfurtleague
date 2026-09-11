@@ -6,8 +6,7 @@ import { typedObjectEntries } from "@/shared/utils/type";
 
 import { GROUPED_MEMBERS, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-
-const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
+import { META_TILE } from "../ui/tile";
 
 export function MetaOrganisationView() {
   return (
@@ -33,7 +32,7 @@ export function MetaOrganisationView() {
                 className={`${card()} flex flex-col gap-y-3 p-5 sm:p-6`}>
                 <span
                   aria-hidden="true"
-                  className={`${TILE} ${DISPLAY_HEADING} fluid-xl`}>
+                  className={`${META_TILE} ${DISPLAY_HEADING} fluid-xl`}>
                   {member.name.charAt(0)}
                 </span>
 
