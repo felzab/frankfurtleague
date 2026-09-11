@@ -92,7 +92,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
           // No `aria-expanded:border-brand` here, and `border-control` at rest like every other field:
           // `globals.css`'s field-focus block already paints every field-shaped control, and a second
           // copy at one call site is how they diverge.
-          className={`border-control bg-surface/50 aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
+          className={`border-control bg-surface/50 aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-(--motion-base) ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">

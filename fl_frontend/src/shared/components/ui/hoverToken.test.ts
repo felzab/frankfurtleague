@@ -7,12 +7,12 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-// Three levels up from `src/shared/components/ui`: the rule binds every call site under `src`, not
-// the recipes that happen to sit beside this file.
+// Three levels up from `src/shared/components/ui`: the rule binds every module under `src`, not the
+// directory this file happens to sit in.
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** Fewer components than this and a rename has emptied the walk, leaving every case below vacuous. */
-const COMPONENT_FLOOR = 200;
+/** Fewer modules than this and a rename has emptied the walk, leaving every case below vacuous. */
+const MODULE_FLOOR = 350;
 
 /** Fewer hovers than this and the tokeniser has stopped reading class strings, with the same result. */
 const HOVER_FLOOR = 50;
@@ -58,10 +58,10 @@ function classTokensIn(file: string, text: string): string[] {
 const relative = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
 
 /**
- * `.tsx` alone, which is where `docs/frontend/spec.md :: I162` puts the rule. Whether a recipe module
- * spelling one hover for many call sites answers to it is an open question a sweep cannot settle.
+ * Both suffixes: a recipe module spelling one hover for many call sites spreads the fault rather than
+ * escaping it, so `docs/frontend/spec.md :: I162` reaches it.
  */
-const swept = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), COMPONENT_FLOOR).map((file) => ({
+const swept = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), MODULE_FLOOR).map((file) => ({
   file: relative(file),
   tokens: classTokensIn(relative(file), readFileSync(file, "utf8")),
 }));
@@ -76,7 +76,7 @@ describe("what a hover is allowed to be spelled as", () => {
 
     assert.ok(
       found >= HOVER_FLOOR,
-      `expected at least ${String(HOVER_FLOOR)} hover variants across ${String(swept.length)} components, found ${String(found)}`,
+      `expected at least ${String(HOVER_FLOOR)} hover variants across ${String(swept.length)} modules, found ${String(found)}`,
     );
   });
 

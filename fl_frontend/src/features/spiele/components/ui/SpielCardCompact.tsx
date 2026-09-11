@@ -60,7 +60,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                   /* `flex` here and on the span, and `bg-hover-muted`, for `SpielCard.tsx`'s
                      reasons at the same control. `rounded-xl` is spelled, not inherited: HeroUI's
                      base radius clamps to a circle at this size. */
-                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[32px] w-[32px] rounded-xl p-0 transition-colors duration-200">
+                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[32px] w-[32px] rounded-xl p-0 transition-colors duration-(--motion-base)">
                   <CircleExclamation className="m-0 size-4" />
                 </Button>
               </IconTooltip>

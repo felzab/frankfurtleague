@@ -199,7 +199,7 @@ export function FormSchuleSection({
                     className="p-2">
                     {/* The panel's own fill, not a recessed one: the border alone says "field", and
                         `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-                    <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-200">
+                    <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-(--motion-base)">
                       <SearchField.SearchIcon />
                       <SearchField.Input
                         placeholder="Schule finden..."

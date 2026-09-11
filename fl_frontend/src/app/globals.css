@@ -148,6 +148,8 @@
   --color-hover: var(--bg-hover);
   --color-hover-muted: var(--bg-hover-muted);
   --color-hover-danger: var(--bg-hover-danger);
+  --color-picked: var(--bg-picked);
+  --color-picked-hover: var(--bg-picked-hover);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
   --color-brand: var(--accent-brand);

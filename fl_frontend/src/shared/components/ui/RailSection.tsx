@@ -66,7 +66,7 @@ export function RailSection({
         </h2>
         {badge && <span className="pointer-events-none relative ml-auto">{badge}</span>}
         <ChevronDown
-          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-200 ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
+          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-(--motion-base) ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 

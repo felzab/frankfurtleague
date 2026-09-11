@@ -120,6 +120,11 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     ("--bg-hover-field", "#3f7043", "#2f5633"),
     ("--accent-brand-solid-hover", "#1b5123", "#1b5123"),
     ("--accent-danger-solid-hover", "#c74434", "#c74434"),
+    # A picked row's fill and its hover, held to one 6.7-point step by
+    # `scripts/checks/docs_gate/scheme.py :: HOVERS`. The season's hexes because this fixture's page
+    # grounds are the same, so the rule that derived them lands here too.
+    ("--bg-picked", "#c1cdc1", "#2b352b"),
+    ("--bg-picked-hover", "#abb8ac", "#3b473b"),
     ("--accent-brand", "#216c2d", "#8fc752"),
     # HeroUI's checked-`Switch` track and the thumb on it, the pair
     # `scripts/checks/docs_gate/scheme.py :: PAIRS` measures at a 3:1 floor.

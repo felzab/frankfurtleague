@@ -34,6 +34,12 @@
     /* 5.03:1 against the white it carries — re-measure if either half moves. */
     --accent-danger-solid-hover: #d22e30;
 
+    /* A picked row in a multi-select list, two hover steps off the page's own lightness: one step
+       clear of --bg-hover, so a hovered unpicked row never reads as picked
+       (`docs/frontend/spec.md :: I162`). Its own hover is a third step. */
+    --bg-picked: #c1cdc1;
+    --bg-picked-hover: #abb8ac;
+
     /* Lifted off the fill's own lightness to 3.06:1 against --fg-base (WCAG G183), so an accent
        word and a link separate from the sentence around them; neither is underlined here. */
     --accent-brand: #216c2d;
@@ -128,6 +134,10 @@
     --bg-hover-danger: #321918;
     --accent-brand-solid-hover: #1b5123;
     --accent-danger-solid-hover: #d22e30;
+
+    /* The same two steps in the other direction, so a picked row reads identically in both themes. */
+    --bg-picked: #2b352b;
+    --bg-picked-hover: #3b473b;
 
     /* Lightened for dark surfaces: the light value is 2.90:1 on --bg-surface, this is 8.74:1.
        Lindengrün's hue under the chroma `--accent-on-brand` carries: full chroma glows on a

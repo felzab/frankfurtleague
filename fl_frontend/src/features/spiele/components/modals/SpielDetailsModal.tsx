@@ -44,7 +44,9 @@ function TeamNameLine({
       teamAustritt={team.austritt_type}
       placement="top"
       onNavigate={onNavigate}>
-      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>
+      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-(--motion-base)">
+        {team.name}
+      </strong>
     </TeamPopoverMenu>
   );
 }

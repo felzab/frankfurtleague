@@ -170,7 +170,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
             <Input
-              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-(--motion-base) outline-none"
               placeholder="z.B. name@beispiel.de"
               type="email"
               disabled={isPending}
