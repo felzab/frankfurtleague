@@ -37,10 +37,10 @@ the change (CLAUDE.md §2).
 
 1. **Sort the carried-forward context, and say back which sentence is which.**
 
-   | Kind                          | Looks like                                                                        | Treatment                                                                                                                       |
-   | ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-   | **A decision**                | "The first knockout round is always group-seeded"                                 | Fact. Nobody here can re-derive it and no file records it — restate it and build on it                                          |
-   | **A description of the tree** | "The backend is green", "one file is the only compile blocker", "closed in <sha>" | Claim. It was true when written and the tree has moved since. **Check the branch, whether it compiles, and every SHA it names** |
+   | Kind                          | Looks like                                                                          | Treatment                                                                                                                       |
+   | ----------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+   | **A decision**                | "The first knockout round is always group-seeded"                                   | Fact. Nobody here can re-derive it and no file records it — restate it and build on it                                          |
+   | **A description of the tree** | "The backend is green", "one file is the only compile blocker", "closed in `<sha>`" | Claim. It was true when written and the tree has moved since. **Check the branch, whether it compiles, and every SHA it names** |
 
    A correction here costs one command; the same correction after the work is built on it costs the
    work.

@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { classTokensIn } from "@/shared/testing/classTokens.ts";
 
 import { BRAND_INK_OUTSIDE_PROSE, textLink } from "./textLink.ts";
 
@@ -13,22 +14,25 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const rel = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
 
-/** Every shipped `.tsx` under `src`, which is where a link a reader meets can be spelled. */
-const componentsUnder = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
-
 /**
  * Every shipped module under `src`, both suffixes.
  *
  * A recipe is a `.ts` file, which is the one kind a walk for components alone never reaches — and
- * the kind a second copy of this grade would be written in.
+ * the kind a second copy of either treatment would be written in.
  */
 const modulesUnder = (dir: string): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500);
 
 /** The grade as a copy would carry it, the dark arm included through its own prefix. */
 const SPELLS_THE_GRADE = /hover:text-brand-solid/;
 
-/** The module holding the grade, which the sweep for a copy has to stand outside. */
+/** The decoration as a copy would carry it, a `group-hover:` or `sm:` variant included. */
+const SPELLS_THE_DECORATION = /hover:underline|underline-offset/;
+
+/** The module holding both, which either sweep for a copy has to stand outside. */
 const RECIPE = path.join(SRC, "shared", "components", "ui", "textLink.ts");
+
+/** One module's class tokens, which is what either sweep reads rather than its raw text. */
+const tokensOf = (file: string): string[] => classTokensIn(rel(file), readFileSync(file, "utf8"));
 
 const classesOf = (recipe: string): Set<string> => new Set(recipe.split(" "));
 
@@ -55,8 +59,15 @@ describe("the one treatment a link inside text wears", () => {
   /* Six hand-written spellings of one thing is what this replaced. A seventh reads as a different
      kind of control to anybody scanning the page, and nothing else in the toolchain sees it. */
   it("is the only place a link's underline and colour are spelled", () => {
-    const spellings = componentsUnder(SRC)
-      .filter((file) => /className="[^"]*(hover:underline|underline-offset)[^"]*"/.test(readFileSync(file, "utf8")))
+    // The recipe is a `.ts` module, so a floor on its own tokens is what says the sweep below still
+    // reaches the kind a walk for components never did.
+    assert.ok(
+      tokensOf(RECIPE).some((klasse) => SPELLS_THE_DECORATION.test(klasse)),
+      `${rel(RECIPE)}: spells no link decoration`,
+    );
+
+    const spellings = modulesUnder(SRC)
+      .filter((file) => file !== RECIPE && tokensOf(file).some((klasse) => SPELLS_THE_DECORATION.test(klasse)))
       .map(rel);
 
     assert.deepEqual(spellings, [], `these spell a link treatment inline instead of taking \`textLink\`:\n  ${spellings.join("\n  ")}`);
