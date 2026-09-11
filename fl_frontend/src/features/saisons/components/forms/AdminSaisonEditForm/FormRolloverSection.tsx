@@ -9,7 +9,6 @@ import { Button } from "@heroui/react";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
-import { BRAND_INK } from "@/shared/components/ui/brandInk";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -18,6 +17,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { BRAND_INK_OUTSIDE_PROSE } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -173,7 +173,7 @@ export function FormRolloverSection({
                     </span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      className={`${BRAND_INK} fluid-xxs shrink-0 font-bold`}>
+                      className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xxs shrink-0 font-bold`}>
                       Öffnen
                     </Link>
                   </li>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { BRAND_INK } from "./brandInk";
+import { BRAND_INK_OUTSIDE_PROSE } from "./textLink";
 
 export function ExpandableDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -30,7 +30,7 @@ export function ExpandableDescription({ text }: { text: string }) {
       </p>
 
       <button
-        className={`${BRAND_INK} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
+        className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>
