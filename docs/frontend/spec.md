@@ -547,6 +547,19 @@ stack mail links back into itself. The published origin is the module constant
 **Runner:** Node's built-in test runner — `node --test`, driven through `pnpm test`. There is no
 Vitest or Jest, and no test config file.
 
+**One process per test file is the runner's default, and this suite cannot leave it.**
+`--test-isolation=none` runs the whole suite in one process and is the only lever on this scope that
+removes work rather than moving it. The modules standing a double in for another module close it:
+each registers a `resolve` or `load` hook through `node:module` for the WHOLE process, and
+`fl_frontend/src/core/mail.test.ts` replaces `globalThis.fetch` outright, so under one process those
+doubles reach files that never asked for them. Deregistering is not the escape it reads as — the
+module cache is keyed on the URL a hook has already answered for, so a module doubled for one file
+answers a later import in the same process with the double. The same cache bounds
+`fl_frontend/src/shared/testing/renderTest.ts` from the other side: once its compile hook is
+deregistered, a `.tsx` the process has not already loaded raises `ERR_UNKNOWN_FILE_EXTENSION`, so
+scoping it would put that hook in every importer. Both halves were driven against the installed Node
+rather than read out of its documentation.
+
 **Tests sit next to the code they test**, unlike the backend's separate `fl_backend/tests/` tree —
 each side takes its own ecosystem's default, and colocation ships nothing, bundlers excluding
 `.test.` files by pattern ([`docs/backend/spec.md`](../backend/spec.md) §1.6). Most test files

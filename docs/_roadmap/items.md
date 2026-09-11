@@ -93,7 +93,6 @@ deliverable.
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Skipped  |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so               | FE, tests, versions                                                         | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
 
 ## The items
@@ -926,51 +925,6 @@ here establishes that an SSR'd attribute the parser refused stays unapplied afte
 every overlay still positions under the strict policy; both are read off the react-dom and react-aria
 sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
 each page actually streams.
-
-### `suuz-dged` · Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| FE, tests, versions | Open   | —          |
-
-**`fl_frontend/package.json`'s `test` script runs Node's own test runner, which gives every test file
-its own process**, and the suite counted 167 modules on 2026-09-10. The installed Node offers
-`--test-isolation=none`, which runs the whole suite in one process instead — **the one lever on this
-scope that removes work rather than moving it**.
-
-**The modules that stand a double in for another module make that mode unsafe, and they do it
-deliberately.** Each calls `registerHooks` from `node:module` to answer a `resolve` or a `load` for
-the whole process, standing a double in for a module the code under test imports —
-`fl_frontend/src/core/mail.test.ts` is the clearest, replacing `fl_frontend/src/core/config.ts` and
-`fl_frontend/src/core/logging.ts` because the test script stands that config's gate down without
-supplying a provider key, while the send is asserted by the header that key spells. That module also
-replaces `globalThis.fetch` outright. **A hook registered for the process is
-registered for every file in it**, so under one process those doubles reach modules that never asked
-for them, and the replaced `fetch` is every other test's `fetch` too. **The per-test-file recorder
-globals are not the obstacle**: each carries a name of its own, so no two collide.
-
-**Installing a double and removing it again is not the escape it reads as, and the module cache is
-why.** `registerHooks` answers with a `deregister`, and deregistering leaves standing every module
-the hooks already loaded: the cache is keyed on the URL a hook has already answered for, so a module
-doubled for one file answers a later import in the same process with the double, and a fresh import
-of the doubled module itself answers with it too. The same cache bounds
-`fl_frontend/src/shared/testing/renderTest.ts` from the other side, it registering a compile hook
-rather than a double because Node compiles no JSX of its own: once that hook is deregistered a
-`.tsx` the process has not already loaded raises `ERR_UNKNOWN_FILE_EXTENSION`, so scoping it means
-every module importing the harness installing it around its own dynamic imports, which is the
-harness's public shape rather than its internals. **Both halves were driven against the installed
-Node rather than taken from its documentation.**
-
-**Done when** one of two things is chosen. Either those modules are reshaped so that a double is
-installed and removed around the module that needs it — **which is a different testing style, not a
-smaller one**, and which the paragraph above prices: no two files in the process may need one module
-two ways, and the compile hook moves out into every importer — or the mode stays closed and a
-sentence somewhere says why, so the next session reading `--test-isolation` in Node's help does not
-spend an afternoon discovering it. **Choosing the second is a real answer**, and it is the cheaper
-one; what is wrong today is that neither has been chosen and nothing records the constraint. What it
-costs is unmeasured and measuring it is half the work — each module pays a process start, the alias
-hook's registration and its own TypeScript load, all but one of which would go, and the suite
-already runs while the flag is one word.
 
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
