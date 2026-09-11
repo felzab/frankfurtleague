@@ -206,8 +206,8 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
 }
 
 /**
- * One way out of the row. Its hover is spelled here rather than left to `globals.css`, whose
- * unlayered rule keys on `data-focused`, which react-aria sets from the keyboard.
+ * One way out of the row. Its hover is spelled here rather than left to `globals.css`: a
+ * utilities-layer class is what outranks HeroUI's own components-layer `:hover`.
  */
 export function RowActionMenuItem({
   id,

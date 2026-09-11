@@ -98,12 +98,12 @@
        `--bg-muted` block under it in both. */
     --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
 
-    /* HeroUI's --accent fills a checked `Switch`'s track under --accent-foreground on its thumb,
-       and tints the squad page's `Avatar`; nothing else here reaches it. Taken as a token because
-       a CSS rule may not reach past a toast's shell. */
-    /* The brand text grade restated, and it moves with --accent-brand: a checked control wears the
-       primary colour, and on the info blue every switch read as a notice. */
+    /* A token rather than a CSS rule, which may not reach past a toast's shell: the brand text
+       grade restated, so it moves with --accent-brand. On the info blue every switch read as a
+       notice. */
     --accent: #216c2d;
+    /* The thumb riding the track above, measured against it in
+       `scripts/checks/docs_gate/scheme.py :: PAIRS`. */
     --accent-foreground: #ffffff;
   }
 

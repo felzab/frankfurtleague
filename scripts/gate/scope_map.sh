@@ -96,10 +96,11 @@ else
       # here would buy the whole scripts scope for a file nothing outside the build reads.
       fl_backend/.dockerignore) images=true; docs=true ;;
       # Its own arm, ahead of the three below it: the mirror register reads this module's text for
-      # the internal key's alphabet, so it owes the backend scope as well as the image's. Folded
-      # into that arm it would buy the backend tier for two files no backend suite reads.
+      # the internal key's alphabet, so it owes the backend scope as well as the image's.
       fl_frontend/src/core/config.ts)
         frontend=true; images=true; backend=true; db=true; docs=true ;;
+      # Its own arm, the config.ts mapping above: joined to it, an edit here would buy the whole
+      # backend and database tier for two files no backend suite reads.
       fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;
