@@ -17,19 +17,22 @@ import { renderMarkup, renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { Rule as CssRule } from "postcss";
+import type { ReactNode } from "react";
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminCrudFallback } = await import("./AdminCrudFallback.tsx");
+const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const SHAPES: readonly AdminCrudShape[] = ["table", "cards", "sections"];
 
-/* The variant family the reader below must tell from a `has-` on the element itself; no utility in
-   the tree is of that shape, so `@source inline` is what puts one in front of it. */
+/* The variant family the reader below must tell from a `has-` on the element itself. Nothing in the
+   tree wears that variant, so `@source inline` emits it rather than the scanner's reach into this
+   file's own literal. */
 const REACHES_UPWARD = "group-has-[tbody]:[--admin-region-held:var(--admin-placeholder-hold)]";
 
 type Compiled = { selector: string; banded: boolean; gated: boolean; declarations: Map<string, string> };
@@ -88,6 +91,19 @@ compiled.root.walkRules((rule) => {
     RULES.set(opened.name, [...(RULES.get(opened.name) ?? []), found]);
   }
 });
+
+/** Which `@keyframes` write a custom property, under the property's own name. */
+const WRITING = new Map<string, string[]>();
+compiled.root.walkAtRules("keyframes", (frames) => {
+  frames.walkDecls((declaration) => {
+    if (!declaration.prop.startsWith("--")) return;
+    WRITING.set(declaration.prop, [...(WRITING.get(declaration.prop) ?? []), frames.params]);
+  });
+});
+
+/* A Tailwind `animate-` utility declares the theme variable and never the keyframes, so the name an
+   animation runs is one substitution below the rule. */
+const fromTheme = (value: string): string => value.replace(/var\((--[a-z-]+)\)/g, (_whole, name: string) => THEME[name] ?? "");
 
 /* Empty for a marker class rather than a failure: `group` and `peer` declare nothing, and a utility
    the stylesheet really lost is caught by the floors below, where the finding names the property. */
@@ -224,29 +240,32 @@ const slotFor = (shape: AdminCrudShape, rows: Row[]) =>
         rows.map((row) => h("li", { key: row.id }, row.id)),
       );
 
-function render({ shape, hasFacets, commits = true }: { shape: AdminCrudShape; hasFacets: boolean; commits?: boolean }): string {
-  return renderTree(
+type Mounted = { shape: AdminCrudShape; hasFacets: boolean; commits?: boolean };
+
+const regionOf = ({ shape, hasFacets, commits = true }: Mounted): ReactNode =>
+  h(AdminCrudView<Row>, {
+    items: ROWS,
+    searchKeys: SEARCH_KEYS,
+    facets: hasFacets ? FACETS : [],
+    shape: shape,
+    renderTable: ({ filteredItems }) => (commits ? slotFor(shape, filteredItems) : null),
+  });
+
+const underNext = (tree: ReactNode): ReactNode =>
+  h(
+    AppRouterContext.Provider,
+    { value: ROUTER },
     h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        PathnameContext.Provider,
-        { value: "/admin/spieler" },
-        h(
-          SearchParamsContext.Provider,
-          { value: new URLSearchParams("") },
-          h(AdminCrudView<Row>, {
-            items: ROWS,
-            searchKeys: SEARCH_KEYS,
-            facets: hasFacets ? FACETS : [],
-            shape: shape,
-            renderTable: ({ filteredItems }) => (commits ? slotFor(shape, filteredItems) : null),
-          }),
-        ),
-      ),
+      PathnameContext.Provider,
+      { value: "/admin/spieler" },
+      h(SearchParamsContext.Provider, { value: new URLSearchParams(""), children: tree }),
     ),
   );
-}
+
+const render = (mounted: Mounted): string => renderTree(underNext(regionOf(mounted)));
+
+/** The region where a route puts it: inside the shell, which is what writes the variable it reads. */
+const renderUnderShell = (mounted: Mounted): string => renderTree(underNext(h(AdminCrudShell, { search: null, children: regionOf(mounted) })));
 
 /** The region is the outermost element of the render, and the only element carrying the box. */
 function regionClasses(html: string): string[] {
@@ -257,6 +276,34 @@ function regionClasses(html: string): string[] {
 }
 
 const overlayClasses = (html: string): string[] => /<div aria-hidden="true" class="([^"]*)"/.exec(html)?.[1]?.split(/\s+/) ?? [];
+
+/** Every class anywhere in a render: the element running the hold is not the region, so `regionClasses` cannot reach it. */
+const classesIn = (html: string): string[] => [...new Set([...html.matchAll(/ class="([^"]*)"/g)].flatMap((found) => found[1]!.split(/\s+/)))];
+
+/** Where the markup opens the element carrying `className`. */
+function opensCarrying(html: string, className: string): number {
+  for (const opening of html.matchAll(/<[a-z][\w-]*\s[^>]*?class="([^"]*)"/g))
+    if (opening[1]!.split(/\s+/).includes(className)) return opening.index;
+
+  return assert.fail(`nothing in the render carries ${className}`);
+}
+
+/** Where the element opening at `at` closes, counted over its own tag's opens and closes. */
+function closesAfter(html: string, at: number): number {
+  const tag = /^<([a-z][\w-]*)/.exec(html.slice(at))?.[1];
+  assert.ok(tag !== undefined, `the markup opens no element at ${String(at)}`);
+
+  const step = new RegExp(`</?${tag}(?=[\\s/>])`, "g");
+  step.lastIndex = at;
+
+  let depth = 0;
+  for (let found = step.exec(html); found !== null; found = step.exec(html)) {
+    depth += found[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return found.index;
+  }
+
+  return assert.fail(`the ${tag} opening at ${String(at)} never closes`);
+}
 
 type Band = "narrow" | "wide";
 
@@ -408,6 +455,44 @@ describe("the box an admin CRUD region holds", () => {
   });
 });
 
+/* The variable a region scales by is declared on the region and written nowhere the region renders:
+   the animation writing it sits in a component the region has no way to see. */
+describe("the hold every admin CRUD region reads", () => {
+  it("is run by an animation on an element the region sits inside", () => {
+    const waits = new Set(
+      SHAPES.flatMap((shape) => regionClasses(render({ shape, hasFacets: true })))
+        .flatMap(rulesFor)
+        .flatMap((rule) => [...(rule.declarations.get("--admin-region-held") ?? "").matchAll(/var\((--[a-z-]+)\)/g)])
+        .map((found) => found[1]!),
+    );
+    assert.equal(waits.size, 1, `the region waits on ${String(waits.size)} variables rather than one`);
+
+    const frames = WRITING.get([...waits][0]!) ?? [];
+    assert.equal(frames.length, 1, `${String(frames.length)} keyframes write ${[...waits][0]!}`);
+
+    for (const shape of SHAPES) {
+      const html = renderUnderShell({ shape, hasFacets: true });
+      const running = classesIn(html).filter((className) =>
+        rulesFor(className).some((rule) =>
+          fromTheme(rule.declarations.get("animation") ?? "")
+            .split(/\s+/)
+            .includes(frames[0]!),
+        ),
+      );
+      assert.equal(running.length, 1, `${shape}: ${String(running.length)} classes over the region run ${frames[0]!}`);
+
+      const mark = regionClasses(render({ shape, hasFacets: true })).find((className) =>
+        rulesFor(className).some((rule) => rule.declarations.has("--admin-region-held")),
+      );
+      assert.ok(mark !== undefined, `${shape}: the region declares the hold through no class`);
+
+      const runs = opensCarrying(html, running[0]!);
+      const region = opensCarrying(html, mark);
+      assert.ok(runs < region && region < closesAfter(html, runs), `${shape}: the region sits outside the element running ${frames[0]!}`);
+    }
+  });
+});
+
 /* No utility in the tree reaches outside the element it sits on, so the tree alone cannot tell this
    reader from one that answers false to everything. */
 describe("the reader behind the ancestor sweep", () => {
@@ -430,6 +515,15 @@ const VIEWS = path.join(SRC, "features");
 
 const parse = async (file: string): Promise<ts.SourceFile> =>
   ts.createSourceFile(file, await readFile(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+/* Selected on the fallback each route draws, which is neither of the properties the two cases below
+   assert: a route that stops satisfying either stays in the roster and fails inside it. */
+const ROUTES: string[] = [];
+for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const page = await parse(path.join(ADMIN, entry.name, "page.tsx")).catch(() => null);
+  if (page?.text.includes("AdminCrudFallback") === true) ROUTES.push(entry.name);
+}
 
 type Element = { tag: string; attributes: Map<string, ts.JsxAttributeValue | undefined> };
 
@@ -465,6 +559,24 @@ function drawnBy(element: Element, facetProp: string): Drawn {
   };
 }
 
+/** The element a page renders as the whole of its output, which everything it mounts sits under. */
+function returnedBy(page: ts.SourceFile): string {
+  const exported = page.statements.find(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) && statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword) === true,
+  );
+  assert.ok(exported?.body !== undefined, `${page.fileName}: exports no default function`);
+
+  let returned = exported.body.statements.find(ts.isReturnStatement)?.expression;
+  while (returned !== undefined && ts.isParenthesizedExpression(returned)) returned = returned.expression;
+  assert.ok(
+    returned !== undefined && (ts.isJsxElement(returned) || ts.isJsxSelfClosingElement(returned)),
+    `${page.fileName}: returns no element`,
+  );
+
+  return (ts.isJsxElement(returned) ? returned.openingElement : returned).tagName.getText(page);
+}
+
 function oneElement(elements: readonly Element[], tag: string, file: string): Element {
   const matching = elements.filter((element) => element.tag === tag);
   assert.equal(matching.length, 1, `${file}: holds ${String(matching.length)} ${tag} elements`);
@@ -476,12 +588,7 @@ function oneElement(elements: readonly Element[], tag: string, file: string): El
    either shows what the other draws. */
 describe("every admin CRUD route", () => {
   it("draws one shape and one facet state from its own fallback down to its view", async () => {
-    const routes: string[] = [];
-    for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const page = await parse(path.join(ADMIN, entry.name, "page.tsx")).catch(() => null);
-      if (page?.text.includes("AdminCrudFallback") === true) routes.push(entry.name);
-    }
+    assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
 
     /* Derived twice, by two routes that must agree (`docs/frontend/spec.md` §1.9): a view reached
        only through its own page would drop out of the roster rather than fail against it. */
@@ -489,13 +596,13 @@ describe("every admin CRUD route", () => {
       .filter((file) => readFileSync(file, "utf8").includes("<AdminCrudView"))
       .map((file) => file.split(path.sep).join("/"));
     assert.equal(
-      routes.length,
+      ROUTES.length,
       rendering.length,
-      `${String(routes.length)} routes draw the placeholder, ${String(rendering.length)} views hold it`,
+      `${String(ROUTES.length)} routes draw the placeholder, ${String(rendering.length)} views hold it`,
     );
 
     const reached: string[] = [];
-    for (const route of routes) {
+    for (const route of ROUTES) {
       const page = await parse(path.join(ADMIN, route, "page.tsx"));
       const loading = await parse(path.join(ADMIN, route, "loading.tsx"));
 
@@ -519,5 +626,23 @@ describe("every admin CRUD route", () => {
     }
 
     assert.deepEqual(reached.sort(), rendering.sort(), "a view holding the region sits under no route that draws its placeholder");
+  });
+
+  /* The shell is the only thing in the tree that runs the hold, and a region reaching no shell reads
+     the property's own initial value instead: released from its first frame, with nothing failing. */
+  it("returns the shell that runs the hold, so every region it mounts inherits one", async () => {
+    assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
+
+    for (const route of ROUTES) {
+      const page = await parse(path.join(ADMIN, route, "page.tsx"));
+      assert.equal(returnedBy(page), "AdminCrudShell", `${route}: its page returns something else`);
+
+      const specifier = page.statements
+        .filter(ts.isImportDeclaration)
+        .find((statement) => statement.getText(page).includes("AdminCrudShell"))
+        ?.moduleSpecifier.getText(page)
+        .replaceAll('"', "");
+      assert.equal(specifier, "@/shared/components/ui/AdminCrudShell", `${route}: its shell comes from ${String(specifier)}`);
+    }
   });
 });
