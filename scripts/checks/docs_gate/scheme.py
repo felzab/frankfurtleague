@@ -322,6 +322,7 @@ PAIRS: Final[tuple[Pair, ...]] = (
     Pair("phase badge", Layer("--accent-phase-viertelfinale"), Layer("--accent-phase-viertelfinale", 15, "--bg-surface"), 4.5),
     Pair("phase badge", Layer("--accent-phase-halbfinale"), Layer("--accent-phase-halbfinale", 15, "--bg-surface"), 4.5),
     Pair("phase badge", Layer("--accent-phase-finale"), Layer("--accent-phase-finale", 15, "--bg-surface"), 4.5),
+    Pair("switch thumb on a checked track", Layer("--accent-foreground"), Layer("--accent"), 3.0),
 )
 
 

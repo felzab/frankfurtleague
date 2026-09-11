@@ -22,12 +22,14 @@ can break, so the paths above reach both packages, `nginx/` and `scripts/` whole
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
 - **logging** — Let nginx honour a client's traceparent; log outside the envelope
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
+- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
 - **table** — Move the league table's default scope off `gruppenphase`
 - **saisons** — Offer in the form wiring the write path refuses
 - **spiele** — Treat `mietpreis` / `payment` as stale copies of the defaults; denormalise season-scoped state into `spiele`
 - **spiele** — Put the shoot-out in `ergebnis`; store its winner; let the table read it
 - **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry run's report
 - **spiele** — Add a POST or a DELETE to `/spiele`
+- **spiele** — Make `ausstehend` a partition, or `computeSpielStatus` a filter
 - **saisons** — Make `inactive_since` a boolean; revive a retired row by creating it
 - **saisons** — Add an austritt boolean beside the record
 - **saisons** — Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard

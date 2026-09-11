@@ -23,11 +23,9 @@ own config files included, on §7's terms.
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
 - **undo** — Route-handle an undo outside a page-owned editor; revert before E592
 - **saisons** — Fetch the season list when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
-- **spiele** — Make `ausstehend` a partition, or `computeSpielStatus` a filter
 - **auth** — Add a `callbackUrl` to the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
-- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
 
 ## Styling and motion
 
