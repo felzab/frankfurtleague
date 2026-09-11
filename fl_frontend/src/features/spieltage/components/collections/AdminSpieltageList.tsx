@@ -87,11 +87,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     // the season's rules, so agreement is the ordinary season, and repeating the count on every
     // healthy heading spends what the divergence needs.
     if (progress.angelegt === progress.erwartet) {
-      return (
-        <span className="fluid-xs text-foreground-muted font-medium">
-          {progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}
-        </span>
-      );
+      return <span className="muted-meta">{progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}</span>;
     }
 
     // The noun agrees with the EXPECTED count, the number it belongs to: „2 von 1 Spieltag“.

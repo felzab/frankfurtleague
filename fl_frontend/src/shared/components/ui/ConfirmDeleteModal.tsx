@@ -8,6 +8,7 @@ import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
 
+import { CONFIRM_DANGER_PANEL } from "./ConfirmReveal";
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
@@ -129,7 +130,7 @@ export function ConfirmDeleteModal({
              button label changing. Deliberately not animated: a danger escalation should register at once. */
             <div
               role="alert"
-              className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
+              className={`${CONFIRM_DANGER_PANEL} flex flex-col gap-2`}>
               <div className="text-danger-strong flex items-center gap-2 font-bold">
                 <TriangleExclamation
                   aria-hidden="true"

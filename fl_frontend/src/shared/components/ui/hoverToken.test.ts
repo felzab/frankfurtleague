@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
-
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { classTokensIn } from "@/shared/testing/classTokens.ts";
 
 // Three levels up from `src/shared/components/ui`: the rule binds every module under `src`, not the
 // directory this file happens to sit in.
@@ -29,31 +28,6 @@ const COLOUR_UTILITIES = "bg|text|border|ring|outline|shadow|fill|stroke|decorat
 const HOVER_ALPHA = new RegExp(
   `(?:^|:)(?:hover|group-hover|peer-hover|data-hovered):(?:${COLOUR_UTILITIES})-[^\\s/]+/(?:\\d{1,3}|\\[[^\\]\\s/]+\\])$`,
 );
-
-/**
- * Every whitespace-separated run inside a string or template literal. A literal rather than the raw
- * text, so a comment naming one of these spellings — this file's own included — cannot fail the sweep.
- */
-function classTokensIn(file: string, text: string): string[] {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const tokens: string[] = [];
-
-  const push = (literal: string): void => {
-    for (const token of literal.split(/\s+/)) if (token !== "") tokens.push(token);
-  };
-
-  const visit = (node: ts.Node): void => {
-    if (ts.isStringLiteralLike(node)) push(node.text);
-    else if (ts.isTemplateExpression(node)) {
-      push(node.head.text);
-      for (const span of node.templateSpans) push(span.literal.text);
-    }
-    ts.forEachChild(node, visit);
-  };
-
-  visit(source);
-  return tokens;
-}
 
 const relative = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
 

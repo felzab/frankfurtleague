@@ -23,7 +23,7 @@ export function DashboardError({ error, retry, isRetrying }: { error: Error & { 
         // The brand fill, as on every sole way out in the tree: `outline` is the grade of a peer or
         // a second choice, and a panel offering one control has neither.
         className={`${ctaButton({ intent: "primary", hover: "aria" })} mt-8`}>
-        <ArrowRotateRight className="mr-2 h-4 w-4" />
+        <ArrowRotateRight className="mr-2 size-4" />
         {isRetrying ? "Lädt neu..." : "Ansicht neu laden"}
       </Button>
 

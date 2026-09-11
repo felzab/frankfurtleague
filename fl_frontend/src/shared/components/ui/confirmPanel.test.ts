@@ -19,7 +19,7 @@ import { PANEL_REVEAL } from "./motion";
 */
 const { ConfirmActionRow } = await import("./ConfirmActionRow.tsx");
 const { ConfirmReadoutRow } = await import("./ConfirmReadoutRow.tsx");
-const { ConfirmReveal } = await import("./ConfirmReveal.tsx");
+const { ConfirmReveal, CONFIRM_DANGER_PANEL } = await import("./ConfirmReveal.tsx");
 
 /* Blanked rather than raw: `ConfirmReveal`'s JSDoc names `role="alert"` while explaining it, so a
    panel's `doesNotMatch` of that string fails it for saying so. */
@@ -27,6 +27,7 @@ const read = (file: string): string => blankComments(readFileSync(path.resolve(i
 
 const REVEAL_SOURCE = read("ConfirmReveal.tsx");
 const ACTION_ROW_SOURCE = read("ConfirmActionRow.tsx");
+const DELETE_MODAL_SOURCE = read("ConfirmDeleteModal.tsx");
 
 /** The armed shell as a panel renders it, around a child of the panel's own. */
 const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: "folge" }, "Der Spielplan wird gelöscht.") });
@@ -382,6 +383,18 @@ describe("the armed reveal", () => {
 
     // A knob nobody has passed yet changes nothing it renders, so the declaration is where one shows.
     assert.doesNotMatch(REVEAL_SOURCE, /\bvariant\b|\bgap\?:|\btone\b/, "the shell grew a knob");
+  });
+
+  /* The delete dialog takes the box and not the reveal, for the reason its own step-2 comment gives
+     (`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx`). Two spellings of that box render
+     identically, so which of them stands there is legible in the source alone. */
+  it("draws its tint from the constant the delete dialog draws from", () => {
+    for (const token of CONFIRM_DANGER_PANEL.split(" ")) {
+      assert.ok(wurzelKlassen(REVEAL).includes(token), `the reveal is missing ${token}, which the shared box carries`);
+    }
+
+    assert.match(DELETE_MODAL_SOURCE, /\$\{CONFIRM_DANGER_PANEL\}/, "the delete dialog's step two dresses a box of its own");
+    assert.doesNotMatch(DELETE_MODAL_SOURCE, /bg-danger\/5\b|border-danger\/20\b/, "the delete dialog spells the box beside the constant");
   });
 });
 

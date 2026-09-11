@@ -6,6 +6,7 @@ import { CircleCheck } from "@gravity-ui/icons";
 
 import { Button, Form } from "@heroui/react";
 
+import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import {
@@ -281,7 +282,7 @@ export function BewerbungForm({
           ref={eingereichtRef}
           role="status"
           tabIndex={-1}
-          className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
+          className={ergebnisPanel({ tone: "erfolg" })}>
           <CircleCheck className="text-success-strong size-10" />
           <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
           {/* No seat is named, each holding a link of its own: the reader is the one person who can

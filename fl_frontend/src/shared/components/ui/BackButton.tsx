@@ -24,7 +24,7 @@ export function BackButton({ fallbackHref, spacing = "mb-6" }: PageExitOptions &
       // `mb-0` is for a page whose own `gap-y-*` already parts its sections, that gap being the
       // whole of the distance (`docs/frontend/spec.md` §1.20).
       className={`${formButton({ intent: "nav", size: "sm" })} ${spacing} w-fit gap-x-2`}>
-      <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+      <ArrowUturnCwLeft className="size-4 shrink-0" />
       <span>Zurück</span>
     </Button>
   );

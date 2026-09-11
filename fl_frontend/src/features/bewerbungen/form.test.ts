@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { blankComments } from "@/core/blankComments";
 import { renderMarkup } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -14,6 +15,7 @@ import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
 */
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { ergebnisPanel } = await import("./components/views/BestaetigungPanels.tsx");
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
@@ -406,5 +408,19 @@ describe("what the form says about itself to a reader who cannot see it", () => 
     assert.match(FORM, /^ +role="status"$/m, "the receipt is in no live region");
     assert.match(FORM, /tabIndex=\{-1\}/, "the receipt cannot take focus");
     assert.match(FORM, /eingereichtRef\.current\?\.focus\(\)/, "nothing moves focus to the receipt");
+  });
+});
+
+describe("the receipt the form leaves in its own place", () => {
+  /* The box is the confirmation page's recipe
+     (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: ergebnisPanel`).
+     A literal spelling its classes renders identically, so which of the two stands here is legible
+     in the source alone. */
+  it("takes the tinted panel the confirmation page wears rather than dressing one", () => {
+    // Read at the recipe first: one emitting no tint at all satisfies the two claims under it.
+    assert.match(ergebnisPanel({ tone: "erfolg" }), /(^|\s)bg-success\/10(\s|$)/, "the shared panel lost its success tint");
+
+    assert.match(FORM, /className=\{ergebnisPanel\(\{ tone: "erfolg" \}\)\}/, "the receipt dresses a box of its own");
+    assert.doesNotMatch(blankComments(FORM), /bg-success\/|border-success\//, "the receipt spells a success tint beside the recipe");
   });
 });
