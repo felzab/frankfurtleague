@@ -22,7 +22,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3`;
+const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`;
 
 /**
  * Roughly one card row. Without it an empty or failed section collapses to a single line, the page

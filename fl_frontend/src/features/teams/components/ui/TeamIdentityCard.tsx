@@ -16,13 +16,17 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
   const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
-    <div className={`${card()} flex w-full flex-col gap-y-2 p-4 sm:p-6`}>
-      <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
+    <div className={`${card()} flex w-full flex-col gap-y-3 p-4 sm:p-6`}>
+      {/* Boxed so the name and its detail line take their own rung rather than the card's row rung
+          (`docs/frontend/spec.md` §1.20). */}
+      <div className="flex flex-col gap-y-0.5">
+        <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
 
-      {/* Offizieller Schulname. No emptiness guard — both schemas require it. */}
-      <p className="fluid-xs text-foreground-muted -mt-2 font-semibold">{teamData.full_name}</p>
+        {/* Offizieller Schulname. No emptiness guard — both schemas require it. */}
+        <p className="fluid-xs text-foreground-muted font-semibold">{teamData.full_name}</p>
+      </div>
 
-      <div className="flex flex-col items-start gap-y-1 pt-2">
+      <div className="flex flex-col items-start gap-y-1">
         {/* A club may hold no website at all. Rendered anyway, React resolves an empty `href` against
             the current URL, so the anchor would be an invisible link back to this very page. */}
         {teamData.website_url !== null && (
@@ -53,11 +57,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
         </Link>
       </div>
 
-      {teamData.description && (
-        <div className="mt-2 pt-2">
-          <ExpandableDescription text={teamData.description} />
-        </div>
-      )}
+      {teamData.description && <ExpandableDescription text={teamData.description} />}
     </div>
   );
 }

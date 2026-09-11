@@ -58,7 +58,7 @@ export function RefusableSelect({
       {/* HeroUI's own `Label`, not a bare span: it wires `for`/`id` onto the trigger, which an
           `aria-label` alone leaves unlabelled for anything reading the DOM rather than the a11y tree. */}
       <Label className={FIELD_LABEL}>{label}</Label>
-      <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
+      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
         {/* From the prop rather than `Select.Value`, which can lag a render behind and would show
             HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
         <span className={value ? "" : "text-foreground-muted"}>

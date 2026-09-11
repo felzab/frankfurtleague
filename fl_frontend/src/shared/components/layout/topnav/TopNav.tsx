@@ -28,12 +28,14 @@ export function TopNav() {
             className="fluid-sm text-foreground hover:bg-hover rounded-full px-4 py-1.5 font-semibold transition-colors">
             Verwalten
           </Link>
-
-          <div
-            className="bg-border ml-2 h-8 w-px"
-            aria-hidden="true"
-          />
         </div>
+
+        {/* Outside the link group, so the row's own gap parts it from both neighbours rather than
+            one gap plus a margin. */}
+        <div
+          className="bg-border hidden h-8 w-px lg:block"
+          aria-hidden="true"
+        />
 
         <TopNavLinksDropdown>
           <Dropdown.Section

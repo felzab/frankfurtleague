@@ -363,7 +363,7 @@ export function FormSchuleSection({
                   {kuerzelHinweis !== null && (
                     <p
                       id={kuerzelHinweisId}
-                      className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                      className="fluid-xxs text-foreground-muted font-medium">
                       {kuerzelHinweis}
                     </p>
                   )}

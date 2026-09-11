@@ -84,7 +84,7 @@ export function BewerbungView({
           />
         )}
 
-        <nav className="border-border mt-1 grid grid-cols-1 gap-x-3 gap-y-4 border-t pt-6 sm:grid-cols-3">
+        <nav className="border-border grid grid-cols-1 gap-x-3 gap-y-4 border-t pt-6 sm:grid-cols-3">
           {KOPF_LINKS.map(({ href, label, anlass, Icon }) => (
             <div
               key={href}

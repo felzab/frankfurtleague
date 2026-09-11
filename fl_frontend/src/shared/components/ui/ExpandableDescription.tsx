@@ -10,7 +10,7 @@ export function ExpandableDescription({ text }: { text: string }) {
   if (!text) return null;
 
   if (text.length < 120) {
-    return <p className="fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
+    return <p className="fluid-xs text-foreground font-medium text-pretty">{text}</p>;
   }
 
   // A pointer convenience: the button below toggles both directions, so this adds no capability a
@@ -18,7 +18,7 @@ export function ExpandableDescription({ text }: { text: string }) {
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
-      className="mt-2"
+      className="flex flex-col gap-y-1"
       onClick={() => {
         if (isExpanded) {
           setIsExpanded(false);
@@ -30,7 +30,7 @@ export function ExpandableDescription({ text }: { text: string }) {
       </p>
 
       <button
-        className={`${BRAND_INK} fluid-xs mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
+        className={`${BRAND_INK} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>
