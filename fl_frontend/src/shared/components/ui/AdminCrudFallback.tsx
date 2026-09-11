@@ -8,6 +8,31 @@ const SECTIONS = [0, 1];
 const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
 const SECTION_ROW_ACTIONS = [0, 1];
 
+/** Which placeholder a resource draws, and with it whether its rows reach the DOM a pass late. */
+export type AdminCrudShape = "table" | "sections" | "cards";
+
+/** The card column, which the table shape draws below `md` too, so one height answers for both. */
+const CARD_COLUMN = "[--admin-region-box:35.625rem]";
+
+/**
+ * Each shape's height, less the bar `fallbackBox` adds, at its band's widest width: under it the
+ * region would clip the placeholder its overlay draws.
+ */
+const SHAPE_BOX: Record<AdminCrudShape, string> = {
+  table: `${CARD_COLUMN} md:[--admin-region-box:26.25rem]`,
+  cards: `${CARD_COLUMN} md:[--admin-region-box:36.5625rem]`,
+  sections: "[--admin-region-box:77.875rem] md:[--admin-region-box:44.0625rem]",
+};
+
+/** Tracks the bar `hasFacets` draws: a box reserving a row the page never draws leaves a strip under the placeholder. */
+const BAR = "[--admin-region-bar:3.5rem]";
+const NO_BAR = "[--admin-region-bar:0rem]";
+
+/** The variables `fl_frontend/src/shared/components/ui/placeholderBox.ts`'s utilities read; nothing here sizes anything on its own. */
+export function fallbackBox(shape: AdminCrudShape, hasFacets: boolean): string {
+  return `${SHAPE_BOX[shape]} ${hasFacets ? BAR : NO_BAR}`;
+}
+
 /** How many targets decides only the cluster's width; its height comes from `ROW_ACTION_SIZE`, which `RowActions` reads too. */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
@@ -31,7 +56,7 @@ export function AdminCrudFallback({
   hasFacets = true,
 }: {
   /** `"cards"` is the card column at EVERY width, for the list that is cards at every width. */
-  shape?: "table" | "sections" | "cards";
+  shape?: AdminCrudShape;
   /**
    * Defaulted, so only a slice declaring no facets has to say so: `FilterLeiste` draws nothing for one, and a row
    * reserved for a bar that never arrives shrinks the page when the rows land — the direction the eye catches.

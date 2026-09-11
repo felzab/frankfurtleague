@@ -61,9 +61,7 @@ export function AdminBewerbungenView({
         facets={BEWERBUNGEN_FACETS}
         facetCounts={bewerbungenQueueFacetCounts({ anzahl_je_status: anzahlJeStatus, anzahl_je_saisonbezug: anzahlJeSaisonbezug })}
         leserichtung={richtung}
-        /* No react-aria collection here, so nothing ever grows a `tbody`: with the default the
-           placeholder overlay would never lift. */
-        isCollection={false}
+        shape="cards"
         renderTable={({ filteredItems, emptiness }) => (
           <AdminBewerbungenList
             filteredBewerbungen={filteredItems}

@@ -1,20 +1,30 @@
-/**
- * The whole fallback's box at its widest, so the region never shrinks before it grows — the reversal the eye catches.
- * A floor rather than a height, so a filled table grows past it freely.
- */
-const HELD_FLOOR = "min-h-[29.625rem]";
-
-/** Released with the bars over it: the overlay is `absolute inset-0`, so a shell shrinking underneath held bars would clip them. */
-const RELEASED_FLOOR = "group-has-[tbody]:min-h-[calc(29.625rem*var(--admin-placeholder-hold))]";
+import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /**
- * A ceiling for exactly as long as the floor, or a large collection sizes the card to a blank field behind the overlay.
- * The `100000px` arm is "unbounded": at hold `0` it binds nothing, so the `overflow-hidden` beside it clips nothing.
+ * The box the placeholder fills, clipped to it: while the hold is up the rows have often landed, so
+ * an unclamped region is a 362-row table behind an opaque overlay with the placeholder at its top.
  */
-const HELD_CEILING = "group-has-[tbody]:max-h-[calc(29.625rem*var(--admin-placeholder-hold)+100000px*(1-var(--admin-placeholder-hold)))]";
+const BOX = [
+  "min-h-[calc((var(--admin-region-box)+var(--admin-region-bar))*var(--admin-region-held))]",
+  "max-h-[calc((var(--admin-region-box)+var(--admin-region-bar))*var(--admin-region-held)+100000px*(1-var(--admin-region-held)))]",
+  "overflow-hidden",
+].join(" ");
 
 /**
- * The height an admin CRUD region holds while react-aria's collection is empty: `CollectionBuilder` reads it during
- * render while the portal filling it writes at commit. The overlay is `absolute inset-0`, so removing this leaves it flat.
+ * `has-` and never `group-has-`: the region carrying this is the group, and a `group-` variant
+ * compiles to a descendant selector, so on the group itself it matches nothing and never releases.
  */
-export const PLACEHOLDER_BOX = [HELD_FLOOR, RELEASED_FLOOR, HELD_CEILING, "group-has-[tbody]:overflow-hidden"].join(" ");
+const AWAITS_ROWS = "[--admin-region-held:1] has-[tbody]:[--admin-region-held:var(--admin-placeholder-hold)]";
+
+/** Nothing to wait for: mapped markup renders whole on its first pass, leaving the 500ms clock alone to hold it. */
+const AWAITS_THE_CLOCK = "[--admin-region-held:var(--admin-placeholder-hold)]";
+
+/**
+ * How long an admin CRUD region holds itself at its placeholder's box. `1` through the hold, `0`
+ * once released, and the overlay reads it inherited, so one predicate decides the box and the cover.
+ */
+export const PLACEHOLDER_BOX: Record<AdminCrudShape, string> = {
+  table: `${AWAITS_ROWS} ${BOX}`,
+  cards: `${AWAITS_THE_CLOCK} ${BOX}`,
+  sections: `${AWAITS_THE_CLOCK} ${BOX}`,
+};

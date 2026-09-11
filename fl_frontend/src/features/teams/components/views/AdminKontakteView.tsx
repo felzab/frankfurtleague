@@ -36,9 +36,7 @@ export function AdminKontakteView({ kontakte, teams }: { kontakte: AdminKontakte
       items={kontakte}
       searchKeys={SEARCH_KEYS}
       facets={facets}
-      /* No react-aria collection here, so nothing ever grows a `tbody`: with the default the
-         placeholder overlay would never lift. */
-      isCollection={false}
+      shape="cards"
       renderTable={({ filteredItems, emptiness }) => (
         <AdminKontakteList
           filteredKontakte={filteredItems}
