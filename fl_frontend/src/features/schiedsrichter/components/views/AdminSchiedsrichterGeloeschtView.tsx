@@ -18,8 +18,8 @@ export function AdminSchiedsrichterGeloeschtView({
   inactiveSince,
   defaultPayment,
 }: {
-  /** `null` only for a row a hand-write left nameless without stamping it: no date is invented for one. */
-  anonymisiertAm: string | null;
+  /** Non-null, the stamp being what routes a row here: a nameless row without one takes the editor. */
+  anonymisiertAm: string;
   /** It may PREDATE the erasure: a referee retired last season keeps the day they retired. */
   inactiveSince: string | null;
   defaultPayment: number;
@@ -68,14 +68,12 @@ export function AdminSchiedsrichterGeloeschtView({
             </p>
 
             <dl className="flex w-full flex-col gap-y-1">
-              {anonymisiertAm !== null && (
-                <ConfirmReadoutRow
-                  label="Gelöscht am"
-                  value={formatSpielDatum(anonymisiertAm)}
-                />
-              )}
-              {/* The one figure the erasure never reached, so the page says plainly what still stands: it
-                  is the league's own rate rather than anything about this person. */}
+              <ConfirmReadoutRow
+                label="Gelöscht am"
+                value={formatSpielDatum(anonymisiertAm)}
+              />
+              {/* The one figure the erasure never reached, and it is this referee's own fee rather than
+                  a league-wide rate, so a page that dropped it would hide a figure nobody can now read. */}
               <ConfirmReadoutRow
                 label="Standard-Honorar"
                 value={formatEuro(defaultPayment)}

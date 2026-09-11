@@ -37,7 +37,8 @@ export function FormAnonymisierenSection({
   onBeforeAnonymise,
 }: {
   schiedsrichterId: string;
-  name: string;
+  /** `null` where a hand-write left the row nameless, so no sentence below may name a person outright. */
+  name: string | null;
   /** The STORED school, for `kontakt`'s reason: the readout names what this press clears, not what is typed. */
   schule: string | null;
   /**
@@ -90,12 +91,15 @@ export function FormAnonymisierenSection({
       </div>
 
       <div className={panel.body()}>
+        {/* The list is where an administrator meets a referee, and the erasure takes the row off it
+            (`docs/backend/spec.md :: I227`): copy promising a word there would send them looking for
+            an entry no read serves. */}
         <p className="muted-hint">
-          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name}</strong>. In der Verwaltung und auf jedem gespielten
-          Spiel steht dann nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
+          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name ?? "dieser Person"}</strong>. Danach steht auf jedem
+          gespielten Spiel nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
           die diese Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist,
-          bleibt lesbar. Der Eintrag selbst bleibt bestehen, damit die Spiele auflösbar sind; er wird aber stillgelegt und für neue Spiele nicht
-          mehr angeboten, und bearbeiten lässt er sich danach nicht mehr.
+          bleibt lesbar. In der Schiedsrichterliste erscheint der Eintrag nicht mehr: Er ist stillgelegt, wird für neue Spiele nicht mehr
+          angeboten, und bearbeiten lässt er sich danach nicht mehr.
         </p>
 
         {isConfirming && (
@@ -107,7 +111,7 @@ export function FormAnonymisierenSection({
                     afterwards: a bare „wird gelöscht“ would read as the referee losing their row. */}
                 <ConfirmReadoutRow
                   label="Name"
-                  value={`${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                  value={name === null ? NOT_RECORDED : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
                 />
                 {/* The school goes with the name: beside a fixture list that never expires it narrows the
                     person to the few referees one school ever sent. */}

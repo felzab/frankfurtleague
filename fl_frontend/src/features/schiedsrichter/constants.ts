@@ -15,6 +15,12 @@ export const SCHIEDSRICHTER_CRUD_COPY = {
 export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
 
 /**
+ * What names a row a hand-write left nameless, where the erasure's word above would claim a deletion
+ * that never ran. The list's controls and the editor's header say it alike, so one state has one word.
+ */
+export const SCHIEDSRICHTER_OHNE_NAMEN_LABEL = "Eintrag ohne Namen";
+
+/**
  * Every surface rendering a referee's name reads it through here, so no cell, chip, tooltip or
  * aria-label can be the one that shows an empty space where a name was.
  */

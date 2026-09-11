@@ -7,7 +7,7 @@ import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { schiedsrichterFacetValue } from "@/features/spiele/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -140,7 +140,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
     // The italics that mark „anonym“ a state on screen reach a screen reader as nothing, so a label
     // built on `angezeigt` announces the state as this person's name.
-    const nennung = schiedsrichter.name === null ? "Eintrag ohne Namen" : `Schiedsrichter ${angezeigt}`;
+    const nennung = schiedsrichter.name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${angezeigt}`;
     const kontaktLabel = schiedsrichter.name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${angezeigt} kopieren`;
 
     // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail

@@ -25,9 +25,8 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // By id and never off the referee list, which serves what can still be acted on: this route is the
-  // erased referee's record too, and a fixture's link to them has to resolve
-  // (`docs/backend/spec.md :: I227`).
+  // By id and never off the referee list: this route is the erased referee's only record, and a read
+  // taken from the list would answer not-found for them (`docs/backend/spec.md :: I227`).
   const schiedsrichterRes = await getSchiedsrichterById(schiedsrichterId);
   if (schiedsrichterRes === null) {
     notFound();

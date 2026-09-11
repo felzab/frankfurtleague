@@ -265,6 +265,18 @@ const panelText = (): string =>
     }),
   );
 
+/** The same panel over a row a hand-write left nameless, which the editor serves like any other. */
+const namenlosPanelText = (): string =>
+  gelesen(
+    h(FormAnonymisierenSection, {
+      schiedsrichterId: "68c1f0a2b3c4d5e6f7a8b9c0",
+      name: null,
+      schule: null,
+      kontakt: { email: null, telefon: null },
+      onBeforeAnonymise: () => true,
+    }),
+  );
+
 /** Both dates given, so every conditional row of the page stands and its whole copy is in the text. */
 const geloeschtText = (): string =>
   gelesen(h(AdminSchiedsrichterGeloeschtView, { anonymisiertAm: "2026-03-01", inactiveSince: "2026-02-01", defaultPayment: 2500 }));
@@ -307,6 +319,25 @@ describe("the anonymisation's copy", () => {
     assert.match(gezeigt, /bearbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
     assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
+  });
+
+  /* `get_schiedsrichter` drops every stamped row whatever the query string asks for
+     (`docs/backend/spec.md :: I227`), so a promise that „anonym“ stands in der Verwaltung sends an
+     administrator looking for a row no read serves. */
+  it("says the entry leaves the referee list rather than standing on it under another word", () => {
+    const gezeigt = panelText();
+
+    assert.match(gezeigt, /In der Schiedsrichterliste erscheint der Eintrag nicht mehr/, "the panel does not say the row leaves the list");
+    assert.doesNotMatch(gezeigt, /In der Verwaltung/, "the panel still promises a word on the list the erasure empties");
+  });
+
+  /* A hand-write can leave a row nameless, and this panel is on that row's editor too: the sentence
+     has to name a subject where the interpolated name is null. */
+  it("names the subject of the deletion on a row that holds no name", () => {
+    const gezeigt = namenlosPanelText();
+
+    assert.match(gezeigt, /Telefonnummer von dieser Person\./, "the sentence deletes the details of nobody");
+    assert.match(gezeigt, /auf jedem gespielten Spiel/, "the nameless row's panel stopped saying which matches are reached");
   });
 
   /* Next to the deletion rather than instead of it: an administrator told only that the entry is

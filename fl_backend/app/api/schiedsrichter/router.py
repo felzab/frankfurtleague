@@ -36,8 +36,8 @@ async def get_schiedsrichter(
 
     A referee whose data were erased is OFF this list: they can be booked, edited, reactivated and
     restored by nobody, so the list an administrator works from does not offer them.
-    `GET /{schiedsrichter_id}` answers for one whatever their state, which is the read a historical
-    fixture's link to them resolves through.
+    `GET /{schiedsrichter_id}` answers for one whatever their state, and is the only read that
+    answers for an erased one at all.
     """
 
     schiedsrichter_raw = await pull_many_from_db(

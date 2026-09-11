@@ -24,8 +24,8 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
 }
 
 /**
- * One referee by id, whatever state they are in — the read a fixture's link to the person who
- * officiated it resolves through, the list above serving what can still be acted on.
+ * One referee by id, whatever state they are in — the only read that answers for an erased one, the
+ * list above serving what can still be acted on.
  *
  * **Uncached** for the reason the list is.
  */

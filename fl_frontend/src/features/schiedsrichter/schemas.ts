@@ -54,8 +54,9 @@ export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchieds
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
 
-  // Null once the erasure has run, and only then: what a reader is shown instead is
-  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  // Null after the erasure, and after a hand-write that left the row nameless — the store types this
+  // and `anonymisiert_am` independently (`fl_backend/app/core/constraints.py`). What a reader is shown
+  // instead is `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
   name: z.string().nonempty().nullable(),
   schule: z.string().nullable(),
   // The standard fee. A Spiel's embedded `payment` is what was agreed for that match, and changing
