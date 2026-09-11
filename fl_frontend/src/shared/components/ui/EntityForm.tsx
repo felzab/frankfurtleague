@@ -81,7 +81,7 @@ export function EntityForm<TDraft>({
 
         // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
         if (!hasFieldErrors(res.fieldErrors)) {
-          appToast.danger("Speichern fehlgeschlagen", {
+          appToast.danger("Änderung nicht gespeichert", {
             description: res.error,
           });
         }

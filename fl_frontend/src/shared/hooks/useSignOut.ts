@@ -42,7 +42,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         const result = await onSignOut();
 
         if (result && !result.success) {
-          appToast.danger("Abmelden fehlgeschlagen", { description: result.error });
+          appToast.danger("Nicht abgemeldet", { description: result.error });
           return;
         }
 
@@ -53,7 +53,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         router.push("/");
         router.refresh();
       } catch {
-        appToast.danger("Abmelden fehlgeschlagen", { description: "Versuche es erneut." });
+        appToast.danger("Nicht abgemeldet", { description: "Versuche es erneut." });
       }
     });
   };

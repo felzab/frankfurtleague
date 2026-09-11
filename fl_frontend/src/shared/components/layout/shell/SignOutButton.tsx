@@ -34,7 +34,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       }`}>
       {/* Armed, the control is its question and nothing else; at rest it is the one glyph, so the bar stays quiet. */}
       {isConfirming ? (
-        <span className="fluid-sm whitespace-nowrap">{isSigningOut ? "Wird abgemeldet..." : "Abmelden?"}</span>
+        <span className="fluid-sm whitespace-nowrap">{isSigningOut ? "Meldet ab..." : "Abmelden?"}</span>
       ) : (
         <ArrowRightFromSquare
           aria-hidden="true"

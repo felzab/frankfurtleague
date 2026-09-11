@@ -42,7 +42,7 @@ export function AdminTeamEditView({
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
       if (res.success) appToast.success("Team reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Team nicht reaktiviert", { description: res.error });
     });
   };
 

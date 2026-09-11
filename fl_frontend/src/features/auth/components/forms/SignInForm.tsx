@@ -87,7 +87,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
-    appToast.danger("Anmeldung fehlgeschlagen", {
+    appToast.danger("Anmeldelink nicht gesendet", {
       description: state.error,
     });
   }, [state, setSubmitFieldErrors]);
@@ -183,7 +183,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             variant="primary"
             isDisabled={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Wird gesendet..." : "Link senden"}
+            {isPending ? "Sendet..." : "Link senden"}
           </Button>
         </Form>
       </Tabs.Panel>

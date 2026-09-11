@@ -181,7 +181,7 @@ export function AdminSchiedsrichterEditForm({
       const res = await patchSchiedsrichterAction(payload);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 

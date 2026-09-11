@@ -497,8 +497,8 @@ export function FormSpielplanSection({
               {isDrawing
                 ? isWriting
                   ? replacesDraw
-                    ? "Wird neu angelegt..."
-                    : "Wird angelegt..."
+                    ? "Legt neu an..."
+                    : "Legt an..."
                   : isConfirming
                     ? replacesDraw
                       ? "Ja, löschen und neu anlegen"
@@ -507,7 +507,7 @@ export function FormSpielplanSection({
                       ? "Spielplan neu anlegen"
                       : "Spielplan anlegen"
                 : isWriting
-                  ? "Wird zurückgenommen..."
+                  ? "Nimmt zurück..."
                   : isConfirming
                     ? "Ja, Spielplan zurücknehmen"
                     : "Spielplan zurücknehmen"}

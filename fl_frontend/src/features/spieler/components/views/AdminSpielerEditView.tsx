@@ -41,7 +41,7 @@ export function AdminSpielerEditView({
     startReactivating(async () => {
       const res = await reactivateSpielerAction({ id: spieler.id });
       if (res.success) appToast.success("Spieler reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Spieler nicht reaktiviert", { description: res.error });
     });
   };
 

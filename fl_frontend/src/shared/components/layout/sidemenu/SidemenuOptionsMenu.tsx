@@ -117,7 +117,7 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
       }`}>
       {/* Armed, the row is its question alone. The tint and the label both shift, so the state never rests on colour. */}
       <Label className={`fluid-sm text-danger-strong min-w-0 flex-1 font-semibold ${isConfirming ? "text-center" : ""}`}>
-        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Abmelden?" : "Abmelden"}
+        {isSigningOut ? "Meldet ab..." : isConfirming ? "Abmelden?" : "Abmelden"}
       </Label>
       {!isConfirming && (
         <ArrowRightFromSquare

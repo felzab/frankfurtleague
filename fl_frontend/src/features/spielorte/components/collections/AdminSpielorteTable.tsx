@@ -76,7 +76,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: ort.id });
       if (res.success) appToast.success("Spielort reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Spielort nicht reaktiviert", { description: res.error });
     });
   };
 

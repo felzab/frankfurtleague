@@ -142,7 +142,7 @@ export function AdminSpieltagEditForm({
       const res = await patchSpieltagAction(payload);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { spieltag: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 

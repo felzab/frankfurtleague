@@ -87,7 +87,7 @@ export function FormTeamErsatzSection({
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
 
       if (!res.success) {
-        appToast.danger("Wechsel fehlgeschlagen", { description: res.error });
+        appToast.danger("Team nicht ersetzt", { description: res.error });
         return;
       }
 
@@ -259,7 +259,7 @@ export function FormTeamErsatzSection({
                       height={18}
                     />
                   )}
-                  {isReplacing ? "Wird ersetzt..." : isConfirming ? "Ja, Team ersetzen" : "Team ersetzen"}
+                  {isReplacing ? "Ersetzt..." : isConfirming ? "Ja, Team ersetzen" : "Team ersetzen"}
                 </Button>
               </ConfirmActionRow>
               {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the swap's

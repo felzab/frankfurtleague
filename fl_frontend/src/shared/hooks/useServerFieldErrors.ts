@@ -21,7 +21,7 @@ export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
 });
 
 const reportUnhandledFieldError = (): void => {
-  appToast.danger("Speichern fehlgeschlagen", { description: UNHANDLED_FIELD_REFUSAL });
+  appToast.danger("Änderung nicht gespeichert", { description: UNHANDLED_FIELD_REFUSAL });
 };
 
 /** Focus order inside a react-aria field root, once the named element has refused focus itself. */

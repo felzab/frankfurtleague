@@ -29,7 +29,8 @@ export function ConfirmDeleteModal({
   consequence,
   onConfirm,
   successMessage,
-  verb = "stilllegen",
+  failureMessage,
+  verb = { infinitive: "stilllegen", running: "Legt still..." },
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -46,14 +47,22 @@ export function ConfirmDeleteModal({
    * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
    */
   successMessage: string;
-  /** The infinitive the question and the confirm button use. */
-  verb?: string;
+  /**
+   * The refusal's title, and the exact negation of `successMessage`: the pair names one object, so
+   * the reader meets the same words whichever way the press went.
+   */
+  failureMessage: string;
+  /**
+   * The infinitive the question and the confirm button use, beside the label the button wears while
+   * the write runs. One prop, so a re-verbed question cannot leave that label on another action.
+   */
+  verb?: { infinitive: string; running: string };
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
 
   // German capitalises an infinitive used as a noun, which is what a verb on a button is.
-  const capitalized = `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
+  const capitalized = `${verb.infinitive.charAt(0).toUpperCase()}${verb.infinitive.slice(1)}`;
 
   // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
@@ -73,8 +82,7 @@ export function ConfirmDeleteModal({
       const res = await onConfirm();
 
       if (!res.success) {
-        // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
-        appToast.danger(`${capitalized} fehlgeschlagen`, {
+        appToast.danger(failureMessage, {
           description: res.error,
         });
         return;
@@ -114,7 +122,7 @@ export function ConfirmDeleteModal({
               <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
                 {entityName}
               </span>
-              wirklich {verb}?
+              wirklich {verb.infinitive}?
             </p>
           ) : (
             /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
@@ -154,7 +162,7 @@ export function ConfirmDeleteModal({
             className={formButton({ intent: "destructive" })}
             onPress={handleDelete}>
             {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-            {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : `Ja, ${verb}`}
+            {isPending ? verb.running : confirmStep === 1 ? capitalized : `Ja, ${verb.infinitive}`}
           </Button>
         </div>
       </div>

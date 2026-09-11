@@ -272,7 +272,7 @@ function SitzZeile({
               width={14}
               height={14}
             />
-            <span>{sendet ? "Wird gesendet..." : "Link erneut senden"}</span>
+            <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
           </Button>
         )}
       </div>
@@ -411,7 +411,7 @@ function AdresseKorrigieren({
           aria-describedby={unveraendert ? hinweisId : undefined}
           isDisabled={sendet || unveraendert}
           className={formButton({ intent: "submit", stacks: true })}>
-          {sendet ? "Wird gesendet..." : "Korrigieren und Link senden"}
+          {sendet ? "Sendet..." : "Korrigieren und Link senden"}
         </Button>
         {/* Closed while the write runs: a press that unmounts this box mid-transition drops the toast
             that would have named the outcome. */}

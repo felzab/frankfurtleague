@@ -162,7 +162,7 @@ export function AdminSpieleActionRequiredView({
             {section.spiele.length === 0 ? (
               <EmptyState
                 tone="positive"
-                title="Keine Spiele in dieser Kategorie"
+                title="In dieser Kategorie braucht kein Spiel etwas."
               />
             ) : (
               // Faults reach the `bracket_fault` section alone: the one list already filtered by that

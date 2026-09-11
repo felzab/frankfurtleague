@@ -33,6 +33,7 @@ export function AdminDeleteSpielerModal({
       entityName={spieler.fullName}
       consequence={RETIREMENT_CONSEQUENCE}
       successMessage="Spieler stillgelegt"
+      failureMessage="Spieler nicht stillgelegt"
       onConfirm={() => deleteSpielerAction({ id: spieler.id })}
     />
   );

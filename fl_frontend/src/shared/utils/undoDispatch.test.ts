@@ -48,7 +48,7 @@ describe("what the shared undo dispatch says when it never landed", () => {
       /appToast\.danger\("Rücknahme konnte nicht gesendet werden"/,
       "the cut no longer lands on the transport toast",
     );
-    assert.ok(!DISPATCH_FAILURE.includes("Rücknahme fehlgeschlagen"), "the cut reaches into the answered refusal beside it");
+    assert.ok(!DISPATCH_FAILURE.includes("Änderung nicht zurückgenommen"), "the cut reaches into the answered refusal beside it");
   });
 });
 

@@ -114,7 +114,7 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
       <div className="w-full px-3 py-4 sm:p-8">
         <div className="max-w-page mx-auto flex w-full flex-col gap-6">
           <EmptyState
-            title="Noch keine Finalrunden"
+            title="Für diese Saison gibt es noch keine Finalrunden."
             hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier, woher jede Seite kommt."
           />
         </div>
@@ -138,7 +138,7 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
             <h2 className="fluid-lg text-foreground w-full font-extrabold tracking-tight">{labels.get(round.id)?.label}</h2>
 
             {round.spiele.length === 0 ? (
-              <EmptyState title="Noch keine Spiele in dieser Runde" />
+              <EmptyState title="Für diese Runde sind noch keine Spiele angesetzt." />
             ) : (
               <Table
                 variant="secondary"

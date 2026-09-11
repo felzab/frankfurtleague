@@ -176,7 +176,7 @@ export function AdminKontakteEditForm({
 
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { kontakte: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 

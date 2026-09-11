@@ -158,7 +158,7 @@ export function AdminSpielortEditForm({
       const res = await patchSpielortAction(payload);
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { spielort: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 

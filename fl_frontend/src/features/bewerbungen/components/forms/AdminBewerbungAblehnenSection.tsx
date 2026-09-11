@@ -70,7 +70,7 @@ export function AdminBewerbungAblehnenSection({
         const fieldError = res.fieldErrors?.grund ?? null;
         setGrundError(fieldError);
 
-        if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error });
+        if (fieldError === null) appToast.danger("Bewerbung nicht abgelehnt", { description: res.error });
         return;
       }
 

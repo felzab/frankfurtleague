@@ -33,6 +33,7 @@ export function AdminDeleteSchiedsrichterModal({
       entityName={nennung}
       consequence={SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE}
       successMessage="Schiedsrichter stillgelegt"
+      failureMessage="Schiedsrichter nicht stillgelegt"
       onConfirm={() => deleteSchiedsrichterAction({ id: schiedsrichter.id })}
     />
   );

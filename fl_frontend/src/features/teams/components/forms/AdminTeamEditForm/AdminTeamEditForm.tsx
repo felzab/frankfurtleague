@@ -287,7 +287,7 @@ export function AdminTeamEditForm({
       if (failedNotes.length > 0) {
         setSubmitFieldErrors(collectedErrors, { team: clubPayload, saisonTeam: saisonPayload });
         // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
-        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {
+        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
           description: [...savedParts, ...failedNotes].join(" "),
         });
         return;

@@ -97,7 +97,7 @@ export function FormAustragenSection({
                   run(
                     () => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
                     "Kadereintrag reaktiviert",
-                    "Reaktivieren fehlgeschlagen",
+                    "Kadereintrag nicht reaktiviert",
                   )
                 }
                 className={formButton({ intent: "submit" })}>
@@ -123,7 +123,7 @@ export function FormAustragenSection({
                 run(
                   () => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
                   "Kadereintrag ausgetragen",
-                  "Austragen fehlgeschlagen",
+                  "Kadereintrag nicht ausgetragen",
                 )
               }
               className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">

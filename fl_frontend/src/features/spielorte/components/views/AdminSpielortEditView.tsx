@@ -30,7 +30,7 @@ export function AdminSpielortEditView({
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: spielort.id });
       if (res.success) appToast.success("Spielort reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Spielort nicht reaktiviert", { description: res.error });
     });
   };
 

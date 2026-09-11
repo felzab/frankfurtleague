@@ -3,7 +3,7 @@ import type { FLAktion, FLAktor } from "./schemas";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const AKTIONEN_CRUD_COPY = {
-  searchLabel: "Protokoll durchsuchen",
+  searchLabel: "Änderungen suchen",
   searchPlaceholder: "z.B. name@beispiel.de oder eine Vorgangsnummer",
   /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
   emptyForQuery: "Keine Änderungen für diese Suche.",

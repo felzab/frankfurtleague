@@ -2,7 +2,7 @@ import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
 export const SAISONS_CRUD_COPY = {
-  searchLabel: "Saison suchen",
+  searchLabel: "Saisons suchen",
   searchPlaceholder: "z.B. 2027",
 } as const;
 

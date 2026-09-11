@@ -20,6 +20,7 @@ export function AdminDeleteTeamModal({ teamData, isOpen, onClose }: { teamData: 
       entityName={team.name}
       consequence="Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl."
       successMessage="Team stillgelegt"
+      failureMessage="Team nicht stillgelegt"
       onConfirm={() => deleteTeamAction({ id: team.id })}
     />
   );

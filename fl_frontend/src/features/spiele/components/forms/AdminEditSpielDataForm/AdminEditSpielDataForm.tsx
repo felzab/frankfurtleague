@@ -383,7 +383,7 @@ export function AdminEditSpielDataForm({
 
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
-          appToast.danger("Speichern fehlgeschlagen", {
+          appToast.danger("Änderung nicht gespeichert", {
             description: res.error,
           });
         }

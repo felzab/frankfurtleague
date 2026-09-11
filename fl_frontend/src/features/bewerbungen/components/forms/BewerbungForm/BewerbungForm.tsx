@@ -384,7 +384,7 @@ export function BewerbungForm({
             isPending={isPending}
             isDisabled={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Wird abgeschickt..." : "Bewerbung abschicken"}
+            {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
           </Button>
         </div>
       </Form>
