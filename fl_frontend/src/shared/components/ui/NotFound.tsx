@@ -33,7 +33,7 @@ export function NotFound() {
           404
         </span>
       }>
-      <div className="mt-8 flex w-full flex-col-reverse justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+      <div className="mt-8 flex w-full flex-col-reverse justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
         <Button
           variant="ghost"
           aria-label="Zurück zur vorherigen Seite"

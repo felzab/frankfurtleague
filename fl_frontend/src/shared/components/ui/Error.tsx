@@ -81,7 +81,7 @@ export function Error({
           Fehler
         </span>
       }>
-      <div className="mt-8 flex w-full flex-col-reverse gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+      <div className="mt-8 flex w-full flex-col-reverse gap-3 sm:mt-12 sm:flex-row sm:gap-4">
         <Button
           variant="ghost"
           onPress={handleRetry}

@@ -211,7 +211,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
 /** The two actions this page offers, in the width the panel gives them rather than the page's. */
 function Aktion({ children }: { children: ReactNode }) {
-  return <div className="mt-2 flex w-full max-w-xs flex-col">{children}</div>;
+  return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 
 function ZurLiga() {

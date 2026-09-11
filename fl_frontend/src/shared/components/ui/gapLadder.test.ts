@@ -268,10 +268,12 @@ function spaceOn(child: Box, kind: string, breakpoint: string): Map<Edge, string
     const match = SPACE.exec(parsed.base);
     if (match === null || parsed.scope !== "") continue;
 
-    const [, , property, side = "", value = ""] = match;
+    const [, sign = "", property, side = "", value = ""] = match;
     if (property !== kind) continue;
 
-    for (const edge of SIDES[side] ?? []) declared.get(edge)?.set(parsed.breakpoint, value);
+    // The sign rides with the value: a negative margin shortens the distance rather than
+    // lengthening it, so a reader dropping the `-` names the one figure the box cannot render.
+    for (const edge of SIDES[side] ?? []) declared.get(edge)?.set(parsed.breakpoint, `${sign}${value}`);
   }
 
   const standing = new Map<Edge, string>();

@@ -26,7 +26,7 @@ const statusPanel = tv({
         panel: "bg-surface/70 max-w-2xl p-6 text-center shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-12 md:p-16",
         badge: "sm:mb-8 sm:px-4",
         dot: "sm:h-2.5 sm:w-2.5",
-        message: "fluid-base mt-4 max-w-md sm:mt-5",
+        message: "fluid-base mt-4 max-w-md sm:mt-6",
       },
       inline: {
         root: "w-full p-6",
