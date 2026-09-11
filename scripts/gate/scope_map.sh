@@ -137,7 +137,8 @@ else
       fl_frontend/src/features/saisons/shapeOffer.ts|fl_frontend/src/features/bewerbungen/schemas.ts| \
       fl_frontend/src/features/aktionen/constants.ts|fl_frontend/src/features/spieler/schemas.ts| \
       fl_frontend/src/features/spiele/schemas.ts|fl_frontend/src/features/spiele/utils.ts| \
-      fl_frontend/src/features/bewerbungen/zustellung.ts)
+      fl_frontend/src/features/bewerbungen/zustellung.ts|fl_frontend/src/core/logFormat.ts| \
+      fl_frontend/src/core/trace.ts|fl_frontend/src/core/config.ts)
         frontend=true; backend=true; db=true; docs=true ;;
       # `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts one refusal's `case` out of the
       # module below and asserts over the German inside, so a renamed refusal code or a reworded
