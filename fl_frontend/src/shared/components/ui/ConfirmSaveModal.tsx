@@ -44,27 +44,31 @@ export function ConfirmSaveModal({
           <TriangleExclamation className="text-danger-strong size-5" />
         </div>
       }>
-      <div className="flex w-full min-w-0 flex-col pt-1">
-        <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
-          <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
-            {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
-          </span>{" "}
-          {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
-        </p>
+      <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">
+        {/* The count and the banners it counts keep a rung of their own, so the column above them is
+            free to give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
+        <div className="flex w-full flex-col gap-y-4">
+          <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
+            <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
+              {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
+            </span>{" "}
+            {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
+          </p>
 
-        <div className="mt-4 flex w-full flex-col gap-y-3">
-          {shown.map((banner) => (
-            <Callout
-              key={banner.id}
-              severity={banner.severity}
-              title={banner.title}>
-              {banner.body}
-            </Callout>
-          ))}
+          <div className="flex w-full flex-col gap-y-3">
+            {shown.map((banner) => (
+              <Callout
+                key={banner.id}
+                severity={banner.severity}
+                title={banner.title}>
+                {banner.body}
+              </Callout>
+            ))}
+          </div>
         </div>
 
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
-        <div className={`${MODAL_FOOTER_STACK} mt-6`}>
+        <div className={MODAL_FOOTER_STACK}>
           <Button
             type="button"
             variant="primary"

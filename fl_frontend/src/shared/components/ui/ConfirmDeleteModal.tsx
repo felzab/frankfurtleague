@@ -104,55 +104,59 @@ export function ConfirmDeleteModal({
           />
         </div>
       }>
-      <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
-        {confirmStep === 1 ? (
-          <p className="fluid-sm text-foreground-muted leading-relaxed">
-            Möchtest Du {entityLabel}
-            <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
-              {entityName}
-            </span>
-            wirklich {verb}?
-          </p>
-        ) : (
-          /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
-             button label changing. Deliberately not animated: a danger escalation should register at once. */
-          <div
-            role="alert"
-            className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
-            <div className="text-danger-strong flex items-center gap-2 font-bold">
-              <TriangleExclamation
-                aria-hidden="true"
-                width={18}
-                height={18}
-              />
-              Bist Du Dir sicher?
-            </div>
+      {/* `ModalShell`'s body is a plain block, so the two blocks under it need a column of their own
+          to take the band's distance as a gap rather than a margin (`docs/frontend/spec.md :: I240`). */}
+      <div className="flex flex-col gap-y-6">
+        <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
+          {confirmStep === 1 ? (
             <p className="fluid-sm text-foreground-muted leading-relaxed">
-              Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
+              Möchtest Du {entityLabel}
+              <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
+                {entityName}
+              </span>
+              wirklich {verb}?
             </p>
-          </div>
-        )}
-      </div>
+          ) : (
+            /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
+             button label changing. Deliberately not animated: a danger escalation should register at once. */
+            <div
+              role="alert"
+              className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
+              <div className="text-danger-strong flex items-center gap-2 font-bold">
+                <TriangleExclamation
+                  aria-hidden="true"
+                  width={18}
+                  height={18}
+                />
+                Bist Du Dir sicher?
+              </div>
+              <p className="fluid-sm text-foreground-muted leading-relaxed">
+                Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
+              </p>
+            </div>
+          )}
+        </div>
 
-      {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
-      <div className={`${MODAL_FOOTER_ROW} mt-6`}>
-        <Button
-          type="button"
-          variant="secondary"
-          isDisabled={isPending}
-          className={formButton({ intent: "cancel" })}
-          onPress={onClose}>
-          Abbrechen
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          isDisabled={isPending}
-          className={formButton({ intent: "destructive" })}
-          onPress={handleDelete}>
-          {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-          {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : `Ja, ${verb}`}
-        </Button>
+        {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
+        <div className={MODAL_FOOTER_ROW}>
+          <Button
+            type="button"
+            variant="secondary"
+            isDisabled={isPending}
+            className={formButton({ intent: "cancel" })}
+            onPress={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            isDisabled={isPending}
+            className={formButton({ intent: "destructive" })}
+            onPress={handleDelete}>
+            {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
+            {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : `Ja, ${verb}`}
+          </Button>
+        </div>
       </div>
     </ModalShell>
   );

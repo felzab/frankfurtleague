@@ -106,7 +106,7 @@ export function EntityForm<TDraft>({
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only
       // when on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
-      className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
+      className="flex h-fit w-full flex-col gap-y-6 rounded-xl shadow-sm"
       onSubmit={runOnSubmit(handleSubmit)}>
       {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
