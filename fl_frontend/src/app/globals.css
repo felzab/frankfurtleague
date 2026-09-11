@@ -1019,6 +1019,15 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   initial-value: 0;
 }
 
+/* Registered for the initial value alone: unregistered, `opacity: var(--admin-region-held)` over a
+   region declaring none is invalid at computed-value time and `opacity` reverts to its own initial
+   `1`, covering the page for good, while the box beside it releases. */
+@property --admin-region-held {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
 @keyframes admin-placeholder-hold {
   from {
     --admin-placeholder-hold: 1;
