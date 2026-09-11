@@ -663,8 +663,10 @@ assignment whose value is none of the shapes it handles (I34, I63).
 `fl_frontend/src/core/toastTitles.test.ts` resolves a title expression to literals **or fails**, a
 value arriving from a prop resolving only while every call site passes a literal (I42).
 `fl_frontend/src/core/schemaGerman.test.ts` reports every required control whose schema path it
-cannot build, sparing only the one shape that names no path of its own — a `name` written as a bare
-prop, the path being fixed at each call site.
+cannot build, a `name` arriving through a props spread included, and spares only a control that
+fixes no path of its own — a `name` passed on as a bare prop, or no `name` and no spread at all —
+its path being written at each call site. The mark it reads is the bare attribute or the literal
+`isRequired={true}`; a conditional mark is out of reach.
 `fl_frontend/src/core/bewerbungEmail.test.ts` asserts that no line of either mail OPENS with a
 forged fact shaped like a real row but written by no message, so a hit is the forgery rather than a
 genuine line, and `fl_frontend/src/features/bewerbungen/schemas.test.ts` beside it spells every

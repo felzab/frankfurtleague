@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
+import { blankComments } from "@/core/blankComments.ts";
 import { openingTag } from "@/core/openingTag.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
@@ -180,8 +181,9 @@ describe("what a bound schema says when a field is emptied", () => {
 
 const TAG = /<[A-Za-z][\w.]*/g;
 // The mark as a bare attribute: the tag carries its own `>`, so a boundary of whitespace alone
-// would lose `<X name="a" isRequired>`.
-const MARK = /\bisRequired(?![\w=])/;
+// would lose `<X name="a" isRequired>`. The braced arm takes the literal alone, a conditional mark
+// being out of `requiredNamesIn`'s reach.
+const MARK = /\bisRequired(?![\w=])|\bisRequired=\{\s*true\s*\}/;
 const LITERAL_NAME = /\bname="([^"]*)"/;
 /** A name a template composes around one prop hole, wherever in the path that hole sits. */
 const TEMPLATE_NAME = /\bname=\{`([^`${]*)\$\{(\w+)\}([^`${]*)`\}/;
@@ -189,6 +191,23 @@ const TEMPLATE_NAME = /\bname=\{`([^`${]*)\$\{(\w+)\}([^`${]*)`\}/;
 const BUILT_NAME = /\bname=\{(\w+)\("([^"]*)"\)\}/;
 /** A `name` this control does not fix itself, its path being written wherever the control is used. */
 const OWN_PATH = /\bname=(?!\{\w+\})/;
+
+/**
+ * A props spread in attribute position, which hands the control a `name` no pattern above can read.
+ * Depth-counted: the spread inside an `onChange` arrow builds state rather than props.
+ */
+function carriesSpread(opening: string): boolean {
+  let depth = 0;
+
+  for (let at = 0; at < opening.length; at++) {
+    if (opening[at] === "{") {
+      depth += 1;
+      if (depth === 1 && /^\{\s*\.\.\./.test(opening.slice(at))) return true;
+    } else if (opening[at] === "}") depth -= 1;
+  }
+
+  return false;
+}
 
 /**
  * The segment a form fills at run time.
@@ -220,9 +239,12 @@ function namesFromTemplate(template: string, resolve: (identifier: string) => re
  * Every path a required control names, and every marked control this reader could not place
  * (`docs/frontend/spec.md :: I17`). A conditional `isRequired` is out of reach.
  */
-function requiredNamesIn(source: string, resolve: (identifier: string) => readonly string[]): { names: string[]; unread: string[] } {
+function requiredNamesIn(raw: string, resolve: (identifier: string) => readonly string[]): { names: string[]; unread: string[] } {
   const names: string[] = [];
   const unread: string[] = [];
+  // A comment between two attributes holds a `<` at brace depth zero, which leaves `openingTag` with
+  // nothing to return and the control it stood in marked by nothing.
+  const source = blankComments(raw);
 
   for (const tag of source.matchAll(TAG)) {
     const opening = openingTag(source, tag.index);
@@ -246,7 +268,7 @@ function requiredNamesIn(source: string, resolve: (identifier: string) => readon
     // Reported rather than dropped: a control that leaves the population in silence is one whose
     // schema path nothing below grades, and no floor over the rest of the tree reaches it.
     const found = composed === null ? [] : namesFromTemplate(composed, resolve);
-    if (found.length === 0 && OWN_PATH.test(opening)) unread.push(opening);
+    if (found.length === 0 && (OWN_PATH.test(opening) || carriesSpread(opening))) unread.push(opening);
     names.push(...found);
   }
   return { names, unread };
@@ -355,6 +377,37 @@ describe("what a schema does with a field its form marks required", () => {
     );
 
     assert.deepEqual(requiredNamesIn(sample, () => []).unread, ["<TextField isRequired name={`${ungelesen}.plz`}>"]);
+  });
+
+  /* Both braced spellings on one input: the unconditional one is the bare attribute again, and the
+     conditional one is the shape `requiredNamesIn` puts out of reach. */
+  it("reads a mark written out as the literal it stands for", () => {
+    const sample = ['<TextField isRequired={true} name="vorname">', '<TextField isRequired={isNeu} name="schule.shorthand">'].join("\n");
+
+    assert.deepEqual(requiredNamesIn(sample, () => []).names, ["vorname"]);
+    assert.deepEqual(requiredNamesIn(sample, () => []).unread, []);
+  });
+
+  it("reads through a comment standing inside an opening tag", () => {
+    const sample = ["<TextField", "  isRequired", '  name="name"', "  // `<Input>` is dressed below", "  isInvalid={fehlt}>"].join("\n");
+
+    assert.deepEqual(requiredNamesIn(sample, () => []).names, ["name"]);
+  });
+
+  /* A spread supplies a `name` invisibly, so sparing a tag for carrying no `name=` of its own spares
+     a control whose schema path nothing below grades. */
+  it("reports a marked control whose name can only arrive through a props spread", () => {
+    const sample = [
+      "<TextField isRequired {...feld} />",
+      '<TextField isRequired {...register("vorname")} />',
+      '<TextField isRequired name="vorname" {...rest} />',
+      "<TeamSelect isRequired onChange={(id) => set((current) => ({ ...current, id }))} />",
+    ].join("\n");
+
+    const { names, unread } = requiredNamesIn(sample, () => []);
+
+    assert.deepEqual(names, ["vorname"]);
+    assert.deepEqual(unread, ["<TextField isRequired {...feld} />", '<TextField isRequired {...register("vorname")} />']);
   });
 
   it("finds a prop wherever the destructuring puts it, so a reflow drops no path", () => {
