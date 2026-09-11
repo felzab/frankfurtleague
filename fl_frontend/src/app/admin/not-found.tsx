@@ -18,7 +18,9 @@ export default function AdminNotFound() {
       variant="inline"
       badgeLabel="Abseits"
       heading="Dieser Eintrag existiert nicht."
-      message="Er wurde gelöscht, oder er gehört nicht zur gewählten Saison. Auch eine Adresse, die es in der Verwaltung nicht gibt, landet hier.">
+      // An unmatched admin address never reaches this boundary (`docs/frontend/spec.md :: I232`), so
+      // the message names only what a `notFound()` inside a matched segment answers for.
+      message="Er wurde gelöscht, oder die Adresse stimmt nicht.">
       <Link
         href={saisonHref("/admin")}
         prefetch={false}
