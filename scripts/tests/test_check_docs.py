@@ -2038,9 +2038,9 @@ CASES: Final[tuple[Case, ...]] = (
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
     Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
-    # The dark brand darkened for the ordering arm fails eight floored pairs on the way, and a plant
+    # The dark brand darkened for the ordering arm fails nine floored pairs on the way, and a plant
     # dodging that would be one no scheme file could ever carry.
-    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 13, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
+    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 14, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
     Case(
         "section-reference",
         _fails("section-reference", NOTES, NOTES, NOTES, BACKEND_SPEC),
