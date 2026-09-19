@@ -114,6 +114,8 @@ SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
     # season, whose grey clears that floor in the third decimal: the clean corpus would then be
     # proving a rounding rather than the arm.
     ("--border-control", "#8a8a8a", "#666666"),
+    # One step past the resting border, judged against the same two grounds.
+    ("--border-control-hover", "#767676", "#7a7a7a"),
     ("--bg-hover", "#dfdfdf", "#212121"),
     ("--bg-hover-muted", "#cfcfcf", "#373737"),
     ("--bg-hover-danger", "#f2d9d2", "#321a14"),
