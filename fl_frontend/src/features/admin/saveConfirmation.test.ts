@@ -8,22 +8,19 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
-/* `useRouter` and `useSearchParams` read contexts no `next/navigation` export carries, so every editor is
-   rendered under the two Next keeps them on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 import type { FLKontaktperson } from "@/features/teams/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
-import type { ContextType, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /* Every write is refused, so no editor leaves the page a case reads. */
 const { calls } = doubleActions({
@@ -32,7 +29,7 @@ const { calls } = doubleActions({
 });
 
 /** The actions the editors have written to, in order. */
-const geschrieben = (): string[] => calls.map((call) => call.action);
+const written = (): string[] => calls.map((call) => call.action);
 
 const APP_TOAST = `const raise = () => () => "0";
 export const UNDO_TIMEOUT_MS = 1;
@@ -46,56 +43,48 @@ registerHooks({
   },
 });
 
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "saveConfirmation",
-};
+const renderEditor = (editor: ReactNode): HTMLElement => render(underNext(editor, { search: "saison_id=2026" })).container;
 
-const renderEditor = (editor: ReactNode): HTMLElement =>
-  render(
-    h(AppRouterContext.Provider, {
-      value: ROUTER,
-      children: h(SearchParamsContext.Provider, { value: new URLSearchParams("saison_id=2026"), children: editor }),
-    }),
-  ).container;
+/** A box by the words on its own label, as a reader finds it. */
+const box = (label: string): HTMLElement => screen.getByRole("textbox", { name: label });
 
-/** A box by the payload path it writes, which is every editor's own contract for its fields. */
-const box = (container: HTMLElement, name: string): HTMLInputElement | HTMLTextAreaElement =>
-  container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`input[name="${name}"], textarea[name="${name}"]`) ??
-  assert.fail(`the editor renders no box named ${name}`);
+/**
+ * One seat's box in the contacts editor, which repeats every label once per seat.
+ *
+ * By position because nothing else parts the three: each seat is a panel headed with its role, and a
+ * heading names no control (`fl_frontend/src/shared/components/ui/PanelHeading.tsx`).
+ */
+const seatBox = (seat: number, label: string): HTMLElement =>
+  screen.getAllByRole("textbox", { name: label })[seat] ?? assert.fail(`no seat ${String(seat)} carries a box named ${label}`);
 
 /** Entered over what the box held, then left, as every editor judges a typed field; pasted, since each keystroke re-renders the whole editor. */
-async function tippe(user: UserEvent, feld: HTMLElement, value: string): Promise<void> {
-  await user.clear(feld);
+async function typeInto(user: UserEvent, field: HTMLElement, value: string): Promise<void> {
+  await user.clear(field);
   if (value !== "") await user.paste(value);
-  await act(async () => feld.blur());
+  await act(async () => field.blur());
 }
 
 /* The switch's label rather than its visually hidden checkbox, which react-aria reads a click on differently from a
    person's press. */
-const schalte = (user: UserEvent, worte: string): Promise<void> =>
-  user.click(screen.getByText(worte).closest("label") ?? assert.fail(`the editor offers no switch reading „${worte}“`));
+const toggle = (user: UserEvent, words: string): Promise<void> =>
+  user.click(screen.getByText(words).closest("label") ?? assert.fail(`the editor offers no switch reading „${words}“`));
 
 /** A pick through the native `<select>` react-aria mirrors a picker into. */
-const waehle = (container: HTMLElement, name: string, value: string): void => {
+const pick = (container: HTMLElement, name: string, value: string): void => {
   fireEvent.change(container.querySelector(`select[name="${name}"]`) ?? assert.fail(`the editor mirrors no picker named ${name}`), {
     target: { value },
   });
 };
 
-/** One step on a date picker's last day segment, as the arrow key a reader presses in it. */
-async function tagSchritt(user: UserEvent, container: HTMLElement, key: "ArrowUp" | "ArrowDown"): Promise<void> {
-  const tag = [...container.querySelectorAll<HTMLElement>('[data-type="day"]')].at(-1) ?? assert.fail("the editor renders no day to step");
-  await act(async () => tag.focus());
+/** One step on the day segment of the LAST date picker on the page, as the arrow key a reader presses in it. */
+async function stepLastDay(user: UserEvent, key: "ArrowUp" | "ArrowDown"): Promise<void> {
+  // react-aria names a segment for its own part of the date and hangs the value off it, so the name is matched open.
+  const day = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+  await act(async () => day.focus());
   await user.keyboard(`{${key}}`);
 }
 
-const ADRESSE = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
+const ADDRESS = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
 
 const RULES: FLSaisonRules = {
   win_points: 3,
@@ -140,14 +129,14 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSpielortEditForm, {
-          spielort: { id: "68c1f0a2b3c4d5e6f7a8b9d0", name: "Sportpark Nord", address: ADRESSE, default_mietpreis: 40 },
+          spielort: { id: "68c1f0a2b3c4d5e6f7a8b9d0", name: "Sportpark Nord", address: ADDRESS, default_mietpreis: 40 },
           isRetired: false,
           pageHeader: { title: "Sportpark Nord" },
         }),
       );
     },
-    change: (user, container) => tippe(user, box(container, "name"), "Sportpark Nordwest"),
-    refuse: (user, container) => tippe(user, box(container, "address.plz"), "604"),
+    change: (user) => typeInto(user, box("Name"), "Sportpark Nordwest"),
+    refuse: (user) => typeInto(user, box("PLZ"), "604"),
     write: "patchSpielortAction",
   },
   "schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
@@ -169,8 +158,8 @@ const EDITORS: Record<string, Editor> = {
         }),
       );
     },
-    change: (user, container) => tippe(user, box(container, "name"), "Pia Kraft-Meier"),
-    refuse: (user, container) => tippe(user, box(container, "kontakt.email"), "pia@"),
+    change: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    refuse: (user) => typeInto(user, box("E-Mail"), "pia@"),
     write: "patchSchiedsrichterAction",
   },
   "spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": {
@@ -201,8 +190,8 @@ const EDITORS: Record<string, Editor> = {
         }),
       );
     },
-    change: async (_user, container) => waehle(container, "team_id", TEAM_B.teamId),
-    refuse: (user, container) => tippe(user, box(container, "nummer"), "7a"),
+    change: async (_user, container) => pick(container, "team_id", TEAM_B.teamId),
+    refuse: (user) => typeInto(user, box("Nummer"), "7a"),
     write: "patchSaisonSpielerAction",
   },
   "teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx": {
@@ -218,7 +207,7 @@ const EDITORS: Record<string, Editor> = {
             description: "",
             full_name: "Sportgemeinschaft Alpha",
             website_url: null,
-            address: ADRESSE,
+            address: ADDRESS,
             schulform: null,
             inactive_since: null,
           },
@@ -238,8 +227,8 @@ const EDITORS: Record<string, Editor> = {
         }),
       );
     },
-    change: async (_user, container) => waehle(container, "gruppe", "B"),
-    refuse: (user, container) => tippe(user, box(container, "address.plz"), "604"),
+    change: async (_user, container) => pick(container, "gruppe", "B"),
+    refuse: (user) => typeInto(user, box("PLZ"), "604"),
     write: "patchSaisonTeamAction",
   },
   "kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
@@ -269,8 +258,8 @@ const EDITORS: Record<string, Editor> = {
         }),
       );
     },
-    change: (user) => schalte(user, "Stellvertretung hinterlegt"),
-    refuse: (user, container) => tippe(user, box(container, "kontakte.ansprechperson.email"), "grace@"),
+    change: (user) => toggle(user, "Stellvertretung hinterlegt"),
+    refuse: (user) => typeInto(user, seatBox(0, "E-Mail"), "grace@"),
     write: "patchSaisonTeamKontakteAction",
   },
   "saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx": {
@@ -299,15 +288,8 @@ const EDITORS: Record<string, Editor> = {
         }),
       );
     },
-    change: async (_user, container) => waehle(container, "rules.tiebreak_order", "direkter_vergleich"),
-    // react-aria names the hidden input beside a number field, and the box a reader types in stands right before it.
-    refuse: (user, container) =>
-      tippe(
-        user,
-        box(container, "rules.max_kadergroesse").previousElementSibling?.querySelector("input") ??
-          assert.fail("the squad cap holds no box to type in"),
-        "",
-      ),
+    change: async (_user, container) => pick(container, "rules.tiebreak_order", "direkter_vergleich"),
+    refuse: (user) => typeInto(user, box("Maximale Kadergröße"), ""),
     write: "patchSaisonAction",
   },
   "spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx": {
@@ -333,9 +315,9 @@ const EDITORS: Record<string, Editor> = {
       );
     },
     // The end a day later, and then three days back, which puts it before the start.
-    change: (user, container) => tagSchritt(user, container, "ArrowUp"),
-    refuse: async (user, container) => {
-      for (let schritt = 0; schritt < 3; schritt++) await tagSchritt(user, container, "ArrowDown");
+    change: (user) => stepLastDay(user, "ArrowUp"),
+    refuse: async (user) => {
+      for (let step = 0; step < 3; step++) await stepLastDay(user, "ArrowDown");
     },
     write: "patchSpieltagAction",
   },
@@ -378,13 +360,13 @@ const EDITORS: Record<string, Editor> = {
       );
     },
     change: async (user, container) => {
-      await schalte(user, "Sonderereignis eintragen");
-      waehle(container, "sonderereignis", "ausgefallen");
+      await toggle(user, "Sonderereignis eintragen");
+      pick(container, "sonderereignis", "ausgefallen");
     },
     // One character past the note's cap, set rather than typed: `maxLength` stops a keyboard at the cap, and every other
     // refusal the schema holds sits behind the result fields the event just closed.
-    refuse: async (_user, container) => {
-      const notiz = box(container, "notiz");
+    refuse: async () => {
+      const notiz = box("Notiz zum Spiel");
       fireEvent.change(notiz, { target: { value: "x".repeat(NOTIZ_MAX_LENGTH + 1) } });
       fireEvent.blur(notiz);
     },
@@ -392,11 +374,11 @@ const EDITORS: Record<string, Editor> = {
   },
 };
 
-const bestaetigung = (): HTMLElement | null => screen.queryByRole("button", { name: "Trotzdem speichern" });
+const confirmation = (): HTMLElement | null => screen.queryByRole("button", { name: "Trotzdem speichern" });
 
-/** The press on Speichern, dispatched as the submit a browser fires for it, and the refused write's answer settling. */
-async function speichere(container: HTMLElement): Promise<void> {
-  fireEvent.submit(container.querySelector("form") ?? assert.fail("the editor renders no form element"));
+/** The press on Speichern, and the refused write's answer settling. */
+async function save(user: UserEvent): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "Speichern" }));
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
@@ -410,22 +392,22 @@ describe("an editor's save confirmation", () => {
       await editor.change(user, container);
 
       calls.length = 0;
-      await speichere(container);
-      assert.deepEqual(geschrieben(), [], "the press wrote beside raising the dialog, or never reached the gate");
-      await user.click(bestaetigung() ?? assert.fail("the change raised no save confirmation, so nothing below is judged"));
+      await save(user);
+      assert.deepEqual(written(), [], "the press wrote beside raising the dialog, or never reached the gate");
+      await user.click(confirmation() ?? assert.fail("the change raised no save confirmation, so nothing below is judged"));
       await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-      assert.deepEqual(geschrieben(), [editor.write], "the confirmation wrote other than once");
+      assert.deepEqual(written(), [editor.write], "the confirmation wrote other than once");
       // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
-      assert.ok(bestaetigung() === null, "the confirmation raised the dialog again");
+      assert.ok(confirmation() === null, "the confirmation raised the dialog again");
 
       // A save confirmation opens only over a draft every schema accepts, never ahead of the block (`docs/frontend/spec.md :: I255`).
       await editor.refuse(user, container);
       calls.length = 0;
-      await speichere(container);
+      await save(user);
 
-      assert.ok(bestaetigung() === null, "the dialog asks about a save the draft's own refusal blocks");
-      assert.deepEqual(geschrieben(), [], "a draft the schema refuses was written");
+      assert.ok(confirmation() === null, "the dialog asks about a save the draft's own refusal blocks");
+      assert.deepEqual(written(), [], "a draft the schema refuses was written");
     });
   }
 });

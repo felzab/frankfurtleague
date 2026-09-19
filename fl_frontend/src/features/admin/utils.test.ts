@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
 
@@ -8,26 +10,18 @@ import type { FLSpiel } from "../spiele/schemas.ts";
 
 const TODAY = "2026-07-30";
 
-/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
-const SPIEL: FLSpiel = FLSpielSchema.parse({
-  id: "6890a1b2c3d4e5f607182930",
-  spieltag_id: "6890a1b2c3d4e5f607182931",
-  team1: { team_id: "6890a1b2c3d4e5f607182932", name: "Team A", tore: 2, shorthand: "TA", austritt_type: null },
-  team2: { team_id: "6890a1b2c3d4e5f607182933", name: "Team B", tore: 1, shorthand: "TB", austritt_type: null },
-  team1_quelle: null,
-  team2_quelle: null,
-  datum: "2026-07-20",
-  uhrzeit: "18:00:00",
-  ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
-  schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref" },
-  ergebnis: "2:1",
-  elfmeterschiessen: null,
-  spiel_nr: 1,
-  sonderereignis: null,
-  saison_phase: "gruppenphase",
-  saison_id: "2026",
-  notiz: null,
-} satisfies FLSpiel);
+/** Parsed at construction: a field the shared literal has fallen behind on fails where the fixture is built. */
+const SPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({
+    team1: seite("6890a1b2c3d4e5f607182932", { name: "Team A", shorthand: "TA", tore: 2 }),
+    team2: seite("6890a1b2c3d4e5f607182933", { name: "Team B", shorthand: "TB", tore: 1 }),
+    datum: "2026-07-20",
+    uhrzeit: "18:00:00",
+    ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
+    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref" },
+    ergebnis: "2:1",
+  }),
+);
 
 // Lands in no category, so each test knocks out one field and is unambiguous about the rule it
 // exercises.
@@ -188,6 +182,16 @@ describe("buildActionRequiredSections", () => {
       sections.map((section) => section.category),
       Object.keys(ACTION_REQUIRED_LABELS),
     );
+  });
+
+  /* The site stores a starting line-up too, so „Aufstellung“ here sends an admin at the squad rather than
+     at the two sides of the fixture (`docs/glossary.md :: Paarung`). */
+  it("names a faulty pairing with the word the glossary fixes for it", () => {
+    const { name, desc } = ACTION_REQUIRED_LABELS.bracket_fault;
+
+    assert.match(name, /Paarungen/);
+    assert.match(desc, /Paarung/);
+    assert.doesNotMatch(`${name} ${desc}`, /Aufstellung/);
   });
 
   it("leads with the blocking categories and ends with the cancellations", () => {

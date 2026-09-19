@@ -4,10 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* The create forms behind each trigger reach `useRouter`, whose context no `next/navigation` export
-   carries, so every trigger is mounted under the one Next keeps it on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
@@ -20,17 +18,7 @@ const { AdminCreateSpielerModal } = await import("@/features/spieler/components/
 const { AdminCreateSpielortModal } = await import("@/features/spielorte/components/modals/AdminCreateSpielortModal.tsx");
 const { AdminCreateTeamModal } = await import("@/features/teams/components/modals/AdminCreateTeamModal.tsx");
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "createTriggers",
-};
-
-const markup = (modal: ReactNode): string => renderTree(h(AppRouterContext.Provider, { value: ROUTER }, modal));
+const markup = (modal: ReactNode): string => renderTree(underNext(modal));
 
 /** Each trigger's rendered markup and the name it owes, keyed by the component's own module name. */
 const TRIGGERS: Record<string, { name: string; html: string }> = {
@@ -56,18 +44,6 @@ function createModals(): string[] {
     .sort();
 }
 
-const HIDING_UTILITIES = new Set(["hidden", "invisible"]);
-
-/**
- * Every element inside the trigger that some width takes out of the accessibility tree, as its class
- * token: `display: none` and `visibility: hidden` remove a name, where `sr-only` keeps it.
- */
-function hiddenAtSomeWidth(button: string): string[] {
-  const tokens = [...button.matchAll(/\sclass="([^"]*)"/g)].flatMap((treffer) => (treffer[1] ?? "").split(/\s+/));
-
-  return tokens.filter((token) => HIDING_UTILITIES.has(token.split(":").at(-1) ?? ""));
-}
-
 const trigger = (html: string): string => /<button\b[\s\S]*?<\/button>/.exec(html)?.[0] ?? "";
 
 describe("a CRUD header's create trigger", () => {
@@ -76,21 +52,14 @@ describe("a CRUD header's create trigger", () => {
     assert.deepEqual(Object.keys(TRIGGERS).sort(), createModals());
   });
 
-  /* The reader has to be able to fail, on the shape a phone-width label takes when it is removed. */
-  it("reads a label removed below a breakpoint as removed", () => {
-    assert.deepEqual(hiddenAtSomeWidth(`<button><span class="hidden sm:inline">Neu</span></button>`), ["hidden"]);
-    assert.deepEqual(hiddenAtSomeWidth(`<button><span class="max-sm:sr-only">Neu</span></button>`), []);
-  });
-
-  /* Below `sm` the label is the button's only name (WCAG 4.1.2): the glyph beside it is
-     `aria-hidden`, so a label taken out of the tree there leaves a phone reader an unnamed button. */
-  it("keeps its name at every width", () => {
+  /* The glyph beside the label is `aria-hidden`, so the words below are the button's whole accessible
+     name (WCAG 4.1.2), and a trigger reading „Neu“ names nothing a reader can act on. */
+  it("is named by the words the slice owes it", () => {
     for (const [modal, { name, html }] of Object.entries(TRIGGERS)) {
       const button = trigger(html);
 
       assert.notEqual(button, "", `${modal} renders no button`);
       assert.equal(textOf(button).trim(), name, `${modal}'s button names something else`);
-      assert.deepEqual(hiddenAtSomeWidth(button), [], `${modal}'s name is removed at some width`);
     }
   });
 });

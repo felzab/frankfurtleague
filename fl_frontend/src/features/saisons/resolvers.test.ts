@@ -11,11 +11,11 @@ import type { resolveIsFinishedSaison as resolveIsFinishedSaisonFunction } from 
 import type { FLSaisonsListResponse } from "./schemas.ts";
 
 /** How often the stand-in list was read, which is the whole of what the absent-id case is about. */
-let gelesen = 0;
+let reads = 0;
 
 /** The season list the resolver reads, standing in for the cached public read. */
 export async function getSaisons(): Promise<FLSaisonsListResponse> {
-  gelesen += 1;
+  reads += 1;
 
   return {
     saisons: [
@@ -44,7 +44,7 @@ before(async () => {
 });
 
 beforeEach(() => {
-  gelesen = 0;
+  reads = 0;
 });
 
 describe("whether a page shows a finished season", () => {
@@ -52,7 +52,7 @@ describe("whether a page shows a finished season", () => {
    **saisons** clause keeps the season list unread on exactly that path. */
   it("answers no for the running season without reading the season list", async () => {
     assert.equal(await resolveIsFinishedSaison(undefined), false);
-    assert.equal(gelesen, 0, "the absent id read the season list");
+    assert.equal(reads, 0, "the absent id read the season list");
   });
 
   it("reads a named season's status off the list", async () => {

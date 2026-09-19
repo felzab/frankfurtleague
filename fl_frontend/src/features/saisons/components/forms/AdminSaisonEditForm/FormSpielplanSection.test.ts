@@ -2,13 +2,9 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` reads a context no `next/navigation` export carries, so the panel is rendered under the one Next
-   keeps it on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -22,51 +18,24 @@ import {
   describeSpieltageCount,
 } from "@/features/saisons/utils.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-
-import type { UserEvent } from "@testing-library/user-event";
-import type { ContextType } from "react";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const actions = {
-  generateSpielplanAction: mock.fn((_payload: unknown): Promise<unknown> => running()),
-  undrawSpielplanAction: mock.fn((_payload: unknown): Promise<unknown> => running()),
-};
-const toasts = { success: mock.fn(), danger: mock.fn(), info: mock.fn() };
-Reflect.set(globalThis, "__spielplanSection", { actions, toasts });
+const { calls, answerWith } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/features/saisons/actions.ts"))
-      return {
-        format: "module",
-        shortCircuit: true,
-        source: `const { actions } = globalThis.__spielplanSection;
-export const generateSpielplanAction = (payload) => actions.generateSpielplanAction(payload);
-export const undrawSpielplanAction = (payload) => actions.undrawSpielplanAction(payload);`,
-      };
-    if (url.endsWith("/src/shared/utils/appToast.ts"))
-      return { format: "module", shortCircuit: true, source: "export const appToast = globalThis.__spielplanSection.toasts;" };
-    return nextLoad(url, context);
-  },
-});
+/** The payloads one action was sent, in the order the panel sent them. */
+const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
+
+const { raised } = doubleToasts();
 
 const { FormSpielplanSection } = await import("./FormSpielplanSection.tsx");
 
 type SpielplanProps = Parameters<typeof FormSpielplanSection>[0];
-
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "FormSpielplanSection",
-};
 
 /** A planned season before its first draw: two full groups of four, a bracket, and a span holding its five matchdays. */
 const UNDRAWN: SpielplanProps = {
@@ -110,26 +79,19 @@ const DRAWN: SpielplanProps = {
 /** The shape the redraw case picks: four groups of four, which the four full groups fit. */
 const MOVED_SHAPE = { number_of_groups: 4, teams_per_group: 4, qualifiers_per_group: 2 };
 
-const panel = (props: SpielplanProps) => h(AppRouterContext.Provider, { value: ROUTER, children: h(FormSpielplanSection, props) });
+const panel = (props: SpielplanProps) => underNext(h(FormSpielplanSection, props));
 
 beforeEach(() => {
-  for (const fn of [...Object.values(actions), ...Object.values(toasts)]) fn.mock.resetCalls();
+  calls.length = 0;
+  raised.length = 0;
+  answerWith(running);
 });
 
-/** The value the armed readout states beside `label`. */
-const readout = (label: string): string | null => screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent ?? null;
+/** The value the armed readout states beside `label`, read off the description list the readout renders as. */
+function readout(label: string): string | null {
+  const at = screen.getAllByRole("term").findIndex((term) => term.textContent === label);
 
-/** Both presses, the second past the window in which it would count as a double click; `whileArmed` reads between them. */
-async function confirm(user: UserEvent, resting: string, armed: string, whileArmed: () => void = () => undefined): Promise<void> {
-  mock.timers.enable({ apis: ["Date"] });
-  try {
-    await user.click(screen.getByRole("button", { name: resting }));
-    whileArmed();
-    mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: armed }));
-  } finally {
-    mock.timers.reset();
-  }
+  return at === -1 ? null : (screen.getAllByRole("definition")[at]?.textContent ?? null);
 }
 
 describe("the Spielplan panel's first draw", () => {
@@ -138,19 +100,20 @@ describe("the Spielplan panel's first draw", () => {
     render(panel(UNDRAWN));
 
     assert.equal(screen.queryAllByRole("radio").length, 0, "a first draw is offered a choice between writes");
-    assert.equal(screen.queryByRole("button", { name: /^Gruppen/ }), null, "a first draw offers numbers it cannot send");
+    assert.ok(screen.queryByRole("button", { name: /^Gruppen/ }) === null, "a first draw offers numbers it cannot send");
 
-    await confirm(user, "Spielplan anlegen", "Ja, Spielplan anlegen", () => {
-      assert.equal(actions.generateSpielplanAction.mock.callCount(), 0, "one press wrote");
-      const alert = screen.getByRole("alert");
-      assert.doesNotMatch(alert.textContent, /Was dabei gelöscht wird/, "a first draw claims to delete what does not exist");
-      assert.ok(alert.textContent.endsWith(describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" })));
+    await pressTwice(user, {
+      resting: "Spielplan anlegen",
+      armed: "Ja, Spielplan anlegen",
+      whileArmed: () => {
+        assert.equal(sent("generateSpielplanAction").length, 0, "one press wrote");
+        const alert = screen.getByRole("alert");
+        assert.doesNotMatch(alert.textContent, /Was dabei gelöscht wird/, "a first draw claims to delete what does not exist");
+        assert.ok(alert.textContent.endsWith(describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" })));
+      },
     });
 
-    assert.deepEqual(
-      actions.generateSpielplanAction.mock.calls.map((call) => call.arguments),
-      [[{ id: "2026-27", replace: false, shape: undefined }]],
-    );
+    assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: false, shape: undefined }]);
   });
 
   /* An open press answers `REQ-SPIELPLAN-004`, which the page has every number for. */
@@ -167,7 +130,7 @@ describe("the Spielplan panel's first draw", () => {
 
     const reason = "Der Spielplan lässt sich für laufende Saisons nicht neu anlegen.";
     closedControl("Spielplan anlegen", reason);
-    assert.equal(screen.queryByRole("button", { name: /^Gruppen/ }), null, "a press no window opens offers numbers it cannot send");
+    assert.ok(screen.queryByRole("button", { name: /^Gruppen/ }) === null, "a press no window opens offers numbers it cannot send");
     assert.ok(isInTheFlow("Der Spielplan lässt sich für laufende Saisons nicht neu anlegen"), "the callout stating the rule is gone");
     assert.equal(isInTheFlow(reason), false, "the reason is said a second time beside the callout");
   });
@@ -200,22 +163,23 @@ describe("the Spielplan panel on a drawn planned season", () => {
     await user.click(screen.getByRole("button", { name: /^Gruppen/ }));
     await user.click(screen.getByRole("option", { name: "4" }));
 
-    await confirm(user, "Spielplan neu anlegen", "Ja, löschen und neu anlegen", () => {
-      const alert = screen.getByRole("alert").textContent;
-      assert.equal(readout("Gruppen"), "von 2 auf 4");
-      assert.match(alert, /zusammen mit dem Spielplan gespeichert/);
-      // The served scope was derived from the numbers this press replaces, so the fixture count it states describes
-      // no season the press writes; the matchdays the sent numbers imply are mirrored and stated.
-      assert.equal(readout("Spieltage"), describeSpieltageCount(drawnSpieltage(MOVED_SHAPE)));
-      assert.match(alert, /Wie viele Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest/);
-      // A venue or a referee closes the replace (`holds_a_recorded_fact`), so no armed replace can lose one.
-      assert.doesNotMatch(alert, /Schiedsrichter|\bOrte?\b/);
+    await pressTwice(user, {
+      resting: "Spielplan neu anlegen",
+      armed: "Ja, löschen und neu anlegen",
+      whileArmed: () => {
+        const alert = screen.getByRole("alert").textContent;
+        assert.equal(readout("Gruppen"), "von 2 auf 4");
+        assert.match(alert, /zusammen mit dem Spielplan gespeichert/);
+        // The served scope was derived from the numbers this press replaces, so the fixture count it states describes
+        // no season the press writes; the matchdays the sent numbers imply are mirrored and stated.
+        assert.equal(readout("Spieltage"), describeSpieltageCount(drawnSpieltage(MOVED_SHAPE)));
+        assert.match(alert, /Wie viele Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest/);
+        // A venue or a referee closes the replace (`holds_a_recorded_fact`), so no armed replace can lose one.
+        assert.doesNotMatch(alert, /Schiedsrichter|\bOrte?\b/);
+      },
     });
 
-    assert.deepEqual(
-      actions.generateSpielplanAction.mock.calls.map((call) => call.arguments),
-      [[{ id: "2026-27", replace: true, shape: MOVED_SHAPE }]],
-    );
+    assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: true, shape: MOVED_SHAPE }]);
   });
 
   /* The draw judges occupancy ahead of the bracket where the rules patch judges the other way round, so
@@ -275,11 +239,10 @@ describe("the Spielplan panel on a drawn planned season", () => {
     await user.click(screen.getByRole("button", { name: /^Qualifikanten pro Gruppe/ }));
     await user.click(screen.getByRole("option", { name: "1" }));
 
-    await confirm(user, "Spielplan neu anlegen", "Ja, löschen und neu anlegen");
-    assert.deepEqual(
-      actions.generateSpielplanAction.mock.calls.map((call) => call.arguments),
-      [[{ id: "2026-27", replace: true, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 1 } }]],
-    );
+    await pressTwice(user, { resting: "Spielplan neu anlegen", armed: "Ja, löschen und neu anlegen" });
+    assert.deepEqual(sent("generateSpielplanAction"), [
+      { id: "2026-27", replace: true, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 1 } },
+    ]);
   });
 
   it("sends the undraw once picked, after reading out what it deletes, and disarms when the pick moves", async () => {
@@ -288,7 +251,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     render(panel({ ...DRAWN, spieltageCount: 6, bestand: { spiele: 17, erfasst: 0, angesetzt: 3 } }));
 
     await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
-    assert.equal(screen.queryByRole("button", { name: /^Gruppen/ }), null, "the undraw offers numbers it never sends");
+    assert.ok(screen.queryByRole("button", { name: /^Gruppen/ }) === null, "the undraw offers numbers it never sends");
     await user.click(screen.getByRole("button", { name: "Spielplan zurücknehmen" }));
 
     assert.equal(readout("Bisher angelegt"), describeSpielplanUmfang(6, 17));
@@ -297,14 +260,11 @@ describe("the Spielplan panel on a drawn planned season", () => {
 
     // The reveal names one write's losses, so a switch under it would have the next press confirm another.
     await user.click(screen.getByRole("radio", { name: "Neu anlegen" }));
-    assert.equal(screen.queryByRole("alert"), null, "a switch leaves the previous write armed");
+    assert.ok(screen.queryByRole("alert") === null, "a switch leaves the previous write armed");
     await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
 
-    await confirm(user, "Spielplan zurücknehmen", "Ja, Spielplan zurücknehmen");
-    assert.deepEqual(
-      actions.undrawSpielplanAction.mock.calls.map((call) => call.arguments),
-      [[{ id: "2026-27" }]],
-    );
+    await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
+    assert.deepEqual(sent("undrawSpielplanAction"), [{ id: "2026-27" }]);
   });
 
   /* A second DELETE during the first would report a season that held nothing. A write in flight ends by
@@ -313,7 +273,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     const user = userEvent.setup();
     const { rerender } = render(panel(DRAWN));
     await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
-    await confirm(user, "Spielplan zurücknehmen", "Ja, Spielplan zurücknehmen");
+    await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
 
     rerender(panel({ ...DRAWN, bestand: { spiele: 15, erfasst: 2, angesetzt: 4 } }));
     assert.deepEqual(screen.queryAllByRole("button", { description: /./ }), [], "the running press is covered by a refusal");
@@ -328,30 +288,26 @@ describe("the Spielplan panel on a drawn planned season", () => {
     } finally {
       mock.timers.reset();
     }
-    assert.equal(actions.undrawSpielplanAction.mock.callCount(), 1, "a press during the request sends the write again");
+    assert.equal(sent("undrawSpielplanAction").length, 1, "a press during the request sends the write again");
   });
 
   /* „zurückgenommen“ over a season that held nothing claims work nobody did; the watermark alone is work. */
   it("reports an undraw that removed nothing as information, and one that cleared the watermark as done", async () => {
-    for (const [watermark_cleared, report, title] of [
-      [false, toasts.info, "Kein Spielplan vorhanden"],
-      [true, toasts.success, "Spielplan zurückgenommen"],
+    for (const [watermark_cleared, variant, title] of [
+      [false, "info", "Kein Spielplan vorhanden"],
+      [true, "success", "Spielplan zurückgenommen"],
     ] as const) {
-      actions.undrawSpielplanAction.mock.mockImplementationOnce(async () => ({
-        success: true,
-        message: "",
-        undraw: { spieltage: 0, spiele: 0, watermark_cleared },
-      }));
+      answerWith(() => Promise.resolve({ success: true, message: "", undraw: { spieltage: 0, spiele: 0, watermark_cleared } }));
       const user = userEvent.setup();
       const { unmount } = render(panel(DRAWN));
       await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
-      await confirm(user, "Spielplan zurücknehmen", "Ja, Spielplan zurücknehmen");
+      await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
 
       assert.deepEqual(
-        report.mock.calls.map((call) => call.arguments),
-        [[title, { description: "" }]],
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [[variant, title, ""]],
       );
-      report.mock.resetCalls();
+      raised.length = 0;
       unmount();
     }
   });

@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRight } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -101,7 +99,7 @@ export function FormTeamErsatzSection({
 
   const missingPickHint = outgoing === null ? "Wähle das ausscheidende und das nachrückende Team." : "Wähle noch das nachrückende Team.";
   const isMissingAPick = outgoing === null || incoming === null;
-  const restingLabel = isConfirming ? "Ja, Team ersetzen" : "Team ersetzen";
+  const restingLabel = "Team ersetzen";
 
   return (
     <section className={panel.root()}>
@@ -242,27 +240,22 @@ export function FormTeamErsatzSection({
               isPending={isReplacing}
               onCancel={cancel}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                  §1.14). `isReplacing` is left out: it ends by itself. */}
-              <Hint
-                mode="refusal"
-                reason={!isReplacing && isMissingAPick ? missingPickHint : null}
-                label={restingLabel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  isPending={isReplacing}
-                  isDisabled={!isReplacing && isMissingAPick}
-                  onPress={handleReplace}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
-                    <ArrowRight
-                      className="size-4.5"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {isReplacing ? "Wechselt aus..." : restingLabel}
-                </Button>
-              </Hint>
+                  §1.14). */}
+              <ConfirmPressButton
+                isConfirming={isConfirming}
+                isPending={isReplacing}
+                reason={isMissingAPick ? missingPickHint : null}
+                resting={restingLabel}
+                armed="Ja, Team ersetzen"
+                running="Wechselt aus..."
+                icon={
+                  <ArrowRight
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleReplace}
+              />
             </ConfirmActionRow>
           </>
         )}

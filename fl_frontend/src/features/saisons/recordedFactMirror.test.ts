@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { seite, spielFields } from "@/shared/testing/fixtures.ts";
 import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
+import { FLSpielSchema } from "../spiele/schemas.ts";
 import { FLSaisonPhaseSchema } from "./schemas.ts";
 import { holdsARecordedFact } from "./utils.ts";
 
@@ -34,38 +36,30 @@ const BRACKET_PHASE = FLSaisonPhaseSchema.options.find((phase) => phase !== DRAW
 const TEAM_1 = "2".repeat(24);
 const TEAM_2 = "3".repeat(24);
 
-const seite = (tore: number | null, teamId: string): FLSpiel["team1"] => ({
-  team_id: teamId,
-  tore,
-  name: "SV Beispiel",
-  shorthand: "SVB",
-  austritt_type: null,
-});
+/**
+ * The shared side, narrowed to this schema's own `austritt_type` union.
+ *
+ * `fl_frontend/src/shared/testing/fixtures.ts` types that field as a plain string, a module under
+ * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
+ */
+const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...seite(teamId), tore, austritt_type: null });
 
 const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 const ORT: FLSpiel["ort"] = { spielort_id: "4".repeat(24), name: "Platz 1", maps_link: "https://example.invalid" };
-const SCHIRI: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "5".repeat(24), name: "A. Beispiel" };
+const REFEREE: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "5".repeat(24), name: "A. Beispiel" };
 
+// Parsed at construction: a field the shared literal has fallen behind on fails where the fixture
+// is built rather than wherever it is read.
 /** A group fixture exactly as the draw leaves it — both sides OCCUPIED, neither wired, nothing entered. */
-const DRAWN_GRUPPENSPIEL: FLSpiel = {
-  id: "0".repeat(24),
-  spieltag_id: "1".repeat(24),
-  team1: seite(null, TEAM_1),
-  team2: seite(null, TEAM_2),
-  team1_quelle: null,
-  team2_quelle: null,
-  datum: null,
-  uhrzeit: null,
-  ort: null,
-  schiedsrichter: null,
-  ergebnis: null,
-  elfmeterschiessen: null,
-  spiel_nr: 1,
-  sonderereignis: null,
-  saison_phase: DRAWN_PHASE,
-  saison_id: "2026",
-  notiz: null,
-};
+const DRAWN_GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({
+    id: "0".repeat(24),
+    spieltag_id: "1".repeat(24),
+    team1: side(TEAM_1),
+    team2: side(TEAM_2),
+    saison_phase: DRAWN_PHASE,
+  }),
+);
 
 /** The same draw's bracket fixture — WIRED and empty, the exact inverse of the shape above. */
 const DRAWN_KOSPIEL: FLSpiel = {
@@ -101,16 +95,16 @@ const RECORDED_EDITS: Record<string, RecordedEdit> = {
     ko: { saison_phase: DRAWN_PHASE },
   },
 
-  team1: { why: "an emptied group side, and a bracket slot somebody filled", gruppe: { team1: null }, ko: { team1: seite(null, TEAM_1) } },
+  team1: { why: "an emptied group side, and a bracket slot somebody filled", gruppe: { team1: null }, ko: { team1: side(TEAM_1) } },
   team2: {
     why: "the same on the other side, which a loop over one slot would miss",
     gruppe: { team2: null },
-    ko: { team2: seite(null, TEAM_2) },
+    ko: { team2: side(TEAM_2) },
   },
 
   // Sides left occupied and unwired, so only the goal count can be what answers.
-  "team1.tore": { why: "a goal count standing without a result", gruppe: { team1: seite(0, TEAM_1) } },
-  "team2.tore": { why: "the same count on the other side", gruppe: { team2: seite(0, TEAM_2) } },
+  "team1.tore": { why: "a goal count standing without a result", gruppe: { team1: side(TEAM_1, 0) } },
+  "team2.tore": { why: "the same count on the other side", gruppe: { team2: side(TEAM_2, 0) } },
 
   team1_quelle: {
     why: "a provenance on a group side, and a cleared one on a bracket slot",
@@ -129,7 +123,7 @@ const RECORDED_EDITS: Record<string, RecordedEdit> = {
   sonderereignis: { why: "a cancellation, which awards nothing and is still a record", gruppe: { sonderereignis: "ausgefallen" } },
 
   ort: { why: "a booked venue", gruppe: { ort: ORT } },
-  schiedsrichter: { why: "a booked referee", gruppe: { schiedsrichter: SCHIRI } },
+  schiedsrichter: { why: "a booked referee", gruppe: { schiedsrichter: REFEREE } },
   notiz: { why: "an admin's note", gruppe: { notiz: "Platz gesperrt" } },
 };
 

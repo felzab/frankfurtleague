@@ -168,28 +168,28 @@ describe("spielplanBlockedReason", () => {
 });
 
 /** Four groups of four asked for, holding 4, 3, 2 and 1 clubs. */
-const SCHIEF = { groups: 4, teams: 4, occupancy: { A: 4, B: 3, C: 2, D: 1 } } as const;
+const SKEWED = { groups: 4, teams: 4, occupancy: { A: 4, B: 3, C: 2, D: 1 } } as const;
 
 describe("the draw over the groups the season's clubs stand in", () => {
   /* The press would answer `REQ-SPIELPLAN-004`, so the control says so first rather than offering a
      draw the page already knows the endpoint refuses. The draw's mapper returns the same declaration
      (`fl_frontend/src/features/saisons/actions.test.ts`). */
   it("closes a first draw whose groups are off the rules, in the words the refused press is given", () => {
-    assert.equal(spielplanBlock({ gruppen: SCHIEF }), GRUPPEN_OFF_RULES);
+    assert.equal(spielplanBlock({ gruppen: SKEWED }), GRUPPEN_OFF_RULES);
   });
 
   /* `find_spielplan_refusal` judges the finished season and the window before the groups, and the
      rules and the span run after the whole pass. */
   it("stands where the endpoint judges it, after the season's state and before the rules and the span", () => {
-    assert.match(spielplanBlock({ saisonStatus: "past", gruppen: SCHIEF }) ?? "", /abgeschlossen/);
-    assert.match(spielplanBlock({ gruppen: SCHIEF, hasKoRunden: false }) ?? "", /genau so viele Teams/);
-    assert.match(spielplanBlock({ gruppen: SCHIEF, endDate: "2026-05-01" }) ?? "", /genau so viele Teams/);
+    assert.match(spielplanBlock({ saisonStatus: "past", gruppen: SKEWED }) ?? "", /abgeschlossen/);
+    assert.match(spielplanBlock({ gruppen: SKEWED, hasKoRunden: false }) ?? "", /genau so viele Teams/);
+    assert.match(spielplanBlock({ gruppen: SKEWED, endDate: "2026-05-01" }) ?? "", /genau so viele Teams/);
   });
 
   /* A replace draws from the numbers in the panel's boxes, so the stored ones may not close it: the
      boxes that repair the draft would go with the operation. */
   it("leaves a replace on offer whatever the stored numbers say", () => {
-    for (const stored of [{ gruppen: SCHIEF }, { hasKoRunden: false }, { endDate: "2026-05-02" }]) {
+    for (const stored of [{ gruppen: SKEWED }, { hasKoRunden: false }, { endDate: "2026-05-02" }]) {
       assert.equal(spielplanBlock({ ...DRAWN, ...stored }), null, `${JSON.stringify(stored)} closes the replace over the stored rules`);
       assert.equal(replacesDraw({ ...DRAWN, ...stored }), true);
     }
@@ -197,9 +197,9 @@ describe("the draw over the groups the season's clubs stand in", () => {
 });
 
 /** Two full groups of four, which is where the stored season stands before a box moves. */
-const VOLL = { A: 4, B: 4 };
+const FULL = { A: 4, B: 4 };
 
-const shapeBlock = (shape: Partial<FLSpielplanShape> = {}, occupancy: Record<string, number> = VOLL, endDate = "2026-07-31"): string | null =>
+const shapeBlock = (shape: Partial<FLSpielplanShape> = {}, occupancy: Record<string, number> = FULL, endDate = "2026-07-31"): string | null =>
   spielplanShapeBlockedReason({
     shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2, ...shape },
     occupancy,
@@ -221,11 +221,11 @@ describe("spielplanShapeBlockedReason", () => {
   /* `REQ-RULES-001` on the numbers the press carries, too large and shapeless alike. */
   it("refuses a product with no bracket, and names the two boxes that make it", () => {
     // Sixteen groups of two, which the entries fit, so the bracket of 32 is the one fact that refuses.
-    const sechzehn = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
+    const sixteenGroups = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
 
     for (const [shape, occupancy] of [
-      [{ qualifiers_per_group: 3 }, VOLL],
-      [{ number_of_groups: 16, teams_per_group: 2, qualifiers_per_group: 2 }, sechzehn],
+      [{ qualifiers_per_group: 3 }, FULL],
+      [{ number_of_groups: 16, teams_per_group: 2, qualifiers_per_group: 2 }, sixteenGroups],
     ] as const) {
       const reason = shapeBlock(shape, occupancy);
       assert.match(reason ?? "", /keine KO-Runde/, `${JSON.stringify(shape)} is offered`);
@@ -235,15 +235,15 @@ describe("spielplanShapeBlockedReason", () => {
 
   /* Four days, and two groups of four with one qualifying imply four matchdays: three rounds and a final. */
   it("weighs the span against the matchdays the sent numbers imply, counting both ends", () => {
-    assert.equal(shapeBlock({ qualifiers_per_group: 1 }, VOLL, "2026-05-04"), null);
-    assert.match(shapeBlock({}, VOLL, "2026-05-04") ?? "", /zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
-    assert.match(shapeBlock({ qualifiers_per_group: 1 }, VOLL, "2026-05-03") ?? "", /Abschnitt Zeitraum/);
+    assert.equal(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-04"), null);
+    assert.match(shapeBlock({}, FULL, "2026-05-04") ?? "", /zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
+    assert.match(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-03") ?? "", /Abschnitt Zeitraum/);
   });
 
   /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
   it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
-    assert.equal(shapeBlock({ teams_per_group: 5, qualifiers_per_group: 3 }, VOLL, "2026-05-01"), GRUPPEN_OFF_RULES);
-    assert.match(shapeBlock({ qualifiers_per_group: 3 }, VOLL, "2026-05-01") ?? "", /keine KO-Runde/);
+    assert.equal(shapeBlock({ teams_per_group: 5, qualifiers_per_group: 3 }, FULL, "2026-05-01"), GRUPPEN_OFF_RULES);
+    assert.match(shapeBlock({ qualifiers_per_group: 3 }, FULL, "2026-05-01") ?? "", /keine KO-Runde/);
   });
 });
 
@@ -369,8 +369,8 @@ describe("what each half of the window promises", () => {
       // `PATCH /spiele/{spiel_id}` rewrites every field `holds_a_recorded_fact` reads, so clearing
       // what was entered reopens this half and the sentence may say so.
       assert.match(record, /erst wieder/);
-      // The defect this is against: worded as a closed door, a season one fixture edit away from a
-      // redraw reads as finished, and the admin stops rather than going to the fixture.
+      // Worded as a closed door, a season one fixture edit away from a redraw reads as finished, and
+      // the admin stops rather than going to the fixture.
       assert.doesNotMatch(record, /nicht mehr/);
 
       // Nothing writes `status` back to `future` (`docs/backend/spec.md :: I18`), so the same phrase

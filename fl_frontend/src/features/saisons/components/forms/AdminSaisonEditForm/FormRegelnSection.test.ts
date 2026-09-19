@@ -2,21 +2,19 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* The season editor reads `useRouter` and `useSearchParams`, whose contexts no `next/navigation` export carries, so it
-   is rendered under the two Next keeps them on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
-import type { ContextType } from "react";
 
 const { FormRegelnSection } = await import("./FormRegelnSection.tsx");
 const { AdminSaisonEditForm } = await import("./AdminSaisonEditForm.tsx");
@@ -98,7 +96,8 @@ describe("the rules panel's freezes", () => {
      (`docs/backend/spec.md :: I18`), so a repair named outside the window is one nobody can take. */
   it("names the repairs for the frozen shape inside the Spielplan window, and the freeze or its condition outside it", () => {
     const { unmount } = render(panel({}));
-    assert.equal(screen.queryByText(/Spielplan/), null, "an undrawn season is told how to unfreeze fields nothing has frozen");
+    // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
+    assert.ok(screen.queryByText(/Spielplan/) === null, "an undrawn season is told how to unfreeze fields nothing has frozen");
     unmount();
 
     for (const [spielplanWindow, note] of [
@@ -111,6 +110,113 @@ describe("the rules panel's freezes", () => {
       assert.ok(screen.getByText(note), spielplanWindow);
       leave();
     }
+  });
+});
+
+// Seven levels, this file sitting at the editor's own folder.
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+
+/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it.
+   `fl_frontend/src/shared/testing/refusalRegister.ts` reads `fl_backend/app/core/domain.py` the same way. */
+const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
+
+/** The string literals one module-level constant of `services.py` is assigned, in source order. */
+function assignedLiterals(name: string): string[] {
+  const value = new RegExp(`^${name}(?::[^=\\n]*)? = (.*)$`, "m").exec(SERVICES)?.[1] ?? "";
+
+  return [...value.matchAll(/"([^"]*)"/g)].map((literal) => literal[1] ?? "");
+}
+
+/** `REQ-RULES-011`'s frozen set and the one field of it a redraw moves, read off the write path that composes them. */
+const SHAPE_RULES_FIELDS = assignedLiterals("SHAPE_RULES_FIELDS");
+const REDRAWABLE_SHAPE_FIELD = assignedLiterals("REDRAWABLE_SHAPE_FIELD")[0] ?? "";
+
+/* One German noun phrase per frozen field. A field this table leaves out would go unnamed in the panel
+   while nothing here failed, which the first case below is against. */
+const GERMAN_OF: Record<string, string> = {
+  number_of_groups: "Gruppen",
+  teams_per_group: "Teams pro Gruppe",
+  qualifiers_per_group: "Qualifikanten",
+};
+
+/**
+ * Whether one phrase stands in a text as a whole word.
+ *
+ * German compounds a term into a longer word meaning something else, so „Gruppenphase“ satisfies a
+ * substring search for the group COUNT while naming no count at all.
+ */
+const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
+
+/** Every paragraph one state of the panel shows. */
+function paragraphsOf(props: Partial<RegelnProps>): string[] {
+  const { unmount } = render(panel(props));
+  const shown = screen.getAllByRole("paragraph").map((paragraph) => paragraph.textContent);
+  unmount();
+
+  return shown;
+}
+
+/**
+ * The repairs the panel names once the draw has frozen the shape.
+ *
+ * Read as what the freeze ADDS to the undrawn panel, so neither case below finds the note by the
+ * words it is about to assert about it.
+ */
+function openRepairs(): string[] {
+  const standing = new Set(paragraphsOf({}));
+  const added = paragraphsOf({ isDrawnSaison: true, spielplanWindow: "open" }).filter((paragraph) => !standing.has(paragraph));
+
+  assert.equal(added.length, 1, "the frozen shape is explained by no paragraph of its own, or by more than one");
+
+  return (added[0] ?? "").split(/(?<=\.)\s+/).filter((sentence) => sentence !== "");
+}
+
+/** Which of the panel's repairs name one field, by position. */
+const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
+  new Set(repairs.flatMap((sentence, index) => (names(GERMAN_OF[field] ?? "", sentence) ? [index] : [])));
+
+describe("the repairs the reloaded panel names for the shape the draw freezes", () => {
+  /* The authority is `SHAPE_RULES_FIELDS` and not the table above, so a fourth shape field fails here rather than
+     leaving the two cases below looping over a set the write path has grown past. */
+  it("names a phrase for exactly the fields the refusal freezes", () => {
+    assert.deepEqual(Object.keys(GERMAN_OF).sort(), [...SHAPE_RULES_FIELDS].sort());
+    assert.equal(new Set(Object.values(GERMAN_OF)).size, Object.keys(GERMAN_OF).length, "two fields share one phrase");
+    assert.ok(
+      REDRAWABLE_SHAPE_FIELD in GERMAN_OF,
+      `${REDRAWABLE_SHAPE_FIELD} is the field a redraw moves and this table names no phrase for it`,
+    );
+  });
+
+  /* The refusal is a bare message sending the admin back to this panel, so a field the panel leaves out of its
+     repairs has no route named for it anywhere. */
+  it("names a repair for every field the refusal freezes", () => {
+    const repairs = openRepairs();
+
+    assert.ok(repairs.length > 1, "the note states one repair, so it parts no field from another");
+    for (const [field, german] of Object.entries(GERMAN_OF))
+      assert.ok(
+        repairs.some((sentence) => names(german, sentence)),
+        `the shape refusal freezes ${field} and no repair in the panel names ${german}`,
+      );
+  });
+
+  /* Two repairs because they are two jobs: raising a pinned field needs clubs entered between an undraw and a
+     redraw, which a redraw alone never asks for, so one sentence for all three sends an admin on the wrong job. */
+  it("parts the redrawable field from the ones the entries pin", () => {
+    const repairs = openRepairs();
+    const redrawable = repairsNaming(repairs, REDRAWABLE_SHAPE_FIELD);
+    const pinned = Object.keys(GERMAN_OF)
+      .filter((field) => field !== REDRAWABLE_SHAPE_FIELD)
+      .map((field) => [field, repairsNaming(repairs, field)] as const);
+
+    assert.ok(redrawable.size > 0, `no repair in the panel names ${REDRAWABLE_SHAPE_FIELD}`);
+    assert.ok(pinned.length > 0, "every frozen field is the one a redraw moves, so this parts nothing");
+
+    const shared = pinned.map(([, wo]) => wo).reduce((left, right) => new Set([...left].filter((at) => right.has(at))));
+    for (const [field, wo] of pinned)
+      for (const at of wo)
+        assert.ok(!redrawable.has(at), `one repair names ${field} beside ${REDRAWABLE_SHAPE_FIELD}, and a redraw moves only the second`);
+    assert.ok(shared.size > 0, "the fields the entries pin take different repairs, where the write path composes them one");
   });
 });
 
@@ -138,47 +244,34 @@ describe("the rules panel's shape offer", () => {
   });
 });
 
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "FormRegelnSection",
-};
-
 describe("the season editor's one reading of the season, handed to its panels", () => {
   /* The swap (`REQ-SWAP-002`) and the tiebreak (`REQ-RULES-012`) close on one played knockout fixture, and the rules
      panel's window is the undraw's own: a second reading of either drifts from the first and offers what the
      endpoint refuses. */
   it("freezes the tiebreak where the swap closes, and states the window the undraw is closed by", () => {
     render(
-      h(AppRouterContext.Provider, {
-        value: ROUTER,
-        children: h(SearchParamsContext.Provider, {
-          value: new URLSearchParams("saison_id=2026"),
-          children: h(AdminSaisonEditForm, {
-            saison: { id: "2026", status: "future", start_date: "2026-08-01", end_date: "2027-06-30", rules: RULES, bewerbung: null },
-            rollover: { outgoingSaisonId: null, offeneSpiele: [] },
-            swap: { teams: [], playedKnockoutSpiele: 1 },
-            ersatz: { rows: [], candidates: [] },
-            spielplan: {
-              spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
-              spieltageCount: 5,
-              schedule: [
-                { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
-                { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-                { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
-              ],
-              bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
-            },
-            hasDrawnSpiele: true,
-            spieltagBound: { startMax: null, endMin: null },
-            pageHeader: { title: "Saison 2026" },
-          }),
+      underNext(
+        h(AdminSaisonEditForm, {
+          saison: { id: "2026", status: "future", start_date: "2026-08-01", end_date: "2027-06-30", rules: RULES, bewerbung: null },
+          rollover: { outgoingSaisonId: null, offeneSpiele: [] },
+          swap: { teams: [], playedKnockoutSpiele: 1 },
+          ersatz: { rows: [], candidates: [] },
+          spielplan: {
+            spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
+            spieltageCount: 5,
+            schedule: [
+              { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
+              { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
+              { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+            ],
+            bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
+          },
+          hasDrawnSpiele: true,
+          spieltagBound: { startMax: null, endMin: null },
+          pageHeader: { title: "Saison 2026" },
         }),
-      }),
+        { search: "saison_id=2026" },
+      ),
     );
 
     assert.ok(screen.getByText("Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"));

@@ -282,7 +282,7 @@ describe("the draw's refusal over the groups the season's clubs stand in", () =>
   /* Every shape these entries can be drawn in, spelled out rather than derived: a second derivation of
      `REQ-SPIELPLAN-004` here would agree with a wrong first one. */
   it("lets a draw through exactly where every offered group holds the team count", () => {
-    const belegungen: SaisonGruppenOccupancy[] = [
+    const occupancies: SaisonGruppenOccupancy[] = [
       {},
       { A: 4 },
       { A: 4, B: 4 },
@@ -291,34 +291,34 @@ describe("the draw's refusal over the groups the season's clubs stand in", () =>
       { A: 4, B: 3, C: 2, D: 1 },
       { B: 2 },
     ];
-    const ZIEHBAR = new Set(['1 of 4 over {"A":4}', '2 of 4 over {"A":4,"B":4}', '4 of 4 over {"A":4,"B":4,"C":4,"D":4}']);
-    const offen: string[] = [];
+    const DRAWABLE = new Set(['1 of 4 over {"A":4}', '2 of 4 over {"A":4,"B":4}', '4 of 4 over {"A":4,"B":4,"C":4,"D":4}']);
+    const open: string[] = [];
 
-    for (const occupancy of belegungen) {
+    for (const occupancy of occupancies) {
       for (const teams of [2, 3, 4, 5]) {
         for (const groups of GROUP_COUNT_UNIVERSE) {
           if (drawGruppenRefusal({ groups, teams, occupancy }) === null)
-            offen.push(`${String(groups)} of ${String(teams)} over ${JSON.stringify(occupancy)}`);
+            open.push(`${String(groups)} of ${String(teams)} over ${JSON.stringify(occupancy)}`);
         }
       }
     }
 
-    assert.deepEqual(offen, [...ZIEHBAR]);
+    assert.deepEqual(open, [...DRAWABLE]);
   });
 
   /* `find_spielplan_refusal`'s own edges, each on one side of the line: EXACTLY the count in every
      offered group, an empty one included, and a club only counts against a group the season does not
      run where it holds one. */
   it("judges each group against the count exactly, and names the size ahead of a stranded club", () => {
-    const vier = (occupancy: SaisonGruppenOccupancy) => drawGruppenRefusal({ groups: 2, teams: 4, occupancy });
+    const twoGroupsOfFour = (occupancy: SaisonGruppenOccupancy) => drawGruppenRefusal({ groups: 2, teams: 4, occupancy });
 
-    assert.equal(vier({ A: 4, B: 4 }), null);
-    assert.equal(vier({ A: 4 }), "gruppenOffSize", "an empty offered group is drawn as if it fitted");
-    assert.equal(vier({ A: 4, B: 3 }), "gruppenOffSize", "a group one short of the count is drawn");
-    assert.equal(vier({ A: 5, B: 4 }), "gruppenOffSize", "a group one over the count is drawn");
-    assert.equal(vier({ A: 4, B: 4, C: 1 }), "groupsInUse", "a club outside the offered groups is drawn into nothing");
-    assert.equal(vier({ A: 4, B: 4, C: 0 }), null, "a group the season does not run strands nobody while it holds nobody");
-    assert.equal(vier({ A: 3, B: 4, C: 1 }), "gruppenOffSize", "the stranded club is named ahead of the group off its size");
+    assert.equal(twoGroupsOfFour({ A: 4, B: 4 }), null);
+    assert.equal(twoGroupsOfFour({ A: 4 }), "gruppenOffSize", "an empty offered group is drawn as if it fitted");
+    assert.equal(twoGroupsOfFour({ A: 4, B: 3 }), "gruppenOffSize", "a group one short of the count is drawn");
+    assert.equal(twoGroupsOfFour({ A: 5, B: 4 }), "gruppenOffSize", "a group one over the count is drawn");
+    assert.equal(twoGroupsOfFour({ A: 4, B: 4, C: 1 }), "groupsInUse", "a club outside the offered groups is drawn into nothing");
+    assert.equal(twoGroupsOfFour({ A: 4, B: 4, C: 0 }), null, "a group the season does not run strands nobody while it holds nobody");
+    assert.equal(twoGroupsOfFour({ A: 3, B: 4, C: 1 }), "gruppenOffSize", "the stranded club is named ahead of the group off its size");
   });
 });
 
@@ -357,17 +357,25 @@ describe("the draw's refusal over a replace's three numbers", () => {
    undercount offers a replace the span refuses. */
 describe("the matchdays a replace's numbers imply", () => {
   it("counts an even group's round robin one short of its size, and an odd group's at its size", () => {
-    const eineGruppe = (teams: number): number => drawnSpieltage({ number_of_groups: 1, teams_per_group: teams, qualifiers_per_group: 1 });
+    const oneGroup = (teams: number): number => drawnSpieltage({ number_of_groups: 1, teams_per_group: teams, qualifiers_per_group: 1 });
 
-    assert.deepEqual([2, 3, 4, 5, 16].map(eineGruppe), [1, 3, 3, 5, 15]);
+    assert.deepEqual([2, 3, 4, 5, 16].map(oneGroup), [1, 3, 3, 5, 15]);
   });
 
   it("adds one per knockout round, and none for a product no bracket takes", () => {
-    const sechzehn = (groups: number, qualifiers: number): number =>
+    const sixteenPerGroup = (groups: number, qualifiers: number): number =>
       drawnSpieltage({ number_of_groups: groups, teams_per_group: 16, qualifiers_per_group: qualifiers });
 
     assert.deepEqual(
-      [sechzehn(1, 1), sechzehn(1, 2), sechzehn(2, 2), sechzehn(4, 2), sechzehn(4, 4), sechzehn(1, 3), sechzehn(2, 16)],
+      [
+        sixteenPerGroup(1, 1),
+        sixteenPerGroup(1, 2),
+        sixteenPerGroup(2, 2),
+        sixteenPerGroup(4, 2),
+        sixteenPerGroup(4, 4),
+        sixteenPerGroup(1, 3),
+        sixteenPerGroup(2, 16),
+      ],
       [15, 16, 17, 18, 19, 15, 15],
     );
   });

@@ -8,15 +8,12 @@ import path from "node:path";
 import { before, describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `Link` reads the first and `useSearchParams` the second —
-   and every list renders under both. A Next release that moves either module fails this file at import. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { AdminSpielerRow } from "@/features/spieler/types.ts";
@@ -39,16 +36,6 @@ registerHooks({
 
 const STILLGELEGT_AM = "2026-09-09";
 const TEAM_ID = "6890a1b2c3d4e5f607910001";
-
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "restorePending",
-};
 
 /** A retired club, whose only restore is its own. */
 const CLUB: AdminTeamRow = {
@@ -98,7 +85,6 @@ const REFEREE: FLSchiedsrichter = {
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: STILLGELEGT_AM,
-  anonymisiert_am: null,
 };
 
 /** Filled from `before`: each list is imported after this file's own doubles are registered. */
@@ -141,14 +127,13 @@ function listsOfferingARestore(): string[] {
 }
 
 /** Each list under the two contexts every row reads, ready to render. */
-const mount = (list: ReactNode): ReactNode =>
-  h(AppRouterContext.Provider, { value: ROUTER }, h(SearchParamsContext.Provider, { value: new URLSearchParams("saison_id=2026") }, list));
+const mount = (list: ReactNode): ReactNode => underNext(list, { search: "saison_id=2026" });
 
 /** Every restore the list draws, by the name it carries; both layouts render, so each name comes twice. */
 const restores = (): HTMLElement[] => screen.getAllByRole("button", { name: /reaktivieren$/ });
 
 /** The first control of that name, which is the one a reader at this width presses. */
-const restore = (name: string): HTMLElement => restores().find((knopf) => knopf.getAttribute("aria-label") === name) ?? assert.fail(name);
+const restore = (name: string): HTMLElement => restores().find((button) => button.getAttribute("aria-label") === name) ?? assert.fail(name);
 
 describe("a restore on an admin list while a reactivation runs", () => {
   /* First: a list that stopped offering a restore, or one added beside these four, would otherwise leave the
@@ -162,11 +147,11 @@ describe("a restore on an admin list while a reactivation runs", () => {
   it("holds each restore it offers until that write returns", async () => {
     for (const [list, mounted] of Object.entries(LISTS)) {
       render(mount(mounted()));
-      const namen = [...new Set(restores().map((knopf) => knopf.getAttribute("aria-label") ?? ""))];
-      assert.ok(namen.length > 0, `${list} renders no restore, so the case proves nothing`);
+      const names = [...new Set(restores().map((button) => button.getAttribute("aria-label") ?? ""))];
+      assert.ok(names.length > 0, `${list} renders no restore, so the case proves nothing`);
       cleanup();
 
-      for (const name of namen) {
+      for (const name of names) {
         const user = userEvent.setup();
         render(mount(mounted()));
         calls.length = 0;

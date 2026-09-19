@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -161,7 +159,7 @@ export function FormGruppenSwapSection({
 
   const missingPickHint = first === null ? "Wähle zwei Teams aus zwei verschiedenen Gruppen." : "Wähle noch das zweite Team.";
   const isMissingAPick = first === null || second === null;
-  const restingLabel = isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen";
+  const restingLabel = "Gruppen tauschen";
 
   return (
     <section className={panel.root()}>
@@ -265,27 +263,22 @@ export function FormGruppenSwapSection({
               isPending={isSwapping}
               onCancel={cancel}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                  §1.14). `isSwapping` is left out: it ends by itself. */}
-              <Hint
-                mode="refusal"
-                reason={!isSwapping && isMissingAPick ? missingPickHint : null}
-                label={restingLabel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  isPending={isSwapping}
-                  isDisabled={!isSwapping && isMissingAPick}
-                  onPress={handleSwap}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
-                    <ArrowRightArrowLeft
-                      className="size-4.5"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {isSwapping ? "Tauscht..." : restingLabel}
-                </Button>
-              </Hint>
+                  §1.14). */}
+              <ConfirmPressButton
+                isConfirming={isConfirming}
+                isPending={isSwapping}
+                reason={isMissingAPick ? missingPickHint : null}
+                resting={restingLabel}
+                armed="Ja, Gruppen tauschen"
+                running="Tauscht..."
+                icon={
+                  <ArrowRightArrowLeft
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleSwap}
+              />
             </ConfirmActionRow>
           </>
         )}

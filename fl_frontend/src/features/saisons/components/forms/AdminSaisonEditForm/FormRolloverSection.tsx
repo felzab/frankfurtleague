@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -83,7 +81,7 @@ export function FormRolloverSection({
     });
   };
 
-  const restingLabel = isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`;
+  const restingLabel = `Auf Saison ${saisonId} umstellen`;
 
   return (
     <section className={panel.root()}>
@@ -210,27 +208,22 @@ export function FormRolloverSection({
               isPending={isActivating}
               onCancel={cancel}>
               {/* The body sits a screen away from the button, so the refusal is said again on the
-                  control itself. `isActivating` is left out: it ends by itself. */}
-              <Hint
-                mode="refusal"
-                reason={isActivating ? null : blockedReason}
-                label={restingLabel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  isPending={isActivating}
-                  isDisabled={!isActivating && blockedReason !== null}
-                  onPress={handleActivate}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
-                    <ArrowRightArrowLeft
-                      className="size-4.5"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {isActivating ? "Stellt um..." : restingLabel}
-                </Button>
-              </Hint>
+                  control itself. */}
+              <ConfirmPressButton
+                isConfirming={isConfirming}
+                isPending={isActivating}
+                reason={blockedReason}
+                resting={restingLabel}
+                armed={`Ja, auf ${saisonId} umstellen`}
+                running="Stellt um..."
+                icon={
+                  <ArrowRightArrowLeft
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleActivate}
+              />
             </ConfirmActionRow>
           </>
         )}

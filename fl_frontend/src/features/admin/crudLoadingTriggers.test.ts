@@ -5,28 +5,14 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
-/* The create forms behind each trigger reach `useRouter`, whose context no `next/navigation` export
-   carries, so every trigger is mounted under the one Next keeps it on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-// A page's search bar reads the query through the context `useSearchParams` does, which no public export carries.
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 const ADMIN = path.join(SRC, "app", "admin");
-
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "crudLoadingTriggers",
-};
 
 /**
  * Found by the attribute on the fallback, so a route that stops drawing a trigger's box drops out here and fails
@@ -72,7 +58,7 @@ describe("the trigger's box a list route's fallback draws", () => {
       const Modal = ((await import(pathToFileURL(modal).href)) as Record<string, (props: Record<string, unknown>) => ReactNode>)[modalName]!;
 
       const shown = triggerIn(
-        renderTree(h(AppRouterContext.Provider, { value: ROUTER }, h(Modal, { saisonOptions: [], defaultSaisonId: null }))),
+        renderTree(underNext(h(Modal, { saisonOptions: [], defaultSaisonId: null }))),
         /<button[^>]*?class="([^"]*)"[^>]*>([\s\S]*?)<\/button>/,
       );
       const drawn = triggerIn(renderTree(h(Loading)), /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/);
@@ -97,24 +83,18 @@ describe("the trigger's box a list route's fallback draws", () => {
       };
       const Modal = ((await import(pathToFileURL(modal).href)) as Record<string, (props: Record<string, unknown>) => ReactNode>)[modalName]!;
 
-      const page = renderTree(
-        h(
-          AppRouterContext.Provider,
-          { value: ROUTER },
-          h(SearchParamsContext.Provider, { value: new URLSearchParams() }, h(Page, { searchParams: Promise.resolve({}) })),
-        ),
-      );
+      const page = renderTree(underNext(h(Page, { searchParams: Promise.resolve({}) })));
       const box = /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/;
 
       assert.equal(
         box.test(page),
-        waiting.some((kandidat) => kandidat.route === route),
+        waiting.some((candidate) => candidate.route === route),
         `${route}: its page draws a trigger's box it holds no boundary for`,
       );
       if (!box.test(page)) continue;
 
       const shown = triggerIn(
-        renderTree(h(AppRouterContext.Provider, { value: ROUTER }, h(Modal, { saisonOptions: [], defaultSaisonId: null }))),
+        renderTree(underNext(h(Modal, { saisonOptions: [], defaultSaisonId: null }))),
         /<button[^>]*?class="([^"]*)"[^>]*>([\s\S]*?)<\/button>/,
       );
 

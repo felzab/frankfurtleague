@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Calendar, CalendarXmark } from "@gravity-ui/icons";
 
-import { Button, Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
@@ -28,9 +28,9 @@ import {
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -195,19 +195,10 @@ export function FormSpielplanSection({
     });
   };
 
-  // The object stays in every label: under a danger heading a bare verb is agreed to without the
+  // The object stays in both labels: under a danger heading a bare verb is agreed to without the
   // reader having to hold what it refers to.
-  const restingLabel = isDrawing
-    ? isConfirming
-      ? replacesDraw
-        ? "Ja, löschen und neu anlegen"
-        : "Ja, Spielplan anlegen"
-      : replacesDraw
-        ? "Spielplan neu anlegen"
-        : "Spielplan anlegen"
-    : isConfirming
-      ? "Ja, Spielplan zurücknehmen"
-      : "Spielplan zurücknehmen";
+  const restingLabel = isDrawing ? (replacesDraw ? "Spielplan neu anlegen" : "Spielplan anlegen") : "Spielplan zurücknehmen";
+  const armedLabel = isDrawing ? (replacesDraw ? "Ja, löschen und neu anlegen" : "Ja, Spielplan anlegen") : "Ja, Spielplan zurücknehmen";
 
   return (
     <section className={panel.root()}>
@@ -491,33 +482,29 @@ export function FormSpielplanSection({
           isPending={isWriting}
           onCancel={cancel}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
-              treatment the rollover established. `isWriting` is left out: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={isWriting ? null : closedReason}
-            label={restingLabel}>
-            <Button
-              type="button"
-              variant="primary"
-              isPending={isWriting}
-              isDisabled={!isWriting && closedReason !== null}
-              onPress={handlePress}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming &&
-                (isDrawing ? (
-                  <Calendar
-                    className="size-4.5"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <CalendarXmark
-                    className="size-4.5"
-                    aria-hidden="true"
-                  />
-                ))}
-              {isWriting ? runningLabel : restingLabel}
-            </Button>
-          </Hint>
+              treatment the rollover established. */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
+            isPending={isWriting}
+            reason={closedReason}
+            resting={restingLabel}
+            armed={armedLabel}
+            running={runningLabel}
+            icon={
+              isDrawing ? (
+                <Calendar
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              ) : (
+                <CalendarXmark
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              )
+            }
+            onPress={handlePress}
+          />
         </ConfirmActionRow>
       </div>
     </section>

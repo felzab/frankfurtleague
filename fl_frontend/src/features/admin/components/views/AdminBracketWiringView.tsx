@@ -8,10 +8,12 @@ import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -98,7 +100,16 @@ function SlotWiring({
  * step with the endpoint's refusals. The Gruppenphase is absent by construction — the write path
  * refuses a `quelle` there.
  */
-export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpieltagWithSpiele[]; saisonId: string | null }) {
+export function AdminBracketWiringView({
+  rounds,
+  saisonId,
+  isFinishedSaison,
+}: {
+  rounds: FLSpieltagWithSpiele[];
+  saisonId: string | null;
+  /** Whether the season is over, which is what parts a bracket still to come from one that never happened. */
+  isFinishedSaison: boolean;
+}) {
   // The number an admin checks against is the matchday's own `position`, which the label reads
   // straight off each row rather than counting over this list.
   const labels = spieltagLabels(rounds);
@@ -113,9 +124,10 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
     return (
       <div className="w-full px-3 py-4 sm:p-8">
         <div className="max-w-page mx-auto flex w-full flex-col gap-6">
-          <EmptyState
-            title="Für diese Saison gibt es noch keine Finalrunden."
+          <SeasonEmptyState
+            nothing="keine Finalrunden"
             hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier, woher jede Seite kommt."
+            isFinishedSaison={isFinishedSaison}
           />
         </div>
       </div>
@@ -212,7 +224,7 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
                                 <Link
                                   href={adminSpielEditHref(spiel.id, saisonId)}
                                   aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
-                                  className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base)">
+                                  className={BRAND_ICON_BUTTON}>
                                   <PencilToSquare
                                     aria-hidden="true"
                                     className="m-0 size-4.5"

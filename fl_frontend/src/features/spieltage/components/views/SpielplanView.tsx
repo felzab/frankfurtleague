@@ -4,9 +4,9 @@ import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { spieltagLabels } from "../../utils";
 
@@ -28,15 +28,11 @@ export function SpielplanView({
   if (!spielplanData.spieltage.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {/* A finished season's Spielplan is not still to come, so it takes no `noch` and no hint. */}
-        {isFinishedSaison ? (
-          <EmptyState title="Für diese Saison gibt es keinen Spielplan." />
-        ) : (
-          <EmptyState
-            title="Für diese Saison gibt es noch keinen Spielplan."
-            hint="Sobald die Spieltage feststehen, erscheinen hier alle Begegnungen der Saison."
-          />
-        )}
+        <SeasonEmptyState
+          nothing="keinen Spielplan"
+          hint="Sobald die Spieltage feststehen, erscheinen hier alle Begegnungen der Saison."
+          isFinishedSaison={isFinishedSaison}
+        />
       </div>
     );
   }

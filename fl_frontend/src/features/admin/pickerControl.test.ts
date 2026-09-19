@@ -25,7 +25,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 /** No descriptor for any field, which is the state an editor's panel stands in until a save judges one. */
 const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
 
-const OPTIONEN: RefusableOption[] = [{ id: "t1", name: "SG Alpha", meta: null, refusal: null }];
+const OPTIONS: RefusableOption[] = [{ id: "t1", name: "SG Alpha", meta: null, refusal: null }];
 
 function GruppeHost() {
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(null);
@@ -43,8 +43,8 @@ function TeamHost() {
 
 function RefusableHost() {
   const [gewaehlt, setGewaehlt] = useState<RefusableOption | null>(null);
-  const onChange = (id: string) => setGewaehlt(OPTIONEN.find((option) => option.id === id) ?? null);
-  return h(RefusableSelect, { label: "Team", placeholder: "Team wählen", value: gewaehlt, options: OPTIONEN, onChange, isDisabled: false });
+  const onChange = (id: string) => setGewaehlt(OPTIONS.find((option) => option.id === id) ?? null);
+  return h(RefusableSelect, { label: "Team", placeholder: "Team wählen", value: gewaehlt, options: OPTIONS, onChange, isDisabled: false });
 }
 
 function SonderereignisHost() {
@@ -74,9 +74,9 @@ describe("a picker whose parent holds no pick yet", () => {
   it("stays controlled through its first pick", () => {
     for (const [name, host, key] of PICKERS) {
       // Both channels: which of them reports the switch is React's and react-stately's to choose.
-      const gemeldet: string[] = [];
-      for (const kanal of ["warn", "error"] as const)
-        mock.method(console, kanal, (...teile: unknown[]) => void gemeldet.push(teile.map(String).join(" ")));
+      const reported: string[] = [];
+      for (const channel of ["warn", "error"] as const)
+        mock.method(console, channel, (...parts: unknown[]) => void reported.push(parts.map(String).join(" ")));
       const { container, unmount } = render(host);
       const mirror = container.querySelector("select") ?? assert.fail(`${name} renders no mirrored select`);
 
@@ -86,7 +86,7 @@ describe("a picker whose parent holds no pick yet", () => {
       unmount();
       assert.equal(mirror.value, key, `${name} never took the pick, so nothing below is judged`);
       assert.deepEqual(
-        gemeldet.filter((zeile) => /uncontrolled to controlled|controlled to uncontrolled/.test(zeile)),
+        reported.filter((line) => /uncontrolled to controlled|controlled to uncontrolled/.test(line)),
         [],
         `${name} changed its kind`,
       );

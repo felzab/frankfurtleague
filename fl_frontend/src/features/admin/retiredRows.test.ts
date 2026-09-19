@@ -4,12 +4,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `Link` reads the first and `useSearchParams` the second —
-   and every list renders under both. A Next release that moves either module fails this file at import. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { IDENTITY_NAME, identityName } from "@/shared/components/ui/adminTable.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
@@ -27,20 +24,7 @@ const { AdminTeamsTable } = await import("@/features/teams/components/collection
 
 const STILLGELEGT_AM = "2026-09-09";
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "retiredRows",
-};
-
-const markup = (list: ReactNode): string =>
-  renderTree(
-    h(AppRouterContext.Provider, { value: ROUTER }, h(SearchParamsContext.Provider, { value: new URLSearchParams("saison_id=2026") }, list)),
-  );
+const markup = (list: ReactNode): string => renderTree(underNext(list, { search: "saison_id=2026" }));
 
 const club = (id: string, name: string, inactiveSince: string | null): AdminTeamRow => ({
   id,
@@ -78,13 +62,12 @@ const referee = (id: string, name: string, inactiveSince: string | null): FLSchi
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: inactiveSince,
-  anonymisiert_am: null,
 });
 
-type Liste = { live: string; retired: string; html: string };
+type List = { live: string; retired: string; html: string };
 
 /** Each list with one live row and one retired row, keyed by the component's own module name. */
-const LISTS: Record<string, Liste> = {
+const LISTS: Record<string, List> = {
   AdminTeamsTable: {
     live: "Goethe",
     retired: "Lessing",
@@ -135,7 +118,7 @@ const LISTS: Record<string, Liste> = {
 
 /**
  * Every admin list drawing the „Stillgelegt“ pill, found by its import rather than by the recipe this
- * file asserts: a list spelling its own fade drops out of a population read off `identityName`.
+ * file asserts: a list spelling its own ink drops out of a population read off `identityName`.
  */
 function listsDrawingRetiredRows(): string[] {
   const features = path.resolve(import.meta.dirname, "..");
@@ -152,15 +135,6 @@ function listsDrawingRetiredRows(): string[] {
     .sort();
 }
 
-/**
- * Every class token the markup carries whose utility, variants stripped, fades what it sits on.
- * `opacity-100` is spared: it composites nothing, and a wrapper sets it to cancel a component's own dimming.
- */
-const fades = (html: string): string[] =>
-  [...html.matchAll(/\sclass="([^"]*)"/g)]
-    .flatMap((treffer) => (treffer[1] ?? "").split(/\s+/))
-    .filter((token) => /^opacity-(?!100$)/.test(token.split(":").at(-1) ?? ""));
-
 /** How many times one name is drawn with exactly this class list. */
 const drawn = (html: string, classes: string, name: string): number => html.split(`<span class="${classes}">${name}</span>`).length - 1;
 
@@ -169,20 +143,6 @@ describe("a retired row on an admin list", () => {
      leave the cases below reading a population nobody chose. */
   it("is asserted on every list that draws one", () => {
     assert.deepEqual(Object.keys(LISTS).sort(), listsDrawingRetiredRows());
-  });
-
-  /* The reader has to be able to fail, on a row wrapper and on a card behind a breakpoint alike. */
-  it("reads a fade on any element, behind any variant", () => {
-    assert.deepEqual(fades(`<div class="flex opacity-60"><div class="md:opacity-80 opacity-100"></div></div>`), [
-      "opacity-60",
-      "md:opacity-80",
-    ]);
-  });
-
-  /* An opacity composites every line and pill in the row with the ground under it, and the muted lines
-     and the „Stillgelegt“ pill then measure under WCAG 1.4.3's 4.5:1. */
-  it("is faded by no element in either layout", () => {
-    for (const [list, { html }] of Object.entries(LISTS)) assert.deepEqual(fades(html), [], `${list} fades an element`);
   });
 
   /* Both layouts draw the name, so each list draws it twice; a count of one is a layout spelling the

@@ -9,6 +9,7 @@ import { Table } from "@heroui/react";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { CELL_EDGE, CELL_INNER, COLUMN_EDGE, COLUMN_INNER, TABLE_HEADING } from "@/shared/components/ui/adminTable";
+import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActionMenu, RowActionMenuItem, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -19,11 +20,11 @@ import type { AdminSaisonRow } from "../../types";
 
 /**
  * The season id wears the same chip fill a team's Kürzel does
- * (`fl_frontend/src/features/spieler/shorthandChip.ts :: SHORTHAND_CHIP`): both are the short
+ * (`fl_frontend/src/shared/components/ui/brandTile.ts :: SHORTHAND_CHIP`): both are the short
  * identifier a reader scans a column for.
  */
-const ID_CHIP =
-  "bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm";
+/** The Kürzel chip at a season id's width: four digits where a Kürzel is two letters. */
+const ID_CHIP = `${SHORTHAND_CHIP} font-numeric h-7 w-14 tabular-nums shadow-sm`;
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Saisons für diese Suche.",

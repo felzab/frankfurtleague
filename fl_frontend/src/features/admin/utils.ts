@@ -19,9 +19,11 @@ export type FLActionUrgency = "blocking" | "results" | "details" | "none";
  */
 export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; short: string; desc: string; urgency: FLActionUrgency }> = {
   bracket_fault: {
-    name: "Fehlerhafte Verweise, Aufstellungen und Einteilungen",
+    // „Paarung“ and never „Aufstellung“: the site stores a starting line-up too, and that is the squad
+    // a club fields rather than the two sides it plays (`docs/glossary.md :: Paarung`).
+    name: "Fehlerhafte Verweise, Paarungen und Einteilungen",
     short: "Fehler",
-    desc: "Spiele, deren Herkunft kein Team ergibt, deren Aufstellung nicht zulässig ist oder deren Spielort oder Schiedsrichter stillgelegt oder doppelt eingeteilt ist",
+    desc: "Spiele, deren Herkunft kein Team ergibt, deren Paarung nicht zulässig ist oder deren Spielort oder Schiedsrichter stillgelegt oder doppelt eingeteilt ist",
     urgency: "blocking",
   },
   besetzung_missing: {

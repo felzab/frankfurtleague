@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { spielFields } from "@/shared/testing/fixtures.ts";
+
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { FLSpieltagWithSpieleSchema } from "./schemas.ts";
@@ -12,26 +14,16 @@ import type { FLSpieltagWithSpiele } from "./schemas.ts";
 
 const sieger = (spielNr: number): FLSpielQuelle => ({ type: "spiel", spiel_nr: spielNr, ausgang: "sieger" });
 
-/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
-const SPIEL: FLSpiel = FLSpielSchema.parse({
-  id: "6890a1b2c3d4e5f607180001",
-  spieltag_id: "6890a1b2c3d4e5f607180101",
-  team1: null,
-  team2: null,
-  team1_quelle: null,
-  team2_quelle: null,
-  datum: null,
-  uhrzeit: null,
-  ort: null,
-  schiedsrichter: null,
-  ergebnis: null,
-  elfmeterschiessen: null,
-  spiel_nr: 1,
-  sonderereignis: null,
-  saison_phase: "viertelfinale",
-  saison_id: "2026",
-  notiz: null,
-} satisfies FLSpiel);
+/** Parsed at construction: a field the shared literal has fallen behind on fails where the fixture is built. */
+const SPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({
+    id: "6890a1b2c3d4e5f607180001",
+    spieltag_id: "6890a1b2c3d4e5f607180101",
+    team1: null,
+    team2: null,
+    saison_phase: "viertelfinale",
+  }),
+);
 
 /** Complete and parsed at construction, for `SPIEL`'s reason. */
 const SPIELTAG: FLSpieltagWithSpiele = FLSpieltagWithSpieleSchema.parse({

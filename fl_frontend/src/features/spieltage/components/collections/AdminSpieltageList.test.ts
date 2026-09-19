@@ -2,29 +2,18 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `RowActionLink` reads the first and `useSaisonHref` the
-   second — and the list renders under both (`docs/frontend/spec.md` §1.9). */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
-import { renderMarkup, renderTree } from "@/shared/testing/renderTest.ts";
+import { describeSpieltageCount } from "@/features/saisons/utils.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { AdminSpieltagRow } from "@/features/spieltage/types.ts";
+import type { SpieltagPhaseProgress } from "@/features/spieltage/utils.ts";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminSpieltageList } = await import("./AdminSpieltageList.tsx");
 const { AdminCrudFallback } = await import("@/shared/components/ui/AdminCrudFallback.tsx");
-
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
 
 const SPIELTAG: AdminSpieltagRow = {
   id: "6890a1b2c3d4e5f607190041",
@@ -37,17 +26,11 @@ const SPIELTAG: AdminSpieltagRow = {
   position: 1,
 };
 
-const liste = (): string =>
+const list = (phaseProgress?: readonly SpieltagPhaseProgress[]): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2627") },
-        h(AdminSpieltageList, { filteredSpieltage: [SPIELTAG], emptiness: "none" as const, saisonId: "2627" }),
-      ),
-    ),
+    underNext(h(AdminSpieltageList, { filteredSpieltage: [SPIELTAG], emptiness: "none" as const, saisonId: "2627", phaseProgress }), {
+      search: "saison_id=2627",
+    }),
   );
 
 /** The tags of the elements directly inside the element opening at `at`, counted over every open and close. */
@@ -75,7 +58,7 @@ function childrenAt(html: string, at: number): string[] {
    box the row does not draw is how far every row below it jumps when the hold releases. */
 describe("the placeholder a matchday row is held under", () => {
   it("stacks as many boxes as the row it stands in for", () => {
-    const html = liste();
+    const html = list();
     const row = html.indexOf("<li");
     assert.ok(row >= 0, "the list renders no row, and this case proves nothing");
 
@@ -88,5 +71,18 @@ describe("the placeholder a matchday row is held under", () => {
       childrenAt(html, row).length,
       `the placeholder row holds ${childrenAt(placeholder, card).join(", ")}`,
     );
+  });
+});
+
+/* „1 Spieltag“ beside „ein Spieltag“ is one rule spelled two ways, and the heading is where a reader meets
+   both: the count on the heading and the count in an armed readout describe the same population. */
+describe("a phase heading's matchday count", () => {
+  it("states it in the phrase the season's own counts are stated in, whether or not a progress figure stands beside it", () => {
+    for (const [what, html] of [
+      ["with no progress figure", list()],
+      ["with the phase complete", list([{ phase: "gruppenphase", angelegt: 1, erwartet: 1 }])],
+    ] as const) {
+      assert.ok(textOf(html, " ").includes(describeSpieltageCount(1)), `${what}: the heading counts its matchdays some other way`);
+    }
   });
 });

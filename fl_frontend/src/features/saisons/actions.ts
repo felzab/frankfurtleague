@@ -4,7 +4,7 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -253,7 +253,7 @@ export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
-): Promise<ActionResult<{ created_id?: string }>> {
+): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSaisonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -272,7 +272,7 @@ export async function postSaisonAction(
       postOperation = await postSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
       }
@@ -318,7 +318,7 @@ export async function patchSaisonAction(
       patchOperation = await patchSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 

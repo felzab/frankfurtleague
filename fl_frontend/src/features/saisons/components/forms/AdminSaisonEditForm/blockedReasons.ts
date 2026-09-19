@@ -29,6 +29,12 @@ export type SpielplanControlInput = {
 // One day of UTC milliseconds. Date-only strings parse as UTC midnights, so dividing by it is exact.
 const MS_PER_DAY = 86_400_000;
 
+/**
+ * One spelling for both closures: the repair is the season's own dates whichever of them closed the
+ * press, and a second could send two admins to two different panels for one fault.
+ */
+const SPAN_TOO_SHORT_REPAIR = "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison.";
+
 /** Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. */
 function offeredDays(startDate: string, endDate: string): number {
   return (Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1;
@@ -96,10 +102,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
   // worth measuring.
   if (offeredDays(startDate, endDate) < vorschauSpieltage)
-    return (
-      "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. " +
-      "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison."
-    );
+    return `Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. ${SPAN_TOO_SHORT_REPAIR}`;
 
   return null;
 }
@@ -128,10 +131,7 @@ export function spielplanShapeBlockedReason({
   if (refusal !== null) return "Aus diesen Zahlen entsteht keine KO-Runde. Ändere die Gruppen oder die Qualifikanten pro Gruppe.";
 
   if (offeredDays(startDate, endDate) < drawnSpieltage(shape))
-    return (
-      "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben. " +
-      "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison."
-    );
+    return `Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben. ${SPAN_TOO_SHORT_REPAIR}`;
 
   return null;
 }

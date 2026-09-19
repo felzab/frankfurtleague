@@ -6,7 +6,9 @@ import Link from "next/link";
 import { Globe, Magnifier, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -80,14 +82,14 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     if (progress === undefined) {
       // Defensive, not a state this page reaches: `Map.get` needs narrowing, and a resolved season's
       // schedule always holds the group phase.
-      return <span className="muted-meta">{shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}</span>;
+      return <span className="muted-meta">{describeSpieltageCount(shownCount)}</span>;
     }
 
     // The second number earns attention only where it disagrees: `erwartet` is derived per read from
     // the season's rules, so agreement is the ordinary season, and repeating the count on every
     // healthy heading spends what the divergence needs.
     if (progress.angelegt === progress.erwartet) {
-      return <span className="muted-meta">{progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}</span>;
+      return <span className="muted-meta">{describeSpieltageCount(progress.angelegt)}</span>;
     }
 
     // The noun agrees with the EXPECTED count, the number it belongs to: „2 von 1 Spieltag“.
@@ -160,7 +162,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-sm flex size-10 shrink-0 items-center justify-center rounded-xl font-extrabold tabular-nums shadow-sm">
+                    className={`${BRAND_TILE} font-numeric fluid-sm font-extrabold tabular-nums`}>
                     {spieltag.position}
                   </span>
 

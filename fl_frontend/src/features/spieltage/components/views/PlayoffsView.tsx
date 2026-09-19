@@ -4,8 +4,8 @@ import { useState } from "react";
 
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCardUltraCompact";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { BRACKET_SWEEP } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { orderRoundsByWiring, spieltagLabels } from "../../utils";
 
@@ -45,16 +45,11 @@ export function PlayoffsView({
   if (!playoffsSpieltage || playoffsSpieltage.length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {/* A finished season's group phase is over, so its Finalrunden are not still to come: no `noch`,
-            and no hint promising a draw. */}
-        {isFinishedSaison ? (
-          <EmptyState title="Für diese Saison gibt es keine Finalrunden." />
-        ) : (
-          <EmptyState
-            title="Für diese Saison gibt es noch keine Finalrunden."
-            hint="Die Paarungen stehen fest, sobald die Gruppenphase abgeschlossen ist."
-          />
-        )}
+        <SeasonEmptyState
+          nothing="keine Finalrunden"
+          hint="Die Paarungen stehen fest, sobald die Gruppenphase abgeschlossen ist."
+          isFinishedSaison={isFinishedSaison}
+        />
       </div>
     );
   }
