@@ -155,7 +155,7 @@ ordinary constraint change, and assuming which of the two you are in is what thi
 
 **A collection the change ADDS is the free case, and `--check` says so by counting nothing.** The
 namespace does not exist, so `report_violations` answers `0 of 0` and there is no backfill to hunt:
-`apply_validator` creates the collection with the validator already attached
+`_apply_validator` creates the collection with the validator already attached
 (`fl_backend/app/core/constraints.py :: NAMESPACE_NOT_FOUND`), which either `--apply` or the deploy's
 own boot reaches. A `0 of 0` against a collection you expected to hold rows is the case to stop on.
 
@@ -165,14 +165,13 @@ then `--apply` or the deploy's own boot to attach the validators
 serves), then `--check` again.
 
 **A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
-validator is attached strict (`fl_backend/app/core/constraints.py :: apply_validator`) and the
+validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
 previous one lists the old name under `required`, so a `$rename` run under it produces a document
 missing a required field and is refused for every row; the same strictness refuses an erasure's
 `$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
-which is why the rename cannot wait either. **This repository holds no migration RUNNER**: a
-migration belongs to the change that needs it and is run by hand against the database, as a command
-typed at a prompt where it fits in one and as a script beside the ops tools where it does not
-(`scripts/ops/ghost_schiedsrichter.py`), so what is written here is the order alone.
+which is why the rename cannot wait either. **This repository holds no migration runner and no
+migration**: the command belongs to the change that needs it and is run by hand against the
+database, so what is written here is the order alone.
 
 1. `--check` from the new checkout while the old image still serves. Every row is reported as
    missing the new name, which is the confirmation that the rename is owed rather than a finding to
@@ -255,40 +254,17 @@ answers with while the old index stands.
 **A uniqueness rule WIDENED — a `partial_filter` removed — is the same refusal from the other side,
 and the drop is only half the procedure.** `collMod` reaches the filter in neither direction, so the
 live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
-inside the wide one, so any that would collide have to move before the boot rebuilds it. That makes
-the migration a script rather than a typed command, and fixes its order: move the rows, drop the
-index last. `scripts/ops/ghost_schiedsrichter.py` is this release's, and it is re-runnable step by
-step, so a run that dies partway is repaired by running it again rather than by repairing rows by
-hand. **Run `--check`, read its counts, then `--apply`, and do all of it before the `--check` at the
-head of this section**: that run groups every row against the widened rule, so it answers about the
-database the boot will meet only once the rows have moved.
-
-On the server the script is mounted beside the `app/` this section's first `docker run` mounts, the
-backend image's build context being `fl_backend/` alone (`fl_backend/.dockerignore`), and the image's
-working directory is what resolves both:
-
-```bash
-docker run --rm --network <compose-network> \
-  -v "$PWD/fl_backend/app:/app/app:ro" \
-  -v "$PWD/fl_backend/.env:/app/.env:ro" \
-  -v "$PWD/scripts/ops/ghost_schiedsrichter.py:/app/ghost_schiedsrichter.py:ro" \
-  <backend-image> python ghost_schiedsrichter.py --check
-```
-
-Dev, on Windows, is `cd fl_backend && .venv/Scripts/python ../scripts/ops/ghost_schiedsrichter.py --check`.
-Either way the seven variables and the refusal naming them are `python -m app.core.constraints`'s
-(`fl_backend/app/core/config.py :: BackendConfig`), and no credential is typed on the line.
-
-**Read the index line from `--check`, never from `--apply`'s answer alone.** From MongoDB 8.1 a drop
-of a name the collection does not hold answers `ok` rather than raising, so a run against a database
-that never built the index cannot be told from one that removed it by the drop itself; the script
-reports the presence it read first, and that is the only reading either way.
+inside the wide one, so any that would collide have to move before the boot rebuilds it, which fixes
+the order: move the rows while the old build still serves, drop the index in the deploy's own window
+as above. The moves are typed by hand as every migration here is, keyed on a state the previous
+statement leaves so a paste that dies partway is repaired by pasting it again. **Run the `--check` at
+the head of this section only once the rows have moved**: it groups every row against the widened
+rule, so before the move it answers about a database the boot will not meet.
 
 **A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
 it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
-re-running the migration before the retry is what clears it, which is a command rather than a repair.
-Where the earlier build declares no index of that name, nothing rebuilds it and the retry needs only
-the rows.
+dropping it again before the retry is what clears it. Where the earlier build declares no index of
+that name, nothing rebuilds it and the retry needs only the rows.
 
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry

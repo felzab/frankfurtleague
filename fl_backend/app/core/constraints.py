@@ -884,13 +884,7 @@ class ConstraintSummary:
     ttl_indexes: int
 
 
-async def apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
-    """One collection's validator, attached as the boot attaches it.
-
-    Public because a migration run BEFORE the boot needs the new validator in place before its
-    own writes, and a second spelling of this command would carry a different strictness.
-    """
-
+async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
     command = {
         "collMod": collection_name,
         "validator": validator,
@@ -997,7 +991,7 @@ async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     # validator, so an overlap would leave a collection nothing ever validates.
     await _apply_concurrently(
         [
-            (collection_name, partial(apply_validator, db, collection_name, validator))
+            (collection_name, partial(_apply_validator, db, collection_name, validator))
             for collection_name, validator in COLLECTION_VALIDATORS.items()
         ]
     )
