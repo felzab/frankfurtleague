@@ -1167,7 +1167,7 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
     for (const classToken of NAME_WRAP.split(" ")) {
       assert.doesNotMatch(
         PANELS,
-        new RegExp(`"[^"]*\\b${classToken.replace(/[-]/g, "\\$&")}\\b`),
+        new RegExp(`"[^"]*\\b${classToken.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}\\b`),
         `a second spelling of ${classToken} is back`,
       );
     }

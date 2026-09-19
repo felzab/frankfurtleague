@@ -11,6 +11,14 @@ for (const key of Object.getOwnPropertyNames(window)) {
   if (!key.startsWith("_") && !(key in globalThis)) Reflect.set(globalThis, key, Reflect.get(window, key));
 }
 
+// Node's own `navigator` survives the copy above and answers `language` with the runner's locale, which react-aria
+// reads as its default where no `I18nProvider` is mounted: a German machine renders „verringern“ and Linux CI
+// "Decrease". The site pins `de-DE` (`fl_frontend/src/core/providers/RootProviders.tsx`); so does the test window.
+Object.defineProperties(globalThis.navigator, {
+  language: { configurable: true, value: "de-DE" },
+  languages: { configurable: true, value: ["de-DE"] },
+});
+
 // Node defines these itself, and jsdom refuses an instance of Node's: react-aria's focus scope dispatches a
 // `CustomEvent` as a dialog unmounts, and react-dom builds a `FormData` from the form a submit handler transitions from.
 Object.assign(globalThis, { Event: window.Event, CustomEvent: window.CustomEvent, FormData: window.FormData });

@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { shownText } from "@/shared/testing/spokenText.ts";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 
@@ -67,7 +68,7 @@ const openingTagsWith = (markup: string, matches: (token: string) => boolean): s
 function linkNames(markup: string): { tag: string; name: string }[] {
   return [...markup.matchAll(/(<a\b[^>]*>)([\s\S]*?)<\/a>/g)].map(([, tag, inner]) => ({
     tag: tag!,
-    name: (/\saria-label="([^"]*)"/.exec(tag!)?.[1] ?? inner!.replace(/<[^>]*>/g, "")).trim(),
+    name: (/\saria-label="([^"]*)"/.exec(tag!)?.[1] ?? shownText(inner!)).trim(),
   }));
 }
 
