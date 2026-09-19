@@ -83,7 +83,7 @@ const tokensOf = (openingTag: string): string[] => (/\sclass="([^"]*)"/.exec(ope
 
 /** Every element the markup opens, as its opening tag, carrying a class token `matches` accepts. */
 const openingTagsWith = (markup: string, matches: (token: string) => boolean): string[] =>
-  [...markup.matchAll(/<[a-z]+\b[^>]*>/g)].map((treffer) => treffer[0]).filter((tag) => tokensOf(tag).some(matches));
+  [...markup.matchAll(/<[a-z]+\b[^>]*>/g)].map((hit) => hit[0]).filter((tag) => tokensOf(tag).some(matches));
 
 /** Each link's accessible name: its `aria-label`, or failing one the text inside it. */
 function linkNames(markup: string): { tag: string; name: string }[] {
@@ -123,7 +123,7 @@ describe("what the rail tells assistive tech", () => {
 describe("how the rail's two halves line up", () => {
   /* Only the nav scrolls, so a strip it reserves alone leaves the footer's rows ending a scrollbar's
      width to the right of the links above them. */
-  it("reserves the one scrollbar strip in both halves", () => {
+  it("declares one scrollbar gutter, the same one, on both halves", () => {
     for (const [state, markup] of STATES) {
       const reserving = openingTagsWith(markup, (token) => token.startsWith("scrollbar-gutter-"));
       const strips = reserving.map((tag) => tokensOf(tag).find((token) => token.startsWith("scrollbar-gutter-")));
@@ -131,15 +131,15 @@ describe("how the rail's two halves line up", () => {
       assert.equal(
         reserving.length,
         2,
-        `the ${state} rail reserves a strip on ${String(reserving.length)} boxes rather than on its nav and its footer`,
+        `the ${state} rail declares a gutter on ${String(reserving.length)} boxes rather than on its nav and its footer`,
       );
-      assert.equal(strips[0], strips[1], `the ${state} rail's halves reserve different strips: ${strips.join(" and ")}`);
+      assert.equal(strips[0], strips[1], `the ${state} rail's halves declare different gutters: ${strips.join(" and ")}`);
 
       // `scrollbar-gutter` reserves nothing on a box that does not clip its overflow.
       for (const tag of reserving) {
         assert.ok(
           tokensOf(tag).some((token) => /^overflow(-y)?-(auto|hidden|scroll)$/.test(token)),
-          `${tag} names a strip it cannot reserve, clipping nothing`,
+          `${tag} names a gutter beside no overflow token`,
         );
       }
     }
@@ -147,10 +147,10 @@ describe("how the rail's two halves line up", () => {
 
   /* Collapsed, the column the rule sits in is narrower than the squares under it, so a fraction of
      that column draws a rule half a glyph wide. */
-  it("draws a collapsed group's rule at its glyph's width", () => {
+  it("gives a collapsed group's rule the width token its glyph's size names", () => {
     // A nav link's own glyph: the drawer's close control and the footer draw theirs at other sizes.
     const glyph = new RegExp(`<a\\b[^>]*aria-label="${LABELS[0]!}"[^>]*>\\s*(<svg\\b[^>]*>)`).exec(COLLAPSED)?.[1];
-    const rules = [...COLLAPSED.matchAll(/<hr\b[^>]*>/g)].map((treffer) => treffer[0]);
+    const rules = [...COLLAPSED.matchAll(/<hr\b[^>]*>/g)].map((hit) => hit[0]);
     // Throw rather than compare against undefined, which every rule below would fail for the wrong reason.
     if (glyph === undefined) throw new Error("the collapsed rail renders no sized glyph to measure a rule against");
 
@@ -164,13 +164,16 @@ describe("how the rail's two halves line up", () => {
       `the collapsed rail draws ${String(rules.length)} rules for ${String(STRUCTURE.length)} groups`,
     );
     for (const rule of rules) {
-      assert.ok(tokensOf(rule).includes(`w-${glyphSize}`), `the collapsed rule is ${rule}, not the glyph's width \`w-${glyphSize}\``);
+      assert.ok(
+        tokensOf(rule).includes(`w-${glyphSize}`),
+        `the collapsed rule is ${rule}, which does not carry the glyph's \`w-${glyphSize}\``,
+      );
     }
   });
 
   /* Collapsed, both halves' strips leave a clip box barely wider than a square, so a focus ring drawn
      outside the square loses both its sides to the clip. */
-  it("rings every collapsed square inside itself", () => {
+  it("names an inset focus ring on every collapsed square", () => {
     const squares = openingTagsWith(COLLAPSED, (token) => token === "w-9");
 
     assert.ok(
@@ -180,7 +183,7 @@ describe("how the rail's two halves line up", () => {
     assert.deepEqual(
       squares.filter((tag) => !tokensOf(tag).some((token) => token === "-outline-offset-2" || token === "ring-inset")),
       [],
-      "these collapsed squares draw their focus ring outside themselves",
+      "these collapsed squares name neither inset ring token",
     );
   });
 });

@@ -82,9 +82,9 @@ describe("the create form", () => {
     await user.click(screen.getByRole("button", { name: "Speichern" }));
 
     for (const name of ["Speichert...", "Abbrechen"]) {
-      const knopf = screen.getByRole("button", { name }) as HTMLButtonElement;
-      assert.equal(knopf.getAttribute("data-pending"), "true", `„${name}“ still takes a press while the write runs`);
-      assert.equal(knopf.disabled, false, `„${name}“ is closed as though something refused it`);
+      const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+      assert.equal(button.getAttribute("data-pending"), "true", `„${name}“ still takes a press while the write runs`);
+      assert.equal(button.disabled, false, `„${name}“ is closed as though something refused it`);
     }
   });
 });

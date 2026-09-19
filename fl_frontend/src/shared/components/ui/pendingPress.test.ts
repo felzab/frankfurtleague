@@ -14,6 +14,7 @@ import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { ConfirmDeleteModal } = await import("./ConfirmDeleteModal.tsx");
+const { ConfirmSaveModal } = await import("./ConfirmSaveModal.tsx");
 const { DraftStatusProvider } = await import("./DraftStatusContext.tsx");
 const { FormActionBar } = await import("./FormActionBar.tsx");
 
@@ -39,11 +40,47 @@ describe("a control whose write is running", () => {
 
     await user.click(screen.getByRole("button", { name: "Stilllegen" }));
     await user.click(screen.getByRole("button", { name: "Ja, stilllegen" }));
-    const laufend = screen.getByRole("button", { name: "Legt still..." });
-    await user.click(laufend);
+    const running = screen.getByRole("button", { name: "Legt still..." });
+    await user.click(running);
 
     assert.equal(onConfirm.mock.callCount(), 1, "a second press during the write sends it again");
-    assert.equal((laufend as HTMLButtonElement).disabled, false, "the running press is closed as though something refused it");
+    assert.equal((running as HTMLButtonElement).disabled, false, "the running press is closed as though something refused it");
+  });
+
+  /* And the way back is never held at all: it closes the dialog rather than the save, so a reader
+     who changed their mind about reading on is not stranded on it until the write lands. */
+  it("holds the save-anyway press, and leaves the way back open beside it", async () => {
+    const user = userEvent.setup();
+    const onConfirm = mock.fn();
+    render(
+      h(ConfirmSaveModal, {
+        onClose: () => undefined,
+        onConfirm,
+        banners: [
+          {
+            id: "austritt",
+            severity: "warning",
+            raisedBy: "change",
+            title: "Das Team tritt aus",
+            body: "Seine Spiele bleiben stehen.",
+            inline: null,
+          },
+        ],
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Trotzdem speichern" }));
+    const speichern = screen.getByRole("button", { name: "Trotzdem speichern" }) as HTMLButtonElement;
+    await user.click(speichern);
+
+    assert.equal(onConfirm.mock.callCount(), 1, "a second press during the save sends it again");
+    assert.equal(speichern.disabled, false, "the running save is closed as though something refused it");
+    assert.equal(speichern.getAttribute("data-pending"), "true", "the running save is not held at all");
+    assert.equal(
+      (screen.getByRole("button", { name: "Weiter bearbeiten" }) as HTMLButtonElement).disabled,
+      false,
+      "the way back closes while the save it does not cancel is running",
+    );
   });
 
   it("holds the save bar's Speichern", () => {

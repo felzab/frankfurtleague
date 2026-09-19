@@ -15,17 +15,24 @@ function read(file: string): string {
   }
 }
 
+let walked: ReadonlyMap<string, string> | null = null;
+
 /**
- * Every `.ts` and `.tsx` under `src`, keyed by its path relative to `src`.
+ * Every `.ts` and `.tsx` under `src`, keyed by its path relative to `src`. Test files are IN: a
+ * slice's sweep is itself a test file.
  *
- * Test files are IN: a slice's sweep is itself a test file, and a reader over the sweeps reads it as text.
+ * Behind a call rather than a module constant, so importing `actionBodies` alone reads no tree.
  */
-export const SOURCES: ReadonlyMap<string, string> = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400).map((file) => [
-    path.relative(SRC_DIR, file).split(path.sep).join("/"),
-    read(file),
-  ]),
-);
+export function sources(): ReadonlyMap<string, string> {
+  walked ??= new Map(
+    filesUnder(SRC_DIR, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400).map((file) => [
+      path.relative(SRC_DIR, file).split(path.sep).join("/"),
+      read(file),
+    ]),
+  );
+
+  return walked;
+}
 
 /** Each exported action's own source, ended at the next declaration of any kind, helpers included. */
 export function actionBodies(text: string): Map<string, string> {
@@ -60,20 +67,41 @@ export interface ActionModule {
   readonly exported: number;
 }
 
-/** Every feature slice's server actions module, whether or not it is an admin one. */
-export const ACTION_MODULES: readonly ActionModule[] = [...SOURCES]
-  .filter(([file]) => /^features\/[^/]+\/actions\.ts$/.test(file))
-  .map(([file, text]) => {
-    const bodies = actionBodies(text);
+/**
+ * The floors under the two populations below, stated here rather than in each sweep: a sweep over a
+ * list that has silently emptied reports clean, and a floor spelled per caller drifts between them.
+ */
+const SLICE_FLOOR = 10;
+const ADMIN_FLOOR = 9;
 
-    return {
-      file,
-      bodies,
-      wrapped: [...bodies.values()].filter((body) => body.includes("runAdminMutation(")).length,
-      exported: exportedValues(text),
-    };
-  });
+/** Every feature slice's server actions module, whether or not it is an admin one. */
+export function actionModules(): readonly ActionModule[] {
+  const found = [...sources()]
+    .filter(([file]) => /^features\/[^/]+\/actions\.ts$/.test(file))
+    .map(([file, text]) => {
+      const bodies = actionBodies(text);
+
+      return {
+        file,
+        bodies,
+        wrapped: [...bodies.values()].filter((body) => body.includes("runAdminMutation(")).length,
+        exported: exportedValues(text),
+      };
+    });
+
+  if (found.length < SLICE_FLOOR)
+    throw new Error(`${String(found.length)} slice action modules found, below the floor of ${String(SLICE_FLOOR)}`);
+
+  return found;
+}
 
 /* Admin by the wrapper and never by the slice's name: `features/auth/actions.ts` exports server
    actions too, and runs them through `runWithIncomingTrace`, which owes no admin page anything. */
-export const ADMIN_ACTION_MODULES: readonly ActionModule[] = ACTION_MODULES.filter((module) => module.wrapped > 0);
+export function adminActionModules(): readonly ActionModule[] {
+  const found = actionModules().filter((module) => module.wrapped > 0);
+
+  if (found.length < ADMIN_FLOOR)
+    throw new Error(`${String(found.length)} admin action modules found, below the floor of ${String(ADMIN_FLOOR)}`);
+
+  return found;
+}

@@ -446,7 +446,7 @@ describe("every facet set in the app", () => {
 });
 
 /** The triage queue's shape: the page fetched only what `stand` selects, so the rows on hand cannot count its other option. */
-const ERZAEHLT: readonly Facet<Row>[] = [
+const TOLD_FACETS: readonly Facet<Row>[] = [
   {
     param: "stand",
     label: "Stand",
@@ -488,7 +488,7 @@ function renderRegion(query: string): void {
           children: h(AdminCrudView<Row>, {
             items: SERVED,
             searchKeys: ["id"],
-            facets: ERZAEHLT,
+            facets: TOLD_FACETS,
             facetCounts: TOLD,
             renderTable: () => null,
           }),
@@ -498,14 +498,16 @@ function renderRegion(query: string): void {
   );
 }
 
-/** Each option of the open panel, as its label against the count it paints. */
-const panelCounts = (): [string, string][] =>
-  within(screen.getByRole("dialog"))
-    .getAllByRole("option")
-    .map((option) => {
-      const [label, count] = option.querySelectorAll("span");
-      return [label?.textContent.trim() ?? "", count?.textContent.trim() ?? ""];
-    });
+/**
+ * Asserts the open panel offers exactly these options, each found by role and name rather than by
+ * the elements inside it: what the counts have to reach is the reader.
+ */
+function assertPanelOptions(expected: readonly (readonly [string, string])[]): void {
+  const panel = within(screen.getByRole("dialog"));
+
+  assert.equal(panel.getAllByRole("option").length, expected.length, "the panel offers a different number of options");
+  for (const [label, count] of expected) panel.getByRole("option", { name: new RegExp(`^${label}\s*${count}$`) });
+}
 
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
@@ -517,7 +519,7 @@ describe("the counts a server-narrowed facet is told", () => {
     renderRegion("");
     await userEvent.setup().click(screen.getByRole("button", { name: "Filter hinzufügen" }));
 
-    assert.deepEqual(panelCounts(), [
+    assertPanelOptions([
       ["Aktiv", "4"],
       ["Stillgelegt", "9"],
     ]);
@@ -527,7 +529,7 @@ describe("the counts a server-narrowed facet is told", () => {
     renderRegion("stand=aktiv");
     await userEvent.setup().click(screen.getByRole("button", { name: "Stand: Aktiv ändern" }));
 
-    assert.deepEqual(panelCounts(), [
+    assertPanelOptions([
       ["Aktiv", "4"],
       ["Stillgelegt", "9"],
     ]);
@@ -639,8 +641,8 @@ describe("who may hold a facet", () => {
     const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
     assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
 
-    const unlesbar: string[] = [];
-    const nehmen: string[] = [];
+    const unreadable: string[] = [];
+    const taken: string[] = [];
 
     for (const file of views) {
       const params = parameterList(readFileSync(file, "utf8"), path.basename(file, ".tsx"));
@@ -648,11 +650,11 @@ describe("who may hold a facet", () => {
 
       // A parameter taken whole keeps its props in a type this reads nothing of, so the shape is
       // reported rather than passed over.
-      if (!params.trimStart().startsWith("{")) unlesbar.push(named);
-      else if (/\bfacets\s*[,:}]/.test(params)) nehmen.push(named);
+      if (!params.trimStart().startsWith("{")) unreadable.push(named);
+      else if (/\bfacets\s*[,:}]/.test(params)) taken.push(named);
     }
 
-    assert.deepEqual(unlesbar, [], `these views take a parameter object this case cannot read:\n  ${unlesbar.join("\n  ")}`);
-    assert.deepEqual(nehmen, [], `these views take their facets as a prop instead of building them:\n  ${nehmen.join("\n  ")}`);
+    assert.deepEqual(unreadable, [], `these views take a parameter object this case cannot read:\n  ${unreadable.join("\n  ")}`);
+    assert.deepEqual(taken, [], `these views take their facets as a prop instead of building them:\n  ${taken.join("\n  ")}`);
   });
 });

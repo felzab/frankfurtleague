@@ -1,7 +1,6 @@
 /**
  * Every admin table's column heading. **No `bg-muted`**: `fl_frontend/src/app/globals.css ::
- * .table__column` fills the header `bg-background/90!` with an `!`, so the token painted nothing and
- * read as a decision somebody had taken.
+ * .table__column` paints the header itself, with an `!`.
  */
 export const TABLE_HEADING = "text-foreground-muted fluid-xs border-border border-b py-4 font-bold tracking-wider uppercase";
 

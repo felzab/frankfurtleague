@@ -27,16 +27,16 @@ registerHooks({
 const { handlePublicRequest } = await import("./publicRoute.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
-const HERKUENFTE: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
+const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
 
-const zaehler = globalThis as unknown as Record<string, number>;
+const counters = globalThis as unknown as Record<string, number>;
 
-/** A request carrying `herkunft` as its header, or no header at all, whose body counts its own reads. */
-function anfrage(herkunft: string | null, gelesen: { koerper: number }) {
+/** A request carrying `origin` as its header, or no header at all, whose body counts its own reads. */
+function request(origin: string | null, read: { body: number }) {
   return {
-    headers: new Headers(herkunft === null ? {} : { "sec-fetch-site": herkunft }),
+    headers: new Headers(origin === null ? {} : { "sec-fetch-site": origin }),
     json: async () => {
-      gelesen.koerper += 1;
+      read.body += 1;
       return {};
     },
   } as never;
@@ -46,11 +46,11 @@ function anfrage(herkunft: string | null, gelesen: { koerper: number }) {
  * The spine driven: what it answered, and whether anything past its guard ran — a trace opened, a body
  * read, the handler itself. Every route carrying the guard is `fl_frontend/src/core/requestSpines.test.ts`'s population.
  */
-async function durch(herkunft: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; hatGearbeitet: boolean }> {
-  zaehler.__flPublicSpineTraces = 0;
-  const gelesen = { koerper: 0 };
+async function answerFor(origin: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; didWork: boolean }> {
+  counters.__flPublicSpineTraces = 0;
+  const read = { body: 0 };
   let lief = false;
-  const antwort = (await handlePublicRequest(anfrage(herkunft, gelesen), {
+  const antwort = (await handlePublicRequest(request(origin, read), {
     routeName: "publicRouteTest",
     run: async () => {
       lief = true;
@@ -58,25 +58,26 @@ async function durch(herkunft: string | null): Promise<{ status: number; body: {
     },
   })) as unknown as { status: number; body: { success: boolean; error?: string } };
 
-  return { status: antwort.status, body: antwort.body, hatGearbeitet: lief || gelesen.koerper > 0 || zaehler.__flPublicSpineTraces > 0 };
+  return { status: antwort.status, body: antwort.body, didWork: lief || read.body > 0 || counters.__flPublicSpineTraces > 0 };
 }
 
 describe("what stands in for a session on the public spine", () => {
   /* Every value a browser sends, so a widened condition or a refusal built and not returned fails;
      `null` passes deliberately, a browser too old to send the header still reading this page. */
   it("refuses every other origin, and lets the page's own requests and a header-less one through", async () => {
-    for (const herkunft of HERKUENFTE) {
-      const { body, hatGearbeitet } = await durch(herkunft);
-      const fremd = herkunft !== null && herkunft !== "same-origin";
+    for (const origin of ORIGINS) {
+      const { body, didWork } = await answerFor(origin);
+      const isCrossOrigin = origin !== null && origin !== "same-origin";
 
-      assert.equal(hatGearbeitet, !fremd, `a request marked ${String(herkunft)} is ${fremd ? "worked on" : "turned away"}`);
-      if (fremd) assert.match(body.error ?? "", /kam nicht von dieser Seite/, `a request marked ${herkunft} is answered with something else`);
+      assert.equal(didWork, !isCrossOrigin, `a request marked ${String(origin)} is ${isCrossOrigin ? "worked on" : "turned away"}`);
+      if (isCrossOrigin)
+        assert.match(body.error ?? "", /kam nicht von dieser Seite/, `a request marked ${origin} is answered with something else`);
     }
   });
 
   /* 200 with the outcome in the body, as the spine's own closing comment requires. */
   it("answers the refusal in German the caller actually renders", async () => {
-    const { status, body } = await durch("cross-site");
+    const { status, body } = await answerFor("cross-site");
 
     // Every caller throws on a non-2xx and reports the throw as a connection fault, which sends a
     // reader to check a network that is fine.

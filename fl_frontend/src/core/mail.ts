@@ -64,16 +64,12 @@ export type MailAccepted = { id: string | null };
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
 export class MailWithheldError extends Error {
-  readonly code = "FE-MAIL-004";
-  traceId: string;
-
-  constructor(traceId: string) {
+  constructor() {
     // No recipient and no body in the message: this reaches `settleFanOut`, which logs an error's
     // `name` (`docs/logging/spec.md :: L9`).
-    super("This deployment does not send mail.", { cause: { traceId } });
+    super("This deployment does not send mail.");
 
     this.name = "MailWithheldError";
-    this.traceId = traceId;
   }
 }
 
@@ -134,8 +130,8 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<stri
   try {
     await mkdir(directory, { recursive: true });
 
-    for (let versuch = 1; versuch <= SINK_NAME_ATTEMPTS; versuch++) {
-      const name = versuch === 1 ? `${stem}.html` : `${stem}-${String(versuch)}.html`;
+    for (let attempt = 1; attempt <= SINK_NAME_ATTEMPTS; attempt++) {
+      const name = attempt === 1 ? `${stem}.html` : `${stem}-${String(attempt)}.html`;
       try {
         // `wx`, because one application's three contact people are three messages inside one
         // millisecond: an overwrite here would report two of them as never rendered.
@@ -205,7 +201,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
       trace_id: traceId,
     });
 
-    throw new MailWithheldError(traceId);
+    throw new MailWithheldError();
   }
 
   const controller = new AbortController();
@@ -301,7 +297,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   };
 
   try {
-    for (let versuch = 1; ; versuch++) {
+    for (let attemptNumber = 1; ; attemptNumber++) {
       try {
         return await attempt();
       } catch (error) {
@@ -310,7 +306,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
         // second message to a real person.
         if (!(error instanceof MailSendError)) throw error;
 
-        if (!error.isTransient || versuch >= MAIL_ATTEMPTS) {
+        if (!error.isTransient || attemptNumber >= MAIL_ATTEMPTS) {
           logRefusal(error);
           throw error;
         }

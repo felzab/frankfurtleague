@@ -10,8 +10,8 @@ export function SaisonSlotSkeleton() {
       role="status"
       // `relative`, because the chevron below is positioned rather than laid out.
       className="border-control bg-surface/50 relative flex min-h-14 w-full flex-row items-center rounded-xl border px-4 py-2.5 shadow-xs">
-      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
-          to, and a name is not content, so the region announced nothing at all. */}
+      {/* In the subtree rather than in `aria-label`: a live region announces its content and not its
+          name, so a name is all a reader would not hear. */}
       <span className="sr-only">Saisonauswahl wird geladen</span>
       {/* The trigger's own classes, so the two line boxes compute by the same rules at every breakpoint. */}
       <div className="flex flex-col gap-0.5">

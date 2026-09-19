@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render } from "@testing-library/react";
+import { render, within } from "@testing-library/react";
 import { z } from "zod";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -20,15 +20,15 @@ import type { ReactNode } from "react";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-const relativ = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
+const relative = (file: string): string => path.relative(SRC, file).split(path.sep).join("/");
 
 /** Every component drawing a dialog footer, found by the recipe it spells rather than by a list. */
 const FOOTER_USERS = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 100)
   .filter((file) => /\bMODAL_FOOTER(?:_ROW|_STACK)?\b/.test(blankComments(readFileSync(file, "utf8"))))
-  .map(relativ)
+  .map(relative)
   .sort();
 
-const nichts = (): undefined => undefined;
+const nothing = (): undefined => undefined;
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { DescriptionEditModal } = await import("@/features/teams/components/modals/DescriptionEditModal.tsx");
@@ -41,13 +41,13 @@ const { EntityForm } = await import("./EntityForm.tsx");
 const OPEN: Record<string, ReactNode> = {
   "features/teams/components/modals/DescriptionEditModal.tsx": h(DescriptionEditModal, {
     isOpen: true,
-    onClose: nichts,
+    onClose: nothing,
     value: "Schulteam aus dem Nordend",
-    onApply: nichts,
+    onApply: nothing,
   }),
   "shared/components/ui/ConfirmDeleteModal.tsx": h(ConfirmDeleteModal, {
     isOpen: true,
-    onClose: nichts,
+    onClose: nothing,
     heading: "Spielort stilllegen",
     entityLabel: "den Spielort",
     entityName: "Sportplatz Nord",
@@ -56,10 +56,15 @@ const OPEN: Record<string, ReactNode> = {
     successMessage: "Spielort stillgelegt",
     failureMessage: "Spielort nicht stillgelegt",
   }),
-  "shared/components/ui/ConfirmDiscardModal.tsx": h(ConfirmDiscardModal, { isOpen: true, onClose: nichts, onDiscard: nichts, changeCount: 2 }),
+  "shared/components/ui/ConfirmDiscardModal.tsx": h(ConfirmDiscardModal, {
+    isOpen: true,
+    onClose: nothing,
+    onDiscard: nothing,
+    changeCount: 2,
+  }),
   "shared/components/ui/ConfirmSaveModal.tsx": h(ConfirmSaveModal, {
-    onClose: nichts,
-    onConfirm: nichts,
+    onClose: nothing,
+    onConfirm: nothing,
     banners: [{ id: "ergebnis", severity: "danger", raisedBy: "change", title: "Das Ergebnis wird überschrieben", inline: null }],
   }),
   "shared/components/ui/EntityForm.tsx": h(EntityForm<Record<string, never>>, {
@@ -69,7 +74,7 @@ const OPEN: Record<string, ReactNode> = {
     schema: z.object({}),
     toPayload: (draft) => draft,
     successMessage: "Spielort angelegt",
-    onClose: nichts,
+    onClose: nothing,
   }),
 };
 
@@ -92,10 +97,12 @@ describe("every dialog footer", () => {
   for (const [file, open] of Object.entries(OPEN)) {
     it(`puts the action first and the way back second: ${file}`, () => {
       const { unmount } = render(open);
+      // The band carries no role of its own, so the recipe it wears is what finds it; its buttons are
+      // then read the way a reader meets them.
       const band =
         [...document.querySelectorAll("div")].find((element) => tokens(MODAL_FOOTER).every((token) => element.classList.contains(token))) ??
         assert.fail("no element wears the footer band");
-      const buttons = [...band.querySelectorAll("button")];
+      const buttons = within(band).getAllByRole("button");
 
       assert.deepEqual(
         buttons.map((button) => WAY_BACK.every((token) => button.classList.contains(token))),

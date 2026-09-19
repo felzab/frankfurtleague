@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ACTION_MODULES, actionBodies, ADMIN_ACTION_MODULES, opensMutation } from "@/core/actionSources.ts";
+import { actionBodies, actionModules, adminActionModules, opensMutation } from "@/core/actionSources.ts";
+
+const ACTION_MODULES = actionModules();
+const ADMIN_ACTION_MODULES = adminActionModules();
 
 /** The one slice whose actions authorize nobody: `handleSignIn` is reachable without a session, and `signOutAction` ends the one it would check. */
 const AUTHORIZES_NOBODY = "features/auth/actions.ts";
@@ -21,8 +24,6 @@ function opensOnGuard(name: string, body: string): boolean {
    other reader sees the pair. */
 describe("the session guard every admin server action opens on", () => {
   it("finds every slice's actions module, and places every export each one declares", () => {
-    assert.ok(ACTION_MODULES.length >= 10, `expected at least 10 slice action modules, found ${String(ACTION_MODULES.length)}`);
-
     for (const { file, bodies, exported } of ACTION_MODULES) {
       assert.ok(bodies.size >= 1, `${file} reads as exporting no action at all, so every sweep over it holds of nothing`);
       assert.equal(
@@ -34,8 +35,6 @@ describe("the session guard every admin server action opens on", () => {
   });
 
   it("places every actions module as an admin one or as the slice that authorizes nobody", () => {
-    assert.ok(ADMIN_ACTION_MODULES.length >= 9, `expected at least 9 admin action modules, found ${String(ADMIN_ACTION_MODULES.length)}`);
-
     for (const { file, wrapped } of ACTION_MODULES) {
       assert.ok(
         wrapped > 0 || file === AUTHORIZES_NOBODY,

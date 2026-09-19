@@ -1,0 +1,67 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, it } from "node:test";
+
+import { blankComments } from "@/core/blankComments.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+
+import { doubleToasts } from "./actionDoubles.ts";
+
+const SRC = path.resolve(import.meta.dirname, "..", "..");
+
+const { raised } = doubleToasts();
+
+/* `await import`, never a static import beside the double: the hook is registered as the call above
+   evaluates, and a static import would have resolved the real module before then. */
+const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
+
+/**
+ * Every member the tree actually calls, read off the call sites rather than off the module the
+ * double mirrors: a second route to the same set, which is what makes disagreement visible
+ * (`docs/_standard/standard.md` PRE-4).
+ */
+const CALLED = new Set(
+  filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) =>
+    [...blankComments(readFileSync(file, "utf8")).matchAll(/\bappToast\.(\w+)\(/g)].map(([, member]) => member ?? ""),
+  ),
+);
+
+describe("the toast double", () => {
+  it("carries every member the tree raises through it", () => {
+    assert.ok(CALLED.size > 0, "no call site was found, so this compares the double against nothing");
+
+    const missing = [...CALLED].filter((member) => typeof Reflect.get(appToast, member) !== "function");
+    assert.deepEqual(missing, [], `the double answers undefined for: ${missing.join(", ")}`);
+  });
+
+  it("records the severity, the title and the description of each announcement", () => {
+    raised.length = 0;
+    appToast.success("Gespeichert.", { description: "Die Änderung steht." });
+    appToast.danger("Nicht gespeichert.");
+
+    assert.deepEqual(
+      raised.map(({ variant, title, description }) => ({ variant, title, description })),
+      [
+        { variant: "success", title: "Gespeichert.", description: "Die Änderung steht." },
+        { variant: "danger", title: "Nicht gespeichert.", description: undefined },
+      ],
+    );
+  });
+
+  /* A closure is not an announcement: recording it would move the index every case reading `raised`
+     by position works from, and an editor closes its pending toast on every save. */
+  it("records nothing for a close or a clear", () => {
+    raised.length = 0;
+    appToast.close("1");
+    appToast.clear();
+
+    assert.deepEqual(raised, []);
+  });
+
+  /* The offer's own timeout, which a case pressing an undo has to outlive: the real fifteen seconds
+     would be fifteen seconds of every file that raises one. */
+  it("shortens the undo offer", () => {
+    assert.equal(UNDO_TIMEOUT_MS, 1);
+  });
+});

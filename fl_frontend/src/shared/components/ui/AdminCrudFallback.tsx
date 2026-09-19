@@ -46,8 +46,8 @@ export function AdminCrudFallback({
       role="status"
       /* `gap-4` is `AdminCrudView`'s own column gap, so both blocks sit where they will sit once the rows land. */
       className="flex flex-col gap-4">
-      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
-          to, and a name is not content, so the region announced nothing at all. */}
+      {/* In the subtree rather than in `aria-label`: a live region announces its content and not its
+          name, so a name is all a reader would not hear. */}
       <span className="sr-only">Daten werden geladen</span>
       {hasFacets && (
         <div className="flex w-full flex-row items-center gap-2">

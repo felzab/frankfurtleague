@@ -302,8 +302,8 @@ function FilterRow<TItem>({
             displaces nothing. */}
         {unfiltered.length === 0 ? (
           // Kept in place once every dimension is filtering: removing it would slide the whole row left.
-          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, so both attributes
-          // were dropped and this stood silent.
+          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
+          // the row's one standing hint unspoken.
           <button
             type="button"
             disabled

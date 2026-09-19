@@ -58,10 +58,6 @@ export type ActionFailure = {
   errorCode?: string;
 };
 
-/**
- * `TPayload`'s own fields stay optional because `runAdminMutation` declares `NonNullable<FormState>` as its other
- * arm, which carries none of them: a required one would be a promise that wrapper cannot keep.
- */
 export type ActionSuccess<TPayload extends object = object> = TPayload & {
   success: true;
   /** Required: every write composes one, and a caller may raise it unguarded. */

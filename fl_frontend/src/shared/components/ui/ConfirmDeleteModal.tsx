@@ -16,7 +16,15 @@ import type { ActionResult } from "@/shared/types/types";
 import type { ReactNode } from "react";
 
 /**
- * **Every admin delete here retires a row rather than removing one**, so the verb and the consequence are the caller's while the
+ * The one act this dialog confirms. German capitalises an infinitive used as a noun, which is what a
+ * verb on a button is, so the button's own spelling is a constant rather than a call.
+ */
+const RETIRE_INFINITIVE = "stilllegen";
+const RETIRE_CAPITALISED = "Stilllegen";
+const RETIRE_RUNNING = "Legt still...";
+
+/**
+ * **Every admin delete here retires a row rather than removing one**, so the consequence is the caller's while the
  * reactivation promise is fixed. Claiming a write is permanent when one press reverses it is the one thing a confirmation must not get wrong,
  * which is why there is no mode that says so. A write nothing reverses confirms in place through `ConfirmReveal` instead
  * (`docs/frontend/spec.md :: I37`).
@@ -31,13 +39,12 @@ export function ConfirmDeleteModal({
   onConfirm,
   successMessage,
   failureMessage,
-  verb = { infinitive: "stilllegen", running: "Legt still..." },
 }: {
   isOpen: boolean;
   onClose: () => void;
   /** "Spielort stilllegen" */
   heading: string;
-  /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich {verb}?" */
+  /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich stilllegen?" */
   entityLabel: string;
   entityName: string;
   /** The step-2 sentence after the reactivation promise. */
@@ -53,17 +60,9 @@ export function ConfirmDeleteModal({
    * the reader meets the same words whichever way the press went.
    */
   failureMessage: string;
-  /**
-   * The infinitive the question and the confirm button use, beside the label the button wears while
-   * the write runs. One prop, so a re-verbed question cannot leave that label on another action.
-   */
-  verb?: { infinitive: string; running: string };
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
-
-  // German capitalises an infinitive used as a noun, which is what a verb on a button is.
-  const capitalized = `${verb.infinitive.charAt(0).toUpperCase()}${verb.infinitive.slice(1)}`;
 
   // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
@@ -122,7 +121,7 @@ export function ConfirmDeleteModal({
               <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
                 {entityName}
               </span>
-              wirklich {verb.infinitive}?
+              wirklich {RETIRE_INFINITIVE}?
             </p>
           ) : (
             /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
@@ -154,7 +153,7 @@ export function ConfirmDeleteModal({
             className={formButton({ intent: "destructive" })}
             onPress={handleDelete}>
             {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
-            {isPending ? verb.running : confirmStep === 1 ? capitalized : `Ja, ${verb.infinitive}`}
+            {isPending ? RETIRE_RUNNING : confirmStep === 1 ? RETIRE_CAPITALISED : `Ja, ${RETIRE_INFINITIVE}`}
           </Button>
           <Button
             type="button"

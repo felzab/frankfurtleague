@@ -1,47 +1,115 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ACTION_MODULES, actionBodies, ADMIN_ACTION_MODULES, opensMutation, SOURCES } from "@/core/actionSources.ts";
+import { actionBodies, actionModules, adminActionModules, opensMutation } from "@/core/actionSources.ts";
+
+const ACTION_MODULES = actionModules();
+const ADMIN_ACTION_MODULES = adminActionModules();
 
 /**
- * I233 is universal and each slice's own sweep is not: a tenth slice arriving with no sweep at all
- * fails nothing any slice owns. This fence is the one reader that can see that absence.
+ * I233 is universal and no slice can hold it: a tenth slice arriving with nothing beside it fails
+ * nothing any slice owns. This fence is the one reader that can see that absence.
  */
 
-describe("every slice's admin writes, and the sweep each one owes", () => {
-  /** A sweep's own classification, read as text: a test file cannot be imported without running it. */
-  function declaredNames(text: string, constant: string): string[] | null {
-    const opener = `const ${constant} = [`;
-    const at = text.indexOf(opener);
-    if (at === -1) return null;
+/**
+ * Which of each module's actions moves the admin's page and which only reads. Typed, because nothing
+ * in a module says which it is; the modules and their exports come off the tree (PRE-4).
+ */
+const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly string[] }> = {
+  "features/bewerbungen/actions.ts": {
+    writes: ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"],
+    readOnly: [],
+  },
+  "features/kontakte/actions.ts": {
+    writes: ["eraseKontaktpersonAction", "patchSaisonTeamKontakteAction"],
+    // The erasure preview, which reads and moves nothing.
+    readOnly: ["readKontaktErasureAnsichtAction"],
+  },
+  "features/saisons/actions.ts": {
+    writes: [
+      "postSaisonAction",
+      "patchSaisonAction",
+      "activateSaisonAction",
+      "swapGruppenAction",
+      "generateSpielplanAction",
+      "undrawSpielplanAction",
+    ],
+    readOnly: [],
+  },
+  "features/schiedsrichter/actions.ts": {
+    writes: [
+      "postSchiedsrichterAction",
+      "patchSchiedsrichterAction",
+      "deleteSchiedsrichterAction",
+      "reactivateSchiedsrichterAction",
+      "anonymiseSchiedsrichterAction",
+    ],
+    readOnly: [],
+  },
+  "features/spiele/actions.ts": {
+    writes: ["patchAdminSpielDataAction"],
+    // The save's dry run, which reports what the save would void and voids nothing.
+    readOnly: ["previewAdminSpielDataAction"],
+  },
+  "features/spieler/actions.ts": {
+    writes: [
+      "postSpielerAction",
+      "patchSpielerAction",
+      "deleteSpielerAction",
+      "reactivateSpielerAction",
+      "eraseSpielerAction",
+      "postSaisonSpielerAction",
+      "patchSaisonSpielerAction",
+      "deleteSaisonSpielerAction",
+      "reactivateSaisonSpielerAction",
+    ],
+    readOnly: [],
+  },
+  "features/spielorte/actions.ts": {
+    writes: ["postSpielortAction", "patchSpielortAction", "deleteSpielortAction", "reactivateSpielortAction"],
+    readOnly: [],
+  },
+  "features/spieltage/actions.ts": { writes: ["patchSpieltagAction"], readOnly: [] },
+  "features/teams/actions.ts": {
+    writes: [
+      "postTeamAction",
+      "patchTeamAction",
+      "deleteTeamAction",
+      "reactivateTeamAction",
+      "postSaisonTeamAction",
+      "patchSaisonTeamAction",
+      "replaceSaisonTeamAction",
+    ],
+    readOnly: [],
+  },
+};
 
-    const close = text.indexOf("]", at);
-    return close === -1 ? null : [...text.slice(at + opener.length, close).matchAll(/"(\w+)"/g)].map((match) => match[1] ?? "");
-  }
+const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
 
-  const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
-
-  const sweepFor = (file: string): string => SOURCES.get(file.replace(/\.ts$/, ".test.ts")) ?? "";
-
+describe("every slice's admin writes, and the refresh each one owes", () => {
   it("finds every slice's actions, each module wrapping all of its own or none", () => {
-    assert.ok(ACTION_MODULES.length >= 10, `expected at least 10 slice action modules, found ${String(ACTION_MODULES.length)}`);
     for (const { file, bodies, wrapped } of ACTION_MODULES) {
       assert.ok(
         wrapped === 0 || wrapped === bodies.size,
         `${file} runs ${String(wrapped)} of its ${String(bodies.size)} actions through runAdminMutation, so neither answer places it`,
       );
     }
-    assert.ok(ADMIN_ACTION_MODULES.length >= 9, `expected at least 9 admin action modules, found ${String(ADMIN_ACTION_MODULES.length)}`);
   });
 
-  it("has a sweep beside every admin module, placing every action that module exports", () => {
+  it("names every admin action module the tree holds, and every export of each one", () => {
+    assert.deepEqual(
+      Object.keys(ROSTERS).sort(),
+      ADMIN_ACTION_MODULES.map(({ file }) => file).sort(),
+      "a slice arrived with no row here, or a row names a module the tree no longer holds",
+    );
+
     for (const { file, bodies } of ADMIN_ACTION_MODULES) {
-      const writes = declaredNames(sweepFor(file), "WRITE_ACTIONS");
-      assert.notEqual(writes, null, `${file} has no sweep beside it declaring WRITE_ACTIONS -- a slice arrived carrying none`);
+      const roster = ROSTERS[file] ?? { writes: [], readOnly: [] };
+
       assert.deepEqual(
-        [...(writes ?? []), ...(declaredNames(sweepFor(file), "READ_ONLY_ACTIONS") ?? [])],
-        [...bodies.keys()],
-        `${file}'s sweep places actions the module does not export, or leaves one of its own unplaced`,
+        [...roster.writes, ...roster.readOnly].sort(),
+        [...bodies.keys()].sort(),
+        `${file}'s row places actions the module does not export, or leaves one of its own unplaced`,
       );
     }
   });
@@ -49,7 +117,7 @@ describe("every slice's admin writes, and the sweep each one owes", () => {
   it("refreshes every placed write at its callback's top level, ahead of the success return", () => {
     let swept = 0;
     for (const { file, bodies } of ADMIN_ACTION_MODULES) {
-      for (const name of declaredNames(sweepFor(file), "WRITE_ACTIONS") ?? []) {
+      for (const name of ROSTERS[file]?.writes ?? []) {
         const body = bodies.get(name) ?? "";
         const refreshAt = body.search(TOP_LEVEL_REFRESH);
 
@@ -62,10 +130,10 @@ describe("every slice's admin writes, and the sweep each one owes", () => {
     assert.ok(swept >= 30, `expected at least 30 admin writes swept, found ${String(swept)}`);
   });
 
-  it("leaves every action a sweep placed as read-only without one", () => {
+  it("leaves every action placed as read-only without one", () => {
     let spared = 0;
     for (const { file, bodies } of ADMIN_ACTION_MODULES) {
-      for (const name of declaredNames(sweepFor(file), "READ_ONLY_ACTIONS") ?? []) {
+      for (const name of ROSTERS[file]?.readOnly ?? []) {
         assert.doesNotMatch(bodies.get(name) ?? "", /^\s+refresh\(\);$/m, `${file} :: ${name} refreshes a page nothing it did has moved`);
         spared++;
       }

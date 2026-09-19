@@ -62,12 +62,12 @@ describe("the one treatment a link inside text wears", () => {
     // The recipe is a `.ts` module, so a floor on its own tokens is what says the sweep below still
     // reaches the kind a walk for components never did.
     assert.ok(
-      tokensOf(RECIPE).some((klasse) => SPELLS_THE_DECORATION.test(klasse)),
+      tokensOf(RECIPE).some((className) => SPELLS_THE_DECORATION.test(className)),
       `${rel(RECIPE)}: spells no link decoration`,
     );
 
     const spellings = modulesUnder(SRC)
-      .filter((file) => file !== RECIPE && tokensOf(file).some((klasse) => SPELLS_THE_DECORATION.test(klasse)))
+      .filter((file) => file !== RECIPE && tokensOf(file).some((className) => SPELLS_THE_DECORATION.test(className)))
       .map(rel);
 
     assert.deepEqual(spellings, [], `these spell a link treatment inline instead of taking \`textLink\`:\n  ${spellings.join("\n  ")}`);
@@ -91,11 +91,11 @@ describe("the grade a brand-coloured control outside prose wears", () => {
   /* What the two dresses being one grade means, held in both directions: the drift a second spelling
      produced was one class at a time, and the class it dropped was the dark arm. */
   it("is the brand link's own grade with the underline taken off", () => {
-    const nurImLink = [...classesOf(textLink({ tone: "brand" }))].filter((klasse) => !classesOf(BRAND_INK_OUTSIDE_PROSE).has(klasse));
-    const nurAusserhalb = [...classesOf(BRAND_INK_OUTSIDE_PROSE)].filter((klasse) => !classesOf(textLink({ tone: "brand" })).has(klasse));
+    const inTheLinkOnly = [...classesOf(textLink({ tone: "brand" }))].filter((className) => !classesOf(BRAND_INK_OUTSIDE_PROSE).has(className));
+    const outsideOnly = [...classesOf(BRAND_INK_OUTSIDE_PROSE)].filter((className) => !classesOf(textLink({ tone: "brand" })).has(className));
 
-    assert.deepEqual(nurImLink, ["underline", "underline-offset-2"], "the link wears something over the grade that is not its underline");
-    assert.deepEqual(nurAusserhalb, [], "the control grade carries a class the brand link does not");
+    assert.deepEqual(inTheLinkOnly, ["underline", "underline-offset-2"], "the link wears something over the grade that is not its underline");
+    assert.deepEqual(outsideOnly, [], "the control grade carries a class the brand link does not");
   });
 
   /* Two copies of a three-class grade drift one class at a time, and the copy missing the dark arm

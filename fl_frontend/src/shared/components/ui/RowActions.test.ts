@@ -14,7 +14,7 @@ const { RowActionDelete, RowActionRestore } = await import("./RowActions.tsx");
 /** Whitespace-collapsed, the props block below being wrapped by the formatter rather than by hand. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "RowActions.tsx"), "utf8").replace(/\s+/g, " ");
 
-const GRUND = "Die Saison ist gesperrt";
+const REASON = "Die Saison ist gesperrt";
 
 /** The two actions carrying a refusal, with the hover fill that separates the destructive one. */
 const AKTIONEN: { name: string; Aktion: typeof RowActionRestore; label: string; ariaLabel: string; hover: string }[] = [
@@ -37,25 +37,25 @@ const AKTIONEN: { name: string; Aktion: typeof RowActionRestore; label: string; 
 type Aktion = (typeof AKTIONEN)[number];
 
 /** The action as a list renders it once the endpoint's refusal is already known. */
-const verweigert = (row: Aktion): string =>
-  renderMarkup(row.Aktion, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined, disabledReason: GRUND });
+const refused = (row: Aktion): string =>
+  renderMarkup(row.Aktion, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined, disabledReason: REASON });
 
 /** The same action from a list passing no reason at all, which is what most call sites are. */
 const angeboten = (row: Aktion): string => renderMarkup(row.Aktion, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined });
 
 /** The control alone: what a press lands on, and what `disabled` closes. */
-const knopf = (html: string): string => /<button\b[^>]*>/.exec(html)?.[0] ?? "";
+const button = (html: string): string => /<button\b[^>]*>/.exec(html)?.[0] ?? "";
 
 /** Every accessible name the row emits, in document order — the wrapper's before the control's. */
-const namen = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((treffer) => treffer[1]!);
+const namen = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((hit) => hit[1]!);
 
 describe("a row action the endpoint already refuses", () => {
   /* First: every case below reads a `<button>` out of the markup, and a component that rendered
      nothing would leave each of them comparing against an empty string. */
   it("renders a control in both states", () => {
     for (const row of AKTIONEN) {
-      assert.match(knopf(verweigert(row)), /^<button /, `${row.name} renders no control while refused`);
-      assert.match(knopf(angeboten(row)), /^<button /, `${row.name} renders no control while offered`);
+      assert.match(button(refused(row)), /^<button /, `${row.name} renders no control while refused`);
+      assert.match(button(angeboten(row)), /^<button /, `${row.name} renders no control while offered`);
     }
   });
 
@@ -63,8 +63,8 @@ describe("a row action the endpoint already refuses", () => {
      path already refuses — and none can close a press nothing refuses. */
   it("closes the control exactly while a reason stands", () => {
     for (const row of AKTIONEN) {
-      assert.match(knopf(verweigert(row)), /\sdisabled=""/, `${row.name} stays pressable while its reason stands`);
-      assert.doesNotMatch(knopf(angeboten(row)), /\sdisabled=""/, `${row.name} is closed on a row that passes no reason`);
+      assert.match(button(refused(row)), /\sdisabled=""/, `${row.name} stays pressable while its reason stands`);
+      assert.doesNotMatch(button(angeboten(row)), /\sdisabled=""/, `${row.name} is closed on a row that passes no reason`);
     }
   });
 
@@ -73,8 +73,8 @@ describe("a row action the endpoint already refuses", () => {
   it("says the reason where a pointer and a keyboard can still reach it", () => {
     for (const row of AKTIONEN) {
       assert.deepEqual(
-        refusalWrappers(verweigert(row)),
-        [{ name: row.ariaLabel, label: row.ariaLabel, reason: GRUND }],
+        refusalWrappers(refused(row)),
+        [{ name: row.ariaLabel, label: row.ariaLabel, reason: REASON }],
         `${row.name}'s wrapper is not named by its control, or does not describe its refusal`,
       );
       assert.deepEqual(namen(angeboten(row)), [row.ariaLabel], `${row.name} announces a refusal on a row that has none`);
@@ -86,7 +86,7 @@ describe("a row action the endpoint already refuses", () => {
      rather than making one, and a row offering both must not stain them alike. */
   it("tints the destructive action apart from the one that undoes it", () => {
     for (const row of AKTIONEN) {
-      const getragen = knopf(angeboten(row));
+      const getragen = button(angeboten(row));
       // Anchored on both sides, so `bg-hover` is not read out of `bg-hover-danger`.
       const traegt = (fill: string): boolean => new RegExp(`\\b${fill}(?![\\w-])`).test(getragen);
 
@@ -103,11 +103,11 @@ describe("a row action the endpoint already refuses", () => {
   it("dresses every icon control from a shared constant rather than a copy", () => {
     // Found by their own elements: counting the constant's uses is a population filtered on the very
     // property this asserts, so a control spelling the classes out drops out instead of failing.
-    const kontrollen = [...SOURCE.matchAll(/<(?:Button|Link|Dropdown\.Trigger)\b[^>]*>/g)].map((treffer) => treffer[0]);
+    const controls = [...SOURCE.matchAll(/<(?:Button|Link|Dropdown\.Trigger)\b[^>]*>/g)].map((hit) => hit[0]);
 
     // `Dropdown.Item` is outside this: a menu's rows are full-width and dressed at their own line.
-    assert.equal(kontrollen.length, 5, `expected the five icon controls, found ${String(kontrollen.length)}`);
-    for (const kontrolle of kontrollen) {
+    assert.equal(controls.length, 5, `expected the five icon controls, found ${String(controls.length)}`);
+    for (const kontrolle of controls) {
       assert.match(
         kontrolle,
         /className=\{(?:ACTION_BUTTON_CLASS|ACTION_LINK_CLASS|DANGER_CLASS)\}/,
@@ -126,27 +126,27 @@ describe("a row action the endpoint already refuses", () => {
 describe("a restore whose write is already running", () => {
   const RESTORE = AKTIONEN[0]!;
   const props = { label: RESTORE.label, ariaLabel: RESTORE.ariaLabel, onPress: () => undefined };
-  const laufend = renderMarkup(RowActionRestore, { ...props, isPending: true });
-  const offen = renderMarkup(RowActionRestore, props);
+  const running = renderMarkup(RowActionRestore, { ...props, isPending: true });
+  const open = renderMarkup(RowActionRestore, props);
 
   /* A second press would send the reactivation twice, the list only redrawing once the first returns. */
   it("takes no press while it runs, and every press once it has returned", () => {
-    assert.match(knopf(laufend), /\saria-disabled="true"/, "the running restore is announced as a control that can be pressed");
-    assert.match(knopf(laufend), /\sdata-pending="true"/, "the running restore still takes a press");
-    assert.doesNotMatch(knopf(offen), /\saria-disabled=|\sdata-pending=/, "an idle restore is held as though its write were running");
+    assert.match(button(running), /\saria-disabled="true"/, "the running restore is announced as a control that can be pressed");
+    assert.match(button(running), /\sdata-pending="true"/, "the running restore still takes a press");
+    assert.doesNotMatch(button(open), /\saria-disabled=|\sdata-pending=/, "an idle restore is held as though its write were running");
   });
 
   /* `disabled` takes a button out of the tab order, which drops the keyboard's focus to the page in the
      middle of the press that started the write. */
   it("keeps the keyboard's focus where the press left it", () => {
-    assert.doesNotMatch(knopf(laufend), /\sdisabled=""/, "the running restore leaves the tab order");
-    assert.match(knopf(laufend), /\stabindex="0"/, "the running restore cannot be reached by the keyboard");
+    assert.doesNotMatch(button(running), /\sdisabled=""/, "the running restore leaves the tab order");
+    assert.match(button(running), /\stabindex="0"/, "the running restore cannot be reached by the keyboard");
   });
 
   /* The refusal wrapper answers a reason, and a write in flight is none: swapping it in would remount the
      button under the keyboard's focus and describe a refusal nobody made. */
   it("keeps the wrapper it had before the press", () => {
-    assert.ok(knopf(laufend) !== "" && knopf(offen) !== "", "a restore rendered no control, so the comparison below proves nothing");
-    assert.equal(laufend.replace(knopf(laufend), ""), offen.replace(knopf(offen), ""), "the running restore is wrapped differently");
+    assert.ok(button(running) !== "" && button(open) !== "", "a restore rendered no control, so the comparison below proves nothing");
+    assert.equal(running.replace(button(running), ""), open.replace(button(open), ""), "the running restore is wrapped differently");
   });
 });

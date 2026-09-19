@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { registerHooks } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
-import { after, afterEach, beforeEach, describe, it, mock } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
 
 import { filesUnder } from "./treeWalk.ts";
@@ -68,11 +69,17 @@ const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
 const MAIL_TIMEOUT_MS = 15000;
 const MAIL_RETRY_DELAY_MS = 400;
 
-/** The module's own sink directory, restated for the reason above. */
-const SINK_DIR = path.join(process.cwd(), ".tmp-mail");
+/** The module's own sink directory name, restated for the reason above. */
+const SINK_NAME = ".tmp-mail";
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
-const sinkNames = (): string[] => (existsSync(SINK_DIR) ? readdirSync(SINK_DIR).sort() : []);
+/**
+ * Where the sink lands. Read per call and never once: the module joins that name onto the WORKING
+ * directory, which each case below moves.
+ */
+const sinkDir = (): string => path.join(process.cwd(), SINK_NAME);
+
+const sinkNames = (): string[] => (existsSync(sinkDir()) ? readdirSync(sinkDir()).sort() : []);
 
 /** What the doubled transport was asked to send, and on what terms. */
 type RecordedSend = { url: string; init: RequestInit };
@@ -110,14 +117,14 @@ async function sentRequest(): Promise<RecordedSend> {
   return sends[0]!;
 }
 
-/** `versuche` is stated rather than defaulted at every call: a status the provider calls temporary is tried again. */
-async function refusalFrom(respondWith: () => Promise<Response>, versuche = 1): Promise<Error> {
+/** `attempts` is stated rather than defaulted at every call: a status the provider calls temporary is tried again. */
+async function refusalFrom(respondWith: () => Promise<Response>, attempts = 1): Promise<Error> {
   respond = respondWith;
 
   try {
     await sendMail(MESSAGE);
   } catch (error) {
-    assert.equal(sends.length, versuche, `expected the refusal to follow ${String(versuche)} requests, saw ${sends.length}`);
+    assert.equal(sends.length, attempts, `expected the refusal to follow ${String(attempts)} requests, saw ${sends.length}`);
     return error as Error;
   }
 
@@ -151,17 +158,23 @@ function sinkFileNamedOn(line: RecordedLine): string {
   return String(name);
 }
 
-// Each case's own files, never the directory: a developer's local stack writes into this same one.
-afterEach(() => {
-  for (const line of logs) {
-    const written = line.meta?.["sink_file"];
-    if (typeof written === "string") rmSync(path.join(SINK_DIR, written), { force: true });
-  }
+/**
+ * A working directory of this run's own, so no case writes a sink file into the checkout, whose sink
+ * holds whatever a developer's running stack left there: a run cleaning up by name takes those too.
+ */
+let cameFrom = "";
+let sandbox = "";
+
+beforeEach(() => {
+  cameFrom = process.cwd();
+  sandbox = mkdtempSync(path.join(tmpdir(), "fl-mail-"));
+  process.chdir(sandbox);
 });
 
-after(() => {
-  // Only when empty, for the same reason: a message still here is one this run did not write.
-  if (existsSync(SINK_DIR) && readdirSync(SINK_DIR).length === 0) rmdirSync(SINK_DIR);
+afterEach(() => {
+  // Restored first: a removal that threw would otherwise leave every later case in a deleted directory.
+  process.chdir(cameFrom);
+  rmSync(sandbox, { recursive: true, force: true });
 });
 
 describe("the mail transport", () => {
@@ -293,15 +306,15 @@ describe("the send a deployment that does not mail withholds", () => {
 describe("the sink a deployment that does not mail writes instead", () => {
   beforeEach(resetTransport);
 
-  /* The whole point of the sink: until it existed nobody had seen a Zusage, an Absage, a reminder or
-     a deletion notice render anywhere but in a real recipient's inbox. */
+  /* The whole point of the sink: without it a Zusage, an Absage, a reminder and a deletion notice
+     render nowhere but in a real recipient's inbox. */
   it("writes the message to a file where the environment is not production, and draws no request", async () => {
     switches[APP_ENV_SWITCH] = "local";
 
     await assert.rejects(sendMail(MESSAGE));
 
     assert.equal(sends.length, 0, "a message left a stack that is not production");
-    assert.ok(existsSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!))), "the withheld line named a file that is not there");
+    assert.ok(existsSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!))), "the withheld line named a file that is not there");
   });
 
   /* The other arm, so a sink that wrote on EVERY send would fail here rather than read as a pass
@@ -312,7 +325,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
     assert.deepEqual(await sendMail(MESSAGE), { id: "01HZ" });
 
     assert.equal(sends.length, 1);
-    assert.deepEqual(sinkNames(), before, "production wrote a message to the checkout");
+    assert.deepEqual(sinkNames(), before, "production wrote a message to disk");
   });
 
   /* Production's own withheld arm, reached where `SKIP_ENV_VALIDATION` stood the key's requirement
@@ -323,7 +336,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
 
     await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
 
-    assert.deepEqual(sinkNames(), before, "production wrote a withheld message to the checkout");
+    assert.deepEqual(sinkNames(), before, "production wrote a withheld message to disk");
   });
 
   /* `settleFanOut` branches on the accepted id to decide whether a delivery is recorded, so a sink
@@ -338,14 +351,14 @@ describe("the sink a deployment that does not mail writes instead", () => {
     );
 
     assert.ok(error instanceof MailWithheldError);
-    assert.ok(existsSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!))));
+    assert.ok(existsSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!))));
   });
 
   it("carries the recipient, the subject and both bodies into the file", async () => {
     switches[APP_ENV_SWITCH] = "local";
 
     await assert.rejects(sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc" } }));
-    const written = readFileSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!)), "utf8");
+    const written = readFileSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!)), "utf8");
 
     for (const carried of [MESSAGE.to, MESSAGE.subject, MESSAGE.html, MESSAGE.text, "bewerbung_id=abc"]) {
       assert.ok(written.includes(carried), `the file carried no ${carried}`);
@@ -371,7 +384,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
 
     await assert.rejects(sendMail({ ...MESSAGE, html: "<p>eins</p>\n<p>zwei</p>", text: "eins\nzwei" }));
 
-    assert.ok(!readFileSync(path.join(SINK_DIR, sinkFileNamedOn(logs[0]!)), "utf8").includes("\r"));
+    assert.ok(!readFileSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!)), "utf8").includes("\r"));
   });
 
   /* One application's three contact people are three messages inside one millisecond, and a name
@@ -399,7 +412,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
       assert.match(readFileSync(path.join(REPO_ROOT, ignoreFile), "utf8"), /^\.tmp-\*\/$/m, `${ignoreFile} holds no rule for the sink`);
     }
 
-    assert.ok(path.basename(SINK_DIR).startsWith(".tmp-"));
+    assert.ok(SINK_NAME.startsWith(".tmp-"));
   });
 });
 

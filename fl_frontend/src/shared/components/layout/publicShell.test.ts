@@ -48,12 +48,12 @@ const MATCHED_CRASH = renderTree(
 
 /** One element of the shell's own markup, by the tag it opens — the first, where a tag repeats. */
 function element(tag: string): string {
-  const treffer = new RegExp(`<${tag}\\b[^>]*>`).exec(SHELL);
+  const hit = new RegExp(`<${tag}\\b[^>]*>`).exec(SHELL);
   // Throw rather than answer "": an element the shell stopped rendering would leave the cases
   // reading it asserting things about the empty string.
-  if (treffer === null) throw new Error(`the shell renders no <${tag}>`);
+  if (hit === null) throw new Error(`the shell renders no <${tag}>`);
 
-  return treffer[0];
+  return hit[0];
 }
 
 const SKIP_LINK = element("a");
@@ -64,45 +64,45 @@ const FOOTER = element("footer");
 /** How often markup opens one of the shell's elements, read by that element's exact opening tag. */
 const opened = (markup: string, openingTag: string): number => markup.split(openingTag).length - 1;
 
-const klassen = (openingTag: string): string[] => (/\sclass="([^"]*)"/.exec(openingTag)?.[1] ?? "").split(" ");
+const classesIn = (openingTag: string): string[] => (/\sclass="([^"]*)"/.exec(openingTag)?.[1] ?? "").split(" ");
 
 /** The hrefs of one footer column, in the order that column renders them. */
-function spaltenLinks(name: string): string[] {
-  const spalte = new RegExp(`<nav aria-label="${name}"[^>]*>([\\s\\S]*?)</nav>`).exec(SHELL);
+function columnLinks(name: string): string[] {
+  const column = new RegExp(`<nav aria-label="${name}"[^>]*>([\\s\\S]*?)</nav>`).exec(SHELL);
   // Throw rather than answer an empty list, which every comparison below would pass over.
-  if (spalte === null) throw new Error(`the footer renders no column labelled ${name}`);
+  if (column === null) throw new Error(`the footer renders no column labelled ${name}`);
 
-  return [...spalte[1]!.matchAll(/href="([^"]*)"/g)].map((treffer) => treffer[1]!);
+  return [...column[1]!.matchAll(/href="([^"]*)"/g)].map((hit) => hit[1]!);
 }
 
 describe("where the public shell puts its footer", () => {
   /* A page shorter than the screen would otherwise park the footer at the bottom of the first one,
      where it reads as the end of a page the reader has not started. */
-  it("holds the footer off the first screen", () => {
+  it("floors the main region on the viewport less the navbar token", () => {
     assert.ok(
-      klassen(MAIN).some((token) => token.startsWith("min-h-[calc(100dvh-var(--navbar-height)")),
-      `the main region is sized ${MAIN}, so the footer rises into the first screen`,
+      classesIn(MAIN).some((token) => token.startsWith("min-h-[calc(100dvh-var(--navbar-height)")),
+      `the main region is sized ${MAIN}, which declares no floor built on the navbar token`,
     );
   });
 
   /* Every pixel the floor overshoots by is blank the reader scrolls past on a short page, and the
      header's border is outside the token the floor reads: `box-content` puts it there. */
-  it("measures that floor against the header's whole box", () => {
+  it("declares the header's border outside its height, and reads the floor off that token", () => {
     for (const token of ["box-content", "h-(--navbar-height)", "border-b"]) {
-      assert.ok(klassen(HEADER).includes(token), `the header is sized ${HEADER}, which no longer wears its border outside its height`);
+      assert.ok(classesIn(HEADER).includes(token), `the header is sized ${HEADER}, which no longer wears its border outside its height`);
     }
 
     assert.ok(
-      klassen(MAIN).includes("min-h-[calc(100dvh-var(--navbar-height)-1px)]"),
-      `the floor is ${MAIN}, read off the navbar token alone, so it overshoots the first screen by the header's border`,
+      classesIn(MAIN).includes("min-h-[calc(100dvh-var(--navbar-height)-1px)]"),
+      `the floor is ${MAIN}, which is not the navbar token less the header's border`,
     );
   });
 
   /* A height the columns outgrow stops the fill where the separator and the copyright row are still
      being drawn, which is what a reader sees as the footer's bottom half falling off it. */
   it("gives the footer's fill a floor and never a height", () => {
-    assert.ok(klassen(FOOTER).includes("lg:min-h-[220px]"), `the footer is sized ${FOOTER}, so its wide-viewport size is not a floor`);
-    assert.ok(!klassen(FOOTER).includes("lg:h-[220px]"), `the footer is sized ${FOOTER}, to a height its columns can outgrow`);
+    assert.ok(classesIn(FOOTER).includes("lg:min-h-[220px]"), `the footer is sized ${FOOTER}, so its wide-viewport size is not a floor`);
+    assert.ok(!classesIn(FOOTER).includes("lg:h-[220px]"), `the footer is sized ${FOOTER}, which declares a fixed height rather than a floor`);
   });
 
   /* A `<footer>` nested in another is invalid, and a screen reader lists the page's contentinfo
@@ -162,8 +162,8 @@ describe("what the footer offers a reader", () => {
   /* Both columns render through one component, so which links each holds is the whole of what can
      differ between them. */
   it("keeps the legal pages in a column of their own", () => {
-    assert.deepEqual(spaltenLinks("Navigation"), ["/about", "/organisation", "/kontakt"]);
-    assert.deepEqual(spaltenLinks("Rechtliches"), ["/impressum", "/datenschutz"]);
+    assert.deepEqual(columnLinks("Navigation"), ["/about", "/organisation", "/kontakt"]);
+    assert.deepEqual(columnLinks("Rechtliches"), ["/impressum", "/datenschutz"]);
   });
 
   /* An untitled column is a list a reader has to identify from its entries, and two `<nav>`s in one
@@ -181,7 +181,7 @@ describe("what the footer offers a reader", () => {
   /* The shell carries no `h1` and every page it wraps carries one, so a heading here below `h2`
      skips a rung in the outline a screen reader navigates by. */
   it("heads its columns on the rung under the page's own heading", () => {
-    const rungs = [...SHELL.matchAll(/<h([1-6])\b/g)].map((treffer) => Number(treffer[1]));
+    const rungs = [...SHELL.matchAll(/<h([1-6])\b/g)].map((hit) => Number(hit[1]));
 
     // First: an empty list passes the rung check below.
     assert.ok(rungs.length > 0, "the shell renders no heading at all, so the rung check reads nothing");

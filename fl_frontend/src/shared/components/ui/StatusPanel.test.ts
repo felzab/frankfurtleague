@@ -57,8 +57,8 @@ describe("the box each full-page status panel is sized to", () => {
   /* The two grounds are one class apart and nothing renders both call sites together, so a shared
      `page` height reads as correct on whichever of the two was opened. */
   it("gives the shelled 404 the shell's floor and the boundary error the whole viewport", () => {
-    assert.ok(shelled.includes(FLOOR), `the 404 is sized ${shelled}, so the footer starts above the fold`);
-    assert.ok(!shelled.includes(VIEWPORT), `the 404 keeps a whole-viewport floor in ${shelled}, which the navbar then pushes past the fold`);
+    assert.ok(shelled.includes(FLOOR), `the 404 is sized ${shelled}, which does not carry the shell's floor`);
+    assert.ok(!shelled.includes(VIEWPORT), `the 404 keeps a whole-viewport floor in ${shelled}, beside the shell's own`);
 
     assert.ok(wholeDocument.includes(VIEWPORT), `the error boundary is sized ${wholeDocument}, and it has no chrome to subtract`);
     assert.ok(!wholeDocument.includes("min-h-[calc("), `the error boundary subtracts chrome it does not render, in ${wholeDocument}`);

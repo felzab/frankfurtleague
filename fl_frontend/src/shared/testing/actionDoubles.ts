@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { blankComments } from "@/core/blankComments.ts";
 
 /** One write a component sent: the action's exported name, and the payload it was handed. */
 export type ActionCall = { action: string; payload: unknown };
@@ -49,4 +52,64 @@ export function doubleActions({
   });
 
   return { calls, answerWith: (next) => void (answering = next) };
+}
+
+/** One announcement a component raised: the severity it chose, and the words it handed the reader. */
+export interface RaisedToast {
+  readonly variant: string;
+  readonly title: string;
+  readonly description: string | undefined;
+  /** Everything else the call passed, which is where an undo offer keeps its own `onPress`. */
+  readonly options: { description?: string; actionProps?: { onPress?: () => void } } | undefined;
+}
+
+const TOAST_MODULE = "/src/shared/utils/appToast.ts";
+
+/**
+ * The members of the real `appToast`, derived from its source: a double short of one answers
+ * `undefined` where a component raises it, and fails on the call rather than on its subject.
+ */
+function toastMembers(): string[] {
+  const source = blankComments(readFileSync(path.resolve(import.meta.dirname, "..", "utils", "appToast.ts"), "utf8"));
+  const from = source.indexOf("export const appToast = {");
+  if (from === -1) throw new Error("appToast.ts declares no appToast object for the double to mirror");
+
+  return [...source.slice(from, source.indexOf("\n};", from)).matchAll(/^ {2}(\w+):/gm)].map(([, name]) => name ?? "");
+}
+
+let toastsRegistered = 0;
+
+/**
+ * Replaces the toast module at the module boundary, every severity recording its call.
+ *
+ * The real module hands its raising to HeroUI's queue rather than back to the caller.
+ */
+export function doubleToasts(): { raised: RaisedToast[] } {
+  const raised: RaisedToast[] = [];
+  // One name per call, so two doubles in one process cannot overwrite each other.
+  const bus = `__flToastDouble${String((toastsRegistered += 1))}`;
+  Reflect.set(globalThis, bus, raised);
+
+  // `close` and `clear` stay inert: they raise nothing, and recording them would move the index every
+  // case reading `raised` by position depends on.
+  const source = `const raise = (variant) => (title, options) => {
+  globalThis.${bus}.push({ variant, title, description: options?.description, options });
+  return String(globalThis.${bus}.length);
+};
+const inert = () => undefined;
+export const UNDO_TIMEOUT_MS = 1;
+export const appToast = { ${toastMembers()
+    .map((name) => `${name}: ${name === "close" || name === "clear" ? "inert" : `raise("${name}")`}`)
+    .join(", ")} };`;
+
+  registerHooks({
+    load(url, context, nextLoad) {
+      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+      if (!url.endsWith(TOAST_MODULE)) return nextLoad(url, context);
+
+      return { format: "module", source, shortCircuit: true };
+    },
+  });
+
+  return { raised };
 }

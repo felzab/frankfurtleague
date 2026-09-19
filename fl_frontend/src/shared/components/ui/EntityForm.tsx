@@ -16,8 +16,8 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ZodType } from "zod";
 
 /**
- * The create and edit form skeleton, once. The success guard stays at the call site on purpose: create checks
- * `created_id` and edit checks `updated_document`, and folding that in would mean knowing both response shapes.
+ * The create and edit form skeleton, once. A call site guarding its own result does so to narrow a
+ * payload field, never because this form reads one: what it answers is `ActionResult` and nothing more.
  */
 export function EntityForm<TDraft, TPayload = TDraft>({
   initialDraft,
@@ -36,8 +36,11 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    * one value and send another. Answers the action's own result, the caller's guard on its created record folded in.
    */
   onSubmit: (payload: TPayload) => Promise<ActionResult>;
-  /** The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18). */
-  schema: ZodType;
+  /**
+   * The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18).
+   * Parameterised: unparameterised it takes any schema, and a caller's own action then applies other rules.
+   */
+  schema: ZodType<TPayload>;
   /**
    * Required rather than defaulted to identity: a caller whose payload is not the draft would have the wrong shape
    * judged, and a silent identity passes everything.

@@ -65,11 +65,11 @@ const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 type Undone = { answer: { success: boolean; error?: string }; status: number; invalidated: unknown[]; bodiesRead: number };
 
 /** One undo through the spine, with a restore that answers or throws as `restore` does, and every invalidation it made. */
-async function undo(restore: () => Promise<UndoReport>, herkunft: string | null = "same-origin"): Promise<Undone> {
+async function undo(restore: () => Promise<UndoReport>, origin: string | null = "same-origin"): Promise<Undone> {
   const invalidated: unknown[] = [];
   let bodiesRead = 0;
   const request = {
-    headers: new Headers(herkunft === null ? {} : { "sec-fetch-site": herkunft }),
+    headers: new Headers(origin === null ? {} : { "sec-fetch-site": origin }),
     json: async () => {
       bodiesRead += 1;
       return PAYLOAD;
@@ -170,22 +170,27 @@ describe("who the undo spine answers before it does any work", () => {
 });
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
-const HERKUENFTE: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
+const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
 
 describe("what stands in for a session on the undo spine", () => {
   /* Every value a browser sends, so a widened condition or a refusal built and not returned fails;
      `null` passes deliberately, a browser too old to send it is still an administrator's browser. */
   it("refuses every other origin, and lets the page's own requests and a header-less one through", async () => {
-    for (const herkunft of HERKUENFTE) {
+    for (const origin of ORIGINS) {
       let restored = 0;
       const { answer, bodiesRead } = await undo(async () => {
         restored += 1;
         return {};
-      }, herkunft);
-      const fremd = herkunft !== null && herkunft !== "same-origin";
+      }, origin);
+      const isCrossOrigin = origin !== null && origin !== "same-origin";
 
-      assert.equal(restored > 0 || bodiesRead > 0, !fremd, `a request marked ${String(herkunft)} is ${fremd ? "worked on" : "turned away"}`);
-      if (fremd) assert.match(answer.error ?? "", /kam nicht von dieser Seite/, `a request marked ${herkunft} is answered with something else`);
+      assert.equal(
+        restored > 0 || bodiesRead > 0,
+        !isCrossOrigin,
+        `a request marked ${String(origin)} is ${isCrossOrigin ? "worked on" : "turned away"}`,
+      );
+      if (isCrossOrigin)
+        assert.match(answer.error ?? "", /kam nicht von dieser Seite/, `a request marked ${origin} is answered with something else`);
     }
   });
 

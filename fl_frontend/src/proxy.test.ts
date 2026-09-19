@@ -83,7 +83,7 @@ const userRows = new Map(
 };
 
 // `@auth/core` refuses a config carrying no secret, and the real one is a credential no test holds.
-// Restored because `--test-isolation=none` would otherwise carry this into every later file.
+// Restored when the file ends: one process holds one environment, which a later case reads.
 const ORIGINAL_AUTH_SECRET = process.env.AUTH_SECRET;
 process.env.AUTH_SECRET = "fabricated-test-secret-not-a-credential";
 after(() => {
@@ -194,7 +194,12 @@ function browserGlobals(answer: Response): Record<string, unknown> {
   };
 }
 
-/** Runs Next's installed action client against one answer and reports where it left the router. */
+/**
+ * Runs Next's installed action client against one answer and reports where it left the router.
+ *
+ * A probe of a PRIVATE path, bought for what no assertion over the proxy's own answer shows: that
+ * the header is read at all.
+ */
 async function dispatchAgainst(answer: Response): Promise<{ canonicalUrl: string; documentNavigation: boolean; rejection: unknown }> {
   const globals = browserGlobals(answer);
   const previous = new Map(Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));

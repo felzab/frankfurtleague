@@ -123,7 +123,7 @@ describe("focusFirstRefusal", () => {
     );
 
     assert.equal(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." }), true);
-    assert.equal(doc.activeElement, refused, "focus landed on a field nothing refused");
+    assert.ok(doc.activeElement === refused, "focus landed on a field nothing refused");
   });
 
   it("never parks focus in a subtree assistive technology cannot see", () => {
@@ -140,7 +140,7 @@ describe("focusFirstRefusal", () => {
     );
 
     assert.equal(focusFirstRefusal(formOf(form), { team_id: "Bitte wähle eine Schule." }), true);
-    assert.equal(doc.activeElement, trigger, "focus parked inside an aria-hidden subtree, where nothing is announced");
+    assert.ok(doc.activeElement === trigger, "focus parked inside an aria-hidden subtree, where nothing is announced");
   });
 
   it("reaches the spinbutton when the name sits BESIDE the field rather than inside it", () => {
@@ -152,7 +152,7 @@ describe("focusFirstRefusal", () => {
     const form = new El("form", {}, doc).add(new El("div", ROOT("number-field"), doc).add(spinbutton), named);
 
     assert.equal(focusFirstRefusal(formOf(form), { "kader.groesse": "Zu klein." }), true);
-    assert.equal(doc.activeElement, spinbutton, "the caret never reached the control the admin can type into");
+    assert.ok(doc.activeElement === spinbutton, "the caret never reached the control the admin can type into");
   });
 
   it("reaches the switch when the named proxy IS its own field root", () => {
@@ -164,7 +164,7 @@ describe("focusFirstRefusal", () => {
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(new El("div", ROOT("switch"), doc).add(toggle), proxy));
 
     assert.equal(focusFirstRefusal(formOf(form), { "einwilligung.erteilt": "Bitte stimme zu." }), true);
-    assert.equal(doc.activeElement, toggle, "the consent switch never took the caret its own refusal names");
+    assert.ok(doc.activeElement === toggle, "the consent switch never took the caret its own refusal names");
   });
 
   it("focuses the NAMED control itself when it can take focus, rather than scanning past it", () => {
@@ -174,7 +174,7 @@ describe("focusFirstRefusal", () => {
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(decoy, named));
 
     assert.equal(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." }), true);
-    assert.equal(doc.activeElement, named, "the walk scanned past a control that could take focus itself");
+    assert.ok(doc.activeElement === named, "the walk scanned past a control that could take focus itself");
   });
 
   it("keeps looking when a refused field can take no focus at all", () => {
@@ -189,7 +189,7 @@ describe("focusFirstRefusal", () => {
 
     const shown = { "rules.erlaubte_stufen": "Wähle eine Stufe.", name: "Bitte gib einen Namen ein." };
     assert.equal(focusFirstRefusal(formOf(form), shown), true);
-    assert.equal(doc.activeElement, reachable, "an unfocusable proxy swallowed the whole walk");
+    assert.ok(doc.activeElement === reachable, "an unfocusable proxy swallowed the whole walk");
   });
 
   it("still answers `true` when the only refused field can take no focus, so no toast claims it is unshown", () => {
@@ -198,7 +198,7 @@ describe("focusFirstRefusal", () => {
     const form = new El("form", {}, doc).add(new El("div", ROOT("toggle-group"), doc), proxy);
 
     assert.equal(focusFirstRefusal(formOf(form), { "rules.erlaubte_stufen": "Wähle eine Stufe." }), true);
-    assert.equal(doc.activeElement, null);
+    assert.ok(doc.activeElement === null, "focus did not land where this case expects");
   });
 
   it("answers `false` when no control renders the refused path, which is what raises the toast", () => {
@@ -216,7 +216,7 @@ describe("focusFirstRefusal", () => {
 
     // With `in`, the empty map answers `true` here and the toast never fires for a genuinely unshown path.
     assert.equal(focusFirstRefusal(formOf(form), {}), false);
-    assert.equal(doc.activeElement, null);
+    assert.ok(doc.activeElement === null, "focus did not land where this case expects");
   });
 });
 

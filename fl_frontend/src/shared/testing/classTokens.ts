@@ -29,3 +29,30 @@ export function classTokensIn(file: string, text: string): string[] {
   visit(source);
   return tokens;
 }
+
+/**
+ * The same literals kept apart, one list per literal.
+ *
+ * Per list and never per module: a file spreads one grade's tokens over separate attributes, and a
+ * reader joining them grades that file as spelling something nothing in it writes.
+ */
+export function classListsIn(file: string, text: string): string[][] {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const lists: string[][] = [];
+
+  const push = (literal: string): void => {
+    const tokens = literal.split(/\s+/).filter((token) => token !== "");
+    if (tokens.length > 0) lists.push(tokens);
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteralLike(node)) push(node.text);
+    // A template's chunks join into ONE list: a list parted by a `${…}` hole is still one list.
+    else if (ts.isTemplateExpression(node)) push([node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(" "));
+
+    ts.forEachChild(node, visit);
+  };
+
+  visit(source);
+  return lists;
+}

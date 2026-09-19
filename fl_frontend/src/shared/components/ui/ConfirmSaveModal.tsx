@@ -31,8 +31,9 @@ export function ConfirmSaveModal({
   // The list must outlive the prop going null, or the body blanks while the dialog animates out.
   const shown = useRetainedValue(banners);
 
-  // One press per raise: the buttons stay pressable through the exit animation, and a second press
-  // there would send the write again. Re-opened on the next raise, which may hand the same list back.
+  // One press per raise: the buttons stay pressable through the exit animation, and the guard in
+  // `confirm` is what stops a second press there sending the write again. Re-armed on the next
+  // raise, which may hand the same list back.
   const isOpen = banners !== null;
   const [raised, setRaised] = useState(isOpen);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -91,19 +92,21 @@ export function ConfirmSaveModal({
 
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
         <div className={MODAL_FOOTER_STACK}>
+          {/* Held, never closed: the press that started the save left the keyboard's focus here, and a
+              disabled button drops it to the page (`docs/frontend/spec.md` §1.14). */}
           <Button
             type="button"
             variant="primary"
-            isDisabled={isConfirmed}
+            isPending={isConfirmed}
             className={formButton({ intent: "destructive", fullWidth: true })}
             onPress={confirm}>
             Trotzdem speichern
           </Button>
-          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels. */}
+          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels.
+              It closes the dialog rather than the save, so the save running is no reason to close it. */}
           <Button
             type="button"
             variant="secondary"
-            isDisabled={isConfirmed}
             className={formButton({ intent: "cancel", fullWidth: true })}
             onPress={onClose}>
             Weiter bearbeiten

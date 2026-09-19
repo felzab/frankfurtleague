@@ -93,8 +93,9 @@ const server = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
   AUTH_SECRET: z.string(),
-  // Optional here and demanded below under `production` alone: outside it the container holds no
-  // Resend credential, so a send has nothing to authorise with even where its own guard is gone.
+  // Optional here and demanded below under `production` alone. What keeps a send off a deployment
+  // that is not production is `APP_ENV` and never this being absent: a development machine's own
+  // environment may carry a real key.
   AUTH_RESEND_KEY: z.string().optional(),
 
   // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400

@@ -28,8 +28,8 @@ export function ContentLoader({ fills }: { fills?: "region" | "viewport" } = {})
     <div
       role="status"
       className={contentLoader({ fills })}>
-      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
-          to, and a name is not content, so the region announced nothing at all. */}
+      {/* In the subtree rather than in `aria-label`: a live region announces its content and not its
+          name, so a name is all a reader would not hear. */}
       <span className="sr-only">Inhalte werden geladen</span>
       {/* `bg-brand`, which flips: the solid fill sinks into the dark page, and a loader nobody
           can see is a blank region. */}

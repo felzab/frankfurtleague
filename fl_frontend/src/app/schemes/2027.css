@@ -15,8 +15,8 @@
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
     /* The lightest grey clearing 3:1 on --bg-surface, which a field wears as its own fill: darker
-       shrinks the step the brand focus border makes off it, and no grey clears that floor on
-       --bg-muted as well. */
+       shrinks the step the brand focus border makes off it, and this grey does not clear that floor
+       on --bg-muted. */
     --border-control: #8e8e8e;
     /* The hover fills' 6.7-point step, off --border-control. Focus rides the inset ring, not this
        border: 1.31:1 from rest, 3.93:1 on --bg-surface, 1.50:1 to the brand border and 1.20:1 to
@@ -127,7 +127,7 @@
     --fg-on-brand: #ffffff;
     --border-base: #333333;
     /* The darkest grey clearing that floor on --bg-surface here: lighter shrinks the focus step,
-       and --bg-muted is out of reach in this theme too. */
+       and this grey does not clear it on --bg-muted in this theme either. */
     --border-control: #616161;
     /* The same step, lighter: 1.32:1 from rest, 4.00:1 on --bg-surface, 2.18:1 to the brand border
        and 1.16:1 to danger. */

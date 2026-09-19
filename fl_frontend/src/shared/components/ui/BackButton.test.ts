@@ -79,7 +79,7 @@ describe("the pill", () => {
   });
 
   it("takes the yielded spacing as a substitution, so one margin reaches the class string", () => {
-    assert.match(markup({ fallbackHref: "/dashboard/teams" }), /\bmb-6\b/, "the default spacing left the pill against the content under it");
+    assert.match(markup({ fallbackHref: "/dashboard/teams" }), /\bmb-6\b/, "the default spacing is not in the class string");
 
     const yielded = markup({ fallbackHref: "/dashboard/teams", spacing: "mb-0" });
 

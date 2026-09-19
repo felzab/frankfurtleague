@@ -6,7 +6,8 @@ import { logger } from "@/core/logging";
 import { toActionErrorResult } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 
-import type { FormState } from "@/shared/types/types";
+import type { ActionFailure } from "@/shared/types/types";
+import type { FieldErrors } from "./validation";
 
 /**
  * The generic banner for a payload the schema refused, declared once, in the refusal format §1.12 of
@@ -21,13 +22,20 @@ export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /**
+ * A slice's mapped refusal as the failure an action returns.
+ *
+ * Seventeen call sites restated the fallback for a mapper answering a field message and no
+ * sentence, where leaving it out renders a toast with an empty body.
+ */
+export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErrors }): ActionFailure {
+  return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+}
+
+/**
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
  * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
  */
-export async function runAdminMutation<T extends { success: boolean }>(
-  mutationName: string,
-  fn: () => Promise<T>,
-): Promise<T | NonNullable<FormState>> {
+export async function runAdminMutation<T extends { success: boolean }>(mutationName: string, fn: () => Promise<T>): Promise<T | ActionFailure> {
   return runWithIncomingTrace(async () => {
     try {
       return await fn();

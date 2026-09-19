@@ -54,8 +54,8 @@ export function useHoverOpenOverlay(): {
   /** Goes to `Popover.Content`'s `isOpen`, and to whatever styles the trigger as open: the panel stands either way. */
   isOpen: boolean;
   /**
-   * **Goes to the popover root's `isOpen`, never `isOpen`.** The root toggles on a trigger press, so a root told a
-   * hover-opened panel is open would close it under the press that should have opened the dialog.
+   * **Goes to the popover root's `isOpen`, never this hook's `isOpen`.** The root toggles on a trigger press, so a
+   * root told a hover-opened panel is open would close it under the press that should have opened the dialog.
    */
   isDialogOpen: boolean;
   /**
