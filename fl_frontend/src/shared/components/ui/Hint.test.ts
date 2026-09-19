@@ -25,14 +25,14 @@ const LABEL = "Speichern";
 const refused = (reason: string | null, label = LABEL): ReactNode =>
   h(Hint, {
     mode: "refusal",
-    reason: reason,
-    label: label,
+    reason,
+    label,
     children: h("button", { type: "submit", disabled: reason !== null }, label),
   });
 
 /** A link with nothing to follow yet, as the club editor's two outward links render while their address is incomplete. */
-const verweigerterLink = (reason: string, label: string): ReactNode =>
-  h(Hint, { mode: "refusal", reason: reason, label: label, children: h("a", { "aria-disabled": true, "aria-label": label }) });
+const refusedLink = (reason: string, label: string): ReactNode =>
+  h(Hint, { mode: "refusal", reason, label, children: h("a", { "aria-disabled": true, "aria-label": label }) });
 
 /** The field somebody is typing in beside the hint, which is where a pointer crossing the hint finds the focus. */
 const beside = (hint: ReactNode): ReactNode => h("div", null, h("input", { "aria-label": "Feld" }), hint);
@@ -46,8 +46,8 @@ describe("a refusal laid over a closed control", () => {
   it("is one closed button named by the control's words and described by the reason", () => {
     render(refused(REASON));
 
-    const ueberlagerung = screen.getByRole("button", { name: LABEL, description: REASON });
-    assert.equal(ueberlagerung.getAttribute("aria-disabled"), "true", "the overlay is announced as a control that can be used");
+    const overlay = screen.getByRole("button", { name: LABEL, description: REASON });
+    assert.equal(overlay.getAttribute("aria-disabled"), "true", "the overlay is announced as a control that can be used");
     // Inert, or the control is announced a second time beside the overlay naming it.
     assert.ok(screen.getByText(LABEL).closest("[inert]") !== null, "the closed control is reachable beside the overlay naming it");
     assert.equal(panelShows(REASON), false, "the reason stands in the flow beside the control");
@@ -75,7 +75,7 @@ describe("a refusal laid over a closed control", () => {
     function Schreibt() {
       const [reason, setGrund] = useState<string | null>(null);
       const button = h("button", { type: "button", disabled: reason !== null, onClick: () => setGrund(REASON) }, LABEL);
-      return h(Hint, { mode: "refusal", reason: reason, label: LABEL, children: button });
+      return h(Hint, { mode: "refusal", reason, label: LABEL, children: button });
     }
     render(h(Schreibt));
 
@@ -161,7 +161,7 @@ describe("a refusal laid over HeroUI's closed button", () => {
   );
 
   it("gives no two elements one id, and the popover's trigger state to the overlay alone", () => {
-    const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((treffer) => treffer[1]!);
+    const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((hit) => hit[1]!);
     const button = /<button[^>]*>/.exec(html)?.[0] ?? assert.fail("the refusal renders no button");
 
     // The reason and the button each carry one, so fewer means the render lost what the case compares.
@@ -193,7 +193,7 @@ describe("the shared refusal reader over this overlay's own markup", () => {
           label: "Link erneut senden an Trainer",
           children: h(Button, { isDisabled: true, "aria-label": "Link erneut senden an Trainer" }, "Link erneut senden"),
         }),
-        verweigerterLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"),
+        refusedLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"),
         refused(null, "Abbrechen"),
       ),
     );
@@ -210,14 +210,14 @@ describe("the shared refusal reader over this overlay's own markup", () => {
   /* The reader's other half of the closure: an overlay over a control that still works is no refusal a panel may
      count, for a button and for a link alike. */
   it("reads no refusal over a control left open", () => {
-    const html = renderTree(verweigerterLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"));
+    const html = renderTree(refusedLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"));
     const openLink = html.replace("<a ", '<a href="https://www.beispielverein.de" ');
-    const offenerKnopf = renderTree(refused(REASON)).replace(' disabled=""', "");
+    const openButton = renderTree(refused(REASON)).replace(' disabled=""', "");
 
     assert.equal(refusalWrappers(html).length, 1, "the closed link is not read, so the two cases below compare nothing");
     assert.notEqual(openLink, html, "the link is not where this case opens it");
     assert.deepEqual(refusalWrappers(openLink), [], "a link with somewhere to go is read as closed");
-    assert.deepEqual(refusalWrappers(offenerKnopf), [], "a button nothing disables is read as closed");
+    assert.deepEqual(refusalWrappers(openButton), [], "a button nothing disables is read as closed");
   });
 
   /* WCAG 2.5.3 on the one tab stop: speech input says the words on screen, so a name holding more than

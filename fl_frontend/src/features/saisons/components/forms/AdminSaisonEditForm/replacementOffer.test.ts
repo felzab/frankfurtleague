@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../../../../spiele/schemas.ts";
 import { buildReplacementContext, describePlatz, describeUebernommeneSpiele } from "./replacementOffer.ts";
@@ -23,7 +23,7 @@ const BLANK: FLSpiel = FLSpielSchema.parse(spielFields({ id: "0".repeat(24), spi
  * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
  */
 const side = (teamId: string, name: string, austrittType: FLAustritt["type"] | null = null): FLSpiel["team1"] => ({
-  ...seite(teamId, { name, shorthand: name.slice(0, 2).toUpperCase() }),
+  ...sharedSide(teamId, { name, shorthand: name.slice(0, 2).toUpperCase() }),
   austritt_type: austrittType,
 });
 

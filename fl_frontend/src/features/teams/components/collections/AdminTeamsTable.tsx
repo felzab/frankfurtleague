@@ -92,7 +92,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
    */
   const renderIdentity = (team: AdminTeamRow) => (
     <div className={IDENTITY_ROW}>
-      <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
+      <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
           <span className={identityName(team.inactive_since !== null)}>{team.name}</span>

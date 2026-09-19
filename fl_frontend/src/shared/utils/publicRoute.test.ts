@@ -49,16 +49,16 @@ function request(origin: string | null, read: { body: number }) {
 async function answerFor(origin: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; didWork: boolean }> {
   counters.__flPublicSpineTraces = 0;
   const read = { body: 0 };
-  let lief = false;
-  const antwort = (await handlePublicRequest(request(origin, read), {
+  let ran = false;
+  const answer = (await handlePublicRequest(request(origin, read), {
     routeName: "publicRouteTest",
     run: async () => {
-      lief = true;
+      ran = true;
       return { success: true };
     },
   })) as unknown as { status: number; body: { success: boolean; error?: string } };
 
-  return { status: antwort.status, body: antwort.body, didWork: lief || read.body > 0 || counters.__flPublicSpineTraces > 0 };
+  return { status: answer.status, body: answer.body, didWork: ran || read.body > 0 || counters.__flPublicSpineTraces > 0 };
 }
 
 describe("what stands in for a session on the public spine", () => {

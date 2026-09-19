@@ -261,8 +261,15 @@ export type SubmitConfirmation = { banners: readonly RailBanner[]; confirm: (blo
  * (`docs/frontend/spec.md` I19 and I56). Each key's schema is the one its server action parses
  * (`docs/frontend/spec.md` I18), or browser and server state different rules.
  */
-export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schemas: Readonly<Record<TSchema, ZodType>> }) {
-  const { fieldErrors: submitErrors, setFieldErrors, formRef } = useServerFieldErrors();
+export function useDraftFieldErrors<TSchema extends string>({
+  schemas,
+  failureTitle,
+}: {
+  schemas: Readonly<Record<TSchema, ZodType>>;
+  /** What this form calls a failed save, where the admin editors' „Änderung nicht gespeichert“ is not its word. */
+  failureTitle?: string;
+}) {
+  const { fieldErrors: submitErrors, setFieldErrors, formRef } = useServerFieldErrors(failureTitle);
 
   const [verdicts, setVerdicts] = useState<FieldVerdicts>({});
 

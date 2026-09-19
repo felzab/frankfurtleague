@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries any of the three contexts, so a Next release that moves a module fails
-   this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { SidemenuStructure } from "@/shared/types/types";
@@ -16,16 +13,6 @@ import type { SidemenuStructure } from "@/shared/types/types";
    harness's resolver completes. */
 const { Sidemenu } = await import("./Sidemenu.tsx");
 const { Calendar, Magnifier, Persons } = await import("@gravity-ui/icons");
-
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
 
 const ICONS = { Calendar, Magnifier, Persons };
 
@@ -46,28 +33,19 @@ const LABELS = STRUCTURE.flatMap((group) => group.sub_options.map((option) => op
 
 function rail(isDesktopCollapsed: boolean): string {
   return renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        PathnameContext.Provider,
-        { value: "/dashboard/spielplan" },
-        h(
-          SearchParamsContext.Provider,
-          { value: new URLSearchParams("saison_id=2526") },
-          h(Sidemenu, {
-            structure: STRUCTURE,
-            linkPrefix: "/dashboard",
-            saisonMetadataDisplay: null,
-            iconDictionary: ICONS,
-            pathname: "/dashboard/spielplan",
-            isMobileOpen: false,
-            onMobileClose: () => undefined,
-            isDesktopCollapsed,
-            onToggleDesktopMenu: () => undefined,
-          }),
-        ),
-      ),
+    underNext(
+      h(Sidemenu, {
+        structure: STRUCTURE,
+        linkPrefix: "/dashboard",
+        saisonMetadataDisplay: null,
+        iconDictionary: ICONS,
+        pathname: "/dashboard/spielplan",
+        isMobileOpen: false,
+        onMobileClose: () => undefined,
+        isDesktopCollapsed,
+        onToggleDesktopMenu: () => undefined,
+      }),
+      { search: "saison_id=2526", pathname: "/dashboard/spielplan" },
     ),
   );
 }

@@ -275,6 +275,9 @@ PAIRS: Final[tuple[Pair, ...]] = (
     Pair("focus ring", Layer("--focus"), Layer("--bg-base"), 3.0),
     Pair("focus ring", Layer("--focus"), Layer("--bg-surface"), 3.0),
     Pair("collection option keyboard ring", Layer("--focus"), Layer("--bg-hover"), 3.0),
+    # The selected tab's indicator is a brand fill that does not flip, on a recessed track that
+    # does: in the dark theme the two measure 1.24:1, so the ring is what delineates the selection.
+    Pair("the selected tab's indicator", Layer("--accent-brand"), Layer("--bg-muted"), 3.0),
     # One hover mechanism reaches every menu row, list-box option and icon control, so a pair per ink
     # covers all of them; the hover fills carry a control's own text and are read at the text floor.
     Pair("a row's label on its hover fill", Layer("--fg-base"), Layer("--bg-hover"), 4.5),

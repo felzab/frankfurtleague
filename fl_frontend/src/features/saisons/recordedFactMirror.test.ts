@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
 import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
@@ -42,15 +42,16 @@ const TEAM_2 = "3".repeat(24);
  * `fl_frontend/src/shared/testing/fixtures.ts` types that field as a plain string, a module under
  * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
  */
-const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...seite(teamId), tore, austritt_type: null });
+const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...sharedSide(teamId), tore, austritt_type: null });
 
 const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 const ORT: FLSpiel["ort"] = { spielort_id: "4".repeat(24), name: "Platz 1", maps_link: "https://example.invalid" };
 const REFEREE: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "5".repeat(24), name: "A. Beispiel" };
 
-// Parsed at construction: a field the shared literal has fallen behind on fails where the fixture
-// is built rather than wherever it is read.
-/** A group fixture exactly as the draw leaves it — both sides OCCUPIED, neither wired, nothing entered. */
+/**
+ * A group fixture exactly as the draw leaves it — both sides OCCUPIED, neither wired, nothing
+ * entered. Parsed at construction, so a field the shared literal has fallen behind on fails here.
+ */
 const DRAWN_GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
   spielFields({
     id: "0".repeat(24),
@@ -62,14 +63,17 @@ const DRAWN_GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
 );
 
 /** The same draw's bracket fixture — WIRED and empty, the exact inverse of the shape above. */
-const DRAWN_KOSPIEL: FLSpiel = {
-  ...DRAWN_GRUPPENSPIEL,
-  saison_phase: BRACKET_PHASE,
-  team1: null,
-  team2: null,
-  team1_quelle: QUELLE,
-  team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
-};
+const DRAWN_KOSPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({
+    id: "0".repeat(24),
+    spieltag_id: "1".repeat(24),
+    saison_phase: BRACKET_PHASE,
+    team1: null,
+    team2: null,
+    team1_quelle: QUELLE,
+    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+  }),
+);
 
 interface RecordedEdit {
   /** What an admin did to the fixture, so a failure names the fact the window stopped seeing. */

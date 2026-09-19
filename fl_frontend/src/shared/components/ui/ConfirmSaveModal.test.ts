@@ -22,7 +22,7 @@ const FOLGE: BlockingBanners = [
 describe("the save confirmation's one press per raise", () => {
   /* Every editor's confirm runs its write directly, never back through the gate, so nothing but this latch
      stops a second press on a dialog still standing from sending the save a second time. */
-  it("writes once however often „Trotzdem speichern“ is pressed while the dialog stands, and keeps the way back closed meanwhile", async () => {
+  it("writes once however often „Trotzdem speichern“ is pressed while the dialog stands, the way back open beside it", async () => {
     const user = userEvent.setup();
     const onConfirm = mock.fn();
     const onClose = mock.fn();
@@ -33,7 +33,9 @@ describe("the save confirmation's one press per raise", () => {
     await user.click(screen.getByRole("button", { name: "Weiter bearbeiten" }));
 
     assert.equal(onConfirm.mock.callCount(), 1, "a second press on a dialog still standing wrote again");
-    assert.equal(onClose.mock.callCount(), 0, "the way back stays pressable over a write already sent");
+    // Never closed: it cancels the dialog rather than the save, so a running write is no reason to
+    // strand a reader on it (`docs/frontend/spec.md` §1.14).
+    assert.equal(onClose.mock.callCount(), 1, "the way back is closed while the save it does not cancel runs");
   });
 
   /* The latch is per raise, and a raise may hand the very same list back: a latch keyed on the list would

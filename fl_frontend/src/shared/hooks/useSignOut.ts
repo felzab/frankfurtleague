@@ -48,7 +48,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
 
         // The fallback stands for `null`, which `FormState` admits and no sign-out sends: the catch
         // below is what answers a round trip that did not land.
-        appToast.success(result?.message ?? "Erfolgreich abgemeldet");
+        appToast.success(result?.message ?? "Abgemeldet");
         // `refresh()` drops the cached server render of the admin shell just left behind.
         router.push("/");
         router.refresh();

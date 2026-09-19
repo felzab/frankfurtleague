@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+import { side, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
@@ -13,8 +13,8 @@ const TODAY = "2026-07-30";
 /** Parsed at construction: a field the shared literal has fallen behind on fails where the fixture is built. */
 const SPIEL: FLSpiel = FLSpielSchema.parse(
   spielFields({
-    team1: seite("6890a1b2c3d4e5f607182932", { name: "Team A", shorthand: "TA", tore: 2 }),
-    team2: seite("6890a1b2c3d4e5f607182933", { name: "Team B", shorthand: "TB", tore: 1 }),
+    team1: side("6890a1b2c3d4e5f607182932", { name: "Team A", shorthand: "TA", tore: 2 }),
+    team2: side("6890a1b2c3d4e5f607182933", { name: "Team B", shorthand: "TB", tore: 1 }),
     datum: "2026-07-20",
     uhrzeit: "18:00:00",
     ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },

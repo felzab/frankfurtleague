@@ -2,44 +2,30 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries the router context, and the pill's exit reads it. A Next release that
-   moves the module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+
+import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { goBackOrPush } = await import("@/shared/hooks/useEditorExit.ts");
 const { BackButton } = await import("./BackButton.tsx");
 
-type Navigation = { back: number; pushed: string[] };
-
-function spyRouter(seen: Navigation) {
-  return {
-    back: () => void (seen.back += 1),
-    forward: () => undefined,
-    refresh: () => undefined,
-    push: (href: string) => void seen.pushed.push(href),
-    replace: () => undefined,
-    prefetch: () => undefined,
-    bfcacheId: "",
-  };
-}
-
 /**
  * The press, reproduced at the function the transition wraps: `renderToStaticMarkup` dispatches no
  * event, and the server build of `startTransition` refuses to be called at all.
  */
-function pressed(fallbackHref: string, historyLength: number): Navigation {
-  const seen: Navigation = { back: 0, pushed: [] };
+function pressed(fallbackHref: string, historyLength: number): Navigations {
+  const { router, seen } = recordingRouter();
 
   // The runner has no DOM, so neither branch of the guard is its default and a length is the whole
   // of what the guard reads.
   Object.defineProperty(globalThis, "window", { value: { history: { length: historyLength } }, configurable: true, writable: true });
 
   try {
-    goBackOrPush(spyRouter(seen), fallbackHref);
+    goBackOrPush(router, fallbackHref);
   } finally {
     Reflect.deleteProperty(globalThis, "window");
   }
@@ -47,8 +33,7 @@ function pressed(fallbackHref: string, historyLength: number): Navigation {
   return seen;
 }
 
-const markup = (props: { fallbackHref: string; spacing?: "mb-6" | "mb-0" }): string =>
-  renderTree(h(AppRouterContext.Provider, { value: spyRouter({ back: 0, pushed: [] }) }, h(BackButton, props)));
+const markup = (props: { fallbackHref: string; spacing?: "mb-6" | "mb-0" }): string => renderTree(underNext(h(BackButton, props)));
 
 describe("the exit behind every Zurück pill", () => {
   it("goes back where the tab has a page behind it", () => {

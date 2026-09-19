@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import { TeamDetailsView } from "@/features/teams/components/views/TeamDetailsView";
@@ -38,7 +40,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: teamData.name,
     description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt League.`,
-    ...seasonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId),
+    ...seasonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId, await runningSaisonId()),
   };
 }
 

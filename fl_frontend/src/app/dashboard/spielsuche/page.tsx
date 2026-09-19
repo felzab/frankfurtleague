@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { SpielsucheView } from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
@@ -14,7 +16,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Spielsuche",
     description: "Die Spielsuche findet alle Spiele der Frankfurt League. Erfahre, wann und wo die Spiele Deines Teams stattfinden.",
-    ...seasonScopedMetadata("/dashboard/spielsuche", await resolveSaisonId(props.searchParams)),
+    ...seasonScopedMetadata("/dashboard/spielsuche", await resolveSaisonId(props.searchParams), await runningSaisonId()),
   };
 }
 

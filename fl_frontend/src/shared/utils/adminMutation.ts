@@ -24,8 +24,8 @@ export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Mel
 /**
  * A slice's mapped refusal as the failure an action returns.
  *
- * Seventeen call sites restated the fallback for a mapper answering a field message and no
- * sentence, where leaving it out renders a toast with an empty body.
+ * The fallback is here rather than at each return: a mapper answering a field message and no
+ * sentence renders a toast with an empty body wherever one is left out.
  */
 export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErrors }): ActionFailure {
   return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };

@@ -6,12 +6,9 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
-/* No public export carries either context, so a Next release that moves either module fails this
-   file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { filesUnder } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { openGraphFor } from "@/shared/utils/metadata.ts";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
@@ -101,17 +98,6 @@ const CATCH_ALLS = PAGES.filter((file) => CATCH_ALL.test(path.basename(path.dirn
 
 const catchAllsIn = (dir: string) => CATCH_ALLS.filter((file) => path.dirname(path.dirname(file)) === dir);
 
-/** What `Link` reads off `useRouter`. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const SAISON = "2526";
 
 // Under a season, which is the state a boundary inside a shell is served in: the way out is built
@@ -119,13 +105,7 @@ const SAISON = "2526";
 async function markupOf(boundary: string): Promise<string> {
   const { default: Boundary } = (await import(pathToFileURL(boundary).href)) as { default: () => React.ReactNode };
 
-  return renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(SearchParamsContext.Provider, { value: new URLSearchParams(`saison_id=${SAISON}`) }, h(Boundary, {})),
-    ),
-  );
+  return renderTree(underNext(h(Boundary, {}), { search: `saison_id=${SAISON}` }));
 }
 
 const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file)] as const)));

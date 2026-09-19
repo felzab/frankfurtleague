@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
 import { getTeams } from "@/features/teams/queries";
@@ -14,7 +16,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Teams",
     description: `Alle Teams ${saisonPhrase(saisonId)} der Frankfurt League.`,
-    ...seasonScopedMetadata("/dashboard/teams", saisonId),
+    ...seasonScopedMetadata("/dashboard/teams", saisonId, await runningSaisonId()),
   };
 }
 

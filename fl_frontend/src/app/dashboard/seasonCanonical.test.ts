@@ -17,6 +17,7 @@ const DASHBOARD = import.meta.dirname;
 
 const TEAM_ID = "6780e194677bfbfb5ea8396c";
 const VERGANGEN = "2025";
+const LAUFEND = "2026";
 
 /** Stands in for `next/server`, whose `connection()` is request-only and this process makes no request. */
 const CONNECTION_DOUBLE = `export const connection = async () => undefined;`;
@@ -113,6 +114,16 @@ describe("the canonical of a season-scoped public page", () => {
     it(`names the bare path where the URL names no season: ${file}`, async () => {
       assert.ok(generateMetadata);
       const metadata = await metadataOf(generateMetadata, {});
+
+      assert.equal(metadata.alternates?.canonical, pagePath);
+      assert.equal(metadata.openGraph?.url, pagePath);
+    });
+
+    /* The bare address serves this very page, so naming the running season here would give one page
+       two self-canonicalising addresses and split its indexing between them. */
+    it(`drops the running season from the canonical, the bare path serving the same page: ${file}`, async () => {
+      assert.ok(generateMetadata);
+      const metadata = await metadataOf(generateMetadata, { saison_id: LAUFEND });
 
       assert.equal(metadata.alternates?.canonical, pagePath);
       assert.equal(metadata.openGraph?.url, pagePath);

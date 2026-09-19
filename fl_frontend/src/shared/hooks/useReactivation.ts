@@ -7,10 +7,8 @@ import { appToast } from "@/shared/utils/appToast";
 import type { ActionResult } from "@/shared/types/types";
 
 /**
- * The reactivation every retired row offers: one transition, and the pair of announcements.
- *
- * Eight call sites composed both sentences with nothing but a noun between them, and seven of them
- * dropped the detail their action answers with.
+ * The reactivation every retired row offers: one transition, and the pair of announcements, composed
+ * here rather than per row — a row spelling its own pair drops the detail its action answers with.
  */
 export function useReactivation<TPayload>({
   action,

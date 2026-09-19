@@ -17,81 +17,81 @@ const SOURCE = readFileSync(path.resolve(import.meta.dirname, "RowActions.tsx"),
 const REASON = "Die Saison ist gesperrt";
 
 /** The two actions carrying a refusal, with the hover fill that separates the destructive one. */
-const AKTIONEN: { name: string; Aktion: typeof RowActionRestore; label: string; ariaLabel: string; hover: string }[] = [
+const ACTIONS: { name: string; Action: typeof RowActionRestore; label: string; ariaLabel: string; hover: string }[] = [
   {
     name: "the restore",
-    Aktion: RowActionRestore,
+    Action: RowActionRestore,
     label: "Reaktivieren",
     ariaLabel: "Lessing-Kolleg reaktivieren",
     hover: "data-hovered:bg-hover",
   },
   {
     name: "the delete",
-    Aktion: RowActionDelete,
+    Action: RowActionDelete,
     label: "Stilllegen",
     ariaLabel: "Lessing-Kolleg stilllegen",
     hover: "data-hovered:bg-hover-danger",
   },
 ];
 
-type Aktion = (typeof AKTIONEN)[number];
+type Action = (typeof ACTIONS)[number];
 
 /** The action as a list renders it once the endpoint's refusal is already known. */
-const refused = (row: Aktion): string =>
-  renderMarkup(row.Aktion, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined, disabledReason: REASON });
+const refused = (row: Action): string =>
+  renderMarkup(row.Action, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined, disabledReason: REASON });
 
 /** The same action from a list passing no reason at all, which is what most call sites are. */
-const angeboten = (row: Aktion): string => renderMarkup(row.Aktion, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined });
+const offered = (row: Action): string => renderMarkup(row.Action, { label: row.label, ariaLabel: row.ariaLabel, onPress: () => undefined });
 
 /** The control alone: what a press lands on, and what `disabled` closes. */
 const button = (html: string): string => /<button\b[^>]*>/.exec(html)?.[0] ?? "";
 
 /** Every accessible name the row emits, in document order — the wrapper's before the control's. */
-const namen = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((hit) => hit[1]!);
+const names = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((hit) => hit[1]!);
 
 describe("a row action the endpoint already refuses", () => {
   /* First: every case below reads a `<button>` out of the markup, and a component that rendered
      nothing would leave each of them comparing against an empty string. */
   it("renders a control in both states", () => {
-    for (const row of AKTIONEN) {
+    for (const row of ACTIONS) {
       assert.match(button(refused(row)), /^<button /, `${row.name} renders no control while refused`);
-      assert.match(button(angeboten(row)), /^<button /, `${row.name} renders no control while offered`);
+      assert.match(button(offered(row)), /^<button /, `${row.name} renders no control while offered`);
     }
   });
 
   /* The reason IS the gate rather than a boolean beside it, so no row can offer a press the write
      path already refuses — and none can close a press nothing refuses. */
   it("closes the control exactly while a reason stands", () => {
-    for (const row of AKTIONEN) {
+    for (const row of ACTIONS) {
       assert.match(button(refused(row)), /\sdisabled=""/, `${row.name} stays pressable while its reason stands`);
-      assert.doesNotMatch(button(angeboten(row)), /\sdisabled=""/, `${row.name} is closed on a row that passes no reason`);
+      assert.doesNotMatch(button(offered(row)), /\sdisabled=""/, `${row.name} is closed on a row that passes no reason`);
     }
   });
 
   /* The refusal belongs to the overlay, the one stop over a closed control: it is named as the
      control, so speech input still finds the row's action, and describes the reason. */
   it("says the reason where a pointer and a keyboard can still reach it", () => {
-    for (const row of AKTIONEN) {
+    for (const row of ACTIONS) {
       assert.deepEqual(
         refusalWrappers(refused(row)),
         [{ name: row.ariaLabel, label: row.ariaLabel, reason: REASON }],
         `${row.name}'s wrapper is not named by its control, or does not describe its refusal`,
       );
-      assert.deepEqual(namen(angeboten(row)), [row.ariaLabel], `${row.name} announces a refusal on a row that has none`);
-      assert.ok(!angeboten(row).includes("aria-describedby"), `${row.name} describes a refusal on a row that has none`);
+      assert.deepEqual(names(offered(row)), [row.ariaLabel], `${row.name} announces a refusal on a row that has none`);
+      assert.ok(!offered(row).includes("aria-describedby"), `${row.name} describes a refusal on a row that has none`);
     }
   });
 
   /* The delete is the destructive one and wears the tint that says so; the restore reverses a press
      rather than making one, and a row offering both must not stain them alike. */
   it("tints the destructive action apart from the one that undoes it", () => {
-    for (const row of AKTIONEN) {
-      const getragen = button(angeboten(row));
+    for (const row of ACTIONS) {
+      const worn = button(offered(row));
       // Anchored on both sides, so `bg-hover` is not read out of `bg-hover-danger`.
-      const traegt = (fill: string): boolean => new RegExp(`\\b${fill}(?![\\w-])`).test(getragen);
+      const carries = (fill: string): boolean => new RegExp(`\\b${fill}(?![\\w-])`).test(worn);
 
       assert.deepEqual(
-        AKTIONEN.filter((andere) => traegt(andere.hover)).map((andere) => andere.name),
+        ACTIONS.filter((andere) => carries(andere.hover)).map((andere) => andere.name),
         [row.name],
         `${row.name} wears a hover fill that is not its own`,
       );
@@ -107,11 +107,11 @@ describe("a row action the endpoint already refuses", () => {
 
     // `Dropdown.Item` is outside this: a menu's rows are full-width and dressed at their own line.
     assert.equal(controls.length, 5, `expected the five icon controls, found ${String(controls.length)}`);
-    for (const kontrolle of controls) {
+    for (const control of controls) {
       assert.match(
-        kontrolle,
+        control,
         /className=\{(?:ACTION_BUTTON_CLASS|ACTION_LINK_CLASS|DANGER_CLASS)\}/,
-        `an icon control is dressed by hand: ${kontrolle}`,
+        `an icon control is dressed by hand: ${control}`,
       );
     }
   });
@@ -119,12 +119,12 @@ describe("a row action the endpoint already refuses", () => {
   /* Read as text, optionality being erased before anything renders: most call sites pass no reason,
      and a required prop would put a compile error on every list whose action is never refused. */
   it("leaves the reason optional on both", () => {
-    assert.equal(SOURCE.match(/disabledReason\?: string \| null;/g)?.length, AKTIONEN.length, "a row action's reason became required");
+    assert.equal(SOURCE.match(/disabledReason\?: string \| null;/g)?.length, ACTIONS.length, "a row action's reason became required");
   });
 });
 
 describe("a restore whose write is already running", () => {
-  const RESTORE = AKTIONEN[0]!;
+  const RESTORE = ACTIONS[0]!;
   const props = { label: RESTORE.label, ariaLabel: RESTORE.ariaLabel, onPress: () => undefined };
   const running = renderMarkup(RowActionRestore, { ...props, isPending: true });
   const open = renderMarkup(RowActionRestore, props);

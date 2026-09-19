@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpielerView";
 import { getSpieler } from "@/features/spieler/queries";
@@ -31,7 +33,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: `Kader ${teamData.name}`,
     description: `Der Kader von ${teamData.name} in der Frankfurt League: alle Spielerinnen und Spieler der gewählten Saison.`,
-    ...seasonScopedMetadata(`/dashboard/spieler/${team_id}`, saisonId),
+    ...seasonScopedMetadata(`/dashboard/spieler/${team_id}`, saisonId, await runningSaisonId()),
   };
 }
 

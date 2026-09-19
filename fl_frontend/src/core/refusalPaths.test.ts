@@ -51,8 +51,15 @@ for (const [file, text] of sources) {
   }
 }
 
+/**
+ * Every component naming the action, whether it calls it or hands it on: a reactivation is passed to
+ * `useReactivation` rather than called at the site, and a reader watching for a call reports that
+ * nothing submits the payload.
+ */
 const callersOf = (actions: readonly string[]): string[] =>
-  components.filter((file) => actions.some((action) => (sources.get(file) ?? "").includes(`${action}(`)));
+  components.filter((file) =>
+    actions.some((action) => new RegExp(String.raw`(?<![\w$])` + action + String.raw`(?![\w$])`).test(sources.get(file) ?? "")),
+  );
 
 function resolveSpecifier(specifier: string, from: string): string | null {
   let base: string;

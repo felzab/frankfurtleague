@@ -63,10 +63,12 @@ export const TAB_ITEM =
 export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 
 /**
- * `rounded-lg` matches `TAB_ITEM`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`, so
- * without it the hover background and the selected background wore different corners on the same tab.
+ * `rounded-lg` matches `TAB_ITEM`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`.
+ *
+ * **The ring says which tab is selected**: the fill does not flip and its track does, measuring
+ * 1.24:1 in the dark theme (`scripts/checks/docs_gate/scheme.py :: PAIRS`).
  */
-export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
+export const TAB_INDICATOR = "bg-brand-solid ring-brand rounded-lg shadow-sm ring-1";
 
 /** The one field-error appearance, so every form reports at the field rather than only through a toast. */
 export const FIELD_ERROR = "fluid-xxs text-danger-strong font-bold";

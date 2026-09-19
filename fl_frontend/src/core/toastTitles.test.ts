@@ -119,6 +119,36 @@ function propValues(file: string, name: string): string[] | null {
   return [...new Set(values)];
 }
 
+/**
+ * A field of an exported function's destructured options object: every literal a call site hands it,
+ * or `null` where one hands an expression — a title this cannot read, which fails rather than being
+ * dropped (`docs/frontend/spec.md :: I42`).
+ */
+function optionValues(file: string, name: string): string[] | null {
+  const text = sources.get(file) ?? "";
+  const exported = /export function (\w+)\s*(?:<[^>]*>)?\s*\(/.exec(text)?.[1];
+  if (exported === undefined || !new RegExp(String.raw`\n\s{2}` + name + ",").test(text)) return [];
+
+  const values: string[] = [];
+  const literal = new RegExp(name + String.raw`:\s*"([^"]*)"`, "g");
+  const asExpression = new RegExp(name + String.raw`:\s*[^"\s]`);
+
+  for (const [other, source] of production) {
+    if (other === file || !new RegExp(String.raw`\b` + exported + String.raw`\(`).test(source)) continue;
+    if (asExpression.test(source)) return null;
+    for (const match of source.matchAll(literal)) if (match[1] !== undefined) values.push(match[1]);
+  }
+
+  return [...new Set(values)];
+}
+
+/** A local `const` bound in the same file, whose own expression is resolved in its place. */
+function localBinding(file: string, name: string): string | null {
+  const bound = new RegExp(String.raw`\n\s*const ` + name + String.raw` = ([^;\n]+);`).exec(sources.get(file) ?? "");
+
+  return bound?.[1] ?? null;
+}
+
 /** A local helper's parameter: every literal its own file passes at that position. */
 function parameterValues(file: string, name: string): string[] {
   const text = sources.get(file) ?? "";
@@ -198,12 +228,34 @@ function resolveTitles(expression: string, file: string): string[] | null {
   const fallback = /^.+? (?:\?\?|\|\|) (.+)$/.exec(trimmed);
   if (fallback?.[1] !== undefined) return resolveTitles(fallback[1], file);
 
+  /* A template with a hole in it: every hole resolved on its own, and the pieces joined. A title
+     composed once for several nouns is one sentence in the product and several rows in the register. */
+  const holes = /^`(.*)`$/s.exec(trimmed);
+  if (holes?.[1] !== undefined && holes[1].includes("${")) {
+    let composed = [""];
+
+    for (const piece of holes[1].split(/(\$\{[^}]*\})/)) {
+      const hole = /^\$\{(.+)\}$/.exec(piece);
+      const parts = hole?.[1] === undefined ? [piece] : resolveTitles(hole[1], file);
+      if (parts === null) return null;
+      composed = composed.flatMap((so_far) => parts.map((part) => so_far + part));
+    }
+
+    return [...new Set(composed)];
+  }
+
   if (IDENTIFIER.test(trimmed)) {
     const props = propValues(file, trimmed);
     if (props === null) return null;
 
-    const found = [...constantValues(trimmed), ...props, ...parameterValues(file, trimmed)];
+    const options = optionValues(file, trimmed);
+    if (options === null) return null;
+
+    const found = [...constantValues(trimmed), ...props, ...options, ...parameterValues(file, trimmed)];
     if (found.length > 0) return [...new Set(found)];
+
+    const bound = localBinding(file, trimmed);
+    if (bound !== null) return resolveTitles(bound, file);
   }
   return null;
 }
@@ -314,17 +366,18 @@ interface RegisteredTitle {
 }
 
 const TOAST_TITLES: Record<string, RegisteredTitle> = {
+  Abgemeldet: { variant: "success", identifies: "one site" },
   "Adresse kopiert": { variant: "success", identifies: "one site" },
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
   "Adresse nicht kopiert": { variant: "danger", identifies: "one site" },
   "Adresse nicht korrigiert": { variant: "danger", identifies: "one site" },
   "Anmeldelink nicht gesendet": { variant: "danger", identifies: "one site" },
+  "Antwort nicht gespeichert": { variant: "danger", identifies: "its description" },
   "Bewerbung abgelehnt": { variant: "success", identifies: "one site" },
   "Bewerbung angenommen": { variant: "success", identifies: "one site" },
   "Bewerbung nicht abgelehnt": { variant: "danger", identifies: "one site" },
   "Bewerbung nicht abgeschickt": { variant: "danger", identifies: "its description" },
   "Bewerbung nicht angenommen": { variant: "danger", identifies: "one site" },
-  "Erfolgreich abgemeldet": { variant: "success", identifies: "one site" },
   "Erst speichern": { variant: "warning", identifies: "one site" },
   "Gruppen getauscht": { variant: "success", identifies: "its description" },
   "Gruppen nicht getauscht": { variant: "danger", identifies: "its description" },
@@ -354,9 +407,9 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Saison nicht umgestellt": { variant: "danger", identifies: "one site" },
   "Saison umgestellt": { variant: "success", identifies: "one site" },
   "Schiedsrichter angelegt": { variant: "success", identifies: "one site" },
-  "Schiedsrichter nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Schiedsrichter nicht reaktiviert": { variant: "danger", identifies: "one site" },
   "Schiedsrichter nicht stillgelegt": { variant: "danger", identifies: "one site" },
-  "Schiedsrichter reaktiviert": { variant: "success", identifies: "the press" },
+  "Schiedsrichter reaktiviert": { variant: "success", identifies: "one site" },
   "Schiedsrichter stillgelegt": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten gelöscht": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
@@ -365,14 +418,14 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Spieler gelöscht": { variant: "success", identifies: "one site" },
   "Spieler nicht aufgenommen": { variant: "danger", identifies: "one site" },
   "Spieler nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Spieler nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Spieler nicht reaktiviert": { variant: "danger", identifies: "one site" },
   "Spieler nicht stillgelegt": { variant: "danger", identifies: "one site" },
-  "Spieler reaktiviert": { variant: "success", identifies: "the press" },
+  "Spieler reaktiviert": { variant: "success", identifies: "one site" },
   "Spieler stillgelegt": { variant: "success", identifies: "one site" },
   "Spielort angelegt": { variant: "success", identifies: "one site" },
-  "Spielort nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Spielort nicht reaktiviert": { variant: "danger", identifies: "one site" },
   "Spielort nicht stillgelegt": { variant: "danger", identifies: "one site" },
-  "Spielort reaktiviert": { variant: "success", identifies: "the press" },
+  "Spielort reaktiviert": { variant: "success", identifies: "one site" },
   "Spielort stillgelegt": { variant: "success", identifies: "one site" },
   "Spielplan angelegt": { variant: "success", identifies: "one site" },
   "Spielplan neu angelegt": { variant: "success", identifies: "one site" },
@@ -385,9 +438,9 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Team ersetzt": { variant: "success", identifies: "one site" },
   "Team nicht aufgenommen": { variant: "danger", identifies: "one site" },
   "Team nicht ersetzt": { variant: "danger", identifies: "one site" },
-  "Team nicht reaktiviert": { variant: "danger", identifies: "its description" },
+  "Team nicht reaktiviert": { variant: "danger", identifies: "one site" },
   "Team nicht stillgelegt": { variant: "danger", identifies: "one site" },
-  "Team reaktiviert": { variant: "success", identifies: "the press" },
+  "Team reaktiviert": { variant: "success", identifies: "one site" },
   "Team stillgelegt": { variant: "success", identifies: "one site" },
   "Unklar, ob es bei uns angekommen ist": { variant: "danger", identifies: "its description" },
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },

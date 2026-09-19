@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import { SpielplanView } from "@/features/spieltage/components/views/SpielplanView";
@@ -16,7 +18,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Spielplan",
     description: "Alle Spiele der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.",
-    ...seasonScopedMetadata("/dashboard/spielplan", await resolveSaisonId(props.searchParams)),
+    ...seasonScopedMetadata("/dashboard/spielplan", await resolveSaisonId(props.searchParams), await runningSaisonId()),
   };
 }
 

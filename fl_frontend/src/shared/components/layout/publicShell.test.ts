@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* Neither context has a public export, and the boundaries read both. A Next release that moves
-   either module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
@@ -17,33 +14,17 @@ const { default: NotfoundPage } = await import("@/app/not-found.tsx");
 const { default: PublicNotFound } = await import("@/app/(public)/not-found.tsx");
 const { default: PublicErrorBoundary } = await import("@/app/(public)/error.tsx");
 
-const router = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const SHELL = renderTree(h(PublicShell, { serverStatusSlot: null, children: null }));
 const PUBLIC_PAGE = renderTree(h(PublicLayout, { children: null }));
-const UNMATCHED_URL = renderTree(h(AppRouterContext.Provider, { value: router }, h(NotfoundPage, {})));
+const UNMATCHED_URL = renderTree(underNext(h(NotfoundPage, {})));
 
 /* Each of the group's boundaries as the layout's child, which is where Next mounts one when a public
    route throws. */
-const MATCHED_NOT_FOUND = renderTree(h(AppRouterContext.Provider, { value: router }, h(PublicLayout, { children: h(PublicNotFound, {}) })));
+const MATCHED_NOT_FOUND = renderTree(underNext(h(PublicLayout, { children: h(PublicNotFound, {}) })));
 const MATCHED_CRASH = renderTree(
-  h(
-    AppRouterContext.Provider,
-    { value: router },
-    h(
-      PathnameContext.Provider,
-      { value: "/bewerbung/abc" },
-      h(PublicLayout, { children: h(PublicErrorBoundary, { error: new globalThis.Error("kaputt"), reset: () => undefined }) }),
-    ),
-  ),
+  underNext(h(PublicLayout, { children: h(PublicErrorBoundary, { error: new globalThis.Error("kaputt"), reset: () => undefined }) }), {
+    pathname: "/bewerbung/abc",
+  }),
 );
 
 /** One element of the shell's own markup, by the tag it opens — the first, where a tag repeats. */

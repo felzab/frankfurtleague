@@ -3,11 +3,17 @@ import { withSaisonId } from "./saisonHref";
 import type { Metadata } from "next";
 
 /**
- * `saisonId` is `resolveSaisonId`'s answer and never the raw parameter, which would carry a season nobody
- * serves into the canonical (`docs/frontend/spec.md` §1.13).
+ * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter (`docs/frontend/spec.md` §1.13).
+ *
+ * **A URL naming the RUNNING season canonicalises to the bare address**, which serves that same
+ * page: two self-canonicalising addresses split one page's indexing.
  */
-export function seasonScopedMetadata(path: string, saisonId: string | undefined): Pick<Metadata, "alternates" | "openGraph"> {
-  const url = withSaisonId(path, saisonId);
+export function seasonScopedMetadata(
+  path: string,
+  saisonId: string | undefined,
+  runningSaisonId: string | undefined,
+): Pick<Metadata, "alternates" | "openGraph"> {
+  const url = withSaisonId(path, saisonId === runningSaisonId ? undefined : saisonId);
 
   return { openGraph: openGraphFor(url), alternates: { canonical: url } };
 }

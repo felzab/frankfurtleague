@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 import z from "zod";
 
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
@@ -18,7 +19,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Finalrunden",
     description: "Die KO-Runde der Frankfurt League. Finde heraus, wer um die Meisterschaft spielt.",
-    ...seasonScopedMetadata("/dashboard/playoffs", await resolveSaisonId(props.searchParams)),
+    ...seasonScopedMetadata("/dashboard/playoffs", await resolveSaisonId(props.searchParams), await runningSaisonId()),
   };
 }
 

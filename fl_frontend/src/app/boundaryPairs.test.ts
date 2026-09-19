@@ -4,12 +4,9 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
-/* No public export carries any of the three, and each boundary reads one. A Next release that moves
-   a module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { filesUnder } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
@@ -54,17 +51,6 @@ function nearest(dir: string, name: string): string | null {
 /** The two answers one area gives: the crash it renders, and the address it cannot resolve. */
 const PAIRS = AREAS.map((dir) => ({ dir, crash: nearest(dir, "error.tsx"), missing: nearest(dir, "not-found.tsx") }));
 
-/** What `Link` reads off `useRouter`. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const SAISON = "2526";
 
 /** A digest, so the boundary renders the line it carries one on and reports nothing a second time. */
@@ -78,21 +64,8 @@ async function markupOf(file: string): Promise<string> {
   const { default: Render } = (await import(pathToFileURL(file).href)) as { default: Boundary };
 
   return renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        PathnameContext.Provider,
-        { value: "/nirgendwo" },
-        h(
-          SearchParamsContext.Provider,
-          { value: new URLSearchParams(`saison_id=${SAISON}`) },
-          /* A not-found boundary takes the crash props and ignores them, so one reader reaches
-             both kinds. */
-          h(Render, { error: CRASH, reset: () => undefined }),
-        ),
-      ),
-    ),
+    /* A not-found boundary takes the crash props and ignores them, so one reader reaches both kinds. */
+    underNext(h(Render, { error: CRASH, reset: () => undefined }), { search: `saison_id=${SAISON}`, pathname: "/nirgendwo" }),
   );
 }
 

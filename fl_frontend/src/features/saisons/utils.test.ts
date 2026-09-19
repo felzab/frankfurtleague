@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
@@ -98,7 +98,7 @@ describe("buildSpielplanBestand", () => {
    * `fl_frontend/src/shared/testing/fixtures.ts` types that field as a plain string, a module under
    * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
    */
-  const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...seite(teamId), tore, austritt_type: null });
+  const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...sharedSide(teamId), tore, austritt_type: null });
 
   const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 
@@ -113,14 +113,17 @@ describe("buildSpielplanBestand", () => {
   );
 
   /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
-  const KOSPIEL: FLSpiel = {
-    ...GRUPPENSPIEL,
-    saison_phase: "halbfinale",
-    team1: null,
-    team2: null,
-    team1_quelle: QUELLE,
-    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
-  };
+  const KOSPIEL: FLSpiel = FLSpielSchema.parse(
+    spielFields({
+      id: "0".repeat(24),
+      spieltag_id: "1".repeat(24),
+      saison_phase: "halbfinale",
+      team1: null,
+      team2: null,
+      team1_quelle: QUELLE,
+      team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+    }),
+  );
 
   const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...GRUPPENSPIEL, ...fields });
   const koSpiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...KOSPIEL, ...fields });

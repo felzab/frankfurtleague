@@ -212,12 +212,12 @@ describe("every admin navigation carries the season", () => {
       for (const match of stripCommentLines(readFileSync(full, "utf8")).matchAll(
         /\b(?:router\.(?:push|replace)|redirect)\(\s*["`]([^"`]*)["`]/g,
       )) {
-        const ziel = match[1] ?? "";
+        const target = match[1] ?? "";
         /* `${pathname}?…` is the page rewriting its OWN query — absolute, because `pathname` is, and
            season-scoped already for the same reason. Any OTHER interpolation is a target this sweep
            cannot resolve, so it is reported rather than assumed. */
-        const absolut = ziel.startsWith("/") || ziel.startsWith("${pathname}") || /^[a-z]+:/.test(ziel);
-        if (!absolut) relative.push(`${file} :: ${ziel}`);
+        const isAbsolute = target.startsWith("/") || target.startsWith("${pathname}") || /^[a-z]+:/.test(target);
+        if (!isAbsolute) relative.push(`${file} :: ${target}`);
       }
     }
 

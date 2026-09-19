@@ -6,15 +6,20 @@ import { describe, it } from "node:test";
 import { blankComments } from "@/core/blankComments.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-import { doubleToasts } from "./actionDoubles.ts";
+import { doubleActions, doubleToasts } from "./actionDoubles.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 
 const { raised } = doubleToasts();
 
-/* `await import`, never a static import beside the double: the hook is registered as the call above
-   evaluates, and a static import would have resolved the real module before then. */
+/* One slice's real module, replaced whole: what the double has to derive is that module's own export
+   list, so a stub written here would prove nothing about the derivation. */
+const { calls, answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
+
+/* `await import`, never a static import beside the doubles: each hook is registered as its call
+   above evaluates, and a static import would have resolved the real module before then. */
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
+const spieltage = await import("@/features/spieltage/actions.ts");
 
 /**
  * Every member the tree actually calls, read off the call sites rather than off the module the
@@ -26,6 +31,36 @@ const CALLED = new Set(
     [...blankComments(readFileSync(file, "utf8")).matchAll(/\bappToast\.(\w+)\(/g)].map(([, member]) => member ?? ""),
   ),
 );
+
+describe("the actions double", () => {
+  /* The names come off the real module's source: a double listing them by hand answers `undefined`
+     for an action a slice added, and the component reaches that rather than the stub. */
+  it("carries every action the module exports, and records the payload each one was handed", async () => {
+    calls.length = 0;
+    const exported = Object.keys(spieltage).filter((name) => typeof Reflect.get(spieltage, name) === "function");
+
+    assert.ok(exported.includes("patchSpieltagAction"), `the double exports ${exported.join(", ")}`);
+    const payload = { id: "s1", beginn: "2026-03-12", ende: "2026-03-12" };
+    await spieltage.patchSpieltagAction(payload);
+
+    assert.deepEqual(calls, [{ action: "patchSpieltagAction", payload }]);
+  });
+
+  it("answers as landed until a case says otherwise, and then as that case says", async () => {
+    assert.deepEqual(await spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" }), {
+      success: true,
+      message: "Gespeichert.",
+    });
+
+    answerWith(() => Promise.resolve({ success: false, error: "Der Spieltag ist gesperrt." }));
+
+    assert.deepEqual(await spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" }), {
+      success: false,
+      error: "Der Spieltag ist gesperrt.",
+    });
+    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+  });
+});
 
 describe("the toast double", () => {
   it("carries every member the tree raises through it", () => {

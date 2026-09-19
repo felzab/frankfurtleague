@@ -19,11 +19,10 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSaisonRow } from "../../types";
 
 /**
- * The season id wears the same chip fill a team's Kürzel does
- * (`fl_frontend/src/shared/components/ui/brandTile.ts :: SHORTHAND_CHIP`): both are the short
- * identifier a reader scans a column for.
+ * The Kürzel chip at a season id's width: four digits where a Kürzel is two letters, both being the
+ * short identifier a reader scans a column for. `h-7` fixes the box, so the chip's own `py-1` adds
+ * nothing to it.
  */
-/** The Kürzel chip at a season id's width: four digits where a Kürzel is two letters. */
 const ID_CHIP = `${SHORTHAND_CHIP} font-numeric h-7 w-14 tabular-nums shadow-sm`;
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -119,7 +118,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             <div className="flex w-full flex-row items-center gap-3">
               {/* `shrink-0` here alone: this row is a flex row and the status badge beside the id
                   would otherwise squeeze it. */}
-              <span className={`${ID_CHIP} shrink-0`}>{saison.id}</span>
+              <span className={ID_CHIP}>{saison.id}</span>
               {renderStatusBadge(saison)}
             </div>
             {renderZeitraum(saison)}

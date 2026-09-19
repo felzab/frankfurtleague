@@ -19,7 +19,7 @@ const SIEGER = "6780e194677bfbfb5ea8396c";
 const VERLIERER = "6780e19192c4cd94b2504985";
 const TODAY = "2026-09-14";
 
-const seite = (teamId: string, name: string, tore: number): FLSpiel["team1"] => ({
+const side = (teamId: string, name: string, tore: number): FLSpiel["team1"] => ({
   team_id: teamId,
   tore,
   name,
@@ -31,8 +31,8 @@ const seite = (teamId: string, name: string, tore: number): FLSpiel["team1"] => 
 const HALBFINALE: FLSpiel = {
   id: "6890a1b2c3d4e5f607190201",
   spieltag_id: "6890a1b2c3d4e5f607190202",
-  team1: seite(SIEGER, "Mainufer Beispiel", 1),
-  team2: seite(VERLIERER, "Musterschule Süd", 1),
+  team1: side(SIEGER, "Mainufer Beispiel", 1),
+  team2: side(VERLIERER, "Musterschule Süd", 1),
   team1_quelle: null,
   team2_quelle: null,
   datum: "2025-09-13",

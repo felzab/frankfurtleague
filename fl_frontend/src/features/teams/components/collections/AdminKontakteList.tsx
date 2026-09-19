@@ -104,7 +104,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
 
   const renderIdentity = (row: AdminKontakteRow) => (
     <div className={IDENTITY_ROW}>
-      <span className={SHORTHAND_CHIP}>{row.teamShorthand}</span>
+      <span className={`${SHORTHAND_CHIP} w-10`}>{row.teamShorthand}</span>
       {/* No `IDENTITY_STACK` around it: one child stacks against nothing, and the head carries the
           `min-w-0` the club name needs beside the chip. */}
       <div className={IDENTITY_HEAD}>

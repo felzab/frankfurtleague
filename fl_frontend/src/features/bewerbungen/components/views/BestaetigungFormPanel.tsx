@@ -262,6 +262,9 @@ export function BestaetigungFormPanel({
   // page refusing at numbers the endpoint does not, on the day the two disagree.
   const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { einwilligung: FLBewerbungEinwilligungAntwortPayloadSchema },
+    // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
+    // change nobody here made, and two titles for one failure read as two failures.
+    failureTitle: "Antwort nicht gespeichert",
   });
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });

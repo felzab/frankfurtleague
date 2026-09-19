@@ -9,9 +9,8 @@ import type { ReactNode } from "react";
 
 /**
  * The primary control of a two-press confirm: the refusal over it, the armed fill, the dropped glyph
- * and the three labels.
- *
- * Every clause below is `docs/frontend/spec.md` §1.14's, and twelve copies of it drift one at a time.
+ * and the three labels — every clause `docs/frontend/spec.md` §1.14's, and a panel spelling them out
+ * drifts from that one clause at a time.
  */
 export function ConfirmPressButton({
   isConfirming,
@@ -24,10 +23,16 @@ export function ConfirmPressButton({
   onPress,
   type = "button",
   describedBy,
+  held = false,
 }: {
   isConfirming: boolean;
   /** The panel's own write in flight, which HOLDS the control rather than closing it (§1.14). */
   isPending: boolean;
+  /**
+   * Held for something that is NOT the write — an arming read the press waits on. Pending-marked as a
+   * write is, and the label untouched: `running` names a write nobody has started.
+   */
+  held?: boolean;
   /** What closes the press, or `null` where nothing does. A running write lifts it: it ends by itself. */
   reason: string | null;
   resting: string;
@@ -43,17 +48,18 @@ export function ConfirmPressButton({
   describedBy?: string;
 }) {
   const label = isConfirming ? armed : resting;
+  const waiting = isPending || held;
 
   return (
     <Hint
       mode="refusal"
-      reason={isPending ? null : reason}
+      reason={waiting ? null : reason}
       label={label}>
       <Button
         type={type}
         variant="primary"
-        isPending={isPending}
-        isDisabled={!isPending && reason !== null}
+        isPending={waiting}
+        isDisabled={!waiting && reason !== null}
         onPress={onPress}
         aria-describedby={isConfirming ? undefined : describedBy}
         className={confirmButton(isConfirming)}>

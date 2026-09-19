@@ -1268,11 +1268,11 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
      nowhere unless something announces it, and announced twice it reads as two failures; one naming a
      rendered field speaks there. */
   it("raises one danger toast whenever the refusal named no rendered path", async () => {
-    /* Two titles, each its own site's: a refusal naming paths no control renders is announced by
-       `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`, which every editor on the site shares,
-       while one naming no field at all is the panel's own to word. */
+    /* ONE title, whichever site announces it: the shared reader takes this page's own word for a
+       failed save (`fl_frontend/src/shared/hooks/useServerFieldErrors.ts`), so a reader meeting the
+       two refusals below meets one name for what went wrong rather than two. */
     const cases: [string, Record<string, string> | undefined, string[]][] = [
-      ["a refusal on the token alone", { token: "Dieser Link ist nicht mehr gültig." }, ["Änderung nicht gespeichert"]],
+      ["a refusal on the token alone", { token: "Dieser Link ist nicht mehr gültig." }, ["Antwort nicht gespeichert"]],
       ["a refusal naming no field at all", undefined, ["Antwort nicht gespeichert"]],
       ["a refusal on the birth date", { geburtsdatum: "Bitte gib ein gültiges Datum ein." }, []],
     ];

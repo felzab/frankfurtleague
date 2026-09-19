@@ -5,14 +5,13 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets";
@@ -238,16 +237,6 @@ const FACETS: readonly Facet<Row>[] = [
   { param: "besetzung", label: "Besetzung", options: [{ value: "leer", label: "Keine" }], read: () => ["leer"] },
 ];
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 /** The slot each shape really fills: `"table"` alone is the react-aria collection that grows a `tbody`. */
 const slotFor = (shape: AdminCrudShape, rows: Row[]) =>
   shape === "table"
@@ -277,21 +266,12 @@ const regionOf = ({ shape, hasFacets, commits = true }: Mounted): ReactNode =>
     renderTable: ({ filteredItems }) => (commits ? slotFor(shape, filteredItems) : null),
   });
 
-const underNext = (tree: ReactNode): ReactNode =>
-  h(
-    AppRouterContext.Provider,
-    { value: ROUTER },
-    h(
-      PathnameContext.Provider,
-      { value: "/admin/spieler" },
-      h(SearchParamsContext.Provider, { value: new URLSearchParams(""), children: tree }),
-    ),
-  );
+const underRoute = (tree: ReactNode): ReactNode => underNext(tree, { pathname: "/admin/spieler" });
 
-const render = (mounted: Mounted): string => renderTree(underNext(regionOf(mounted)));
+const render = (mounted: Mounted): string => renderTree(underRoute(regionOf(mounted)));
 
 /** The region where a route puts it: inside the shell, which is what writes the variable it reads. */
-const renderUnderShell = (mounted: Mounted): string => renderTree(underNext(h(AdminCrudShell, { search: null, children: regionOf(mounted) })));
+const renderUnderShell = (mounted: Mounted): string => renderTree(underRoute(h(AdminCrudShell, { search: null, children: regionOf(mounted) })));
 
 /** The region is the outermost element of the render, and the only element carrying the box. */
 function regionClasses(html: string): string[] {

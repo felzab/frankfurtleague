@@ -40,8 +40,8 @@ export const PILL_TINT: Record<PillTone, string> = {
   // `text-brand` and never the solid fill as ink: that fill does not flip per theme, so on this tint
   // it measures 1.18:1 in the dark one.
   brand: "bg-brand/15 text-brand",
-  // A badge of office rather than a grade. `fl_frontend/src/features/spieler/shorthandChip.ts` draws
-  // the phone layout's twin of the one chip wearing it, so the two boxes have to match.
+  // A badge of office rather than a grade. `fl_frontend/src/shared/components/ui/brandTile.ts ::
+  // SHORTHAND_CHIP` draws the phone layout's twin of the one chip wearing it, so the two boxes match.
   brandSolid: "bg-brand-solid text-brand-solid-foreground",
   // One alpha for every pill: a `/10` tint beside a `/15` one reads as a paler grade of the same
   // chip. The light teal and blue inks sit low enough to clear 4.5:1 here.

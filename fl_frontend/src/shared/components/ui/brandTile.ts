@@ -13,8 +13,8 @@ export const BRAND_ICON_BUTTON =
   "bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base)";
 
 /**
- * One declaration: a club's Kürzel wears the same box on every admin list and in the squad form's team picker.
- * `bg-brand-solid` is a declared fill, never an alpha on `brand` (`fl_frontend/src/shared/components/ui/badges.ts :: COUNT_BADGE`).
+ * A short identifier's chip, everything but its WIDTH: a caller declares that, two widths on one
+ * element being resolved by the stylesheet's emit order with no `twMerge` in the path.
  */
 export const SHORTHAND_CHIP =
-  "bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
+  "bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";

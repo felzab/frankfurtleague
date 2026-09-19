@@ -135,15 +135,15 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
         onCancel={cancel}>
         <ConfirmPressButton
           isConfirming={isConfirming}
-          // The read counts as pending: the arming press left the keyboard's focus here, and a closed
-          // button drops it to the page.
-          isPending={isPending || isReading}
+          isPending={isPending}
+          // The arming read holds the press without being the write: the press left the keyboard's
+          // focus here, and the control says „Löscht...“ for the deletion alone.
+          held={isReading}
           reason={closedReason}
           resting="Kontaktperson löschen"
           armed={ARMED_LABEL}
-          // The progress word belongs to the WRITE alone: the arming read holds the control too, and
-          // „Löscht...“ over it would report a deletion nobody has started.
-          running={isPending ? "Löscht..." : ARMED_LABEL}
+          running="Löscht..."
+
           icon={
             <TrashBin
               className="size-4.5"

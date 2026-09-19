@@ -96,7 +96,7 @@ export function TeamSelect({
               <span className="flex shrink-0 flex-row items-center gap-x-2">
                 {team.isSquadFull === true && <span className={item.note()}>Kader voll</span>}
                 {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
-                <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
+                <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
               </span>
             </ListBox.Item>
           ))}

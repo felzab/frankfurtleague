@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
-import { seite, spielFields } from "@/shared/testing/fixtures.ts";
+import { side, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
@@ -156,7 +156,7 @@ const OPPONENT = TEAM_ID(2);
 
 /** Parsed at construction, for `GRUPPEN_TEAM`'s reason: a drifted field fails where it is built. */
 const SPIEL: FLSpiel = FLSpielSchema.parse(
-  spielFields({ id: "6890a1b2c3d4e5f607190101", team1: seite(SUBJECT), team2: seite(OPPONENT), spiel_nr: 1, saison_id: "2026" }),
+  spielFields({ id: "6890a1b2c3d4e5f607190101", team1: side(SUBJECT), team2: side(OPPONENT), spiel_nr: 1, saison_id: "2026" }),
 );
 
 const fixture = ({
@@ -181,8 +181,8 @@ const fixture = ({
   ergebnis,
   // `austritt_type` respelled: the shared fixture types it structurally, `shared` being unable to
   // import the slice's own schema (`docs/frontend/spec.md :: I9`), and this shape wants the literal.
-  team1: { ...seite(heim), austritt_type: null },
-  team2: { ...seite(gast), austritt_type: null },
+  team1: { ...side(heim), austritt_type: null },
+  team2: { ...side(gast), austritt_type: null },
   team1_quelle: heimQuelle,
   team2_quelle: gastQuelle,
   elfmeterschiessen,

@@ -98,11 +98,7 @@ const anEntry = (spiel_id: string) => ({
   elfmeterschiessen: null,
   sonderereignis: null,
   other_fields: null,
-  voided_schiedsrichter: null,
 });
-
-/** The erased referee's booking a save took off, as its report carries it back. */
-const A_VOIDED_BOOKING = { schiedsrichter_id: "6890a1b2c3d4e5f607a10009", payment: 20 };
 
 const RESTORED = { acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [] };
 
@@ -169,21 +165,6 @@ describe("the undo route, driven", () => {
     assert.deepEqual(
       sent.paarungen.map((entry) => entry.spiel_id),
       [SPIEL_ID, OTHER_SPIEL_ID],
-    );
-  });
-
-  // The request mirror strips an undeclared key, and the backend puts the booking back only where the
-  // entry names it, so a key dropped here leaves a played fixture without the referee who officiated it.
-  it("sends the erased referee's booking the save took off along with its fixture", async () => {
-    const replayed = { ...aReplayOf(SPIEL_ID), paarungen: [{ ...anEntry(SPIEL_ID), voided_schiedsrichter: A_VOIDED_BOOKING }] };
-
-    const answered = await post(replayed);
-
-    assert.equal(answered.success, true);
-    const sent = JSON.parse(calls[0]?.body ?? "null") as { paarungen: { voided_schiedsrichter: unknown }[] };
-    assert.deepEqual(
-      sent.paarungen.map((entry) => entry.voided_schiedsrichter),
-      [A_VOIDED_BOOKING],
     );
   });
 
@@ -281,7 +262,6 @@ describe("the undo route, driven", () => {
           voided_ergebnis: "2:0",
           voided_elfmeterschiessen: null,
           voided_sonderereignis: null,
-          voided_schiedsrichter: null,
         },
       ],
     });

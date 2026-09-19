@@ -8,14 +8,12 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
-/* No public export carries these contexts, and the bar reads the URL through all three. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import {
   applyFacets,
@@ -464,49 +462,40 @@ const TOLD = { stand: { aktiv: 4, stillgelegt: 9 } };
 
 const SERVED = ROWS.filter((row) => row.status === "aktiv");
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "facetCounts",
-};
-
 /** The whole region a narrowing view renders, under the contexts its bar reads the URL through. */
 function renderRegion(query: string): void {
   render(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        PathnameContext.Provider,
-        { value: "/admin/bewerbungen" },
-        h(SearchParamsContext.Provider, {
-          value: new URLSearchParams(query),
-          children: h(AdminCrudView<Row>, {
-            items: SERVED,
-            searchKeys: ["id"],
-            facets: TOLD_FACETS,
-            facetCounts: TOLD,
-            renderTable: () => null,
-          }),
-        }),
-      ),
+    underNext(
+      h(AdminCrudView<Row>, {
+        items: SERVED,
+        searchKeys: ["id"],
+        facets: TOLD_FACETS,
+        facetCounts: TOLD,
+        renderTable: () => null,
+      }),
+      { search: query, pathname: "/admin/bewerbungen" },
     ),
   );
 }
 
 /**
- * Asserts the open panel offers exactly these options, each found by role and name rather than by
- * the elements inside it: what the counts have to reach is the reader.
+ * Asserts the open panel offers exactly these options, IN ORDER, each found by role and name rather
+ * than by the elements inside it: what the counts have to reach is the reader.
  */
 function assertPanelOptions(expected: readonly (readonly [string, string])[]): void {
   const panel = within(screen.getByRole("dialog"));
+  const shown = panel.getAllByRole("option");
 
-  assert.equal(panel.getAllByRole("option").length, expected.length, "the panel offers a different number of options");
-  for (const [label, count] of expected) panel.getByRole("option", { name: new RegExp(`^${label}\s*${count}$`) });
+  assert.equal(shown.length, expected.length, "the panel offers a different number of options");
+
+  // `String.raw`, or the `\s` is a bare `s` and the pattern matches a label nothing renders.
+  const found = expected.map(([label, count]) => panel.getByRole("option", { name: new RegExp(String.raw`^${label}\s*${count}$`) }));
+
+  assert.deepEqual(
+    found.map((option) => shown.indexOf(option)),
+    expected.map((_, at) => at),
+    "the panel lists its options in another order",
+  );
 }
 
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;

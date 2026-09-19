@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — the bar's `useUrlFilters` reads the first and every hook the
-   region narrows by reads the second. A Next release that moves either module fails this file at import. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets.ts";
@@ -44,16 +41,6 @@ const GEFILTERT: Facet<Row> = {
   read: (row) => [row.art],
 };
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 /** The value the region hands its table, rendered as the slot's whole markup so nothing else can answer. */
 function emptinessOf({
   items,
@@ -67,20 +54,15 @@ function emptinessOf({
   readNarrowedByRoute?: boolean;
 }): CrudEmptiness {
   const html = renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams(query) },
-        h(AdminCrudView<Row>, {
-          items: items,
-          searchKeys: SEARCH_KEYS,
-          facets: facets,
-          readNarrowedByRoute: readNarrowedByRoute,
-          renderTable: ({ emptiness }) => h("output", null, emptiness),
-        }),
-      ),
+    underNext(
+      h(AdminCrudView<Row>, {
+        items: items,
+        searchKeys: SEARCH_KEYS,
+        facets: facets,
+        readNarrowedByRoute: readNarrowedByRoute,
+        renderTable: ({ emptiness }) => h("output", null, emptiness),
+      }),
+      { search: query },
     ),
   );
 

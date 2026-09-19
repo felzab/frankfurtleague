@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { seite, spielFields } from "./fixtures.ts";
+import { side, spielFields } from "./fixtures.ts";
 
 /* Reached with `await import` rather than a static import: a module under `shared` may not name a
    feature slice, which is the whole reason these fields are typed structurally. */
@@ -12,7 +12,7 @@ describe("the fixture every fixture-reading case starts from", () => {
      side would otherwise leave this shape spelling the old name and the parse filling neither. */
   it("spells exactly the fields the schema declares", () => {
     assert.deepEqual(Object.keys(spielFields()).sort(), Object.keys(FLSpielSchema.shape).sort());
-    assert.deepEqual(Object.keys(seite("x")).sort(), Object.keys(FLSpielTeamFieldJoinedSchema.shape).sort());
+    assert.deepEqual(Object.keys(side("x")).sort(), Object.keys(FLSpielTeamFieldJoinedSchema.shape).sort());
   });
 
   it("parses, and lands in no category of its own", () => {
@@ -26,7 +26,7 @@ describe("the fixture every fixture-reading case starts from", () => {
   });
 
   it("takes an override over each default, on the fixture and on a side alike", () => {
-    const spiel = FLSpielSchema.parse(spielFields({ ergebnis: "3:1", team2: seite("6890a1b2c3d4e5f607182999", { tore: 1, shorthand: "XX" }) }));
+    const spiel = FLSpielSchema.parse(spielFields({ ergebnis: "3:1", team2: side("6890a1b2c3d4e5f607182999", { tore: 1, shorthand: "XX" }) }));
 
     assert.equal(spiel.ergebnis, "3:1");
     assert.equal(spiel.team2?.tore, 1);

@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* Neither context has a public export, and each panel reads one. A Next release that moves either
-   module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
@@ -19,16 +16,6 @@ const { StatusPanel } = await import("./StatusPanel.tsx");
 const { PublicShell } = await import("../layout/shell/PublicShell.tsx");
 const { default: PublicErrorBoundary } = await import("../../../app/(public)/error.tsx");
 
-const router = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 /** The opening element's classes. On both panels that element is the box the panel is sized to. */
 const rootClasses = (markup: string): string => markup.match(/^<[a-z]+ class="([^"]*)"/)?.[1] ?? "";
 
@@ -38,15 +25,14 @@ const shellMainClasses = (markup: string): string => markup.match(/<main [^>]*cl
 /** The panel's own box under the shell, which is the first element that `<main>` wraps. */
 const shelledPanelClasses = (markup: string): string => markup.match(/<main [^>]*>\s*<[a-z]+ class="([^"]*)"/)?.[1] ?? "";
 
-const underRouter = (tree: ReactNode): string =>
-  renderTree(h(AppRouterContext.Provider, { value: router }, h(PathnameContext.Provider, { value: "/nirgendwo" }, tree)));
+const underRouter = (tree: ReactNode): string => renderTree(underNext(tree, { pathname: "/nirgendwo" }));
 
 const boundaryProps = { error: new globalThis.Error("kaputt"), reset: () => undefined };
 
 const rootBoundary = underRouter(h(ErrorPanel, boundaryProps));
 const publicBoundary = underRouter(h(PublicShell, { serverStatusSlot: null, children: h(PublicErrorBoundary, boundaryProps) }));
 
-const shelled = rootClasses(renderTree(h(AppRouterContext.Provider, { value: router }, h(NotFound, {}))));
+const shelled = rootClasses(renderTree(underNext(h(NotFound, {}))));
 
 const wholeDocument = rootClasses(rootBoundary);
 
