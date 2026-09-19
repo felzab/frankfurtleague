@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, Chip } from "@heroui/react";
 
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
@@ -30,7 +32,9 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
         {/* `min-w-0`: as a flex item the stack defaults to its longest word, which pushes the Kürzel
             box past the card's edge at the grid's floor. */}
         <div className="min-w-0">
-          {/* Level two, under the page's `h1`: HeroUI's title renders level three by default. */}
+          {/* Level two, under the page's `h1`: `render` is the only way to move HeroUI's `h3`, and that
+              function is what makes this card a CLIENT component — a Server Component may not hand one
+              to `Card.Title` (`.claude/rules/frontend.md`). */}
           <Card.Title<"h2">
             render={({ children, ...props }) => <h2 {...props}>{children}</h2>}
             className={`fluid-base font-bold ${NAME_WRAP}`}>
