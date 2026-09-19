@@ -185,6 +185,14 @@ describe("describeUebernommeneSpiele", () => {
     assert.match(describeUebernommeneSpiele(1), /^Das eine angesetzte Spiel/);
     assert.match(describeUebernommeneSpiele(4), /^Alle 4 angesetzten Spiele/);
   });
+
+  /* The draw deletes what it replaces and says so; this write deletes nothing, so that register would ask an admin
+     to agree to a loss that will not happen. */
+  it("promises the fixtures move with the place, in no word of the draw's losses", () => {
+    assert.match(describeUebernommeneSpiele(1), /wechselt mit/);
+    assert.match(describeUebernommeneSpiele(4), /wechseln mit/);
+    for (const spiele of [0, 1, 4]) assert.doesNotMatch(describeUebernommeneSpiele(spiele), /verloren|gelöscht|entfäll|verschoben/);
+  });
 });
 
 describe("describePlatz", () => {

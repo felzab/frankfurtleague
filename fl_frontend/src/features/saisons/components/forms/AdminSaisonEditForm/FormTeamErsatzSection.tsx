@@ -27,9 +27,8 @@ import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
 import type { SaisonReplacementContext } from "@/features/saisons/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 
-/** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
+/** The pair's accessible name, a fixed id because the panel renders once on its page. */
 const PAIR_LABEL_ID = "teamwechsel-paar";
-const BUTTON_HINT_ID = "teamwechsel-hinweis";
 
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
@@ -100,10 +99,9 @@ export function FormTeamErsatzSection({
     });
   };
 
-  // Rendered only while the button is disabled for a reason a reader can act on. A write in flight
-  // names nothing: the label already says so.
   const missingPickHint = outgoing === null ? "Wähle das ausscheidende und das nachrückende Team." : "Wähle noch das nachrückende Team.";
   const isMissingAPick = outgoing === null || incoming === null;
+  const restingLabel = isConfirming ? "Ja, Team ersetzen" : "Team ersetzen";
 
   return (
     <section className={panel.root()}>
@@ -239,16 +237,21 @@ export function FormTeamErsatzSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-2">
-              <ConfirmActionRow
-                isConfirming={isConfirming}
-                isPending={isReplacing}
-                onCancel={cancel}>
+            <ConfirmActionRow
+              isConfirming={isConfirming}
+              isPending={isReplacing}
+              onCancel={cancel}>
+              {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                  §1.14). `isReplacing` is left out: it ends by itself. */}
+              <Hint
+                mode="refusal"
+                reason={!isReplacing && isMissingAPick ? missingPickHint : null}
+                label={restingLabel}>
                 <Button
                   type="button"
                   variant="primary"
-                  aria-describedby={!isReplacing && isMissingAPick ? BUTTON_HINT_ID : undefined}
-                  isDisabled={isReplacing || isMissingAPick}
+                  isPending={isReplacing}
+                  isDisabled={!isReplacing && isMissingAPick}
                   onPress={handleReplace}
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
@@ -257,19 +260,10 @@ export function FormTeamErsatzSection({
                       aria-hidden="true"
                     />
                   )}
-                  {isReplacing ? "Ersetzt..." : isConfirming ? "Ja, Team ersetzen" : "Team ersetzen"}
+                  {isReplacing ? "Wechselt aus..." : restingLabel}
                 </Button>
-              </ConfirmActionRow>
-              {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the swap's
-                  treatment for a control disabled for a reason the page already shows. */}
-              {!isReplacing && isMissingAPick && (
-                <Hint
-                  mode="inline"
-                  describes={BUTTON_HINT_ID}
-                  text={missingPickHint}
-                />
-              )}
-            </div>
+              </Hint>
+            </ConfirmActionRow>
           </>
         )}
       </div>

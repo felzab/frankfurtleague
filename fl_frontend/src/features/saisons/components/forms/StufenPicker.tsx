@@ -26,8 +26,8 @@ export const STUFE_CHIP =
 
 /**
  * `rules.erlaubte_stufen`. **The hidden `TextField` proxy is what makes a refusal land**:
- * `ToggleButtonGroup` takes no `name`, so it joins no field context and `form.reportValidity()` cannot
- * see the group. `display: none`, so nothing can land in it.
+ * `ToggleButtonGroup` takes no `name`, so it joins no field context, and `focusFirstRefusal` finds a
+ * control by its `name` alone. `display: none`, so nothing can land in it.
  */
 export function StufenPicker({
   value,

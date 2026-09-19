@@ -5,26 +5,21 @@ import { describe, it } from "node:test";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
+import "@/shared/testing/renderTest.ts";
+
+/* `await import`, never a static import beside the harness: the icon package's extensionless ESM
+   resolves through the fallback `renderTest` registers as it evaluates. */
+const { ADMIN_SIDEMENU_STRUCTURE } = await import("@/features/admin/constants.ts");
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /**
  * Destination → the glyph that names it, read off the sidemenu because that is where an admin learns the
  * pairing. One picture meaning two destinations is one neither of them can be recognised by.
  */
-const GLYPH_OF = ((): Map<string, string> => {
-  // Read from the SOURCE rather than imported: `constants.ts` pulls in the icon package, whose extensionless
-  // ESM the test runner cannot resolve. The declaration is sliced first so nothing else in the file is read.
-  const text = readFileSync(path.join(SRC_DIR, "features", "admin", "constants.ts"), "utf8");
-  const start = text.indexOf("ADMIN_SIDEMENU_STRUCTURE");
-  const block = text.slice(start, text.indexOf("];", start));
-  const pairs = new Map<string, string>();
-
-  for (const match of block.matchAll(/id: "([a-z_]+)",[\s\S]{0,200}?iconName: "(\w+)"/g)) {
-    if (match[1] !== undefined && match[2] !== undefined) pairs.set(match[1], match[2]);
-  }
-
-  return pairs;
-})();
+const GLYPH_OF = new Map<string, string>(
+  ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options.map((option): [string, string] => [option.id, option.iconName])),
+);
 
 const collectTsxFiles = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100);
 

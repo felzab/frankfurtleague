@@ -606,9 +606,10 @@ text instead (`.claude/rules/cross-surface.md`).
 **A server action is stubbed at the module boundary, never through a prop the component grows for
 the test**: a `load` hook through `node:module`, registered before the component's `await import`,
 answers the slice's `actions.ts` with a module exporting the same names, so the component reaches the
-stub along the path it reaches the action
-(`fl_frontend/src/features/admin/saveConfirmation.test.ts :: stubbedActions`). A callback the
-component already takes is handed a `mock.fn()` from `node:test`.
+stub along the path it reaches the action. **One reader registers that hook**,
+`fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActions`, which derives the exported names
+from the real module and records every call: a hand-written double per file drifts from the module it
+stands in for. A callback the component already takes is handed a `mock.fn()` from `node:test`.
 
 **A source-text assertion is for what no rendering can show** — a convention spanning files, a
 directive, a wiring between two of them. Held against a component's own output, a regex over the
@@ -648,11 +649,16 @@ and the control's `required`
 not in that mirror, and neither is a `name` the control was never handed
 (`fl_frontend/src/shared/components/ui/RefusableSelect.tsx`).
 
-**A refusal hint is read through `fl_frontend/src/shared/testing/renderTest.ts :: refusalWrappers`,
-over either render's markup, and never through a reader a test spells for itself**: a copy drifts
-from what `fl_frontend/src/shared/components/ui/Hint.tsx :: RefusalHint` renders while every panel
-test reading it stays green, and `fl_frontend/src/shared/components/ui/Hint.test.ts` holds the one
-reader to that markup.
+**A refusal hint is read through what it publishes to the accessibility tree, never through a
+reader a test spells for itself**: under Testing Library that is
+`fl_frontend/src/shared/testing/closedControl.ts :: closedControl`, which finds the overlay by the
+control's own words, its `aria-disabled` and the reason as its description; over a static render's
+markup it is `fl_frontend/src/shared/testing/renderTest.ts :: refusalWrappers`. A copy spelled at a
+call site drifts from what `fl_frontend/src/shared/components/ui/Hint.tsx :: RefusalHint` renders
+while every panel test reading it stays green, and
+`fl_frontend/src/shared/components/ui/Hint.test.ts` holds that markup to the tree. Whether a reason
+also stands in the panel's flow is `fl_frontend/src/shared/testing/closedControl.ts :: isInTheFlow`'s
+question, which §1.14 answers per closure.
 
 **A component reading a Next client context renders under `renderTree` with that context's provider,
 which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
@@ -1207,7 +1213,10 @@ alike:**
 - **A control whose write is running is held with HeroUI's `isPending` and never closed with
   `isDisabled`**, which is a refusal's alone: a disabled button drops the keyboard's focus to the
   page in the middle of the press that started the write, where a held one keeps it and takes no
-  second press. A control that leaves the page is I68's and stays disabled while it goes.
+  second press. A control that leaves the page is I68's and stays disabled while it goes, and a press
+  that WRITES and only then leaves is pending rather than disabled: react-aria hands `useHover` the
+  pending flag beside the disabled one, so I68's hover ends either way, and only `isPending` keeps the
+  focus the press was made with (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx`).
 - **A panel's action closed until the reader picks, types or changes something, or by a condition
   standing on the page, carries that reason in the `refusal` mode of
   `fl_frontend/src/shared/components/ui/Hint.tsx :: Hint`**, laid over the button, and never in a
@@ -1519,7 +1528,7 @@ holds whether a conditional block renders or not
   `fl_frontend/src/shared/components/ui/DateTimeFields.tsx :: AppDatePicker` or `:: AppTimeField`**,
   which write two digits where the pinned locale writes one, so a date being entered reads as the
   `04.09.2016` and a kick-off as the `09:00` every page prints. Swept by
-  `fl_frontend/src/features/saisons/components/forms/dateFieldBounds.test.ts :: "finds every segmented control inside the one composition"`,
+  `fl_frontend/src/shared/components/ui/dateFieldBounds.test.ts :: "finds every segmented control inside the one composition"`,
   and the digits by `fl_frontend/src/shared/components/ui/DateTimeFields.test.ts`.
 - **Every dialog's footer puts the action first and the way back second** — left in a row, top in a
   stack — so the press a reader's hand has learned on one dialog sits in the same place on the next,

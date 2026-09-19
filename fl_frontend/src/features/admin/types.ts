@@ -13,4 +13,6 @@ export interface AdminContext {
   // The season's own `rules.number_of_groups`, bounding the Herkunft group offer the way the write
   // path does (`REQ-WIRING-003`). `null` where no season resolves, and the picker then offers all.
   numberOfGroups: number | null;
+  // Whether that season is `past`, so the draft preview promises no Termin a finished season cannot give.
+  isFinishedSaison: boolean;
 }

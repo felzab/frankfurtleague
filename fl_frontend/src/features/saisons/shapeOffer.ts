@@ -1,6 +1,7 @@
 import { MAX_QUALIFIERS } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
+import type { FLSpielplanShape } from "@/features/saisons/schemas";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
@@ -78,7 +79,7 @@ function groupsInUseRefusal(groups: number, occupancy: SaisonGruppenOccupancy): 
  * group off its size ahead of a club outside the offered groups, which is `REQ-RULES-002`'s own fact
  * and takes its note.
  */
-function drawGruppenRefusal({
+export function drawGruppenRefusal({
   groups,
   teams,
   occupancy,
@@ -166,6 +167,51 @@ export function drawGroupCountOptions({
     groups,
     (count) => drawGruppenRefusal({ groups: count, teams, occupancy }) ?? bracketRefusal(count, qualifiers),
   );
+}
+
+/**
+ * Whether the season's clubs fit any shape the draw offers at all, judged by the same refusal every offered
+ * count is: where they fit none, no step in the boxes lifts the closure, which then stands on the page.
+ */
+export function fitsAnOfferedShape(occupancy: SaisonGruppenOccupancy): boolean {
+  return GROUP_COUNT_UNIVERSE.some((groups) =>
+    Array.from({ length: MAX_TEAMS_PER_GROUP - MIN_TEAMS_PER_GROUP + 1 }, (_, index) => MIN_TEAMS_PER_GROUP + index).some(
+      (teams) => drawGruppenRefusal({ groups, teams, occupancy }) === null,
+    ),
+  );
+}
+
+/**
+ * The draw's refusal of the numbers a REPLACE carries, in the endpoint's order: `find_spielplan_refusal`
+ * before `find_rules_refusal`, whose `REQ-RULES-001` is the bracket's half.
+ */
+export function drawShapeRefusal({ shape, occupancy }: { shape: FLSpielplanShape; occupancy: SaisonGruppenOccupancy }): ShapeRefusal | null {
+  return (
+    drawGruppenRefusal({ groups: shape.number_of_groups, teams: shape.teams_per_group, occupancy }) ??
+    bracketRefusal(shape.number_of_groups, shape.qualifiers_per_group)
+  );
+}
+
+/**
+ * The matchdays a shape implies, mirroring `fl_backend/app/api/saisons/schedule.py :: schedule_for`. **For a
+ * replace's own numbers**: where the season's STORED rules are asked,
+ * `fl_frontend/src/features/saisons/utils.ts :: buildSpielplanVorschau` reads the server's sum instead.
+ */
+export function drawnSpieltage({
+  number_of_groups: groups,
+  teams_per_group: teams,
+  qualifiers_per_group: qualifiers,
+}: FLSpielplanShape): number {
+  // `group_matchdays`: an odd group plays one more, the bye its rounds leave rather than rounding.
+  let spieltage = teams < 2 ? 0 : teams % 2 === 0 ? teams - 1 : teams;
+
+  // No knockout round where `knockout_phases_for` is empty.
+  if (bracketRefusal(groups, qualifiers) !== null) return spieltage;
+
+  // One per round, halved rather than through `Math.log2` for `powersOfTwoUpTo`'s reason.
+  for (let remaining = groups * qualifiers; remaining > 1; remaining /= 2) spieltage += 1;
+
+  return spieltage;
 }
 
 /** The `qualifiers_per_group` offer as the season stands. */

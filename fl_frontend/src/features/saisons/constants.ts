@@ -4,6 +4,8 @@ import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saisons suchen",
   searchPlaceholder: "z.B. 2027",
+  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
+  createLabel: "Neue Saison anlegen",
 } as const;
 
 /**
@@ -131,6 +133,15 @@ export const SAISON_ID_LENGTH = 4;
 export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
+
+/**
+ * Here rather than in `actions.ts`, which as a `"use server"` module exports actions alone: the draw's
+ * `REQ-SPIELPLAN-004` refusal and the press closed ahead of it read this one sentence, so neither can
+ * say what the other does not.
+ */
+export const GRUPPEN_OFF_RULES =
+  "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
+  "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an.";
 
 /**
  * The two of `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS` a save has to warn

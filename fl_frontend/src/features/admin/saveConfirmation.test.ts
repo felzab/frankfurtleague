@@ -6,7 +6,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import { act, createElement as h } from "react";
 /* `useRouter` and `useSearchParams` read contexts no `next/navigation` export carries, so every editor is
@@ -18,6 +17,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants.ts";
+import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
@@ -25,25 +25,14 @@ import type { FLKontaktperson } from "@/features/teams/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ContextType, ReactNode } from "react";
 
-const geschrieben: string[] = [];
-(globalThis as unknown as Record<string, unknown>).__flSaveConfirmationWrites = geschrieben;
+/* Every write is refused, so no editor leaves the page a case reads. */
+const { calls } = doubleActions({
+  modules: [/\/src\/features\/\w+\/actions\.ts$/],
+  answer: () => Promise.resolve({ success: false, error: "Nicht gespeichert." }),
+});
 
-/**
- * Every slice's actions replaced at the module boundary, each export named as the real module names it: a real
- * write needs a session and a backend. Every write is refused, so no editor leaves the page a case reads.
- */
-function stubbedActions(url: string): string {
-  const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(
-    (found) => found[1]!,
-  );
-
-  return names
-    .map(
-      (name) =>
-        `export const ${name} = async () => { globalThis.__flSaveConfirmationWrites.push("${name}"); return { success: false, error: "Nicht gespeichert." }; };`,
-    )
-    .join("\n");
-}
+/** The actions the editors have written to, in order. */
+const geschrieben = (): string[] => calls.map((call) => call.action);
 
 const APP_TOAST = `const raise = () => () => "0";
 export const UNDO_TIMEOUT_MS = 1;
@@ -52,7 +41,6 @@ export const appToast = { success: raise(), warning: raise(), danger: raise(), i
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (/\/src\/features\/\w+\/actions\.ts$/.test(url)) return { format: "module", source: stubbedActions(url), shortCircuit: true };
     if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -421,23 +409,23 @@ describe("an editor's save confirmation", () => {
       const container = await editor.render();
       await editor.change(user, container);
 
-      geschrieben.length = 0;
+      calls.length = 0;
       await speichere(container);
-      assert.deepEqual(geschrieben, [], "the press wrote beside raising the dialog, or never reached the gate");
+      assert.deepEqual(geschrieben(), [], "the press wrote beside raising the dialog, or never reached the gate");
       await user.click(bestaetigung() ?? assert.fail("the change raised no save confirmation, so nothing below is judged"));
       await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-      assert.deepEqual(geschrieben, [editor.write], "the confirmation wrote other than once");
+      assert.deepEqual(geschrieben(), [editor.write], "the confirmation wrote other than once");
       // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
       assert.ok(bestaetigung() === null, "the confirmation raised the dialog again");
 
       // A save confirmation opens only over a draft every schema accepts, never ahead of the block (`docs/frontend/spec.md :: I255`).
       await editor.refuse(user, container);
-      geschrieben.length = 0;
+      calls.length = 0;
       await speichere(container);
 
       assert.ok(bestaetigung() === null, "the dialog asks about a save the draft's own refusal blocks");
-      assert.deepEqual(geschrieben, [], "a draft the schema refuses was written");
+      assert.deepEqual(geschrieben(), [], "a draft the schema refuses was written");
     });
   }
 });

@@ -20,12 +20,13 @@ export const DASHBOARD_SIDEMENU_ICONS = {
 export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 
 /**
- * What the bar reads on `/dashboard` itself, which the nav does not name because every entry below is a section of it.
+ * What the bar reads on an address that belongs to no section, the catch-all's 404 among them: `/dashboard` itself
+ * redirects to a section (`fl_frontend/next.config.ts`). The area's name, never a section's, as the admin shell's is.
  */
 export const DASHBOARD_SHELL_FALLBACK = {
   label: "Saisonübersicht",
   hint: {
-    lead: "Alles zur gewählten Saison.",
+    lead: "Diese Adresse gehört zu keinem Bereich der Saisonübersicht.",
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -44,8 +45,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         hint: {
           lead: "Alle Spiele der Saison.",
           // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
-          // `ort.*` keys are the venue, so `Ort` names them once.
-          points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
+          // `ort.*` keys are the venue, so `Ort` names them once. Only a referee's first name and initial
+          // reach a visitor (`READ-REFEREE-001`).
+          points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Vorname des Schiedsrichters." }],
         },
       },
       {

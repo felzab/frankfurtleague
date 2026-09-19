@@ -24,9 +24,8 @@ import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saison
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 
-/** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
+/** The pair's accessible name, a fixed id because the panel renders once on its page. */
 const PAIR_LABEL_ID = "gruppentausch-paar";
-const BUTTON_HINT_ID = "gruppentausch-hinweis";
 
 /** This panel's wording for each refusal `findSwapPartnerRefusal` returns, short enough to sit in a row. */
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
@@ -160,10 +159,9 @@ export function FormGruppenSwapSection({
     });
   };
 
-  // Rendered only while the button is disabled for a reason a reader can act on. A swap in flight
-  // names nothing: the label already says so.
   const missingPickHint = first === null ? "Wähle zwei Teams aus zwei verschiedenen Gruppen." : "Wähle noch das zweite Team.";
   const isMissingAPick = first === null || second === null;
+  const restingLabel = isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen";
 
   return (
     <section className={panel.root()}>
@@ -262,16 +260,21 @@ export function FormGruppenSwapSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-2">
-              <ConfirmActionRow
-                isConfirming={isConfirming}
-                isPending={isSwapping}
-                onCancel={cancel}>
+            <ConfirmActionRow
+              isConfirming={isConfirming}
+              isPending={isSwapping}
+              onCancel={cancel}>
+              {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                  §1.14). `isSwapping` is left out: it ends by itself. */}
+              <Hint
+                mode="refusal"
+                reason={!isSwapping && isMissingAPick ? missingPickHint : null}
+                label={restingLabel}>
                 <Button
                   type="button"
                   variant="primary"
-                  aria-describedby={!isSwapping && isMissingAPick ? BUTTON_HINT_ID : undefined}
-                  isDisabled={isSwapping || isMissingAPick}
+                  isPending={isSwapping}
+                  isDisabled={!isSwapping && isMissingAPick}
                   onPress={handleSwap}
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
@@ -280,20 +283,10 @@ export function FormGruppenSwapSection({
                       aria-hidden="true"
                     />
                   )}
-                  {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
+                  {isSwapping ? "Tauscht..." : restingLabel}
                 </Button>
-              </ConfirmActionRow>
-              {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the
-                  treatment `FormErgebnisSection` established for a control disabled for a reason the
-                  page already shows. */}
-              {!isSwapping && isMissingAPick && (
-                <Hint
-                  mode="inline"
-                  describes={BUTTON_HINT_ID}
-                  text={missingPickHint}
-                />
-              )}
-            </div>
+              </Hint>
+            </ConfirmActionRow>
           </>
         )}
       </div>

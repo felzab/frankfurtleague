@@ -19,9 +19,9 @@ export type FLActionUrgency = "blocking" | "results" | "details" | "none";
  */
 export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; short: string; desc: string; urgency: FLActionUrgency }> = {
   bracket_fault: {
-    name: "Fehlerhafte Verweise und Aufstellungen",
+    name: "Fehlerhafte Verweise, Aufstellungen und Einteilungen",
     short: "Fehler",
-    desc: "Spiele, deren Herkunft kein Team ergibt oder deren Aufstellung nicht zulässig ist",
+    desc: "Spiele, deren Herkunft kein Team ergibt, deren Aufstellung nicht zulässig ist oder deren Spielort oder Schiedsrichter stillgelegt oder doppelt eingeteilt ist",
     urgency: "blocking",
   },
   besetzung_missing: {

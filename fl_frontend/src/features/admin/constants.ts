@@ -40,15 +40,25 @@ export const ADMIN_SIDEMENU_ICONS = {
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 /**
- * What the bar reads on `/admin/spiele/[spiel_id]`, the one route no nav entry names. It gets no entry of its own
- * because the nav renders a link per entry and there is no fixture index to link to.
+ * What the bar reads on an address that belongs to no section, the catch-all's 404 among them. The area's name, never a
+ * section's: a heading naming one describes a page the reader is not on (WCAG 2.4.6).
  */
 export const ADMIN_SHELL_FALLBACK = {
-  label: "Spiele",
+  label: "Verwaltung",
   hint: {
-    lead: "Ein einzelnes Spiel bearbeiten.",
+    lead: "Diese Adresse gehört zu keinem Bereich der Verwaltung.",
   },
 } as const satisfies { label: string; hint: SidemenuHint };
+
+/** `/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
+export const ADMIN_SHELL_UNLISTED_SECTIONS = {
+  spiele: {
+    label: "Spiele",
+    hint: {
+      lead: "Ein einzelnes Spiel bearbeiten.",
+    },
+  },
+} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // Deliberately unnamed: a season is created and edited here, which makes this the subject the menu

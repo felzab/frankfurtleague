@@ -10,6 +10,9 @@ import {
   buildSpielplanVorschau,
   buildSpieltagBound,
   describeAngesetzteSpiele,
+  describeKaderAustragung,
+  describeKaderAustragungDanach,
+  describeSpielplanPermanenz,
   describeSpielplanUmfang,
   holdsDrawnSpiele,
   searchWithoutSaisonId,
@@ -436,6 +439,43 @@ describe("the German the two windows share", () => {
   it("claims nothing about every manual change being caught", () => {
     for (const sentence of [RECORDED_FACTS_NONE, RECORDED_FACTS_ANY]) {
       assert.doesNotMatch(sentence, /Änderung|geändertes Team|Aufstellung|Besetzung/);
+    }
+  });
+});
+
+describe("describeSpielplanPermanenz", () => {
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a permanence
+     claim there sends an admin away from a control the panel offers. */
+  it("points a first draw on a planned season at the undraw, inside the window it runs in", () => {
+    const erster = describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" });
+
+    assert.match(erster, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
+    // The window closes on anything entered, which „noch kein Spiel gewertet“ would understate.
+    assert.match(erster, /zu keinem ihrer Spiele etwas eingetragen wurde/);
+    assert.doesNotMatch(erster, /keinen Weg zurück/);
+  });
+
+  /* Nothing writes removed matchdays and fixtures back: `/spiele` has neither a create nor a delete. */
+  it("claims no way back in every other state, and names the deletion wherever a draw is held", () => {
+    for (const saisonStatus of ["future", "active", "past"] as const) {
+      for (const holdsADraw of [true, false]) {
+        if (!holdsADraw && saisonStatus === "future") continue;
+        const satz = describeSpielplanPermanenz({ holdsADraw, saisonStatus });
+
+        assert.match(satz, /Es gibt in der Verwaltung keinen Weg zurück\./, `${saisonStatus}, holding a draw: ${String(holdsADraw)}`);
+        if (holdsADraw) assert.match(satz, /Die Spieltage und Spiele oben werden dabei gelöscht\./);
+      }
+    }
+  });
+});
+
+describe("the squad sentences of a replacement", () => {
+  /* AUSTRAGEN and never STILLLEGEN (`docs/glossary.md`): the league-wide verb would claim these pupils left every
+     season there is, and a deletion word that the rows went rather than being stamped. */
+  it("word the squad rows with the verb a squad row takes, at the press and after it", () => {
+    for (const satz of [describeKaderAustragung("SG Alpha"), describeKaderAustragungDanach("SG Alpha")]) {
+      assert.match(satz, /Kadereinträge von SG Alpha .*ausgetragen/);
+      assert.doesNotMatch(satz, /stillgelegt|gelöscht|entfernt/);
     }
   });
 });

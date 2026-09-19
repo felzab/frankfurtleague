@@ -273,10 +273,14 @@ export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[
  * each, and these counts arrive from the server.
  */
 export function describeSpielplanUmfang(spieltage: number, spiele: number): string {
-  const spieltagePhrase = spieltage === 1 ? "ein Spieltag" : `${String(spieltage)} Spieltage`;
   const spielePhrase = spiele === 1 ? "ein Spiel" : `${String(spiele)} Spiele`;
 
-  return `${spieltagePhrase} und ${spielePhrase}`;
+  return `${describeSpieltageCount(spieltage)} und ${spielePhrase}`;
+}
+
+/** The matchday half of that phrase, for the redraw readout, whose fixture count no mirror knows. */
+export function describeSpieltageCount(spieltage: number): string {
+  return spieltage === 1 ? "ein Spieltag" : `${String(spieltage)} Spieltage`;
 }
 
 /**

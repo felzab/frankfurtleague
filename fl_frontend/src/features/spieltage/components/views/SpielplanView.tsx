@@ -3,6 +3,7 @@
 import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
+import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
@@ -11,7 +12,15 @@ import { spieltagLabels } from "../../utils";
 
 import type { FLSpielplan } from "../../schemas";
 
-export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
+export function SpielplanView({
+  spielplanData,
+  today,
+  isFinishedSaison,
+}: {
+  spielplanData: FLSpielplan;
+  today: string;
+  isFinishedSaison: boolean;
+}) {
   // The list arrives in the backend's played order and nothing here may re-sort it: the tabs run
   // left to right in the order the season is played.
   const labels = spieltagLabels(spielplanData.spieltage);
@@ -19,10 +28,15 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   if (!spielplanData.spieltage.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        <EmptyState
-          title="Für diese Saison gibt es noch keinen Spielplan."
-          hint="Sobald die Spieltage feststehen, erscheinen hier alle Begegnungen der Saison."
-        />
+        {/* A finished season's Spielplan is not still to come, so it takes no `noch` and no hint. */}
+        {isFinishedSaison ? (
+          <EmptyState title="Für diese Saison gibt es keinen Spielplan." />
+        ) : (
+          <EmptyState
+            title="Für diese Saison gibt es noch keinen Spielplan."
+            hint="Sobald die Spieltage feststehen, erscheinen hier alle Begegnungen der Saison."
+          />
+        )}
       </div>
     );
   }
@@ -34,7 +48,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
       {/* `Tabs.ListContainer` sits inside the sticky bar holding only the track, which is what its
           chevron buttons position against. The fuller note is in `AdminSpieleActionRequiredView`. */}
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center lg:w-[90%]">
+        <div className="max-w-toolbar flex w-full flex-row items-center justify-center">
           {/* **No `overflow-x-auto` or `scrollbar-hide` here.** The chevrons show only while the
               `ScrollShadow` reports the strip can scroll, detected by letting the list grow — a
               self-scrolling list hides that and no chevron appears. */}
@@ -70,14 +84,15 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               the previous panel on screen. */}
           {/* Staggered rather than faded as one block: every card lands where the previous
               Spieltag's card sat, so a single fade reads as the content mutating in place. */}
-          <div
+          <SpielCardGrid
             role="list"
-            className={`${CARDS_CASCADE} max-w-page mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
+            className={CARDS_CASCADE}>
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
               today={today}
+              isFinishedSaison={isFinishedSaison}
             />
-          </div>
+          </SpielCardGrid>
         </Tabs.Panel>
       ))}
     </Tabs>

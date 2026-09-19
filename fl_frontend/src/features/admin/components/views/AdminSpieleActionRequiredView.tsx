@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
+import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
 import { COUNT_BADGE, trackCountBadge } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -49,10 +50,12 @@ export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
   today,
+  isFinishedSaison,
 }: {
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
   today: string;
+  isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,7 +80,7 @@ export function AdminSpieleActionRequiredView({
 
   /**
    * `replaceState` and not `router.replace`: the page's query is deliberately uncached, so a router
-   * navigation would re-read the whole archive just to switch sections. Not `pushState` — Back
+   * navigation would re-read the season's queue just to switch sections. Not `pushState` — Back
    * should leave the list rather than walk it.
    */
   const selectSection = (category: string) => {
@@ -111,7 +114,7 @@ export function AdminSpieleActionRequiredView({
           wrapping, so a sibling passed to it is swallowed, and its chevrons are positioned against
           it — the track's edge only while it is the track. */}
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center gap-x-2 lg:w-[90%]">
+        <div className="max-w-toolbar flex w-full flex-row items-center justify-center gap-x-2">
           {/* No `overflow-x-auto` on the list: the container's chevrons appear only while its
               `ScrollShadow` detects overflow, and a list that scrolls itself hides that. `w-max` is
               the half of HeroUI's floor that must stay — it is what the detection reads. */}
@@ -167,16 +170,17 @@ export function AdminSpieleActionRequiredView({
             ) : (
               // Faults reach the `bracket_fault` section alone: the one list already filtered by that
               // diagnosis, and the only category whose tab cannot state the reason itself.
-              <div
+              <SpielCardGrid
                 role="list"
-                className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3`}>
+                className={CARDS_CASCADE}>
                 <SpielCardsList
                   spiele={[...section.spiele]}
                   today={today}
+                  isFinishedSaison={isFinishedSaison}
                   isAdmin
                   faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
                 />
-              </div>
+              </SpielCardGrid>
             )}
           </div>
         </Tabs.Panel>

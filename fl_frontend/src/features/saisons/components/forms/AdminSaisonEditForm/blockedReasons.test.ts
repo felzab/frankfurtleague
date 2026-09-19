@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { rolloverBlockedReason, spielplanBlockedReason, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons.ts";
+import { GRUPPEN_OFF_RULES } from "@/features/saisons/constants.ts";
 
-import type { SpielplanControlInput } from "./blockedReasons.ts";
+import {
+  rolloverBlockedReason,
+  spielplanBlockedReason,
+  spielplanPress,
+  spielplanReplacesDraw,
+  spielplanShapeBlockedReason,
+  spielplanUndrawBlockedReason,
+} from "./blockedReasons.ts";
+
+import type { FLSpielplanShape } from "@/features/saisons/schemas.ts";
+import type { SpielplanControlInput, SpielplanOperation } from "./blockedReasons.ts";
 
 const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): SpielplanControlInput => ({
   saisonStatus: "future",
@@ -15,6 +25,9 @@ const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): Spielpl
   startDate: "2026-05-01",
   endDate: "2026-07-31",
   vorschauSpieltage: 8,
+  // Two full groups of four, which is what the draw asks of these numbers, so no case below is closed by
+  // the groups unless it moves them.
+  gruppen: { groups: 2, teams: 4, occupancy: { A: 4, B: 4 } },
   ...overrides,
 });
 
@@ -85,8 +98,6 @@ describe("spielplanBlockedReason", () => {
     for (const closed of [
       { ...DRAWN, saisonStatus: "past" as const },
       { ...DRAWN, erfassteSpieleCount: 2 },
-      { ...DRAWN, hasKoRunden: false },
-      { ...DRAWN, endDate: "2026-05-02" },
     ]) {
       assert.notEqual(spielplanBlock(closed), null, `${JSON.stringify(closed)} is expected to be closed`);
       assert.equal(replacesDraw(closed), false);
@@ -156,6 +167,126 @@ describe("spielplanBlockedReason", () => {
   });
 });
 
+/** Four groups of four asked for, holding 4, 3, 2 and 1 clubs. */
+const SCHIEF = { groups: 4, teams: 4, occupancy: { A: 4, B: 3, C: 2, D: 1 } } as const;
+
+describe("the draw over the groups the season's clubs stand in", () => {
+  /* The press would answer `REQ-SPIELPLAN-004`, so the control says so first rather than offering a
+     draw the page already knows the endpoint refuses. The draw's mapper returns the same declaration
+     (`fl_frontend/src/features/saisons/actions.test.ts`). */
+  it("closes a first draw whose groups are off the rules, in the words the refused press is given", () => {
+    assert.equal(spielplanBlock({ gruppen: SCHIEF }), GRUPPEN_OFF_RULES);
+  });
+
+  /* `find_spielplan_refusal` judges the finished season and the window before the groups, and the
+     rules and the span run after the whole pass. */
+  it("stands where the endpoint judges it, after the season's state and before the rules and the span", () => {
+    assert.match(spielplanBlock({ saisonStatus: "past", gruppen: SCHIEF }) ?? "", /abgeschlossen/);
+    assert.match(spielplanBlock({ gruppen: SCHIEF, hasKoRunden: false }) ?? "", /genau so viele Teams/);
+    assert.match(spielplanBlock({ gruppen: SCHIEF, endDate: "2026-05-01" }) ?? "", /genau so viele Teams/);
+  });
+
+  /* A replace draws from the numbers in the panel's boxes, so the stored ones may not close it: the
+     boxes that repair the draft would go with the operation. */
+  it("leaves a replace on offer whatever the stored numbers say", () => {
+    for (const stored of [{ gruppen: SCHIEF }, { hasKoRunden: false }, { endDate: "2026-05-02" }]) {
+      assert.equal(spielplanBlock({ ...DRAWN, ...stored }), null, `${JSON.stringify(stored)} closes the replace over the stored rules`);
+      assert.equal(replacesDraw({ ...DRAWN, ...stored }), true);
+    }
+  });
+});
+
+/** Two full groups of four, which is where the stored season stands before a box moves. */
+const VOLL = { A: 4, B: 4 };
+
+const shapeBlock = (shape: Partial<FLSpielplanShape> = {}, occupancy: Record<string, number> = VOLL, endDate = "2026-07-31"): string | null =>
+  spielplanShapeBlockedReason({
+    shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2, ...shape },
+    occupancy,
+    startDate: "2026-05-01",
+    endDate,
+  });
+
+describe("spielplanShapeBlockedReason", () => {
+  it("offers the numbers the entries fit, whose bracket and matchdays the season holds", () => {
+    assert.equal(shapeBlock(), null);
+  });
+
+  /* The stepper's floor is the fullest group, so a count above every group is a number the box takes. */
+  it("refuses a team count the groups do not hold exactly, in the words the refused press is given", () => {
+    assert.equal(shapeBlock({ teams_per_group: 5 }), GRUPPEN_OFF_RULES);
+    assert.equal(shapeBlock({ number_of_groups: 1 }), GRUPPEN_OFF_RULES, "a club outside the offered groups is drawn");
+  });
+
+  /* `REQ-RULES-001` on the numbers the press carries, too large and shapeless alike. */
+  it("refuses a product with no bracket, and names the two boxes that make it", () => {
+    // Sixteen groups of two, which the entries fit, so the bracket of 32 is the one fact that refuses.
+    const sechzehn = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
+
+    for (const [shape, occupancy] of [
+      [{ qualifiers_per_group: 3 }, VOLL],
+      [{ number_of_groups: 16, teams_per_group: 2, qualifiers_per_group: 2 }, sechzehn],
+    ] as const) {
+      const reason = shapeBlock(shape, occupancy);
+      assert.match(reason ?? "", /keine KO-Runde/, `${JSON.stringify(shape)} is offered`);
+      assert.match(reason ?? "", /Gruppen oder die Qualifikanten pro Gruppe/);
+    }
+  });
+
+  /* Four days, and two groups of four with one qualifying imply four matchdays: three rounds and a final. */
+  it("weighs the span against the matchdays the sent numbers imply, counting both ends", () => {
+    assert.equal(shapeBlock({ qualifiers_per_group: 1 }, VOLL, "2026-05-04"), null);
+    assert.match(shapeBlock({}, VOLL, "2026-05-04") ?? "", /zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
+    assert.match(shapeBlock({ qualifiers_per_group: 1 }, VOLL, "2026-05-03") ?? "", /Abschnitt Zeitraum/);
+  });
+
+  /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
+  it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
+    assert.equal(shapeBlock({ teams_per_group: 5, qualifiers_per_group: 3 }, VOLL, "2026-05-01"), GRUPPEN_OFF_RULES);
+    assert.match(shapeBlock({ qualifiers_per_group: 3 }, VOLL, "2026-05-01") ?? "", /keine KO-Runde/);
+  });
+});
+
+describe("spielplanPress", () => {
+  const STORED_SHAPE: FLSpielplanShape = { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 };
+  const press = (overrides: Partial<SpielplanControlInput>, picked: SpielplanOperation | null = null, shape = STORED_SHAPE) =>
+    spielplanPress({ input: spielplanInput(overrides), picked, shape });
+
+  /* Each write destroys the same rows, so the press waits on the reader's choice rather than defaulting to one. */
+  it("closes the press on the missing choice alone while both writes stand open", () => {
+    assert.deepEqual(press(DRAWN), {
+      bothOpen: true,
+      operation: "anlegen",
+      isUnchosen: true,
+      standingReason: null,
+      closedReason: "Wähle „Neu anlegen“ oder „Zurücknehmen“.",
+    });
+  });
+
+  it("makes the pick the operation where both stand open, and the draw everywhere else", () => {
+    assert.equal(press(DRAWN, "zuruecknehmen").operation, "zuruecknehmen");
+    // Something entered closes both, so a pick left standing may not turn the press into an undraw.
+    assert.equal(press({ ...DRAWN, erfassteSpieleCount: 1 }, "zuruecknehmen").operation, "anlegen");
+  });
+
+  it("closes a closed panel on the draw's own reason", () => {
+    const closed = press({ ...DRAWN, erfassteSpieleCount: 1 });
+
+    assert.equal(closed.standingReason, spielplanBlock({ ...DRAWN, erfassteSpieleCount: 1 }));
+    assert.equal(closed.closedReason, closed.standingReason);
+  });
+
+  /* The boxes are the replace's payload and nothing else's: a first draw sends the stored rules, and the undraw sends none. */
+  it("judges the boxes on the replace's press alone", () => {
+    const refused: FLSpielplanShape = { ...STORED_SHAPE, teams_per_group: 5 };
+
+    assert.equal(press(DRAWN, "anlegen", refused).closedReason, GRUPPEN_OFF_RULES);
+    assert.equal(press(DRAWN, "anlegen", refused).standingReason, null, "a closure the next step lifts is a standing one");
+    assert.equal(press(DRAWN, "zuruecknehmen", refused).closedReason, null);
+    assert.equal(press({}, null, refused).closedReason, null);
+  });
+});
+
 describe("spielplanUndrawBlockedReason", () => {
   /* The endpoint has no refusal for this state, so nothing but the panel closes the press. */
   it("closes the control on a season with nothing drawn to take back", () => {
@@ -199,6 +330,27 @@ describe("spielplanUndrawBlockedReason", () => {
   it("ignores the schedule the draw is judged on", () => {
     assert.equal(undrawBlock({ ...DRAWN, hasKoRunden: false }), null);
     assert.equal(undrawBlock({ ...DRAWN, endDate: "2026-05-01" }), null);
+  });
+
+  /* `FormSpielplanSection` names the draw wherever one act alone stands on offer, so an undraw offered without the
+     draw beside it would present a closed draw over a season the undraw can empty. */
+  it("never offers the undraw where the draw is closed", () => {
+    let offered = 0;
+
+    for (const saisonStatus of ["future", "active", "past"] as const)
+      for (const held of [{}, DRAWN, { hasSpielplan: true }, { hasDrawnSpiele: true }, { spieltageCount: 1 }])
+        for (const erfassteSpieleCount of [0, 1])
+          for (const hasKoRunden of [true, false])
+            for (const endDate of ["2026-07-31", "2026-05-01"]) {
+              const state = { ...held, saisonStatus, erfassteSpieleCount, hasKoRunden, endDate };
+              if (undrawBlock(state) !== null) continue;
+
+              offered += 1;
+              assert.equal(spielplanBlock(state), null, `${JSON.stringify(state)} offers the undraw alone`);
+            }
+
+    // A floor, so a grid that stopped reaching an open undraw cannot pass by comparing nothing.
+    assert.ok(offered >= 4, `the grid reaches ${String(offered)} states offering the undraw`);
   });
 });
 

@@ -4,7 +4,7 @@ import { parseDate } from "@internationalized/date";
 
 import { Label, Switch } from "@heroui/react";
 
-import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -46,9 +46,8 @@ export function FormBewerbungSection({
 }) {
   const panel = formPanel();
 
-  // Each end bounds the other, so a reversed span is UNPICKABLE rather than reported after the fact.
-  // `SaisonDateField` suppresses `validationErrors` under a range flag, so `windowEndsAfterItOpens`
-  // judges the payload without its sentence being read.
+  // Each end bounds the other's calendar, so a reversed span cannot be PICKED. One typed in is
+  // `windowEndsAfterItOpens`'s to refuse, and that refusal lands on `bis` whichever end moved.
   const von = bewerbung === null ? null : asCalendarDate(bewerbung.von);
   const bis = bewerbung === null ? null : asCalendarDate(bewerbung.bis);
 
@@ -100,20 +99,20 @@ export function FormBewerbungSection({
                 role="group"
                 aria-labelledby={FRIST_LABEL_ID}
                 className={FIELD_PAIR}>
-                <SaisonDateField
+                <AppDatePicker
                   isRequired
                   name="bewerbung.von"
-                  ariaLabel="Beginn der Bewerbungsfrist auswählen"
+                  calendarLabel="Beginn der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL}>Beginn</Label>}
                   value={von}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, von: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.von"])}
                   maxValue={bis ?? undefined}
                 />
-                <SaisonDateField
+                <AppDatePicker
                   isRequired
                   name="bewerbung.bis"
-                  ariaLabel="Ende der Bewerbungsfrist auswählen"
+                  calendarLabel="Ende der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL}>Ende</Label>}
                   value={bis}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, bis: next?.toString() ?? "" })}

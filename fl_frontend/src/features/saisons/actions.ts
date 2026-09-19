@@ -8,7 +8,7 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { RECORDED_FACTS_NONE } from "./constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE } from "./constants";
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import {
   FLActivateSaisonPayloadSchema,
@@ -164,6 +164,8 @@ function invalidateRollover(): void {
   updateTag("spiele");
   updateTag("spieltage");
   updateTag("teams");
+  // A squad read naming a club and no season answers for the running one (`docs/backend/spec.md :: I4`).
+  updateTag("spieler");
 }
 
 /**
@@ -209,10 +211,7 @@ function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | nu
     // instead, and where it is made: group membership stands on the team pages. Short, over and
     // stranded share one repair.
     case "REQ-SPIELPLAN-004":
-      return (
-        "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
-        "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an."
-      );
+      return GRUPPEN_OFF_RULES;
     // The window closed under a confirmed replace, so the page is stale. A reload, like `-001`: the
     // panel it returns to names the half that closed and, for the record half, the way out of it.
     case "REQ-SPIELPLAN-005":

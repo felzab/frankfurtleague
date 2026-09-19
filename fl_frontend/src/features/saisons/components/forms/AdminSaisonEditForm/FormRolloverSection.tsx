@@ -83,6 +83,8 @@ export function FormRolloverSection({
     });
   };
 
+  const restingLabel = isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`;
+
   return (
     <section className={panel.root()}>
       <div className={`${panel.header()} relative`}>
@@ -211,11 +213,13 @@ export function FormRolloverSection({
                   control itself. `isActivating` is left out: it ends by itself. */}
               <Hint
                 mode="refusal"
-                reason={isActivating ? null : blockedReason}>
+                reason={isActivating ? null : blockedReason}
+                label={restingLabel}>
                 <Button
                   type="button"
                   variant="primary"
-                  isDisabled={isActivating || blockedReason !== null}
+                  isPending={isActivating}
+                  isDisabled={!isActivating && blockedReason !== null}
                   onPress={handleActivate}
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
@@ -224,7 +228,7 @@ export function FormRolloverSection({
                       aria-hidden="true"
                     />
                   )}
-                  {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`}
+                  {isActivating ? "Stellt um..." : restingLabel}
                 </Button>
               </Hint>
             </ConfirmActionRow>

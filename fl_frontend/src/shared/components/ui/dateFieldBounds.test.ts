@@ -7,13 +7,19 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /**
  * The controls that JUDGE a date; `aria` folds their bounds into the displayed validation in realtime. This file
  * grades WHERE a bound sits, never that a refusal carries German — `features/spieltage/schemas.test.ts` does that.
  */
 const JUDGING = new Set(["DatePicker", "DateField", "TimeField"]);
+
+/** Every control that draws segments, whose digits the locale pads unless the composition forces two. */
+const SEGMENTED = new Set([...JUDGING, "DateRangePicker"]);
+
+/** The one file composing a segmented control, so every date and time the app takes reads as the ones it prints. */
+const COMPOSITION = "shared/components/ui/DateTimeFields.tsx";
 
 /** The one that OFFERS dates. A bound here greys days out and reports nothing. */
 const OFFERING = "Calendar";
@@ -40,11 +46,11 @@ function carriesAValue(attribute: ts.JsxAttribute, source: ts.SourceFile): boole
 }
 
 /**
- * The names this file imports from HeroUI. `Calendar` is also a gravity-ui ICON, and an icon carries no bounds and
- * offers no days — counted as the control it would make the sweep report a component that renders neither.
+ * HeroUI's imports alone. `Calendar` is also a gravity-ui ICON, and an icon carries no bounds and offers no days —
+ * counted as the control it would make the sweep report a component that renders neither.
  */
-function heroUiNames(source: ts.SourceFile): Set<string> {
-  const names = new Set<string>();
+function heroUiNames(source: ts.SourceFile): Map<string, string> {
+  const names = new Map<string, string>();
 
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
@@ -58,9 +64,9 @@ function heroUiNames(source: ts.SourceFile): Set<string> {
     if (ts.isNamespaceImport(bindings)) throw new Error(`${source.fileName} imports HeroUI as a namespace, which this sweep cannot resolve`);
     if (!ts.isNamedImports(bindings)) continue;
 
-    // The LOCAL name, which is what the JSX writes: `Foo as DatePicker` renders as `DatePicker`, and
-    // `DatePicker as Picker` does not.
-    for (const element of bindings.elements) names.add(element.name.getText(source));
+    // Keyed on the LOCAL name, which is what the JSX writes, and valued with the imported one: `DatePicker as Picker`
+    // renders a date picker under a tag no name check would recognise.
+    for (const element of bindings.elements) names.set(element.name.getText(source), (element.propertyName ?? element.name).getText(source));
   }
 
   return names;
@@ -78,9 +84,9 @@ function sitesIn(file: string, text: string): Site[] {
   const visit = (node: ts.Node): void => {
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
       const opening = ts.isJsxElement(node) ? node.openingElement : node;
-      const tag = opening.tagName.getText(source);
+      const tag = fromHeroUi.get(opening.tagName.getText(source));
 
-      if ((JUDGING.has(tag) || tag === OFFERING) && fromHeroUi.has(tag)) {
+      if (tag !== undefined && (SEGMENTED.has(tag) || tag === OFFERING)) {
         const bounds: string[] = [];
         let hasSpread = false;
 
@@ -129,12 +135,21 @@ const idOf = (site: Site) => `${site.file}:${String(site.line)} <${site.tag}>`;
 
 describe("where a date control's bounds live", () => {
   it("finds the date controls it is meant to sweep", () => {
-    // The anti-vacuity clause. A tag rename would otherwise leave every assertion below true of nothing.
-    assert.ok(sites.length >= 8, `expected at least 8 date controls, found ${String(sites.length)}`);
-    assert.ok(
-      sites.some((site) => site.tag === OFFERING),
-      "no calendar found, so the offering half is unproven",
-    );
+    // The anti-vacuity clause, per kind rather than as a count: every field composes in one file, so a
+    // tag rename would otherwise leave each assertion below true of nothing.
+    for (const tag of ["DatePicker", "TimeField", OFFERING]) {
+      assert.ok(
+        sites.some((site) => site.tag === tag),
+        `no <${tag}> found, so what this file grades about it is unproven`,
+      );
+    }
+  });
+
+  it("finds every segmented control inside the one composition", () => {
+    // A field composed anywhere else shows the locale's own digits, `4.9.2016` beside every printed `04.09.2016`.
+    const elsewhere = sites.filter((site) => SEGMENTED.has(site.tag) && site.file !== COMPOSITION).map(idOf);
+
+    assert.deepEqual(elsewhere, [], `${elsewhere.join(", ")} composes a date or time field outside ${COMPOSITION}`);
   });
 
   it("keeps every bound off the control that judges", () => {

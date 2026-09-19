@@ -2,7 +2,7 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -62,20 +62,20 @@ export function FormZeitraumSection({
 
       <div className={panel.body()}>
         <div className={FIELD_PAIR}>
-          <SaisonDateField
+          <AppDatePicker
             isRequired
             name="start_date"
-            ariaLabel="Beginn auswählen"
+            calendarLabel="Beginn auswählen"
             label={<FieldLabel path="start_date">Beginn</FieldLabel>}
             value={startDate}
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
             maxValue={startMax}
           />
-          <SaisonDateField
+          <AppDatePicker
             isRequired
             name="end_date"
-            ariaLabel="Ende auswählen"
+            calendarLabel="Ende auswählen"
             label={<FieldLabel path="end_date">Ende</FieldLabel>}
             value={endDate}
             onChange={onEndDateChange}
