@@ -13,12 +13,15 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import SecretStr
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.core.collections import Collection
+from app.core.config import BackendConfig, get_config
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, apply_validator
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -193,15 +196,41 @@ def test_a_value_the_driver_cannot_parse_is_reduced_to_its_step_and_its_class():
     assert unparseable not in str(refused.value)
 
 
-def test_the_run_builds_its_client_where_that_mapping_reaches_it(monkeypatch, capsys):
-    """The case above proves the mapping EXISTS; this proves the run goes through it.
+@pytest.fixture
+def a_cold_settings_cache():
+    """`get_config` memoizes, so a case below would otherwise be answered by whatever an earlier one built."""
 
-    Driven over the environment, which is the script's own interface.
+    get_config.cache_clear()
+    yield
+    get_config.cache_clear()
+
+
+def _spelled(value: Any) -> str:
+    """As a variable or a settings file spells it. `str` over a `SecretStr` is the mask, which nothing reads back."""
+
+    return str(value.get_secret_value() if isinstance(value, SecretStr) else value)
+
+
+def _a_complete_configuration(monkeypatch) -> None:
+    """Every setting, through the environment, which outranks the settings file.
+
+    From the suite's fixture rather than a machine: the run would otherwise be complete on one
+    checkout and incomplete on the next.
     """
 
-    unparseable = "ftp://example.test"
+    for name, value in build_test_config().model_dump().items():
+        monkeypatch.setenv(name.upper(), _spelled(value))
+
+
+def test_the_run_builds_its_client_where_that_mapping_reaches_it(a_cold_settings_cache, monkeypatch, capsys):
+    """The case above proves the mapping EXISTS; this proves the run goes through it."""
+
+    # A scheme the SETTINGS accept and a port the driver cannot parse, so the refusal comes from the
+    # construction rather than from the validator above it. No credentials in it: this case asserts
+    # the value never reaches the output.
+    unparseable = "mongodb://example.test:notaport/"
+    _a_complete_configuration(monkeypatch)
     monkeypatch.setenv("MONGODB_URI", unparseable)
-    monkeypatch.setenv("DB_BASE_NAME", DATABASE_NAME)
 
     answered = on_the_seed_loop(MIGRATION._run(check=True))
     printed = capsys.readouterr()
@@ -209,6 +238,52 @@ def test_the_run_builds_its_client_where_that_mapping_reaches_it(monkeypatch, ca
     assert answered == 2
     assert "reading MONGODB_URI" in printed.out
     assert unparseable not in printed.out + printed.err, "the refusal carried the value it was handed"
+
+
+def test_the_settings_file_alone_carries_a_run(a_cold_settings_cache, monkeypatch, tmp_path, capsys):
+    """The route the deploy takes: `docs/ops/runbooks.md` §2 mounts the settings file and sets no variable.
+
+    Kills a reader of the environment in `_configured`'s place, which refuses every run the
+    mounted file alone configures.
+    """
+
+    # Unparseable on purpose, and carrying no credential: stopping at the client is what proves the
+    # file answered every setting before it, and nothing in this case may reach a server.
+    settings = {**build_test_config().model_dump(), "mongodb_uri": SecretStr("mongodb://example.test:notaport/")}
+    for name in settings:
+        monkeypatch.delenv(name.upper(), raising=False)
+
+    written = tmp_path / "settings"
+    # Bytes, because a text-mode write on this machine would put CRLF in a file the Linux image reads.
+    written.write_bytes("".join(f"{name.upper()}={_spelled(value)}\n" for name, value in settings.items()).encode())
+    monkeypatch.setattr(BackendConfig, "model_config", {**BackendConfig.model_config, "env_file": written})
+
+    answered = on_the_seed_loop(MIGRATION._run(check=True))
+    printed = capsys.readouterr()
+
+    assert answered == 2
+    assert "reading MONGODB_URI" in printed.out, "the run refused before the client, so the mounted file answered nothing"
+
+
+def test_an_incomplete_configuration_names_the_variables_and_no_value(a_cold_settings_cache, monkeypatch, capsys):
+    """The route the deploy actually takes: it MOUNTS the settings file and sets no variable.
+
+    Kills a reader of the environment in `_configured`'s place, which refuses every run made the way
+    `docs/ops/runbooks.md` prescribes.
+    """
+
+    _a_complete_configuration(monkeypatch)
+    monkeypatch.delenv("MONGODB_URI")
+    # The file the settings fall back to is a machine's, so this case cannot assert a refusal unless
+    # that fallback is out of reach too.
+    monkeypatch.setattr(BackendConfig, "model_config", {**BackendConfig.model_config, "env_file": None})
+
+    answered = on_the_seed_loop(MIGRATION._run(check=True))
+    printed = capsys.readouterr()
+
+    assert answered == 2
+    assert "reading the configuration" in printed.out
+    assert "MONGODB_URI" in printed.out, "the refusal named no variable, so it tells an operator nothing"
 
 
 @pytest.mark.db

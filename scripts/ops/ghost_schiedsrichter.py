@@ -12,7 +12,7 @@ partway is repaired by running it again rather than by repairing rows by hand. C
 and never a name: the rows this reaches belong to people who asked to be forgotten.
 
 Invariants:
-  Reads MONGODB_URI and DB_BASE_NAME from the environment, and neither is ever printed.
+  Reads its settings through `app/core/config.py :: get_config`, and prints no value of any of them.
   --check writes nothing, as `app/core/constraints.py`'s does.
 See:
   fl_backend/app/core/sentinels.py
@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
 from collections.abc import Awaitable
 from dataclasses import dataclass, replace
@@ -96,6 +95,25 @@ class MigrationReport:
     repointed: int = 0
     cleared: int = 0
     index_dropped: bool = False
+
+
+async def _configured() -> Any:
+    """Read through `get_config` and never the environment.
+
+    The documented deploy route MOUNTS the settings file and sets no variable at all
+    (`docs/ops/runbooks.md` §2), so a reader of the environment refuses every run made that way.
+    """
+
+    # Imported here, not at module scope, as `app/core/constraints.py :: _run` does: that module
+    # refuses on import without a complete configuration.
+    from app.core.config import EnvironmentValidationError, get_config  # noqa: PLC0415
+
+    try:
+        return get_config()
+    except EnvironmentValidationError as incomplete:
+        # Its message is `app/core/config.py :: _failing_names`' answer -- the failing variables'
+        # own names, and no value of any of them.
+        raise MigrationFailed("reading the configuration", str(incomplete)) from None
 
 
 async def _connected(uri: str) -> AsyncMongoClient:
@@ -200,21 +218,16 @@ def _index_line(report: MigrationReport) -> str:
 
 
 async def _run(check: bool) -> int:
-    uri = os.getenv("MONGODB_URI")
-    base_name = os.getenv("DB_BASE_NAME")
-
-    if not uri or not base_name:
-        print("MONGODB_URI and DB_BASE_NAME must both be set; nothing was read and nothing was written.")
-        return 2
-
     client: AsyncMongoClient | None = None
 
     try:
+        config = await _configured()
+
         # Constructed inside the handled region: the driver parses the URI here rather than at the
-        # first command, so a value the check above passed and the parser refuses would otherwise
+        # first command, so a value the settings accepted and the parser refuses would otherwise
         # leave as the driver's own traceback, quoting what it read.
-        client = await _step("reading MONGODB_URI", _connected(uri))
-        report = await migrate(client[base_name], check=check)
+        client = await _step("reading MONGODB_URI", _connected(config.mongodb_uri.get_secret_value()))
+        report = await migrate(client[config.db_base_name], check=check)
 
         print(f"  referees anonymised in place, to be moved onto the ghost: {report.erased}")
         print(f"  rows still carrying the superseded stamp: {report.stale_stamps}")
