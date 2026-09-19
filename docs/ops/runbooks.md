@@ -287,11 +287,11 @@ its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_
 that field directly — and it takes the season's club reads with it: the name is what
 `fl_backend/app/api/teams/services.py :: build_team_pipeline` projects, and `GET /teams`, `GET /teams/{team_id}`
 and the admin twin `GET /teams/list/admin` (`fl_backend/app/api/teams/admin_router.py :: get_teams_for_admin`)
-are each built on that pipeline. **It does not stop at that season's own reads:**
-`fl_backend/app/api/spiele/crud.py :: find_bracket_faults` derives the whole archive's faults in one request
-and resolves every season whose knockout slots draw on a group placing against that same pipeline, so one
-such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
-included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
+are each built on that pipeline. `GET /spiele/action_required` for that season goes down with them once its
+knockout slots draw on a group placing, because `fl_backend/app/api/spiele/crud.py :: find_bracket_faults`
+resolves those against that same pipeline. Every other season's queue still loads, so a queue failing for one
+season alone points at that season's rows — or at a malformed `uhrzeit` on another season's fixture booked
+within a day onto one of its venues or referees ([`docs/backend/spec.md`](../backend/spec.md#3-violation--remedy)). The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
@@ -655,7 +655,10 @@ reading the file needs the host's root either way.
 them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later deploy has none.
 
 1. **Issue the tunnel's token in the dashboard and put the value on the server** at
-   `./secrets/tunnel_token`, beside the compose file and readable by root alone. `.gitignore` covers
+   `./secrets/tunnel_token`, beside the compose file, owned by uid and gid 65532 with mode `400`: the
+   pinned connector image runs as that user, and Compose hands a file secret over as a bind mount
+   keeping the host's owner and mode, so a file readable by root alone leaves the connector
+   restarting in a loop. `.gitignore` covers
    `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
    the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
 2. **Read the two env files against the documented shapes before anything comes down.**
