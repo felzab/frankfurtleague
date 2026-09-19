@@ -270,6 +270,8 @@ PAIRS: Final[tuple[Pair, ...]] = (
     # says "field" and WCAG 1.4.11's 3:1 reaches it; a box's decorative hairline is exempt.
     Pair("a field at rest", Layer("--border-control"), Layer("--bg-surface"), 3.0),
     Pair("a field at rest, in a modal", Layer("--border-control"), Layer("--bg-base"), 3.0),
+    Pair("a field hovered", Layer("--border-control-hover"), Layer("--bg-surface"), 3.0),
+    Pair("a field hovered, in a modal", Layer("--border-control-hover"), Layer("--bg-base"), 3.0),
     Pair("focus ring", Layer("--focus"), Layer("--bg-base"), 3.0),
     Pair("focus ring", Layer("--focus"), Layer("--bg-surface"), 3.0),
     Pair("collection option keyboard ring", Layer("--focus"), Layer("--bg-hover"), 3.0),
@@ -287,7 +289,8 @@ PAIRS: Final[tuple[Pair, ...]] = (
     # WCAG G183: a link is told from its sentence by colour alone. Light only, the dark brand
     # being lighter than the body text rather than darker.
     Pair("a link told from its sentence, G183", Layer("--accent-brand"), Layer("--fg-base"), 3.0, ("light",)),
-    Pair("calendar today outline", Layer("--accent-brand"), Layer("--bg-surface"), 3.0),
+    # A field's focus ring is inset, so the field's own fill is what it is read against.
+    Pair("calendar today outline, a field's focus ring", Layer("--accent-brand"), Layer("--bg-surface"), 3.0),
     Pair("brand pill, sidemenu active row", Layer("--accent-brand"), Layer("--accent-brand", 15, "--bg-surface"), 4.5),
     Pair("BewerbungView eyebrow", Layer("--fg-on-brand", 75, "--accent-brand-solid"), Layer("--accent-brand-solid"), 4.5),
     Pair("BrandHero wordmark", Layer("--accent-on-brand"), Layer("--accent-brand-solid"), 4.5),
@@ -309,7 +312,7 @@ PAIRS: Final[tuple[Pair, ...]] = (
     Pair("", Layer("--accent-danger-strong"), Layer("--bg-muted"), 4.5),
     Pair("", Layer("--accent-danger-strong"), Layer("--bg-surface"), 4.5),
     Pair("badge, Callout", Layer("--accent-danger-strong"), Layer("--accent-danger", 15, "--bg-surface"), 4.5),
-    Pair("dot, timer bar", Layer("--accent-danger"), Layer("--bg-surface"), 3.0),
+    Pair("dot, timer bar, a refused field's focus ring", Layer("--accent-danger"), Layer("--bg-surface"), 3.0),
     Pair("result badge, count on a recessed track", Layer("--fg-on-danger"), Layer("--accent-danger-solid"), 4.5),
     Pair("the tightest pair", Layer("--fg-on-danger"), Layer("--accent-danger-solid-hover"), 4.5),
     Pair("", Layer("--accent-info-strong"), Layer("--bg-muted"), 4.5),

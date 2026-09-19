@@ -129,7 +129,9 @@ else
       fl_backend/app/core/exception_handlers.py|fl_backend/app/shared/schemas/bounds.py| \
       fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \
       fl_backend/app/api/bewerbungen/services.py|fl_backend/app/api/saisons/schemas.py| \
-      fl_backend/app/api/saisons/services.py|fl_backend/app/api/teams/crud.py)
+      fl_backend/app/api/saisons/services.py|fl_backend/app/api/teams/crud.py| \
+      fl_backend/app/core/collections.py|fl_backend/app/core/constraints.py| \
+      fl_backend/tests/shared/address_lines.json)
         backend=true; db=true; frontend=true; docs=true ;;
       # prettier's configuration and its ignore file decide what the format scope proves, so a change
       # to either is a change to that scope — and to nothing else, the build reading neither.
