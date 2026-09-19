@@ -179,9 +179,7 @@ never through this column.
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                                   | `fl_frontend/src/features/teams/actions.ts :: deleteTeamAction`              |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                                       | `fl_frontend/src/features/spielorte/actions.ts :: mapRetireRefusal`          |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                                    | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapRetireRefusal`     |
-| `REQ-ANONYMISE-001`   | 409    | A referee's name, school or contact details were entered again while an anonymisation of them ran, so it cleared nothing                               | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapAnonymiseRefusal`  |
-| `REQ-ANONYMISE-002`   | 409    | A save would write a name, a school or a contact detail back onto a referee whose details were deleted on request                                      | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapEditRefusal`       |
-| `REQ-ANONYMISE-003`   | 409    | A referee the erasure retired was asked to come back; a booking would be fresh personal data about somebody who asked to be left out                   | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapReactivateRefusal` |
+| `REQ-ANONYMISE-004`   | 409    | The ghost, the row every erased referee's fixtures were repointed at, holds no person and was asked to be erased                                       | `fl_frontend/src/features/schiedsrichter/actions.ts :: mapAnonymiseRefusal`  |
 | `REQ-PURGE-001`       | 409    | A player still in the league was asked to be erased; the erasure needs them retired first                                                              | `fl_frontend/src/features/spieler/actions.ts :: mapErasureRefusal`           |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                                          | `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`           |
 | `REQ-SPIELTAG-002`    | 409    | Resolving the bracket would field one team twice on a Spieltag; a pair already stored is reported instead                                              | `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal`              |
@@ -305,6 +303,11 @@ demand a tree spell every code below.
   revision spelling the code at all; the commit that shipped `REQ-DATE-008` is where the run skipping
   two rather than one is argued.
 - **`REQ-DATE-007`** — reserved beside `REQ-DATE-006`, on the same terms.
+- **`REQ-ANONYMISE-001`** — a referee's details were entered again while an anonymisation of them
+  ran, so it cleared nothing; an erasure that deletes the row leaves no such state.
+- **`REQ-ANONYMISE-002`** — a save would have written a detail back onto an anonymised referee; there
+  is no anonymised row to write onto.
+- **`REQ-ANONYMISE-003`** — a referee the erasure retired was asked back; the deleted row cannot be.
 - **`REQ-RETIRE-002`** — a matchday holding a played match was asked to retire, which would unpublish
   that result.
 - **`REQ-SQUAD-002`** — a squad row took a `nummer` another live row of the same team and season

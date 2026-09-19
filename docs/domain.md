@@ -113,9 +113,9 @@ venue or referee is assigned to no fixture that does not already hold it, nor ke
 again (`REQ-BOOKING-001`). Both judge the reference being made — and reopening a fixture makes its references
 again — rather than one merely stored, which is what lets a venue retire while played or called-off fixtures
 still name it. A bracket resolution, or a side emptied for a Spieltag clash (`docs/backend/spec.md` §1.3,
-step 3a), reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported (`docs/backend/spec.md :: I257`), and an erased referee
-alone is taken off, returning only with an undo that leaves the fixture played or called off
-(`docs/backend/spec.md :: I256`). The `REQ-RETIRE-*` rows of `domain.py :: RULES` are every
+step 3a), reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported
+(`docs/backend/spec.md :: I257`), the ghost every erased referee's fixtures point at being one such
+retired row (`docs/backend/spec.md :: I259`). The `REQ-RETIRE-*` rows of `domain.py :: RULES` are every
 refusal a retirement meets.
 
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of

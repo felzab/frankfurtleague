@@ -152,34 +152,23 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are
   `DELETE /spieler/{spieler_id}/erasure`, `POST /kontakte/erasure` and
-  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; what the referee path leaves on past
-  fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
-  while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
-  `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
-  repeated and nobody is told a person's details are gone while they stand. A save putting the name,
-  the school or a contact detail back onto an anonymised referee is refused (`REQ-ANONYMISE-002`,
-  `docs/backend/spec.md :: I184`), closed seasons' fixtures included: an erasure a routine edit
-  undoes is not an erasure, and the snapshot window is the only route back.
-- **A referee's erasure also ends their engagement, and the school goes with the name.** Booking a
-  person after they asked to be erased creates fresh personal data about them, with no lawful basis
-  standing for it, so the erasure retires the row — `REQ-BOOKING-001` then refuses it every new
-  fixture — and the reactivation that would undo that is refused in turn (`REQ-ANONYMISE-003`). A
-  booking already standing on a fixture still to be played is the same data on the same argument, so
-  the erasure empties it in the same transaction and the fixture surfaces under
-  `GET /spiele/action_required` until somebody assigns a referee to it; one fixture never vetoes a
-  request to be forgotten, and the retirement's own refusal (`REQ-RETIRE-004`) therefore has nothing
-  left to refuse. A fixture played or called off keeps the booking under the nulled name, so a save
-  putting that fixture back among those still to be played is refused it as a new booking
-  (`fl_backend/app/api/spiele/services.py :: find_new_bookings`). A bracket resolution, or a side
-  emptied for a Spieltag clash (`docs/backend/spec.md` §1.3, step 3a), reopening one names no request and refuses nothing, so it takes the booking off in its own
-  write, the fee agreed for that match with it, and only an undo returning the fixture to played or
-  called off puts it back, where the booking engages the person for nothing still to come
-  (`docs/backend/spec.md :: I256`). A
-  retirement the row already carried keeps its own day: a referee who stopped officiating last season
-  is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
-  the person, and beside a fixture list that never expires it narrows them to the few referees one
-  school ever sent; `default_payment` stays, and it is that referee's own agreed fee rather than a league-wide rate. A person who
-  officiates again is entered as a new referee.
+  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. The referee path deletes the document
+  and repoints every fixture that named them at the ghost — one permanent row,
+  `fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`, that holds no person — so no
+  fixture keeps a name, a school or a contact detail, closed seasons' fixtures included, and nothing
+  can be written back onto the person: an edit racing the erasure
+  meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
+  row, so no set of fixtures singles a person out. The ghost itself may not be erased
+  (`REQ-ANONYMISE-004`).
+- **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
+  creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
+  retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
+  fixture; a booking already standing on a fixture still to be played is repointed like the rest and
+  surfaces under `GET /spiele/action_required` as a retired booking until somebody assigns a referee
+  to it, so one fixture never vetoes a request to be forgotten and the retirement's own refusal
+  (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
+  and its own `payment` under the ghost: that is the league's record of the match, not of the
+  person. A person who officiates again is entered as a new referee.
 - **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
   are one subject to the match, so every seat the address holds is listed for confirmation before the
   write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather
@@ -351,7 +340,7 @@ the `Entry` column carries a token only where one still resolves in that file.
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `skyx-nrgh` | Narrow the refusal's sentence to the window in which the undraw it recommends is possible                                                                                                                           |
 | —           | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
-| —           | The toast clause's first half now reads as [`frontend/spec.md`](frontend/spec.md) I57 does and its second half stands, in `.claude/rules/frontend.md`                                                               |
+| —           | The toast clause's first half is [`frontend/spec.md`](frontend/spec.md) I57's; its second half stands in `.claude/rules/frontend.md`                                                                                |
 | —           | Announcing that a season rollover is due stays deferred until one is actually missed ([`ops/spec.md`](ops/spec.md#4-known-open))                                                                                    |
 | —           | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state))                                             |
 
