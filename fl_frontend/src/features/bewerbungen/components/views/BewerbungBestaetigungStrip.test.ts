@@ -2,69 +2,48 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
-import { beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
-/* `useRouter` reads a context no `next/navigation` export carries, so the strip renders under the one
-   Next keeps it on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand.ts";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
-import type { ContextType } from "react";
 
-type Antwort = { success: boolean; message?: string; error?: string; verschickt?: boolean };
+type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
 
-const einwilligungErneutSendenAction = mock.fn<(payload: { rolle: string }) => Promise<Antwort>>();
-const kontaktEmailKorrigierenAction = mock.fn<(payload: { email: string }) => Promise<Antwort>>();
-const appToast = { success: mock.fn(), warning: mock.fn(), danger: mock.fn(), info: mock.fn() };
-Reflect.set(globalThis, "__flStrip", { einwilligungErneutSendenAction, kontaktEmailKorrigierenAction, appToast });
-
-/* The strip's two writes and its toasts, replaced at the module boundary by the mocks above: a real action
-   needs a session and a backend, and the real toast module raises into HeroUI's queue rather than back to the case. */
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/features/bewerbungen/actions.ts"))
-      return {
-        format: "module",
-        source: "export const { einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } = globalThis.__flStrip;",
-        shortCircuit: true,
-      };
-    if (url.endsWith("/src/shared/utils/appToast.ts"))
-      return { format: "module", source: "export const { appToast } = globalThis.__flStrip;", shortCircuit: true };
-    return nextLoad(url, context);
-  },
+/** The strip's two writes, replaced at the module boundary: a real one needs a session and a backend. */
+const { calls, answerWith } = doubleActions({
+  modules: ["/src/features/bewerbungen/actions.ts"],
+  answer: () => new Promise(() => undefined),
 });
+
+const { raised } = doubleToasts();
 
 const { BewerbungBestaetigungStrip } = await import("./BewerbungBestaetigungStrip.tsx");
 
-const refresh = mock.fn();
+const { router, seen } = recordingRouter();
 
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: refresh,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "bestaetigungStrip",
-};
+/** How often one write ran, the double recording both of the strip's under one roster. */
+const ran = (action: string): number => calls.filter((call) => call.action === action).length;
+
+/** What one severity was titled, in the order the strip raised it. */
+const titles = (variant: string): string[] => raised.filter((toast) => toast.variant === variant).map((toast) => toast.title);
 
 beforeEach(() => {
-  for (const fn of [einwilligungErneutSendenAction, kontaktEmailKorrigierenAction, refresh, ...Object.values(appToast)]) {
-    fn.mock.resetCalls();
-    fn.mock.restore();
-  }
+  calls.length = 0;
+  raised.length = 0;
+  seen.refresh = 0;
+  answerWith(() => new Promise(() => undefined));
 });
 
 const person = (vorname: string, email: string, bestaetigtAm: string | null = null): NonNullable<FLBewerbung["kontakte"]["trainer"]> => ({
@@ -85,11 +64,11 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
 /** Three seats, Anna confirmed and Bernd and Clara still waiting on their links. */
-function staendeVon({
+function standsOf({
   kontakte = {},
   status = "eingereicht",
 }: { kontakte?: Partial<FLBewerbung["kontakte"]>; status?: FLBewerbung["status"] } = {}) {
-  const staende = bestaetigungsStand({
+  const stands = bestaetigungsStand({
     kontakte: {
       ansprechperson: person("Anna", "anna@schule.example", "2026-09-02"),
       stellvertretung: person("Bernd", "bernd@schule.example"),
@@ -101,51 +80,47 @@ function staendeVon({
     status: status,
   });
 
-  assert.ok(staende !== null, "the fixture carries no confirmation block, so nothing below is judged");
-  return staende;
+  assert.ok(stands !== null, "the fixture carries no confirmation block, so nothing below is judged");
+  return stands;
 }
 
 function renderStrip({
-  staende = staendeVon(),
+  stands = standsOf(),
   frist = "2099-12-31",
   isOpen = true,
-}: { staende?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
+}: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
   return render(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(BewerbungBestaetigungStrip, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", staende, frist, isOpen }),
-    ),
+    underNext(h(BewerbungBestaetigungStrip, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", staende: stands, frist, isOpen }), { router }),
   );
 }
 
-const stift = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
-const senden = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
-const adressfeld = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
+const pencil = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
+const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
+const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
 
 /** The schema's own sentence for an address, so a case follows its wording rather than a copy of it. */
-const schemaSatz = (email: string): string => {
+const schemaSentence = (email: string): string => {
   const result = FLBewerbungKontaktEmailPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", rolle: "trainer", email });
 
   return result.success ? assert.fail(`the schema takes ${email}, so nothing here is refused`) : (toFieldErrors(result.error).email ?? "");
 };
 
 /** Opens Clara's row and types a new address into it. */
-async function korrigiereClara(user: ReturnType<typeof userEvent.setup>, email: string): Promise<void> {
-  await user.click(stift("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
-  await user.clear(adressfeld());
-  await user.type(adressfeld(), email);
+async function correctClara(user: ReturnType<typeof userEvent.setup>, email: string): Promise<void> {
+  await user.click(pencil("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
+  await user.clear(addressBox());
+  await user.type(addressBox(), email);
 }
 
-/** A write answering that arrives only when the case says so. */
-function gehalten(): { antwort: () => Promise<Antwort>; beantworte: (antwort: Antwort) => Promise<void> } {
-  const offen: ((antwort: Antwort) => void)[] = [];
+/** A write answering only when the case says so. */
+function held(): { answer: () => Promise<Answer>; settle: (answer: Answer) => Promise<void> } {
+  const waiting: ((answer: Answer) => void)[] = [];
 
   return {
-    antwort: () => new Promise((resolve) => offen.push(resolve)),
-    beantworte: (antwort) =>
+    answer: () => new Promise((resolve) => waiting.push(resolve)),
+    settle: (answer) =>
       act(async () => {
-        offen.shift()?.(antwort);
+        waiting.shift()?.(answer);
       }),
   };
 }
@@ -156,12 +131,12 @@ describe("the seat row's two controls", () => {
   it("stand on a waiting seat of an open application, and on no confirmed seat or decided application", () => {
     const { unmount } = renderStrip();
 
-    assert.ok(stift("Clara Meier") && senden("Trainer"), "a waiting seat on an open application lacks a control");
-    assert.ok(!stift("Anna Meier") && !senden("Ansprechperson"), "a confirmed seat is offered a link");
+    assert.ok(pencil("Clara Meier") && send("Trainer"), "a waiting seat on an open application lacks a control");
+    assert.ok(!pencil("Anna Meier") && !send("Ansprechperson"), "a confirmed seat is offered a link");
     unmount();
 
     renderStrip({ isOpen: false });
-    assert.ok(!stift("Clara Meier") && !senden("Trainer"), "a decided application offers a link");
+    assert.ok(!pencil("Clara Meier") && !send("Trainer"), "a decided application offers a link");
   });
 
   /* `docs/frontend/spec.md :: I66` gives a panel one action row: the open editor takes its own row's two
@@ -170,13 +145,13 @@ describe("the seat row's two controls", () => {
     const user = userEvent.setup();
     renderStrip();
 
-    await user.click(stift("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
-    assert.ok(!stift("Clara Meier") && !senden("Trainer"), "the open row keeps its controls beside the editor");
-    assert.ok(senden("Stellvertretung"), "another row loses its controls to the editor");
+    await user.click(pencil("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
+    assert.ok(!pencil("Clara Meier") && !send("Trainer"), "the open row keeps its controls beside the editor");
+    assert.ok(send("Stellvertretung"), "another row loses its controls to the editor");
 
-    await user.click(stift("Bernd Meier") ?? assert.fail("another row loses its pencil to the editor"));
+    await user.click(pencil("Bernd Meier") ?? assert.fail("another row loses its pencil to the editor"));
     assert.equal(screen.getAllByRole("textbox", { name: "Neue E-Mail-Adresse" }).length, 1, "two rows hold an open editor at once");
-    assert.ok(stift("Clara Meier"), "the row opened first stays open beside the second");
+    assert.ok(pencil("Clara Meier"), "the row opened first stays open beside the second");
   });
 });
 
@@ -184,12 +159,12 @@ describe("the re-send on a seat with no address", () => {
   /* The action refuses it every time, so the press was an offer of nothing. Closed on the control and
      named by the seat, with the pencil beside it left open as the way out. */
   it("closes with a reason naming the correction, which stays open", () => {
-    renderStrip({ staende: staendeVon({ kontakte: { trainer: person("Clara", "") } }) });
-    const ohneAdresse = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
+    renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "") } }) });
+    const withoutAddress = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
 
-    closedControl("Link erneut senden an Trainer", ohneAdresse);
-    assert.equal(isInTheFlow(ohneAdresse), false, "the reason stands in the flow, which this row takes away with its controls");
-    assert.equal(stift("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
+    closedControl("Link erneut senden an Trainer", withoutAddress);
+    assert.equal(isInTheFlow(withoutAddress), false, "the reason stands in the flow, which this row takes away with its controls");
+    assert.equal(pencil("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
   });
 });
 
@@ -202,8 +177,8 @@ describe("the deadline sentence", () => {
     assert.ok(screen.queryByText(/^Die Frist für die Bestätigungen ist am 01\.01\.2020 abgelaufen\./), "a passed deadline is worded as ahead");
     unmount();
 
-    renderStrip({ staende: staendeVon({ status: "abgelehnt" }), isOpen: false });
-    assert.equal(screen.queryByText(/gelöscht|Frist/), null, "a decided application is promised a deletion");
+    renderStrip({ stands: standsOf({ status: "abgelehnt" }), isOpen: false });
+    assert.ok(screen.queryByText(/gelöscht|Frist/) === null, "a decided application is promised a deletion");
   });
 });
 
@@ -213,11 +188,11 @@ describe("the address correction", () => {
   it("opens on the stored address, closed until another one is typed, and closed over no address at all", async () => {
     for (const trainer of [person("Clara", "clara@schule.example"), person("Clara", "")]) {
       const user = userEvent.setup();
-      const { unmount } = renderStrip({ staende: staendeVon({ kontakte: { trainer } }) });
+      const { unmount } = renderStrip({ stands: standsOf({ kontakte: { trainer } }) });
 
-      await user.click(stift("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
+      await user.click(pencil("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
 
-      assert.equal(adressfeld().value, trainer.email);
+      assert.equal(addressBox().value, trainer.email);
       closedControl("Korrigieren und Link senden", "Gib zuerst eine andere E-Mail-Adresse ein.");
       assert.equal(isInTheFlow("Gib zuerst eine andere E-Mail-Adresse ein."), false, "the reason stands where a keystroke unmounts it");
       unmount();
@@ -230,14 +205,14 @@ describe("the address correction", () => {
     const user = userEvent.setup();
     renderStrip();
 
-    await korrigiereClara(user, "clara@");
-    assert.equal(screen.queryByText(schemaSatz("clara@")), null, "the box judged an address still being typed");
+    await correctClara(user, "clara@");
+    assert.ok(screen.queryByText(schemaSentence("clara@")) === null, "the box judged an address still being typed");
 
     await user.tab();
-    assert.ok(screen.queryByText(schemaSatz("clara@")), "leaving the box says nothing about the address in it");
+    assert.ok(screen.queryByText(schemaSentence("clara@")), "leaving the box says nothing about the address in it");
 
-    await user.type(adressfeld(), "{Enter}");
-    assert.equal(kontaktEmailKorrigierenAction.mock.callCount(), 0, "a refused address reaches the write");
+    await user.type(addressBox(), "{Enter}");
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 0, "a refused address reaches the write");
   });
 
   /* Judged before anything is sent, so the administrator is told at the field; the backend refuses it
@@ -246,20 +221,19 @@ describe("the address correction", () => {
     const user = userEvent.setup();
     renderStrip();
 
-    await korrigiereClara(user, "Bernd@Schule.example{Enter}");
+    await correctClara(user, "Bernd@Schule.example{Enter}");
     assert.ok(
       screen.queryByText("Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen."),
       "the box says nothing of the taken address",
     );
-    assert.equal(kontaktEmailKorrigierenAction.mock.callCount(), 0, "an address another person holds reaches the write");
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 0, "an address another person holds reaches the write");
   });
 
   /* The seat's own mirror is the same person, whose address is no other person's. */
   it("takes the address the seat's own mirror holds", async () => {
     const user = userEvent.setup();
-    kontaktEmailKorrigierenAction.mock.mockImplementation(() => new Promise(() => undefined));
     renderStrip({
-      staende: staendeVon({
+      stands: standsOf({
         kontakte: {
           ansprechperson: person("Anna", "anna.neu@schule.example"),
           trainer: person("Anna", "anna@schule.example"),
@@ -268,12 +242,12 @@ describe("the address correction", () => {
       }),
     });
 
-    await user.click(stift("Anna Meier") ?? assert.fail("the pair's person is offered no pencil"));
-    await user.clear(adressfeld());
-    await user.type(adressfeld(), "anna.neu@schule.example{Enter}");
+    await user.click(pencil("Anna Meier") ?? assert.fail("the pair's person is offered no pencil"));
+    await user.clear(addressBox());
+    await user.type(addressBox(), "anna.neu@schule.example{Enter}");
 
     assert.deepEqual(
-      kontaktEmailKorrigierenAction.mock.calls.map(({ arguments: [payload] }) => payload.email),
+      calls.filter((call) => call.action === "kontaktEmailKorrigierenAction").map((call) => (call.payload as { email: string }).email),
       ["anna.neu@schule.example"],
       "the mirror's address is refused as another person's",
     );
@@ -283,13 +257,12 @@ describe("the address correction", () => {
      and a second correction to an address already stored is refused. */
   it("sends one correction however often Enter is pressed while it runs", async () => {
     const user = userEvent.setup();
-    kontaktEmailKorrigierenAction.mock.mockImplementation(() => new Promise(() => undefined));
     renderStrip();
 
-    await korrigiereClara(user, "clara.neu@schule.example{Enter}");
-    await user.type(adressfeld(), "{Enter}");
+    await correctClara(user, "clara.neu@schule.example{Enter}");
+    await user.type(addressBox(), "{Enter}");
 
-    assert.equal(kontaktEmailKorrigierenAction.mock.callCount(), 1, "a second Enter while the write runs sent it again");
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
   });
 });
 
@@ -300,11 +273,11 @@ describe("where focus goes as the correction box opens and closes", () => {
     const user = userEvent.setup();
     renderStrip();
 
-    await user.click(stift("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
-    assert.equal(document.activeElement, adressfeld(), "opening the box leaves focus outside its field");
+    await user.click(pencil("Clara Meier") ?? assert.fail("a waiting seat offers no pencil"));
+    assert.ok(document.activeElement === addressBox(), "opening the box leaves focus outside its field");
 
     await user.click(screen.getByRole("button", { name: "Abbrechen" }));
-    assert.equal(document.activeElement, stift("Clara Meier"), "closing the box leaves focus somewhere other than the pencil that opened it");
+    assert.ok(document.activeElement === pencil("Clara Meier"), "closing the box leaves focus somewhere other than the pencil that opened it");
   });
 });
 
@@ -313,17 +286,17 @@ describe("two re-sends running at once", () => {
      not lift it. */
   it("keeps each seat held for its own write, whatever the other seat's write does", async () => {
     const user = userEvent.setup();
-    const { antwort, beantworte } = gehalten();
-    einwilligungErneutSendenAction.mock.mockImplementation(antwort);
+    const { answer, settle } = held();
+    answerWith(answer);
     renderStrip();
 
-    await user.click(senden("Stellvertretung") ?? assert.fail("Bernd is offered no re-send"));
-    await user.click(senden("Trainer") ?? assert.fail("Clara is offered no re-send"));
-    assert.deepEqual([senden("Stellvertretung")?.textContent, senden("Trainer")?.textContent], ["Sendet...", "Sendet..."]);
+    await user.click(send("Stellvertretung") ?? assert.fail("Bernd is offered no re-send"));
+    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    assert.deepEqual([send("Stellvertretung")?.textContent, send("Trainer")?.textContent], ["Sendet...", "Sendet..."]);
 
-    await beantworte({ success: true, message: "Der neue Link ging an bernd@schule.example." });
-    assert.equal(senden("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held");
-    assert.equal(senden("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
+    await settle({ success: true, message: "Der neue Link ging an bernd@schule.example." });
+    assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held");
+    assert.equal(send("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
   });
 });
 
@@ -332,17 +305,14 @@ describe("a write whose answer never arrives", () => {
      leaves „Sendet...“ standing for good and says nothing. */
   it("releases the re-send, refreshes the row and says the outcome is unknown", async () => {
     const user = userEvent.setup();
-    einwilligungErneutSendenAction.mock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
     renderStrip();
 
-    await user.click(senden("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
-    assert.equal(senden("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
-    assert.equal(refresh.mock.callCount(), 1, "a write that may have committed leaves the row as it was");
-    assert.deepEqual(
-      appToast.danger.mock.calls.map(({ arguments: [title] }) => title),
-      ["Unklar, ob es bei uns angekommen ist"],
-    );
+    assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
+    assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
   });
 
   /* The answered arms beside it, so the catch cannot have swallowed the ordinary outcomes. */
@@ -350,36 +320,25 @@ describe("a write whose answer never arrives", () => {
     const user = userEvent.setup();
     renderStrip();
 
-    einwilligungErneutSendenAction.mock.mockImplementationOnce(() =>
-      Promise.resolve({ success: false, error: "Die Bewerbung ist entschieden." }),
-    );
-    await user.click(senden("Trainer") ?? assert.fail("Clara is offered no re-send"));
-    einwilligungErneutSendenAction.mock.mockImplementationOnce(() => Promise.resolve({ success: true, message: "Der neue Link ging raus." }));
-    await user.click(senden("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    answerWith(() => Promise.resolve({ success: false, error: "Die Bewerbung ist entschieden." }));
+    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging raus." }));
+    await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
-    assert.deepEqual(
-      appToast.danger.mock.calls.map(({ arguments: [title] }) => title),
-      ["Link nicht erneut gesendet"],
-    );
-    assert.deepEqual(
-      appToast.success.mock.calls.map(({ arguments: [title] }) => title),
-      ["Link erneut gesendet"],
-    );
+    assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
+    assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
   });
 
   it("releases the correction and keeps the box open over its draft", async () => {
     const user = userEvent.setup();
-    kontaktEmailKorrigierenAction.mock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
     renderStrip();
 
-    await korrigiereClara(user, "clara.neu@schule.example{Enter}");
+    await correctClara(user, "clara.neu@schule.example{Enter}");
 
-    assert.equal(adressfeld().value, "clara.neu@schule.example", "the draft a second press would send is gone");
+    assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
     assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
-    assert.equal(refresh.mock.callCount(), 1);
-    assert.deepEqual(
-      appToast.danger.mock.calls.map(({ arguments: [title] }) => title),
-      ["Unklar, ob es bei uns angekommen ist"],
-    );
+    assert.equal(seen.refresh, 1);
+    assert.deepEqual(titles("danger"), ["Unklar, ob es bei uns angekommen ist"]);
   });
 });

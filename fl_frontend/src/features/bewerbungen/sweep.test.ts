@@ -122,12 +122,12 @@ function sweepAnswers({
 }
 
 /** Application ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
-const ID_ERREICHT = `${"a".repeat(23)}1`;
-const ID_STUMM = `${"b".repeat(23)}2`;
-const ID_NIEMAND = `${"c".repeat(23)}3`;
+const ID_REACHED = `${"a".repeat(23)}1`;
+const ID_SILENT = `${"b".repeat(23)}2`;
+const ID_NOBODY = `${"c".repeat(23)}3`;
 
 /** One deletion candidate nobody has been told about yet; a null address is the seat the erasure emptied. */
-const loeschung = (bewerbungId: string, address: string | null, rollen: string[] = ["ansprechperson"]) => ({
+const deletion = (bewerbungId: string, address: string | null, rollen: string[] = ["ansprechperson"]) => ({
   angekuendigt: false,
   bewerbung_id: bewerbungId,
   saison_id: "2627",
@@ -308,7 +308,7 @@ describe("one pass of the sweep", () => {
       erinnerungen: {
         "2627": [
           {
-            bewerbung_id: ID_ERREICHT,
+            bewerbung_id: ID_REACHED,
             saison_id: "2627",
             schule: "Goetheschule",
             bestaetigungsfrist: "2026-09-18",
@@ -337,7 +337,7 @@ describe("one pass of the sweep", () => {
       erinnerungen: {
         "2627": [
           {
-            bewerbung_id: ID_ERREICHT,
+            bewerbung_id: ID_REACHED,
             saison_id: "2627",
             schule: "Goetheschule",
             bestaetigungsfrist: "2026-09-18",
@@ -350,9 +350,9 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    const erinnerung = events.find((event) => event.kind === "mail");
-    assert.equal(erinnerung?.text.match(/\/bestaetigung\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
-    assert.ok(erinnerung?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
+    const reminder = events.find((event) => event.kind === "mail");
+    assert.equal(reminder?.text.match(/\/bestaetigung\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    assert.ok(reminder?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 
   it("mails the deletion notice, stamps what was delivered, and erases only that", async () => {
@@ -360,7 +360,7 @@ describe("one pass of the sweep", () => {
     sweepAnswers({
       saisonIds: ["2627"],
       loeschungen: {
-        "2627": [loeschung(ID_ERREICHT, "erika@schule.de"), loeschung(ID_STUMM, "stumm@schule.de")],
+        "2627": [deletion(ID_REACHED, "erika@schule.de"), deletion(ID_SILENT, "stumm@schule.de")],
       },
     });
 
@@ -374,9 +374,9 @@ describe("one pass of the sweep", () => {
       "both notices go out before anything is stamped or erased",
     );
     assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
-    assert.deepEqual(JSON.parse(stamp?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+    assert.deepEqual(JSON.parse(stamp?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
   });
 
   /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing
@@ -384,7 +384,7 @@ describe("one pass of the sweep", () => {
   it("mails nothing for a candidate already announced, and erases it without a second stamp", async () => {
     sweepAnswers({
       saisonIds: ["2627"],
-      loeschungen: { "2627": [{ ...loeschung(ID_ERREICHT, "erika@schule.de"), angekuendigt: true }] },
+      loeschungen: { "2627": [{ ...deletion(ID_REACHED, "erika@schule.de"), angekuendigt: true }] },
     });
 
     await runBewerbungSweep();
@@ -396,7 +396,7 @@ describe("one pass of the sweep", () => {
       "an announced candidate was mailed or stamped again",
     );
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
   });
 
   /* Two ticks over one pass would compose the same notice twice, neither having reached its stamp.
@@ -414,17 +414,17 @@ describe("one pass of the sweep", () => {
   it("names the notice's reader by every seat that one mailbox holds", async () => {
     sweepAnswers({
       saisonIds: ["2627"],
-      loeschungen: { "2627": [loeschung(ID_ERREICHT, "erika@schule.de", ["trainer", "ansprechperson"])] },
+      loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de", ["trainer", "ansprechperson"])] },
     });
 
     await runBewerbungSweep();
 
-    const notiz = events.find((event) => event.kind === "mail");
-    assert.ok(notiz?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the notice names one of the two seats its reader holds");
+    const noticeMail = events.find((event) => event.kind === "mail");
+    assert.ok(noticeMail?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the notice names one of the two seats its reader holds");
   });
 
   it("erases a candidate whose Ansprechperson seat is empty, there being nobody left to tell", async () => {
-    sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [loeschung(ID_NIEMAND, null)] } });
+    sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [deletion(ID_NOBODY, null)] } });
 
     await runBewerbungSweep();
 
@@ -434,7 +434,7 @@ describe("one pass of the sweep", () => {
       ["api", "api", "api", "api"],
       "no message is composed for a candidate with no address",
     );
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NIEMAND] });
+    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NOBODY] });
   });
 
   /* Holding an undeliverable application past its erasure window is the backend's alone:
@@ -448,13 +448,13 @@ describe("one pass of the sweep", () => {
 
     sweepAnswers({
       saisonIds: ["2627"],
-      loeschungen: { "2627": [loeschung(ID_ERREICHT, "erika@schule.de"), loeschung(ID_STUMM, "stumm@schule.de")] },
+      loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de"), deletion(ID_SILENT, "stumm@schule.de")] },
     });
 
     await runBewerbungSweep();
 
     assert.equal(events.filter((event) => event.kind === "mail").length, 2, "a listed candidate was held back on this side");
-    assert.deepEqual(JSON.parse(apiCalls().at(-2)?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT, ID_STUMM] });
+    assert.deepEqual(JSON.parse(apiCalls().at(-2)?.body ?? "{}"), { bewerbung_ids: [ID_REACHED, ID_SILENT] });
   });
 
   /* The one send here whose body cannot change inside the provider's window, and the one that can
@@ -465,7 +465,7 @@ describe("one pass of the sweep", () => {
       erinnerungen: {
         "2627": [
           {
-            bewerbung_id: ID_ERREICHT,
+            bewerbung_id: ID_REACHED,
             saison_id: "2627",
             schule: "Goetheschule",
             bestaetigungsfrist: "2026-09-18",
@@ -474,21 +474,17 @@ describe("one pass of the sweep", () => {
           },
         ],
       },
-      loeschungen: { "2627": [loeschung(ID_STUMM, "stumm@schule.de")] },
+      loeschungen: { "2627": [deletion(ID_SILENT, "stumm@schule.de")] },
     });
 
     await runBewerbungSweep();
 
-    const [erinnerung, notiz] = events.filter((event) => event.kind === "mail");
+    const [reminder, noticeMail] = events.filter((event) => event.kind === "mail");
 
-    assert.equal(
-      erinnerung?.idempotencyKey,
-      undefined,
-      "the reminder mints a fresh token, so a reused key would be refused over a changed body",
-    );
-    assert.match(String(notiz?.idempotencyKey), /^loeschung_/);
-    assert.deepEqual(erinnerung?.tags, { bewerbung_id: ID_ERREICHT, rollen: "ansprechperson", anlass: "erinnerung" });
-    assert.deepEqual(notiz?.tags, { bewerbung_id: ID_STUMM, rollen: "ansprechperson", anlass: "loeschung" });
+    assert.equal(reminder?.idempotencyKey, undefined, "the reminder mints a fresh token, so a reused key would be refused over a changed body");
+    assert.match(String(noticeMail?.idempotencyKey), /^loeschung_/);
+    assert.deepEqual(reminder?.tags, { bewerbung_id: ID_REACHED, rollen: "ansprechperson", anlass: "erinnerung" });
+    assert.deepEqual(noticeMail?.tags, { bewerbung_id: ID_SILENT, rollen: "ansprechperson", anlass: "loeschung" });
   });
 
   it("carries on to the next season when one throws", async () => {

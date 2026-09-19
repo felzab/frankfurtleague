@@ -8,6 +8,12 @@ type KontakteBannerSpot = "kontakte-block";
 export type KontakteBanner = RailBanner<KontakteBannerId> & { inline: KontakteBannerSpot | null };
 
 /**
+ * What the draft guard says before either of the editor's two deletions: each write lands on the
+ * server and the page re-reads after it, so one wording here keeps the two panels from parting.
+ */
+export const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
+
+/**
  * One list, not two: the rail and the panel must never disagree about what is raised, and a second
  * copy hand-written in a section would drift in wording with nothing able to see it.
  */

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminKontakteEditForm } from "@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -34,10 +35,7 @@ export function AdminKontakteEditView({
             <RetiredBadge since={team.inactive_since} />
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
-            <span
-              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex size-10 items-center justify-center rounded-xl shadow-sm`}>
-              {team.shorthand}
-            </span>
+            <span className={`${DISPLAY_HEADING} ${BRAND_TILE}`}>{team.shorthand}</span>
           ),
         }}
       />

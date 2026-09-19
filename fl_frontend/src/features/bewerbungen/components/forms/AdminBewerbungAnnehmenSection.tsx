@@ -5,17 +5,15 @@ import { useRouter } from "next/navigation";
 
 import { SealCheck } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -104,8 +102,6 @@ export function AdminBewerbungAnnehmenSection({
   };
 
   // The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what is taken into what.
-  const restingLabel = isConfirming ? "Ja, Team verbindlich aufnehmen" : "Bewerbung annehmen";
-
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
@@ -224,28 +220,23 @@ export function AdminBewerbungAnnehmenSection({
                 isConfirming={isConfirming}
                 isPending={isAccepting}
                 onCancel={cancel}>
-                {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                    §1.14). `isAccepting` is left out: it ends by itself. */}
-                <Hint
-                  mode="refusal"
-                  reason={isAccepting ? null : grund}
-                  label={restingLabel}>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    isPending={isAccepting}
-                    isDisabled={!isAccepting && grund !== null}
-                    onPress={handleAccept}
-                    className={confirmButton(isConfirming)}>
-                    {!isConfirming && (
-                      <SealCheck
-                        className="size-4.5"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {isAccepting ? "Nimmt auf..." : restingLabel}
-                  </Button>
-                </Hint>
+                {/* On the control, never a sentence beside it that a pick would unmount
+                    (`docs/frontend/spec.md` §1.14). */}
+                <ConfirmPressButton
+                  isConfirming={isConfirming}
+                  isPending={isAccepting}
+                  reason={grund}
+                  resting="Bewerbung annehmen"
+                  armed="Ja, Team verbindlich aufnehmen"
+                  running="Nimmt auf..."
+                  icon={
+                    <SealCheck
+                      className="size-4.5"
+                      aria-hidden="true"
+                    />
+                  }
+                  onPress={handleAccept}
+                />
               </ConfirmActionRow>
 
               {/* A plain sentence, not an inline hint needing a control to point at it: the wrapper covers

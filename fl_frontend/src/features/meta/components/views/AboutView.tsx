@@ -12,13 +12,13 @@ import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { getTeams } from "@/features/teams/queries";
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-import { META_TILE } from "../ui/tile";
 
 const CHIP = `${PILL_RADIUS} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
 // The border answers the hover and not the text: `TeamPopoverMenu`'s trigger already spells
@@ -47,7 +47,7 @@ export function AboutView() {
         <div className={`${card()} grid grid-cols-1 gap-3 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-4 sm:p-6 lg:p-8`}>
           <span
             aria-hidden="true"
-            className={META_TILE}>
+            className={BRAND_TILE}>
             <StarFill
               aria-hidden="true"
               className="size-5"

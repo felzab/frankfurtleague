@@ -57,7 +57,7 @@ const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export a
 
 const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const BEWERBUNG_WEG");
 /** Every sentence the re-send answers with instead of a link, read as its declaration writes it. */
-const erneutSatz = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
+const resendSentence = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
 /** What the re-send runs after its own write, which is where the minted token is spent. */
 const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
 const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
@@ -121,7 +121,7 @@ describe("the slices these assertions read", () => {
   it("cuts the re-send's mapper, its send and its action apart", () => {
     assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
     assert.ok(!ERNEUT_MAPPER.includes("sendBewerbungMail("), "the re-send mapper's slice reaches the send");
-    assert.ok(erneutSatz("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
+    assert.ok(resendSentence("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
 
     assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
     assert.ok(!ERNEUT_SENDER.includes("erneutSendenEinwilligung("), "the send's slice reaches the write it reports");
@@ -376,7 +376,7 @@ const RETIRED_RENDERINGS = renderingsOf("REQ-ENTER-005", [
 ]);
 
 /** Every determiner a neuter noun takes. One in front of „Team“ that is not here is the disagreement. */
-const NEUTER_DETERMINERS = ["Das", "das", "Dieses", "dieses", "Ein", "ein", "Kein", "kein", "Sein", "sein", "Jedes", "jedes"];
+const NEUTER_ARTICLES = ["Das", "das", "Dieses", "dieses", "Ein", "ein", "Kein", "kein", "Sein", "sein", "Jedes", "jedes"];
 
 /**
  * Masculine, because that is the wrong guess „Team“ invites: „Verein“ and „Club“ are masculine and
@@ -394,7 +394,7 @@ const NOT_AN_INDICATIVE = ["ist", "lässt", "erst", "selbst", "sonst", "zunächs
  * What „Reaktiviere“ takes as its object: the neuter pronoun, or „Team“ under the determiner and any
  * adjective agreeing with it. A sentence naming the club inside the imperative reaches no pronoun.
  */
-const REACTIVATED_OBJECT = new RegExp(`^(?:es|(?:${NEUTER_DETERMINERS.join("|")})(?:\\s+\\p{L}+)?\\s+Team)\\b`, "u");
+const REACTIVATED_OBJECT = new RegExp(`^(?:es|(?:${NEUTER_ARTICLES.join("|")})(?:\\s+\\p{L}+)?\\s+Team)\\b`, "u");
 
 /**
  * The agreement „Team“ forces and the imperative a repair is written in, over one rendering. Neither
@@ -408,7 +408,7 @@ function assertTheGermanAgrees(where: string, sentences: readonly string[]): voi
       const words = before.filter((word) => word !== undefined);
 
       assert.ok(
-        words.some((word) => NEUTER_DETERMINERS.includes(word)),
+        words.some((word) => NEUTER_ARTICLES.includes(word)),
         `${where} puts „${words.join(" ")}“ in front of the neuter „Team“`,
       );
     }
@@ -585,19 +585,19 @@ describe("a message that cannot be sent", () => {
     // further one is a path whose side of the write nobody has decided.
     assert.equal(reads.length, 3, `expected three club-name readers, found ${String(reads.length)}`);
 
-    const nachDemSchreiben = reads.find((read) => read.holder === "notifyBewerbung");
-    assert.ok(nachDemSchreiben?.guarded, "a failed club read reports a committed decision as one that did not happen");
+    const afterTheWrite = reads.find((read) => read.holder === "notifyBewerbung");
+    assert.ok(afterTheWrite?.guarded, "a failed club read reports a committed decision as one that did not happen");
 
     // Both of the two that mint: each reads before its own write, where a throw has cost nothing.
     for (const [holder, schreiben] of [
       ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
       ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
     ] as const) {
-      const vorDemMint = reads.find((read) => read.holder === holder);
+      const beforeTheMint = reads.find((read) => read.holder === holder);
 
-      assert.ok(vorDemMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
+      assert.ok(beforeTheMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
       assert.ok(
-        vorDemMint.at < ACTIONS.indexOf(schreiben),
+        beforeTheMint.at < ACTIONS.indexOf(schreiben),
         `${holder} reads the club's name after spending the seat's link on a message it may not be able to compose`,
       );
     }
@@ -616,31 +616,31 @@ describe("what each decision message is told", () => {
   /* An OPTIONAL field the call site never fills compiles, lints and builds, and mails the message
      with the sentence it feeds silently missing. Read off the message rather than listed here. */
   it("fills every field the message declares", () => {
-    const felder = (block: string) => [...block.matchAll(/^ {2}(\w+)\??:/gm)].map((treffer) => treffer[1]!);
-    const zusage = felder(sliceBetween(EMAIL, "export interface BewerbungZusageData", "\n}"));
-    const absage = felder(sliceBetween(EMAIL, "export interface BewerbungAbsageData", "\n}"));
+    const fields = (block: string) => [...block.matchAll(/^ {2}(\w+)\??:/gm)].map((treffer) => treffer[1]!);
+    const acceptMail = fields(sliceBetween(EMAIL, "export interface BewerbungZusageData", "\n}"));
+    const declineMail = fields(sliceBetween(EMAIL, "export interface BewerbungAbsageData", "\n}"));
 
     // Anti-vacuity: a moved interface would leave both lists empty and this assertion true of nothing.
-    assert.ok(zusage.length > 0 && absage.length > 0, "neither message's field list was found, so nothing was compared");
+    assert.ok(acceptMail.length > 0 && declineMail.length > 0, "neither message's field list was found, so nothing was compared");
 
     // The BUILDER's own argument, never the whole action: `gruppe` is also a key of the sentence
     // `describeAufnahme` composes, so a search over the action passes a mail that dropped it.
-    const zusageAufruf = sliceBetween(ACTIONS, "buildBewerbungZusageEmail({", "})");
-    const absageAufruf = sliceBetween(ACTIONS, "buildBewerbungAbsageEmail({", "})");
+    const acceptCall = sliceBetween(ACTIONS, "buildBewerbungZusageEmail({", "})");
+    const declineCall = sliceBetween(ACTIONS, "buildBewerbungAbsageEmail({", "})");
 
-    assert.ok(zusageAufruf !== "" && absageAufruf !== "", "one of the two mail builders is no longer called with an object literal");
+    assert.ok(acceptCall !== "" && declineCall !== "", "one of the two mail builders is no longer called with an object literal");
 
     // Collected rather than asserted one at a time: a per-field assertion stops at the first gap, so
     // a second one is invisible until the first is closed.
-    const ungefuellt = [
-      ...zusage.map((feld) => [feld, zusageAufruf, "annehmen"] as const),
-      ...absage.map((feld) => [feld, absageAufruf, "ablehnen"] as const),
+    const unfilled = [
+      ...acceptMail.map((feld) => [feld, acceptCall, "annehmen"] as const),
+      ...declineMail.map((feld) => [feld, declineCall, "ablehnen"] as const),
     ]
       .filter(([feld, aufruf]) => !new RegExp(`\\b${feld}:`).test(aufruf))
       .map(([feld, , wo]) => `${wo}/${feld}`)
       .sort();
 
-    assert.deepEqual(ungefuellt, [], `these declared message fields reach no call site: ${ungefuellt.join(", ")}`);
+    assert.deepEqual(unfilled, [], `these declared message fields reach no call site: ${unfilled.join(", ")}`);
   });
 });
 
@@ -707,26 +707,26 @@ describe("the re-sent confirmation link", () => {
   it("gives each of those states a sentence of its own", () => {
     // Punctuation dropped: a refusal built from a reason and a repair carries the stops `buildRefusal`
     // writes, and comparing them would call two identical answers different.
-    const vergleichbar = (saetze: string[]): string =>
-      saetze
+    const comparable = (germanSentences: string[]): string =>
+      germanSentences
         .join(" ")
         .toLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, " ")
         .trim();
-    const gelesen = (name: string): string => vergleichbar(sentencesOf(erneutSatz(name)));
+    const readBack = (name: string): string => comparable(sentencesOf(resendSentence(name)));
 
     // The empty address's sentence is the one the strip shares, so it is read off the constant both import.
-    const saetze = [
-      ...["BEWERBUNG_WEG", "SITZ_LEER"].map(gelesen),
-      vergleichbar([ERNEUT_OHNE_ADRESSE]),
-      ...["KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(gelesen),
+    const germanSentences = [
+      ...["BEWERBUNG_WEG", "SITZ_LEER"].map(readBack),
+      comparable([ERNEUT_OHNE_ADRESSE]),
+      ...["KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(readBack),
     ];
 
     assert.ok(
-      saetze.every((satz) => satz !== ""),
-      `a re-send sentence reaches no literal at all: ${saetze.join(" | ")}`,
+      germanSentences.every((satz) => satz !== ""),
+      `a re-send sentence reaches no literal at all: ${germanSentences.join(" | ")}`,
     );
-    assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
+    assert.equal(new Set(germanSentences).size, germanSentences.length, "two of the re-send's answers say the same thing");
   });
 
   /* A success title over a message that never went out leaves an administrator waiting on an answer
@@ -747,10 +747,10 @@ describe("the re-sent confirmation link", () => {
     );
     assert.match(ERNEUT_ACTION.slice(notified), /message: /, "the re-send drops the delivery report out of what it returns");
 
-    const kosten = erneutSatz("KEIN_LINK_VERSCHICKT");
+    const costs = resendSentence("KEIN_LINK_VERSCHICKT");
 
-    assert.match(kosten, /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(kosten, /Versuche es noch einmal/, "the failure names no way out");
+    assert.match(costs, /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
+    assert.match(costs, /Versuche es noch einmal/, "the failure names no way out");
   });
 
   /* The endpoint writes the deadline in the same update that mints the token, so an application
@@ -774,12 +774,12 @@ describe("the re-sent confirmation link", () => {
     assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
     assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
 
-    const gelogt = loggerCalls();
+    const loggedLine = loggerCalls();
 
     // The module logs, so a walk that found nothing is this sweep broken rather than a clean module.
-    assert.ok(gelogt.length > 0, "no logger call was found at all, so nothing below was judged");
+    assert.ok(loggedLine.length > 0, "no logger call was found at all, so nothing below was judged");
 
-    for (const { level, argument } of gelogt) {
+    for (const { level, argument } of loggedLine) {
       // Every call in the module and every argument of it, never the re-send's slice: a line moved
       // one function along is the same credential on the same stream.
       assert.doesNotMatch(argument, /\btoken\b/, `logger.${level} names the token in \`${argument}\``);
@@ -843,13 +843,13 @@ describe("the corrected contact address", () => {
      throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
      written, with the seat's previous link already dead. */
   it("catches a message that threw, the address being stored before it is composed", () => {
-    const gesendet = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
-    const gefangen = KORREKTUR_ACTION.indexOf("} catch (error) {", gesendet);
+    const sentMail = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
+    const caught = KORREKTUR_ACTION.indexOf("} catch (error) {", sentMail);
 
-    assert.notEqual(gesendet, -1, "the correction sends no message at all");
-    assert.notEqual(gefangen, -1, "a throw from the send escapes the correction as a write that did not happen");
+    assert.notEqual(sentMail, -1, "the correction sends no message at all");
+    assert.notEqual(caught, -1, "a throw from the send escapes the correction as a write that did not happen");
     assert.match(
-      KORREKTUR_ACTION.slice(gefangen),
+      KORREKTUR_ACTION.slice(caught),
       /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/,
       "the caught throw answers with something other than the correction standing and no link sent",
     );
@@ -868,47 +868,5 @@ describe("the corrected contact address", () => {
   it("moves no tag, and says why", () => {
     assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
     assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
-  });
-});
-
-/**
- * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
- * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
- * real call; it cannot invent one.
- */
-const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
-const ACTION_BODIES = new Map<string, string>(
-  DECLARATIONS.flatMap((match, index): [string, string][] =>
-    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
-  ),
-);
-
-/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
-const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
-
-/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
-const WRITE_ACTIONS = ["annehmenBewerbungAction", "ablehnenBewerbungAction", "einwilligungErneutSendenAction", "kontaktEmailKorrigierenAction"];
-
-describe("the refresh a write owes the list the admin is looking at", () => {
-  it("places every action the slice exports, each in the callback the case below reads", () => {
-    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
-    for (const name of WRITE_ACTIONS) {
-      assert.ok(
-        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
-        `${name} opens some other callback, so the indentation the next case reads means nothing`,
-      );
-    }
-  });
-
-  /* Both triage reads are uncached, so three of these four have no tag to move at all and the
-     acceptance's `teams` pair reaches the public club reads rather than the queue. */
-  it("refreshes on every one of them, whatever tag the write also moves", () => {
-    for (const name of WRITE_ACTIONS) {
-      const body = ACTION_BODIES.get(name) ?? "";
-      const refreshAt = body.search(TOP_LEVEL_REFRESH);
-      assert.notEqual(refreshAt, -1, `${name} writes and leaves the triage standing`);
-      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
-    }
   });
 });

@@ -7,10 +7,6 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` and `useSearchParams` read contexts no `next/navigation` export carries, so the page
-   renders under the two Next keeps them on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -18,9 +14,9 @@ import { userEvent } from "@testing-library/user-event";
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
-import type { ContextType } from "react";
 
 const { AdminBewerbungView } = await import("./AdminBewerbungView.tsx");
 
@@ -29,17 +25,6 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", ".."
 /** The module the redaction lives in, and the triage router, whose calls say whether a decision redacts. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
-
-/** Every method the page reaches only after a write or a navigation, which no case here makes. */
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "adminBewerbungView",
-};
 
 const TEAM_NAME = "SG Alpha";
 
@@ -88,21 +73,15 @@ const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
 
 function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME) {
   return render(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2027") },
-        h(AdminBewerbungView, { bewerbung, teamName, saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] }),
-      ),
+    underNext(
+      h(AdminBewerbungView, { bewerbung, teamName, saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] }),
+      { search: "saison_id=2027" },
     ),
   );
 }
 
-/** One decision's panel, found by the heading it stands under, or `null` where the page offers none. */
-const panel = (heading: "Zusage" | "Absage"): HTMLElement | null =>
-  screen.queryByRole("heading", { name: heading })?.closest("section") ?? null;
+/** Whether one decision stands on the page, which its own heading is what a reader meets it by. */
+const offers = (heading: "Zusage" | "Absage"): boolean => screen.queryByRole("heading", { name: heading }) !== null;
 
 describe("the Zusage where the write would be refused", () => {
   /* Withheld, the section sent the administrator looking for a decision the page still held. It stands
@@ -116,7 +95,7 @@ describe("the Zusage where the write would be refused", () => {
       const hindernis = zusageHindernis(bestaetigungsStand(bewerbung), teamName) ?? "";
 
       assert.notEqual(hindernis, "", `${wo} refuses nothing, so this case judges an open control`);
-      assert.ok(panel("Zusage"), `the page withdraws the acceptance over ${wo}`);
+      assert.ok(offers("Zusage"), `the page withdraws the acceptance over ${wo}`);
       closedControl("Bewerbung annehmen", hindernis);
       unmount();
     }
@@ -127,8 +106,8 @@ describe("the Zusage where the write would be refused", () => {
 
     // First: a page that rendered nothing holds neither panel either.
     assert.ok(screen.getByRole("heading", { name: TEAM_NAME }), "the decided application's page did not render");
-    assert.equal(panel("Zusage"), null, "a decided application is offered an acceptance");
-    assert.equal(panel("Absage"), null, "a decided application is offered a decline");
+    assert.equal(offers("Zusage"), false, "a decided application is offered an acceptance");
+    assert.equal(offers("Absage"), false, "a decided application is offered a decline");
   });
 });
 
@@ -149,13 +128,16 @@ describe("which irreversibility the triage claims", () => {
     await user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
     await user.click(screen.getByRole("button", { name: "Bewerbung ablehnen" }));
 
-    for (const heading of ["Zusage", "Absage"] as const) {
-      const armed = panel(heading)?.textContent ?? "";
+    /* Both arming reveals, which announce themselves: the sentence is what each of the two promises,
+       and the count is the floor under a loop that would otherwise pass over one panel that never armed. */
+    const revealed = screen.getAllByRole("alert").map((reveal) => reveal.textContent);
 
-      assert.match(armed, /Es gibt in der Verwaltung keinen Weg zurück\./, `the ${heading} drops the irreversibility sentence once armed`);
+    assert.equal(revealed.length, 2, "one of the two decisions did not arm, so the sentences below are read off the other");
+    for (const armed of revealed) {
+      assert.match(armed, /Es gibt in der Verwaltung keinen Weg zurück\./, "an armed decision drops the irreversibility sentence");
       assert.ok(
         !armed.includes("Zurückholen lässt sich das nicht"),
-        `the ${heading} claims the log is emptied, and no triage write empties one`,
+        "an armed decision claims the log is emptied, and no triage write empties one",
       );
     }
   });

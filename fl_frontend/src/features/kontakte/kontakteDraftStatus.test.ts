@@ -100,11 +100,11 @@ describe("deriveKontakteDraftStatus", () => {
   /* The editor opens a block of empty seats as no block at all, and a claim is all the two can still
      differ by, so a row an erasure emptied would otherwise open dirty. */
   it("reads a block holding nobody as no block, whatever claim it carries", () => {
-    const niemand = block({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" });
+    const nobodyHeld = block({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" });
 
     for (const [stored, draft] of [
-      [niemand, EMPTY],
-      [EMPTY, niemand],
+      [nobodyHeld, EMPTY],
+      [EMPTY, nobodyHeld],
     ] as const) {
       const status = deriveKontakteDraftStatus({ stored, draft, fieldErrors: {} });
 
@@ -188,10 +188,10 @@ describe("deriveKontakteDraftStatus", () => {
      would send an admin to the third card for a change the first one made. */
   it("lists the seats in the order the panels stand in", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block(), fieldErrors: {} });
-    const sitze = [...new Set(status.fields.map((field) => field.group))].filter((gruppe) => gruppe !== "Kontakte");
+    const seatsOf = [...new Set(status.fields.map((field) => field.group))].filter((gruppe) => gruppe !== "Kontakte");
 
     assert.deepEqual(
-      sitze,
+      seatsOf,
       KONTAKT_ROLLEN.map(({ label }) => label),
       "the rail reads the seats in an order the panels do not",
     );

@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 
 import { Ban } from "@gravity-ui/icons";
 
-import { Button, FieldError, Label, TextArea, TextField } from "@heroui/react";
+import { FieldError, Label, TextArea, TextField } from "@heroui/react";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLAblehnenBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -89,8 +89,6 @@ export function AdminBewerbungAblehnenSection({
       router.refresh();
     });
   };
-
-  const restingLabel = isConfirming ? "Ja, Absage verbindlich verschicken" : "Bewerbung ablehnen";
 
   return (
     <section className={panel.root()}>
@@ -174,27 +172,22 @@ export function AdminBewerbungAblehnenSection({
           isPending={isDeclining}
           onCancel={cancel}>
           {/* On the control, never a sentence beside it that the first keystroke would unmount under the
-              admin typing (`docs/frontend/spec.md` §1.14). `isDeclining` is left out: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={isDeclining ? null : closedReason}
-            label={restingLabel}>
-            <Button
-              type="button"
-              variant="primary"
-              isPending={isDeclining}
-              isDisabled={!isDeclining && closedReason !== null}
-              onPress={handleDecline}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming && (
-                <Ban
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              )}
-              {isDeclining ? "Sagt ab..." : restingLabel}
-            </Button>
-          </Hint>
+              admin typing (`docs/frontend/spec.md` §1.14). */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
+            isPending={isDeclining}
+            reason={closedReason}
+            resting="Bewerbung ablehnen"
+            armed="Ja, Absage verbindlich verschicken"
+            running="Sagt ab..."
+            icon={
+              <Ban
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleDecline}
+          />
         </ConfirmActionRow>
       </div>
     </section>

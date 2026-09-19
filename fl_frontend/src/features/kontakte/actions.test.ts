@@ -4,13 +4,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `useRouter` reads the first and `useSearchParams` the
-   second — and the seats below render under both. A Next release that moves either module fails this
-   file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
@@ -43,17 +39,6 @@ const { FormKontakteSection } = await import("./components/forms/AdminKontakteEd
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontaktePage } = await import("@/app/admin/kontakte/page.tsx");
 
-/** What `useRouter` hands the erasure control. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
   nachname,
@@ -72,7 +57,7 @@ const BLOCK: FLSaisonTeamKontakte = {
 };
 
 /** The same three with no address, which is the one state the write has no key for. */
-const BLOCK_OHNE_ADRESSE: FLSaisonTeamKontakte = {
+const BLOCK_WITHOUT_ADDRESS: FLSaisonTeamKontakte = {
   ...BLOCK,
   trainer: person("Ada", "Byron", ""),
   ansprechperson: person("Grace", "Hopper", ""),
@@ -82,26 +67,21 @@ const BLOCK_OHNE_ADRESSE: FLSaisonTeamKontakte = {
 /** The seats under every context they read: the router, the query the way out rides, the draft status. */
 const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2526") },
-        h(DraftStatusProvider, {
-          status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
-          children: h(FormKontakteSection, {
-            value: kontakte,
-            isMember: true,
-            teamHref: "/admin/teams/t1?saison_id=2526",
-            banners: [],
-            onChange: () => undefined,
-            onFieldLeft: () => undefined,
-            isDirty: false,
-            onValidateSelection: () => undefined,
-          }),
+    underNext(
+      h(DraftStatusProvider, {
+        status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
+        children: h(FormKontakteSection, {
+          value: kontakte,
+          isMember: true,
+          teamHref: "/admin/teams/t1?saison_id=2526",
+          banners: [],
+          onChange: () => undefined,
+          onFieldLeft: () => undefined,
+          isDirty: false,
+          onValidateSelection: () => undefined,
         }),
-      ),
+      }),
+      { search: "saison_id=2526" },
     ),
   );
 
@@ -110,15 +90,9 @@ const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
 
 /** The list page's own return. Its table sits behind the boundary, whose fallback stands here. */
 const PAGE_MARKUP = renderTree(
-  h(
-    AppRouterContext.Provider,
-    { value: ROUTER },
-    h(
-      SearchParamsContext.Provider,
-      { value: new URLSearchParams("saison_id=2526") },
-      h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }),
-    ),
-  ),
+  underNext(h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }), {
+    search: "saison_id=2526",
+  }),
 );
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
@@ -289,7 +263,7 @@ describe("the report the toast carries", () => {
 
     for (const report of reports) {
       assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const satz of report.split(". ")) assert.match(satz, /\b(wurde|wurden|war|gab|ist)\b/, `„${satz}“ carries no verb`);
+      for (const sentence2 of report.split(". ")) assert.match(sentence2, /\b(wurde|wurden|war|gab|ist)\b/, `„${sentence2}“ carries no verb`);
       // The endpoint withholds the person, and a report is the one place a copy could creep back in.
       assert.doesNotMatch(report, /@/, "the report names an address");
     }
@@ -330,7 +304,7 @@ describe("where the control stands", () => {
       "the mirrored seat offers its own erasure",
     );
     // The address is the whole key, so a seat holding none can offer nothing to erase.
-    assert.deepEqual(offers(BLOCK_OHNE_ADRESSE), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
+    assert.deepEqual(offers(BLOCK_WITHOUT_ADDRESS), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
   });
 
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
@@ -363,7 +337,7 @@ describe("what the save hands the write", () => {
      guard at a path no control renders, so the row stops being editable at all. */
   it("takes a seat the person widened and writes it at the scope an administrator may spell", () => {
     const trainer = person("Ada", "Byron", "ada@example.org");
-    const gespeichert: FLSaisonTeamKontakte = {
+    const storedBlock: FLSaisonTeamKontakte = {
       ...BLOCK,
       trainer: { ...trainer, einwilligung: { ...trainer.einwilligung, umfang: "kontaktdaten_whatsapp" } },
     };
@@ -372,7 +346,7 @@ describe("what the save hands the write", () => {
     const payload = {
       team_id: "507f1f77bcf86cd799439011",
       saison_id: "2526",
-      kontakte: toKontaktePayload(mirrorKontakte(gespeichert)),
+      kontakte: toKontaktePayload(mirrorKontakte(storedBlock)),
       kontakte_stand: "9f2c",
     };
 
@@ -384,60 +358,5 @@ describe("what the save hands the write", () => {
     assert.ok(validated.success, "the write refuses the block a confirmed seat leaves");
     assert.equal(validated.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten", "an administrative save asserts the person's own tick");
     assert.equal(validated.data.kontakte?.ansprechperson?.einwilligung.umfang, "kontaktdaten");
-  });
-});
-
-/**
- * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
- * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
- * real call; it cannot invent one.
- */
-const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
-const ACTION_BODIES = new Map<string, string>(
-  DECLARATIONS.flatMap((match, index): [string, string][] =>
-    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
-  ),
-);
-
-/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
-const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
-
-/** The writes this slice exports. A new action fails the sweep below until it is placed. */
-const WRITE_ACTIONS = ["eraseKontaktpersonAction", "patchSaisonTeamKontakteAction"];
-
-/** The erasure preview, which reads and moves nothing. */
-const READ_ONLY_ACTIONS = ["readKontaktErasureAnsichtAction"];
-
-describe("the refresh a write owes the list the admin is looking at", () => {
-  it("places every action the slice exports, each in the callback the case below reads", () => {
-    assert.deepEqual(
-      [...ACTION_BODIES.keys()],
-      [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS],
-      "an action arrived or left without being placed as a write or a read",
-    );
-    for (const name of [...WRITE_ACTIONS, ...READ_ONLY_ACTIONS]) {
-      assert.ok(
-        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
-        `${name} opens some other callback, so the indentation the next case reads means nothing`,
-      );
-    }
-  });
-
-  /* No tag exists to reach these: `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships`
-     is memoised per render pass rather than cached, so nothing here can be invalidated at all. */
-  it("refreshes on both writes, the contact block living in no cached read", () => {
-    for (const name of WRITE_ACTIONS) {
-      const body = ACTION_BODIES.get(name) ?? "";
-      const refreshAt = body.search(TOP_LEVEL_REFRESH);
-      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's page standing`);
-      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
-    }
-  });
-
-  it("leaves the erasure preview alone, which changes nothing to come back for", () => {
-    for (const name of READ_ONLY_ACTIONS) {
-      assert.doesNotMatch(ACTION_BODIES.get(name) ?? "", /^\s+refresh\(\);$/m, `${name} refreshes a page nothing it did has moved`);
-    }
   });
 });

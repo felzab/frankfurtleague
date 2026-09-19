@@ -4,13 +4,11 @@ import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -19,7 +17,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
-const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
+import { DRAFT_IN_THE_WAY } from "./banners";
 
 /** Said in the body and on the closed control alike, so the two cannot describe the empty row differently. */
 const KEINE_KONTAKTE = "Für diese Saison sind keine Kontakte gespeichert.";
@@ -67,10 +65,6 @@ export function FormKontakteLoeschenSection({
       router.refresh();
     });
   };
-
-  // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the team going,
-  // which is the one thing this control does not touch.
-  const restingLabel = isConfirming ? "Ja, Kontakte dieser Saison endgültig löschen" : "Kontakte löschen";
 
   return (
     <section className={panel.root()}>
@@ -133,29 +127,24 @@ export function FormKontakteLoeschenSection({
           isPending={isPending}
           onCancel={cancel}>
           {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
-              standing closure. `isPending` is left out: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={isPending || hasStored ? null : KEINE_KONTAKTE}
-            label={restingLabel}>
-            <Button
-              type="button"
-              variant="primary"
-              isPending={isPending}
-              isDisabled={!isPending && !hasStored}
-              onPress={handleClear}
-              className={confirmButton(isConfirming)}>
-              {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
-                  press, and step two is already announcing itself in words. */}
-              {!isConfirming && (
-                <TrashBin
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              )}
-              {isPending ? "Löscht..." : restingLabel}
-            </Button>
-          </Hint>
+              standing closure. */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
+            isPending={isPending}
+            reason={hasStored ? null : KEINE_KONTAKTE}
+            resting="Kontakte löschen"
+            // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the
+            // team going, which is the one thing this control does not touch.
+            armed="Ja, Kontakte dieser Saison endgültig löschen"
+            running="Löscht..."
+            icon={
+              <TrashBin
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleClear}
+          />
         </ConfirmActionRow>
       </div>
     </section>

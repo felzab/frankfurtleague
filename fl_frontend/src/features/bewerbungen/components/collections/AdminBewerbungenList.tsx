@@ -5,7 +5,12 @@ import { memo } from "react";
 import { ArrowRightFromSquare, GraduationCap } from "@gravity-ui/icons";
 
 import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
-import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
+import {
+  BEWERBUNG_HERKUNFT_LABELS,
+  BEWERBUNG_STATUS_TINT,
+  BEWERBUNGEN_CRUD_COPY,
+  bewerbungStatusLabel,
+} from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellung";
@@ -33,19 +38,19 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { ReactNode } from "react";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Bewerbungen für diese Suche.",
-  filtered: "Keine Bewerbungen für diese Filter.",
-  none: "Es sind noch keine Bewerbungen eingegangen.",
+  searched: BEWERBUNGEN_CRUD_COPY.emptyForQuery,
+  filtered: BEWERBUNGEN_CRUD_COPY.emptyForFilters,
+  none: BEWERBUNGEN_CRUD_COPY.emptyOverall,
 };
 
 /** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
 const NO_TEAM = "Kein Team benannt";
 
 /** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
-const KEINE_BESTAETIGUNG = "Keine Bestätigungen angefragt";
+const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
 
 /** The eyebrow over each fact, one cell of the card's grid. */
-const ANGABE_LABEL = "fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase";
+const FACT_LABEL = "fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase";
 
 const KONTAKT_LABEL = Object.fromEntries(KONTAKT_ROLLEN.map(({ value, label }) => [value, label])) as Record<KontaktRolle, string>;
 
@@ -120,9 +125,9 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     hatUnerreichbarenSitz(bewerbung) ? <span className={labelBadge(ZUSTELLUNG_QUEUE_TINT)}>{ZUSTELLUNG_QUEUE_LABEL}</span> : null;
 
   /** The eyebrow names the fact at the fact, so no heading over the list can disagree with the block under it. */
-  const renderAngabe = (label: string, wert: ReactNode) => (
+  const renderFact = (label: string, wert: ReactNode) => (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className={ANGABE_LABEL}>{label}</span>
+      <span className={FACT_LABEL}>{label}</span>
       {wert}
     </div>
   );
@@ -140,7 +145,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
     // An application submitted before the workflow has no per-seat state, and a badge reading „0 von
     // 3“ over one would send an administrator hunting for links that were never sent.
-    if (staende === null) return <span className="fluid-sm text-foreground-muted italic">{KEINE_BESTAETIGUNG}</span>;
+    if (staende === null) return <span className="fluid-sm text-foreground-muted italic">{NO_BESTAETIGUNGEN}</span>;
 
     // Ahead of the count, which would read „2 von 3“ over a row no answer can complete and send an
     // administrator waiting for a third that is never coming.
@@ -165,7 +170,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     // The box and its ink at the call site, never `IDENTITY_LINE` under an override: two ink
     // utilities in one string are decided by the stylesheet's order, there being no `twMerge` in
     // the path.
-    return renderAngabe(
+    return renderFact(
       KONTAKT_LABEL[rolle],
       <div className="flex min-w-0 flex-col gap-0.5">
         {person === null ? (
@@ -244,8 +249,8 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
           {/* Four tracks and the contact over two of them: the two graded facts read at a glance and
               the address does not, so an even split would clip the one fact nobody can guess. */}
           <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-4 md:gap-x-4">
-            {renderAngabe("Eingereicht", renderEingereicht(bewerbung))}
-            {renderAngabe("Bestätigungen", <div className="flex flex-row flex-wrap items-center gap-2">{renderBestaetigung(bewerbung)}</div>)}
+            {renderFact("Eingereicht", renderEingereicht(bewerbung))}
+            {renderFact("Bestätigungen", <div className="flex flex-row flex-wrap items-center gap-2">{renderBestaetigung(bewerbung)}</div>)}
             <div className="md:col-span-2">{renderKontakt(bewerbung)}</div>
           </div>
 

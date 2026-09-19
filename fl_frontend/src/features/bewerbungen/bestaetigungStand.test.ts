@@ -50,7 +50,7 @@ const zugestellt = (stand: FLBewerbungZustellstand): FLBewerbungBestaetigung => 
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
-function sitze({
+function seatsOf({
   ansprechperson = person("Anna", null),
   stellvertretung = person("Bernd", null),
   trainer = person("Clara", null),
@@ -78,19 +78,19 @@ function sitze({
 }
 
 /** The three seats a case built, or the failure that the block it was given carried none. */
-function staendeOf(bewerbung: Sitze): SitzBestaetigung[] {
-  const staende = bestaetigungsStand(bewerbung);
+function standsOf2(bewerbung: Sitze): SitzBestaetigung[] {
+  const stands = bestaetigungsStand(bewerbung);
 
-  assert.ok(staende !== null, "the fixture carries no confirmation block, so nothing below is judged");
-  return staende;
+  assert.ok(stands !== null, "the fixture carries no confirmation block, so nothing below is judged");
+  return stands;
 }
 
-const sitzOf = (staende: readonly SitzBestaetigung[], rolle: KontaktRolle): SitzBestaetigung =>
-  staende.find((sitz) => sitz.rolle === rolle) ?? assert.fail(`no seat for ${rolle}`);
+const seatOf = (stands: readonly SitzBestaetigung[], rolle: KontaktRolle): SitzBestaetigung =>
+  stands.find((seat2) => seat2.rolle === rolle) ?? assert.fail(`no seat for ${rolle}`);
 
 /* The erasure's own shape (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`): the
    slot and the bookkeeping entry beside it are nulled in one update. */
-const ERASED = sitze({
+const ERASED = seatsOf({
   ansprechperson: null,
   bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
 });
@@ -99,69 +99,69 @@ describe("a seat an erasure emptied", () => {
   /* `seat_is_answered` returns true on a seat with no bookkeeping entry, so the re-send endpoint
      refuses it; reading the state as `ausstehend` armed a control for a press it would refuse. */
   it("is its own terminal state rather than an outstanding one", () => {
-    const sitz = sitzOf(staendeOf(ERASED), "ansprechperson");
+    const seat2 = seatOf(standsOf2(ERASED), "ansprechperson");
 
-    assert.equal(sitz.stand.art, "geloescht");
-    assert.equal(sitz.satz, "Keine Bestätigung mehr möglich");
-    assert.equal(sitz.name, null);
+    assert.equal(seat2.stand.art, "geloescht");
+    assert.equal(seat2.satz, "Keine Bestätigung mehr möglich");
+    assert.equal(seat2.name, null);
   });
 
   /* A declined seat and an erased one are both empty, and the row has to say which happened: one
      person refused, the other asked to be forgotten, and the league did different things. */
   it("says how it came to be empty, and not merely that it is", () => {
-    const declined = sitze({
+    const declined = seatsOf({
       ansprechperson: null,
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(sitzOf(staendeOf(ERASED), "ansprechperson").nameSatz, "Auf eigenen Wunsch gelöscht");
-    assert.equal(sitzOf(staendeOf(declined), "ansprechperson").nameSatz, "Niemand mehr in der Bewerbung");
-    assert.equal(sitzOf(staendeOf(ERASED), "trainer").nameSatz, "Clara Meier");
+    assert.equal(seatOf(standsOf2(ERASED), "ansprechperson").nameSatz, "Auf eigenen Wunsch gelöscht");
+    assert.equal(seatOf(standsOf2(declined), "ansprechperson").nameSatz, "Niemand mehr in der Bewerbung");
+    assert.equal(seatOf(standsOf2(ERASED), "trainer").nameSatz, "Clara Meier");
   });
 
   /* The count is over the seats that have CONFIRMED, and an erased seat has not: „1 von 3“ over a
      row nobody can complete is still the true count of what the acceptance is waiting for. */
   it("counts as open, so the acceptance stays closed against it", () => {
-    const staende = staendeOf(ERASED);
+    const stands = standsOf2(ERASED);
 
-    assert.equal(staende.filter(istOffen).length, 3);
-    assert.equal(istOffen(sitzOf(staende, "ansprechperson")), true);
+    assert.equal(stands.filter(istOffen).length, 3);
+    assert.equal(istOffen(seatOf(stands, "ansprechperson")), true);
   });
 
   it("is offered no link, no link being mintable for it", () => {
-    assert.deepEqual([...linkAngebot(staendeOf(ERASED))].sort(), ["stellvertretung", "trainer"]);
+    assert.deepEqual([...linkAngebot(standsOf2(ERASED))].sort(), ["stellvertretung", "trainer"]);
   });
 
   /* The decline's own closure: both leave a role with nobody in it, and neither can be waited out,
      so the page must not promise a confirmation over either. */
   it("closes the Zusage the way a decline closes it", () => {
-    const declined = sitze({
+    const declined = seatsOf({
       ansprechperson: null,
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(zusageHindernis(staendeOf(ERASED), TEAM), zusageHindernis(staendeOf(declined), TEAM));
+    assert.equal(zusageHindernis(standsOf2(ERASED), TEAM), zusageHindernis(standsOf2(declined), TEAM));
     assert.equal(
-      zusageHindernis(staendeOf(ERASED), TEAM),
+      zusageHindernis(standsOf2(ERASED), TEAM),
       "Eine Kontaktperson hat widersprochen oder ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
     );
   });
 
-  /* The reader meets this sentence under a row calling the seat a Widerspruch or an Eintrag
+  /* The reader meets this satz under a row calling the seat a Widerspruch or an Eintrag
      gelöscht, and a third wording would read as a third state. Roots rather than the chips' forms:
-     the sentence says who did what. */
+     the satz says who did what. */
   it("states the cause in the words its own rows use", () => {
-    const satz = zusageHindernis(staendeOf(ERASED), TEAM) ?? "";
+    const satz = zusageHindernis(standsOf2(ERASED), TEAM) ?? "";
 
-    for (const wurzel of ["widerspr", "Eintrag", "lösch"]) {
-      assert.ok(satz.includes(wurzel), `the reason drops „${wurzel}“, which is the root the row above it uses`);
+    for (const rootOf of ["widerspr", "Eintrag", "lösch"]) {
+      assert.ok(satz.includes(rootOf), `the reason drops „${rootOf}“, which is the root the row above it uses`);
     }
     assert.equal(satz.split(". ").length, 2, "the reason is one long sentence again, which is what made the last one unreadable");
   });
 });
 
 describe("what a seat's own refusal is called", () => {
-  const DECLINED = sitze({
+  const DECLINED = seatsOf({
     ansprechperson: null,
     bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
   });
@@ -169,22 +169,22 @@ describe("what a seat's own refusal is called", () => {
   /* „Abgelehnt am …“ beside the status „Abgelehnt“ put a seat's refusal and the league's own
      decision on the queue under one root, which is the pair the Widerspruch ruling separates. */
   it("names it with the queue badge's word rather than the application status's", () => {
-    const sitz = sitzOf(staendeOf(DECLINED), "ansprechperson");
+    const seat2 = seatOf(standsOf2(DECLINED), "ansprechperson");
 
-    assert.equal(sitz.satz, "Widersprochen am 04.09.2026");
-    assert.ok(!sitz.satz.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
+    assert.equal(seat2.satz, "Widersprochen am 04.09.2026");
+    assert.ok(!seat2.satz.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
   });
 
   /* The strip's row and the queue's chip are one word in two positions, the participle where a day
      follows it and the noun where the chip stands alone; two roots would read as two states. */
   it("shares that word with the chip the queue shows for the same row", () => {
-    assert.equal(endstand(staendeOf(DECLINED)), "Widerspruch");
-    assert.match(sitzOf(staendeOf(DECLINED), "ansprechperson").satz, /^Widerspr/);
+    assert.equal(endstand(standsOf2(DECLINED)), "Widerspruch");
+    assert.match(seatOf(standsOf2(DECLINED), "ansprechperson").satz, /^Widerspr/);
   });
 });
 
 describe("what the queue says of an application no answer can complete", () => {
-  const DECLINED = sitze({
+  const DECLINED = seatsOf({
     ansprechperson: null,
     bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
   });
@@ -192,28 +192,28 @@ describe("what the queue says of an application no answer can complete", () => {
   /* „2 von 3 bestätigt“ over a row whose third seat is gone sends an administrator waiting for an
      answer nobody can give. Both terminal states take the count's place, each in its own word. */
   it("names the state that ended it rather than counting towards an answer", () => {
-    assert.equal(endstand(staendeOf(ERASED)), "Eintrag gelöscht");
-    assert.equal(endstand(staendeOf(DECLINED)), "Widerspruch");
+    assert.equal(endstand(standsOf2(ERASED)), "Eintrag gelöscht");
+    assert.equal(endstand(standsOf2(DECLINED)), "Widerspruch");
   });
 
   /* One chip per row, so a row carrying both has to choose: the decline is the state an
      administrator resolves, where an erasure is one the league made and cannot take back. */
   it("leads with the decline where a row carries both", () => {
-    const beides = sitze({
+    const bothSeats = seatsOf({
       ansprechperson: null,
       stellvertretung: null,
       bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
     });
 
-    assert.equal(endstand(staendeOf(beides)), "Widerspruch");
+    assert.equal(endstand(standsOf2(bothSeats)), "Widerspruch");
   });
 
   it("says nothing of a row an answer can still complete", () => {
-    assert.equal(endstand(staendeOf(sitze())), null);
+    assert.equal(endstand(standsOf2(seatsOf())), null);
     assert.equal(
       endstand(
-        staendeOf(
-          sitze({
+        standsOf2(
+          seatsOf({
             ansprechperson: person("Anna", "2026-09-02"),
             stellvertretung: person("Bernd", "2026-09-03"),
             trainer: person("Clara", "2026-09-03"),
@@ -229,37 +229,37 @@ describe("the reason the Zusage is closed", () => {
   /* The rule and not today's list: the strip above names every seat and its state, so a second
      reading of the same rows is one fact from two sides. */
   it("states the rule rather than naming who is outstanding", () => {
-    const staende = staendeOf(sitze({ stellvertretung: person("Bernd", "2026-09-03") }));
-    const satz = zusageHindernis(staende, TEAM);
+    const stands = standsOf2(seatsOf({ stellvertretung: person("Bernd", "2026-09-03") }));
+    const satz = zusageHindernis(stands, TEAM);
 
     assert.equal(satz, "Eine Zusage ist ohne alle Bestätigungen nicht möglich.");
     // A name in it would move with the seats, which is what makes it a list rather than a rule.
     assert.ok(!satz.includes("Meier"), "the reason names a person, so it reads as a list of today's outstanding seats");
   });
 
-  /* One person on two seats, and a seat whose person has answered: neither moves the sentence, which
+  /* One person on two seats, and a seat whose person has answered: neither moves the satz, which
      is the whole of what „the rule rather than the situation“ buys. */
   it("says the same thing whichever seats are outstanding", () => {
-    const doppelt = person("Anna", null);
-    const paar = staendeOf(sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" }));
+    const twinned = person("Anna", null);
+    const pairOf = standsOf2(seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" }));
 
-    assert.equal(zusageHindernis(paar, TEAM), zusageHindernis(staendeOf(sitze()), TEAM));
+    assert.equal(zusageHindernis(pairOf, TEAM), zusageHindernis(standsOf2(seatsOf()), TEAM));
   });
 
   /* `REQ-BEWERBUNG-002` is judged before `REQ-BEWERBUNG-013`, so the reason under the control is
      the one the write would answer with rather than the first one this page happens to find. */
   it("answers the row naming no club before it answers a seat", () => {
-    assert.match(zusageHindernis(staendeOf(ERASED), null) ?? "", /^Ohne eine neue Schule/);
+    assert.match(zusageHindernis(standsOf2(ERASED), null) ?? "", /^Ohne eine neue Schule/);
   });
 
   it("closes nothing once every seat has confirmed", () => {
-    const alle = sitze({
+    const allSeats = seatsOf({
       ansprechperson: person("Anna", "2026-09-02"),
       stellvertretung: person("Bernd", "2026-09-03"),
       trainer: person("Clara", "2026-09-03"),
     });
 
-    assert.equal(zusageHindernis(staendeOf(alle), TEAM), null);
+    assert.equal(zusageHindernis(standsOf2(allSeats), TEAM), null);
   });
 
   /* An application stored before the flow reaches no per-seat state, and closing the acceptance on
@@ -270,26 +270,26 @@ describe("the reason the Zusage is closed", () => {
 });
 
 describe("the two seats one person holds", () => {
-  const doppelt = person("Anna", null);
-  const PAAR = sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" });
+  const twinned = person("Anna", null);
+  const PAAR = seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" });
 
   /* One answer writes both seats (`fl_backend/app/api/bewerbungen/einwilligung_router.py`), so two
      controls would put two messages in one mailbox over one decision. */
   it("are offered one link, on the Trainer's own row", () => {
-    assert.deepEqual([...linkAngebot(staendeOf(PAAR))].sort(), ["stellvertretung", "trainer"]);
+    assert.deepEqual([...linkAngebot(standsOf2(PAAR))].sort(), ["stellvertretung", "trainer"]);
   });
 
   /* Where the Trainer's own seat can take no link, the claim must not silence the seat that can:
      the pair would then have no control at all. */
   it("keep the paired row's link where the Trainer's seat is gone", () => {
-    const trainerWeg = sitze({
-      ansprechperson: doppelt,
+    const trainerGone = seatsOf({
+      ansprechperson: twinned,
       trainer: null,
       zugleich: "ansprechperson",
       bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
     });
 
-    assert.deepEqual([...linkAngebot(staendeOf(trainerWeg))].sort(), ["ansprechperson", "stellvertretung"]);
+    assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
   });
 
   /* The message names both, because the answer covers both: a reader told only „Trainerin oder
@@ -303,18 +303,18 @@ describe("the two seats one person holds", () => {
   /* `paired_seat`'s `seat_stands` half: a dotted `$set` under a null slot aborts the transaction,
      so the backend drops such a partner and the message must not name it either. */
   it("fall apart where the partner seat has been emptied", () => {
-    const halb = sitze({
+    const halfAnswered = seatsOf({
       ansprechperson: null,
-      trainer: doppelt,
+      trainer: twinned,
       zugleich: "ansprechperson",
       bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.deepEqual(gepaarteSitze(halb, "trainer"), ["trainer"]);
+    assert.deepEqual(gepaarteSitze(halfAnswered, "trainer"), ["trainer"]);
   });
 
   it("are one seat where no claim was made", () => {
-    assert.deepEqual(gepaarteSitze(sitze(), "trainer"), ["trainer"]);
+    assert.deepEqual(gepaarteSitze(seatsOf(), "trainer"), ["trainer"]);
   });
 });
 
@@ -322,39 +322,39 @@ describe("what became of the last message to a seat", () => {
   /* `Stand` is what the PERSON did and this is what the provider did, so a seat that confirmed from
      an address an earlier link bounced at has to be able to say both. Folded into one, it cannot. */
   it("stands beside the seat's own answer rather than inside it", () => {
-    const bestaetigtNachBounce = sitze({
+    const confirmedAfterBounce = seatsOf({
       ansprechperson: person("Anna", "2026-09-02"),
       bestaetigungen: { ansprechperson: zugestellt("unzustellbar"), stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    const sitz = sitzOf(staendeOf(bestaetigtNachBounce), "ansprechperson");
+    const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
 
-    assert.equal(sitz.stand.art, "bestaetigt");
-    assert.equal(sitz.zustellung?.stand, "unzustellbar");
+    assert.equal(seat2.stand.art, "bestaetigt");
+    assert.equal(seat2.zustellung?.stand, "unzustellbar");
   });
 
   it("is null on a seat no message has been accepted for", () => {
-    assert.equal(sitzOf(staendeOf(sitze()), "ansprechperson").zustellung, null);
+    assert.equal(seatOf(standsOf2(seatsOf()), "ansprechperson").zustellung, null);
   });
 
   /* The address is the value the correction control edits and the thing the delivery chip is about,
      so the row reads it off the seat rather than off a second read of the application. */
   it("carries the address the seat's links go to", () => {
-    assert.equal(sitzOf(staendeOf(sitze()), "ansprechperson").email, "anna@schule.example");
+    assert.equal(seatOf(standsOf2(seatsOf()), "ansprechperson").email, "anna@schule.example");
   });
 
   /* The form stores the empty string where nobody typed an address, and a row offering to re-send
      against one would arm a control that cannot succeed. */
   it("reads an address nobody typed as none at all", () => {
-    const leer = sitze({ ansprechperson: { ...person("Anna", null)!, email: "" } });
+    const emptyBlock = seatsOf({ ansprechperson: { ...person("Anna", null)!, email: "" } });
 
-    assert.equal(sitzOf(staendeOf(leer), "ansprechperson").email, null);
-    assert.equal(sitzOf(staendeOf(ERASED), "ansprechperson").email, null);
+    assert.equal(seatOf(standsOf2(emptyBlock), "ansprechperson").email, null);
+    assert.equal(seatOf(standsOf2(ERASED), "ansprechperson").email, null);
   });
 });
 
 describe("a seat nobody answered on an application already decided", () => {
-  const ENTSCHIEDEN = sitze({
+  const ENTSCHIEDEN = seatsOf({
     ansprechperson: person("Anna", "2026-09-02"),
     stellvertretung: null,
     bestaetigungen: { ansprechperson: OFFEN, stellvertretung: ABGELEHNT, trainer: OFFEN },
@@ -364,44 +364,44 @@ describe("a seat nobody answered on an application already decided", () => {
   /* `link_is_over` answers true for every decided application, so „Ausstehend, Link gesendet am …“
      promises an answer the link it names cannot carry. */
   it("says no confirmation can come, and nothing is outstanding", () => {
-    const trainer = sitzOf(staendeOf(ENTSCHIEDEN), "trainer");
+    const trainer = seatOf(standsOf2(ENTSCHIEDEN), "trainer");
 
     assert.equal(trainer.stand.art, "unbeantwortet");
     assert.equal(trainer.satz, "Keine Bestätigung mehr möglich");
     assert.doesNotMatch(trainer.satz, /Ausstehend/);
     // The same application still open is the state the decided one differs from.
-    assert.match(sitzOf(staendeOf(sitze()), "trainer").satz, /^Ausstehend, Link gesendet am/);
+    assert.match(seatOf(standsOf2(seatsOf()), "trainer").satz, /^Ausstehend, Link gesendet am/);
   });
 
   /* The decision moves only the seats still waiting: a confirmation and a Widerspruch are answers
      the person gave, and each keeps its own day. */
   it("keeps every answer a person gave", () => {
-    const staende = staendeOf(ENTSCHIEDEN);
+    const stands = standsOf2(ENTSCHIEDEN);
 
-    assert.equal(sitzOf(staende, "ansprechperson").satz, "Bestätigt am 02.09.2026");
-    assert.equal(sitzOf(staende, "stellvertretung").satz, "Widersprochen am 04.09.2026");
+    assert.equal(seatOf(stands, "ansprechperson").satz, "Bestätigt am 02.09.2026");
+    assert.equal(seatOf(stands, "stellvertretung").satz, "Widersprochen am 04.09.2026");
   });
 
   /* The count is still over the seats that confirmed, and the queue's chip names only what a person
      did: a decision the league took is the row's own status badge. */
   it("counts as unconfirmed, is offered no link, and adds no chip to the queue", () => {
-    const nurOffen = staendeOf(sitze({ status: "angenommen" }));
+    const openOnly = standsOf2(seatsOf({ status: "angenommen" }));
 
-    assert.equal(nurOffen.filter(istOffen).length, 3);
-    assert.deepEqual([...linkAngebot(nurOffen)], []);
-    assert.equal(endstand(nurOffen), null);
+    assert.equal(openOnly.filter(istOffen).length, 3);
+    assert.deepEqual([...linkAngebot(openOnly)], []);
+    assert.equal(endstand(openOnly), null);
   });
 });
 
 describe("what the strip says of an incomplete application's deadline", () => {
-  const OFFEN_UND_FRIST = { staende: staendeOf(sitze()), frist: "2026-09-07", eingereicht: true } as const;
+  const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), frist: "2026-09-07", eingereicht: true } as const;
 
   /* The sweep answers `link_is_over` on the deadline's own day as still open, and deletes only once
      the day has passed (`deletion_is_due`), so the day itself still reads as the future. */
   it("words a deadline today or later as what happens if an answer stays out", () => {
-    for (const heute of ["2026-09-01", "2026-09-07"]) {
+    for (const today of ["2026-09-01", "2026-09-07"]) {
       assert.equal(
-        loeschungsSatz({ ...OFFEN_UND_FRIST, heute }),
+        loeschungsSatz({ ...OFFEN_UND_FRIST, heute: today }),
         "Bleibt eine Bestätigung bis zum 07.09.2026 aus, wird die Bewerbung gelöscht.",
       );
     }
@@ -418,31 +418,31 @@ describe("what the strip says of an incomplete application's deadline", () => {
   /* `announcement_is_undeliverable` holds the application instead, so a promised deletion is false for
      it on either side of the deadline. Only the Ansprechperson's seat holds it: the notice goes there. */
   it("promises no deletion while the Ansprechperson cannot be written to", () => {
-    const gehalten = staendeOf(
-      sitze({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt"), stellvertretung: OFFEN, trainer: OFFEN } }),
+    const heldOpen = standsOf2(
+      seatsOf({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt"), stellvertretung: OFFEN, trainer: OFFEN } }),
     );
-    const anderer = staendeOf(
-      sitze({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar"), trainer: OFFEN } }),
+    const otherPerson = standsOf2(
+      seatsOf({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar"), trainer: OFFEN } }),
     );
 
     assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: gehalten, heute: "2026-09-08" }),
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, heute: "2026-09-08" }),
       "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
     assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: gehalten, heute: "2026-09-01" }),
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, heute: "2026-09-01" }),
       "Die Frist für die Bestätigungen läuft bis zum 07.09.2026. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
     // A delay is not a refusal: the provider may still carry the notice.
     assert.match(
       loeschungsSatz({
         ...OFFEN_UND_FRIST,
-        staende: staendeOf(sitze({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
+        staende: standsOf2(seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
         heute: "2026-09-08",
       }) ?? "",
       /nächsten stündlichen Prüfung/,
     );
-    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: anderer, heute: "2026-09-08" }) ?? "", /nächsten stündlichen Prüfung/);
+    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: otherPerson, heute: "2026-09-08" }) ?? "", /nächsten stündlichen Prüfung/);
   });
 
   /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
@@ -450,14 +450,14 @@ describe("what the strip says of an incomplete application's deadline", () => {
     assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, heute: "2026-09-01" }), null);
     assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, frist: null, heute: "2026-09-01" }), null);
 
-    const alle = staendeOf(
-      sitze({
+    const allSeats = standsOf2(
+      seatsOf({
         ansprechperson: person("Anna", "2026-09-02"),
         stellvertretung: person("Bernd", "2026-09-03"),
         trainer: person("Clara", "2026-09-03"),
       }),
     );
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: alle, heute: "2026-09-08" }), null);
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: allSeats, heute: "2026-09-08" }), null);
   });
 });
 
@@ -465,18 +465,18 @@ describe("the addresses a correction may not take", () => {
   /* The submission's duplicate-address rule, which excepts one person holding two seats: refusing the
      mirror its own address would leave the pair unable to move to a new one at all. */
   it("names every other person's address, and never the seat's own mirror", () => {
-    const doppelt = person("Anna", null);
-    const staende = staendeOf(sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" }));
+    const twinned = person("Anna", null);
+    const stands = standsOf2(seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" }));
 
-    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "trainer")), ["bernd@schule.example"]);
-    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "ansprechperson")), ["bernd@schule.example"]);
-    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "stellvertretung")), ["anna@schule.example", "anna@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "trainer")), ["bernd@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "ansprechperson")), ["bernd@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "stellvertretung")), ["anna@schule.example", "anna@schule.example"]);
   });
 
   it("leaves out a seat that holds no address", () => {
-    const staende = staendeOf(ERASED);
+    const stands = standsOf2(ERASED);
 
-    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "trainer")), ["bernd@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "trainer")), ["bernd@schule.example"]);
   });
 });
 
@@ -484,6 +484,6 @@ describe("an application stored before the confirmation flow", () => {
   /* An absent block is „nothing to confirm“ rather than three open seats, which is what keeps every
      queued application acceptable in the deploy that shipped the flow. */
   it("reaches no per-seat state at all", () => {
-    assert.equal(bestaetigungsStand(sitze({ bestaetigungen: null })), null);
+    assert.equal(bestaetigungsStand(seatsOf({ bestaetigungen: null })), null);
   });
 });

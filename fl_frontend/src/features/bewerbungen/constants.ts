@@ -8,6 +8,10 @@ import type { FLBewerbungStatus } from "./schemas";
 export const BEWERBUNGEN_CRUD_COPY = {
   searchLabel: "Bewerbungen suchen",
   searchPlaceholder: "z.B. Goethe-Gymnasium oder eine Ansprechperson",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Bewerbungen für diese Suche.",
+  emptyForFilters: "Keine Bewerbungen für diese Filter.",
+  emptyOverall: "Es sind noch keine Bewerbungen eingegangen.",
 } as const;
 
 type BewerbungStatusOption = {

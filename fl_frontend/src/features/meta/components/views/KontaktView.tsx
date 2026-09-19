@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Envelope } from "@gravity-ui/icons";
 
 import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { ctaButton } from "@/shared/components/ui/formButtons";
@@ -10,7 +11,6 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-import { META_TILE } from "../ui/tile";
 
 import type { ReactNode } from "react";
 import type { KontaktChannelId } from "../../types";
@@ -78,7 +78,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                 <div className="flex flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={META_TILE}>
+                    className={BRAND_TILE}>
                     {GLYPH[channel.id]}
                   </span>
                   <span className="fluid-base text-foreground font-bold">{channel.name}</span>

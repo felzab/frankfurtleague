@@ -95,7 +95,7 @@ export async function signOutAction(): Promise<FormState> {
     try {
       await signOut({ redirect: false });
 
-      return { success: true, message: "Erfolgreich abgemeldet" };
+      return { success: true, message: "Abgemeldet" };
     } catch (error) {
       // The same guard as `handleSignIn`: keep a framework redirect from being reported as a failed
       // sign-out.

@@ -1,4 +1,5 @@
 import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
@@ -7,7 +8,6 @@ import { typedObjectEntries } from "@/shared/utils/type";
 
 import { GROUPED_MEMBERS, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-import { META_TILE } from "../ui/tile";
 
 // Each step is n columns of 10.75rem plus the gaps between them: 10.75rem is the narrowest member card, at a
 // quarter-rem step, holding every word of its role and its line unbroken at its largest type.
@@ -38,7 +38,7 @@ export function MetaOrganisationView() {
                 className={`${card()} flex flex-col gap-y-3 p-5 sm:p-6`}>
                 <span
                   aria-hidden="true"
-                  className={`${META_TILE} ${DISPLAY_HEADING} fluid-xl`}>
+                  className={`${BRAND_TILE} ${DISPLAY_HEADING} fluid-xl`}>
                   {member.name.charAt(0)}
                 </span>
 

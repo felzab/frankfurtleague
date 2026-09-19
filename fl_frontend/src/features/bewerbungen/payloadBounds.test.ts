@@ -153,16 +153,16 @@ const { FormSchuleSection } = await import("./components/forms/BewerbungForm/For
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { WEBSITE_URL_SCHEME } = await import("@/features/teams/constants.ts");
 
-const SCHULEN = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
+const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
 /**
  * Both arms, because neither reaches every box: the form opens with nothing picked, so the new-school
  * block only the picker's sentinel reaches is rendered beside it.
  */
 const RENDERED = [
-  renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHULEN, isSchulenLesbar: true, vergebeneFarben: [] }),
+  renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] }),
   renderMarkup(FormSchuleSection, {
-    schulen: SCHULEN,
+    schulen: SCHOOLS,
     auswahl: SCHULE_NICHT_IN_LISTE,
     schule: buildEmptyBewerbungSchule(),
     stufengroesse: null,
@@ -196,20 +196,20 @@ function schemeBefore(html: string, at: number): number {
 function boxesIn(html: string): Box[] {
   const found: Box[] = [];
 
-  for (const treffer of html.matchAll(/<input\b([^>]*)>/g)) {
-    const attrs = treffer[1] ?? "";
-    const feldpfad = /(?<![-\w])name="([^"]*)"/.exec(attrs)?.[1];
+  for (const hit of html.matchAll(/<input\b([^>]*)>/g)) {
+    const attrs = hit[1] ?? "";
+    const fieldPath = /(?<![-\w])name="([^"]*)"/.exec(attrs)?.[1];
 
-    if (feldpfad === undefined) continue;
+    if (fieldPath === undefined) continue;
 
-    const gedeckelt = /(?<![-\w])maxlength="(\d+)"/i.exec(attrs)?.[1];
+    const capped2 = /(?<![-\w])maxlength="(\d+)"/i.exec(attrs)?.[1];
 
     found.push({
-      path: feldpfad,
-      cap: gedeckelt === undefined ? null : Number(gedeckelt),
+      path: fieldPath,
+      cap: capped2 === undefined ? null : Number(capped2),
       // A group's own input alone: a plain box further down the markup would otherwise be handed the
       // prefix of a group it does not sit in.
-      scheme: /data-slot="input-group-input"/.test(attrs) ? schemeBefore(html, treffer.index) : 0,
+      scheme: /data-slot="input-group-input"/.test(attrs) ? schemeBefore(html, hit.index) : 0,
     });
   }
 
@@ -219,9 +219,9 @@ function boxesIn(html: string): Box[] {
 const BOXES = RENDERED.flatMap(boxesIn);
 
 /** The last segment alone: no two published components cap a field of one name, which a case below holds. */
-const feld = (pfad: string): string => pfad.split(".").at(-1) ?? pfad;
+const field2 = (pfad: string): string => pfad.split(".").at(-1) ?? pfad;
 
-const boxesFor = (field: string): Box[] => BOXES.filter((box) => feld(box.path) === field);
+const boxesFor = (field: string): Box[] => BOXES.filter((box) => field2(box.path) === field);
 
 /** A ceiling reaches the applicant only where EVERY box writing that field carries a cap of its own. */
 function reachesABox(field: string): boolean {
@@ -234,7 +234,7 @@ function reachesABox(field: string): boolean {
  A ceiling reaching no box, declared: a box somebody uncapped and a box deliberately left uncapped
  render alike, so a sweep that merely found nothing would read a deleted cap as a decision.
 */
-const OHNE_KASTEN = [
+const WITHOUT_BOX = [
   // The season is the route's own segment, and no box on this form writes it.
   "FLPostBewerbungPayload.saison_id",
   // Capping the address here alone would split the public form from the editors, which cap none.
@@ -250,9 +250,9 @@ describe("where a published ceiling reaches the box the applicant types in", () 
   it("names each published ceiling by a field no other component publishes", () => {
     // A box is matched to its ceiling by the last segment of the path it writes, so two components
     // publishing one field name would each be judged against the other's boxes.
-    const namen = capped.filter(({ characters }) => characters !== null).map(({ field }) => field);
+    const names = capped.filter(({ characters }) => characters !== null).map(({ field }) => field);
 
-    assert.equal(new Set(namen).size, namen.length, `two published components cap a field among ${namen.join(", ")}`);
+    assert.equal(new Set(names).size, names.length, `two published components cap a field among ${names.join(", ")}`);
   });
 
   it("declares exactly the published ceilings that reach no box", () => {
@@ -263,7 +263,7 @@ describe("where a published ceiling reaches the box the applicant types in", () 
         .filter(({ characters, field }) => characters !== null && !reachesABox(field))
         .map(({ component, field }) => `${component}.${field}`)
         .sort(),
-      [...OHNE_KASTEN].sort(),
+      [...WITHOUT_BOX].sort(),
     );
   });
 
@@ -277,7 +277,7 @@ describe("where a published ceiling reaches the box the applicant types in", () 
   });
 
   for (const { component, field, characters } of capped) {
-    if (characters === null || OHNE_KASTEN.includes(`${component}.${field}`)) continue;
+    if (characters === null || WITHOUT_BOX.includes(`${component}.${field}`)) continue;
 
     it(`${component}.${field} caps every box that writes it, at the ceiling minus the group's prefix`, () => {
       const own = boxesFor(field);
@@ -309,9 +309,9 @@ describe("the claims no rendered markup carries", () => {
     ["FormTeamSection.tsx", "BEWERBUNG_KADER_GROESSE_MAX"],
   ] as const) {
     it(`${file} caps its number box with ${constant}`, () => {
-      const gedeckelt = readForm(file).match(new RegExp(`maxValue=\\{${constant}\\}`, "g")) ?? [];
+      const capped2 = readForm(file).match(new RegExp(`maxValue=\\{${constant}\\}`, "g")) ?? [];
 
-      assert.equal(gedeckelt.length, 1, `${file} caps ${String(gedeckelt.length)} number boxes with ${constant}`);
+      assert.equal(capped2.length, 1, `${file} caps ${String(capped2.length)} number boxes with ${constant}`);
     });
   }
 
@@ -382,10 +382,10 @@ describe("the rule a count is judged against as well as its ceiling", () => {
 
   it("brings the strong count down with a lowered squad, to a pair the write path takes", () => {
     // Squad 25 with 20 strong, lowered to 12: the strong box shows 12, and a draft left on 20 is refused under two 12s.
-    const gesenkt = kaderWithSquad({ voraussichtliche_groesse: 25, gute_spieler: 20 }, 12);
+    const lowered = kaderWithSquad({ voraussichtliche_groesse: 25, gute_spieler: 20 }, 12);
 
-    assert.deepEqual(gesenkt, { voraussichtliche_groesse: 12, gute_spieler: 12 });
-    assert.equal(FLBewerbungKaderPayloadSchema.safeParse(gesenkt).success, true);
+    assert.deepEqual(lowered, { voraussichtliche_groesse: 12, gute_spieler: 12 });
+    assert.equal(FLBewerbungKaderPayloadSchema.safeParse(lowered).success, true);
   });
 
   it("leaves a strong count the new ceiling still holds, and invents none", () => {

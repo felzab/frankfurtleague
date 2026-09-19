@@ -13,9 +13,10 @@ import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbun
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
-import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
+import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
@@ -186,19 +187,23 @@ function BestaetigungEntscheidung({
         isPending={isDeclining}
         onCancel={onCancel}>
         {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
-        <Button
-          type="submit"
+        <ConfirmPressButton
+          isConfirming={isConfirming}
           isPending={isPending || isDeclining}
-          aria-describedby={isConfirming ? undefined : beschreibtId}
-          className={confirmButton(isConfirming)}>
-          {!isConfirming && (
+          // Nothing closes this press: both answers are legal from the moment the page opens.
+          reason={null}
+          resting="Eintrag bestätigen"
+          armed={WIDERSPRUCH_SENDEN}
+          running="Sendet..."
+          icon={
             <CircleCheck
               className="size-4.5"
               aria-hidden="true"
             />
-          )}
-          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Sendet..." : "Eintrag bestätigen"}
-        </Button>
+          }
+          type="submit"
+          describedBy={beschreibtId}
+        />
 
         {!isConfirming && (
           <Button
@@ -273,7 +278,7 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Änderung nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+      appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
         description: gesendet.error,
       });
       return;
@@ -293,7 +298,7 @@ export function BestaetigungFormPanel({
       // For a failure belonging to no field alone: a field's refusal speaks at it, and one naming only paths
       // no control renders is announced by `useServerFieldErrors`, which a second toast here would repeat.
       if (!hasFieldErrors(antwort.fieldErrors)) {
-        appToast.danger("Änderung nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
+        appToast.danger("Antwort nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
       }
       return;
     }

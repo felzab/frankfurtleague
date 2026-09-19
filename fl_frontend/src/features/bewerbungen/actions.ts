@@ -9,7 +9,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -232,7 +232,7 @@ export async function annehmenBewerbungAction(
       annahmeOperation = await annehmenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -312,7 +312,7 @@ export async function ablehnenBewerbungAction(
       absageOperation = await ablehnenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -591,7 +591,7 @@ export async function kontaktEmailKorrigierenAction(
       korrekturOperation = await korrigierenKontaktEmail(validated.data);
     } catch (error) {
       const refusal = mapKontaktEmailRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 

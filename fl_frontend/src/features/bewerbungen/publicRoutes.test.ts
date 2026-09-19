@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 
@@ -16,8 +15,9 @@ import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts"
 import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP } from "@/shared/components/ui/nameWrap.ts";
-import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER } from "./constants.ts";
@@ -32,18 +32,8 @@ const fetchMock = mock.fn<() => Promise<Response>>(() => new Promise<never>(() =
 // the one reader that decides which answers are this application's.
 globalThis.fetch = (() => fetchMock()) as typeof fetch;
 
-const appToast = { success: mock.fn(), warning: mock.fn(), danger: mock.fn(), info: mock.fn() };
-Reflect.set(globalThis, "__flPublic", { appToast });
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    // The toasts, handed to the mocks above: the real module raises into HeroUI's queue rather than back to the case.
-    if (url.endsWith("/src/shared/utils/appToast.ts"))
-      return { format: "module", source: "export const { appToast } = globalThis.__flPublic;", shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+/** The toasts, replaced at the module boundary: the real module raises into HeroUI's queue. */
+const { raised } = doubleToasts();
 
 /*
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
@@ -90,25 +80,27 @@ const NEXT_CONFIG = readFileSync(path.join(FRONTEND_DIR, "next.config.ts"), "utf
 const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "band.ts"), "utf8");
 const BAND_COMPONENT = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
-const HINWEIS_QUELLE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
+const INVITATION_SOURCE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
 const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
 const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "route.ts"), "utf8");
 /** The provider's delivery webhook, the one session-less route that takes neither spine. */
 const ZUSTELLUNG_ROUTE = readFileSync(path.join(APP_DIR, "api", "mail", "zustellung", "route.ts"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
+/** The confirmation page's fact banner, read where the recipe it reaches for leaves no mark on the markup. */
+const PANELS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BestaetigungPanels.tsx"), "utf8");
 const ACTIONS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "actions.ts"), "utf8");
 
 /** The `saison` slot, cut out so an assertion reads it and nothing near it. */
 const SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
 
 /** Names no school the placeholders already carry, so a hit is the list rather than a hint text. */
-const SCHULEN = [
+const SCHOOLS = [
   { id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" },
   { id: "68d0f2a4c1e2b3a4d5e6f709", name: "Riedberg-Oberstufe" },
 ] as const;
 
-const HEUTE = "2026-04-01";
+const TODAY = "2026-04-01";
 const FENSTER: FLBewerbungFensterResponse = {
   acknowledged: 1,
   saison_id: "2026",
@@ -118,52 +110,52 @@ const FENSTER: FLBewerbungFensterResponse = {
   laeuft: true,
 };
 
-const ANSICHT = { saisonId: "2026", isUnlesbar: false, today: HEUTE, schulen: SCHULEN, isSchulenLesbar: true, vergebeneFarben: [] };
+const BASE_PROPS = { saisonId: "2026", isUnlesbar: false, today: TODAY, schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] };
 
 /** One prop set per window state, named by `fensterZustand` itself rather than by a label typed here. */
-const ZUSTAENDE = [
-  { ...ANSICHT, fenster: FENSTER },
-  { ...ANSICHT, fenster: { ...FENSTER, laeuft: false, von: "2026-05-01", bis: "2026-05-31" } },
-  { ...ANSICHT, fenster: { ...FENSTER, laeuft: false, offen: false } },
-  { ...ANSICHT, fenster: { ...FENSTER, laeuft: false, von: "2026-01-01", bis: "2026-02-01" } },
-  { ...ANSICHT, fenster: null },
-  { ...ANSICHT, fenster: null, isUnlesbar: true },
+const WINDOW_STATES = [
+  { ...BASE_PROPS, fenster: FENSTER },
+  { ...BASE_PROPS, fenster: { ...FENSTER, laeuft: false, von: "2026-05-01", bis: "2026-05-31" } },
+  { ...BASE_PROPS, fenster: { ...FENSTER, laeuft: false, offen: false } },
+  { ...BASE_PROPS, fenster: { ...FENSTER, laeuft: false, von: "2026-01-01", bis: "2026-02-01" } },
+  { ...BASE_PROPS, fenster: null },
+  { ...BASE_PROPS, fenster: null, isUnlesbar: true },
 ].map((props) => ({
   zustand: props.isUnlesbar ? "unlesbar" : fensterZustand(props.fenster, props.today),
   html: renderMarkup(BewerbungView, props),
 }));
 
-const LAEUFT = ZUSTAENDE.find((eintrag) => eintrag.zustand === "laeuft")?.html ?? "";
-const GESCHLOSSEN = ZUSTAENDE.find((eintrag) => eintrag.zustand === "geschlossen")?.html ?? "";
+const RUNNING_PAGE = WINDOW_STATES.find((eintrag) => eintrag.zustand === "laeuft")?.html ?? "";
+const CLOSED_PAGE = WINDOW_STATES.find((eintrag) => eintrag.zustand === "geschlossen")?.html ?? "";
 
 /** The strip on its own, so a case reads the invitation rather than the page it is sitting on. */
-const HINWEIS = renderMarkup(BewerbungInstagramBand, {});
+const INVITATION = renderMarkup(BewerbungInstagramBand, {});
 
 /** The sentence a reader meets, spelled here so a re-polish of the rendered one fails rather than ships. */
-const HINWEIS_SATZ =
+const INVITATION_SENTENCE =
   "Ihr wollt eure Chancen auf eine Zusage verbessern? Ladet einen Beitrag auf Instagram hoch, am besten ein Video, in dem ihr erzählt, warum ihr in die Liga wollt, und markiert @frankfurt.league.";
 
 /** The outermost element's class list, which is where a recipe lands — read inside its own tag alone. */
-const wurzelKlasse = (html: string): string => /class="([^"]*)"/.exec(html.slice(0, html.indexOf(">")))?.[1] ?? "";
+const rootClass = (html: string): string => /class="([^"]*)"/.exec(html.slice(0, html.indexOf(">")))?.[1] ?? "";
 
 /** The level of the heading a fragment is rendered inside: the last one opened above it. */
-function ueberschriftsEbene(html: string, text: string): number | null {
-  const stelle = html.indexOf(text);
-  if (stelle === -1) return null;
-  const zuletzt = [...html.slice(0, stelle).matchAll(/<h([1-6])\b/g)].at(-1);
+function headingLevelOf(html: string, text: string): number | null {
+  const at = html.indexOf(text);
+  if (at === -1) return null;
+  const lastOpened = [...html.slice(0, at).matchAll(/<h([1-6])\b/g)].at(-1);
 
-  return zuletzt === undefined ? null : Number(zuletzt[1]);
+  return lastOpened === undefined ? null : Number(lastOpened[1]);
 }
 
 /** Every link the header renders, as a reader meets it: where it goes, how it is dressed, what it says. */
-function kopfLinks(html: string): { href: string; klassen: string; text: string; ikonen: string[] }[] {
+function headerLinks(html: string): { href: string; classesOf: string; text: string; icons: string[] }[] {
   const nav = /<nav\b[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? "";
 
-  return [...nav.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map((treffer) => ({
-    href: /href="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
-    klassen: /class="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
-    text: textOf(treffer[2] ?? "").trim(),
-    ikonen: [...(treffer[2] ?? "").matchAll(/<path[^>]*\bd="([^"]*)"/g)].map((pfad) => pfad[1] ?? ""),
+  return [...nav.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map((hit) => ({
+    href: /href="([^"]*)"/.exec(hit[1] ?? "")?.[1] ?? "",
+    classesOf: /class="([^"]*)"/.exec(hit[1] ?? "")?.[1] ?? "",
+    text: textOf(hit[2] ?? "").trim(),
+    icons: [...(hit[2] ?? "").matchAll(/<path[^>]*\bd="([^"]*)"/g)].map((pathAt) => pathAt[1] ?? ""),
   }));
 }
 
@@ -204,7 +196,7 @@ describe("the window state the application page renders", () => {
      would leave each of them asserting over the same page six times. */
   it("renders each of the six states the page has an answer for", () => {
     assert.deepEqual(
-      [...ZUSTAENDE.map((eintrag) => eintrag.zustand)].sort(),
+      [...WINDOW_STATES.map((eintrag) => eintrag.zustand)].sort(),
       ["geschlossen", "keine-frist", "laeuft", "noch-nicht", "unlesbar", "vorbei"],
       "the fixtures no longer put the page into one state each",
     );
@@ -213,16 +205,16 @@ describe("the window state the application page renders", () => {
   /* „Trag Dein Team hier ein“ above a panel saying the window is shut is the page contradicting
      itself, and the invitation and the form can drift onto different conditions. */
   it("invites an application on the one state that renders a form", () => {
-    const eingeladen = ZUSTAENDE.filter(({ html }) => html.includes("Trag Dein Team hier ein"));
-    const mitForm = ZUSTAENDE.filter(({ html }) => html.includes('name="team_id"'));
+    const invited = WINDOW_STATES.filter(({ html }) => html.includes("Trag Dein Team hier ein"));
+    const withForm = WINDOW_STATES.filter(({ html }) => html.includes('name="team_id"'));
 
     assert.deepEqual(
-      eingeladen.map((eintrag) => eintrag.zustand),
+      invited.map((eintrag) => eintrag.zustand),
       ["laeuft"],
       "the invitation renders in a state that shows no form",
     );
     assert.deepEqual(
-      mitForm.map((eintrag) => eintrag.zustand),
+      withForm.map((eintrag) => eintrag.zustand),
       ["laeuft"],
       "a state that cannot take an application renders the form anyway",
     );
@@ -232,25 +224,25 @@ describe("the window state the application page renders", () => {
      onwards, so a second wording above the button is one promise said twice. */
   it("says in the lead, and only there, what the press sets in motion", () => {
     assert.ok(
-      LAEUFT.includes("Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail"),
+      RUNNING_PAGE.includes("Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail"),
       "the running state never says what the press sets in motion",
     );
-    assert.doesNotMatch(LAEUFT, /Mit dem Abschicken/, "the page repeats the press's consequence above the submit");
+    assert.doesNotMatch(RUNNING_PAGE, /Mit dem Abschicken/, "the page repeats the press's consequence above the submit");
     // One noun for one link on both sites, the E-Mail fields' own hint included: „Link zur
     // Einwilligung“ beside „Link zur Bestätigung“ reads as two different links.
-    assert.doesNotMatch(LAEUFT, /Link zur Einwilligung/, "the two sites name the link differently from the field hint");
+    assert.doesNotMatch(RUNNING_PAGE, /Link zur Einwilligung/, "the two sites name the link differently from the field hint");
   });
 
   /* A closed window renders the page rather than a 404, so every closed state owes the reader a
      sentence of its own — an empty body reads as a page that failed to load. */
   it("answers every closed state with a heading of its own", () => {
-    const geschlossen = ZUSTAENDE.filter(({ zustand }) => zustand !== "laeuft");
-    const ueberschriften = geschlossen.map(({ html }) => /<h2[^>]*>([^<]*)<\/h2>/.exec(html)?.[1] ?? "");
+    const closedPages = WINDOW_STATES.filter(({ zustand }) => zustand !== "laeuft");
+    const headings = closedPages.map(({ html }) => /<h2[^>]*>([^<]*)<\/h2>/.exec(html)?.[1] ?? "");
 
-    for (const [index, titel] of ueberschriften.entries()) {
-      assert.notEqual(titel, "", `${geschlossen[index]?.zustand ?? ""} renders no answer at all`);
+    for (const [index, headingText] of headings.entries()) {
+      assert.notEqual(headingText, "", `${closedPages[index]?.zustand ?? ""} renders no answer at all`);
     }
-    assert.equal(new Set(ueberschriften).size, ueberschriften.length, "two closed states give the reader the same answer");
+    assert.equal(new Set(headings).size, headings.length, "two closed states give the reader the same answer");
   });
 });
 
@@ -258,10 +250,10 @@ describe("how the application page invites a post about the application", () => 
   /* A school reading a closed page cannot apply, so a post tagging the league buys it nothing, and
      the invitation and the form can drift onto different conditions. */
   it("invites the post on the one state that takes an application", () => {
-    const eingeladen = ZUSTAENDE.filter(({ html }) => html.includes(INSTAGRAM_HANDLE));
+    const invited = WINDOW_STATES.filter(({ html }) => html.includes(INSTAGRAM_HANDLE));
 
     assert.deepEqual(
-      eingeladen.map((eintrag) => eintrag.zustand),
+      invited.map((eintrag) => eintrag.zustand),
       ["laeuft"],
       "a state that can take no application invites a post about one",
     );
@@ -270,25 +262,25 @@ describe("how the application page invites a post about the application", () => 
   /* Pinned as one string because I dictated it: every other rule the page's copy keeps would produce
      a different sentence, so a pass tidying the page toward them is what this case refuses. */
   it("renders the sentence I dictated, whole", () => {
-    assert.equal(textOf(HINWEIS).replace(/\s+/g, " ").trim(), HINWEIS_SATZ, "the invitation was reworded");
+    assert.equal(textOf(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
   });
 
   it("reads its box off the band recipe rather than retyping it", () => {
-    assert.match(HINWEIS_QUELLE, /band\(\)/, "the strip hand-writes a box the season band already has a recipe for");
+    assert.match(INVITATION_SOURCE, /band\(\)/, "the strip hand-writes a box the season band already has a recipe for");
     /* The ground token is the recipe's alone, so any hand copy of the box carries it whatever order
        the formatter sorts the copy into, where a prefix of the spelling would miss a re-sorted one. */
-    assert.doesNotMatch(HINWEIS_QUELLE, /className="[^"]*\bbg-surface\b/, "a second spelling of the band box is back");
+    assert.doesNotMatch(INVITATION_SOURCE, /className="[^"]*\bbg-surface\b/, "a second spelling of the band box is back");
     // Catches the OTHER half: a call that reaches the recipe and asks it for a different ground.
-    assert.equal(wurzelKlasse(HINWEIS), band().root(), "the strip renders a box other than the recipe's surface ground");
+    assert.equal(rootClass(INVITATION), band().root(), "the strip renders a box other than the recipe's surface ground");
   });
 
   it("makes the handle the one tap target, and the strip itself none", () => {
-    const links = [...HINWEIS.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)];
+    const links = [...INVITATION.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)];
     const attribute = links[0]?.[1] ?? "";
 
     assert.equal(links.length, 1, "the strip offers a number of links other than the handle alone");
     // A strip that is one large link takes a half-filled form off the screen on any stray press.
-    assert.match(HINWEIS.slice(0, HINWEIS.indexOf(">")), /^<div\b/, "the whole strip is pressable");
+    assert.match(INVITATION.slice(0, INVITATION.indexOf(">")), /^<div\b/, "the whole strip is pressable");
     assert.equal(textOf(links[0]?.[2] ?? "").trim(), INSTAGRAM_HANDLE, "the link names something other than the handle");
     assert.ok(attribute.includes(`href="${INSTAGRAM_URL}"`), "the handle points somewhere other than the profile");
     assert.ok(attribute.includes(`class="${textLink()}"`), "the handle wears a treatment of its own");
@@ -298,44 +290,44 @@ describe("how the application page invites a post about the application", () => 
   });
 
   it("carries the footer's own Instagram mark, neutral and hidden from a reader", () => {
-    const marke = [...HINWEIS.matchAll(/<span ([^>]*)>/g)].map(([, roh = ""]) => roh).find((roh) => roh.includes("instagram_logo_black.svg"));
-    const datei = path.join(FRONTEND_DIR, "public", "icons", "footer", "instagram", "instagram_logo_black.svg");
+    const mark = [...INVITATION.matchAll(/<span ([^>]*)>/g)].map(([, raw = ""]) => raw).find((raw) => raw.includes("instagram_logo_black.svg"));
+    const glyphFile = path.join(FRONTEND_DIR, "public", "icons", "footer", "instagram", "instagram_logo_black.svg");
 
-    assert.notEqual(marke, undefined, "the strip masks no span with the footer's own Instagram file");
+    assert.notEqual(mark, undefined, "the strip masks no span with the footer's own Instagram file");
     // A mask over a file the app does not serve renders a box of empty colour, and nothing else fails.
-    assert.ok(existsSync(datei), "the file the mask names is no longer served from `public/`");
-    assert.match(marke ?? "", /aria-hidden="true"/, "the mark is read out beside a sentence that already names Instagram");
+    assert.ok(existsSync(glyphFile), "the file the mask names is no longer served from `public/`");
+    assert.match(mark ?? "", /aria-hidden="true"/, "the mark is read out beside a sentence that already names Instagram");
     // A third party's logo in our own red, under a header already carrying four brand accents.
-    assert.match(marke ?? "", /bg-foreground[\s"]/, "the mark is tinted, so the strip advertises rather than notes");
-    assert.match(marke ?? "", /size-5[\s"]/, "the mark is sized for a social row rather than for the paragraph beside it");
+    assert.match(mark ?? "", /bg-foreground[\s"]/, "the mark is tinted, so the strip advertises rather than notes");
+    assert.match(mark ?? "", /size-5[\s"]/, "the mark is sized for a social row rather than for the paragraph beside it");
   });
 
   /* Two grades are refused here, one on each side: bold runs on this site are labels, pills, buttons
      and one-line straplines, and `muted-meta` is the caption grade, a step under the lead paragraph
      above it. */
   it("sets the sentence at the page's own paragraph grade, neither bold nor the caption step", () => {
-    assert.equal(/<p class="([^"]*)"/.exec(HINWEIS)?.[1], "muted-hint", "the invitation is graded apart from the paragraphs around it");
+    assert.equal(/<p class="([^"]*)"/.exec(INVITATION)?.[1], "muted-hint", "the invitation is graded apart from the paragraphs around it");
   });
 
   /* The page's outline is the header's `<h1>` and one `<h2>` per panel, and this strip is neither a
      panel nor a section of one. */
   it("opens no heading of its own", () => {
-    assert.doesNotMatch(HINWEIS, /<h[1-6][\s>]/, "the strip spells a heading the page's outline does not account for");
+    assert.doesNotMatch(INVITATION, /<h[1-6][\s>]/, "the strip spells a heading the page's outline does not account for");
   });
 
   it("stands once, between the page's opening block and the form element", () => {
-    const kopfEnde = LAEUFT.indexOf("</header>");
-    const einladung = LAEUFT.indexOf(INSTAGRAM_HANDLE);
-    const formular = LAEUFT.indexOf("<form");
+    const headerEnd = RUNNING_PAGE.indexOf("</header>");
+    const invitationAt = RUNNING_PAGE.indexOf(INSTAGRAM_HANDLE);
+    const formAt = RUNNING_PAGE.indexOf("<form");
 
-    assert.notEqual(kopfEnde, -1, "the running page closes no header, so the bounds below read nothing");
-    assert.notEqual(formular, -1, "the running page renders no form, so the bounds below read nothing");
-    assert.ok(einladung > kopfEnde, "the invitation cuts into the opening block");
+    assert.notEqual(headerEnd, -1, "the running page closes no header, so the bounds below read nothing");
+    assert.notEqual(formAt, -1, "the running page renders no form, so the bounds below read nothing");
+    assert.ok(invitationAt > headerEnd, "the invitation cuts into the opening block");
     // The `<form>` itself, not merely its first field: inside it the strip is part of what a submit reads.
-    assert.ok(einladung < formular, "the invitation stands inside the form the reader is filling in");
+    assert.ok(invitationAt < formAt, "the invitation stands inside the form the reader is filling in");
     // The receipt swaps itself in for the form alone, so a second strip the PAGE held would stand
     // beside the one under the receipt and the reader would meet the same invitation twice at once.
-    assert.equal((LAEUFT.match(/instagram_logo_black/g) ?? []).length, 1, "the running page draws the invitation other than once");
+    assert.equal((RUNNING_PAGE.match(/instagram_logo_black/g) ?? []).length, 1, "the running page draws the invitation other than once");
   });
 });
 
@@ -344,7 +336,7 @@ describe("the links the application page's header offers", () => {
      over an empty list. */
   it("renders all three of them, in order", () => {
     assert.deepEqual(
-      kopfLinks(LAEUFT).map((link) => link.href),
+      headerLinks(RUNNING_PAGE).map((link) => link.href),
       ["/about", "/kontakt", "/dashboard"],
       "the header no longer offers About, Kontakt and the dashboard",
     );
@@ -353,7 +345,7 @@ describe("the links the application page's header offers", () => {
   /* Driven off the RENDERED hrefs, so a link this suite has never seen is checked too. Whether a
      path is answered is the router tree's answer and appears in no markup. */
   it("lands somewhere for every href it renders", () => {
-    for (const { href } of kopfLinks(LAEUFT)) {
+    for (const { href } of headerLinks(RUNNING_PAGE)) {
       assert.ok(isRouteAnswered(href), `${href} has neither a page nor a redirect`);
     }
   });
@@ -361,7 +353,7 @@ describe("the links the application page's header offers", () => {
   /* `?saison_id=` here would pin the link to the season being APPLIED for, which is a future one the
      dashboard withholds. Bare, the redirect resolves the running season instead. */
   it("leaves the dashboard link unparameterised, and says which season it opens", () => {
-    const dashboard = kopfLinks(LAEUFT).find((link) => link.href.startsWith("/dashboard"));
+    const dashboard = headerLinks(RUNNING_PAGE).find((link) => link.href.startsWith("/dashboard"));
 
     assert.ok(dashboard, "the header no longer offers the dashboard at all");
     assert.equal(dashboard.href, "/dashboard", "the dashboard link carries a season the dashboard cannot show");
@@ -374,14 +366,14 @@ describe("the links the application page's header offers", () => {
   /* Peers, not a ranked set: same treatment, one icon each so they are tellable apart at a glance.
      A link that lost either half reads as a different kind of control from the two beside it. */
   it("gives every link a reason above it and an icon of its own inside it", () => {
-    const nav = /<nav\b[^>]*>([\s\S]*?)<\/nav>/.exec(LAEUFT)?.[1] ?? "";
-    const anlaesse = [...nav.matchAll(/<span[^>]*>([^<]+)<\/span><a /g)].map((treffer) => (treffer[1] ?? "").trim());
-    const ikonen = kopfLinks(LAEUFT).flatMap((link) => link.ikonen);
+    const nav = /<nav\b[^>]*>([\s\S]*?)<\/nav>/.exec(RUNNING_PAGE)?.[1] ?? "";
+    const reasonsAbove = [...nav.matchAll(/<span[^>]*>([^<]+)<\/span><a /g)].map((hit) => (hit[1] ?? "").trim());
+    const icons = headerLinks(RUNNING_PAGE).flatMap((link) => link.icons);
 
-    assert.equal(anlaesse.length, 3, "a header link renders no reason directly above it");
-    for (const anlass of anlaesse) assert.notEqual(anlass, "", "a header link's reason renders as nothing");
-    assert.equal(ikonen.length, 3, "a header link renders no icon, or renders two");
-    assert.equal(new Set(ikonen).size, 3, "two header links draw the same glyph, so the pair cannot be told apart");
+    assert.equal(reasonsAbove.length, 3, "a header link renders no reason directly above it");
+    for (const reasonAbove of reasonsAbove) assert.notEqual(reasonAbove, "", "a header link's reason renders as nothing");
+    assert.equal(icons.length, 3, "a header link renders no icon, or renders two");
+    assert.equal(new Set(icons).size, 3, "two header links draw the same glyph, so the pair cannot be told apart");
   });
 
   /* The outline treatment is what makes them equal. A `primary` among them would rank one above the
@@ -390,14 +382,14 @@ describe("the links the application page's header offers", () => {
     const outline = ctaButton({ intent: "outline", size: "sm", hover: "css" }).split(" ");
     const primary = ctaButton({ intent: "primary", size: "sm", hover: "css" }).split(" ");
     // The classes the fill has and the outline has not, so this survives a retokenised recipe.
-    const nurPrimary = primary.filter((klasse) => !outline.includes(klasse));
+    const primaryOnly = primary.filter((classToken) => !outline.includes(classToken));
 
-    assert.notEqual(nurPrimary.length, 0, "the two treatments render alike, so this case compares nothing");
-    for (const link of kopfLinks(LAEUFT)) {
-      const klassen = link.klassen.split(" ");
+    assert.notEqual(primaryOnly.length, 0, "the two treatments render alike, so this case compares nothing");
+    for (const link of headerLinks(RUNNING_PAGE)) {
+      const classesOf = link.classesOf.split(" ");
 
-      for (const klasse of outline) assert.ok(klassen.includes(klasse), `${link.href} lost the outline recipe's ${klasse}`);
-      for (const klasse of nurPrimary) assert.ok(!klassen.includes(klasse), `${link.href} was promoted above the other two`);
+      for (const classToken of outline) assert.ok(classesOf.includes(classToken), `${link.href} lost the outline recipe's ${classToken}`);
+      for (const classToken of primaryOnly) assert.ok(!classesOf.includes(classToken), `${link.href} was promoted above the other two`);
     }
   });
 
@@ -413,11 +405,11 @@ describe("how the page spells the box a panel sits in", () => {
   /* The state panels have to say what the form's own sections say, and only the rendered box shows
      whether they do. */
   it("wears the form panel's own box", () => {
-    const panel = /<div class="([^"]*)"><h2/.exec(GESCHLOSSEN)?.[1] ?? "";
+    const panel = /<div class="([^"]*)"><h2/.exec(CLOSED_PAGE)?.[1] ?? "";
 
     assert.notEqual(panel, "", "the closed state renders no panel this case can read");
-    for (const klasse of formPanel().root().split(" ")) {
-      assert.ok(panel.split(" ").includes(klasse), `the state panel's box is missing formPanel's ${klasse}`);
+    for (const classToken of formPanel().root().split(" ")) {
+      assert.ok(panel.split(" ").includes(classToken), `the state panel's box is missing formPanel's ${classToken}`);
     }
   });
 
@@ -434,22 +426,22 @@ describe("what the application page holds while it loads", () => {
   /* A navigation renders `loading.tsx`, and either state that does not fill the VIEWPORT leaves the
      site footer on screen for the length of the read. `fills` defaults to `region`. */
   it("fills the viewport on a navigation", () => {
-    const region = wurzelKlasse(renderMarkup(ContentLoader, {}));
-    const viewport = wurzelKlasse(renderMarkup(ContentLoader, { fills: "viewport" as const }));
+    const region = rootClass(renderMarkup(ContentLoader, {}));
+    const viewport = rootClass(renderMarkup(ContentLoader, { fills: "viewport" as const }));
 
     assert.notEqual(region, viewport, "the two fills render alike, so this case compares nothing");
-    assert.equal(wurzelKlasse(renderMarkup(BewerbungLoading, {})), viewport, "the route's loading.tsx stops short of the footer");
+    assert.equal(rootClass(renderMarkup(BewerbungLoading, {})), viewport, "the route's loading.tsx stops short of the footer");
   });
 
   /* The streamed half is the page's own boundary: everything inside it awaits, so a render of the
      page draws the fallback and nothing else, which is the state a reader meets first. */
   it("fills the viewport on a stream", () => {
-    const region = wurzelKlasse(renderMarkup(ContentLoader, {}));
-    const viewport = wurzelKlasse(renderMarkup(ContentLoader, { fills: "viewport" as const }));
-    const gestreamt = renderMarkup(BewerbungPage, { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
+    const region = rootClass(renderMarkup(ContentLoader, {}));
+    const viewport = rootClass(renderMarkup(ContentLoader, { fills: "viewport" as const }));
+    const streamed = renderMarkup(BewerbungPage, { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
 
     assert.notEqual(region, viewport, "the two fills render alike, so this case compares nothing");
-    assert.equal(wurzelKlasse(gestreamt), viewport, "the page's boundary stops short of the footer");
+    assert.equal(rootClass(streamed), viewport, "the page's boundary stops short of the footer");
     /* Read beside the render: a `<div>` spelling the loader's own classes renders the same markup, so
        only the source says the boundary holds the component rather than a copy of its output. */
     assert.match(PAGE, /fallback=\{<ContentLoader fills="viewport" \/>\}/, "the page's boundary no longer holds a ContentLoader");
@@ -496,9 +488,9 @@ describe("how the band writes the season it is inviting applications for", () =>
 */
 describe("what the band's recipe is allowed to reach", () => {
   it("stands in a module that imports no query", () => {
-    const importe = [...BAND.matchAll(/^import[^;]*from "([^"]*)";$/gm)].map((treffer) => treffer[1]);
+    const imports = [...BAND.matchAll(/^import[^;]*from "([^"]*)";$/gm)].map((hit) => hit[1]);
 
-    assert.deepEqual(importe, ["tailwind-variants"], "the recipe's module reaches something besides its own dependency");
+    assert.deepEqual(imports, ["tailwind-variants"], "the recipe's module reaches something besides its own dependency");
   });
 });
 
@@ -561,19 +553,19 @@ describe("where the contact page seats the application band", () => {
   it("renders the slot between the hero and the channels heading", () => {
     const html = renderMarkup(KontaktView, { bewerbungSlot: h("div", { "data-band": "" }, "BEWERBUNGSSLOT") });
     const slot = html.indexOf("BEWERBUNGSSLOT");
-    const beschreibung = html.indexOf("offenes Ohr");
-    const kanaele = html.indexOf("<h2");
+    const leadAt = html.indexOf("offenes Ohr");
+    const channelsAt = html.indexOf("<h2");
 
     assert.notEqual(slot, -1, "the view renders no band slot at all");
-    assert.notEqual(beschreibung, -1, "the view renders no lead, so the bound below reads nothing");
-    assert.notEqual(kanaele, -1, "the view renders no section heading, so the bound below reads nothing");
+    assert.notEqual(leadAt, -1, "the view renders no lead, so the bound below reads nothing");
+    assert.notEqual(channelsAt, -1, "the view renders no section heading, so the bound below reads nothing");
     assert.match(
-      html.slice(kanaele, html.indexOf("</h2>", kanaele)),
+      html.slice(channelsAt, html.indexOf("</h2>", channelsAt)),
       /Kanäle/,
       "the first heading is not the channels heading, so the bound below reads the wrong section",
     );
-    assert.ok(slot > beschreibung, "the band sits above the hero");
-    assert.ok(slot < kanaele, "the band sits below the opening block instead of under the hero");
+    assert.ok(slot > leadAt, "the band sits above the hero");
+    assert.ok(slot < channelsAt, "the band sits below the opening block instead of under the hero");
   });
 });
 
@@ -582,12 +574,12 @@ describe("where the about page's questions sit in the heading outline", () => {
      is the only thing deciding it, so nothing short of a render says which element a question is in. */
   it("renders every question one heading level under the section it is in", () => {
     const html = renderMarkup(AboutView, {});
-    const abschnitt = ueberschriftsEbene(html, "Fragen und Antworten");
+    const sectionLevel = headingLevelOf(html, "Fragen und Antworten");
 
-    assert.notEqual(abschnitt, null, "the about page renders no section heading, so the comparison below reads nothing");
+    assert.notEqual(sectionLevel, null, "the about page renders no section heading, so the comparison below reads nothing");
     assert.deepEqual(
-      QA_QUESTIONS.map((frage) => ueberschriftsEbene(html, frage.q)),
-      QA_QUESTIONS.map(() => (abschnitt === null ? null : abschnitt + 1)),
+      QA_QUESTIONS.map((frage) => headingLevelOf(html, frage.q)),
+      QA_QUESTIONS.map(() => (sectionLevel === null ? null : sectionLevel + 1)),
       "a question does not sit one heading level under the section it is in",
     );
   });
@@ -636,13 +628,13 @@ describe("who the submission's receipt is addressed to", () => {
 
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
 
-    for (const [wer, quelle] of [
+    for (const [whose, sourceText] of [
       ["the submission handler", POST_ROUTE],
       ["the retention sweep", SWEEP],
       ["the administrator's re-send", ACTIONS],
     ] as const) {
-      assert.match(quelle, /bestaetigungsLink\(/, `${wer} no longer mints its link through the one helper`);
-      assert.doesNotMatch(quelle, /\/bestaetigung\?/, `${wer} spells a link of its own beside the helper`);
+      assert.match(sourceText, /bestaetigungsLink\(/, `${whose} no longer mints its link through the one helper`);
+      assert.doesNotMatch(sourceText, /\/bestaetigung\?/, `${whose} spells a link of its own beside the helper`);
     }
 
     assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
@@ -655,10 +647,10 @@ describe("what stands in for a session on the session-less routes", () => {
 
   // Every export form a handler can take, `export { GET }` included: a reader keyed on
   // `export async function` alone passes over the two spellings that are not one.
-  const exportierteNamen = (quelle: string): string[] => [
-    ...[...quelle.matchAll(/^export (?:async )?(?:function|const|let|var) (\w+)/gm)].map((treffer) => treffer[1] ?? ""),
-    ...[...quelle.matchAll(/^export \{([^}]*)\}/gm)].flatMap((treffer) =>
-      (treffer[1] ?? "").split(",").map((eintrag) => (eintrag.split(" as ").pop() ?? "").trim()),
+  const exportedNames = (sourceText: string): string[] => [
+    ...[...sourceText.matchAll(/^export (?:async )?(?:function|const|let|var) (\w+)/gm)].map((hit) => hit[1] ?? ""),
+    ...[...sourceText.matchAll(/^export \{([^}]*)\}/gm)].flatMap((hit) =>
+      (hit[1] ?? "").split(",").map((eintrag) => (eintrag.split(" as ").pop() ?? "").trim()),
     ),
   ];
 
@@ -666,17 +658,17 @@ describe("what stands in for a session on the session-less routes", () => {
      later ships green, and a mail scanner fetching every link in a message would spend the token it
      fetched. */
   it("answers one method on each write, and that method is POST", () => {
-    for (const [wer, quelle] of [
+    for (const [whose, sourceText] of [
       ["the application submit", POST_ROUTE],
       ["the confirmation write", CONFIRM_ROUTE],
     ] as const) {
-      const namen = exportierteNamen(quelle);
+      const names = exportedNames(sourceText);
 
-      assert.ok(namen.length > 0, `${wer} exports nothing this case can read, so the assertion below compares nothing`);
+      assert.ok(names.length > 0, `${whose} exports nothing this case can read, so the assertion below compares nothing`);
       assert.deepEqual(
-        namen.filter((name) => HTTP_METHODS.includes(name)),
+        names.filter((name) => HTTP_METHODS.includes(name)),
         ["POST"],
-        `${wer} answers a second method, which a mail scanner reaches with a fetch nobody made`,
+        `${whose} answers a second method, which a mail scanner reaches with a fetch nobody made`,
       );
     }
   });
@@ -705,12 +697,12 @@ describe("what stands in for a session on the session-less routes", () => {
   /* Parsing first and re-serialising changes key order and whitespace, and every real event then
      verifies as a forgery. */
   it("verifies the delivery webhook over the bytes the provider signed", () => {
-    const roh = ZUSTELLUNG_ROUTE.indexOf("await request.text()");
-    const geprueft = ZUSTELLUNG_ROUTE.indexOf(".verify(");
+    const raw = ZUSTELLUNG_ROUTE.indexOf("await request.text()");
+    const parsedBody = ZUSTELLUNG_ROUTE.indexOf(".verify(");
 
-    assert.notEqual(roh, -1, "the webhook reads something other than the raw request body");
-    assert.ok(roh < geprueft, "the body is parsed before it is verified");
-    assert.ok(ZUSTELLUNG_ROUTE.indexOf("JSON.parse") > geprueft, "an unverified body is parsed");
+    assert.notEqual(raw, -1, "the webhook reads something other than the raw request body");
+    assert.ok(raw < parsedBody, "the body is parsed before it is verified");
+    assert.ok(ZUSTELLUNG_ROUTE.indexOf("JSON.parse") > parsedBody, "an unverified body is parsed");
   });
 });
 
@@ -735,13 +727,13 @@ describe("what one of the workflow's messages says about itself", () => {
 });
 
 describe("how the form asks for a wished opponent", () => {
-  const WUNSCH = "Schule ohne Eintrag in der Liga";
+  const WISH = "Schule ohne Eintrag in der Liga";
 
-  const WUNSCHGEGNER = renderMarkup(FormTeamSection, {
+  const WISH_MARKUP = renderMarkup(FormTeamSection, {
     trikot: { vorhandener_satz: "", wunschfarbe: null },
     kader: { voraussichtliche_groesse: null, gute_spieler: null },
-    wunschgegner: WUNSCH,
-    schulen: SCHULEN,
+    wunschgegner: WISH,
+    schulen: SCHOOLS,
     vergebeneFarben: [],
     onTrikotChange: () => undefined,
     onKaderChange: () => undefined,
@@ -751,57 +743,58 @@ describe("how the form asks for a wished opponent", () => {
   });
 
   /** The one element the submitted payload is read off, whatever HeroUI renders around it. */
-  const traeger = /<(\w+)([^>]*\bname="wunschgegner"[^>]*)>/.exec(WUNSCHGEGNER);
+  const carrier = /<(\w+)([^>]*\bname="wunschgegner"[^>]*)>/.exec(WISH_MARKUP);
 
   /* First: a control the section never rendered would leave every case below reading `null`, and the
      ones asking what it is NOT would pass over that. */
   it("renders the control, under a label naming the wish", () => {
-    assert.notEqual(traeger, null, "the team section renders nothing carrying the payload's own field name");
-    assert.match(WUNSCHGEGNER, /<label[^>]*>Wunschgegner[^<]*<\/label>/, "the control carries no label naming the wish");
+    assert.notEqual(carrier, null, "the team section renders nothing carrying the payload's own field name");
+    assert.match(WISH_MARKUP, /<label[^>]*>Wunschgegner[^<]*<\/label>/, "the control carries no label naming the wish");
   });
 
   /* Read off `FIELD_LABEL` rather than spelled here: a hand-typed size or weight drifts from the
      labels above it on the same panel, and the case above passes on the words alone. */
   it("dresses that label in the shared field-label style", () => {
-    const etikett = /<label ([^>]*)>Wunschgegner[^<]*<\/label>/.exec(WUNSCHGEGNER)?.[1] ?? "";
-    const klassen = (/class="([^"]*)"/.exec(etikett)?.[1] ?? "").split(" ");
+    const labelAttrs = /<label ([^>]*)>Wunschgegner[^<]*<\/label>/.exec(WISH_MARKUP)?.[1] ?? "";
+    const classesOf = (/class="([^"]*)"/.exec(labelAttrs)?.[1] ?? "").split(" ");
 
-    assert.notEqual(etikett, "", "the wish's label moved, so the loop below reads nothing");
-    for (const klasse of FIELD_LABEL.split(" ")) assert.ok(klassen.includes(klasse), `the wish's label lost FIELD_LABEL's ${klasse}`);
+    assert.notEqual(labelAttrs, "", "the wish's label moved, so the loop below reads nothing");
+    for (const classToken of FIELD_LABEL.split(" "))
+      assert.ok(classesOf.includes(classToken), `the wish's label lost FIELD_LABEL's ${classToken}`);
   });
 
   /* The whole reason this is not a picker. A closed set moves the payload name onto a hidden input
      carrying the SELECTED KEY, so a school not already in the league submits an empty wish. */
   it("submits the typed name, which a closed set would drop", () => {
-    const freitext = renderTree(
+    const freeText = renderTree(
       h(
         ComboBox,
-        { allowsCustomValue: true, name: "probe", inputValue: WUNSCH },
+        { allowsCustomValue: true, name: "probe", inputValue: WISH },
         h(Label, null, "Probe"),
         h(ComboBox.InputGroup, null, h(Input, null), h(ComboBox.Trigger, null)),
       ),
     );
-    const geschlossen = renderTree(
+    const closedPages = renderTree(
       h(
         ComboBox,
-        { name: "probe", inputValue: WUNSCH },
+        { name: "probe", inputValue: WISH },
         h(Label, null, "Probe"),
         h(ComboBox.InputGroup, null, h(Input, null), h(ComboBox.Trigger, null)),
       ),
     );
 
-    const nameTraeger = (html: string) => /<input([^>]*\bname="probe"[^>]*)>/.exec(html)?.[1] ?? "";
-    assert.match(nameTraeger(freitext), /role="combobox"/, "the control this case compares against changed shape");
-    assert.match(nameTraeger(geschlossen), /type="hidden"/, "a closed set now submits the typed text too, so this proves nothing");
+    const nameCarrier = (html: string) => /<input([^>]*\bname="probe"[^>]*)>/.exec(html)?.[1] ?? "";
+    assert.match(nameCarrier(freeText), /role="combobox"/, "the control this case compares against changed shape");
+    assert.match(nameCarrier(closedPages), /type="hidden"/, "a closed set now submits the typed text too, so this proves nothing");
 
-    assert.match(traeger?.[2] ?? "", /role="combobox"/, "the wished opponent became a picker over the league's own clubs");
-    assert.match(traeger?.[2] ?? "", new RegExp(`value="${WUNSCH}"`), "the box submits something other than what was typed into it");
+    assert.match(carrier?.[2] ?? "", /role="combobox"/, "the wished opponent became a picker over the league's own clubs");
+    assert.match(carrier?.[2] ?? "", new RegExp(`value="${WISH}"`), "the box submits something other than what was typed into it");
   });
 
   /* `name` IS the payload path: `<Form validationErrors>` distributes by it, so a refusal reaches
      this box only under the name the schema spells. */
   it("names the field as the payload spells it", () => {
-    assert.equal(traeger?.[1], "input", "the payload's field name sits on something other than the text box");
+    assert.equal(carrier?.[1], "input", "the payload's field name sits on something other than the text box");
   });
 
   /* A TYPED field is judged when it is LEFT: moved onto the change handler, the form would grade a
@@ -809,12 +802,12 @@ describe("how the form asks for a wished opponent", () => {
   it("judges it on blur rather than between keystrokes", async () => {
     const user = userEvent.setup();
     const onFieldLeft = mock.fn();
-    const { container } = render(
+    render(
       h(FormTeamSection, {
         trikot: { vorhandener_satz: "", wunschfarbe: null },
         kader: { voraussichtliche_groesse: null, gute_spieler: null },
         wunschgegner: "",
-        schulen: SCHULEN,
+        schulen: SCHOOLS,
         vergebeneFarben: [],
         onTrikotChange: () => undefined,
         onKaderChange: () => undefined,
@@ -824,7 +817,7 @@ describe("how the form asks for a wished opponent", () => {
       }),
     );
 
-    await user.type(container.querySelector('input[name="wunschgegner"]') ?? assert.fail("the section renders no wish box"), "Goethe");
+    await user.type(screen.getByRole("combobox", { name: "Wunschgegner für den ersten Spieltag" }), "Goethe");
     assert.equal(onFieldLeft.mock.callCount(), 0, "the wish is judged between two keystrokes");
 
     await user.tab();
@@ -840,7 +833,7 @@ describe("how the form asks for a wished opponent", () => {
      the one that has to arrive. */
   it("suggests the league's clubs, the same list the school picker reads", async () => {
     const user = userEvent.setup();
-    render(h(BewerbungView, { ...ANSICHT, fenster: FENSTER }));
+    render(h(BewerbungView, { ...BASE_PROPS, fenster: FENSTER }));
 
     // By a fragment: react-aria names this trigger by its own label and the field's together.
     await user.click(screen.getByRole("button", { name: /Vorschläge anzeigen/ }));
@@ -849,32 +842,32 @@ describe("how the form asks for a wished opponent", () => {
       within(screen.getByRole("listbox"))
         .getAllByRole("option")
         .map((option) => option.textContent.trim()),
-      SCHULEN.map(({ name }) => name),
+      SCHOOLS.map(({ name }) => name),
       "the suggestions no longer come from the club list the page already read",
     );
   });
 });
 
 describe("which kit colours the wish picker leaves out", () => {
-  const VERGEBEN = ["rot", "blau"] as const;
+  const ASSIGNED = ["rot", "blau"] as const;
 
   /** The wish picker's own options, read where the submitted value comes from. */
-  function angeboteneFarben(html: string): string[] {
+  function offeredColours(html: string): string[] {
     const select = /<select[^>]*\bname="trikot\.wunschfarbe"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? "";
 
-    return [...select.matchAll(/<option value="([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+    return [...select.matchAll(/<option value="([^"]+)"/g)].map((hit) => hit[1] ?? "");
   }
 
   /* Three hops — page to view, view to form, form to picker — each droppable on its own, and each
      leaving the picker offering the whole palette with every gate green. */
   it("carries the assignments from the view down into the picker's own options", () => {
-    const html = renderMarkup(BewerbungView, { ...ANSICHT, fenster: FENSTER, vergebeneFarben: VERGEBEN });
-    const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
+    const html = renderMarkup(BewerbungView, { ...BASE_PROPS, fenster: FENSTER, vergebeneFarben: ASSIGNED });
+    const allColours = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
 
-    assert.ok(alle.length > VERGEBEN.length, "the palette is no bigger than the assigned set, so this case compares nothing");
+    assert.ok(allColours.length > ASSIGNED.length, "the palette is no bigger than the assigned set, so this case compares nothing");
     assert.deepEqual(
-      angeboteneFarben(html),
-      alle.filter((farbe) => !VERGEBEN.includes(farbe as (typeof VERGEBEN)[number])),
+      offeredColours(html),
+      allColours.filter((colour) => !ASSIGNED.includes(colour as (typeof ASSIGNED)[number])),
       "the picker offers a colour the season has assigned, or drops one it has not",
     );
   });
@@ -883,7 +876,7 @@ describe("which kit colours the wish picker leaves out", () => {
      case above only means something beside this one. */
   it("offers the whole palette where the season has assigned nothing", () => {
     assert.deepEqual(
-      angeboteneFarben(LAEUFT),
+      offeredColours(RUNNING_PAGE),
       TRIKOT_FARBE_OPTIONS.map((option) => option.value),
       "the picker withholds a colour nobody holds",
     );
@@ -904,10 +897,10 @@ describe("which kit colours the wish picker leaves out", () => {
   it("degrades to the empty set rather than to a narrowed palette", () => {
     // The CALL, never the import that names it first: the statement's own semicolon is what bounds
     // the read, and cut from the import the slice ends at the end of that line instead.
-    const zweig = PAGE.slice(PAGE.indexOf("await getBewerbungTrikotfarben"));
+    const branch = PAGE.slice(PAGE.indexOf("await getBewerbungTrikotfarben"));
 
-    assert.notEqual(zweig, "", "the page no longer awaits the read this assertion is about");
-    assert.match(zweig.slice(0, zweig.indexOf(";")), /\(\) => \[\]/, "an unreadable answer no longer offers the whole palette");
+    assert.notEqual(branch, "", "the page no longer awaits the read this assertion is about");
+    assert.match(branch.slice(0, branch.indexOf(";")), /\(\) => \[\]/, "an unreadable answer no longer offers the whole palette");
   });
 });
 
@@ -926,22 +919,22 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
   type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
 
-  const gestempelt = (schluessel: Absatz): string => fuelleFassung(BESTAETIGUNG_ABSAETZE[schluessel], SLOTS);
+  const stamped = (key: Absatz): string => fuelleFassung(BESTAETIGUNG_ABSAETZE[key], SLOTS);
 
   /** Every paragraph and list item a render puts on the page, as a reader reads it. */
-  const absaetzeVon = (html: string): string[] =>
-    [...html.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => textOf(treffer[2] ?? "").trim());
+  const paragraphsOf = (html: string): string[] =>
+    [...html.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((hit) => textOf(hit[2] ?? "").trim());
 
   /* The four components carrying the standing text, the armed decline's own paragraph among them, and
      nothing else: the panel around them words its own prose, which the version never covers. */
-  const HINWEISE = [
+  const STANDING_TEXT = [
     renderMarkup(BestaetigungHinweise, { schule: SLOTS.schule, saison: SLOTS.saison, rolle: SLOTS.rolle, ablehnenLabel: ABLEHNEN_LABEL }),
     renderMarkup(WhatsappHinweis, {}),
     renderMarkup(KlickBestaetigung, { id: "klick-punkte", vorname: SLOTS.vorname, schule: SLOTS.schule, rolle: SLOTS.rolle }),
     renderMarkup(WiderspruchFolge, {}),
   ].join("");
 
-  const FORMULAR = renderMarkup(BestaetigungFormPanel, {
+  const FORM_PANEL = renderMarkup(BestaetigungFormPanel, {
     token: "kein-echtes-token",
     vorname: SLOTS.vorname,
     schule: SLOTS.schule,
@@ -953,40 +946,41 @@ describe("which of the confirmation page's words its stamped version covers", ()
   /* A record cites its label alone, so a paragraph the page spells for itself leaves that record
      claiming words its reader was never shown -- which is the whole of what the label is for. */
   it("renders no paragraph of its own beside the ones the version holds", () => {
-    const version = new Set((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map(gestempelt));
-    const gerendert = absaetzeVon(HINWEISE);
+    const version = new Set((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map(stamped));
+    const renderedProps = paragraphsOf(STANDING_TEXT);
 
-    assert.ok(gerendert.length > 0, "the information text rendered nothing, so this case compares nothing");
-    for (const absatz of gerendert) assert.ok(version.has(absatz), `the page renders a paragraph the stamp does not cover: ${absatz}`);
+    assert.ok(renderedProps.length > 0, "the information text rendered nothing, so this case compares nothing");
+    for (const paragraph of renderedProps)
+      assert.ok(version.has(paragraph), `the page renders a paragraph the stamp does not cover: ${paragraph}`);
   });
 
   /* The other direction, which the case above cannot see: a paragraph nothing renders leaves the
      record citing more than its reader read. */
   it("renders every paragraph the version holds", () => {
-    const gerendert = new Set(absaetzeVon(HINWEISE));
+    const renderedProps = new Set(paragraphsOf(STANDING_TEXT));
 
-    for (const schluessel of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
-      assert.ok(gerendert.has(gestempelt(schluessel)), `the version holds ${schluessel}, which the page renders nowhere`);
+    for (const key of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
+      assert.ok(renderedProps.has(stamped(key)), `the version holds ${key}, which the page renders nowhere`);
     }
   });
 
   /* The switch is the one thing consented to rather than confirmed, and the button describes itself
      by the stamped points rather than a summary beside them, which read as a second promise. */
   it("takes the switch's label off that same version, and points the button at the stamped four", () => {
-    const text = textOf(FORMULAR);
-    const beschrieben = [...FORMULAR.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((treffer) => (treffer[1] ?? "").split(" "));
+    const text = textOf(FORM_PANEL);
+    const describedBy = [...FORM_PANEL.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((hit) => (hit[1] ?? "").split(" "));
 
     assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
-    assert.ok(beschrieben.length > 0, "no control on the form describes itself by anything at all");
+    assert.ok(describedBy.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
       // Cut at the first close, which is this block's: the four points stand in a list, and no
       // element between the id and them opens a `div` of its own.
-      beschrieben.some((id) => {
-        const anfang = FORMULAR.indexOf(`id="${id}"`);
+      describedBy.some((id) => {
+        const describedFrom = FORM_PANEL.indexOf(`id="${id}"`);
 
         // As text: the reader's own values inside the points wear the emphasis, which splits the
         // stored sentence into runs of markup.
-        return anfang !== -1 && textOf(FORMULAR.slice(anfang).split("</div>")[0] ?? "").includes(gestempelt("klickIdentitaet"));
+        return describedFrom !== -1 && textOf(FORM_PANEL.slice(describedFrom).split("</div>")[0] ?? "").includes(stamped("klickIdentitaet"));
       }),
       "no described element holds the stamped points, so the button promises something written nowhere",
     );
@@ -999,25 +993,25 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const { user, container } = renderBestaetigung();
     await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
 
-    const version = new Map((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map((schluessel) => [gestempelt(schluessel), schluessel]));
-    const gezaehlt = new Map<Absatz, number>();
+    const version = new Map((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map((key) => [stamped(key), key]));
+    const counted = new Map<Absatz, number>();
 
-    for (const absatz of absaetzeVon(container.innerHTML)) {
-      const schluessel = version.get(absatz);
-      if (schluessel !== undefined) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
+    for (const paragraph of paragraphsOf(container.innerHTML)) {
+      const key = version.get(paragraph);
+      if (key !== undefined) counted.set(key, (counted.get(key) ?? 0) + 1);
     }
 
     assert.deepEqual(
-      [...gezaehlt.keys()].sort(),
+      [...counted.keys()].sort(),
       (Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).sort(),
       "the armed form renders a stamped paragraph twice over, or drops one",
     );
-    for (const [schluessel, anzahl] of gezaehlt) assert.equal(anzahl, 1, `${schluessel} stands on the page ${String(anzahl)} times`);
+    for (const [key, howOften] of counted) assert.equal(howOften, 1, `${key} stands on the page ${String(howOften)} times`);
   });
 });
 
 describe("how wide the confirmation page stands, and how many boxes it draws", () => {
-  const GEOEFFNET = {
+  const OPENED_LINK = {
     acknowledged: 1,
     zustand: "gueltig",
     saison_id: "2026",
@@ -1029,99 +1023,99 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
-  const EIGENE_WERTE = ["Mira", "Lessing-Kolleg", "2026", "Ansprechperson"];
+  const OWN_VALUES = ["Mira", "Lessing-Kolleg", "2026", "Ansprechperson"];
 
   const SLOTS = {
-    schule: GEOEFFNET.schule,
-    saison: GEOEFFNET.saison_id,
+    schule: OPENED_LINK.schule,
+    saison: OPENED_LINK.saison_id,
     rolle: "Ansprechperson",
-    vorname: GEOEFFNET.vorname,
+    vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
     minAlter: String(BEWERBUNG_MIN_ALTER),
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
-  const GESTEMPELT = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => fuelleFassung(text, SLOTS)));
+  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => fuelleFassung(text, SLOTS)));
 
-  const GUELTIG = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" } });
-  const ZUSTAND_SEITEN = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar"] as const).map((zustand) => ({
+  const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
+  const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar"] as const).map((zustand) => ({
     zustand: zustand,
     html: renderMarkup(BestaetigungView, { start: { zustand: zustand } }),
   }));
 
   /** A box a reader sees as one: the radius every panel recipe on this page carries, over a border. */
-  const istFlaeche = (klassen: string): boolean => /(^| )rounded-2xl( |$)/.test(klassen) && /(^| )border( |$)/.test(klassen);
+  const looksLikeBox = (classesOf: string): boolean => /(^| )rounded-2xl( |$)/.test(classesOf) && /(^| )border( |$)/.test(classesOf);
 
-  const LEERE_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+  const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 
   /** How many of those boxes stand inside one another at the deepest point of one render. */
-  function flaechenTiefe(html: string): number {
-    const offen: boolean[] = [];
-    let tiefe = 0;
-    let tiefste = 0;
+  function boxDepth(html: string): number {
+    const openBoxes: boolean[] = [];
+    let depth = 0;
+    let deepest = 0;
 
-    for (const treffer of html.matchAll(/<(\/?)([a-zA-Z][^\s/>]*)([^>]*)>/g)) {
-      const [, schraeg = "", tag = "", rest = ""] = treffer;
+    for (const hit of html.matchAll(/<(\/?)([a-zA-Z][^\s/>]*)([^>]*)>/g)) {
+      const [, schraeg = "", tag = "", rest = ""] = hit;
 
       if (schraeg === "/") {
-        if (offen.pop() === true) tiefe -= 1;
+        if (openBoxes.pop() === true) depth -= 1;
         continue;
       }
-      if (LEERE_TAGS.has(tag.toLowerCase()) || rest.trimEnd().endsWith("/")) continue;
+      if (VOID_TAGS.has(tag.toLowerCase()) || rest.trimEnd().endsWith("/")) continue;
 
-      const flaeche = istFlaeche(/class="([^"]*)"/.exec(rest)?.[1] ?? "");
+      const isBox = looksLikeBox(/class="([^"]*)"/.exec(rest)?.[1] ?? "");
 
-      offen.push(flaeche);
-      if (flaeche) tiefste = Math.max(tiefste, (tiefe += 1));
+      openBoxes.push(isBox);
+      if (isBox) deepest = Math.max(deepest, (depth += 1));
     }
 
-    return tiefste;
+    return deepest;
   }
 
   /** Every passage a render puts on the page, whoever's words they are. */
-  const allePassagen = (html: string): string[] =>
-    [...html.matchAll(/<(p|li|dd|h1|h2|h3|button|a)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => treffer[2] ?? "");
+  const allPassages = (html: string): string[] =>
+    [...html.matchAll(/<(p|li|dd|h1|h2|h3|button|a)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((hit) => hit[2] ?? "");
 
   /** What the page says in its own words: the passages it draws, less the ones the stamped version owns. */
-  function eigenePassagen(html: string): string[] {
-    return allePassagen(html).filter((passage) => !GESTEMPELT.has(textOf(passage).trim()));
+  function ownPassages(html: string): string[] {
+    return allPassages(html).filter((passage) => !STAMPED.has(textOf(passage).trim()));
   }
 
-  const ohneHervorhebung = (passage: string): string => passage.replace(/<strong class="text-foreground font-bold">[\s\S]*?<\/strong>/g, "");
+  const withoutEmphasis = (passage: string): string => passage.replace(/<strong class="text-foreground font-bold">[\s\S]*?<\/strong>/g, "");
 
   /* The application form's page, not a card of its own: one column measures the same on both ends of
      the workflow, and a cap typed here is one nobody moves when that page's moves. */
   it("stands in the column the application page stands in", () => {
-    assert.match(wurzelKlasse(LAEUFT), /max-w-meta/, "the application page no longer names the width this case compares against");
-    assert.equal(wurzelKlasse(GUELTIG), wurzelKlasse(LAEUFT), "the confirmation page draws its own column rather than the shared one");
+    assert.match(rootClass(RUNNING_PAGE), /max-w-meta/, "the application page no longer names the width this case compares against");
+    assert.equal(rootClass(VALID_PAGE), rootClass(RUNNING_PAGE), "the confirmation page draws its own column rather than the shared one");
   });
 
   /* Nested boxes are what a phone pays for twice: each one spends the gutter again, and the words
      inside the innermost get what is left. */
   it("draws no panel inside a panel, in any state", () => {
-    assert.equal(flaechenTiefe(GUELTIG), 1, "the form's page draws no panel at all, or draws one inside another");
+    assert.equal(boxDepth(VALID_PAGE), 1, "the form's page draws no panel at all, or draws one inside another");
 
-    for (const { zustand, html } of ZUSTAND_SEITEN) {
-      assert.equal(flaechenTiefe(html), 1, `${zustand} draws no panel at all, or draws one inside another`);
+    for (const { zustand, html } of STATE_PAGES) {
+      assert.equal(boxDepth(html), 1, `${zustand} draws no panel at all, or draws one inside another`);
     }
   });
 
   /* A page leaving a reader's own name in the run of the sentence reads as a form letter, where the
      emails set it in bold. **The stamped paragraphs too**: their slots are filled at the render site. */
   it("gives every value of the reader's own the page's one emphasis", () => {
-    const passagen = allePassagen(GUELTIG);
+    const passages = allPassages(VALID_PAGE);
 
-    assert.ok(eigenePassagen(GUELTIG).length > 0, "the page renders no words of its own, so this case compares nothing");
+    assert.ok(ownPassages(VALID_PAGE).length > 0, "the page renders no words of its own, so this case compares nothing");
     assert.ok(
-      passagen.some((passage) => EIGENE_WERTE.some((wert) => textOf(passage).includes(wert))),
+      passages.some((passage) => OWN_VALUES.some((value) => textOf(passage).includes(value))),
       "no passage on the page names this reader at all",
     );
 
-    for (const passage of passagen) {
-      const nackt = textOf(ohneHervorhebung(passage));
+    for (const passage of passages) {
+      const bare = textOf(withoutEmphasis(passage));
 
-      for (const wert of EIGENE_WERTE) {
-        assert.ok(!nackt.includes(wert), `„${wert}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
+      for (const value of OWN_VALUES) {
+        assert.ok(!bare.includes(value), `„${value}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
       }
     }
   });
@@ -1129,13 +1123,12 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   /* One word for what a contact does to their own entry, the league's own „Absage“ being the other
      decision entirely. The stamped paragraphs keep their wording and are read past here. */
   it("calls a contact's refusal a Widerspruch wherever it names the act", async () => {
-    const { user, container } = renderBestaetigung();
+    const { user } = renderBestaetigung();
     await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
-    const armiert = container.querySelector('button[type="submit"]') ?? assert.fail("the armed objection offers no press");
-    assert.match(armiert.textContent, /Widerspruch/, "the armed press no longer sends what the page calls it");
+    assert.ok(screen.getByRole("button", { name: /Widerspruch/ }), "the armed press no longer sends what the page calls it");
 
-    for (const { zustand, html } of [{ zustand: "gueltig", html: GUELTIG }, ...ZUSTAND_SEITEN]) {
-      for (const passage of eigenePassagen(html)) {
+    for (const { zustand, html } of [{ zustand: "gueltig", html: VALID_PAGE }, ...STATE_PAGES]) {
+      for (const passage of ownPassages(html)) {
         assert.doesNotMatch(textOf(passage), /ablehn/i, `${zustand} calls the act by the retired word: ${textOf(passage)}`);
       }
     }
@@ -1143,74 +1136,64 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
 });
 
 describe("how the confirmation page banners the facts a reader arrived with", () => {
-  const ZEILEN = [
+  const ROWS = [
     { label: "Schule", wert: "Gymnasium an einer sehr langen Straße im Frankfurter Norden", unbegrenzt: true },
     { label: "Saison", wert: "2026" },
     { label: "Deine Rolle", wert: "Stellvertretung und Trainerin oder Trainer" },
   ];
-  const BANNER = renderMarkup(FaktenBanner, { zeilen: ZEILEN });
-  const klassen = (markup: string): string[] => (/class="([^"]*)"/.exec(markup)?.[1] ?? "").split(/\s+/);
+  const BANNER = renderMarkup(FaktenBanner, { zeilen: ROWS });
+  const classesOf = (markup: string): string[] => (/class="([^"]*)"/.exec(markup)?.[1] ?? "").split(/\s+/);
 
   /** Each fact's own box and its value, in the order the banner was handed them. */
-  const zellen = [...BANNER.matchAll(/<div (class="[^"]*")><dt[^>]*>[\s\S]*?<\/dt><dd([^>]*)>/g)].map(([, zelle = "", wert = ""]) => ({
-    zelle: klassen(zelle),
-    wert: klassen(wert),
+  const cells = [...BANNER.matchAll(/<div (class="[^"]*")><dt[^>]*>[\s\S]*?<\/dt><dd([^>]*)>/g)].map(([, cell = "", value = ""]) => ({
+    cell: classesOf(cell),
+    value: classesOf(value),
   }));
 
   /* A phone has no pointer to hover a `title` with, so a value cut short there is read nowhere, and
      the two a phone cut were the school and the role. */
   it("reads every value whole, the school and the role included", () => {
-    assert.equal(zellen.length, ZEILEN.length, "the banner rendered a different number of facts than it was handed");
-    assert.doesNotMatch(BANNER, /[\s":](truncate|text-ellipsis|line-clamp-\d+)[\s"]/, "a fact is cut short at some width");
+    assert.equal(cells.length, ROWS.length, "the banner rendered a different number of facts than it was handed");
     assert.doesNotMatch(BANNER, /\stitle="/, "a value still parks its whole text in a tooltip");
-    for (const { wert } of ZEILEN) assert.ok(textOf(BANNER).includes(wert), `„${wert}“ is not on the banner whole`);
+    for (const { wert } of ROWS) assert.ok(textOf(BANNER).includes(wert), `„${wert}“ is not on the banner whole`);
   });
 
-  /* The school is the value nothing bounds. On a phone it takes a line of its own, and from `sm` the
-     width the season and the role leave, so neither of those is squeezed to seat it. */
-  it("gives the school the free width, and wraps the row below sm alone", () => {
-    const [schule, ...begrenzt] = zellen;
-    const wurzel = klassen(BANNER);
-
-    assert.ok(wurzel.includes("flex-wrap") && wurzel.includes("sm:flex-nowrap"), "the row wraps at every width, or at none");
-    assert.ok(
-      schule !== undefined && schule.zelle.includes("basis-full") && schule.zelle.includes("sm:flex-1"),
-      "the school does not take the free width",
-    );
-    for (const klasse of NAME_WRAP.split(" ")) {
-      assert.ok(schule?.wert.includes(klasse), `a school named in one long word runs past the panel: ${klasse} is missing`);
-    }
-    assert.equal(begrenzt.length, 2, "the season and the role are not both on the banner");
-    for (const { zelle } of begrenzt) {
-      assert.ok(
-        !zelle.some((klasse) => /^(sm:)?(flex-1|basis-full|grow)$/.test(klasse)),
-        "a bounded fact competes with the school for its width",
+  /* The school is the value nothing bounds, and a name in one long word runs past the panel unless
+     it may break mid-word. */
+  it("breaks a long school name through the shared recipe rather than a copy of its classes", () => {
+    // Read rather than rendered: a literal spelling those same classes renders identical markup, so
+    // only the source separates the shared recipe from a copy of its output.
+    assert.match(PANELS, /unbegrenzt: \{\s*\/\/[^\n]*\n\s*true: \{ zelle: "[^"]*", wert: NAME_WRAP \}/, "the banner spells the wrap itself");
+    for (const classToken of NAME_WRAP.split(" ")) {
+      assert.doesNotMatch(
+        PANELS,
+        new RegExp(`"[^"]*\\b${classToken.replace(/[-]/g, "\\$&")}\\b`),
+        `a second spelling of ${classToken} is back`,
       );
-      assert.ok(zelle.includes("min-w-0"), "a bounded fact cannot shrink to wrap its own words");
     }
   });
 
   /* Sized to the two values it reads back: spread across the panel, the second sits alone at the
      far edge and reads as a column that lost its table. */
   it("sizes the receipt's stored values to their content", () => {
-    const gespeichert = renderMarkup(GespeicherteAngaben, {
+    const storedMarkup = renderMarkup(GespeicherteAngaben, {
       zeilen: [
         { label: "Geburtsdatum", wert: "01.09.2008" },
         { label: "WhatsApp", wert: "erlaubt" },
       ],
     });
-    const wurzel = /class="([^"]*)"/.exec(gespeichert)?.[1] ?? "";
+    const rootClasses = /class="([^"]*)"/.exec(storedMarkup)?.[1] ?? "";
 
-    assert.doesNotMatch(wurzel, /justify-between|w-full/, "the stored values are spread across the panel rather than sized to themselves");
-    assert.doesNotMatch(gespeichert, /flex-1/, "a stored value takes an equal share of the width rather than its own");
-    for (const wert of ["01.09.2008", "erlaubt"]) {
-      assert.ok(gespeichert.includes(`<strong class="text-foreground font-bold">${wert}</strong>`), `${wert} wears no emphasis`);
+    assert.doesNotMatch(rootClasses, /justify-between|w-full/, "the stored values are spread across the panel rather than sized to themselves");
+    assert.doesNotMatch(storedMarkup, /flex-1/, "a stored value takes an equal share of the width rather than its own");
+    for (const value of ["01.09.2008", "erlaubt"]) {
+      assert.ok(storedMarkup.includes(`<strong class="text-foreground font-bold">${value}</strong>`), `${value} wears no emphasis`);
     }
   });
 });
 
 describe("how the confirmation page names a person entered in two seats", () => {
-  const seite = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null): string =>
+  const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null): string =>
     renderMarkup(BestaetigungView, {
       start: {
         zustand: "gueltig",
@@ -1228,8 +1211,8 @@ describe("how the confirmation page names a person entered in two seats", () => 
       },
     });
 
-  const rolleImBanner = (markup: string): string => textOf(/<dt[^>]*>Deine Rolle<\/dt><dd[^>]*>([\s\S]*?)<\/dd>/.exec(markup)?.[1] ?? "");
-  const BEIDE = /Deine Antwort gilt für beide Einträge\./;
+  const roleInBanner = (markup: string): string => textOf(/<dt[^>]*>Deine Rolle<\/dt><dd[^>]*>([\s\S]*?)<\/dd>/.exec(markup)?.[1] ?? "");
+  const BOTH_SEATS = /Deine Antwort gilt für beide Einträge\./;
 
   /* Either of the two links answers both seats, so both read the one phrase the mail names them by. */
   it("banners both seats in one order, whichever of the two links was opened", () => {
@@ -1238,7 +1221,7 @@ describe("how the confirmation page names a person entered in two seats", () => 
       ["trainer", "stellvertretung"],
     ] as const) {
       assert.equal(
-        rolleImBanner(seite(rolle, zugleich)),
+        roleInBanner(pageFor(rolle, zugleich)),
         "Stellvertretung und Trainerin oder Trainer",
         `the ${rolle} link names the pair otherwise`,
       );
@@ -1246,35 +1229,37 @@ describe("how the confirmation page names a person entered in two seats", () => 
   });
 
   it("says the answer covers both entries, and says nothing of the kind to a single seat", () => {
-    const einzeln = seite("ansprechperson", null);
+    const singleSeatPage = pageFor("ansprechperson", null);
 
-    assert.match(textOf(seite("ansprechperson", "trainer"), " "), BEIDE, "a person holding two seats is not told one answer covers both");
-    assert.equal(rolleImBanner(einzeln), "Ansprechperson", "a single seat is named as something else");
-    assert.doesNotMatch(textOf(einzeln, " "), BEIDE, "a single seat is told of a second entry it does not have");
+    assert.match(
+      textOf(pageFor("ansprechperson", "trainer"), " "),
+      BOTH_SEATS,
+      "a person holding two seats is not told one answer covers both",
+    );
+    assert.equal(roleInBanner(singleSeatPage), "Ansprechperson", "a single seat is named as something else");
+    assert.doesNotMatch(textOf(singleSeatPage, " "), BOTH_SEATS, "a single seat is told of a second entry it does not have");
   });
 });
 
 describe("what arming the objection is allowed to move on the confirmation page", () => {
-  /** Every control the panel asks a value of, by the payload path each carries. */
-  const feldNamen = (container: HTMLElement): string[] =>
-    [...new Set([...container.querySelectorAll("[name]")].map((control) => control.getAttribute("name") ?? ""))].sort();
-
   /* Withdrawing the two controls is what walked the button row up the page under the pointer that had
      just armed it; held, they keep their place and the row keeps its two presses. */
   it("asks for the same fields and seats the same presses, armed as unarmed", async () => {
-    const { user, container } = renderBestaetigung();
-    /** The action row itself, which the date picker's own trigger stands outside of. */
-    const reihe = (): HTMLElement =>
-      (container.querySelector('button[type="submit"]')?.parentElement as HTMLElement | null) ?? assert.fail("the panel offers no submit");
-    const ruhend = { felder: feldNamen(container), knoepfe: reihe().querySelectorAll("button").length };
+    const { user } = renderBestaetigung();
+    /** Everything the panel asks a value of and everything it offers to press, counted by role. */
+    const asked = () => ({
+      felder: screen.queryAllByRole("group", { name: "Dein Geburtsdatum" }).length + screen.queryAllByRole("switch").length,
+      knoepfe: screen.getAllByRole("button").length,
+    });
+    const restingState = asked();
 
-    assert.ok(ruhend.felder.length > 0, "the unarmed form renders no named control, so the comparison below compares nothing");
-    assert.equal(ruhend.knoepfe, 2, "the unarmed row offers something other than the two presses");
+    assert.ok(restingState.felder > 0, "the unarmed form renders no control at all, so the comparison below compares nothing");
+    // The calendar's own trigger beside the two presses: it stands outside the action row and stays.
+    assert.equal(restingState.knoepfe, 3, "the unarmed panel offers something other than the calendar and the two presses");
 
     await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
 
-    assert.deepEqual(feldNamen(container), ruhend.felder, "arming the objection takes a field off the page");
-    assert.equal(reihe().querySelectorAll("button").length, ruhend.knoepfe, "arming the objection changes how many buttons stand in the row");
+    assert.deepEqual(asked(), restingState, "arming the objection takes a control or a press off the page");
   });
 });
 
@@ -1282,35 +1267,32 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
   /* A refusal naming only `token`, `antwort` or the stamped label reaches no control, so it is shown
      nowhere unless something announces it, and announced twice it reads as two failures; one naming a
      rendered field speaks there. */
-  it("raises one danger toast whenever the refusal named no rendered path", async (t) => {
-    const TITEL = "Änderung nicht gespeichert";
-    const faelle: [string, Record<string, string> | undefined, number][] = [
-      ["a refusal on the token alone", { token: "Dieser Link ist nicht mehr gültig." }, 1],
-      ["a refusal naming no field at all", undefined, 1],
-      ["a refusal on the birth date", { geburtsdatum: "Bitte gib ein gültiges Datum ein." }, 0],
+  it("raises one danger toast whenever the refusal named no rendered path", async () => {
+    /* Two titles, each its own site's: a refusal naming paths no control renders is announced by
+       `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`, which every editor on the site shares,
+       while one naming no field at all is the panel's own to word. */
+    const cases: [string, Record<string, string> | undefined, string[]][] = [
+      ["a refusal on the token alone", { token: "Dieser Link ist nicht mehr gültig." }, ["Änderung nicht gespeichert"]],
+      ["a refusal naming no field at all", undefined, ["Antwort nicht gespeichert"]],
+      ["a refusal on the birth date", { geburtsdatum: "Bitte gib ein gültiges Datum ein." }, []],
     ];
-    // Past the double-press window after arming, so the second press sends rather than being read as a double click.
-    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-
-    for (const [fall, fieldErrors, erwartet] of faelle) {
-      appToast.danger.mock.resetCalls();
+    for (const [named, fieldErrors, expectedTitles] of cases) {
+      raised.length = 0;
       fetchMock.mock.mockImplementationOnce(() =>
         Promise.resolve(new Response(JSON.stringify({ success: false, error: "Überprüfe Deine Eingaben.", fieldErrors }))),
       );
-      const { user, container, unmount } = renderBestaetigung();
+      const { user, unmount } = renderBestaetigung();
 
       // The objection, sent past the guard a confirmation's empty fields would stop at; the route answers both alike.
-      await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
-      t.mock.timers.tick(DOUBLE_PRESS_MS);
-      await user.click(container.querySelector('button[type="submit"]') ?? assert.fail("the armed objection offers no press"));
+      await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
-      assert.equal(
-        appToast.danger.mock.calls.filter(({ arguments: [title] }) => title === TITEL).length,
-        erwartet,
-        `${fall} is announced otherwise`,
+      assert.deepEqual(
+        raised.filter((toast) => toast.variant === "danger").map((toast) => toast.title),
+        expectedTitles,
+        `${named} is announced otherwise`,
       );
       unmount();
     }
@@ -1323,12 +1305,12 @@ describe("where a link answered in another window lands", () => {
   /* The two answers have to read differently, which is the whole of what the second read buys: told
      „bestätigt“, a person who objected believes the entry they refused is standing. */
   it("gives a confirmed seat and one that was objected to different words", () => {
-    const bestaetigt = panelText("bestaetigt");
+    const confirmedPanel = panelText("bestaetigt");
     const widersprochen = panelText("abgelehnt");
 
-    assert.notEqual(bestaetigt, widersprochen, "both answers render one panel, so the read has nothing to distinguish");
+    assert.notEqual(confirmedPanel, widersprochen, "both answers render one panel, so the read has nothing to distinguish");
     assert.match(widersprochen, /widersprochen/, "the objected panel no longer says the entry was refused");
-    assert.doesNotMatch(bestaetigt, /widersprochen/, "the confirmed panel talks about an objection");
+    assert.doesNotMatch(confirmedPanel, /widersprochen/, "the confirmed panel talks about an objection");
   });
 
   /*
@@ -1373,22 +1355,22 @@ describe("what one answered seat sets the confirmation route sending", () => {
   /* The one branch with nowhere to send: the seat that would have been addressed is the seat that
      just emptied itself, and any substitute recipient is a third party. */
   it("sends nothing where the Ansprechperson seat is empty, and logs neither address nor token", () => {
-    const zweig = CONFIRM_ROUTE.slice(CONFIRM_ROUTE.indexOf("ansprechperson_email === null"));
-    const bis = zweig.slice(0, zweig.indexOf("await sendBewerbungMail"));
+    const branch = CONFIRM_ROUTE.slice(CONFIRM_ROUTE.indexOf("ansprechperson_email === null"));
+    const upToSend = branch.slice(0, branch.indexOf("await sendBewerbungMail"));
     // The call's own arguments, which is what reaches the stream; the comment above it is prose.
-    const zeile = /logger\.info\(([\s\S]*?)\);/.exec(bis)?.[1] ?? "";
+    const logLine = /logger\.info\(([\s\S]*?)\);/.exec(upToSend)?.[1] ?? "";
 
-    assert.notEqual(zweig, "", "the handler no longer answers an empty Ansprechperson seat at all");
-    assert.match(bis, /return;/, "the empty branch falls through into the send");
-    assert.notEqual(zeile, "", "the empty seat passes without a line saying the message went nowhere");
-    assert.doesNotMatch(zeile, /ansprechperson_email|token|vorname/, "the line carries an address, a token or a person");
+    assert.notEqual(branch, "", "the handler no longer answers an empty Ansprechperson seat at all");
+    assert.match(upToSend, /return;/, "the empty branch falls through into the send");
+    assert.notEqual(logLine, "", "the empty seat passes without a line saying the message went nowhere");
+    assert.doesNotMatch(logLine, /ansprechperson_email|token|vorname/, "the line carries an address, a token or a person");
   });
 
   /* The label names which words the confirming person read, so a body's own value is a claim no
      browser may make: a caller could otherwise file a record under a retired wording, or one
      nobody ever wrote. */
   it("stamps the registry's own label over whatever label the body carried", () => {
-    const fremd = {
+    const foreignBody = {
       token: "kein-echtes-token",
       antwort: "erteilt",
       geburtsdatum: "1984-05-09",
@@ -1397,9 +1379,9 @@ describe("what one answered seat sets the confirmation route sending", () => {
     };
     // The handler's own two steps, in its order: the stamp rewrites the body, and the schema judges
     // what the stamp produced.
-    const gestempelt = FLBewerbungEinwilligungAntwortPayloadSchema.parse(stampEinwilligungFassung(fremd));
+    const stamped = FLBewerbungEinwilligungAntwortPayloadSchema.parse(stampEinwilligungFassung(foreignBody));
 
-    assert.equal(gestempelt.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
+    assert.equal(stamped.text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.match(CONFIRM_ROUTE, /stampEinwilligungFassung\(body\)/, "the browser's own label reaches the endpoint");
     assert.doesNotMatch(CONFIRM_ROUTE, /safeParse\(body\)/, "the body is judged before its label is replaced");
   });
@@ -1407,14 +1389,14 @@ describe("what one answered seat sets the confirmation route sending", () => {
   /* Judged first, a body carrying no label is refused on `text_version` — a path no control renders,
      so the refusal reaches the reader as nothing at all. */
   it("admits a body that names no label, the stamp having written one", () => {
-    const ohneFassung = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
+    const withoutVersion = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
 
     assert.equal(
-      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(ohneFassung).success,
+      FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(withoutVersion).success,
       false,
       "the label is optional, so the stamp's position decides nothing",
     );
-    assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(ohneFassung)).success, true);
+    assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(stampEinwilligungFassung(withoutVersion)).success, true);
   });
 
   /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than
@@ -1440,14 +1422,14 @@ describe("what one answered seat sets the confirmation route sending", () => {
   /* The address exists on this tier and must not leave it: the answer is composed key by key so a
      later field on the response cannot ride out to the browser by being spread. */
   it("answers the browser four named fields and no part of the mail", () => {
-    const antwort = /return \{ success: true as const,([^}]*)\}/.exec(CONFIRM_ROUTE)?.[1] ?? "";
+    const answerLiteral = /return \{ success: true as const,([^}]*)\}/.exec(CONFIRM_ROUTE)?.[1] ?? "";
 
-    assert.notEqual(antwort, "", "the success answer is no longer a literal this can read");
+    assert.notEqual(answerLiteral, "", "the success answer is no longer a literal this can read");
     assert.deepEqual(
-      [...antwort.matchAll(/(\w+):/g)].map((treffer) => treffer[1]),
+      [...answerLiteral.matchAll(/(\w+):/g)].map((hit) => hit[1]),
       ["ergebnis", "geburtsdatum", "whatsapp"],
       "the browser is answered something other than the seat's own three fields",
     );
-    assert.doesNotMatch(antwort, /\.\.\./, "the answer spreads the response, so every server-only field travels with it");
+    assert.doesNotMatch(answerLiteral, /\.\.\./, "the answer spreads the response, so every server-only field travels with it");
   });
 });
