@@ -6,6 +6,10 @@ export const SCHIEDSRICHTER_CRUD_COPY = {
   searchPlaceholder: "z.B. Pierluigi Collina oder Goethe-Gymnasium",
   /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
   createLabel: "Neuen Schiedsrichter anlegen",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Schiedsrichter für diese Suche.",
+  emptyForFilters: "Keine Schiedsrichter für diese Filter.",
+  emptyOverall: "Es wurden noch keine Schiedsrichter angelegt.",
 } as const;
 
 // Not a first name, which beside a date and a club still identifies one person in a league this
@@ -15,6 +19,13 @@ export const SCHIEDSRICHTER_CRUD_COPY = {
  * so rewording it reaches every surface at once and moves no data.
  */
 export const SCHIEDSRICHTER_ANONYM_LABEL = "anonym";
+
+/**
+ * The one row an erasure repoints its fixtures at, mirroring
+ * `fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`. Every admin by-id route answers 404
+ * for it, so nothing reads it back: it names the fixtures of erased referees, in one link.
+ */
+export const GHOST_SCHIEDSRICHTER_ID = "000000000000000000000000";
 
 /**
  * What names a row a hand-write left nameless, where the erasure's word above would claim a deletion

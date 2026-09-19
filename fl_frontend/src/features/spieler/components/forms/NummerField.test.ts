@@ -5,10 +5,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` and `useSearchParams` read contexts no `next/navigation` export carries, so both forms are
-   mounted under the two Next keeps them on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -16,9 +12,10 @@ import { userEvent } from "@testing-library/user-event";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS } from "@/features/spieler/constants.ts";
 import { FLPostSaisonSpielerPayloadSchema } from "@/features/spieler/schemas.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup } from "@/shared/testing/renderTest.ts";
 
-import type { ContextType, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /* Every write answers as landed, so a case reads what each form sent. */
 const { calls: gesendet } = doubleActions({
@@ -35,27 +32,14 @@ const { NummerField } = await import("./NummerField.tsx");
 const { AdminCreateSpielerForm } = await import("./AdminCreateSpielerForm.tsx");
 const { AdminSpielerEditForm } = await import("./AdminSpielerEditForm/AdminSpielerEditForm.tsx");
 
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "nummerField",
-};
-
 const TEAM = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SGA" };
 
-const underNext = (tree: ReactNode): ReactNode =>
-  h(AppRouterContext.Provider, {
-    value: ROUTER,
-    children: h(SearchParamsContext.Provider, { value: new URLSearchParams("saison_id=2026"), children: tree }),
-  });
+/** The season the sidemenu names; no case here makes a navigation, so the router stays inert. */
+const underSaison = (tree: ReactNode): ReactNode => underNext(tree, { search: "saison_id=2026" });
 
 const renderDialog = () =>
   render(
-    underNext(
+    underSaison(
       h(AdminCreateSpielerForm, {
         saisonOptions: [{ saisonId: "2026", isNachgetragen: false, teams: [TEAM], erlaubteStufen: ["Q1"] }],
         defaultSaisonId: "2026",
@@ -67,7 +51,7 @@ const renderDialog = () =>
 /** The player's editor on a stored squad row wearing 10. */
 const renderEditor = () =>
   render(
-    underNext(
+    underSaison(
       h(AdminSpielerEditForm, {
         spieler: { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
         einwilligung: null,
@@ -100,7 +84,7 @@ describe("the squad number's refusal as the admin reads it", () => {
     renderDialog();
 
     await user.type(nummerBox(), "7a");
-    assert.equal(screen.queryByText(NUMMER_MUST_BE_DIGITS), null, "the dialog judged the number before anybody pressed Speichern");
+    assert.ok(screen.queryByText(NUMMER_MUST_BE_DIGITS) === null, "the dialog judged the number before anybody pressed Speichern");
 
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     screen.getByText(NUMMER_MUST_BE_DIGITS);
@@ -113,7 +97,7 @@ describe("the squad number's refusal as the admin reads it", () => {
 
     await user.clear(nummerBox());
     await user.type(nummerBox(), "7a");
-    assert.equal(screen.queryByText(NUMMER_MUST_BE_DIGITS), null, "the editor judged a number nobody had finished typing");
+    assert.ok(screen.queryByText(NUMMER_MUST_BE_DIGITS) === null, "the editor judged a number nobody had finished typing");
 
     await user.tab();
     screen.getByText(NUMMER_MUST_BE_DIGITS);

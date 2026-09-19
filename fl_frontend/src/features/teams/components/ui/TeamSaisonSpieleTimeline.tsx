@@ -5,7 +5,7 @@ import { useState } from "react";
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardCompact } from "@/features/spiele/components/ui/SpielCardCompact";
 import { IM_ELFMETERSCHIESSEN, IM_ELFMETERSCHIESSEN_GESPROCHEN } from "@/features/spiele/utils";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { sortByDate } from "@/shared/utils/date";
 
 import { computeEntscheidungFor } from "../../utils";
@@ -65,15 +65,11 @@ export function TeamSaisonSpieleTimeline({
 
       {/* Without this the empty case renders the dashed rail with no items — a bare vertical line. */}
       {teamSpiele.length === 0 ? (
-        isFinishedSaison ? (
-          // No hint: a finished season's Spielplan is not still to come.
-          <EmptyState title="Für diese Saison gibt es keine Spiele." />
-        ) : (
-          <EmptyState
-            title="Für diese Saison sind noch keine Spiele angesetzt."
-            hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
-          />
-        )
+        <SeasonEmptyState
+          nothing="keine Spiele"
+          hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
+          isFinishedSaison={isFinishedSaison}
+        />
       ) : (
         // Same list semantics as the card grids, so a screen-reader user gets a count and a position.
         <div

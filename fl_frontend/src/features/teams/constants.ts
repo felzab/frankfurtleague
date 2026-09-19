@@ -5,7 +5,18 @@ export const TEAMS_CRUD_COPY = {
   searchPlaceholder: "z.B. Goethe-Gymnasium oder GG",
   /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
   createLabel: "Neues Team anlegen",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Teams für diese Suche.",
+  emptyForFilters: "Keine Teams für diese Filter.",
+  emptyOverall: "Es wurden noch keine Teams angelegt.",
 } as const;
+
+/**
+ * What retiring a club leaves standing, in the retirement dialog. Here rather than at the dialog, so
+ * the sentence a reader is asked to act on sits beside the club's other copy and is read once.
+ */
+export const TEAM_RETIREMENT_CONSEQUENCE =
+  "Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl.";
 
 export const KONTAKTE_CRUD_COPY = {
   searchLabel: "Kontakte suchen",

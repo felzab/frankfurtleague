@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useTransition } from "react";
+import { memo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -9,7 +9,12 @@ import { Pencil } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
-import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD, rolleLabel } from "@/features/spieler/constants";
+import {
+  LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  REACTIVATION_NEEDS_ROOM_IN_SQUAD,
+  rolleLabel,
+  SPIELER_CRUD_COPY,
+} from "@/features/spieler/constants";
 import { judgeRowReturn } from "@/features/spieler/utils";
 import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -30,7 +35,7 @@ import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { textLink } from "@/shared/components/ui/textLink";
-import { appToast } from "@/shared/utils/appToast";
+import { useReactivation } from "@/shared/hooks/useReactivation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -45,9 +50,9 @@ const RETURN_REFUSAL: Record<RowReturn, string | null> = {
 };
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Spieler für diese Suche.",
-  filtered: "Keine Spieler für diese Filter.",
-  none: "Es wurden noch keine Spieler angelegt.",
+  searched: SPIELER_CRUD_COPY.emptyForQuery,
+  filtered: SPIELER_CRUD_COPY.emptyForFilters,
+  none: SPIELER_CRUD_COPY.emptyOverall,
 };
 
 /**
@@ -71,28 +76,14 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   selectedSaisonId: string;
   setDeletingSpieler: (spieler: AdminSpielerRow) => void;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  // Two of them: each control pends on its own write, so reactivating a person leaves the squad row's
+  // control pressable and neither announcement can arrive under the other's title.
+  const person = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
+  const squadRow = useReactivation({ action: reactivateSaisonSpielerAction, noun: "Kadereintrag" });
 
   // The selector's season rides along on every row link, so the editor opens on the season shown.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-
-  // No confirmation step: reactivation is undone by the delete control that takes its place.
-  const handleReactivatePerson = (spieler: AdminSpielerRow) => {
-    startReactivating(async () => {
-      const res = await reactivateSpielerAction({ id: spieler.id });
-      if (res.success) appToast.success("Spieler reaktiviert");
-      else appToast.danger("Spieler nicht reaktiviert", { description: res.error });
-    });
-  };
-
-  const handleReactivateRow = (spieler: AdminSpielerRow) => {
-    startReactivating(async () => {
-      const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
-      if (res.success) appToast.success("Kadereintrag reaktiviert", { description: res.message });
-      else appToast.danger("Kadereintrag nicht reaktiviert", { description: res.error });
-    });
-  };
 
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (spieler: AdminSpielerRow) => (
@@ -146,8 +137,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             // The editor's gate from the list, asked of the row's STORED club: a club replacement takes a club
             // out of the season and leaves the squad rows still naming it.
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
-            isPending={isReactivating}
-            onPress={() => handleReactivateRow(spieler)}
+            isPending={squadRow.isReactivating}
+            onPress={() => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId })}
           />
         )}
 
@@ -157,8 +148,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           <RowActionRestore
             label="Spieler reaktivieren"
             ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
-            isPending={isReactivating}
-            onPress={() => handleReactivatePerson(spieler)}
+            isPending={person.isReactivating}
+            onPress={() => person.reactivate({ id: spieler.id })}
           />
         ) : (
           <RowActionDelete
@@ -227,11 +218,11 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   // Absent rather than punctuated where the row holds neither, so no card carries a stray separator.
   const renderKaderMeta = (spieler: AdminSpielerRow) => {
-    const teile: string[] = [];
-    if (spieler.selected?.position) teile.push(spieler.selected.position);
-    if (spieler.selected?.stufe) teile.push(spieler.selected.stufe);
+    const parts: string[] = [];
+    if (spieler.selected?.position) parts.push(spieler.selected.position);
+    if (spieler.selected?.stufe) parts.push(spieler.selected.stufe);
 
-    return teile.length === 0 ? null : <span className="fluid-xs text-foreground-muted">{teile.join(" · ")}</span>;
+    return parts.length === 0 ? null : <span className="fluid-xs text-foreground-muted">{parts.join(" · ")}</span>;
   };
 
   return (

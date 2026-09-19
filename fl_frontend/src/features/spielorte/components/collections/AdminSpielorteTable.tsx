@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useTransition } from "react";
+import { memo } from "react";
 
 import { Globe, Magnifier, MapPin, Pencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
+import { SPIELORTE_CRUD_COPY } from "@/features/spielorte/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE,
@@ -31,6 +32,7 @@ import {
   RowActionRestore,
   RowActions,
 } from "@/shared/components/ui/RowActions";
+import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
@@ -42,9 +44,9 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSpielort } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Spielorte für diese Suche.",
-  filtered: "Keine Spielorte für diese Filter.",
-  none: "Es wurden noch keine Spielorte angelegt.",
+  searched: SPIELORTE_CRUD_COPY.emptyForQuery,
+  filtered: SPIELORTE_CRUD_COPY.emptyForFilters,
+  none: SPIELORTE_CRUD_COPY.emptyOverall,
 };
 
 /** `memo` and `Table.Body`'s `items`: a collection re-rendered while hidden in an Activity tree loses its rows. */
@@ -58,7 +60,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   emptiness: CrudEmptiness;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielortAction, noun: "Spielort" });
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
@@ -69,15 +71,6 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
     if (copied) appToast.success("Adresse kopiert");
     else appToast.danger("Adresse nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
-  };
-
-  // No confirmation step: the reactivation is undone by the retire control that takes its place.
-  const handleReactivate = (ort: FLSpielort) => {
-    startReactivating(async () => {
-      const res = await reactivateSpielortAction({ id: ort.id });
-      if (res.success) appToast.success("Spielort reaktiviert");
-      else appToast.danger("Spielort nicht reaktiviert", { description: res.error });
-    });
   };
 
   const renderMietpreis = (ort: FLSpielort) => (
@@ -139,7 +132,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           label="Reaktivieren"
           ariaLabel={`Spielort ${ort.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => handleReactivate(ort)}
+          onPress={() => reactivate({ id: ort.id })}
         />
       ) : (
         <RowActionDelete

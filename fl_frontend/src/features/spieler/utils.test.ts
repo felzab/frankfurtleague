@@ -60,7 +60,7 @@ describe("describeErasureUmfang", () => {
   it("writes whole sentences rather than a telegraphic list", () => {
     for (const report of [describeErasureUmfang(0, 0), describeErasureUmfang(1, 1), describeErasureUmfang(3, 12)]) {
       assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const satz of report.split(". ")) assert.match(satz, /\b(wurde|wurden|gab|stand)\b/, `„${satz}“ carries no verb`);
+      for (const sentence of report.split(". ")) assert.match(sentence, /\b(wurde|wurden|gab|stand)\b/, `„${sentence}“ carries no verb`);
     }
   });
 

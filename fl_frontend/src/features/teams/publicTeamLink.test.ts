@@ -13,10 +13,11 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
+
 import { publicTeamSaisonId } from "./utils.ts";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { ContextType } from "react";
 import type { AdminTeamRow } from "./types.ts";
 
 const { AdminTeamsTable } = await import("./components/collections/AdminTeamsTable.tsx");
@@ -59,17 +60,6 @@ describe("the season the public club page shows a club in", () => {
   });
 });
 
-/** Every method the list reaches only after a navigation, which no case here makes. */
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "publicTeamLink",
-};
-
 const row = (publicSaisonId: string | null): AdminTeamRow => ({
   id: "68d0f2a4c1e2b3a4d5e6f701",
   name: "Goethe-Gymnasium",
@@ -85,7 +75,7 @@ const row = (publicSaisonId: string | null): AdminTeamRow => ({
 async function openMenu(team: AdminTeamRow): Promise<HTMLElement> {
   render(
     h(AppRouterContext.Provider, {
-      value: ROUTER,
+      value: nextRouter(),
       children: h(SearchParamsContext.Provider, {
         value: new URLSearchParams(`saison_id=${GEPLANT.id}`),
         children: h(AdminTeamsTable, { filteredTeams: [team], emptiness: "none", setDeletingTeam: () => undefined }),
@@ -115,6 +105,6 @@ describe("the club list's link into the public club page", () => {
     const menu = await openMenu(row(null));
 
     assert.ok(within(menu).queryAllByRole("menuitem").length > 0, "the open menu holds no item at all, so the absence below proves nothing");
-    assert.equal(within(menu).queryByRole("menuitem", { name: "Öffentliche Teamseite" }), null);
+    assert.ok(within(menu).queryByRole("menuitem", { name: "Öffentliche Teamseite" }) === null, "the menu offers the public page");
   });
 });

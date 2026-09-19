@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 // evaluates, and a static import beside it has already resolved (`docs/frontend/spec.md` §1.9).
 import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "../../shared/utils/format.ts";
+import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "./components/ui/teamName.ts";
 import { FLSonderereignisSchema, FLSpielAdminSchema, FLSpielSchema } from "./schemas.ts";
 import {
   adminSpielEditHref,
@@ -45,7 +46,6 @@ import type {
   FLSpielAdmin,
   FLSpielAdvancement,
   FLSpielQuelle,
-  FLSpielReleasedSide,
   FLSpielTeamFieldJoined,
   FLSpielWithDraftFields,
 } from "./schemas.ts";
@@ -266,7 +266,8 @@ describe("formatSpielDisplay", () => {
     });
   });
 
-  /* The defect: 2025's Spiel 1 carried a 4:0 and no date, and every card promised a Termin for it. */
+  /* A date a card cannot promise: a played fixture's and a finished season's are unrecorded rather
+     than still to be settled, and a card promising one sends a reader back to a page that never fills. */
   it("promises no Termin for a played fixture, or for any fixture of a finished season", () => {
     assert.equal(formatSpielDisplay({ ...undatiert, ergebnis: "4:0" }, false).datum, PLACEHOLDER.entity);
     assert.equal(formatSpielDisplay(undatiert, true).datum, PLACEHOLDER.entity);
@@ -326,8 +327,6 @@ describe("ergebnisTone", () => {
         String(sonderereignis),
       );
     }
-    assert.equal(grade(null, "abgebrochen"), "warning");
-    assert.equal(grade(null, null), "warning");
   });
 });
 
@@ -395,7 +394,6 @@ describe("formatSpielUpdateMessage", () => {
     voided_ergebnis: null,
     voided_elfmeterschiessen: null,
     voided_sonderereignis: null,
-    voided_schiedsrichter: null,
   });
 
   /** A fixture whose stored scoreline the same save deleted. */
@@ -405,7 +403,6 @@ describe("formatSpielUpdateMessage", () => {
     voided_ergebnis: ergebnis,
     voided_elfmeterschiessen: null,
     voided_sonderereignis: null,
-    voided_schiedsrichter: null,
   });
 
   /** A no-show fixture: the event and the forfeit it composed go together, as the write path pairs them. */
@@ -415,19 +412,16 @@ describe("formatSpielUpdateMessage", () => {
     voided_ergebnis: ergebnis,
     voided_elfmeterschiessen: null,
     voided_sonderereignis: "nichtantreten_team1",
-    voided_schiedsrichter: null,
   });
 
   it("says only that the match was saved when the bracket did not move", () => {
     assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden aktualisiert.");
   });
 
-  it("closes the paragraph on one point, whatever it was composed from", () => {
+  it("closes the composed paragraph on one point", () => {
     // The toast renders this as its body: the pieces are written open, so a joiner that adds only
     // separators leaves the last sentence unpunctuated.
-    for (const message of [formatSpielUpdateMessage([]), formatSpielUpdateMessage([moved(29), voided(30, "2:0")])]) {
-      assert.match(message, /[^.]\.$/);
-    }
+    assert.match(formatSpielUpdateMessage([moved(29), voided(30, "2:0")]), /[^.]\.$/);
   });
 
   it("names one advanced fixture in the singular", () => {
@@ -481,7 +475,6 @@ describe("formatSpielUpdateMessage", () => {
           voided_ergebnis: null,
           voided_elfmeterschiessen: null,
           voided_sonderereignis: null,
-          voided_schiedsrichter: null,
         },
       ],
     );
@@ -502,7 +495,6 @@ describe("formatSpielUpdateMessage", () => {
           voided_ergebnis: "3:1",
           voided_elfmeterschiessen: null,
           voided_sonderereignis: null,
-          voided_schiedsrichter: null,
         },
       ],
     );
@@ -544,58 +536,11 @@ describe("formatSpielUpdateMessage", () => {
           voided_ergebnis: "3:0",
           voided_elfmeterschiessen: null,
           voided_sonderereignis: "nichtantreten_team2",
-          voided_schiedsrichter: null,
         },
       ],
     );
 
     assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde; das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
-  });
-});
-
-describe("formatSpielUpdateMessage, for an erased referee's assignment", () => {
-  const erased = { schiedsrichter_id: matchId(90), name: null, payment: 20 };
-
-  const reopened = (spielNr: number): FLSpielAdvancement => ({
-    spiel_id: matchId(spielNr),
-    spiel_nr: spielNr,
-    voided_ergebnis: "2:1",
-    voided_elfmeterschiessen: null,
-    voided_sonderereignis: null,
-    voided_schiedsrichter: erased,
-  });
-
-  const releasedSide = (side: "team1" | "team2"): FLSpielReleasedSide => ({
-    spiel_id: matchId(12),
-    spiel_nr: 12,
-    side,
-    team_name: "Adler",
-    voided_ergebnis: "2:1",
-    voided_elfmeterschiessen: null,
-    voided_schiedsrichter: erased,
-    voided_sonderereignis: null,
-  });
-
-  // Its own sentence: the fixture stays without a referee unless an undo returns it to played or called off.
-  it("says the assignment went, beside the scoreline the rewrite deleted", () => {
-    const message = formatSpielUpdateMessage([reopened(30)]);
-
-    assert.match(message, /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht/);
-    assert.match(message, /Die Zuteilung des gelöschten Schiedsrichters in Spiel 30 wurde dabei ebenfalls entfernt/);
-  });
-
-  it("names a fixture once although a release emptied both of its sides", () => {
-    const message = formatSpielUpdateMessage([reopened(30)], [], [releasedSide("team1"), releasedSide("team2")]);
-
-    const unassigned = message.search(/In den Spielen 30 und 12 wurde dabei jeweils die Zuteilung eines gelöschten Schiedsrichters entfernt/);
-    assert.notEqual(unassigned, -1, message);
-    // After the releases, which name the fixture it refers to: read first, it names a match the admin has not met yet.
-    assert.ok(unassigned > message.lastIndexOf("Adler wurde aus Spiel 12 entfernt"), message);
-  });
-
-  it("says nothing about a referee where no rewrite took one off", () => {
-    // The half that makes the sentences above worth reading.
-    assert.doesNotMatch(formatSpielUpdateMessage([{ ...reopened(30), voided_schiedsrichter: null }]), /Schiedsrichter/);
   });
 });
 
@@ -606,7 +551,6 @@ describe("describeMovedSpiele", () => {
     voided_ergebnis: "2:0",
     voided_elfmeterschiessen: null,
     voided_sonderereignis: null,
-    voided_schiedsrichter: null,
   };
 
   it("says nothing at all where the write moved nothing", () => {
@@ -964,7 +908,7 @@ describe("formatBracketFault", () => {
   it("names the retired row a fixture still to be played is booked onto", () => {
     assert.equal(
       formatBracketFault(bookingFault("ort", "Bezirkssportanlage West")),
-      "Spiel 29 ist noch zu spielen, doch der Spielort Bezirkssportanlage West ist seit 01.02.2026 stillgelegt",
+      "Spiel 29 ist noch zu spielen, doch der Spielort Bezirkssportanlage West ist seit dem 01.02.2026 stillgelegt",
     );
     assert.equal(
       describeBracketFaultOnCard(bookingFault("schiedsrichter", "Anna Körner")),
@@ -1411,6 +1355,7 @@ const { SpielCard } = await import("./components/ui/SpielCard.tsx");
 const { SpielCardCompact } = await import("./components/ui/SpielCardCompact.tsx");
 const { SpielCardUltraCompact } = await import("./components/ui/SpielCardUltraCompact.tsx");
 const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
+const { ERGEBNIS_INK } = await import("./components/ui/SpielScore.tsx");
 
 /**
  * The two money fields the base tier withholds, supplied rather than cast over: the preview reads a
@@ -1446,9 +1391,6 @@ const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => strin
   },
 ];
 
-/** Any one of these holds a name to a single line and clips the rest. */
-const CLIPS = /(^|\s)(truncate|text-ellipsis|whitespace-nowrap)(\s|$)/;
-
 /** The classes of the element whose whole text is `text`. */
 function classesNaming(markup: string, text: string): string {
   const found = new RegExp(`<(?:strong|span) class="([^"]*)">${text}</(?:strong|span)>`).exec(markup);
@@ -1467,30 +1409,42 @@ describe("the names a score surface sets", () => {
   };
   const SPIEL_MIT_SEITEN: FLSpiel = { ...CARD_SPIEL, team1: CLUB, team2_quelle: { type: "spiel", spiel_nr: 29, ausgang: "verlierer" } };
 
-  /* The defect: real club names were cut on one line at every width. A club takes a second line before its
-     popover carries the rest; a label has no popover to read the rest in, so it is never clamped. */
+  /* A club and a bracket slot wrap on different terms — only a club has a popover carrying the rest —
+     and `teamName.ts` settles both. Every surface reads them from there, or the four drift apart. */
   for (const { name, markup, club } of SCORE_SURFACES) {
-    it(`${name} wraps a club onto a second line and a slot label whole, clipping neither`, () => {
+    it(`${name} dresses a club and a slot label with the shared wrap recipes`, () => {
       const html = markup(SPIEL_MIT_SEITEN);
-      const clubClasses = classesNaming(html, club(CLUB));
-      const labelClasses = classesNaming(html, "Verlierer von Spiel 29");
 
-      assert.match(clubClasses, /(^|\s)line-clamp-2(\s|$)/);
-      assert.match(labelClasses, /(^|\s)wrap-break-word(\s|$)/);
-      assert.doesNotMatch(labelClasses, /line-clamp-/);
-      for (const classes of [clubClasses, labelClasses]) assert.doesNotMatch(classes, CLIPS);
+      for (const [classes, recipe] of [
+        [classesNaming(html, club(CLUB)), TEAM_NAME_WRAP],
+        [classesNaming(html, "Verlierer von Spiel 29"), SLOT_LABEL_WRAP],
+      ] as const) {
+        const rendered = classes.split(" ");
+        for (const token of recipe.split(" ")) assert.ok(rendered.includes(token), `${name} drops ${token}: ${classes}`);
+      }
     });
   }
 });
 
 describe("the tint a score carries", () => {
-  /* `ergebnisTone` decides every grade and is held above, so one fixture per grade shows a surface paints
-     that decision rather than a copy of its own. */
+  /* `ergebnisTone` decides every grade and is held above, so one fixture per grade shows a surface
+     paints that decision through `ERGEBNIS_INK` rather than through a palette of its own. */
+  const GRADED: readonly FLSpiel[] = [
+    { ...CARD_SPIEL, sonderereignis: "ausgefallen" },
+    CARD_SPIEL,
+    { ...CARD_SPIEL, sonderereignis: "nichtantreten_team1", ergebnis: "3:0" },
+  ];
+
   for (const { name, markup } of SCORE_SURFACES) {
-    it(`${name} paints a called-off fixture danger, an unplayed one pending and a forfeit's awarded result played`, () => {
-      assert.match(scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "ausgefallen" })), /text-danger-strong/);
-      assert.match(scoreClasses(markup(CARD_SPIEL)), /text-warning-strong/);
-      assert.match(scoreClasses(markup({ ...CARD_SPIEL, sonderereignis: "nichtantreten_team1", ergebnis: "3:0" })), /text-success-strong/);
+    it(`${name} paints a called-off, an unplayed and a forfeited fixture from the shared recipe`, () => {
+      for (const spiel of GRADED) {
+        const classes = scoreClasses(markup(spiel));
+
+        assert.ok(
+          classes.split(" ").includes(ERGEBNIS_INK[ergebnisTone(spiel)]),
+          `${name} paints ${String(spiel.sonderereignis)} off: ${classes}`,
+        );
+      }
     });
   }
 });

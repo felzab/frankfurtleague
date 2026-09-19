@@ -8,6 +8,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.ts";
@@ -29,9 +30,9 @@ const KENNTNISNAHME = {
  * or an address cannot be satisfied by the seat beside it.
  */
 const PEOPLE = {
-  ansprechperson: { vorname: "Anna", nachname: "Körner", email: "koerner@gymnasium-sachsenhausen.de", telefon: "069 1111111" },
-  stellvertretung: { vorname: "Björn", nachname: "List", email: "list@gymnasium-sachsenhausen.de", telefon: "069 2222222" },
-  trainer: { vorname: "Clara", nachname: "Mergen", email: "mergen@gymnasium-sachsenhausen.de", telefon: "069 3333333" },
+  ansprechperson: { vorname: "Anke", nachname: "Musterfrau", email: "a.musterfrau@example.org", telefon: "069 1111111" },
+  stellvertretung: { vorname: "Bodo", nachname: "Beispiel", email: "b.beispiel@example.org", telefon: "069 2222222" },
+  trainer: { vorname: "Carla", nachname: "Mustermann", email: "c.mustermann@example.org", telefon: "069 3333333" },
 } as const;
 
 /* Built from the closed set the editor offers, so a fourth seat reaches these cases without an edit
@@ -54,21 +55,11 @@ const row = (seats: readonly AdminKontaktSeat[]): AdminKontakteRow => ({
   besetzt: seats.filter((held) => held.person !== null).length,
 });
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
-const liste = (seats: readonly AdminKontaktSeat[]): string =>
+const list = (seats: readonly AdminKontaktSeat[]): string =>
   renderTree(
     h(
       AppRouterContext.Provider,
-      { value: ROUTER },
+      { value: nextRouter() },
       h(
         SearchParamsContext.Provider,
         { value: new URLSearchParams("saison_id=2627") },
@@ -91,7 +82,7 @@ describe("the seats a contacts card carries", () => {
      then files the third person's address under the second seat's name. */
   it("seats every detail under the label of the seat that holds it, in whatever order the seats arrive", () => {
     for (const seats of [SEATS, [...SEATS].reverse()]) {
-      const html = liste(seats);
+      const html = list(seats);
 
       let reached = -1;
       for (const held of seats) {
@@ -114,22 +105,22 @@ describe("the seats a contacts card carries", () => {
      under this seat's label, which is the one reading a card's own eyebrow exists to refuse. */
   it("names an empty seat rather than letting the next seat's person stand under it", () => {
     const emptied = SEATS.map((held) => (held.rolle === "stellvertretung" ? seat(held.rolle, held.label, false) : held));
-    const html = liste(emptied);
+    const html = list(emptied);
 
-    const leer = at(html, labelOf("stellvertretung"));
-    const danach = at(html, labelOf("trainer"));
+    const emptySeat = at(html, labelOf("stellvertretung"));
+    const nextSeat = at(html, labelOf("trainer"));
 
-    assert.ok(at(html, "Niemand hinterlegt") > leer, "the empty seat's cell says nothing about being empty");
-    assert.ok(at(html, "Niemand hinterlegt") < danach, "the emptiness stands outside the cell of the seat it is about");
-    assert.ok(danach > leer, "the seats no longer stand in the order they arrived");
-    assert.ok(at(html, PEOPLE.trainer.email) > danach, "the Trainer's address stands under the emptied seat");
+    assert.ok(at(html, "Niemand hinterlegt") > emptySeat, "the empty seat's cell says nothing about being empty");
+    assert.ok(at(html, "Niemand hinterlegt") < nextSeat, "the emptiness stands outside the cell of the seat it is about");
+    assert.ok(nextSeat > emptySeat, "the seats no longer stand in the order they arrived");
+    assert.ok(at(html, PEOPLE.trainer.email) > nextSeat, "the Trainer's address stands under the emptied seat");
   });
 
   /* The badge is a claim about the seat it sits on. Beside `Trainer` it would name that seat back at
      itself, and the reader would still not know which of the other two is the same person. */
   it("puts the coach claim on the seat it points at", () => {
     const claimed = SEATS.map((held) => (held.rolle === "ansprechperson" ? seat(held.rolle, held.label, true, true) : held));
-    const html = liste(claimed);
+    const html = list(claimed);
 
     const badge = at(html, "Zugleich Trainer");
 
@@ -140,7 +131,7 @@ describe("the seats a contacts card carries", () => {
   /* The cards carry the seat names, so a heading over the list would be a second place to read them
      from and the two could then disagree; the list's own name is what an assistive reader gets. */
   it("carries its own name and stands under no heading", () => {
-    const html = liste(SEATS);
+    const html = list(SEATS);
 
     assert.match(html, /<ul aria-label="[^"]+"/, "the list of cards is unnamed");
     assert.doesNotMatch(html, /<h[1-6][\s>]/, "a heading stands over the cards");

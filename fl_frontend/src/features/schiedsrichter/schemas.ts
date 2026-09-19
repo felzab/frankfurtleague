@@ -54,9 +54,9 @@ export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchieds
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
 
-  // Null after the erasure, and after a hand-write that left the row nameless — the store types this
-  // and `anonymisiert_am` independently (`fl_backend/app/core/constraints.py`). What a reader is shown
-  // instead is `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  // Null on a hand-write that left the row nameless, and on the one row the erasure repoints fixtures
+  // at. What a reader is shown instead is
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
   name: z.string().nonempty().nullable(),
   schule: z.string().nullable(),
   // The standard fee. A Spiel's embedded `payment` is what was agreed for that match, and changing
@@ -66,9 +66,6 @@ export const FLSchiedsrichterSchema = z.object({
   // The day the referee was retired, null while they officiate. Deactivation goes through
   // DELETE, so it is on no payload.
   inactive_since: CustomDateStringSchema.nullable(),
-  // The day their data were erased, null until then. On no payload, and the flag every surface reads
-  // rather than looking for a word in `name`.
-  anonymisiert_am: CustomDateStringSchema.nullable(),
 });
 export type FLSchiedsrichter = z.infer<typeof FLSchiedsrichterSchema>;
 
@@ -95,10 +92,8 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
 /**
- * What the retire, the reactivate and the anonymisation echo: one backend model for the three.
- *
- * The anonymisation answers with the referee still standing: `kontakt` and `name` nulled and
- * `anonymisiert_am` stamped, which is the state every fixture of theirs then mirrors.
+ * What the retire, the reactivate and the anonymisation echo: one model for the three. Its row is
+ * gone by the time it answers, so it echoes the referee as they LAST stood — no state to read back.
  */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,

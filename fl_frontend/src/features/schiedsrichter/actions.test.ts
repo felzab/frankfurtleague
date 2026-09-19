@@ -8,16 +8,13 @@ import path from "node:path";
 import { afterEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
-/* No `next/navigation` export carries either context, and these two components reach `useRouter` and
-   the season a link keeps between them (`fl_frontend/src/features/kontakte/editor.test.ts` mounts both). */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -25,15 +22,15 @@ import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
 
 import type { ReactNode } from "react";
 
-type Geworfen = { variant: string; title: string; description?: string };
+type RaisedToast = { variant: string; title: string; description?: string };
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls: aufrufe, answerWith: antworte } = doubleActions({
+const { calls, answerWith } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
 
-const toasts: Geworfen[] = [];
+const toasts: RaisedToast[] = [];
 (globalThis as unknown as Record<string, unknown>).__flSchiedsToasts = toasts;
 
 /* Replaced as `fl_frontend/src/shared/utils/undoDispatch.test.ts` replaces it: the real module hands its
@@ -55,7 +52,6 @@ registerHooks({
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
-const { AdminSchiedsrichterGeloeschtView } = await import("./components/views/AdminSchiedsrichterGeloeschtView.tsx");
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
@@ -82,7 +78,7 @@ const PAGE = readFileSync(
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
-const ANONYMISE_CODES = ["REQ-ANONYMISE-001"];
+const ANONYMISE_CODES = ["REQ-ANONYMISE-004"];
 
 /* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
 const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
@@ -102,12 +98,8 @@ const RENAME_ACTION = sliceBetween(
   "export async function deleteSchiedsrichterAction",
 );
 
-const EDIT_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
-const EDIT_CODES = ["REQ-ANONYMISE-002"];
-const EDIT_MAP = sliceBetween(ACTIONS, "function mapEditRefusal", "function mapRetireRefusal");
-
-/* The first mapper in the module, so its slice ends where the edit's begins. */
-const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapEditRefusal");
+/* The first mapper in the module, so its slice ends where the retire's begins. */
+const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
 const CREATE_ACTION = sliceBetween(
   ACTIONS,
   "export async function postSchiedsrichterAction",
@@ -116,18 +108,10 @@ const CREATE_ACTION = sliceBetween(
 /* The venue's copy of the same sentence, read where it is written rather than retyped here. */
 const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
 
-const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
-const REACTIVATE_CODES = ["REQ-ANONYMISE-003"];
-/* Read per slice for the anonymisation's reason: three mappers live here now. */
-const REACTIVATE_MAP = sliceBetween(ACTIONS, "function mapReactivateRefusal", "function mapAnonymiseRefusal");
 const REACTIVATE_ACTION = sliceBetween(
   ACTIONS,
   "export async function reactivateSchiedsrichterAction",
   "export async function anonymiseSchiedsrichterAction",
-);
-const UNDO_ROUTE = readFileSync(
-  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
-  "utf8",
 );
 
 describe("the anonymisation against the backend's refusal register", () => {
@@ -143,13 +127,12 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
     assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
 
-    assert.ok(REACTIVATE_MAP.includes("serverErrorCode"), "the reactivation's arms are outside its slice");
-    assert.ok(!REACTIVATE_MAP.includes("REQ-ANONYMISE-001"), "the reactivation's slice runs on into the anonymisation's mapper");
     assert.ok(REACTIVATE_ACTION.includes("reactivateSchiedsrichter(validated.data)"), "the reactivation's call is outside its slice");
   });
 
-  /* A re-entry landing mid-anonymisation is the one refusal here, and it needs a sentence: the write
-     looks done and the details are back. A rule declared later and left unmapped fails this. */
+  /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
+     opening the row every erased referee's fixtures point at. A rule declared later and left unmapped
+     fails this. */
   it("maps every refusal its endpoint declares", () => {
     const declared = declaredCodes(ANONYMISE_OPERATION);
 
@@ -162,21 +145,12 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
-  /* `REQ-RETIRE-004` guards the retire and only the retire. Reaching it from here would refuse a
-     contact deletion over fixtures the deletion does not touch. */
-  /* Both German sites, per `.claude/rules/cross-surface.md`: the undo route replays this endpoint,
-     so a code the save words and the replay does not reaches the admin as the 409 fallback. */
-  it("maps every refusal the edit declares, on the save and on the undo", () => {
-    const declared = declaredCodes(EDIT_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, EDIT_CODES);
-    for (const code of declared) {
-      assert.ok(EDIT_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
-      assert.ok(UNDO_ROUTE.includes(`"${code}":`), `${code} reaches the undo as an unhandled conflict`);
-    }
-
-    assert.ok(RENAME_ACTION.includes("mapEditRefusal(error)"), "the edit consults some other mapper");
+  /* Both the save and the reactivation now declare nothing of their own: a rule added to either and
+     left unmapped would reach the admin as the 409 fallback, which names an entry rather than a rule. */
+  it("leaves the save and the reactivation with no refusal of their own to word", () => {
+    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), []);
+    assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), []);
+    assert.ok(!REACTIVATE_ACTION.includes("serverErrorCode"), "the reactivation words a refusal its endpoint no longer declares");
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
@@ -185,26 +159,11 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
 
-  /* The erasure retires the referee, so this endpoint refuses one whose data are gone. It has no undo
-     route: the replay wording of `route.ts` covers the save alone. */
-  it("maps the refusal the reactivation declares", () => {
-    const declared = declaredCodes(REACTIVATE_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, REACTIVATE_CODES);
-    for (const code of declared)
-      assert.ok(REACTIVATE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
-
-    assert.ok(REACTIVATE_ACTION.includes("mapReactivateRefusal(error)"), "the reactivation consults no mapper at all");
-    assert.ok(!REACTIVATE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a reactivation");
-  });
-
   /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
-     back: nothing in the system can restore the deleted values. */
-  it("words the reactivation's refusal without offering an undo", () => {
-    assert.match(REACTIVATE_MAP, /Daten löschen lassen/, "the refusal does not say why the entry is stilled");
-    assert.match(REACTIVATE_MAP, /neuen Schiedsrichter/, "the refusal names no way forward for a person who officiates again");
-    assert.doesNotMatch(REACTIVATE_MAP, /wiederherstell|zurückhol|rückgängig/i, "the refusal offers a restore no endpoint can honour");
+     back: the person's row is gone, so the repair names the referee they meant instead. */
+  it("words the ghost's refusal without offering a retry on it", () => {
+    assert.match(ANONYMISE_MAP, /keine Person/, "the refusal does not say why this entry cannot be erased");
+    assert.doesNotMatch(ANONYMISE_MAP, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
   });
 });
 
@@ -212,7 +171,7 @@ describe("the referee name a unique index already holds", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the create out of the file before reading them", () => {
     assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
-    assert.ok(!NAME_MAP.includes("REQ-ANONYMISE-002"), "the duplicate name's slice runs on into the edit's mapper");
+    assert.ok(!NAME_MAP.includes("REQ-RETIRE-004"), "the duplicate name's slice runs on into the retire's mapper");
 
     assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
     assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
@@ -228,11 +187,11 @@ describe("the referee name a unique index already holds", () => {
     assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
   });
 
-  /* The edit weighs the erasure's refusal first and this one after: both are 409s on one save, and a
-     mapper consulted alone leaves the other code falling through to the conflict fallback. */
-  it("consults the mapper on the create and beside the edit's own refusal", () => {
+  /* The unique index is the only 409 either write raises now, so both consult this mapper and nothing
+     else: one left unmapped drops the duplicate into the conflict fallback, which names no box. */
+  it("consults the mapper on the create and on the edit", () => {
     assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
-    assert.match(RENAME_ACTION, /mapEditRefusal\(error\) \?\? mapNameRefusal\(error\)/, "the edit weighs only one of its two refusals");
+    assert.ok(RENAME_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
   });
 
   /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one
@@ -263,25 +222,13 @@ describe("what the anonymisation moves", () => {
 });
 
 /** Each navigation a press makes, in order. */
-const navigiert: string[] = [];
+const { router, seen } = recordingRouter();
 
-/** Recording the three calls that move or reload the page. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => void navigiert.push("refresh"),
-  push: () => void navigiert.push("push"),
-  replace: () => void navigiert.push("replace"),
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
-const underNext = (tree: ReactNode): ReactNode =>
-  h(AppRouterContext.Provider, { value: ROUTER }, h(SearchParamsContext.Provider, { value: new URLSearchParams() }, tree));
+const underRecordingNext = (tree: ReactNode): ReactNode => underNext(tree, { router });
 
 /** The sentences a reader hears, tags gone and the JSX line breaks collapsed. */
-const gelesen = (element: ReactNode): string =>
-  textOf(renderTree(underNext(element)))
+const read = (element: ReactNode): string =>
+  textOf(renderTree(underRecordingNext(element)))
     .replace(/\s+/g, " ")
     .trim();
 
@@ -294,15 +241,11 @@ const PANEL_PROPS = {
 };
 
 /** The panel at rest, which is the state an administrator meets it in. */
-const panelText = (): string => gelesen(h(FormAnonymisierenSection, PANEL_PROPS));
+const panelText = (): string => read(h(FormAnonymisierenSection, PANEL_PROPS));
 
 /** The same panel over a row a hand-write left nameless, which the editor serves like any other. */
-const namenlosPanelText = (): string =>
-  gelesen(h(FormAnonymisierenSection, { ...PANEL_PROPS, name: null, schule: null, kontakt: { email: null, telefon: null } }));
-
-/** Both dates given, so every conditional row of the page stands and its whole copy is in the text. */
-const geloeschtText = (): string =>
-  gelesen(h(AdminSchiedsrichterGeloeschtView, { anonymisiertAm: "2026-03-01", inactiveSince: "2026-02-01", defaultPayment: 2500 }));
+const namelessPanelText = (): string =>
+  read(h(FormAnonymisierenSection, { ...PANEL_PROPS, name: null, schule: null, kontakt: { email: null, telefon: null } }));
 
 const RECORD = {
   id: "68c1f0a2b3c4d5e6f7a8b9c0",
@@ -313,15 +256,16 @@ const RECORD = {
 };
 
 afterEach(() => {
-  aufrufe.length = 0;
+  calls.length = 0;
   toasts.length = 0;
-  navigiert.length = 0;
-  antworte(() => new Promise<never>(() => undefined));
+  seen.pushed.length = 0;
+  seen.replaced.length = 0;
+  seen.refresh = 0;
+  answerWith(() => new Promise<never>(() => undefined));
 });
 
 /** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
-const renderEditor = () =>
-  render(underNext(h(AdminSchiedsrichterEditView, { schiedsrichter: RECORD, inactiveSince: null, anonymisiertAm: null })));
+const renderEditor = () => render(underRecordingNext(h(AdminSchiedsrichterEditView, { schiedsrichter: RECORD, inactiveSince: null })));
 
 const erasureButton = () => screen.getByRole("button", { name: /^(Ja, )?Daten (endgültig )?löschen$/ });
 
@@ -347,53 +291,36 @@ async function typeADraft(user: ReturnType<typeof userEvent.setup>): Promise<voi
 }
 
 describe("the anonymisation's copy", () => {
-  /* The school goes with the name, and both surfaces have to say so: an administrator who reads only
-     „Name und Kontaktdaten“ tells the person their school is still on the record. */
-  it("names the school among what goes, on the confirmation and on the page that replaces the form", () => {
-    const geloescht = geloeschtText();
+  /* The ROW does not survive and the FIXTURES do. Copy saying the entry stays, or that a reader can
+     open it afterwards, describes an operation the backend no longer runs. */
+  it("says the entry goes whole and the fixtures stay under one word", () => {
+    const shown = panelText();
 
-    // The list is the direct object of the panel's sentence and the subject of the other two, so its
-    // first member is accusative on one surface and nominative on the others.
-    for (const [read, where, list] of [
-      [panelText(), "the confirmation", /Namen, Schule, E-Mail und Telefonnummer/],
-      [geloescht, "the page that replaces the form", /Name, Schule, E-Mail und Telefonnummer/],
-      [ACTIONS, "the action's report", /Name, Schule, E-Mail und Telefonnummer/],
-    ] as const) {
-      assert.match(read, list, `${where} does not name the school among what goes`);
-    }
-
-    assert.doesNotMatch(geloescht, /Schule \/ Verein/, "the erased page still reads the school out as something that survives");
+    assert.match(shown, /vollständig aus der Verwaltung/, "the confirmation does not say the entry goes whole");
+    assert.match(shown, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
+    assert.match(shown, /Spiele selbst bleiben/, "the confirmation does not say the fixtures survive the person");
+    assert.doesNotMatch(shown, /Eintrag bleibt|bearbeiten lässt|stillgelegt/, "the confirmation promises a row the erasure deletes");
   });
 
-  /* The name is nulled on every match and the ROW survives — every fixture embeds the id. Copy saying
-     the row goes, or that the name stays, describes an operation the backend does not run. */
-  it("says the name and the contact details go from the row, every match and the log, and the row stays", () => {
-    const gezeigt = panelText();
-
-    assert.match(gezeigt, /E-Mail und Telefonnummer/, "the confirmation does not name what is deleted");
-    assert.match(gezeigt, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
-    assert.match(gezeigt, /[Aa]uf jedem gespielten Spiel/, "the confirmation does not say the played matches are reached");
-    assert.match(gezeigt, /[Bb]earbeiten lässt er sich danach nicht mehr/, "the confirmation still offers an edit the write path refuses");
-    assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen|Schiedsrichter wird gelöscht/.test(gezeigt), "the copy claims the referee is deleted");
-    assert.ok(!gezeigt.includes("mit Namen"), "the copy still promises the name survives");
-  });
-
-  /* The subject is the ASSIGNMENT the erasure ends: it empties the booking on every fixture with no result,
-     so an administrator not told leaves a match nobody is going to officiate. And nothing restores it. */
-  it("arms a confirmation saying the row stays, unplayed fixtures need a new referee, and none of it comes back", async () => {
-    render(underNext(h(FormAnonymisierenSection, PANEL_PROPS)));
+  /* The subject is what an administrator is left holding: the person is gone, the fixtures are not,
+     and one of them may now need somebody. Nothing restores any of it. */
+  it("arms a confirmation saying the entry goes, the fixtures stay, and none of it comes back", async () => {
+    render(underRecordingNext(h(FormAnonymisierenSection, PANEL_PROPS)));
     await userEvent.setup().click(screen.getByRole("button", { name: "Daten löschen" }));
 
-    const angekuendigt = alarm() ?? "";
-    assert.match(angekuendigt, /Zurückholen lässt sich das nicht/, "the armed confirmation does not refuse an undo in words");
-    assert.match(angekuendigt, /Der Eintrag bleibt mit allen Spielen bestehen/, "the armed confirmation does not say the row survives");
-    assert.match(angekuendigt, /Spiele ohne Ergebnis/, "the armed confirmation does not name the fixtures the erasure unassigns");
-    assert.match(angekuendigt, /neuen Schiedsrichter/, "the armed confirmation does not say such a fixture needs somebody else");
+    const announced = alarm() ?? "";
+    assert.match(announced, /Zurückholen lässt sich das nicht/, "the armed confirmation does not refuse an undo in words");
+    assert.match(announced, /Eintrag verschwindet ganz/, "the armed confirmation does not say the entry goes whole");
+    assert.match(announced, /Spiele ohne Ergebnis/, "the armed confirmation does not name the fixtures that need somebody");
+    assert.match(announced, /neuen Schiedsrichter/, "the armed confirmation does not say such a fixture needs somebody else");
 
     const armed = document.body.textContent.replace(/\s+/g, " ");
+    /* The readout stands only once armed, and the school is the field an administrator forgets: beside a
+       fixture list that never expires it narrows the person to the few referees one school ever sent. */
+    assert.match(armed, /Schule \/ Verein/, "the readout does not name the school among what goes");
     assert.doesNotMatch(armed, /Rückgängig/, "the panel offers an undo, and no endpoint can honour one");
     assert.doesNotMatch(armed, /Telefonnummer[^.]*(auch|und überall)[^.]*Änderungsprotokoll/, "the panel narrows the log to the two fields");
-    assert.doesNotMatch(armed, /behalten die Zuteilung|mit Namen/, "the armed confirmation promises what the erasure takes");
+    assert.doesNotMatch(armed, /Eintrag bleibt|behalten die Zuteilung/, "the armed confirmation promises what the erasure takes");
   });
 
   it("says in the action's report that a fixture without a result needs a new referee", () => {
@@ -402,32 +329,13 @@ describe("the anonymisation's copy", () => {
     assert.ok(!/behalten die Zuteilung/.test(ACTIONS), "the action's report still promises the assignment survives the erasure");
   });
 
-  /* `get_schiedsrichter` drops every stamped row whatever the query string asks for
-     (`docs/backend/spec.md :: I227`), so a promise that „anonym“ stands in der Verwaltung sends an
-     administrator looking for a row no read serves. */
-  it("says the entry leaves the referee list rather than standing on it under another word", () => {
-    const gezeigt = panelText();
-
-    assert.match(gezeigt, /In der Schiedsrichterliste erscheint der Eintrag nicht mehr/, "the panel does not say the row leaves the list");
-    assert.doesNotMatch(gezeigt, /In der Verwaltung/, "the panel still promises a word on the list the erasure empties");
-  });
-
   /* A hand-write can leave a row nameless, and this panel is on that row's editor too: the sentence
      has to name a subject where the interpolated name is null. */
   it("names the subject of the deletion on a row that holds no name", () => {
-    const gezeigt = namenlosPanelText();
+    const shown = namelessPanelText();
 
-    assert.match(gezeigt, /Telefonnummer von dieser Person\./, "the sentence deletes the details of nobody");
-    assert.match(gezeigt, /[Aa]uf jedem gespielten Spiel/, "the nameless row's panel stopped saying which matches are reached");
-  });
-
-  /* Next to the deletion rather than instead of it: an administrator told only that the entry is
-     stilled reports a retirement to the person who asked to be erased. */
-  it("names the retirement beside the deletion rather than in place of it", () => {
-    const gezeigt = panelText();
-
-    assert.match(gezeigt, /stillgelegt/, "the confirmation does not say the entry stops taking fixtures");
-    assert.match(gezeigt, /für neue Spiele nicht mehr angeboten/, "the confirmation does not say what the retirement costs");
+    assert.match(shown, /Eintrag von dieser Person/, "the sentence deletes the entry of nobody");
+    assert.match(shown, /diese Person geleitet hat/, "the nameless row's panel stopped saying which matches are reached");
   });
 
   /* Every other sentence about the erasure says „dieser Person“, and this one is the report an
@@ -453,10 +361,10 @@ describe("the erasure on the referee's editor", () => {
     renderEditor();
 
     await pressTwice(user, async () => {
-      assert.deepEqual(aufrufe, [], "one press wrote");
+      assert.deepEqual(calls, [], "one press wrote");
       assert.match(alarm() ?? "", /^Bist Du Dir sicher\?/, "the escalation replaces the copy in place with no announcement");
     });
-    assert.deepEqual(aufrufe, [{ action: "anonymiseSchiedsrichterAction", payload: { id: RECORD.id } }], "the second press writes nothing");
+    assert.deepEqual(calls, [{ action: "anonymiseSchiedsrichterAction", payload: { id: RECORD.id } }], "the second press writes nothing");
   });
 
   /* The refresh remounts the form onto the cleared record, so an unsaved draft goes with it, and the warning
@@ -484,7 +392,7 @@ describe("the erasure on the referee's editor", () => {
       assert.notEqual(alarm(), null, "a clean editor does not arm, so nothing below is judged");
       await typeADraft(user);
     });
-    assert.deepEqual(aufrufe, [], "the second press writes over a draft opened after the first");
+    assert.deepEqual(calls, [], "the second press writes over a draft opened after the first");
   });
 
   /* The STORED record, never the draft: this write clears what is saved, and a readout off typed
@@ -503,7 +411,7 @@ describe("the erasure on the referee's editor", () => {
   /* Both halves or neither: without the key the refresh remounts nothing, and without the refresh the boxes
      keep the deleted values and the next save writes them back. The referee survives, so nothing leaves the page. */
   it("refreshes after the write onto a view the page keys on the record, and stays on the page", async () => {
-    antworte(() => Promise.resolve({ success: true, message: "Die Daten sind gelöscht." }));
+    answerWith(() => Promise.resolve({ success: true, message: "Die Daten sind gelöscht." }));
     renderEditor();
     await pressTwice(userEvent.setup());
 
@@ -512,7 +420,8 @@ describe("the erasure on the referee's editor", () => {
       [["success", "Schiedsrichterdaten gelöscht"]],
       "the write answered without its toast, so nothing below is judged",
     );
-    assert.deepEqual(navigiert, ["refresh"], "the cleared record never reaches the form, or the page is left");
+    assert.equal(seen.refresh, 1, "the cleared record never reaches the form");
+    assert.deepEqual([...seen.pushed, ...seen.replaced], [], "the erasure leaves the page it just cleared");
     assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");
   });
 });
@@ -570,51 +479,5 @@ describe("the anonymisation's payload, beside the retirement's", () => {
 
     assert.notEqual(sharedDoc, "", "the shared key lost the doc line that says which calls take it");
     assert.doesNotMatch(sharedDoc, /anonymis/, "the shared key still claims the anonymisation");
-  });
-});
-
-/**
- * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
- * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
- * real call; it cannot invent one.
- */
-const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
-const ACTION_BODIES = new Map<string, string>(
-  DECLARATIONS.flatMap((match, index): [string, string][] =>
-    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
-  ),
-);
-
-/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
-const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
-
-/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
-const WRITE_ACTIONS = [
-  "postSchiedsrichterAction",
-  "patchSchiedsrichterAction",
-  "deleteSchiedsrichterAction",
-  "reactivateSchiedsrichterAction",
-  "anonymiseSchiedsrichterAction",
-];
-
-describe("the refresh a write owes the list the admin is looking at", () => {
-  it("places every action the slice exports, each in the callback the case below reads", () => {
-    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
-    for (const name of WRITE_ACTIONS) {
-      assert.ok(
-        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
-        `${name} opens some other callback, so the indentation the next case reads means nothing`,
-      );
-    }
-  });
-
-  it("refreshes on every one of them, the referee list being uncached and no tag reaching it", () => {
-    for (const name of WRITE_ACTIONS) {
-      const body = ACTION_BODIES.get(name) ?? "";
-      const refreshAt = body.search(TOP_LEVEL_REFRESH);
-      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
-      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
-    }
   });
 });

@@ -7,7 +7,6 @@ import { FLCreateTeamFormPayloadSchema } from "@/features/teams/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { TeamCreateDraft, TeamCreateSaisonOption } from "@/features/teams/types";
 
@@ -86,12 +85,7 @@ export function AdminCreateTeamForm({
       }}
       schema={FLCreateTeamFormPayloadSchema}
       toPayload={(draft) => draft}
-      onSubmit={async (draft) => {
-        const res = await postTeamAction(draft);
-        // An acknowledged create that answered no id leaves the caller nothing to name, so the
-        // shared refusal stands in for a sentence the action never composed.
-        return res.success && res.created_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;
-      }}
+      onSubmit={(draft) => postTeamAction(draft)}
       marksRequired
       successMessage="Team angelegt"
       onClose={onClose}

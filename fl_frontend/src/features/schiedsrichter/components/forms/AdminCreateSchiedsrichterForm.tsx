@@ -3,7 +3,6 @@
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { FLPostSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { SchiedsrichterFormFields } from "./SchiedsrichterFormFields";
 
@@ -59,9 +58,6 @@ export function AdminCreateSchiedsrichterForm({
         const res = await postSchiedsrichterAction(parsed);
 
         if (!res.success) return res;
-        // An acknowledged create that answered no id leaves the caller nothing to name, so the
-        // shared refusal stands in for a sentence the action never composed.
-        if (res.created_id === undefined) return { success: false, error: UNKNOWN_REFUSAL };
 
         onCreated?.({
           id: res.created_id,
@@ -69,9 +65,8 @@ export function AdminCreateSchiedsrichterForm({
           schule: parsed.schule,
           kontakt: parsed.kontakt,
           default_payment: parsed.default_payment,
-          // Just created, so current — and `null` is what current means for both dates.
+          // Just created, so current — and `null` is what current means.
           inactive_since: null,
-          anonymisiert_am: null,
         });
 
         return res;

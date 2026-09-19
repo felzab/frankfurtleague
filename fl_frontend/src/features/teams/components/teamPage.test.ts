@@ -65,8 +65,9 @@ const chips = (teamId: string): string[] =>
   );
 
 describe("the Saisonverlauf of a semi-final decided on penalties", () => {
-  /* The defect: the loser's chip read „Halbfinale unentschieden“ beside a bracket that had sent the
-     club home. The narrow no-break spaces are `IM_ELFMETERSCHIESSEN`'s. */
+  /* A fixture level after ninety minutes is a draw the Saisontabelle counts, and the bracket still
+     sends one club home: the chip says which, or it contradicts the bracket beside it. The narrow
+     no-break spaces are `IM_ELFMETERSCHIESSEN`'s. */
   it("tells the loser it went out, and says the shoot-out decided it", () => {
     assert.equal(shownText(chips(VERLIERER).at(-1) ?? ""), "Im Halbfinale ausgeschieden (i.\u202FE.)");
   });
@@ -181,15 +182,15 @@ describe("the Saisonstatistik's Differenz", () => {
 });
 
 describe("the timeline's empty state", () => {
-  const leer = (isFinishedSaison: boolean) =>
+  const empty = (isFinishedSaison: boolean) =>
     textOf(renderTree(h(TeamSaisonSpieleTimeline, { teamSpiele: [], teamId: SIEGER, today: TODAY, isFinishedSaison })), " ");
 
   it("says a finished season holds no fixtures, and promises none", () => {
-    assert.ok(leer(true).includes("Für diese Saison gibt es keine Spiele."), leer(true));
-    assert.doesNotMatch(leer(true), /\bnoch\b|Sobald/);
+    assert.ok(empty(true).includes("Für diese Saison gibt es keine Spiele."), empty(true));
+    assert.doesNotMatch(empty(true), /\bnoch\b|Sobald/);
   });
 
   it("keeps the running season's promise that the fixtures are still to come", () => {
-    assert.ok(leer(false).includes("Für diese Saison sind noch keine Spiele angesetzt."), leer(false));
+    assert.ok(empty(false).includes("Für diese Saison gibt es noch keine Spiele."), empty(false));
   });
 });

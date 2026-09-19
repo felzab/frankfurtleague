@@ -7,9 +7,9 @@ import { Badge, Table } from "@heroui/react";
 import { PILL_SOLID } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { austrittKuerzel, austrittZustand } from "../../constants";
@@ -70,15 +70,11 @@ export function SaisontabelleView({
   if (typedObjectEntries(gruppenData).length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {/* A finished season's table is not still to come, so it takes no `noch` and no hint. */}
-        {isFinishedSaison ? (
-          <EmptyState title="Für diese Saison gibt es keine Tabelle." />
-        ) : (
-          <EmptyState
-            title="Für diese Saison gibt es noch keine Tabelle."
-            hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
-          />
-        )}
+        <SeasonEmptyState
+          nothing="keine Tabelle"
+          hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
+          isFinishedSaison={isFinishedSaison}
+        />
       </div>
     );
   }

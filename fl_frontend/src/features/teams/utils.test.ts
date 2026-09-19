@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { seite, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
@@ -153,34 +154,10 @@ describe("computePlatzByTeamId", () => {
 const SUBJECT = TEAM_ID(1);
 const OPPONENT = TEAM_ID(2);
 
-const seite = (teamId: string): FLSpiel["team1"] => ({
-  team_id: teamId,
-  tore: null,
-  name: "SV Beispiel",
-  shorthand: "SB",
-  austritt_type: null,
-});
-
-/** Complete and parsed at construction, for `GRUPPEN_TEAM`'s reason. */
-const SPIEL: FLSpiel = FLSpielSchema.parse({
-  id: "6890a1b2c3d4e5f607190101",
-  spieltag_id: "6890a1b2c3d4e5f607190102",
-  team1: seite(SUBJECT),
-  team2: seite(OPPONENT),
-  team1_quelle: null,
-  team2_quelle: null,
-  datum: null,
-  uhrzeit: null,
-  ort: null,
-  schiedsrichter: null,
-  ergebnis: null,
-  elfmeterschiessen: null,
-  spiel_nr: 1,
-  sonderereignis: null,
-  saison_phase: "gruppenphase",
-  saison_id: "2026",
-  notiz: null,
-} satisfies FLSpiel);
+/** Parsed at construction, for `GRUPPEN_TEAM`'s reason: a drifted field fails where it is built. */
+const SPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({ id: "6890a1b2c3d4e5f607190101", team1: seite(SUBJECT), team2: seite(OPPONENT), spiel_nr: 1, saison_id: "2026" }),
+);
 
 const fixture = ({
   phase,
@@ -202,8 +179,10 @@ const fixture = ({
   ...SPIEL,
   saison_phase: phase,
   ergebnis,
-  team1: seite(heim),
-  team2: seite(gast),
+  // `austritt_type` respelled: the shared fixture types it structurally, `shared` being unable to
+  // import the slice's own schema (`docs/frontend/spec.md :: I9`), and this shape wants the literal.
+  team1: { ...seite(heim), austritt_type: null },
+  team2: { ...seite(gast), austritt_type: null },
   team1_quelle: heimQuelle,
   team2_quelle: gastQuelle,
   elfmeterschiessen,
@@ -357,8 +336,8 @@ describe("computeSaisonVerlauf", () => {
 describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
   const ELFMETER = { team1: 5, team2: 4 };
 
-  /* The defect this reading closes: the bracket sent the club home on penalties while its own page
-     called the round a draw nobody had won. */
+  /* The shoot-out decides who goes on while the score stays the draw the table counts, so this
+     reading is what keeps a club's own page from calling a round nobody won. */
   it("reports the side the shoot-out went against as out, and nothing still undecided", () => {
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "1:1", heim: OPPONENT, gast: SUBJECT, elfmeterschiessen: ELFMETER })]);
 
@@ -410,8 +389,8 @@ describe("computeSaisonVerlauf beside a third-place play-off", () => {
     fixture({ phase: "finale", heim: SUBJECT, gast: DRITTER, heimQuelle: VERLIERER_VON(13), gastQuelle: VERLIERER_VON(14) }),
   ];
 
-  /* The defect: a loser fed into the play-off stood in a later round, which outranked its defeat, so the
-     chip beside the play-off read „Halbfinale überstanden“ for a club the semi-final had put out. */
+  /* A club the semi-final put out is FIELDED again in the third-place play-off, so standing in a later
+     round cannot outrank a defeat: the round's own result decides the chip, never the club's furthest phase. */
   it("reports a semi-final lost on goals as lost for the loser the play-off fields", () => {
     const spiele = bracket({ ergebnis: "1:3" });
 
@@ -793,20 +772,20 @@ describe("what a new Kenntnisnahme cites", () => {
 
 describe("which kit colours the wish picker offers", () => {
   const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
-  const werte = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
+  const values = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
     offeredTrikotFarben({ vergeben: vergeben, value: value }).map((option) => option.value);
 
   /* First, because every case below compares against the palette: a filter that had stopped reading
      `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */
   it("offers the whole palette while nothing is assigned", () => {
-    assert.deepEqual(werte([]), alle);
+    assert.deepEqual(values([]), alle);
     assert.ok(alle.length > 1, "the palette holds one colour or none, so no exclusion below can be observed");
   });
 
   /* The colours an administrator ASSIGNED, off `saison_teams.trikot_farbe` and never off another
      application's wish -- reading wishes would carry one school's submission into another's form. */
   it("leaves out every colour the season has assigned", () => {
-    const uebrig = werte(["rot", "blau"]);
+    const uebrig = values(["rot", "blau"]);
 
     assert.ok(!uebrig.includes("rot"), "an assigned colour is still offered");
     assert.ok(!uebrig.includes("blau"), "an assigned colour is still offered");
@@ -815,7 +794,7 @@ describe("which kit colours the wish picker offers", () => {
 
   /* Order carries the CI document's, so a school reads the same list it reads everywhere else. */
   it("keeps the palette's own order in what is left", () => {
-    const uebrig = werte(["rot"]);
+    const uebrig = values(["rot"]);
 
     assert.deepEqual(
       uebrig,
@@ -826,24 +805,24 @@ describe("which kit colours the wish picker offers", () => {
   /* A stored assignment stays pickable in its own editor: without this, reopening a saved row would
      offer every colour except the one it holds. */
   it("keeps the colour the field already holds", () => {
-    assert.ok(werte(["rot", "blau"], "rot").includes("rot"), "the field's own colour was excluded from its own picker");
+    assert.ok(values(["rot", "blau"], "rot").includes("rot"), "the field's own colour was excluded from its own picker");
   });
 
   /* The boundary the palette can cross on its own -- sixteen colours against a season capped at 64
      teams. An empty offer is the answer there, and the field stays required: the picker offers only
      what the season can still give. */
   it("offers nothing once the season has assigned every colour", () => {
-    assert.deepEqual(werte(alle), []);
+    assert.deepEqual(values(alle), []);
   });
 
   /* And only there: emptied a colour early, the picker would withhold one the season still has. */
   it("still offers the last colour the season has left", () => {
-    assert.deepEqual(werte(alle.slice(1)), alle.slice(0, 1));
+    assert.deepEqual(values(alle.slice(1)), alle.slice(0, 1));
   });
 
   /* The held value survives the exhausted season as well, its own colour being by definition one of
      the assigned ones -- so an editor reopening such a row still reads what it holds. */
   it("keeps the field's own colour even where every colour is assigned", () => {
-    assert.deepEqual(werte(alle, "rot"), ["rot"]);
+    assert.deepEqual(values(alle, "rot"), ["rot"]);
   });
 });

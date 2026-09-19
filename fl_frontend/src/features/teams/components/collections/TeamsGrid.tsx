@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { CardGrid } from "@/shared/components/ui/CardGrid";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { TeamCard } from "../ui/TeamCard";
@@ -30,13 +30,11 @@ export function TeamsGrid({
 }) {
   // Season-scoped: an empty list usually means this season has no teams yet, not that none exist.
   if (teams.length === 0) {
-    // A finished season's list is not still to come, so it takes no `noch` and no hint.
-    return isFinishedSaison ? (
-      <EmptyState title="Für diese Saison gibt es keine Teams." />
-    ) : (
-      <EmptyState
-        title="Für diese Saison sind noch keine Teams eingetragen."
+    return (
+      <SeasonEmptyState
+        nothing="keine Teams"
         hint="Sobald Teams gemeldet sind, erscheinen sie hier."
+        isFinishedSaison={isFinishedSaison}
       />
     );
   }

@@ -22,6 +22,10 @@ export const SPIELER_CRUD_COPY = {
   searchPlaceholder: "z.B. Lena Meier oder 7",
   /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
   createLabel: "Neuen Spieler anlegen",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Spieler für diese Suche.",
+  emptyForFilters: "Keine Spieler für diese Filter.",
+  emptyOverall: "Es wurden noch keine Spieler angelegt.",
 } as const;
 
 /** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */

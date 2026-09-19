@@ -53,7 +53,6 @@ export function FormSchiedsrichterSection({
             schule: null,
             kontakt: { email: null, telefon: null },
             inactive_since: null,
-            anonymisiert_am: null,
           },
         ];
 

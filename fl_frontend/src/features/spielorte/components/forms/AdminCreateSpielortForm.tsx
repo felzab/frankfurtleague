@@ -5,7 +5,6 @@ import { SpielortFormFields } from "@/features/spielorte/components/forms/Spielo
 import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { mapsQuery } from "@/features/spielorte/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { SpielortDraft } from "@/features/spielorte/types";
@@ -51,9 +50,6 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
         const res = await postSpielortAction(parsed);
 
         if (!res.success) return res;
-        // An acknowledged create that answered no id leaves the caller nothing to name, so the
-        // shared refusal stands in for a sentence the action never composed.
-        if (res.created_id === undefined) return { success: false, error: UNKNOWN_REFUSAL };
 
         onCreated?.({
           id: res.created_id,

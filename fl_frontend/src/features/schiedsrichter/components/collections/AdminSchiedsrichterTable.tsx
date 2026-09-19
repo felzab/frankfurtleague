@@ -1,14 +1,13 @@
 "use client";
 
-import { memo, useTransition } from "react";
+import { memo } from "react";
 
 import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
-import { schiedsrichterFacetValue } from "@/features/spiele/facets";
+import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE,
@@ -27,6 +26,7 @@ import {
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
@@ -36,9 +36,9 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Schiedsrichter für diese Suche.",
-  filtered: "Keine Schiedsrichter für diese Filter.",
-  none: "Es wurden noch keine Schiedsrichter angelegt.",
+  searched: SCHIEDSRICHTER_CRUD_COPY.emptyForQuery,
+  filtered: SCHIEDSRICHTER_CRUD_COPY.emptyForFilters,
+  none: SCHIEDSRICHTER_CRUD_COPY.emptyOverall,
 };
 
 /** `memo` and `Table.Body`'s `items`: a collection re-rendered while hidden in an Activity tree loses its rows. */
@@ -52,7 +52,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   emptiness: CrudEmptiness;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
@@ -65,20 +65,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
-  // No confirmation step: the reactivation is undone by the retire control that takes its place.
-  const handleReactivate = (schiedsrichter: FLSchiedsrichter) => {
-    startReactivating(async () => {
-      const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
-      if (res.success) appToast.success("Schiedsrichter reaktiviert");
-      else appToast.danger("Schiedsrichter nicht reaktiviert", { description: res.error });
-    });
-  };
-
   // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
   // rather than for somebody's name.
-  /* A nameless row on this list is what a hand-write leaves: the store types `name` and
-     `anonymisiert_am` nullable independently (`fl_backend/app/core/constraints.py`), and no endpoint
-     writes the one without the other, the list serving no stamped row at all. */
+  /* A nameless row on this list is what a hand-write leaves: the one row an erasure creates is the
+     ghost, which `GET /schiedsrichter` excludes by id, so no erased person reaches this cell. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
       <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
@@ -122,38 +112,33 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   );
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => {
-    // The value is `schiedsrichterFacetValue`'s, never the id: a nameless referee shares one merged
-    // option, and an unoffered value is dropped rather than refused.
-    const facetValue = schiedsrichterFacetValue(schiedsrichter);
-    // Read off that value rather than off the name again, so the link and the option it selects
-    // cannot part company.
-    const zusammengefasst = facetValue !== schiedsrichter.id;
-    // The label names the merged set, because a fee is reconciled against what the link opened. Its
-    // own state and not the erasure's: this list serves no stamped row, so a missing name is all the
-    // link can stand on.
-    const einsatzLabel = zusammengefasst ? "Einsätze aller Schiedsrichter ohne Namen anzeigen" : "Einsätze anzeigen";
-    const angezeigt = schiedsrichterAnzeigename(schiedsrichter.name);
+    const displayName = schiedsrichterAnzeigename(schiedsrichter.name);
+    // „anonym“ is the erasure's word and this list holds no erased person, so a nameless row's control
+    // is named for the entry rather than for a deletion that never touched it.
+    const einsatzLabel = schiedsrichter.name === null ? "Einsätze dieses Eintrags anzeigen" : `Einsätze von ${displayName} anzeigen`;
 
     const isRetired = schiedsrichter.inactive_since !== null;
 
     // The italics that mark „anonym“ a state on screen reach a screen reader as nothing, so a label
-    // built on `angezeigt` announces the state as this person's name.
-    const nennung = schiedsrichter.name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${angezeigt}`;
-    const kontaktLabel = schiedsrichter.name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${angezeigt} kopieren`;
+    // built on `displayName` announces the state as this person's name.
+    const rowSubject = schiedsrichter.name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${displayName}`;
+    const kontaktLabel = schiedsrichter.name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${displayName} kopieren`;
 
     // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
     // somebody could paste into a message.
     const kontaktdaten = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
-    const hatKontakt = Boolean(schiedsrichter.kontakt.email) || Boolean(schiedsrichter.kontakt.telefon);
+    const hasKontakt = Boolean(schiedsrichter.kontakt.email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
       <RowActions>
         {/* The row's ONE way elsewhere, so it stays inline: a menu holding a single item costs a press
             and buys nothing. Admin-only, the public Spielsuche declaring no such facet. */}
+        {/* The row's own id, which is also the facet option its fixtures sit under: this list serves no
+            erased person and never the ghost, so no row here stands for more fixtures than its own. */}
         <RowActionLink
-          href={saisonHref(`/admin/spielsuche?schiedsrichter=${facetValue}`)}
-          label={einsatzLabel}
-          ariaLabel={zusammengefasst ? einsatzLabel : `Einsätze von ${angezeigt} anzeigen`}>
+          href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
+          label="Einsätze anzeigen"
+          ariaLabel={einsatzLabel}>
           <Magnifier
             className="size-4.5"
             aria-hidden="true"
@@ -161,7 +146,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         </RowActionLink>
         {/* Keyed on an e-mail or a number and never on the joined text: a name alone would be copied
             under „Kontaktdaten kopiert“ with no way to reach the person on the clipboard. */}
-        {hatKontakt && (
+        {hasKontakt && (
           <RowActionCopy
             label="Kontaktdaten kopieren"
             ariaLabel={kontaktLabel}
@@ -172,7 +157,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
-          ariaLabel={`${nennung} bearbeiten`}>
+          ariaLabel={`${rowSubject} bearbeiten`}>
           <Pencil
             className="size-4.5"
             aria-hidden="true"
@@ -181,15 +166,15 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {isRetired && (
           <RowActionRestore
             label="Reaktivieren"
-            ariaLabel={`${nennung} reaktivieren`}
+            ariaLabel={`${rowSubject} reaktivieren`}
             isPending={isReactivating}
-            onPress={() => handleReactivate(schiedsrichter)}
+            onPress={() => reactivate({ id: schiedsrichter.id })}
           />
         )}
         {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`${nennung} stilllegen`}
+            ariaLabel={`${rowSubject} stilllegen`}
             onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
           />
         )}

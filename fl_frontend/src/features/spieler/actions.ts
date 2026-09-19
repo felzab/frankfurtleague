@@ -104,7 +104,7 @@ export async function postSpielerAction(
   // The DRAFT shape: an untouched picker submits `team_id: null`, and the schema below is what turns
   // that into a field error rather than a type error.
   rawPayload: SpielerCreateDraft,
-): Promise<ActionResult<{ spieler_id?: string }>> {
+): Promise<ActionResult<{ spieler_id: string }>> {
   return runAdminMutation("postSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

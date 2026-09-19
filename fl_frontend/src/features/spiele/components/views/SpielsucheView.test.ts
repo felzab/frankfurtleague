@@ -12,6 +12,8 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { render, screen } from "@testing-library/react";
 
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
+
 import type { FLSpiel } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -71,20 +73,10 @@ const ADMIN: ViewProps = {
   schiedsrichter: [{ id: BEISPIEL, name: "Rafael Beispiel" }],
 };
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "spielsuche",
-};
-
 const renderView = (query: string, props: ViewProps = ADMIN) =>
   render(
     h(AppRouterContext.Provider, {
-      value: ROUTER,
+      value: nextRouter(),
       children: h(SearchParamsContext.Provider, { value: new URLSearchParams(query), children: h(SpielsucheView, props) }),
     }),
   );
@@ -114,7 +106,7 @@ describe("a link naming a value no fixture of the season holds", () => {
     unmount();
 
     renderView(`ort=${SUED}`, OEFFENTLICH);
-    assert.equal(screen.queryByRole("button", { name: /^Ort: / }), null, "a venue no list labels is kept as a pill");
+    assert.ok(screen.queryByRole("button", { name: /^Ort: / }) === null, "a venue no list labels is kept as a pill");
     screen.getByText(PROMPT);
   });
 
@@ -122,7 +114,7 @@ describe("a link naming a value no fixture of the season holds", () => {
   it("drops an id naming nothing that exists, and prompts for a search", () => {
     renderView(`schiedsrichter=${NIEMAND}`);
 
-    assert.equal(screen.queryByRole("button", { name: /^Schiedsrichter: / }), null);
+    assert.ok(screen.queryByRole("button", { name: /^Schiedsrichter: / }) === null, "a referee no list labels is kept as a pill");
     screen.getByText(PROMPT);
   });
 });
@@ -132,7 +124,7 @@ describe("the sentence under the bar", () => {
     renderView(`team=${ALPHA}`);
 
     screen.getByRole("button", { name: "Team: FC Alpha ändern" });
-    assert.equal(screen.queryByText(/^Keine Spiele|^Suche nach/), null);
+    assert.ok(screen.queryByText(/^Keine Spiele|^Suche nach/) === null, "a list with rows still shows an empty state");
   });
 
   // Every other list closes its empty sentence with a full stop.

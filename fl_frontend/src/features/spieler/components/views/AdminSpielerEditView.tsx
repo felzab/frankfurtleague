@@ -1,22 +1,20 @@
 "use client";
 
-import { useTransition } from "react";
-
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { appToast } from "@/shared/utils/appToast";
-
-import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
-
 /**
  * Every exit routes through the form's discard guard.
  *
  * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
  * read alike invite the wrong one. The erasure is neither, and sits below both.
  */
+import { useReactivation } from "@/shared/hooks/useReactivation";
+
+import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
@@ -32,18 +30,10 @@ export function AdminSpielerEditView({
   /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
   membershipCount: number;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
 
   const isRetired = spieler.inactive_since !== null;
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
-
-  const handleReactivate = () => {
-    startReactivating(async () => {
-      const res = await reactivateSpielerAction({ id: spieler.id });
-      if (res.success) appToast.success("Spieler reaktiviert");
-      else appToast.danger("Spieler nicht reaktiviert", { description: res.error });
-    });
-  };
 
   return (
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
@@ -63,7 +53,7 @@ export function AdminSpielerEditView({
               {saison.membership.nummer}
             </span>
           ) : undefined,
-          reactivate: isRetired ? { isPending: isReactivating, onPress: handleReactivate } : undefined,
+          reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: spieler.id }) } : undefined,
         }}
       />
     </div>

@@ -6,6 +6,7 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
@@ -76,9 +77,8 @@ export function SpielCard({
                 href={adminEditHref}
                 aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
-                   beside it: same box, same radius, same position, so no layout moves. The pairing is
-                   `-solid` plus its own foreground, like every other opaque fill. */
-                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex size-9 items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base)">
+                   beside it: same box, same radius, same position, so no layout moves. */
+                className={BRAND_ICON_BUTTON}>
                 <PencilToSquare
                   aria-hidden="true"
                   className="m-0 size-4.5"

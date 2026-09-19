@@ -4,14 +4,12 @@ import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -83,7 +81,7 @@ export function FormAnonymisierenSection({
             mode="reveal"
             label="Hinweis zum Löschen der Daten"
             body={{
-              lead: "Der Weg, Namen, Schule und Kontaktdaten ganz aus der Verwaltung zu entfernen.",
+              lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen.",
               points: [{ term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." }],
             }}
           />
@@ -91,15 +89,13 @@ export function FormAnonymisierenSection({
       </div>
 
       <div className={panel.body()}>
-        {/* The list is where an administrator meets a referee, and the erasure takes the row off it
-            (`docs/backend/spec.md :: I227`): copy promising a word there would send them looking for
-            an entry no read serves. */}
+        {/* The row does not survive, so no sentence here may promise a reader anything they could open
+            afterwards: what stays is the fixtures, and what they then show is the one word below. */}
         <p className="muted-hint">
-          Das Löschen entfernt Namen, Schule, E-Mail und Telefonnummer von <strong>{name ?? "dieser Person"}</strong>. Danach steht auf jedem
-          gespielten Spiel nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
-          die diese Person betrifft. Gelöscht wird damit auch alles andere, was dort noch von dieser Person steht. Was wann geschehen ist,
-          bleibt lesbar. In der Schiedsrichterliste erscheint der Eintrag nicht mehr. Er ist stillgelegt, wird für neue Spiele nicht mehr
-          angeboten, und bearbeiten lässt er sich danach nicht mehr.
+          Das Löschen entfernt den Eintrag von <strong>{name ?? "dieser Person"}</strong> vollständig aus der Verwaltung. Auf jedem Spiel, das
+          diese Person geleitet hat, steht danach nur noch „{SCHIEDSRICHTER_ANONYM_LABEL}“; die Spiele selbst bleiben mit Datum, Ergebnis und
+          Honorar erhalten. Im Änderungsprotokoll wird der gesicherte Stand jeder Zeile gelöscht, die diese Person betrifft. Was wann geschehen
+          ist, bleibt lesbar. Spiele ohne Ergebnis brauchen danach einen neuen Schiedsrichter. Zurückholen lässt sich das nicht.
         </p>
 
         {isConfirming && (
@@ -107,8 +103,8 @@ export function FormAnonymisierenSection({
             <div className="flex w-full flex-col gap-y-1">
               <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
-                {/* The name is emptied like the two below it, and the row says what a reader is shown
-                    afterwards: a bare „wird gelöscht“ would read as the referee losing their row. */}
+                {/* The row says what a reader is shown afterwards as well as what goes: the fixtures
+                    outlive the person, and the word standing on them is what somebody will meet. */}
                 <ConfirmReadoutRow
                   label="Name"
                   value={name === null ? NOT_RECORDED : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
@@ -136,16 +132,17 @@ export function FormAnonymisierenSection({
               </dl>
             </div>
 
-            {/* No restore is named on purpose: nothing in the system holds the old values once the
-                row and the log have both been cleared. What goes is the readout directly above. */}
+            {/* No restore is named on purpose: nothing in the system holds the old values once the row
+                and the log have both gone. What goes is the readout directly above. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              Zurückholen lässt sich das nicht. Der Eintrag bleibt mit allen Spielen bestehen, und bearbeiten lässt er sich danach nicht mehr.
+              Zurückholen lässt sich das nicht. Der Eintrag verschwindet ganz; die Spiele dieser Person bleiben bestehen und zeigen „
+              {SCHIEDSRICHTER_ANONYM_LABEL}“.
             </p>
 
             {/* The one consequence the readout above cannot show: a match still to be played comes out of
-                the press with nobody assigned to it. */}
+                the press booked on a row nobody can officiate under. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              Spiele ohne Ergebnis verlieren die Zuteilung und brauchen einen neuen Schiedsrichter.
+              Spiele ohne Ergebnis brauchen danach einen neuen Schiedsrichter.
             </p>
           </ConfirmReveal>
         )}
@@ -154,22 +151,23 @@ export function FormAnonymisierenSection({
           isConfirming={isConfirming}
           isPending={isAnonymising}
           onCancel={cancel}>
-          <Button
-            type="button"
-            variant="primary"
+          {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
+              löschen“ would read as the referee going, where what goes is their data. */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
             isPending={isAnonymising}
-            onPress={handleAnonymise}
-            className={confirmButton(isConfirming)}>
-            {!isConfirming && (
+            reason={null}
+            resting="Daten löschen"
+            armed="Ja, Daten endgültig löschen"
+            running="Löscht..."
+            icon={
               <TrashBin
                 className="size-4.5"
                 aria-hidden="true"
               />
-            )}
-            {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
-                löschen“ reads as the referee going — the one thing this control does not do. */}
-            {isAnonymising ? "Löscht..." : isConfirming ? "Ja, Daten endgültig löschen" : "Daten löschen"}
-          </Button>
+            }
+            onPress={handleAnonymise}
+          />
         </ConfirmActionRow>
       </div>
     </section>

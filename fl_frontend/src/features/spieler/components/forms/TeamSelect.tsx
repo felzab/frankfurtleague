@@ -2,7 +2,7 @@
 
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
-import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
+import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";

@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context, and the erasure panel reads both. A Next release that
-   moves either module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import {
@@ -30,26 +27,14 @@ const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEdi
  */
 const MASKULIN = /\bdieser spieler\b|\bsein(?:e|em|en|er|es)?\b|\b(?:er|ihn|ihm)\b/i;
 
-/** What `useRouter` hands the erasure panel. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 /** The sentences a reader hears, with the markup taken out and the JSX line breaks collapsed. */
-const gelesen = (html: string): string => textOf(html).replace(/\s+/g, " ").trim();
+const read = (html: string): string => textOf(html).replace(/\s+/g, " ").trim();
 
-const unterDenKontexten = (element: Parameters<typeof renderTree>[0]): string =>
-  renderTree(h(AppRouterContext.Provider, { value: ROUTER }, h(SearchParamsContext.Provider, { value: new URLSearchParams() }, element)));
+const acrossContexts = (element: Parameters<typeof renderTree>[0]): string => renderTree(underNext(element));
 
 describe("the squad-row panel a player is taken out of a season on", () => {
-  const gezeigt = (): string =>
-    gelesen(
+  const shown = (): string =>
+    read(
       renderMarkup(FormAustragenSection, {
         spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
         saisonId: "2026",
@@ -62,7 +47,7 @@ describe("the squad-row panel a player is taken out of a season on", () => {
   /* The row and the person are two subjects here, and the surviving `sein` belongs to the row: it is
      the entry's club that a replacement can take out of the season. */
   it("hangs the condition on the Kadereintrag rather than on the pupil", () => {
-    const text = gezeigt();
+    const text = shown();
 
     assert.match(text, /Der Kadereintrag bleibt gespeichert/, "the entry stopped being the sentence's subject");
     assert.match(text, /solange sein Team in der Saison dabei ist/, "the copy states no condition at all");
@@ -71,22 +56,22 @@ describe("the squad-row panel a player is taken out of a season on", () => {
 });
 
 describe("the erasure panel", () => {
-  const gezeigt = (isRetired: boolean): string =>
-    gelesen(
-      unterDenKontexten(
+  const shown = (isRetired: boolean): string =>
+    read(
+      acrossContexts(
         h(FormLoeschenSection, { spielerId: "68c1f0a2b3c4d5e6f7a8b9c0", fullName: "Lena Bergmann", isRetired: isRetired, membershipCount: 2 }),
       ),
     );
 
   it("names the pupil as this panel's own prose already does, in both of its arms", () => {
-    const gesperrt = gezeigt(false);
+    const gesperrt = shown(false);
 
     assert.match(gesperrt, /Diese Person ist nicht stillgelegt/, "the notice heads the refusal with a masculine demonstrative");
     assert.ok(gesperrt.includes(ERASURE_NEEDS_RETIREMENT), "the notice no longer carries the repair the action toasts");
     // Both arms, the offered one being where the press actually stands.
     for (const [arm, text] of [
       ["the blocked arm", gesperrt],
-      ["the offered arm", gezeigt(true)],
+      ["the offered arm", shown(true)],
     ] as const) {
       assert.doesNotMatch(text, MASKULIN, `${arm}: the panel names the pupil with a masculine word`);
     }
@@ -94,8 +79,8 @@ describe("the erasure panel", () => {
 });
 
 describe("the note a create carries where the season has already begun", () => {
-  const gezeigt = (): string =>
-    gelesen(
+  const shown = (): string =>
+    read(
       renderMarkup(AdminCreateSpielerForm, {
         saisonOptions: [{ saisonId: "2026", isNachgetragen: true, teams: [], erlaubteStufen: [] }],
         defaultSaisonId: "2026",
@@ -120,7 +105,7 @@ describe("the note a create carries where the season has already begun", () => {
     }).find(({ id }) => id === "spieler.entry-nachgetragen");
 
     assert.ok(banner !== undefined, "the editor raises no banner for the flag, so this case judges nothing");
-    assert.ok(gezeigt().includes(`${banner.title}. ${banner.body}`), "the form and the banner word the flag differently");
+    assert.ok(shown().includes(`${banner.title}. ${banner.body}`), "the form and the banner word the flag differently");
     assert.doesNotMatch(banner.title, MASKULIN, "the shared wording names the pupil with a masculine word");
   });
 });
@@ -134,17 +119,17 @@ describe("the retirement dialog's second step", () => {
 
 describe("the sentences the player's own write paths answer with", () => {
   it("names the pupil neutrally in each of them", () => {
-    const genannt: string[] = [];
+    const namedMasculine: string[] = [];
 
-    for (const [was, satz] of [
+    for (const [where, sentence] of [
       ["the duplicate squad row", ALREADY_IN_SAISON],
       ["the create whose squad row failed", CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON],
       ["the retirement", RETIREMENT_KEEPS_SQUAD_ROWS],
     ] as const) {
-      if (MASKULIN.test(satz)) genannt.push(was);
+      if (MASKULIN.test(sentence)) namedMasculine.push(where);
     }
 
-    assert.deepEqual(genannt, [], "an answer names the pupil with a masculine word");
+    assert.deepEqual(namedMasculine, [], "an answer names the pupil with a masculine word");
   });
 
   /* The repair the erasure refusal points at, which the panel above renders and the action toasts. */

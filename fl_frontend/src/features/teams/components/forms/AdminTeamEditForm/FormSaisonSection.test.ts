@@ -11,26 +11,14 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { render } from "@testing-library/react";
 
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
-
-import type { ContextType } from "react";
 
 const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 /** No descriptor for any path, which is the state the panel stands in until a save judges one. */
 const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
-
-/** Every method the panel reaches only after a write, which no case here makes. */
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "formSaisonSection",
-};
 
 const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
   id,
@@ -46,7 +34,7 @@ const panel = (over: { isMember: boolean; gruppe: "A" | null; locked: boolean })
   render(
     h(
       AppRouterContext.Provider,
-      { value: ROUTER },
+      { value: nextRouter() },
       h(DraftStatusProvider, {
         status: STATUS,
         children: h(FormSaisonSection, {

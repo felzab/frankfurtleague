@@ -1,15 +1,14 @@
 "use client";
 
-import { memo, useTransition } from "react";
+import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Envelope, Globe, Magnifier, Pencil, PersonPencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
-import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { reactivateTeamAction } from "@/features/teams/actions";
-import { austrittZustand } from "@/features/teams/constants";
+import { austrittZustand, TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE,
@@ -24,6 +23,7 @@ import {
   TABLE_HEADING,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import {
@@ -34,16 +34,16 @@ import {
   RowActionRestore,
   RowActions,
 } from "@/shared/components/ui/RowActions";
-import { appToast } from "@/shared/utils/appToast";
+import { useReactivation } from "@/shared/hooks/useReactivation";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Teams für diese Suche.",
-  filtered: "Keine Teams für diese Filter.",
-  none: "Es wurden noch keine Teams angelegt.",
+  searched: TEAMS_CRUD_COPY.emptyForQuery,
+  filtered: TEAMS_CRUD_COPY.emptyForFilters,
+  none: TEAMS_CRUD_COPY.emptyOverall,
 };
 
 /**
@@ -61,21 +61,12 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   emptiness: CrudEmptiness;
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateTeamAction, noun: "Team" });
 
   // The selector's season rides along on every row link, so each destination opens on the season
   // this list is showing.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-
-  // No confirmation step: reactivation is undone by the delete control that takes its place.
-  const handleReactivate = (team: AdminTeamRow) => {
-    startReactivating(async () => {
-      const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success("Team reaktiviert");
-      else appToast.danger("Team nicht reaktiviert", { description: res.error });
-    });
-  };
 
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (team: AdminTeamRow) => (
@@ -131,7 +122,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Reaktivieren"
           ariaLabel={`Team ${team.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => handleReactivate(team)}
+          onPress={() => reactivate({ id: team.id })}
         />
       ) : (
         /* Present but DISABLED where the write path would refuse (`REQ-RETIRE-001`), so the rule is

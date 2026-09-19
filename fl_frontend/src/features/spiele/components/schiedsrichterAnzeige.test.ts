@@ -100,7 +100,6 @@ const NAMENLOS_IN_LIST: FLSchiedsrichter = {
   default_payment: PAYMENT,
   kontakt: { telefon: null, email: null },
   inactive_since: null,
-  anonymisiert_am: null,
 };
 
 /** The picker under both providers it reads, with the list offering NOBODY unless a caller names somebody. */
@@ -121,8 +120,8 @@ function pickerText(
 }
 
 describe("what the referee picker's trigger renders for a fixture whose referee is gone from the list", () => {
-  /* The default read drops every retired row and the erasure retires the person it erases, so a
-     fixture that HOLDS one is built from a list offering nobody. */
+  /* The erasure deletes the person's row and repoints their fixtures at the ghost, which the list
+     excludes by id, so a fixture that HOLDS one is built from a list offering nobody. */
   it("names the held referee even though the list offers nobody", () => {
     assert.ok(pickerText({ schiedsrichter_id: REFEREE_ID, name: null, payment: PAYMENT }).includes(SCHIEDSRICHTER_ANONYM_LABEL));
   });
@@ -133,12 +132,12 @@ describe("what the referee picker's trigger renders for a fixture whose referee 
 });
 
 describe("which word the picker's two nameless arms take", () => {
-  /* The list serves no stamped row (`docs/backend/spec.md :: I227`), so a name missing there is what
-     a hand-write left, while a fixture's own embedded name is what the erasure nulled. */
+  /* The list serves no erased person and never the ghost (`docs/backend/spec.md :: I227`), so a name
+     missing there is what a hand-write left, while a fixture's own null name is the ghost's. */
   it("offers a nameless list row under the other word", () => {
-    const gelistet = pickerText(null, [NAMENLOS_IN_LIST]);
+    const listed = pickerText(null, [NAMENLOS_IN_LIST]);
 
-    assert.ok(gelistet.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the offered row renders no stand-in name: ${gelistet}`);
-    assert.ok(!gelistet.includes(SCHIEDSRICHTER_ANONYM_LABEL), "an offered row claims an erasure the list never serves");
+    assert.ok(listed.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the offered row renders no stand-in name: ${listed}`);
+    assert.ok(!listed.includes(SCHIEDSRICHTER_ANONYM_LABEL), "an offered row claims an erasure the list never serves");
   });
 });

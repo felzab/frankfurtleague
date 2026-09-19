@@ -7,21 +7,12 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { TeamsGrid } = await import("./TeamsGrid.tsx");
-
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
 
 /** Parsed at construction, so a drifted field fails where the fixture is built. */
 const TEAM = FLTeamSchema.parse({
@@ -55,7 +46,7 @@ describe("the club cards' headings", () => {
     const markup = renderTree(
       h(
         AppRouterContext.Provider,
-        { value: ROUTER },
+        { value: nextRouter() },
         h(TeamsGrid, { teams: [TEAM], urlPrefix: "/dashboard/teams", saisonId: undefined, isFinishedSaison: false }),
       ),
     );

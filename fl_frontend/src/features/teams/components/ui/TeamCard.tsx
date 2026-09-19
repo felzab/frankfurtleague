@@ -1,6 +1,7 @@
 import { Card, Chip } from "@heroui/react";
 
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
@@ -37,10 +38,7 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
           </Card.Title>
           <Card.Description className="fluid-xxs text-foreground-muted font-medium">{teamData.address.stadtteil}</Card.Description>
         </div>
-        <div
-          className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm`}>
-          {teamData.shorthand}
-        </div>
+        <div className={`${DISPLAY_HEADING} ${BRAND_TILE}`}>{teamData.shorthand}</div>
       </Card.Header>
 
       <Card.Content className="mt-2 p-0">

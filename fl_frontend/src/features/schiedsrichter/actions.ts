@@ -4,7 +4,7 @@ import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -42,23 +42,6 @@ function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldEr
   return null;
 }
 
-/** `null` where the 409 is something else; it lands on no field, three boxes each triggering it alone. */
-function mapEditRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  if (error.serverErrorCode === "REQ-ANONYMISE-002") {
-    return {
-      error: buildRefusal({
-        reason: "Die Daten dieser Person wurden gelöscht, und jedes Speichern würde einen Namen wieder eintragen",
-        // No route back is named here: the deletion panel on this same page already refuses one
-        // (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx`).
-        repair: "Lade die Seite neu",
-      }),
-    };
-  }
-  return null;
-}
-
 /** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
 function mapRetireRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -72,21 +55,6 @@ function mapRetireRefusal(error: unknown): string | null {
   return null;
 }
 
-/** `null` where the 409 is something else; it lands on no field, the reactivation being a row control. */
-function mapReactivateRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  if (error.serverErrorCode === "REQ-ANONYMISE-003") {
-    return buildRefusal({
-      // The repair names a NEW entry rather than a route back: nothing can undo the deletion, and a
-      // sentence hinting at one sends a teacher looking for a button that is not there.
-      reason: "Diese Person hat ihre Daten löschen lassen, deshalb bleibt der Eintrag stillgelegt",
-      repair: "Wenn sie wieder Spiele leitet, lege sie als neuen Schiedsrichter an",
-    });
-  }
-  return null;
-}
-
 /**
  * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
  * control is a dialog rather than a form.
@@ -94,10 +62,12 @@ function mapReactivateRefusal(error: unknown): string | null {
 function mapAnonymiseRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
-  if (error.serverErrorCode === "REQ-ANONYMISE-001") {
+  if (error.serverErrorCode === "REQ-ANONYMISE-004") {
     return buildRefusal({
-      reason: "Die Daten waren schon gelöscht und Name oder Kontaktdaten wurden inzwischen neu eingetragen",
-      repair: "Lösche sie erneut, damit auch der neue Stand verschwindet",
+      // The reader reached this by opening a link to the row every erased referee's fixtures point
+      // at, so the repair names the referee they meant rather than a way to retry this one.
+      reason: "Hinter diesem Eintrag steht keine Person, er sammelt nur die Spiele gelöschter Schiedsrichter",
+      repair: "Öffne den Schiedsrichter, dessen Daten Du löschen willst",
     });
   }
   return null;
@@ -106,7 +76,7 @@ function mapAnonymiseRefusal(error: unknown): string | null {
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
-): Promise<ActionResult<{ created_id?: string }>> {
+): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -128,7 +98,7 @@ export async function postSchiedsrichterAction(
       postOperation = await postSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -170,8 +140,8 @@ export async function patchSchiedsrichterAction(
     try {
       postOperation = await patchSchiedsrichter(validated.data);
     } catch (error) {
-      const refusal = mapEditRefusal(error) ?? mapNameRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      const refusal = mapNameRefusal(error);
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -238,8 +208,7 @@ export async function deleteSchiedsrichterAction(
 
 /**
  * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
- * the admin's own list, which is uncached. The write refuses `REQ-ANONYMISE-003` alone — an erased
- * referee stays retired.
+ * the admin's own list, which is uncached.
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
@@ -259,15 +228,9 @@ export async function reactivateSchiedsrichterAction(
       };
     }
 
-    // The refusal belongs on the control that asked, not on the error page.
-    let reactivateOperation;
-    try {
-      reactivateOperation = await reactivateSchiedsrichter(validated.data);
-    } catch (error) {
-      const refusal = mapReactivateRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
+    // No mapper stands here: the endpoint declares no refusal of its own, so an unexpected 409 takes
+    // the shared conflict wording rather than a sentence this slice invents for it.
+    const reactivateOperation = await reactivateSchiedsrichter(validated.data);
 
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
@@ -284,9 +247,9 @@ export async function reactivateSchiedsrichterAction(
 }
 
 /**
- * Nulls the name and the school, clears the two contact fields, retires the referee, and empties every
- * log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and the
- * row survives so every fixture booking still resolves.
+ * Deletes the referee's document and repoints every fixture that named them at the ghost, whose
+ * retirement they inherit. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-004` alone — the
+ * ghost itself, which stands for nobody.
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
@@ -320,8 +283,8 @@ export async function anonymiseSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
 
-    // The NULLED name fans into every match as a rename does, so the same one cached read is stale
-    // here. The referee list and the log are uncached.
+    // The repointed booking fans into every match as a rename does, so the same one cached read is
+    // stale here. The referee list and the log are uncached.
     updateTag("spiele");
     refresh();
 
@@ -329,8 +292,7 @@ export async function anonymiseSchiedsrichterAction(
       success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
-        `Name, Schule, E-Mail und Telefonnummer sind gelöscht; auf jedem gespielten Spiel steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
-        "Der Eintrag ist stillgelegt und nimmt keine neuen Spiele mehr an. " +
+        `Der Eintrag ist gelöscht; auf jedem Spiel dieser Person steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
         // The one sentence here an administrator must act on: without it a match still to be played
         // sits with nobody to officiate it and nothing says so.
         "Spiele ohne Ergebnis brauchen jetzt einen neuen Schiedsrichter. " +

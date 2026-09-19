@@ -15,9 +15,10 @@ import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
+import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -107,8 +108,6 @@ function GruppenTauschControl({
     });
   };
 
-  const restingLabel = isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen";
-
   return (
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
@@ -186,27 +185,22 @@ function GruppenTauschControl({
             isPending={isSwapping}
             onCancel={cancel}>
             {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                §1.14). `isSwapping` is left out: it ends by itself. */}
-            <Hint
-              mode="refusal"
-              reason={!isSwapping && partner === null ? "Wähle zuerst ein Team." : null}
-              label={restingLabel}>
-              <Button
-                type="button"
-                variant="primary"
-                isPending={isSwapping}
-                isDisabled={!isSwapping && partner === null}
-                onPress={handleSwap}
-                className={confirmButton(isConfirming)}>
-                {!isConfirming && (
-                  <ArrowRightArrowLeft
-                    className="size-4.5"
-                    aria-hidden="true"
-                  />
-                )}
-                {isSwapping ? "Tauscht..." : restingLabel}
-              </Button>
-            </Hint>
+                §1.14). */}
+            <ConfirmPressButton
+              isConfirming={isConfirming}
+              isPending={isSwapping}
+              reason={partner === null ? "Wähle zuerst ein Team." : null}
+              resting="Gruppen tauschen"
+              armed="Ja, Gruppen tauschen"
+              running="Tauscht..."
+              icon={
+                <ArrowRightArrowLeft
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              }
+              onPress={handleSwap}
+            />
           </ConfirmActionRow>
         </>
       )}

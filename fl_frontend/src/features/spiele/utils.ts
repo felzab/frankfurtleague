@@ -58,18 +58,18 @@ export const computeSpielStatus = ({
 };
 
 /**
- * The one derivation the three `SpielCard` variants share; they stay separate themselves. A missing
- * date promises a Termin only while one can still come: a played fixture's, a called-off one's, or a
- * finished season's is simply unrecorded.
+ * Whether a Termin can still come, which separates an open appointment from an unrecorded one: a
+ * played fixture's date and time, a called-off one's and a finished season's are simply unrecorded.
  */
+export const canStillBePlayed = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">, isFinishedSaison: boolean): boolean =>
+  spiel.ergebnis === null && !isAbgesagt(spiel.sonderereignis) && !isFinishedSaison;
+
+/** The one derivation the three `SpielCard` variants share; they stay separate themselves. */
 export const formatSpielDisplay = (
   spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen" | "sonderereignis">,
   isFinishedSaison: boolean,
 ) => ({
-  datum: formatSpielDatum(
-    spiel.datum,
-    spiel.ergebnis !== null || isAbgesagt(spiel.sonderereignis) || isFinishedSaison ? PLACEHOLDER.entity : PLACEHOLDER.datum,
-  ),
+  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
   elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),
@@ -442,21 +442,6 @@ const movedSpielSentences = (
     );
   }
 
-  // Its own sentence, after the releases it can name: the fixture stays without a referee unless an undo
-  // returns it to played or called off (`docs/backend/spec.md :: I256`), so this is where the admin learns
-  // it needs another.
-  const unassigned = [
-    // Once per fixture: a release of both sides names it twice.
-    ...new Set([...advancedTo, ...releasedSides].filter((entry) => entry.voided_schiedsrichter !== null).map((entry) => entry.spiel_nr)),
-  ].map((spiel_nr) => ({ spiel_nr }));
-  if (unassigned.length > 0) {
-    sentences.push(
-      unassigned.length === 1
-        ? `Die Zuteilung des gelöschten Schiedsrichters in Spiel ${joinSpiele(unassigned)} wurde dabei ebenfalls entfernt`
-        : `In den Spielen ${joinSpiele(unassigned)} wurde dabei jeweils die Zuteilung eines gelöschten Schiedsrichters entfernt`,
-    );
-  }
-
   // Named individually rather than counted: "zwei Bracket-Verweise sind offen" is not actionable.
   sentences.push(...bracketFaults.map(formatBracketFault));
 
@@ -540,7 +525,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     case "retired_booking":
       return fault.booking === "schiedsrichter" && fault.name === null
         ? `Spiel ${fault.spiel_nr} ist noch zu spielen und einem Schiedsrichter zugeteilt, dessen Daten gelöscht wurden`
-        : `Spiel ${fault.spiel_nr} ist noch zu spielen, doch ${bookedRow(fault)} ist seit ${formatSpielDatum(fault.inactive_since)} stillgelegt`;
+        : `Spiel ${fault.spiel_nr} ist noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt`;
     // Both fixtures carry an entry naming the other, so which one to move stays the admin's choice.
     case "double_booked":
       return `In Spiel ${fault.spiel_nr} ist ${bookedRow(fault)} auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als vier Stunden entfernt`;
@@ -561,9 +546,9 @@ const otherSpiel = (fault: FLBracketFaultClash): string =>
  * row whose copy the erasure nulled has no name to print, so the article carries the sentence alone.
  */
 const bookedRow = (fault: FLBracketFaultBooking | FLBracketFaultClash): string => {
-  const feld = fault.booking === "ort" ? "Spielort" : "Schiedsrichter";
+  const fieldLabel = fault.booking === "ort" ? "Spielort" : "Schiedsrichter";
 
-  return fault.name === null ? `derselbe ${feld}` : `der ${feld} ${fault.name}`;
+  return fault.name === null ? `derselbe ${fieldLabel}` : `der ${fieldLabel} ${fault.name}`;
 };
 
 const bookedRowAtStart = (fault: FLBracketFaultBooking | FLBracketFaultClash): string => {

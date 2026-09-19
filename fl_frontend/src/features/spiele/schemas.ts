@@ -421,8 +421,9 @@ export const FLBracketFaultBookingSchema = z.object({
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   booking: z.enum(["ort", "schiedsrichter"]),
-  // Null where the erasure nulled a referee's copy, which is how a sentence tells erased from retired.
-  name: z.string().nonempty().nullable(),
+  // Null where the booking names the ghost, which is how a sentence tells erased from retired;
+  // unbounded past that (I93), a stored empty name failing here would take the whole report down.
+  name: z.string().nullable(),
   inactive_since: CustomDateStringSchema,
 });
 export type FLBracketFaultBooking = z.infer<typeof FLBracketFaultBookingSchema>;
@@ -476,8 +477,6 @@ export const FLSpielAdvancementSchema = z.object({
   // Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
   // occupant leaves each of them true and none of them is cleared.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),
-  // Only ever an erased referee's, on a fixture the rewrite puts back among those still to be played.
-  voided_schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 });
 export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
 
@@ -495,7 +494,6 @@ export const FLSpielReleasedSideSchema = z.object({
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // A no-show alone, for `FLSpielAdvancementSchema`'s reason.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),
-  voided_schiedsrichter: FLSpielAdvancementSchema.shape.voided_schiedsrichter,
 });
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
@@ -548,9 +546,6 @@ export const FLSpielPriorPaarungSchema = z.object({
   sonderereignis: FLSonderereignisSchema.nullable(),
   // Null on every fixture but the one the save named: a bracket resolution reaches the Paarung alone.
   other_fields: FLSpielPriorOtherFieldsSchema.nullable(),
-  // Carried through untouched: stripped here, the undo would leave a played fixture without the referee
-  // whose booking the save took off, where the backend puts it back.
-  voided_schiedsrichter: FLSpielPriorSchiedsrichterSchema.nullable(),
 });
 export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 

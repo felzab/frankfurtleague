@@ -15,7 +15,6 @@ import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/spieler/types";
 
@@ -175,12 +174,7 @@ export function AdminCreateSpielerForm({
       }}
       schema={FLCreateSpielerFormPayloadSchema}
       toPayload={(draft) => ({ ...draft, nummer: nummerPayload(draft.nummer) })}
-      onSubmit={async (payload) => {
-        const res = await postSpielerAction(payload);
-        // An acknowledged create that answered no id leaves the caller nothing to name, so the
-        // shared refusal stands in for a sentence the action never composed.
-        return res.success && res.spieler_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;
-      }}
+      onSubmit={(payload) => postSpielerAction(payload)}
       marksRequired
       successMessage="Spieler angelegt"
       onClose={onClose}

@@ -9,6 +9,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { labelBadge } from "@/shared/components/ui/badges.ts";
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types.ts";
@@ -64,21 +65,11 @@ const NACHGETRAGEN: AdminSpielerRow = {
   selected: { ...SQUAD, rolle: "co_kapitaen", is_nachgetragen: true, inactive_since: null },
 };
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const table = (rows: AdminSpielerRow[]): string =>
   renderTree(
     h(
       AppRouterContext.Provider,
-      { value: ROUTER },
+      { value: nextRouter() },
       h(
         SearchParamsContext.Provider,
         { value: new URLSearchParams("saison_id=2026") },

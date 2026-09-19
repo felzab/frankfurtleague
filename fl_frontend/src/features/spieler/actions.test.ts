@@ -4,22 +4,20 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it, mock } from "node:test";
+import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useRouter` and `useSearchParams` read contexts no `next/navigation` export carries, so every component
-   is mounted under the two Next keeps them on. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
+import { actionBodies } from "@/core/actionSources.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { withSaisonId } from "@/shared/utils/saisonHref.ts";
 
 import {
@@ -29,7 +27,7 @@ import {
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
 
-import type { ContextType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
 
@@ -37,7 +35,7 @@ const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
 /* Every write answers as landed; this file still reads the real module's text. */
-const { calls: aufrufe } = doubleActions({
+const { calls } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
 });
@@ -50,29 +48,9 @@ const { AdminCreateSpielerForm } = await import("./components/forms/AdminCreateS
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
-/** A router recording where a component sends the reader. */
-function recordingRouter(): { router: NonNullable<ContextType<typeof AppRouterContext>>; replaced: string[]; pushed: string[] } {
-  const replaced: string[] = [];
-  const pushed: string[] = [];
-  const router = {
-    back: () => undefined,
-    forward: () => undefined,
-    refresh: () => undefined,
-    push: (href: string) => void pushed.push(href),
-    replace: (href: string) => void replaced.push(href),
-    prefetch: () => undefined,
-    bfcacheId: "spielerActions",
-  };
-
-  return { router, replaced, pushed };
-}
-
-/** A tree under both contexts, on the season the sidemenu names. */
-const underNext = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
-  h(AppRouterContext.Provider, {
-    value: router,
-    children: h(SearchParamsContext.Provider, { value: new URLSearchParams(`saison_id=${SAISON_ID}`), children: tree }),
-  });
+/** A tree under all three contexts, on the season the sidemenu names. */
+const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
+  underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -101,7 +79,7 @@ const refusalNamed = (html: string, name: string): string | null =>
   refusalWrappers(html).find((wrapper) => wrapper.name === name)?.reason ?? null;
 
 /** What a reader hears, the JSX line breaks collapsed. */
-const gelesen = (html: string): string => spokenText(html, " ").replace(/\s+/g, " ");
+const read = (html: string): string => spokenText(html, " ").replace(/\s+/g, " ");
 
 /** The player's editor on this season's squad row, which names the stored club. */
 function renderEditor({
@@ -114,7 +92,7 @@ function renderEditor({
   rowInactiveSince?: string | null;
 }): void {
   render(
-    underNext(
+    underSaison(
       h(AdminSpielerEditForm, {
         spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
         einwilligung: null,
@@ -204,7 +182,7 @@ describe("the erasure action against the backend's refusal register", () => {
 
 /** The erasure panel at rest, for a person retired or still in the league. */
 const loeschenPanel = (isRetired: boolean): string =>
-  renderTree(underNext(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired, membershipCount: 2 })));
+  renderTree(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired, membershipCount: 2 })));
 
 const ERASE_LABEL = "Spieler endgültig löschen";
 
@@ -226,14 +204,14 @@ describe("REQ-PURGE-001 as the admin reads it", () => {
 
 /** The erasure panel for a retired person, mounted so a press can arm and run it. */
 function renderErasure(router = recordingRouter().router): void {
-  render(underNext(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired: true, membershipCount: 2 }), router));
+  render(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired: true, membershipCount: 2 }), router));
 }
 
-const erasures = (): unknown[] => aufrufe.filter((aufruf) => aufruf.action === "eraseSpielerAction").map((aufruf) => aufruf.payload);
+const erasures = (): unknown[] => calls.filter((call) => call.action === "eraseSpielerAction").map((call) => call.payload);
 
 describe("the erasure's copy", () => {
   it("says the person, the squad rows and the log entries all go", () => {
-    const resting = gelesen(loeschenPanel(true));
+    const resting = read(loeschenPanel(true));
 
     assert.match(resting, /die Person selbst/, "the confirmation does not say the person goes");
     assert.match(resting, /Kadereinträge/, "the confirmation does not say the squad rows go");
@@ -255,20 +233,16 @@ describe("the erasure's copy", () => {
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
      the same gesture as a name edit. */
   it("arms before it writes", async () => {
-    aufrufe.length = 0;
+    calls.length = 0;
     const user = userEvent.setup();
     renderErasure();
 
-    mock.timers.enable({ apis: ["Date"] });
-    try {
-      await user.click(screen.getByRole("button", { name: ERASE_LABEL }));
-      assert.deepEqual(erasures(), [], "the first press erases rather than arming");
+    await pressTwice(user, {
+      resting: ERASE_LABEL,
+      armed: `Ja, ${ERASE_LABEL}`,
+      whileArmed: () => void assert.deepEqual(erasures(), [], "the first press erases rather than arming"),
+    });
 
-      mock.timers.tick(DOUBLE_PRESS_MS);
-      await user.click(screen.getByRole("button", { name: `Ja, ${ERASE_LABEL}` }));
-    } finally {
-      mock.timers.reset();
-    }
     assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
   });
 });
@@ -317,20 +291,13 @@ describe("the erasure's gate and its exit", () => {
      return to it, and the list it lands on keeps the season the admin was working in. */
   it("leaves by replacing the page, never by pushing", async () => {
     const user = userEvent.setup();
-    const { router, replaced, pushed } = recordingRouter();
+    const { router, seen } = recordingRouter();
     renderErasure(router);
 
-    mock.timers.enable({ apis: ["Date"] });
-    try {
-      await user.click(screen.getByRole("button", { name: ERASE_LABEL }));
-      mock.timers.tick(DOUBLE_PRESS_MS);
-      await user.click(screen.getByRole("button", { name: `Ja, ${ERASE_LABEL}` }));
-    } finally {
-      mock.timers.reset();
-    }
+    await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
 
-    assert.deepEqual(replaced, [withSaisonId("/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
-    assert.deepEqual(pushed, [], "Back is left pointing at a page that now answers not-found");
+    assert.deepEqual(seen.replaced, [withSaisonId("/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
+    assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
   });
 
   /* Every season's rows: the erasure takes them all, so a figure narrowed to the selected season
@@ -467,7 +434,7 @@ describe("the reactivate's gate on the editor", () => {
   /* „jederzeit“ is what walked the admin onto the failing button: it promises across time, and a
      replacement removes the condition the promise rested on. */
   it("names the condition the pre-austragen copy rests on", () => {
-    const aktiv = gelesen(panel("open", null));
+    const aktiv = read(panel("open", null));
 
     assert.ok(!aktiv.includes("jederzeit"), "the unconditional promise is back above the austragen control");
     assert.match(aktiv, /solange sein Team in der Saison dabei ist/, "the copy states no condition at all");
@@ -512,7 +479,7 @@ const listRow = (person: Partial<AdminSpielerRow> = {}): AdminSpielerRow => ({
 /** The list holding one row, for the season whose junction rows are `saisonTeams`. */
 const listed = (row: AdminSpielerRow, saisonTeams: SpielerTeamOption[]): string =>
   renderTree(
-    underNext(
+    underSaison(
       h(AdminSpielerTable, {
         filteredSpieler: [row],
         emptiness: "none",
@@ -546,6 +513,42 @@ describe("the reactivate's gate on the list", () => {
     assert.equal(refusalNamed(both, ROW_RESTORE), LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, "the squad row's gate is not standing");
     assert.ok(both.includes(`aria-label="${PERSON_RESTORE}"`), "the list offers a retired person no restore");
     assert.equal(refusalNamed(both, PERSON_RESTORE), null, "the PERSON's reactivate picked up the squad row's gate");
+  });
+
+  /* Two controls, two endpoints, one row: `stilllegen` and `austragen` are different subjects, and a
+     control wired to the other one answers with a success toast while the state it named stays. */
+  it("sends each restore to its own endpoint", async () => {
+    const user = userEvent.setup();
+
+    for (const [control, action, payload] of [
+      [ROW_RESTORE, "reactivateSaisonSpielerAction", { spieler_id: SPIELER_ID, saison_id: SAISON_ID }],
+      [PERSON_RESTORE, "reactivateSpielerAction", { id: SPIELER_ID }],
+    ] as const) {
+      calls.length = 0;
+      const { unmount } = render(
+        underSaison(
+          h(AdminSpielerTable, {
+            filteredSpieler: [listRow({ inactive_since: RETIRED_ON })],
+            emptiness: "none" as const,
+            saisonTeams: [STORED_TEAM, OTHER_TEAM],
+            selectedSaisonId: SAISON_ID,
+            setDeletingSpieler: () => undefined,
+          }),
+        ),
+      );
+
+      // The first of the pair: the table and the phone cards both render the row, and one of the two
+      // is hidden at any width rather than absent from the tree.
+      const [press] = screen.getAllByRole("button", { name: control });
+      await user.click(press ?? assert.fail(`the list offers no „${control}“`));
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        [action],
+        `\u201e${control}\u201c reaches the wrong endpoint`,
+      );
+      assert.deepEqual(calls[0]?.payload, payload, `\u201e${control}\u201c sends the wrong key`);
+      unmount();
+    }
   });
 
   /* The editor's sentence points inside the editor. A reader on the list is a page away from the
@@ -661,7 +664,7 @@ describe("REQ-SQUAD-003 before the press", () => {
   it("drops a team the newly chosen season has no room in", async () => {
     const user = userEvent.setup();
     render(
-      underNext(
+      underSaison(
         h(AdminCreateSpielerForm, {
           saisonOptions: [
             { saisonId: "2026", isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] },
@@ -698,7 +701,7 @@ describe("the create dialog's squad pickers", () => {
   // Beside its own visible label a second name reads each field out twice, „Team Team“.
   it("are each named once, by their visible label", () => {
     render(
-      underNext(
+      underSaison(
         h(AdminCreateSpielerForm, {
           saisonOptions: [{ saisonId: SAISON_ID, isNachgetragen: false, teams: [STORED_TEAM], erlaubteStufen: ["Q1"] }],
           defaultSaisonId: SAISON_ID,
@@ -753,61 +756,11 @@ describe("the squad edit's refusals when the undo replays it", () => {
   }
 });
 
-/**
- * Each action's own source, comments blanked and ended at the NEXT declaration of any kind, so a
- * helper standing between two exports cannot answer for the one above it. Blanking can swallow a
- * real call; it cannot invent one.
- */
-const BARE_ACTIONS = ACTIONS.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " ")).replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-const DECLARATIONS = [...BARE_ACTIONS.matchAll(/^(export )?(?:async )?function (\w+)/gm)];
-const ACTION_BODIES = new Map<string, string>(
-  DECLARATIONS.flatMap((match, index): [string, string][] =>
-    match[1] === undefined ? [] : [[match[2] ?? "", BARE_ACTIONS.slice(match.index, DECLARATIONS[index + 1]?.index)]],
-  ),
-);
-
-/** The mutation callback's own top level: a call one block deeper runs on a branch rather than on every path out. */
-const TOP_LEVEL_REFRESH = /^ {4}refresh\(\);$/m;
-
-/** Every action this slice exports, all of them writes. A new one fails the sweep until it is placed. */
-const WRITE_ACTIONS = [
-  "postSpielerAction",
-  "patchSpielerAction",
-  "deleteSpielerAction",
-  "reactivateSpielerAction",
-  "eraseSpielerAction",
-  "postSaisonSpielerAction",
-  "patchSaisonSpielerAction",
-  "deleteSaisonSpielerAction",
-  "reactivateSaisonSpielerAction",
-];
-
-describe("the refresh a write owes the list the admin is looking at", () => {
-  it("places every action the slice exports, each in the callback the case below reads", () => {
-    assert.deepEqual([...ACTION_BODIES.keys()], WRITE_ACTIONS, "an action arrived or left without being placed as a write");
-    for (const name of WRITE_ACTIONS) {
-      assert.ok(
-        ACTION_BODIES.get(name)?.includes(`\n  return runAdminMutation("${name}", async () => {\n`),
-        `${name} opens some other callback, so the indentation the next case reads means nothing`,
-      );
-    }
-  });
-
-  /* The base tag beside it reaches the PUBLIC squad read alone: `/admin/spieler` reads through
-     `fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`, which is uncached. */
-  it("refreshes on every one of them, no tag reaching the read the admin page renders", () => {
-    for (const name of WRITE_ACTIONS) {
-      const body = ACTION_BODIES.get(name) ?? "";
-      const refreshAt = body.search(TOP_LEVEL_REFRESH);
-      assert.notEqual(refreshAt, -1, `${name} writes and leaves the admin's list standing`);
-      assert.ok(refreshAt < body.indexOf("success: true"), `${name}'s success return does not stand after a refresh`);
-    }
-  });
-
-  /* The create's rescue is the one admin path that fails with a row already added, so the case above
-     — which reads the callback's own top level — cannot reach the call that serves it. */
+describe("the refresh the create's rescue owes the admin", () => {
+  /* The one admin path that fails with a row already added, so `core/adminWriteRefresh.test.ts` —
+     which reads each callback's own top level — cannot reach the call that serves it. */
   it("refreshes on the create's partial write too, where the person exists and the squad row does not", () => {
-    const body = ACTION_BODIES.get("postSpielerAction") ?? "";
+    const body = actionBodies(ACTIONS).get("postSpielerAction") ?? "";
     const opensRescue = body.indexOf("} catch (error) {");
 
     assert.notEqual(opensRescue, -1, "the create no longer rescues the squad row's failure where this case reads");

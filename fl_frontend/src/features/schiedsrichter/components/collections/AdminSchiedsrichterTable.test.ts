@@ -8,6 +8,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { nextRouter } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichter } from "../../schemas.ts";
@@ -23,7 +24,6 @@ const LIVE: FLSchiedsrichter = {
   default_payment: 20,
   kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
   inactive_since: null,
-  anonymisiert_am: null,
 };
 
 /**
@@ -44,21 +44,11 @@ const NAMENLOS_MIT_KONTAKT: FLSchiedsrichter = { ...NAMENLOS, id: "6890a1b2c3d4e
 /** Named, with neither an e-mail nor a number: the joined text is not empty, and there is still nothing to reach. */
 const OHNE_KONTAKT: FLSchiedsrichter = { ...LIVE, id: "6890a1b2c3d4e5f607800004", kontakt: { telefon: null, email: null } };
 
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const table = (rows: FLSchiedsrichter[]): string =>
   renderTree(
     h(
       AppRouterContext.Provider,
-      { value: ROUTER },
+      { value: nextRouter() },
       h(
         SearchParamsContext.Provider,
         { value: new URLSearchParams("saison_id=2026") },
@@ -137,9 +127,9 @@ describe("what the name cell shows where the row holds no name", () => {
   /* This list serves no stamped row (`docs/backend/spec.md :: I227`), so the erasure's word in the
      cell would claim a deletion that never ran. */
   it("shows the word for a row left nameless rather than the erasure's", () => {
-    const zelle = textOf(table([NAMENLOS]), " ");
+    const cell = textOf(table([NAMENLOS]), " ");
 
-    assert.ok(zelle.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the nameless row renders no stand-in name: ${zelle}`);
-    assert.ok(!zelle.includes(SCHIEDSRICHTER_ANONYM_LABEL), `the name cell claims an erasure this list never serves: ${zelle}`);
+    assert.ok(cell.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the nameless row renders no stand-in name: ${cell}`);
+    assert.ok(!cell.includes(SCHIEDSRICHTER_ANONYM_LABEL), `the name cell claims an erasure this list never serves: ${cell}`);
   });
 });

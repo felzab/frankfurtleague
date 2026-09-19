@@ -127,7 +127,7 @@ export async function postTeamAction(
   // The DRAFT shape: an untouched picker submits `gruppe: null`, and the schema below is what turns
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
-): Promise<ActionResult<{ created_id?: string }>> {
+): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

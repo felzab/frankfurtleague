@@ -5,12 +5,12 @@ import { useSearchParams } from "next/navigation";
 
 import { Pencil } from "@gravity-ui/icons";
 
-import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
-import { IDENTITY_HEAD, IDENTITY_NAME, IDENTITY_ROW, IDENTITY_STACK } from "@/shared/components/ui/adminTable";
+import { IDENTITY_HEAD, IDENTITY_NAME, IDENTITY_ROW } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -37,8 +37,12 @@ const BESETZUNG_TINT: Record<Besetzung, PillTone> = {
   teilweise: "warning",
 };
 
-/** What a seat holding nobody says, in the register the rest of the admin uses for an absent value. */
-const KEIN_EINTRAG = "Niemand hinterlegt";
+/**
+ * What a seat holding nobody says. A PERSON is absent rather than a value, so it is not
+ * `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Keine Angabe“, which reads as a field
+ * somebody left blank.
+ */
+const EMPTY_SEAT = "Niemand hinterlegt";
 
 /**
  * **A card per club at every width, never a table.** Three seats of free text need more than the
@@ -60,12 +64,12 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   const selectedSaisonId = searchParams.get("saison_id");
 
   const handleCopyKontakte = async (row: AdminKontakteRow) => {
-    const zeilen = row.seats.flatMap((seat) =>
+    const lines = row.seats.flatMap((seat) =>
       seat.person === null
         ? []
         : [`${seat.label}: ${seat.person.vorname} ${seat.person.nachname} | ${seat.person.email} | ${seat.person.telefon}`],
     );
-    const copied = await copyTextToClipboard([row.teamName, ...zeilen].join("\n"));
+    const copied = await copyTextToClipboard([row.teamName, ...lines].join("\n"));
 
     if (copied) appToast.success("Kontaktdaten kopiert");
     else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
@@ -81,7 +85,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       </div>
 
       {seat.person === null ? (
-        <span className="fluid-sm text-foreground-muted">{KEIN_EINTRAG}</span>
+        <span className="fluid-sm text-foreground-muted">{EMPTY_SEAT}</span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="fluid-sm text-foreground truncate font-semibold">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
@@ -101,17 +105,20 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   const renderIdentity = (row: AdminKontakteRow) => (
     <div className={IDENTITY_ROW}>
       <span className={SHORTHAND_CHIP}>{row.teamShorthand}</span>
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
-          <span className={IDENTITY_NAME}>{row.teamName}</span>
-          {renderBesetzung(row)}
-        </div>
+      {/* No `IDENTITY_STACK` around it: one child stacks against nothing, and the head carries the
+          `min-w-0` the club name needs beside the chip. */}
+      <div className={IDENTITY_HEAD}>
+        <span className={IDENTITY_NAME}>{row.teamName}</span>
+        {renderBesetzung(row)}
       </div>
     </div>
   );
 
   const renderActions = (row: AdminKontakteRow) => (
     <RowActions>
+      {/* Offered on every row, never conditionally: `fl_frontend/src/features/teams/utils.ts ::
+          buildKontaktRows` gives a club `holdsNobody` answers for no row at all, so a row here always
+          holds somebody to copy. */}
       <RowActionCopy
         label="Kontaktdaten kopieren"
         ariaLabel={`Kontaktdaten von ${row.teamName} kopieren`}
@@ -136,7 +143,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   return (
     /* Named here because no heading stands over it, where every section of
        `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` carries an
-       `h2`. „Liste“ and not the „Tabelle“ its six sibling collections say: these are cards. */
+       `h2`. „Liste“ and not „Tabelle“, which the collections rendering a table say: these are cards. */
     <ul
       aria-label="Liste aller Kontakte je Team"
       className="flex w-full flex-col gap-3">

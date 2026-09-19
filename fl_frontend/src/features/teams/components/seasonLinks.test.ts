@@ -5,15 +5,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries the router context, and every `Link` and the way back read it. A Next release that
-   moves the module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+
 import type { FLGruppenTeam, FLTeam } from "@/features/teams/schemas.ts";
-import type { ContextType, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { TeamsGrid } = await import("./collections/TeamsGrid.tsx");
@@ -24,19 +23,9 @@ const { TeamSpielerView } = await import("@/features/spieler/components/views/Te
 const { SpielTeamSlot } = await import("@/features/spiele/components/ui/SpielTeamSlot.tsx");
 
 /** Where a press sends the reader, recorded. */
-const pushed: string[] = [];
+const { router, seen } = recordingRouter();
 
-const ROUTER: NonNullable<ContextType<typeof AppRouterContext>> = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: (href: string) => void pushed.push(href),
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "seasonLinks",
-};
-
-const renderUnderRouter = (tree: ReactNode) => render(h(AppRouterContext.Provider, { value: ROUTER, children: tree }));
+const renderUnderRouter = (tree: ReactNode) => render(underNext(tree, { router }));
 
 const VERGANGEN = "2025";
 const TEAM_ID = "6780e194677bfbfb5ea8396c";
@@ -86,8 +75,8 @@ async function popoverHrefs(trigger: HTMLElement): Promise<(string | null)[]> {
 }
 
 describe("the club grids' links into a club", () => {
-  /* The defect: a list read for a past season linked the bare club page, which joins the running
-     season strictly and answers „nicht gefunden“ for a club that played only the past one. */
+  /* The bare club page joins the RUNNING season strictly, so it answers „nicht gefunden“ for a club
+     that played only a past one: a list read for a past season has to carry that season in its links. */
   it("carry the season the list was read for", () => {
     for (const urlPrefix of ["/dashboard/teams", "/dashboard/spieler"]) {
       const { unmount } = renderUnderRouter(h(TeamsGrid, { teams: [TEAM], urlPrefix, saisonId: VERGANGEN, isFinishedSaison: true }));
@@ -156,9 +145,9 @@ describe("the club popover's two links", () => {
 });
 
 describe("the Saisontabelle's copy", () => {
-  const tabelle = (gruppen: Record<string, FLGruppenTeam[]>, isFinishedSaison: boolean): string => {
+  const tabelle = (gruppenTeams: Record<string, FLGruppenTeam[]>, isFinishedSaison: boolean): string => {
     const { container, unmount } = renderUnderRouter(
-      h(SaisontabelleView, { gruppenData: gruppen, qualifiersPerGroup: 1, saisonId: VERGANGEN, isFinishedSaison }),
+      h(SaisontabelleView, { gruppenData: gruppenTeams, qualifiersPerGroup: 1, saisonId: VERGANGEN, isFinishedSaison }),
     );
     const text = container.textContent;
     unmount();
@@ -168,17 +157,17 @@ describe("the Saisontabelle's copy", () => {
   /* A finished season's group phase is over, so its mark states where a club ended rather than where it
      currently stands, and its empty group and table promise nothing still to come. */
   it("words a finished season's marked place, empty group and empty table as over", () => {
-    const beendet = tabelle({ A: [GRUPPEN_TEAM] }, true);
+    const overText = tabelle({ A: [GRUPPEN_TEAM] }, true);
 
-    assert.ok(beendet.includes("Hervorgehoben ist das Team, das die Gruppenphase auf einem KO-Runden-Platz beendet hat."), beendet);
-    assert.doesNotMatch(beendet, /aktuell/);
-    const leer: [Record<string, FLGruppenTeam[]>, string][] = [
+    assert.ok(overText.includes("Hervorgehoben ist das Team, das die Gruppenphase auf einem KO-Runden-Platz beendet hat."), overText);
+    assert.doesNotMatch(overText, /aktuell/);
+    const emptyCases: [Record<string, FLGruppenTeam[]>, string][] = [
       [{ A: [] }, "Für diese Gruppe gibt es keine Teams."],
       [{}, "Für diese Saison gibt es keine Tabelle."],
     ];
-    for (const [gruppen, satz] of leer) {
-      const text = tabelle(gruppen, true);
-      assert.ok(text.includes(satz), text);
+    for (const [gruppenTeams, sentence] of emptyCases) {
+      const text = tabelle(gruppenTeams, true);
+      assert.ok(text.includes(sentence), text);
       assert.doesNotMatch(text, /\bnoch\b|Sobald/);
     }
   });
@@ -191,29 +180,29 @@ describe("the Saisontabelle's copy", () => {
 });
 
 describe("the club grids' empty state", () => {
-  const leer = (isFinishedSaison: boolean): string =>
+  const emptyCases = (isFinishedSaison: boolean): string =>
     renderUnderRouter(h(TeamsGrid, { teams: [], urlPrefix: "/dashboard/teams", saisonId: VERGANGEN, isFinishedSaison })).container.textContent;
 
   it("says a finished season holds no clubs, and promises none", () => {
-    const text = leer(true);
+    const text = emptyCases(true);
 
     assert.ok(text.includes("Für diese Saison gibt es keine Teams."), text);
     assert.doesNotMatch(text, /\bnoch\b|Sobald/);
   });
 
   it("promises the running season's clubs are still to come", () => {
-    assert.ok(leer(false).includes("Für diese Saison sind noch keine Teams eingetragen."));
+    assert.ok(emptyCases(false).includes("Für diese Saison gibt es noch keine Teams."));
   });
 });
 
 describe("the club page's and the squad page's way back", () => {
   /** Where Zurück sends a cold entry, which has no history to go back through. */
   async function fallback(tree: ReactNode): Promise<string | undefined> {
-    pushed.length = 0;
+    seen.pushed.length = 0;
     const { unmount } = renderUnderRouter(tree);
     await userEvent.setup().click(screen.getByRole("button", { name: "Zurück" }));
     unmount();
-    return pushed[0];
+    return seen.pushed[0];
   }
 
   it("lands a cold entry on the list of the season the page shows", async () => {
@@ -231,7 +220,7 @@ describe("the club page's and the squad page's way back", () => {
 
 describe("the squad page's empty table", () => {
   it("says a finished season's club holds no squad, and keeps the running season's promise", () => {
-    const leer = (isFinishedSaison: boolean): string => {
+    const emptyCases = (isFinishedSaison: boolean): string => {
       const { container, unmount } = renderUnderRouter(
         h(TeamSpielerView, { teamName: TEAM.name, teamSpieler: [], saisonId: VERGANGEN, isFinishedSaison }),
       );
@@ -240,7 +229,7 @@ describe("the squad page's empty table", () => {
       return text;
     };
 
-    assert.ok(leer(true).includes("Für dieses Team gibt es keinen Kader."));
-    assert.ok(leer(false).includes("Für dieses Team ist noch kein Kader eingetragen."));
+    assert.ok(emptyCases(true).includes("Für dieses Team gibt es keinen Kader."));
+    assert.ok(emptyCases(false).includes("Für dieses Team ist noch kein Kader eingetragen."));
   });
 });
