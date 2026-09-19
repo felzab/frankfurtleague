@@ -1030,10 +1030,13 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
         fixture and the ghost it names.
         """
 
+        # Parked at its first read of `spiele`, before any write: parked at its referee read it has
+        # already written the reopened fixture, and the erasure waits on that row until the
+        # transaction's lifetime runs out.
         under_test, hooked, rival = (
             (ERASE_THE_REFEREE.write, ERASE_THE_REFEREE.judged, reopening.write)
             if erasure_first
-            else (reopening.write, Collection.SCHIEDSRICHTER, ERASE_THE_REFEREE.write)
+            else (reopening.write, Collection.SPIELE, ERASE_THE_REFEREE.write)
         )
 
         raced = interleaved(

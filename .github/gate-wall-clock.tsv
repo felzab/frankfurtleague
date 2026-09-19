@@ -193,6 +193,26 @@
 # floor the `scripts` row carries, so neither the reference nor the budget moves and neither takes a
 # new stamp.
 #
+# `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and its budget
+# rose to 370 s by the rule above over the one successful pull-request run of this branch's job,
+# 294 s first step to last on 2026-09-19; the two failed runs beside it, 197 s and 271 s, are
+# dropped as `scripts/checks/check_gate_budget.py` drops them. The reference keeps its 24-run
+# figure, which the stamp cannot say: the branch has no main run, a median over one run is no
+# median, and the row is re-cut once a window of main runs holds it. The unit tests are the whole
+# move, 171 s on the runner against 35 s in the last stamped window, and the cost is each file's own
+# process loading jsdom (1.05 s) and the HeroUI entry point (1.31 s) before a case runs, measured
+# locally on 2026-09-19 on the sixteen-core machine: a file rendering nothing starts in 0.2 s and
+# one rendering a rail in 2.9 s. Two levers were measured on that file over four interleaved rounds
+# and rejected: Node's compile cache read slower than it saved, 3.8 s against 2.9 s, and
+# `--enable-source-maps` costs 0.25 s a file, a stack trace's worth.
+#
+# `backend-db` gained the interleaved race cases and moved no figure. Two of them had parked a
+# reopening at its first read of the referee, past its own write of the reopened fixture, so the
+# erasure landing inside it waited out the transaction's sixty-second lifetime: 90 s and 73 s of a
+# 185 s local run, and the runner's 208 s over this row's budget was the same wait. Parked at the
+# reopening's first read of `spiele` the two take 0.08 s each, and the tier runs its 1113 cases in
+# 21 s locally at width 6 on 2026-09-19, its slowest case 1.04 s.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.
@@ -203,7 +223,7 @@ backend-db	49	40	125	24@2026-09-07
 commits	-	-	25	24@2026-09-07
 docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31
-frontend	122	10	180	24@2026-09-07
+frontend	122	10	370	1@2026-09-19
 images	101	29	-	24@2026-09-07
 ops	17	29	45	13@2026-09-07
 scripts	52	16	80	24@2026-09-07
