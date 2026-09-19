@@ -1,46 +1,17 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
-import { createElement as h } from "react";
+import { renderMarkup } from "@/shared/testing/renderTest.ts";
 
-import { renderToStaticMarkup } from "react-dom/server";
-import ts from "typescript";
-
-import type { ComponentType } from "react";
+import type { ComponentProps } from "react";
 import type { BewerbungenUnvollstaendig } from "./BewerbungenUnvollstaendigNotice.tsx";
 
-/**
- * `node --test` strips types but compiles no JSX, and resolves neither `next/link`'s subpath nor the
- * extensionless imports its dependencies ship. Local, so no other test pays for a transpile.
- */
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/link") return nextResolve("next/link.js", context);
-    try {
-      return nextResolve(specifier, context);
-    } catch (error) {
-      // A published ESM package importing `./x` with no extension, which Node alone will not resolve.
-      if (!specifier.startsWith(".") || specifier.includes(".js")) throw error;
-      return nextResolve(`${specifier}.js`, context);
-    }
-  },
-  load(url, context, nextLoad) {
-    if (!url.endsWith(".tsx")) return nextLoad(url, context);
-    const source = ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
-      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
-    }).outputText;
-
-    return { format: "module", shortCircuit: true, source: source };
-  },
-});
-
+/* Reached with `await import` and never a static import beside the harness, which registers the JSX
+   compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { BewerbungenUnvollstaendigNotice } = await import("./BewerbungenUnvollstaendigNotice.tsx");
 const { Callout } = await import("@/shared/components/ui/Callout.tsx");
 
-const markup = (props: BewerbungenUnvollstaendig): string => renderToStaticMarkup(h(BewerbungenUnvollstaendigNotice, props));
+const markup = (props: BewerbungenUnvollstaendig): string => renderMarkup(BewerbungenUnvollstaendigNotice, props);
 
 const NEUESTE: BewerbungenUnvollstaendig = { richtung: "desc", umkehrHref: "?q=schule&order=asc" };
 const AELTESTE: BewerbungenUnvollstaendig = { richtung: "asc", umkehrHref: "?q=schule&order=desc" };
@@ -61,8 +32,7 @@ describe("the notice a truncated queue carries", () => {
   /* Against `Callout`'s own two severities rather than a class string: a literal would keep passing
      if the recipe were retokenised, and would say nothing about which severity was picked. */
   it("renders at warning, not at danger or info", () => {
-    const severity = (name: "warning" | "danger" | "info") =>
-      rootClass(renderToStaticMarkup(h(Callout as ComponentType<never>, { severity: name, title: "t" } as never)));
+    const severity = (name: ComponentProps<typeof Callout>["severity"]) => rootClass(renderMarkup(Callout, { severity: name, title: "t" }));
 
     assert.equal(rootClass(markup(NEUESTE)), severity("warning"));
     assert.notEqual(severity("warning"), severity("danger"), "the two severities are indistinguishable, so this proves nothing");

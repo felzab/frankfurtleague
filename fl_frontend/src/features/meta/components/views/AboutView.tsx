@@ -78,7 +78,7 @@ export function AboutView() {
                   <Accordion.Trigger className="fluid-base text-foreground data-hovered:bg-hover flex w-full items-center justify-between gap-x-4 px-5 py-4 font-bold transition-colors ring-inset sm:px-6">
                     <span>{item.q}</span>
 
-                    <Accordion.Indicator className="text-brand shrink-0">
+                    <Accordion.Indicator className="text-foreground-muted shrink-0">
                       <ChevronsDownWide
                         aria-hidden="true"
                         className="size-5"
@@ -104,10 +104,11 @@ export function AboutView() {
         aside={
           <Suspense
             fallback={
-              <SaisonChip>
-                {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
-                <span className="invisible">Saison 0000</span>
-              </SaisonChip>
+              /* The landing chip's exact box, held invisible whole: the dot claims a running season, and
+                 nothing has been read here yet. */
+              <div className="invisible">
+                <SaisonChip isLaufend>Saison 0000</SaisonChip>
+              </div>
             }>
             <AktuelleSaison />
           </Suspense>
@@ -127,7 +128,8 @@ async function AktuelleSaison() {
   const current = await getCurrentSaisonOrNull();
   if (current === null) return null;
 
-  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
+  // `/saisons/current` answers the active season alone, so this chip always names a running one.
+  return <SaisonChip isLaufend>Saison {current.saison.id}</SaisonChip>;
 }
 
 function TeamChipSkeleton() {
@@ -167,7 +169,9 @@ async function ParticipatingTeamsDisplay() {
           key={teamData.id}
           teamName={teamData.name}
           teamId={teamData.id}
-          teamAustritt={teamData.austritt?.type ?? null}>
+          teamAustritt={teamData.austritt?.type ?? null}
+          // The chips list the running season and name none of their own.
+          saisonId={undefined}>
           <Chip
             size="md"
             className={teamData.austritt !== null ? CHIP_AUSGETRETEN : CHIP_AKTIV}>

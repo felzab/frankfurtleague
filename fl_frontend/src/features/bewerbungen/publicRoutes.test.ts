@@ -1,24 +1,53 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
+
+import { render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
+import { NAME_WRAP } from "@/shared/components/ui/nameWrap.ts";
+import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
-import { BEWERBUNG_MIN_ALTER, BEWERBUNG_SEATS } from "./constants.ts";
+import { BEWERBUNG_MIN_ALTER } from "./constants.ts";
 
-import type { FLBewerbungFensterResponse } from "./schemas.ts";
+import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
+/** The confirmation's write, answered by the case that sends one; unset, a request never returns. */
+const fetchMock = mock.fn<() => Promise<Response>>(() => new Promise<never>(() => undefined));
+
+// The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
+// the one reader that decides which answers are this application's.
+globalThis.fetch = (() => fetchMock()) as typeof fetch;
+
+const appToast = { success: mock.fn(), warning: mock.fn(), danger: mock.fn(), info: mock.fn() };
+Reflect.set(globalThis, "__flPublic", { appToast });
+
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    // The toasts, handed to the mocks above: the real module raises into HeroUI's queue rather than back to the case.
+    if (url.endsWith("/src/shared/utils/appToast.ts"))
+      return { format: "module", source: "export const { appToast } = globalThis.__flPublic;", shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
 /*
- Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
- compile step is registered; a static import beside it resolves first and dies on the extension.
+ Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
+ registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
 const { ComboBox, Input, Label } = await import("@heroui/react");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
@@ -40,8 +69,10 @@ const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 const { fensterZustand, stampEinwilligungFassung } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
-const { ABLEHNEN_LABEL, BESTAETIGUNG_FELDER, BestaetigungAngaben, BestaetigungEntscheidung, BestaetigungFormPanel, WIDERSPRUCH_SENDEN } =
-  await import("./components/views/BestaetigungFormPanel.tsx");
+const { BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
+
+/** The words a reader presses to object, which the stamped version names in a paragraph of its own. */
+const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
 const { FaktenBanner, GespeicherteAngaben } = await import("./components/views/BestaetigungPanels.tsx");
@@ -67,14 +98,6 @@ const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "ro
 const ZUSTELLUNG_ROUTE = readFileSync(path.join(APP_DIR, "api", "mail", "zustellung", "route.ts"), "utf8");
 const SWEEP = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "sweep.ts"), "utf8");
 const ACTIONS = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "actions.ts"), "utf8");
-const CONFIRM_PANEL = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx"), "utf8");
-const PUBLIC_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "publicRoute.ts"), "utf8");
-const UNDO_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "undoRoute.ts"), "utf8");
-const FORM = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx"), "utf8");
-const TEAM_SECTION = readFileSync(
-  path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "FormTeamSection.tsx"),
-  "utf8",
-);
 
 /** The `saison` slot, cut out so an assertion reads it and nothing near it. */
 const SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
@@ -157,6 +180,23 @@ function isRouteAnswered(href: string): boolean {
   ];
 
   return candidates.some((candidate) => existsSync(candidate)) || NEXT_CONFIG.includes(`source: "${href}"`);
+}
+
+/** The confirmation form a contact's link opens, rendered so a press can arm the objection. */
+function renderBestaetigung() {
+  const user = userEvent.setup();
+  const view = render(
+    h(BestaetigungFormPanel, {
+      token: "kein-echtes-token",
+      vorname: "Mira",
+      schule: "Lessing-Kolleg",
+      saison: "2026",
+      rolle: "Ansprechperson",
+      onAbschluss: () => undefined,
+    }),
+  );
+
+  return { user, ...view };
 }
 
 describe("the window state the application page renders", () => {
@@ -296,30 +336,6 @@ describe("how the application page invites a post about the application", () => 
     // The receipt swaps itself in for the form alone, so a second strip the PAGE held would stand
     // beside the one under the receipt and the reader would meet the same invitation twice at once.
     assert.equal((LAEUFT.match(/instagram_logo_black/g) ?? []).length, 1, "the running page draws the invitation other than once");
-  });
-
-  /* Read rather than rendered: the receipt replaces the form only after a submit has answered, which
-     is a state transition and no prop this suite can set. */
-  it("repeats the same strip under the receipt, outside the live region", () => {
-    // Comments blanked, so the panel's own prose about the live region is not read as the attribute.
-    const quelle = FORM.replace(/\/\*[\s\S]*?\*\//g, "");
-    const abLebend = quelle.slice(quelle.indexOf('role="status"'));
-    const lebendEnde = abLebend.indexOf("</section>");
-    assert.notEqual(lebendEnde, -1, "the receipt closes no section, so the bounds below read nothing");
-
-    // Cut at the `return` the filling state opens. Run to the end of the file instead and a slot
-    // deleted here is answered by the one above the `<Form>`, which follows this `</section>` too.
-    const branchEnde = abLebend.indexOf("return (", lebendEnde);
-    assert.notEqual(branchEnde, -1, "the filling state opens no return, so the branch below has no end");
-
-    const empfang = abLebend.slice(0, branchEnde);
-    const wiederholung = empfang.indexOf("{hinweisSlot}");
-
-    assert.equal((empfang.match(/\{hinweisSlot\}/g) ?? []).length, 1, "the receipt branch holds a number of invitations other than one");
-    assert.ok(wiederholung > lebendEnde, "the live region reads the invitation out along with the receipt");
-    // The same component at both sites, so one wording lives in one file; handed over as a node
-    // because the form is a client module and the band's recipe shares one with a server query.
-    assert.match(VIEW, /hinweisSlot=\{<BewerbungInstagramBand \/>\}/, "the form is handed something other than the page's own strip");
   });
 });
 
@@ -631,59 +647,9 @@ describe("who the submission's receipt is addressed to", () => {
 
     assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
   });
-
-  /* The panel and the messages state the same fan-out: told one seat was written to, the submitter
-     chases nobody, and the two unopened links delete the application on the deadline. Every seat's
-     label is read off `BEWERBUNG_SEATS`. */
-  /* Read rather than rendered: the receipt replaces the form only after a submit has answered, which
-     is a state transition and not a prop. */
-  it("names the link every contact person holds, and singles out no seat", () => {
-    const [, panel = ""] = FORM.split("Deine Bewerbung ist eingegangen");
-    // The rendered copy alone: the comment above the paragraph discusses the wording this reads.
-    const roh = panel.slice(panel.indexOf('<p className="muted-hint'));
-    // Joined the way JSX joins a wrapped text node, so a sentence broken over two source lines is
-    // read as the one sentence a reader meets.
-    const absatz = roh
-      .slice(roh.indexOf(">") + 1, roh.indexOf("</p>"))
-      .replace(/\s+/g, " ")
-      .trim();
-    const satz = absatz.split(".").find((teil) => teil.includes("Link")) ?? "";
-
-    assert.ok(satz !== "", "the panel names no confirmation link at all");
-    assert.match(satz, /[Jj]ede Kontaktperson/, "the link sentence no longer says every contact person was written to");
-    assert.match(satz, /eigenen Link/, "the link sentence no longer says the link is that person's own");
-
-    for (const { label } of BEWERBUNG_SEATS) {
-      assert.ok(!absatz.includes(label), `the panel singles out ${label} where every seat holds a link`);
-    }
-
-    // „eingegangen“ is not „vollständig“: an applicant told otherwise stops chasing the two people
-    // the application is still waiting for.
-    assert.match(absatz, /[Vv]ollständig[^.]*sobald alle drei bestätigt haben/, "the panel never says what makes the application complete");
-    assert.doesNotMatch(absatz, /nichts weiter tun/, "the panel calls the workflow finished while three links are open");
-
-    // The clock the sweep deletes on, read off the constant: a number typed here outlives a changed
-    // bound, and no digit belongs in the copy for any other purpose.
-    assert.ok(absatz.includes("{String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)}"), "the panel states a deadline it did not read off the bound");
-    assert.doesNotMatch(absatz, /\d/, "the panel types a number where the constant states the clock");
-
-    // The decision DOES reach all three, and the panel has to say so or the applicant waits on nothing.
-    assert.match(absatz, /alle[nr]? drei Kontaktpersonen/, "the panel never says the decision reaches all three");
-  });
 });
 
-/*
- Both spines are read rather than rendered: what is asserted is a route handler's control flow, and
- a handler answers a request rather than rendering anything at all.
-*/
 describe("what stands in for a session on the session-less routes", () => {
-  /** Both spines, because the guard is identical and one of the two being pinned is how this got here.
-      Every site carrying that guard is `fl_frontend/src/core/requestSpines.test.ts`'s population. */
-  const SPINES = [
-    ["the public spine", PUBLIC_ROUTE],
-    ["the undo spine", UNDO_ROUTE],
-  ] as const;
-
   /** Every name Next reads as a route handler, so a method nobody anticipated is caught by the set rather than by a list. */
   const HTTP_METHODS: readonly string[] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 
@@ -713,78 +679,6 @@ describe("what stands in for a session on the session-less routes", () => {
         `${wer} answers a second method, which a mail scanner reaches with a fetch nobody made`,
       );
     }
-  });
-
-  /* The guard compared WHOLE, not searched: every weakening leaves the words a search looks for
-     standing. A deleted `return` is invisible to `tsc` and to ESLint at --max-warnings 0, a bare
-     call being a side effect. */
-  it("returns the refusal from the guard, on exactly the condition it declares", () => {
-    for (const [name, source] of SPINES) {
-      const kopf = 'const secFetchSite = request.headers.get("sec-fetch-site");';
-      const ab = source.slice(source.indexOf(kopf) + kopf.length);
-      const bedingung = ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {"));
-      // Cut at the statement's own semicolon: the first `}` after the brace belongs to the object
-      // literal inside the call, not to the block.
-      const rumpf = ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1);
-
-      assert.ok(source.includes(kopf), `${name} no longer reads Sec-Fetch-Site`);
-      // `null` passes deliberately: a browser too old to send it is still a reader of this page.
-      assert.equal(bedingung, 'secFetchSite !== null && secFetchSite !== "same-origin"', `${name}'s condition was widened or made conditional`);
-      // RETURNED, not merely constructed: dropped, the response is discarded and the write runs on.
-      assert.equal(
-        rumpf.trim(),
-        "return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });",
-        `${name} builds a refusal it does not return, or answers with something else`,
-      );
-    }
-  });
-
-  /* 200 with the outcome in the body, as each spine's own closing comment requires: every caller
-     throws on a non-2xx and reports the throw as a connection fault, so a status here sends a
-     reader to check a network that is fine. */
-  it("answers the refusal in German the caller actually renders", () => {
-    for (const [name, source] of SPINES) {
-      assert.doesNotMatch(source, /status: 403/, `${name} answers a status no caller reads past`);
-      assert.doesNotMatch(source, /"Access Denied"/, `${name} still carries the English nothing renders`);
-      assert.match(source, /const FREMDE_HERKUNFT =/, `${name} names no sentence for a cross-site caller`);
-      assert.match(source, /kam nicht von dieser Seite/, `${name} no longer says where the request came from`);
-      assert.doesNotMatch(source, /Verbindung/, `${name} sends a cross-site caller to check their connection`);
-    }
-
-    // The admin's own half: the undo did not happen and the change stands.
-    assert.match(UNDO_ROUTE, /Die Änderung steht weiterhin\./, "the undo refusal stopped saying the change still stands");
-  });
-
-  /* Ordering read off the source, not off two `indexOf` positions a moved guard leaves unchanged:
-     what makes this a guard is that nothing runs behind it. */
-  it("seats the guard ahead of every statement that does work", () => {
-    for (const [name, source] of SPINES) {
-      const rumpf = source.slice(source.indexOf("): Promise<NextResponse> {"));
-      const vorWache = rumpf.slice(0, rumpf.indexOf("const secFetchSite"));
-
-      assert.doesNotMatch(vorWache, /\bawait\b|\brun\(\)|runWithIncomingTrace/, `${name} works before the guard decides`);
-    }
-  });
-
-  /* The undo spine's own authorization. The backend still refuses without it — `getAdminSession` sets
-     the actor `apiClient` sends — but that is a DIFFERENT service, and `proxy.ts` matches
-     `/admin/:path*`, never `/api/admin/*`. */
-  it("checks the session before the undo restores anything", () => {
-    const wache = "if (!(await getAdminSession())) {";
-
-    assert.ok(UNDO_ROUTE.includes(wache), "the undo spine restores without checking who is asking");
-    /* FIRST in the callback, not merely before the restore: anything above it is work done for a
-       caller nobody has authorized, and „before the restore“ is satisfied by a check that has already
-       parsed their body. */
-    const auftakt = "const result = await runAdminMutation(route.mutationName, async () => {";
-    const danach = UNDO_ROUTE.slice(UNDO_ROUTE.indexOf(auftakt) + auftakt.length).trimStart();
-
-    assert.ok(danach.startsWith(wache), "something runs for an unauthorized caller before the session is checked");
-    assert.match(
-      UNDO_ROUTE.slice(UNDO_ROUTE.indexOf(wache)),
-      /^if \(!\(await getAdminSession\(\)\)\) \{\s*return \{ success: false as const, error: ADMIN_FORBIDDEN \};/,
-      "the session check falls through instead of refusing",
-    );
   });
 
   /* `runAdminMutation`'s name says a session was checked. A public route reaching for it would read
@@ -911,26 +805,53 @@ describe("how the form asks for a wished opponent", () => {
   });
 
   /* A TYPED field is judged when it is LEFT: moved onto the change handler, the form would grade a
-     name between two keystrokes. A handler binding reaches no markup, so this is read. */
-  it("judges it on blur rather than between keystrokes", () => {
-    const gegner = /<ComboBox([\s\S]*?)<Label/.exec(TEAM_SECTION)?.[1] ?? "";
+     name between two keystrokes. */
+  it("judges it on blur rather than between keystrokes", async () => {
+    const user = userEvent.setup();
+    const onFieldLeft = mock.fn();
+    const { container } = render(
+      h(FormTeamSection, {
+        trikot: { vorhandener_satz: "", wunschfarbe: null },
+        kader: { voraussichtliche_groesse: null, gute_spieler: null },
+        wunschgegner: "",
+        schulen: SCHULEN,
+        vergebeneFarben: [],
+        onTrikotChange: () => undefined,
+        onKaderChange: () => undefined,
+        onWunschgegnerChange: () => undefined,
+        onFieldLeft: onFieldLeft,
+        onFarbePicked: () => undefined,
+      }),
+    );
 
-    assert.notEqual(gegner, "", "the wish control moved, so the two assertions below read nothing");
-    assert.match(gegner, /onBlur=\{\(\) => onFieldLeft\(\["wunschgegner"\]\)\}/, "the wish is no longer judged when the field is left");
-    assert.doesNotMatch(gegner, /onInputChange=\{[^}]*onFieldLeft/, "the wish is judged between two keystrokes");
+    await user.type(container.querySelector('input[name="wunschgegner"]') ?? assert.fail("the section renders no wish box"), "Goethe");
+    assert.equal(onFieldLeft.mock.callCount(), 0, "the wish is judged between two keystrokes");
+
+    await user.tab();
+    assert.deepEqual(
+      onFieldLeft.mock.calls.map(({ arguments: [pfade] }) => pfade),
+      [["wunschgegner"]],
+      "the wish is no longer judged when the field is left",
+    );
   });
 
   /* The league's whole roster and never a season-scoped set: one growing with each acceptance would
-     hand a late applicant the longer list. A closed popover renders no item, so the wiring is read. */
-  it("suggests the league's clubs, the same list the school picker reads", () => {
-    assert.match(
-      FORM,
-      /<FormTeamSection[\s\S]*?schulen=\{schulen\}/,
+     hand a late applicant the longer list. Opened on the running page, so the list the page read is
+     the one that has to arrive. */
+  it("suggests the league's clubs, the same list the school picker reads", async () => {
+    const user = userEvent.setup();
+    render(h(BewerbungView, { ...ANSICHT, fenster: FENSTER }));
+
+    // By a fragment: react-aria names this trigger by its own label and the field's together.
+    await user.click(screen.getByRole("button", { name: /Vorschläge anzeigen/ }));
+
+    assert.deepEqual(
+      within(screen.getByRole("listbox"))
+        .getAllByRole("option")
+        .map((option) => option.textContent.trim()),
+      SCHULEN.map(({ name }) => name),
       "the suggestions no longer come from the club list the page already read",
     );
-    assert.match(TEAM_SECTION, /\{schulen\.map\(/, "the team section offers no suggestions at all");
-    // The list does reach the page: the school picker renders its rows, and both read one prop.
-    for (const { name } of SCHULEN) assert.ok(LAEUFT.includes(name), `the page offers no row for ${name}`);
   });
 });
 
@@ -1011,8 +932,8 @@ describe("which of the confirmation page's words its stamped version covers", ()
   const absaetzeVon = (html: string): string[] =>
     [...html.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => textOf(treffer[2] ?? "").trim());
 
-  /* The four components carrying the standing text, the armed decline's own paragraph among them:
-     rendered from the form panel it appears only after a press, which no static render reaches. */
+  /* The four components carrying the standing text, the armed decline's own paragraph among them, and
+     nothing else: the panel around them words its own prose, which the version never covers. */
   const HINWEISE = [
     renderMarkup(BestaetigungHinweise, { schule: SLOTS.schule, saison: SLOTS.saison, rolle: SLOTS.rolle, ablehnenLabel: ABLEHNEN_LABEL }),
     renderMarkup(WhatsappHinweis, {}),
@@ -1071,23 +992,26 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  /* A stamped sentence copied into the panel's own prose leaves two wordings of one paragraph free
-     to drift apart, and a paragraph rendered nowhere leaves the record citing more than its reader
-     read. */
-  it("puts each stamped paragraph on the page exactly once", () => {
+  /* A stamped sentence copied into the panel's own prose leaves two wordings of one paragraph free to
+     drift apart. Armed, the one state holding every paragraph: the objection's consequence opens under
+     the armed press and nowhere else. */
+  it("puts each stamped paragraph on the page exactly once", async () => {
+    const { user, container } = renderBestaetigung();
+    await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
+
     const version = new Map((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map((schluessel) => [gestempelt(schluessel), schluessel]));
     const gezaehlt = new Map<Absatz, number>();
 
-    for (const absatz of absaetzeVon(FORMULAR)) {
+    for (const absatz of absaetzeVon(container.innerHTML)) {
       const schluessel = version.get(absatz);
       if (schluessel !== undefined) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
     }
 
-    // Every key but the armed decline's, which no static render reaches: the press that reveals it
-    // is what this render does not make.
-    const erwartet = (Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).filter((schluessel) => schluessel !== "ablehnenFolge");
-
-    assert.deepEqual([...gezaehlt.keys()].sort(), [...erwartet].sort(), "the form renders a stamped paragraph twice over, or drops one");
+    assert.deepEqual(
+      [...gezaehlt.keys()].sort(),
+      (Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).sort(),
+      "the armed form renders a stamped paragraph twice over, or drops one",
+    );
     for (const [schluessel, anzahl] of gezaehlt) assert.equal(anzahl, 1, `${schluessel} stands on the page ${String(anzahl)} times`);
   });
 });
@@ -1099,6 +1023,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     saison_id: "2026",
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
+    zugleich_rolle: null,
     vorname: "Mira",
     text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
   } as const;
@@ -1203,8 +1128,11 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
 
   /* One word for what a contact does to their own entry, the league's own „Absage“ being the other
      decision entirely. The stamped paragraphs keep their wording and are read past here. */
-  it("calls a contact's refusal a Widerspruch wherever it names the act", () => {
-    assert.match(WIDERSPRUCH_SENDEN, /Widerspruch/, "the armed press no longer sends what the page calls it");
+  it("calls a contact's refusal a Widerspruch wherever it names the act", async () => {
+    const { user, container } = renderBestaetigung();
+    await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
+    const armiert = container.querySelector('button[type="submit"]') ?? assert.fail("the armed objection offers no press");
+    assert.match(armiert.textContent, /Widerspruch/, "the armed press no longer sends what the page calls it");
 
     for (const { zustand, html } of [{ zustand: "gueltig", html: GUELTIG }, ...ZUSTAND_SEITEN]) {
       for (const passage of eigenePassagen(html)) {
@@ -1216,31 +1144,49 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
 
 describe("how the confirmation page banners the facts a reader arrived with", () => {
   const ZEILEN = [
-    { label: "Schule", wert: "Gymnasium an einer sehr langen Straße im Frankfurter Norden" },
+    { label: "Schule", wert: "Gymnasium an einer sehr langen Straße im Frankfurter Norden", unbegrenzt: true },
     { label: "Saison", wert: "2026" },
-    { label: "Deine Rolle", wert: "Ansprechperson" },
+    { label: "Deine Rolle", wert: "Stellvertretung und Trainerin oder Trainer" },
   ];
   const BANNER = renderMarkup(FaktenBanner, { zeilen: ZEILEN });
+  const klassen = (markup: string): string[] => (/class="([^"]*)"/.exec(markup)?.[1] ?? "").split(/\s+/);
 
-  /* The mails panel these same facts in a row, and a page that stacks them on a phone spends its
-     whole first screen on three facts the reader already met in the mail. */
-  it("keeps every fact on one row, at every width", () => {
-    const wurzel = /class="([^"]*)"/.exec(BANNER)?.[1] ?? "";
+  /** Each fact's own box and its value, in the order the banner was handed them. */
+  const zellen = [...BANNER.matchAll(/<div (class="[^"]*")><dt[^>]*>[\s\S]*?<\/dt><dd([^>]*)>/g)].map(([, zelle = "", wert = ""]) => ({
+    zelle: klassen(zelle),
+    wert: klassen(wert),
+  }));
 
-    assert.match(wurzel, /(^| )flex-row( |$)/, "the banner is not a row to begin with");
-    assert.doesNotMatch(wurzel, /flex-wrap|flex-col|grid/, "the banner may break out of one row");
-    assert.doesNotMatch(BANNER, /:flex-col|:flex-wrap|:grid/, "the banner takes another shape at some width");
+  /* A phone has no pointer to hover a `title` with, so a value cut short there is read nowhere, and
+     the two a phone cut were the school and the role. */
+  it("reads every value whole, the school and the role included", () => {
+    assert.equal(zellen.length, ZEILEN.length, "the banner rendered a different number of facts than it was handed");
+    assert.doesNotMatch(BANNER, /[\s":](truncate|text-ellipsis|line-clamp-\d+)[\s"]/, "a fact is cut short at some width");
+    assert.doesNotMatch(BANNER, /\stitle="/, "a value still parks its whole text in a tooltip");
+    for (const { wert } of ZEILEN) assert.ok(textOf(BANNER).includes(wert), `„${wert}“ is not on the banner whole`);
   });
 
-  /* A row that never wraps has one way left to fail: a school name pushing the season off the
-     screen. The ellipsis is what stops it, and `title` is where the whole name is then read. */
-  it("truncates every value and keeps the whole of it in reach", () => {
-    const werte = [...BANNER.matchAll(/<dd([^>]*)>/g)].map((treffer) => treffer[1] ?? "");
+  /* The school is the value nothing bounds. On a phone it takes a line of its own, and from `sm` the
+     width the season and the role leave, so neither of those is squeezed to seat it. */
+  it("gives the school the free width, and wraps the row below sm alone", () => {
+    const [schule, ...begrenzt] = zellen;
+    const wurzel = klassen(BANNER);
 
-    assert.equal(werte.length, ZEILEN.length, "the banner rendered a different number of values than it was handed");
-    for (const [index, attribute] of werte.entries()) {
-      assert.match(attribute, /(^|\s|")truncate(\s|")/, `value ${String(index)} carries no truncation`);
-      assert.ok(attribute.includes(`title="${ZEILEN[index]?.wert ?? ""}"`), `value ${String(index)} keeps its whole text nowhere`);
+    assert.ok(wurzel.includes("flex-wrap") && wurzel.includes("sm:flex-nowrap"), "the row wraps at every width, or at none");
+    assert.ok(
+      schule !== undefined && schule.zelle.includes("basis-full") && schule.zelle.includes("sm:flex-1"),
+      "the school does not take the free width",
+    );
+    for (const klasse of NAME_WRAP.split(" ")) {
+      assert.ok(schule?.wert.includes(klasse), `a school named in one long word runs past the panel: ${klasse} is missing`);
+    }
+    assert.equal(begrenzt.length, 2, "the season and the role are not both on the banner");
+    for (const { zelle } of begrenzt) {
+      assert.ok(
+        !zelle.some((klasse) => /^(sm:)?(flex-1|basis-full|grow)$/.test(klasse)),
+        "a bounded fact competes with the school for its width",
+      );
+      assert.ok(zelle.includes("min-w-0"), "a bounded fact cannot shrink to wrap its own words");
     }
   });
 
@@ -1263,81 +1209,111 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
   });
 });
 
-describe("what arming the objection is allowed to move on the confirmation page", () => {
-  const angaben = (isDisabled: boolean): string =>
-    renderMarkup(BestaetigungAngaben, {
-      entwurf: { geburtsdatum: "", whatsapp: false },
-      onEntwurf: () => undefined,
-      onGeburtsdatumVerlassen: () => undefined,
-      isDisabled: isDisabled,
-      hinweisId: "geburtsdatum-hinweis",
+describe("how the confirmation page names a person entered in two seats", () => {
+  const seite = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null): string =>
+    renderMarkup(BestaetigungView, {
+      start: {
+        zustand: "gueltig",
+        token: "kein-echtes-token",
+        ansicht: {
+          acknowledged: 1,
+          zustand: "gueltig",
+          saison_id: "2026",
+          schule: "Lessing-Kolleg",
+          rolle: rolle,
+          zugleich_rolle: zugleich_rolle,
+          vorname: "Mira",
+          text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+        },
+      },
     });
 
-  const entscheidung = (isConfirming: boolean): string =>
-    renderMarkup(BestaetigungEntscheidung, {
-      isConfirming: isConfirming,
-      isPending: false,
-      isDeclining: false,
-      beschreibtId: "klick-punkte",
-      onWiderspruch: () => undefined,
-      onCancel: () => undefined,
-    });
+  const rolleImBanner = (markup: string): string => textOf(/<dt[^>]*>Deine Rolle<\/dt><dd[^>]*>([\s\S]*?)<\/dd>/.exec(markup)?.[1] ?? "");
+  const BEIDE = /Deine Antwort gilt für beide Einträge\./;
 
-  // Deduplicated: the date picker publishes its name on both the group it submits from and the
-  // field a browser autofills into, and neither is a second thing being asked for.
-  const feldNamen = (html: string): string[] => [...new Set([...html.matchAll(/\sname="([^"]*)"/g)].map((treffer) => treffer[1] ?? ""))].sort();
-  const knopfZahl = (html: string): number => [...html.matchAll(/<button\b/g)].length;
-
-  /* Withdrawing the two controls is what walked the button row up the page under the pointer that
-     had just armed it; disabled, they hold their place and still say the objection wants neither. */
-  it("asks for the same fields armed as unarmed", () => {
-    assert.deepEqual(feldNamen(angaben(false)), [...BESTAETIGUNG_FELDER].sort(), "the form renders a control for another set of paths");
-    assert.deepEqual(feldNamen(angaben(true)), feldNamen(angaben(false)), "arming the objection takes a field off the page");
+  /* Either of the two links answers both seats, so both read the one phrase the mail names them by. */
+  it("banners both seats in one order, whichever of the two links was opened", () => {
+    for (const [rolle, zugleich] of [
+      ["stellvertretung", "trainer"],
+      ["trainer", "stellvertretung"],
+    ] as const) {
+      assert.equal(
+        rolleImBanner(seite(rolle, zugleich)),
+        "Stellvertretung und Trainerin oder Trainer",
+        `the ${rolle} link names the pair otherwise`,
+      );
+    }
   });
 
-  /* The cancel takes the objection's slot rather than joining it: a third control appearing in the
-     row moves the press the reader is aiming at. */
-  it("leaves the row the same number of buttons to seat", () => {
-    assert.equal(knopfZahl(entscheidung(false)), 2, "the unarmed row offers something other than the two presses");
-    assert.equal(
-      knopfZahl(entscheidung(true)),
-      knopfZahl(entscheidung(false)),
-      "arming the objection changes how many buttons stand in the row",
-    );
+  it("says the answer covers both entries, and says nothing of the kind to a single seat", () => {
+    const einzeln = seite("ansprechperson", null);
+
+    assert.match(textOf(seite("ansprechperson", "trainer"), " "), BEIDE, "a person holding two seats is not told one answer covers both");
+    assert.equal(rolleImBanner(einzeln), "Ansprechperson", "a single seat is named as something else");
+    assert.doesNotMatch(textOf(einzeln, " "), BEIDE, "a single seat is told of a second entry it does not have");
+  });
+});
+
+describe("what arming the objection is allowed to move on the confirmation page", () => {
+  /** Every control the panel asks a value of, by the payload path each carries. */
+  const feldNamen = (container: HTMLElement): string[] =>
+    [...new Set([...container.querySelectorAll("[name]")].map((control) => control.getAttribute("name") ?? ""))].sort();
+
+  /* Withdrawing the two controls is what walked the button row up the page under the pointer that had
+     just armed it; held, they keep their place and the row keeps its two presses. */
+  it("asks for the same fields and seats the same presses, armed as unarmed", async () => {
+    const { user, container } = renderBestaetigung();
+    /** The action row itself, which the date picker's own trigger stands outside of. */
+    const reihe = (): HTMLElement =>
+      (container.querySelector('button[type="submit"]')?.parentElement as HTMLElement | null) ?? assert.fail("the panel offers no submit");
+    const ruhend = { felder: feldNamen(container), knoepfe: reihe().querySelectorAll("button").length };
+
+    assert.ok(ruhend.felder.length > 0, "the unarmed form renders no named control, so the comparison below compares nothing");
+    assert.equal(ruhend.knoepfe, 2, "the unarmed row offers something other than the two presses");
+
+    await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
+
+    assert.deepEqual(feldNamen(container), ruhend.felder, "arming the objection takes a field off the page");
+    assert.equal(reihe().querySelectorAll("button").length, ruhend.knoepfe, "arming the objection changes how many buttons stand in the row");
   });
 });
 
 describe("where the confirmation page shows a refusal it cannot put at a field", () => {
-  const FORMULAR = renderMarkup(BestaetigungFormPanel, {
-    token: "kein-echtes-token",
-    vorname: "Mira",
-    schule: "Lessing-Kolleg",
-    saison: "2026",
-    rolle: "Ansprechperson",
-    onAbschluss: () => undefined,
-  });
+  /* A refusal naming only `token`, `antwort` or the stamped label reaches no control, so it is shown
+     nowhere unless something announces it, and announced twice it reads as two failures; one naming a
+     rendered field speaks there. */
+  it("raises one danger toast whenever the refusal named no rendered path", async (t) => {
+    const TITEL = "Änderung nicht gespeichert";
+    const faelle: [string, Record<string, string> | undefined, number][] = [
+      ["a refusal on the token alone", { token: "Dieser Link ist nicht mehr gültig." }, 1],
+      ["a refusal naming no field at all", undefined, 1],
+      ["a refusal on the birth date", { geburtsdatum: "Bitte gib ein gültiges Datum ein." }, 0],
+    ];
+    // Past the double-press window after arming, so the second press sends rather than being read as a double click.
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
 
-  /* This set decides whether a refusal is shown at all: drifted one way, a live field's refusal
-     raises a toast beside itself; drifted the other, a refusal on a path no control renders is shown
-     nowhere. */
-  it("names exactly the paths the form renders a control for", () => {
-    const gerendert = [...new Set([...FORMULAR.matchAll(/\bname="([^"]+)"/g)].map((treffer) => treffer[1]))].sort();
+    for (const [fall, fieldErrors, erwartet] of faelle) {
+      appToast.danger.mock.resetCalls();
+      fetchMock.mock.mockImplementationOnce(() =>
+        Promise.resolve(new Response(JSON.stringify({ success: false, error: "Überprüfe Deine Eingaben.", fieldErrors }))),
+      );
+      const { user, container, unmount } = renderBestaetigung();
 
-    assert.ok(gerendert.length > 0, "the form rendered no named control at all, so this case compares nothing");
-    assert.deepEqual(gerendert, [...BESTAETIGUNG_FELDER].sort(), "the form renders a control the set does not name, or the reverse");
-  });
+      // The objection, sent past the guard a confirmation's empty fields would stop at; the route answers both alike.
+      await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(container.querySelector('button[type="submit"]') ?? assert.fail("the armed objection offers no press"));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
-  /* Read rather than rendered: this is the branch a fetch answer takes, and the panel reaches it
-     only after a request no render issues. */
-  it("raises the danger toast whenever the refusal named no rendered path", () => {
-    assert.match(
-      CONFIRM_PANEL,
-      /if \(!sprichtAmFeld\(antwort\.fieldErrors\)\) \{\s*appToast\.danger\(/,
-      "the toast is gated on something other than whether a rendered field was named",
-    );
-    // The gate it replaced: any field error at all withheld the toast, so a refusal on `token`,
-    // `antwort` or the stamped label showed the reader nothing.
-    assert.doesNotMatch(CONFIRM_PANEL, /hasFieldErrors/, "the panel is back to withholding the toast on any field error");
+      assert.equal(
+        appToast.danger.mock.calls.filter(({ arguments: [title] }) => title === TITEL).length,
+        erwartet,
+        `${fall} is announced otherwise`,
+      );
+      unmount();
+    }
   });
 });
 

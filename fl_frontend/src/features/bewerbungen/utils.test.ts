@@ -12,6 +12,7 @@ import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
 import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
+  bewerbungHerkunft,
   bewerbungJudgedPaths,
   bewerbungTeamName,
   buildBewerbungRows,
@@ -94,6 +95,28 @@ describe("the club an application names", () => {
   it("names nobody where the application names neither, and where the club is gone", () => {
     assert.equal(bewerbungTeamName({ schule: null, team_id: null }, TEAMS), null);
     assert.equal(bewerbungTeamName({ schule: null, team_id: "6890a1b2c3d4e5f607190009" }, TEAMS), null);
+  });
+});
+
+describe("which of the two an application asks the league to enter", () => {
+  it("is a new school where it proposes one", () => {
+    assert.equal(bewerbungHerkunft({ schule: SCHULE, team_id: null }), "neue_schule");
+  });
+
+  it("is an existing club where it picked one", () => {
+    assert.equal(bewerbungHerkunft({ schule: null, team_id: "6890a1b2c3d4e5f607190002" }), "bestehendes_team");
+  });
+
+  /* An acceptance writes the created club's id back beside the school, so a decided new school carries
+     both; asking the id first files it as a club that was already in the league. */
+  it("stays a new school once the acceptance has named the club it created", () => {
+    assert.equal(bewerbungHerkunft({ schule: SCHULE, team_id: "6890a1b2c3d4e5f607190002" }), "neue_schule");
+  });
+
+  /* The row `REQ-BEWERBUNG-002` refuses. Any answer but none here is a badge, a filter option and a
+     panel title each claiming a club or a school the application never named. */
+  it("is neither where the application names neither", () => {
+    assert.equal(bewerbungHerkunft({ schule: null, team_id: null }), null);
   });
 });
 

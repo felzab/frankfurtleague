@@ -21,6 +21,9 @@ import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
 
+/** Said in the body and on the closed control alike, so the two cannot describe the empty row differently. */
+const KEINE_KONTAKTE = "Für diese Saison sind keine Kontakte gespeichert.";
+
 /**
  * Clearing THIS team-season's contact block, on the season's own junction row.
  *
@@ -36,7 +39,7 @@ export function FormKontakteLoeschenSection({
 }: {
   teamId: string;
   saisonId: string;
-  /** Nothing stored means nothing to clear, and a control offering it would refuse itself. */
+  /** Somebody is on file. Three empty seats are nothing stored: clearing them would take no person. */
   hasStored: boolean;
   /** The token the page's own read served: this clearing is a save like any other and is judged against it. */
   stand: string;
@@ -65,6 +68,10 @@ export function FormKontakteLoeschenSection({
     });
   };
 
+  // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the team going,
+  // which is the one thing this control does not touch.
+  const restingLabel = isConfirming ? "Ja, Kontakte dieser Saison endgültig löschen" : "Kontakte löschen";
+
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
@@ -78,7 +85,7 @@ export function FormKontakteLoeschenSection({
               lead: "Leert alle drei Kontaktpersonen dieser Saison-Zugehörigkeit.",
               points: [
                 { term: "Andere Saisons", text: "behalten ihre eigenen Kontaktpersonen, die hier nicht berührt werden." },
-                { term: "Eine Person überall entfernen", text: "geht über „Person löschen“ in deren eigenem Abschnitt." },
+                { term: "Eine Person überall entfernen", text: "geht über „Kontaktperson löschen“ in deren eigenem Abschnitt." },
               ],
             }}
           />
@@ -87,7 +94,7 @@ export function FormKontakteLoeschenSection({
 
       <div className={panel.body()}>
         {!hasStored ? (
-          <p className="muted-hint">Für diese Saison sind keine Kontakte gespeichert.</p>
+          <p className="muted-hint">{KEINE_KONTAKTE}</p>
         ) : (
           <p className="muted-hint">
             Leert die drei Kontaktpersonen dieser Saison-Zugehörigkeit. Die Personen selbst bleiben in jeder anderen Saison stehen.
@@ -125,24 +132,30 @@ export function FormKontakteLoeschenSection({
           isConfirming={isConfirming}
           isPending={isPending}
           onCancel={cancel}>
-          <Button
-            type="button"
-            variant="primary"
-            isDisabled={isPending || !hasStored}
-            onPress={handleClear}
-            className={confirmButton(isConfirming)}>
-            {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
-                press, and step two is already announcing itself in words. */}
-            {!isConfirming && (
-              <TrashBin
-                className="size-4.5"
-                aria-hidden="true"
-              />
-            )}
-            {/* The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the
-                team going, which is the one thing this control does not touch. */}
-            {isPending ? "Löscht..." : isConfirming ? "Ja, Kontakte dieser Saison endgültig löschen" : "Kontakte löschen"}
-          </Button>
+          {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
+              standing closure. `isPending` is left out: it ends by itself. */}
+          <Hint
+            mode="refusal"
+            reason={isPending || hasStored ? null : KEINE_KONTAKTE}
+            label={restingLabel}>
+            <Button
+              type="button"
+              variant="primary"
+              isPending={isPending}
+              isDisabled={!isPending && !hasStored}
+              onPress={handleClear}
+              className={confirmButton(isConfirming)}>
+              {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
+                  press, and step two is already announcing itself in words. */}
+              {!isConfirming && (
+                <TrashBin
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              )}
+              {isPending ? "Löscht..." : restingLabel}
+            </Button>
+          </Hint>
         </ConfirmActionRow>
       </div>
     </section>

@@ -26,9 +26,6 @@ import { appToast } from "@/shared/utils/appToast";
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
 
-/** The sentence the disabled acceptance is described by. This control renders at most once per page. */
-const ZUSAGE_BUTTON_HINT_ID = "bewerbung-zusage-hinweis";
-
 /** What the readout reads where no colour has been assigned — the season's row accepts that answer. */
 const KEINE_FARBE = "Keine Angabe";
 
@@ -76,8 +73,8 @@ export function AdminBewerbungAnnehmenSection({
 
   const panel = formPanel();
 
-  // The reason under the control, in the order the endpoint judges them: what the page already knows
-  // is refused first, and the group is the one thing left for the administrator to supply.
+  // Why the control is closed, in the order the endpoint judges them: what the page already knows is
+  // refused first, and the group is the one thing left for the administrator to supply.
   const grund = hindernis ?? (gruppe === null ? "Wähle zuerst eine Gruppe." : null);
 
   const handleAccept = () => {
@@ -105,6 +102,9 @@ export function AdminBewerbungAnnehmenSection({
       router.refresh();
     });
   };
+
+  // The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what is taken into what.
+  const restingLabel = isConfirming ? "Ja, Team verbindlich aufnehmen" : "Bewerbung annehmen";
 
   return (
     <section className={panel.root()}>
@@ -224,34 +224,34 @@ export function AdminBewerbungAnnehmenSection({
                 isConfirming={isConfirming}
                 isPending={isAccepting}
                 onCancel={cancel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  aria-describedby={!isAccepting && grund !== null ? ZUSAGE_BUTTON_HINT_ID : undefined}
-                  isDisabled={isAccepting || grund !== null}
-                  onPress={handleAccept}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
-                    <SealCheck
-                      className="size-4.5"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {/* The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what
-                      is taken into what. */}
-                  {isAccepting ? "Nimmt auf..." : isConfirming ? "Ja, Team verbindlich aufnehmen" : "Bewerbung annehmen"}
-                </Button>
+                {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                    §1.14). `isAccepting` is left out: it ends by itself. */}
+                <Hint
+                  mode="refusal"
+                  reason={isAccepting ? null : grund}
+                  label={restingLabel}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    isPending={isAccepting}
+                    isDisabled={!isAccepting && grund !== null}
+                    onPress={handleAccept}
+                    className={confirmButton(isConfirming)}>
+                    {!isConfirming && (
+                      <SealCheck
+                        className="size-4.5"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {isAccepting ? "Nimmt auf..." : restingLabel}
+                  </Button>
+                </Hint>
               </ConfirmActionRow>
 
-              {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
-                  treatment for a control disabled for a reason already on screen. */}
-              {!isAccepting && grund !== null && (
-                <Hint
-                  mode="inline"
-                  describes={ZUSAGE_BUTTON_HINT_ID}
-                  text={grund}
-                />
-              )}
+              {/* A plain sentence, not an inline hint needing a control to point at it: the wrapper covers
+                  the control (`docs/frontend/spec.md` §1.14). It stands beside the press because the
+                  page's own read raises it, and no pick here does. */}
+              {hindernis !== null && <p className="muted-hint">{hindernis}</p>}
             </div>
           </>
         )}

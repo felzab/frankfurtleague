@@ -16,6 +16,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
+import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
@@ -79,7 +80,7 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
           // The fields are named as `BewerbungAngabenPanel` labels them, so the administrator reading this finds
           // each one. Schulform is absent because the validator's enum keeps it out of this rule.
           reason:
-            "Die Angaben dieser Schule ergeben kein gültiges Team: Team-Name, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
+            "Die Angaben dieser Schule ergeben kein gültiges Team: Team, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
           repair: { before: "Lehne die Bewerbung ab und lege das Team", after: "mit korrigierten Angaben selbst an" },
           where: TEAMS_PAGE,
         }),
@@ -377,9 +378,6 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
 
-/** The correction beside this control is the repair, so the sentence sends the administrator there rather than nowhere. */
-const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine ein.";
-
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
 
@@ -488,7 +486,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     const person = bewerbung.kontakte[validated.data.rolle];
 
     if (person === null) return { success: false, error: SITZ_LEER };
-    if (person.email === "") return { success: false, error: KEINE_ADRESSE };
+    if (person.email === "") return { success: false, error: ERNEUT_OHNE_ADRESSE };
 
     const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
 

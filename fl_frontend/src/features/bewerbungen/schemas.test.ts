@@ -197,6 +197,44 @@ describe("the three people have to be tellable apart", () => {
     assert.deepEqual(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort(), ["kontakte.ansprechperson.telefon"]);
   });
 
+  /* zod skips a refinement once a check in its object aborts, and the consent switch left off is one:
+     without `when` this refusal would wait for the switch and reach the applicant on a second press. */
+  it("refuses a shared e-mail address while the Kenntnisnahme is still off", () => {
+    const draft = gueltig();
+    const geteilt = gueltig({
+      kontakte: {
+        ...draft.kontakte,
+        trainer: person("Tim", { einwilligung: { text_version: "2026-08", erteilt: false } }),
+        stellvertretung: person("Lena", { email: draft.kontakte.ansprechperson.email }),
+      },
+    });
+
+    assert.deepEqual(refusedPaths(geteilt), ["kontakte.stellvertretung.email", "kontakte.trainer.einwilligung.erteilt"]);
+  });
+
+  /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
+     own refusal comes first and would hide a second one claiming the empty numbers are shared. */
+  it("calls no two empty boxes one person, the fold reading two empty numbers as equal", () => {
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
+    const geteilt = parsed.success ? [] : parsed.error.issues.filter((issue) => issue.message.includes("schon bei einer anderen Person"));
+
+    assert.equal(parsed.success, false);
+    assert.deepEqual(geteilt, []);
+  });
+
+  /* A drifted client can send a seat that is no object and a claim naming no seat. The pair checks run
+     beside those refusals, so they have to read such a block without throwing. */
+  it("answers a block missing a seat or naming no seat with refusals rather than a throw", () => {
+    const payload = bewerbungPayload(gueltig());
+    const ohneSitz = Object.fromEntries(Object.entries(payload.kontakte).filter(([sitz]) => sitz !== "stellvertretung"));
+
+    for (const kontakte of [ohneSitz, { ...payload.kontakte, trainer_ist_zugleich: "trainer" }]) {
+      const parsed = FLPostBewerbungPayloadSchema.safeParse({ ...payload, kontakte });
+
+      assert.equal(parsed.success, false, JSON.stringify(Object.keys(kontakte)));
+    }
+  });
+
   /* The claim's own effect on the payload: the named seat's person BECOMES the Trainer's, so the
      Trainer's own untouched boxes never reach the submission. */
   it("submits the claimed seat's person as the Trainer", () => {
@@ -276,6 +314,16 @@ describe("a submission names exactly one school", () => {
      neither. `team_id` is where the message lands, that being the name the picker renders under. */
   it("refuses one where nothing was picked", () => {
     assert.deepEqual(refusedPaths(gueltig({ auswahl: null })), ["team_id"]);
+  });
+
+  /* zod skips a refinement once any box is refused, so without `when` an empty first press would mark
+     every box but the picker, whose message would come with the second. */
+  it("marks the unpicked school in the same press as every empty box", () => {
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
+    const refusals = parsed.success ? {} : toFieldErrors(parsed.error);
+
+    assert.ok(Object.keys(refusals).length > 1, "the empty draft is refused for the picker alone, so nothing else competes with it");
+    assert.equal(refusals.team_id, "Bitte wähle eine Schule aus oder trage eine neue ein.");
   });
 
   /* The picked-club arm carries no school block at all, so nothing of the club's own details is

@@ -227,10 +227,6 @@ export function BewerbungForm({
   };
 
   const handleSubmit = () => {
-    // The disabled button is not the whole guard: `Enter` in any field submits the form too, and a
-    // second press mid-flight would post the application twice.
-    if (isPending) return;
-
     const payload = bewerbungPayload(draft);
     // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ bewerbung: payload }, writeAfterBlock);
@@ -386,7 +382,6 @@ export function BewerbungForm({
           <Button
             type="submit"
             isPending={isPending}
-            isDisabled={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
             {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
           </Button>

@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { bestaetigungsStand, endstand, gepaarteSitze, istOffen, linkAngebot, sindEinePerson, zusageHindernis } from "./bestaetigungStand.ts";
+import {
+  adressenAndererPersonen,
+  bestaetigungsStand,
+  endstand,
+  gepaarteSitze,
+  istOffen,
+  linkAngebot,
+  loeschungsSatz,
+  zusageHindernis,
+} from "./bestaetigungStand.ts";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
 import type { FLBewerbung, FLBewerbungBestaetigung, FLBewerbungZustellstand } from "./schemas.ts";
 
-type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;
+type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte" | "status">;
 type Person = FLBewerbung["kontakte"]["trainer"];
 
 /** A seat whose person answered on `bestaetigtAm`, or has not answered at all where that is null. */
@@ -47,12 +56,14 @@ function sitze({
   trainer = person("Clara", null),
   zugleich = null,
   bestaetigungen = { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
+  status = "eingereicht",
 }: {
   ansprechperson?: Person;
   stellvertretung?: Person;
   trainer?: Person;
   zugleich?: "ansprechperson" | "stellvertretung" | null;
   bestaetigungen?: Sitze["bestaetigungen"];
+  status?: Sitze["status"];
 } = {}): Sitze {
   return {
     kontakte: {
@@ -62,6 +73,7 @@ function sitze({
       trainer_ist_zugleich: zugleich,
     },
     bestaetigungen: bestaetigungen,
+    status: status,
   };
 }
 
@@ -304,20 +316,6 @@ describe("the two seats one person holds", () => {
   it("are one seat where no claim was made", () => {
     assert.deepEqual(gepaarteSitze(sitze(), "trainer"), ["trainer"]);
   });
-
-  /* The correction refuses an address another PERSON holds, and the pair is one person: refusing it
-     there would leave the mirrored seats unable to move to a new address at all. */
-  it("are the one pair the duplicate-address rule excepts", () => {
-    const staende = staendeOf(PAAR);
-    const [ansprechperson, stellvertretung, trainer] = ["ansprechperson", "stellvertretung", "trainer"].map((rolle) =>
-      sitzOf(staende, rolle as KontaktRolle),
-    );
-
-    assert.equal(sindEinePerson(ansprechperson!, trainer!), true);
-    assert.equal(sindEinePerson(trainer!, ansprechperson!), true);
-    assert.equal(sindEinePerson(stellvertretung!, trainer!), false);
-    assert.equal(sindEinePerson(ansprechperson!, stellvertretung!), false);
-  });
 });
 
 describe("what became of the last message to a seat", () => {
@@ -352,6 +350,133 @@ describe("what became of the last message to a seat", () => {
 
     assert.equal(sitzOf(staendeOf(leer), "ansprechperson").email, null);
     assert.equal(sitzOf(staendeOf(ERASED), "ansprechperson").email, null);
+  });
+});
+
+describe("a seat nobody answered on an application already decided", () => {
+  const ENTSCHIEDEN = sitze({
+    ansprechperson: person("Anna", "2026-09-02"),
+    stellvertretung: null,
+    bestaetigungen: { ansprechperson: OFFEN, stellvertretung: ABGELEHNT, trainer: OFFEN },
+    status: "abgelehnt",
+  });
+
+  /* `link_is_over` answers true for every decided application, so „Ausstehend, Link gesendet am …“
+     promises an answer the link it names cannot carry. */
+  it("says no confirmation can come, and nothing is outstanding", () => {
+    const trainer = sitzOf(staendeOf(ENTSCHIEDEN), "trainer");
+
+    assert.equal(trainer.stand.art, "unbeantwortet");
+    assert.equal(trainer.satz, "Keine Bestätigung mehr möglich");
+    assert.doesNotMatch(trainer.satz, /Ausstehend/);
+    // The same application still open is the state the decided one differs from.
+    assert.match(sitzOf(staendeOf(sitze()), "trainer").satz, /^Ausstehend, Link gesendet am/);
+  });
+
+  /* The decision moves only the seats still waiting: a confirmation and a Widerspruch are answers
+     the person gave, and each keeps its own day. */
+  it("keeps every answer a person gave", () => {
+    const staende = staendeOf(ENTSCHIEDEN);
+
+    assert.equal(sitzOf(staende, "ansprechperson").satz, "Bestätigt am 02.09.2026");
+    assert.equal(sitzOf(staende, "stellvertretung").satz, "Widersprochen am 04.09.2026");
+  });
+
+  /* The count is still over the seats that confirmed, and the queue's chip names only what a person
+     did: a decision the league took is the row's own status badge. */
+  it("counts as unconfirmed, is offered no link, and adds no chip to the queue", () => {
+    const nurOffen = staendeOf(sitze({ status: "angenommen" }));
+
+    assert.equal(nurOffen.filter(istOffen).length, 3);
+    assert.deepEqual([...linkAngebot(nurOffen)], []);
+    assert.equal(endstand(nurOffen), null);
+  });
+});
+
+describe("what the strip says of an incomplete application's deadline", () => {
+  const OFFEN_UND_FRIST = { staende: staendeOf(sitze()), frist: "2026-09-07", eingereicht: true } as const;
+
+  /* The sweep answers `link_is_over` on the deadline's own day as still open, and deletes only once
+     the day has passed (`deletion_is_due`), so the day itself still reads as the future. */
+  it("words a deadline today or later as what happens if an answer stays out", () => {
+    for (const heute of ["2026-09-01", "2026-09-07"]) {
+      assert.equal(
+        loeschungsSatz({ ...OFFEN_UND_FRIST, heute }),
+        "Bleibt eine Bestätigung bis zum 07.09.2026 aus, wird die Bewerbung gelöscht.",
+      );
+    }
+  });
+
+  /* Past it, the future tense promised a deletion that is already owed. */
+  it("words a passed deadline as passed, and names when the deletion comes", () => {
+    assert.equal(
+      loeschungsSatz({ ...OFFEN_UND_FRIST, heute: "2026-09-08" }),
+      "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.",
+    );
+  });
+
+  /* `announcement_is_undeliverable` holds the application instead, so a promised deletion is false for
+     it on either side of the deadline. Only the Ansprechperson's seat holds it: the notice goes there. */
+  it("promises no deletion while the Ansprechperson cannot be written to", () => {
+    const gehalten = staendeOf(
+      sitze({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt"), stellvertretung: OFFEN, trainer: OFFEN } }),
+    );
+    const anderer = staendeOf(
+      sitze({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar"), trainer: OFFEN } }),
+    );
+
+    assert.equal(
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: gehalten, heute: "2026-09-08" }),
+      "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
+    );
+    assert.equal(
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: gehalten, heute: "2026-09-01" }),
+      "Die Frist für die Bestätigungen läuft bis zum 07.09.2026. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
+    );
+    // A delay is not a refusal: the provider may still carry the notice.
+    assert.match(
+      loeschungsSatz({
+        ...OFFEN_UND_FRIST,
+        staende: staendeOf(sitze({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
+        heute: "2026-09-08",
+      }) ?? "",
+      /nächsten stündlichen Prüfung/,
+    );
+    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: anderer, heute: "2026-09-08" }) ?? "", /nächsten stündlichen Prüfung/);
+  });
+
+  /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
+  it("says nothing where the deletion clock does not reach the application", () => {
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, heute: "2026-09-01" }), null);
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, frist: null, heute: "2026-09-01" }), null);
+
+    const alle = staendeOf(
+      sitze({
+        ansprechperson: person("Anna", "2026-09-02"),
+        stellvertretung: person("Bernd", "2026-09-03"),
+        trainer: person("Clara", "2026-09-03"),
+      }),
+    );
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: alle, heute: "2026-09-08" }), null);
+  });
+});
+
+describe("the addresses a correction may not take", () => {
+  /* The submission's duplicate-address rule, which excepts one person holding two seats: refusing the
+     mirror its own address would leave the pair unable to move to a new one at all. */
+  it("names every other person's address, and never the seat's own mirror", () => {
+    const doppelt = person("Anna", null);
+    const staende = staendeOf(sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" }));
+
+    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "trainer")), ["bernd@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "ansprechperson")), ["bernd@schule.example"]);
+    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "stellvertretung")), ["anna@schule.example", "anna@schule.example"]);
+  });
+
+  it("leaves out a seat that holds no address", () => {
+    const staende = staendeOf(ERASED);
+
+    assert.deepEqual(adressenAndererPersonen(staende, sitzOf(staende, "trainer")), ["bernd@schule.example"]);
   });
 });
 

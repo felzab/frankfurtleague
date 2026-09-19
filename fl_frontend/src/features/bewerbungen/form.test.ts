@@ -1,20 +1,69 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
+
+import { act, createElement as h } from "react";
+
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { blankComments } from "@/core/blankComments";
-import { renderMarkup } from "@/shared/testing/renderTest";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
 
+import type { BewerbungFormDraft } from "./types.ts";
+
+type Nutzer = ReturnType<typeof userEvent.setup>;
+
+/** Every request the form makes, answered by each case that sends one; unset, a request never returns. */
+const fetchMock = mock.fn<(url: string, init?: RequestInit) => Promise<Response>>();
+
+// The browser's own `fetch` rather than the transport's module: the form reaches both routes through it,
+// so a request is observed at the edge the paths are limited at.
+globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init)) as typeof fetch;
+
+const appToast = { success: mock.fn(), warning: mock.fn(), danger: mock.fn(), info: mock.fn() };
+Reflect.set(globalThis, "__flForm", { appToast });
+
+// The toasts replaced at the module boundary by the mocks above: the real module raises into HeroUI's queue rather than back to the case.
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/shared/utils/appToast.ts"))
+      return { format: "module", source: "export const { appToast } = globalThis.__flForm;", shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
+beforeEach(() => {
+  for (const fn of [fetchMock, ...Object.values(appToast)]) {
+    fn.mock.resetCalls();
+    fn.mock.restore();
+  }
+  fetchMock.mock.mockImplementation(() => new Promise<never>(() => undefined));
+});
+
 /*
- Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
- compile step is registered; a static import beside it resolves first and dies on the extension.
+ Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
+ registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
+const { Form } = await import("@heroui/react");
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
+const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
+const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
+const { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS } = await import("./constants.ts");
+const { bewerbungPayload, buildEmptyBewerbungDraft, KUERZEL_UNGEPRUEFT } = await import("./utils.ts");
+const { TRAINER_ZUGLEICH_OPTIONS, TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
+const { FormEinwilligungSection } = await import("./components/forms/BewerbungForm/FormKontaktpersonenSection.tsx");
 const { ergebnisPanel } = await import("./components/views/BestaetigungPanels.tsx");
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
@@ -28,7 +77,6 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 const read = (...parts: string[]): string => readFileSync(path.join(SRC_DIR, ...parts), "utf8");
 
 const FORM = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx");
-const SEATS = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "FormKontaktpersonenSection.tsx");
 const PAGE = read("app", "(public)", "bewerbung", "[saison_id]", "page.tsx");
 
 const SCHULEN = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
@@ -79,65 +127,212 @@ const schalter = (html: string): { name: string; attrs: string }[] =>
     name: /\bname="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
   }));
 
+const person = (vorname: string, nachname: string, email: string, telefon: string) => ({
+  vorname: vorname,
+  nachname: nachname,
+  email: email,
+  telefon: telefon,
+  einwilligung: { ...buildEmptyBewerbungDraft("2026").kontakte.trainer.einwilligung, erteilt: true },
+});
+
+/** An application the payload schema takes whole, for a school the league already holds. */
+const VOLLSTAENDIG: BewerbungFormDraft = {
+  ...buildEmptyBewerbungDraft("2026"),
+  auswahl: SCHULEN[0]!.id,
+  stufengroesse: 90,
+  kontakte: {
+    ansprechperson: person("Anna", "Meier", "anna@schule.example", "069 1111111"),
+    stellvertretung: person("Bernd", "Kraus", "bernd@schule.example", "069 2222222"),
+    trainer: person("Clara", "Wolf", "clara@schule.example", "069 3333333"),
+    trainer_ist_zugleich: null,
+  },
+  trikot: { vorhandener_satz: "", wunschfarbe: TRIKOT_FARBE_OPTIONS[0]!.value },
+  kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
+};
+
+/** The running page, which hands the form the strip it repeats under the receipt. */
+function renderSeite() {
+  const user = userEvent.setup({ delay: null });
+  const view = render(
+    h(BewerbungView, {
+      saisonId: "2026",
+      isUnlesbar: false,
+      today: "2026-04-01",
+      schulen: SCHULEN,
+      isSchulenLesbar: true,
+      vergebeneFarben: [],
+      fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true },
+    }),
+  );
+
+  return { user, container: view.container };
+}
+
+/** A control by the payload path it carries, which is also what every refusal lands on. */
+const control = (container: HTMLElement, name: string): HTMLElement =>
+  container.querySelector<HTMLElement>(`[name="${name}"]`) ?? assert.fail(`the form renders no control named ${name}`);
+
+/** Entered as a reader enters it, and left where the case is about what leaving the box does. */
+async function tippe(user: Nutzer, box: HTMLElement, wert: string, { verlassen = false } = {}): Promise<void> {
+  await user.clear(box);
+  await user.paste(wert);
+  // A click on the page rather than a tab, which would land in the wish box and open its suggestions over the form.
+  if (verlassen) await user.click(document.body);
+}
+
+/** Every control the draft answers, through the control a reader would use for it. */
+async function fuelleAus(user: Nutzer, container: HTMLElement, draft: BewerbungFormDraft): Promise<void> {
+  await user.selectOptions(control(container, "team_id"), draft.auswahl ?? "");
+  await tippe(user, screen.getByRole("textbox", { name: "Größe der Stufe" }), String(draft.stufengroesse));
+
+  for (const { value } of BEWERBUNG_SEATS) {
+    for (const feld of ["vorname", "nachname", "email", "telefon"] as const) {
+      await tippe(user, control(container, `kontakte.${value}.${feld}`), draft.kontakte[value][feld]);
+    }
+  }
+
+  await user.click(schalterEtikett());
+  await user.selectOptions(control(container, "trikot.wunschfarbe"), draft.trikot.wunschfarbe ?? "");
+  await tippe(user, screen.getByRole("textbox", { name: "Voraussichtliche Kadergröße" }), String(draft.kader.voraussichtliche_groesse));
+  await tippe(user, screen.getByRole("textbox", { name: "Davon im Verein aktiv (mind. Verbandsliga)" }), String(draft.kader.gute_spieler));
+}
+
+/** The requests the form made, by path and parsed body. */
+const anfragen = () =>
+  fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({ url, body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined }));
+
+/** A request's answer arriving, and everything it sets off. */
+const settle = (): Promise<void> =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+/** The page after a complete application was sent and the route took it, with the receipt it leaves. */
+async function eingereicht() {
+  fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, message: "" }))));
+  const seite = renderSeite();
+
+  await fuelleAus(seite.user, seite.container, VOLLSTAENDIG);
+  await seite.user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+  await settle();
+
+  const empfang =
+    screen.queryByRole("heading", { name: "Deine Bewerbung ist eingegangen" })?.closest("section") ??
+    assert.fail(`the complete application left no receipt, the form refusing: ${feldfehler(seite.container).join(" | ")}`);
+
+  return { ...seite, empfang };
+}
+
+/** The running page with the picker on „meine Schule ist nicht dabei“, where the new school's boxes open. */
+async function renderNeueSchule() {
+  const seite = renderSeite();
+  await seite.user.selectOptions(control(seite.container, "team_id"), SCHULE_NICHT_IN_LISTE);
+
+  return { ...seite, kuerzel: screen.getByRole("textbox", { name: "Wunschkürzel" }) };
+}
+
+/** The Kenntnisnahme switch's label, which a person presses: the checkbox inside it is visually hidden. */
+const schalterEtikett = (): HTMLElement => screen.getByRole("switch").closest("label") ?? assert.fail("the switch renders no label to press");
+
+/** What the switch is described by, which is where its refusal reaches a reader. */
+const schalterSagt = (): string =>
+  (screen.getByRole("switch").getAttribute("aria-describedby") ?? "")
+    .split(" ")
+    .map((id) => document.getElementById(id)?.textContent ?? "")
+    .join(" ");
+
+/** Every message a field shows under itself, in document order. */
+const feldfehler = (container: HTMLElement): string[] =>
+  [...container.querySelectorAll('[data-slot="field-error"]')].map((fehler) => fehler.textContent.trim()).filter((text) => text !== "");
+
+/** Whether the browser would ask before leaving: a `beforeunload` some listener cancelled. */
+const fragtVorDemVerlassen = (): boolean => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+
 describe("the public application form", () => {
   /* First, because every source-text case below reads one of these: a path that stopped resolving
      would leave each of them matching against an empty string and reporting nothing. */
   it("finds each file it reads at all", () => {
     for (const [name, source] of [
       ["the form", FORM],
-      ["the seats", SEATS],
       ["the page", PAGE],
     ] as const) {
       assert.ok(source.length > 0, `${name} is empty, so this file proves nothing about it`);
     }
   });
 
-  /* One composer, so the submit cannot assemble a second payload beside the one the blur-time
-     judgements parse. Which composer a handler calls is not in the markup it produces. */
-  it("submits the payload one composer built, the same one every blur-time judgement parses", () => {
-    assert.match(FORM, /const payload = bewerbungPayload\(draft\);/, "the submit posts something other than the composed payload");
+  /* One composer, so the submit cannot assemble a second payload beside the one the blur-time judgements
+     parse. `location = /api/bewerbung` is an EXACT nginx match: a path segment falls through to the
+     unlimited catch-all. */
+  it("posts the payload one composer built to the path the edge limits, and shows the send in flight", async () => {
+    const { user, container } = renderSeite();
 
-    /* A payload assembled here rather than by `bewerbungPayload` would have to name the field the
-       draft no longer carries. `["team_id"]` is a judged PATH, not a key, so it is not one. */
-    assert.doesNotMatch(FORM, /team_id:/, "the form assembles a payload of its own beside bewerbungPayload");
-  });
+    await fuelleAus(user, container, VOLLSTAENDIG);
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
 
-  /* `location = /api/bewerbung/kuerzel` is an EXACT match in nginx, so a path segment falls through
-     to the catch-all with no limit, and neither `nginx -t` nor the build can see it. */
-  it("calls both public routes at the exact paths the edge limits", () => {
-    assert.match(
-      FORM,
-      /postPublicForm<BewerbungAntwort>\("\/api\/bewerbung", payload\)/,
-      "the submission posts to something other than /api/bewerbung",
+    assert.deepEqual(
+      anfragen(),
+      [{ url: "/api/bewerbung", body: bewerbungPayload(VOLLSTAENDIG) }],
+      "the submit posts something other than the composed payload",
     );
-    assert.match(
-      FORM,
-      /fetch\(`\/api\/bewerbung\/kuerzel\?shorthand=\$\{encodeURIComponent\(shorthand\)\}`\)/,
-      "the check uses a path segment",
-    );
-    assert.ok(!FORM.includes('"/api/bewerbung/"'), "a trailing slash falls through to the unlimited catch-all");
+    assert.ok(screen.queryByRole("button", { name: "Schickt ab..." }), "the send in flight is not shown on its button");
   });
 
   /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
      none of the always-200 envelope. Read as a transport failure it tells an applicant nothing about
      the one remedy it has, which is to wait. */
-  it("answers the edge's rate limit in its own words on the availability check", () => {
-    const antworten = [...FORM.matchAll(/if \(response\.status === EDGE_RATE_LIMIT_STATUS\) return/g)];
+  it("answers the edge's rate limit in its own words on the availability check", async () => {
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response("<html>429</html>", { status: 429 })));
+    const { user, kuerzel } = await renderNeueSchule();
 
-    assert.equal(antworten.length, 1, "the check reads a 429 as a transport failure");
+    await tippe(user, kuerzel, "GG", { verlassen: true });
+    await settle();
+
+    assert.deepEqual(
+      appToast.warning.mock.calls.map(({ arguments: [title, options] }) => [title, options]),
+      [["Kürzel noch nicht geprüft", { description: `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}` }]],
+    );
+    // Read beside the render: a second spelling of the number behaves identically until the edge's own changes.
     assert.ok(!FORM.includes("= 429"), "the form spells the edge's status beside the one publicSubmit.ts exports");
-    assert.match(FORM, /Zu viele Anfragen in kurzer Zeit/);
+  });
+
+  /* The route's `length(2)` refuses an incomplete code, and the check is rate-limited per address at an
+     EXACT nginx location: a half-typed box would spend requests, and a path segment escape the limit. */
+  it("asks about a code only once it is the full width, at the path the edge limits", async () => {
+    const { user, kuerzel } = await renderNeueSchule();
+
+    await tippe(user, kuerzel, "G", { verlassen: true });
+    assert.deepEqual(anfragen(), [], "the check fires on a code nobody finished typing");
+
+    await tippe(user, kuerzel, "gg", { verlassen: true });
+    assert.deepEqual(
+      anfragen().map(({ url }) => url),
+      ["/api/bewerbung/kuerzel?shorthand=GG"],
+      "a full-width code is checked at a path the edge does not limit",
+    );
   });
 
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
-     message between two keystrokes describes a value nobody finished entering. Which event a handler
-     is bound to reaches no markup. */
-  it("judges a typed field on blur and a picked one on the press", () => {
-    assert.match(SEATS, /onBlur=\{\(\) => onFieldLeft\(\[path\("vorname"\)\]\)\}/, "a typed seat field is judged elsewhere");
-    assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SEATS), "a change handler judges a seat's field between keystrokes");
-    // One press answers for all three seats, so `BewerbungForm` judges the three paths it wrote;
-    // what this panel owes is that the press is what reports it at all.
-    assert.match(SEATS, /onChange=\{onErteiltPicked\}/, "the confirmation is judged on something other than the press");
+     message between two keystrokes describes a value nobody finished entering. */
+  it("judges a typed field on blur and a picked one on the press", async () => {
+    const { user, container } = renderSeite();
+    const verweigert = "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen.";
+
+    await user.type(control(container, "kontakte.ansprechperson.email"), "anna@");
+    assert.deepEqual(feldfehler(container), [], "a seat's field is judged between keystrokes");
+
+    await user.tab();
+    assert.equal(feldfehler(container).length, 1, "leaving a seat's field judges nothing");
+
+    // A switch left off is missing rather than wrong, so it speaks once send was pressed; from then on
+    // the press alone moves its message, there being no blur for a switch to wait on.
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    assert.ok(schalterSagt().includes(verweigert), "a blocked submit leaves the switch unmarked, so nothing below is judged");
+
+    await user.click(schalterEtikett());
+    assert.ok(!schalterSagt().includes(verweigert), "switching the confirmation on leaves its refusal standing");
+
+    await user.click(schalterEtikett());
+    assert.ok(schalterSagt().includes(verweigert), "switching the confirmation off again says nothing until something else happens");
   });
 
   /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and `fieldLabelPaths.test.ts`
@@ -204,12 +399,59 @@ describe("the public application form", () => {
   });
 
   /* The group has no off: „Eine andere Person" is an ANSWER, so the claim is re-pointed and the
-     `null` it writes is what the wire stores. Which handler a panel is given reaches no markup. */
-  it("writes the pressed answer, and offers the question on the Trainer seat alone", () => {
-    assert.match(FORM, /onTrainerWahl=\{value === "trainer" \? pickTrainerWahl : undefined\}/, "a second panel can answer the claim");
+     `null` it writes is what the wire stores. */
+  it("writes the pressed answer, and offers the question on the Trainer seat alone", async () => {
+    const { user, container } = renderSeite();
+    const antworten = () => screen.getAllByRole("radio");
+
+    assert.equal(antworten().length, TRAINER_ZUGLEICH_OPTIONS.length, "a second panel offers the claim, or the Trainer's lost it");
+
     // Both writes, because „not answered yet" has no spelling on the wire: without the second, a
     // pressed „Eine andere Person" would leave the group looking as though nobody had answered.
-    assert.match(FORM, /setTrainerWahl\(seat\);/, "the press moves the draft without moving what the picker shows");
+    await user.click(screen.getByRole("radio", { name: "Eine andere Person" }));
+    assert.deepEqual(
+      antworten()
+        .filter((antwort) => antwort.getAttribute("aria-checked") === "true")
+        .map((antwort) => antwort.textContent.trim()),
+      ["Eine andere Person"],
+      "the press moves the draft without moving what the picker shows",
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Die Ansprechperson" }));
+    assert.equal(container.querySelector('[name="kontakte.trainer.vorname"]'), null, "the claim leaves the Trainer's own boxes open");
+    assert.ok(
+      screen.queryByText("Die Angaben der Ansprechperson gelten auch für die Trainerin oder den Trainer."),
+      "the claim writes nothing the Trainer's panel says",
+    );
+  });
+
+  /* The strong box clamps what it SHOWS to the lowered squad on its own; a draft left on the old count is
+     refused at submit under two boxes reading alike. */
+  it("brings the strong count down with a lowered squad the boxes show", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onKaderChange = mock.fn();
+    render(
+      h(FormTeamSection, {
+        trikot: { vorhandener_satz: "", wunschfarbe: null },
+        kader: { voraussichtliche_groesse: 25, gute_spieler: 20 },
+        wunschgegner: "",
+        schulen: SCHULEN,
+        vergebeneFarben: [],
+        onTrikotChange: () => undefined,
+        onKaderChange: onKaderChange,
+        onWunschgegnerChange: () => undefined,
+        onFieldLeft: () => undefined,
+        onFarbePicked: () => undefined,
+      }),
+    );
+
+    await tippe(user, screen.getByRole("textbox", { name: "Voraussichtliche Kadergröße" }), "12");
+
+    assert.deepEqual(
+      onKaderChange.mock.calls.map(({ arguments: [kader] }) => kader).at(-1),
+      { voraussichtliche_groesse: 12, gute_spieler: 12 },
+      "the draft keeps a strong count above the squad the boxes show",
+    );
   });
 });
 
@@ -269,13 +511,21 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
     );
   });
 
-  /* Read as source because a `FieldError` with nothing to say renders no element, so the class it
-     would wear reaches no markup this suite can make. */
+  /* A `FieldError` with nothing to say renders no element, so the class is read off a refusal the
+     form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {
-    const block = /<Switch\b[\s\S]*?<\/Switch>/.exec(SEATS)?.[0] ?? "";
+    const section = h(FormEinwilligungSection, { erteilt: false, onErteiltPicked: () => undefined });
+    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { validationBehavior: "aria" }, section)))?.[1];
+    assert.ok(name !== undefined, "the Kenntnisnahme switch renders no named control, so no refusal can reach it");
 
-    assert.notEqual(block, "", "the Kenntnisnahme section renders no switch, so this case compares nothing");
-    assert.match(block, /<FieldError className=\{FIELD_ERROR_SWITCH\} \/>/, "the switch's message wears a text field's recipe");
+    const refused = renderTree(h(Form, { validationBehavior: "aria", validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }, section));
+    const message = /<\w+\b([^>]*\bdata-slot="field-error"[^>]*)>Bestätige die Kenntnisnahme\.</.exec(refused)?.[1];
+    assert.ok(message !== undefined, "a refusal handed to the switch's name renders no message under it");
+
+    const worn = (/\bclass="([^"]*)"/.exec(message)?.[1] ?? "").split(/\s+/);
+    for (const token of FIELD_ERROR_SWITCH.split(/\s+/)) {
+      assert.ok(worn.includes(token), `the switch's message wears a text field's recipe: ${token} is missing from ${worn.join(" ")}`);
+    }
     assert.ok(FIELD_ERROR_SWITCH.startsWith(FIELD_ERROR), "the switch recipe is no longer the field recipe with a start added");
     assert.match(FIELD_ERROR_SWITCH, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
   });
@@ -315,42 +565,22 @@ describe("the public application page", () => {
   it("reads the club list only while the window is running", () => {
     assert.match(PAGE, /fenster\.fenster\?\.laeuft === true$/m, "the club list is read on a page that shows no picker");
   });
-
-  /* Neither read may fall through to a closed state: a failure that read as „abgelaufen“ would state
-     a deadline the page never learnt, and one club list would take the whole form down with it. */
-  it("catches both reads rather than letting either become the error page", () => {
-    assert.match(PAGE, /getBewerbungFenster\(saison_id\)\.then\(/, "the window read is not caught");
-    assert.match(PAGE, /isUnlesbar: true, fenster: null/, "a failed window read is not reported as unreadable");
-    assert.match(PAGE, /getBewerbungSchulen\(\)\.then\(/, "the club list read is not caught");
-    assert.match(PAGE, /isSchulenLesbar: false, schulen: \[\]/, "a failed club list read is not reported as unread");
-  });
 });
 
-/*
- Read rather than rendered: each claim here is about what a handler does with a press or an unload,
- and none of it survives into the markup a press acts on.
-*/
-describe("what the form does with a submit already in flight", () => {
-  /* The disabled button is not the whole guard: `Enter` in any field submits the form too, so a
-     second press mid-flight would post the application twice. */
-  it("returns before the transition rather than posting a second time", () => {
-    assert.match(FORM, /const handleSubmit = \(\) => \{\n(?:.*\n)*?    if \(isPending\) return;/, "the submit runs while one is in flight");
-    assert.match(FORM, /isDisabled=\{isPending\}/, "the submit button stays pressable mid-flight");
+describe("what the form guards before the draft is sent", () => {
+  /* A long form, entered once, by somebody who has it saved nowhere else. */
+  it("warns before an unload that would lose the draft", async () => {
+    const { user, container } = renderSeite();
+    assert.equal(fragtVorDemVerlassen(), false, "an untouched form holds up a reader leaving it");
+
+    await tippe(user, control(container, "kontakte.ansprechperson.vorname"), "Anna", { verlassen: true });
+    assert.equal(fragtVorDemVerlassen(), true, "an unload takes the draft with it silently");
   });
 
-  /* The availability check is rate-limited per address at the edge, and an incomplete code is one the
-     route's own `length(2)` can only refuse. Loosened to a comparison, every blur on an empty box
-     spends a request out of a budget the complete codes need. */
-  it("asks about a code only once it is the full width", () => {
-    assert.match(FORM, /if \(shorthand\.length !== KUERZEL_LAENGE\) \{/, "the blur check fires on a code nobody finished typing");
-  });
-
-  /* A long form, entered once, by somebody who has it saved nowhere else. Every write to the draft
-     goes through one setter, so nothing can move it without arming the browser's prompt. */
-  it("warns before an unload that would lose the draft", () => {
-    assert.match(FORM, /useUnsavedChangesWarning\(hasTyped && !isEingereicht\)/, "an unload takes the draft with it silently");
-
-    // One call, inside `applyDraft`: a second is a write that moves the form without arming the prompt.
+  /* Every write to the draft goes through one setter, so nothing can move it without arming the
+     browser's prompt. A claim over every write the form holds, where a render arms it through the
+     writes one case makes. */
+  it("moves the draft through the one setter that arms that warning", () => {
     const raw = [...FORM.matchAll(/(?<![A-Za-z])setDraft\(/g)];
     assert.equal(raw.length, 1, "a draft write bypasses applyDraft, so it moves the form without arming the warning");
   });
@@ -398,16 +628,15 @@ describe("what the form says about itself to a reader who cannot see it", () => 
     assert.equal(beschrieben.length, 1, "the Abi-Jahrgang hint reaches no input, so a screen reader never meets the sentence");
   });
 
-  /* The receipt replaces the form under the pressed button, so without these the caret falls to
-     `<body>` and nothing is announced on the page somebody has just spent twenty minutes on. */
-  it("announces the receipt and takes the caret the form drops", () => {
-    // Read rather than rendered: the panel arrives on a state transition, not on a prop.
+  /* The receipt replaces the form under the pressed button, so without these the caret falls to `<body>`
+     and nothing is announced; and with the application in, nothing is left for an unload to lose. */
+  it("hands the receipt the caret and a live announcement, and holds up no unload", async () => {
+    const { empfang } = await eingereicht();
 
-    // Anchored to a line of its own: the comment above the receipt names `role="status"` too, and a loose
-    // match is satisfied by the prose while the attribute is gone.
-    assert.match(FORM, /^ +role="status"$/m, "the receipt is in no live region");
-    assert.match(FORM, /tabIndex=\{-1\}/, "the receipt cannot take focus");
-    assert.match(FORM, /eingereichtRef\.current\?\.focus\(\)/, "nothing moves focus to the receipt");
+    assert.equal(document.activeElement, empfang, "the caret is left somewhere other than on the receipt");
+    assert.equal(empfang.getAttribute("role"), "status", "the receipt is not announced");
+    assert.equal(empfang.getAttribute("tabindex"), "-1", "the receipt sits in the tab order as well as taking the caret");
+    assert.equal(fragtVorDemVerlassen(), false, "the receipt holds up a reader whose application is already in");
   });
 });
 
@@ -422,5 +651,45 @@ describe("the receipt the form leaves in its own place", () => {
 
     assert.match(FORM, /className=\{ergebnisPanel\(\{ tone: "erfolg" \}\)\}/, "the receipt dresses a box of its own");
     assert.doesNotMatch(blankComments(FORM), /bg-success\/|border-success\//, "the receipt spells a success tint beside the recipe");
+  });
+
+  /* The receipt swaps itself in for the form alone, so the page's strip goes with the form, and an
+     invitation read out with the receipt buries the answer the applicant pressed for. */
+  it("repeats the page's own strip under the receipt, outside the live region", async () => {
+    const { container, empfang } = await eingereicht();
+    const strip = textOf(renderMarkup(BewerbungInstagramBand, {}));
+
+    assert.equal(container.textContent.split("@frankfurt.league").length - 1, 1, "the receipt page draws the invitation other than once");
+    assert.ok(!empfang.textContent.includes("@frankfurt.league"), "the live region reads the invitation out along with the receipt");
+    assert.equal(empfang.nextElementSibling?.textContent, strip, "the receipt is followed by something other than the page's strip");
+  });
+
+  /* The panel and the messages state the same fan-out: told one seat was written to, the submitter
+     chases nobody, and the two unopened links delete the application on the deadline. Every seat's
+     label is read off `BEWERBUNG_SEATS`. */
+  it("names the link every contact person holds, and singles out no seat", async () => {
+    const absatz = ((await eingereicht()).empfang.querySelector("p")?.textContent ?? "").replace(/\s+/g, " ").trim();
+    const satz = absatz.split(".").find((teil) => teil.includes("Link")) ?? "";
+
+    assert.ok(satz !== "", "the panel names no confirmation link at all");
+    assert.match(satz, /[Jj]ede Kontaktperson/, "the link sentence no longer says every contact person was written to");
+    assert.match(satz, /eigenen Link/, "the link sentence no longer says the link is that person's own");
+
+    for (const { label } of BEWERBUNG_SEATS) {
+      assert.ok(!absatz.includes(label), `the panel singles out ${label} where every seat holds a link`);
+    }
+
+    // „eingegangen“ is not „vollständig“: an applicant told otherwise stops chasing the two people
+    // the application is still waiting for.
+    assert.match(absatz, /[Vv]ollständig[^.]*sobald alle drei bestätigt haben/, "the panel never says what makes the application complete");
+    assert.doesNotMatch(absatz, /nichts weiter tun/, "the panel calls the workflow finished while three links are open");
+
+    // The clock the sweep deletes on, and no digit in the copy for any other purpose.
+    assert.deepEqual(absatz.match(/\d+/g), [String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)], "the panel states a clock other than the sweep's");
+    // Read beside the render: a number typed at the bound's value renders the same sentence, and outlives a changed bound.
+    assert.match(FORM, /\{String\(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE\)\} Tagen/, "the panel states a deadline it did not read off the bound");
+
+    // The decision DOES reach all three, and the panel has to say so or the applicant waits on nothing.
+    assert.match(absatz, /alle[nr]? drei Kontaktpersonen/, "the panel never says the decision reaches all three");
   });
 });

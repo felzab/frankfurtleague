@@ -93,7 +93,9 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "bewerbung",
     q: "Wie kann unsere Schule der Liga beitreten?",
-    a: "Neue Schulen bewerben sich in der Saisonpause, mit einem vollständigen Kader und mindestens einer Vertretung der Schule. Schreib uns über die Kontakt-Seite.",
+    // Static copy cannot know whether a window is open, so it names both routes: the landing page's
+    // band links the form only while one runs (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx`).
+    a: "Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Kontakt-Seite.",
   },
   {
     id: "wetter",

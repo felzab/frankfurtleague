@@ -187,6 +187,29 @@ describe("what the queue's card carries", () => {
   });
 });
 
+/** An application naming neither a school nor a club — the row `REQ-BEWERBUNG-002` refuses to accept. */
+const NICHTS_BENANNT: AdminBewerbungRow = { ...LEER, id: "6890a1b2c3d4e5f607190024", team_id: null, teamName: null };
+
+describe("which of the two the card says an application is", () => {
+  it("badges a picked club as one already in the league", () => {
+    const gelesen = text(liste([LEER]));
+
+    assert.ok(gelesen.includes("Bestehendes Team"), `the picked club is not badged: ${gelesen}`);
+    assert.ok(!gelesen.includes("Neue Schule"), "a picked club is badged as a new school");
+  });
+
+  /* The row nothing names is not a club already in the league: badged as one, it sends the
+     administrator to accept a club that does not exist. */
+  it("badges neither where the application names neither", () => {
+    const gelesen = text(liste([NICHTS_BENANNT]));
+
+    // First, so the absences below are read off a card that rendered at all.
+    assert.ok(gelesen.includes("Kein Team benannt"), `the card does not render the row nothing names: ${gelesen}`);
+    assert.ok(!gelesen.includes("Bestehendes Team"), "a row naming nothing is badged as a club already in the league");
+    assert.ok(!gelesen.includes("Neue Schule"), "a row naming nothing is badged as a new school");
+  });
+});
+
 describe("what the card may and may not clip", () => {
   /* A clipped date is another date, so its cell is sized to it and never truncated. The free-text
      lines take the opposite rule: an address longer than its cell is clipped rather than drawn past

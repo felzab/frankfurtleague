@@ -4,6 +4,7 @@ import { Envelope } from "@gravity-ui/icons";
 
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { card } from "@/shared/components/ui/card";
+import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
@@ -13,6 +14,10 @@ import { META_TILE } from "../ui/tile";
 
 import type { ReactNode } from "react";
 import type { KontaktChannelId } from "../../types";
+
+// Each step is n columns of 16.5rem plus the gaps between them: 16.5rem is the narrowest channel card, at a
+// quarter-rem step, holding the league's address unbroken at its largest type.
+const COLUMNS = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
 
 const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
 
@@ -60,9 +65,10 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
       <MetaSection
         eyebrow="So erreichst Du uns"
         title="Kanäle">
-        <div
+        <CardGrid
+          columns={COLUMNS}
           role="list"
-          className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`}>
+          className={CARDS_CASCADE}>
           {KONTAKT_CHANNELS.map((channel) => (
             <div
               role="listitem"
@@ -90,7 +96,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
               </Link>
             </div>
           ))}
-        </div>
+        </CardGrid>
       </MetaSection>
     </div>
   );

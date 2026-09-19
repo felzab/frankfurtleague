@@ -10,6 +10,8 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
+import { AKTIONEN_CRUD_COPY } from "../../constants.ts";
+
 import type { AdminAktionRow } from "../../types.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
@@ -199,5 +201,38 @@ describe("the notices a narrowing raises", () => {
 
     assert.ok(at(TITEL.dokument) < at(TITEL.vorgang), "the record notice sits below the Vorgang's");
     assert.ok(at(TITEL.vorgang) < at(TITEL.gekappt), "the cut is reported above the narrowing that scoped it");
+  });
+});
+
+/** A read that answered nothing, which is the one state the empty message is drawn in. */
+const NICHTS: Partial<ViewProps> = { aktionen: [], anzahlJeCollection: {}, anzahlJeOperation: {}, anzahlJeHerkunft: {} };
+
+describe("what an empty log says about itself", () => {
+  /* The floor: an untouched log with no row really has recorded nothing, and every case below would
+     pass on a view that never said so. */
+  it("says nothing has been recorded while nothing narrows the read", () => {
+    const html = view(NICHTS);
+
+    assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "an empty log does not say nothing was recorded");
+    assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "an empty log blames a filter nobody set");
+  });
+
+  /* An unknown id reaches here from a pasted link: the endpoint removed every other row, so a log
+     claiming it recorded nothing would be false about every write it holds. */
+  it("blames the narrowing, never the log, where one record or one Vorgang answered nothing", () => {
+    for (const narrowing of [{ dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
+      const html = view({ ...NICHTS, ...narrowing });
+
+      assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), `${JSON.stringify(narrowing)}: the empty narrowing is not the filter's`);
+      assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), `${JSON.stringify(narrowing)}: the log claims it recorded nothing`);
+    }
+  });
+
+  /* Every facet here narrows the read, so an area that answered nothing is a subset rather than a log. */
+  it("blames the filter where an area picked in the bar answered nothing", () => {
+    const html = view(NICHTS, "saison_id=2526&collection=spielorte");
+
+    assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "the empty area is not the filter's");
+    assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "the log claims it recorded nothing");
   });
 });

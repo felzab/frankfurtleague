@@ -83,7 +83,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         <div className="flex min-w-0 flex-row items-center gap-3">
           <Person
             aria-hidden="true"
-            className="text-brand size-4.5 shrink-0"
+            className="text-foreground-muted size-4.5 shrink-0"
           />
           <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{aktion.actor.email}</span>
         </div>
@@ -125,7 +125,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     <span className={labelBadge(AKTION_OPERATION_TINTS[aktion.operation])}>{AKTION_OPERATION_LABELS[aktion.operation]}</span>
   );
 
-  // A tag of its own and never a word inside a sentence: the nine area names carry three grammatical
+  // A tag of its own and never a word inside a sentence: the area names carry three grammatical
   // genders, so any article or pronoun agreeing with the value is wrong for most of them.
   const renderBereichTag = (aktion: AdminAktionRow) => <span className={labelBadge("info")}>{labelForCollection(aktion.collection)}</span>;
 

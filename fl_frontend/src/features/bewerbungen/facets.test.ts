@@ -44,6 +44,16 @@ function row(id: string, inSelectedSaison: boolean, status: FLBewerbungStatus = 
 
 const ROWS = [row("6890a1b2c3d4e5f607190011", true), row("6890a1b2c3d4e5f607190012", false)];
 
+/** A proposed school, of which the facets read only that one is there. */
+const SCHULE: AdminBewerbungRow["schule"] = {
+  team_name: "Goethe",
+  full_name: "Goethe-Gymnasium",
+  shorthand: "GG",
+  schulform: null,
+  address: { strasse: "Friedrich-Ebert-Anlage", hausnummer: "20", plz: "60325", stadtteil: "Westend", stadt: "Frankfurt" },
+  website_url: null,
+};
+
 describe("the season facet on the triage list", () => {
   /* First: a facet the cut no longer finds would leave every assertion below reading `undefined`. */
   it("offers the season as a facet at all, and marks it as one the read narrows on", () => {
@@ -418,5 +428,19 @@ describe("what the triage list's search reaches", () => {
       assert.ok(SEARCH_KEYS?.includes(`"kontakte.${value}.nachname"`), `a ${label} is unsearchable by name`);
       assert.ok(SEARCH_KEYS?.includes(`"kontakte.${value}.email"`), `a ${label} is unsearchable by address`);
     }
+  });
+});
+
+const HERKUNFT_FACET = BEWERBUNGEN_FACETS.find((facet) => facet.param === "herkunft");
+
+describe("the Herkunft facet on the triage list", () => {
+  /* Filed under either option, the row nothing names would be reached by a filter claiming it is one. */
+  it("files each application under its own kind, and a row naming neither under no option at all", () => {
+    assert.ok(HERKUNFT_FACET, "no facet reads the herkunft parameter");
+    assert.deepEqual(HERKUNFT_FACET.read({ ...row("6890a1b2c3d4e5f607190013", true), schule: SCHULE }), ["neue_schule"]);
+    assert.deepEqual(HERKUNFT_FACET.read({ ...row("6890a1b2c3d4e5f607190014", true), team_id: "6890a1b2c3d4e5f607190099" }), [
+      "bestehendes_team",
+    ]);
+    assert.deepEqual(HERKUNFT_FACET.read(row("6890a1b2c3d4e5f607190015", true)), []);
   });
 });

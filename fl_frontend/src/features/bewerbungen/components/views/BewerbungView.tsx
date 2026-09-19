@@ -62,7 +62,8 @@ export function BewerbungView({
       <header className="border-border bg-surface relative flex flex-col gap-4 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8">
         <div className="bg-brand-solid absolute top-0 left-0 h-1.5 w-full" />
 
-        <SaisonChip>Saison {saisonId}</SaisonChip>
+        {/* No dot: the page reads the season's window and never its status, so it cannot say the season is running. */}
+        <SaisonChip isLaufend={false}>Saison {saisonId}</SaisonChip>
 
         <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
           Mit Deiner Schule <span className="text-brand">mitspielen</span>

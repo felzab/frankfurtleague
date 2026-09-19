@@ -9,7 +9,7 @@ import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/re
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
+import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
 import type { TeamSaisonMembership } from "../teams/types.ts";
@@ -28,26 +28,8 @@ const TEAMS_CRUD = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "ap
 /** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
-/**
- * The confirmation panels, read rather than rendered: what they promise is behind a confirmation
- * press.
- */
-const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"].map((name) => ({
-  name: name,
-  source: readFileSync(path.resolve(import.meta.dirname, "components", "forms", `${name}.tsx`), "utf8").replace(/\s+/g, " "),
-}));
-
-/** The page holding both decisions, which is what decides whether either panel is on screen at all. */
-const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungView.tsx"), "utf8").replace(/\s+/g, " ");
-
-/** The readout, whose own `useRouter` is why its header is read rather than rendered. */
-const STRIP = readFileSync(path.resolve(import.meta.dirname, "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
-
 /** The club editor's own mapper, which answers `REQ-ENTER-005` about the same stored state this one does. */
 const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "actions.ts"), "utf8");
-
-/** The backend module whose absence from the triage decides which sentence they take. */
-const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 /** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
 const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
@@ -215,11 +197,7 @@ describe("the triage's refusals against the backend's register", () => {
      path turns the application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
     assert.match(MAPPER, /case "REQ-BEWERBUNG-003":/, "a school no club can be created from falls through to the generic conflict");
-    assert.match(
-      MAPPER,
-      /Team-Name, vollständiger Name, Kürzel, Adresse oder Website/,
-      "the refusal names no field an administrator could look at",
-    );
+    assert.match(MAPPER, /Team, vollständiger Name, Kürzel, Adresse oder Website/, "the refusal names no field an administrator could look at");
     assert.match(MAPPER, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
   });
 
@@ -558,23 +536,6 @@ describe("the decline's bound", () => {
     );
   });
 
-  /* The same rule at the control, which is the half a schema cannot reach: the button is what stops
-     a press, and `docs/frontend/spec.md` I18 makes it the schema's rule rather than a second one. */
-  it("disables the decline on the value the schema judges", () => {
-    const panel = PANELS.find((candidate) => candidate.name === "AdminBewerbungAblehnenSection");
-
-    assert.ok(panel, "the decline panel is no longer where this case reads it");
-    assert.ok(panel.source.includes("const trimmedGrund = grund.trim();"), "the panel judges a string other than the one it measures");
-    assert.ok(panel.source.includes('const isEmpty = trimmedGrund === "";'), "the decline arms on a reason the schema refuses");
-    // The raw value is longer than the trimmed one, so a raw gate refuses a reason the schema and
-    // the backend both take, and the reader is told to shorten what is already inside the cap.
-    assert.ok(
-      panel.source.includes("const isTooLong = trimmedGrund.length > BEWERBUNG_GRUND_MAX_LENGTH;"),
-      "the decline is refused at a length the write accepts",
-    );
-    assert.match(panel.source, /isDisabled=\{isDeclining \|\| isEmpty \|\| isTooLong\}/, "the button no longer reads that gate");
-  });
-
   /* A reason at the cap with padding around it: the schema takes it, so the panel that measures the
      raw string disables the button and counts past the cap over a reason the school would have read. */
   it("takes a reason whose padding is all that carries it past the cap", () => {
@@ -584,53 +545,6 @@ describe("the decline's bound", () => {
     assert.equal(parsed.success, true, "a reason inside the cap once trimmed is refused by the schema");
     assert.equal(parsed.data?.grund.length, BEWERBUNG_GRUND_MAX_LENGTH);
   });
-
-  /* What the reader is shown about that same string. A counter over a cap the write does not enforce
-     reads as a refusal, and a preview holding padding the write drops promises a message nobody sends. */
-  it("counts and previews the reason the write carries", () => {
-    const panel = PANELS.find((candidate) => candidate.name === "AdminBewerbungAblehnenSection");
-
-    assert.ok(panel, "the decline panel is no longer where this case reads it");
-    assert.ok(
-      panel.source.includes("{String(trimmedGrund.length)} von {String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen"),
-      "the counter measures a string the schema does not",
-    );
-    assert.ok(
-      panel.source.includes("Diese Begründung geht so an die Kontaktpersonen: „{trimmedGrund}“"),
-      "the confirmation previews a reason other than the one that goes out",
-    );
-  });
-});
-
-describe("the readout's count", () => {
-  const kopf = sliceBetween(STRIP, "panel.header()", "panel.body()");
-
-  /* In the header beside the heading rather than at the top of the body, where it read as the first
-     of the seat rows below it. */
-  it("stands in the section's header", () => {
-    assert.ok(kopf !== "", "the strip's header is no longer where this case cuts it");
-    assert.match(kopf, /von \{String\(staende\.length\)\} bestätigt/, "the count is no longer beside the heading");
-    assert.ok(!sliceBetween(STRIP, "panel.body()", "muted-hint").includes("bestätigt"), "the body carries a second count");
-  });
-
-  /* One tone for the summary and another for what it summarises: at `warning` it was the same chip
-     as an outstanding SEAT, three rows of which sit directly beneath it. */
-  it("is toned apart from an outstanding seat's own chip", () => {
-    const ausstehend = /ausstehend: "([^"]*)"/.exec(STRIP)?.[1] ?? "";
-    // Read back from the count's own text rather than out of the header, so moving the chip cannot
-    // leave this case judging an empty slice.
-    const gezogen = STRIP.lastIndexOf("className=", STRIP.indexOf("{String(bestaetigt)} von"));
-    const chip = STRIP.slice(gezogen, STRIP.indexOf("{String(bestaetigt)} von"));
-
-    assert.notEqual(ausstehend, "", "the seat tints are no longer where this case reads them");
-    assert.notEqual(gezogen, -1, "the count is no longer rendered where this case reads it");
-    assert.ok(!chip.includes(ausstehend), `the count wears an outstanding seat's own tint, ${ausstehend}`);
-    // The table as well as the literal: reaching into the seats' own tints is how the two come back
-    // together under a rename that leaves this file's regex above still matching.
-    assert.ok(!chip.includes("STAND_TINT"), "the count is tinted out of the seat rows' own table");
-    assert.match(chip, /ZAEHLER_TINT/, "the count no longer takes a tone of its own");
-    assert.match(STRIP, /ZAEHLER_TINT[^=]*= \{ offen: "brand"/, "the count no longer takes the brand's tone while seats are outstanding");
-  });
 });
 
 describe("the pills the queue's card wears", () => {
@@ -638,56 +552,6 @@ describe("the pills the queue's card wears", () => {
      card's own grid track is where one gets narrow enough to break. */
   it("never lets a pill break across two lines", () => {
     assert.match(labelBadge("info"), /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
-  });
-});
-
-describe("the Zusage where the write would be refused", () => {
-  /* Withheld, the section sent the administrator looking for a decision the page still held. It
-     stands and closes its own control instead (my rule, 2026-09-04). */
-  it("stands whatever would refuse it, rather than being replaced by a closure", () => {
-    assert.match(
-      VIEW,
-      /\{isOpen && \( <AdminBewerbungAnnehmenSection/,
-      "the acceptance is offered on some narrower condition than an open application",
-    );
-    assert.ok(!VIEW.includes("<Callout"), "the page still puts a closure where the acceptance belongs");
-    assert.ok(VIEW.includes("hindernis={hindernis}"), "the panel is handed no reason, so its control cannot say why it is closed");
-  });
-
-  /* The reason is readable without a pointer: a control closed by a tooltip alone is closed for
-     reasons only a mouse can read. */
-  it("closes its control on that reason and renders the reason beside it", () => {
-    const panel = PANELS.find((candidate) => candidate.name === "AdminBewerbungAnnehmenSection");
-
-    assert.ok(panel, "the acceptance panel is no longer where this case reads it");
-    assert.ok(panel.source.includes("isDisabled={isAccepting || grund !== null}"), "the acceptance arms over a state its endpoint refuses");
-    assert.match(
-      panel.source,
-      /<Hint mode="inline" describes=\{ZUSAGE_BUTTON_HINT_ID\} text=\{grund\} \/>/,
-      "the reason no longer reaches the page as text under the control",
-    );
-    assert.ok(
-      panel.source.includes("aria-describedby={!isAccepting && grund !== null ? ZUSAGE_BUTTON_HINT_ID : undefined}"),
-      "the closed control points at no sentence, so a screen reader meets a disabled button with no reason",
-    );
-  });
-});
-
-describe("which irreversibility the triage claims", () => {
-  /* `docs/frontend/spec.md` §1.3 splits the two sentences on one mechanical test: the second belongs
-     to a write whose transaction empties the log rows it filed. Neither decision redacts, so the
-     pre-image survives both and the FIRST sentence is theirs. */
-  it("takes the sentence for a write the action log outlives", () => {
-    assert.match(RECORDING, /def build_redaction_update/, "the redaction this test turns on is gone");
-    assert.ok(!ADMIN_ROUTER.includes("build_redaction_update"), "the triage now redacts, so the sentence below is the wrong one");
-
-    for (const panel of PANELS) {
-      assert.match(panel.source, /Es gibt in der Verwaltung keinen Weg zurück\./, `${panel.name} drops the irreversibility sentence`);
-      assert.ok(
-        !panel.source.includes("Zurückholen lässt sich das nicht"),
-        `${panel.name} claims the log is emptied, and no triage write empties one`,
-      );
-    }
   });
 });
 
@@ -827,7 +691,7 @@ describe("the re-sent confirmation link", () => {
     for (const [pruefung, satz] of [
       ["gelesen === null", "BEWERBUNG_WEG"],
       ["person === null", "SITZ_LEER"],
-      ['person.email === ""', "KEINE_ADRESSE"],
+      ['person.email === ""', "ERNEUT_OHNE_ADRESSE"],
       ["benanntesTeam === null", "KEIN_TEAM"],
     ] as const) {
       const at = ERNEUT_ACTION.indexOf(pruefung);
@@ -843,14 +707,20 @@ describe("the re-sent confirmation link", () => {
   it("gives each of those states a sentence of its own", () => {
     // Punctuation dropped: a refusal built from a reason and a repair carries the stops `buildRefusal`
     // writes, and comparing them would call two identical answers different.
-    const gelesen = (name: string): string =>
-      sentencesOf(erneutSatz(name))
+    const vergleichbar = (saetze: string[]): string =>
+      saetze
         .join(" ")
         .toLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, " ")
         .trim();
+    const gelesen = (name: string): string => vergleichbar(sentencesOf(erneutSatz(name)));
 
-    const saetze = ["BEWERBUNG_WEG", "SITZ_LEER", "KEINE_ADRESSE", "KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(gelesen);
+    // The empty address's sentence is the one the strip shares, so it is read off the constant both import.
+    const saetze = [
+      ...["BEWERBUNG_WEG", "SITZ_LEER"].map(gelesen),
+      vergleichbar([ERNEUT_OHNE_ADRESSE]),
+      ...["KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(gelesen),
+    ];
 
     assert.ok(
       saetze.every((satz) => satz !== ""),
@@ -998,83 +868,6 @@ describe("the corrected contact address", () => {
   it("moves no tag, and says why", () => {
     assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
     assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
-  });
-
-  /* The sentence stood when nothing edited an application. With the control beside it there is a way
-     out, and a refusal naming none sends the administrator to another channel for nothing. */
-  it("sends the administrator to the correction where a seat carries no address at all", () => {
-    assert.match(erneutSatz("KEINE_ADRESSE"), /Trage zuerst eine ein/, "the empty-address refusal still names no way out");
-  });
-});
-
-/* Read rather than rendered, for the reason `STRIP`'s own declaration above gives: this component
-   holds a `useRouter`, which the test runner has no router for. */
-describe("the seat row's correction control", () => {
-  /* One condition for both, because the correction ends in a re-sent link: a seat no link can reach
-     has nothing to correct towards, and a second condition would arm one of the two alone. */
-  it("stands under the re-send's own condition, and closes while a send is in flight", () => {
-    assert.match(STRIP, /hatAngebot=\{isOpen && angebot\.has\(sitz\.rolle\)\}/, "the two controls no longer share one condition");
-    assert.equal(STRIP.match(/hatAngebot && !bearbeitet &&/g)?.length, 2, "the pencil and the re-send no longer stand under one gate");
-    assert.match(STRIP, /aria-label=\{`E-Mail-Adresse von \$\{sitz\.nameSatz\} korrigieren`\}/, "the pencil names nobody it edits");
-  });
-
-  /* `docs/frontend/spec.md :: I66` gives a panel one action row, and a second open editor would put
-     two: three rows each holding a draft is three ways to leave one unsaved. */
-  it("is one editor for the whole strip rather than one per row", () => {
-    assert.match(
-      STRIP,
-      /const \[korrektur, setKorrektur\] = useState<KontaktRolle \| null>\(null\)/,
-      "the correction holds something other than one open row at a time",
-    );
-    assert.match(STRIP, /\{bearbeitet && \(/, "the editor is mounted whether or not its row is the open one");
-  });
-
-  /* A press that corrects nothing is a re-send wearing another name, and the re-send has its own
-     control; the hint beneath says what opens it (`docs/frontend/spec.md` §1.12). */
-  it("closes the press until the address has actually moved", () => {
-    assert.match(STRIP, /gleicheAdresse\(email, gespeicherteAdresse \?\? ""\)/, "the press is open on the address the row already shows");
-    assert.match(STRIP, /Gib zuerst eine andere E-Mail-Adresse ein\./, "the closed press names nothing that would open it");
-    assert.match(STRIP, /aria-describedby=\{unveraendert \? hinweisId : undefined\}/, "the closed press points at no reason");
-  });
-
-  /* `.claude/rules/frontend.md` **forms**: a message between two keystrokes describes a value nobody
-     finished entering, so the field is judged when it is left and at the press. */
-  it("judges the typed address on blur and at the press, through the shared mechanism", () => {
-    assert.match(
-      STRIP,
-      /useDraftFieldErrors\(\{\s*schemas: \{ korrektur: FLBewerbungKontaktEmailPayloadSchema \},/,
-      "the editor judges the typed address with another hook, or against a schema other than the correction's own payload",
-    );
-    assert.match(
-      STRIP,
-      /onBlur=\{\(\) => \{\s*validatePaths\("korrektur", payload, \["email"\]\);/,
-      "the field is no longer judged when it is left",
-    );
-    assert.match(STRIP, /guardSubmit\(\{ korrektur: payload \}, \(\) => void schreibe\(\)\)/, "the press writes without the submit gate");
-  });
-
-  /* Refused by the backend regardless; judged here so the administrator is told at the field rather
-     than by a round trip, and the mirrored pair is excepted as the submission excepts it. */
-  it("refuses an address another seat of the application holds", () => {
-    assert.match(
-      STRIP,
-      /belegteAdressen\.some\(\(belegt\) => gleicheAdresse\(email, belegt\)\)/,
-      "an address another person holds reaches the write",
-    );
-    assert.match(STRIP, /!sindEinePerson\(andere, sitz\)/, "the mirrored pair is refused its own address");
-  });
-
-  /* A keyboard user whose focused input has just unmounted is otherwise dropped on the document
-     body, with nothing announcing where focus went. */
-  it("returns focus to the pencil when the editor closes", () => {
-    assert.match(STRIP, /stiftRef\.current\?\.focus\(\)/, "focus is left wherever the unmounted field was");
-  });
-
-  /* A refused delivery is the row's most actionable fact, and the tone set it draws from holds no
-     neutral member (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
-  it("grades a refused delivery with a tone rather than leaving it neutral", () => {
-    assert.match(STRIP, /labelBadge\(zustellung\.tone\)/, "the delivery chip takes no tone at all");
-    assert.match(STRIP, /ZUSTELLUNG_CHIP\[sitz\.zustellung\.stand\]/, "the delivery chip is worded somewhere other than the one table");
   });
 });
 

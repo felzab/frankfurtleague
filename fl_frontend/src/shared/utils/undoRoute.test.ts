@@ -65,11 +65,11 @@ const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 type Undone = { answer: { success: boolean; error?: string }; status: number; invalidated: unknown[]; bodiesRead: number };
 
 /** One undo through the spine, with a restore that answers or throws as `restore` does, and every invalidation it made. */
-async function undo(restore: () => Promise<UndoReport>): Promise<Undone> {
+async function undo(restore: () => Promise<UndoReport>, herkunft: string | null = "same-origin"): Promise<Undone> {
   const invalidated: unknown[] = [];
   let bodiesRead = 0;
   const request = {
-    headers: new Headers({ "sec-fetch-site": "same-origin" }),
+    headers: new Headers(herkunft === null ? {} : { "sec-fetch-site": herkunft }),
     json: async () => {
       bodiesRead += 1;
       return PAYLOAD;
@@ -166,5 +166,37 @@ describe("who the undo spine answers before it does any work", () => {
     } finally {
       delete bus.__flUndoRouteSession;
     }
+  });
+});
+
+/** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
+const HERKUENFTE: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
+
+describe("what stands in for a session on the undo spine", () => {
+  /* Every value a browser sends, so a widened condition or a refusal built and not returned fails;
+     `null` passes deliberately, a browser too old to send it is still an administrator's browser. */
+  it("refuses every other origin, and lets the page's own requests and a header-less one through", async () => {
+    for (const herkunft of HERKUENFTE) {
+      let restored = 0;
+      const { answer, bodiesRead } = await undo(async () => {
+        restored += 1;
+        return {};
+      }, herkunft);
+      const fremd = herkunft !== null && herkunft !== "same-origin";
+
+      assert.equal(restored > 0 || bodiesRead > 0, !fremd, `a request marked ${String(herkunft)} is ${fremd ? "worked on" : "turned away"}`);
+      if (fremd) assert.match(answer.error ?? "", /kam nicht von dieser Seite/, `a request marked ${herkunft} is answered with something else`);
+    }
+  });
+
+  /* 200 with the outcome in the body: the dispatch throws on any other status and reports the throw as
+     a connection fault, which sends an administrator to check a network that is fine. */
+  it("answers the refusal in German the dispatch actually renders", async () => {
+    const { answer, status } = await undo(async () => ({}), "cross-site");
+
+    assert.equal(status, 200, "the spine answers a status no caller reads past");
+    assert.equal(answer.success, false, "a cross-site request is reported as answered");
+    // The admin's own half: the undo did not happen and the change stands.
+    assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, "the refusal stopped saying the change still stands");
   });
 });

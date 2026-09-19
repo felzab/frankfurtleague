@@ -5,7 +5,7 @@ import { useId, useState, useTransition } from "react";
 import { CircleCheck } from "@gravity-ui/icons";
 import { parseDate } from "@internationalized/date";
 
-import { Button, Calendar, DateField, DatePicker, FieldError, Form, Label, Switch } from "@heroui/react";
+import { Button, Form, Label, Switch } from "@heroui/react";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
@@ -14,22 +14,14 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
-import {
-  DATE_PICKER_CALENDAR,
-  DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_LABEL,
-  FIELD_PAIR,
-  FORM_SECTION_HEADING,
-} from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -52,18 +44,13 @@ type EinwilligungAntwort =
   | { success: false; error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand };
 
 /** A control, not a link: it arms the objection and navigates nowhere. Named in the information text too. */
-export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
+const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 
 /**
- * What the armed press sends. A constant rather than a literal in the branch: the armed state is
- * reached by a press, so this word is the one a test can hold without a browser to press in.
+ * What the armed press sends. A constant rather than a literal in the branch: it is where
+ * `docs/glossary.md` points for the word the screen calls this act.
  */
-export const WIDERSPRUCH_SENDEN = "Widerspruch senden";
-
-// Every path this form renders a control for. `fl_frontend/src/core/refusalPaths.test.ts :: EXEMPT`
-// carries why the payload's remaining paths render none, and a refusal naming one of those has no
-// field to speak at.
-export const BESTAETIGUNG_FELDER: readonly string[] = ["geburtsdatum", "whatsapp"];
+const WIDERSPRUCH_SENDEN = "Widerspruch senden";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
@@ -80,11 +67,6 @@ const beurteilt = (entwurf: Entwurf) => ({
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
-}
-
-/** Whether a refusal reached a control at all; one naming only unrendered paths would show nothing. */
-function sprichtAmFeld(fieldErrors: FieldErrors | undefined): boolean {
-  return Object.keys(fieldErrors ?? {}).some((pfad) => BESTAETIGUNG_FELDER.includes(pfad));
 }
 
 /**
@@ -106,7 +88,7 @@ function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLB
  * objection is the reflow that walked the buttons out from under the pointer that had just armed
  * them.
  */
-export function BestaetigungAngaben({
+function BestaetigungAngaben({
   entwurf,
   onEntwurf,
   onGeburtsdatumVerlassen,
@@ -131,62 +113,19 @@ export function BestaetigungAngaben({
             stretching the segments across it. */}
         <div className={FIELD_PAIR}>
           <div className="flex flex-col gap-y-2">
-            <DatePicker
+            <AppDatePicker
               isRequired
               isDisabled={isDisabled}
               name="geburtsdatum"
+              label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
+              calendarLabel="Geburtsdatum auswählen"
               value={toCalendarDate(entwurf.geburtsdatum)}
               onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
               onBlur={onGeburtsdatumVerlassen}
               aria-describedby={hinweisId}
-              className="w-full">
-              <Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>
-              <DateField.Group
-                fullWidth
-                className={FIELD_GROUP}>
-                <DateField.Input className="fluid-sm">
-                  {(segment) => (
-                    <DateField.Segment
-                      segment={segment}
-                      className="data-[type=literal]:text-foreground-muted"
-                    />
-                  )}
-                </DateField.Input>
-                <DateField.Suffix>
-                  <DatePicker.Trigger>
-                    <DatePicker.TriggerIndicator />
-                  </DatePicker.Trigger>
-                </DateField.Suffix>
-              </DateField.Group>
-              <FieldError className={FIELD_ERROR} />
-              <DatePicker.Popover
-                className={DATE_PICKER_POPOVER}
-                placement={DATE_PICKER_PLACEMENT}>
-                {/* The span greys days out where dates are OFFERED, never on the field, which judges: a
-                    bound there paints a message on each keystroke of a half-typed year. */}
-                <Calendar
-                  aria-label="Geburtsdatum auswählen"
-                  minValue={parseDate(frueheste)}
-                  maxValue={parseDate(spaeteste)}
-                  className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-                  <Calendar.Header className="bg-transparent">
-                    <Calendar.YearPickerTrigger>
-                      <Calendar.YearPickerTriggerHeading />
-                      <Calendar.YearPickerTriggerIndicator />
-                    </Calendar.YearPickerTrigger>
-                    <Calendar.NavButton slot="previous" />
-                    <Calendar.NavButton slot="next" />
-                  </Calendar.Header>
-                  <Calendar.Grid>
-                    <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-                    <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-                  </Calendar.Grid>
-                  <Calendar.YearPickerGrid>
-                    <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-                  </Calendar.YearPickerGrid>
-                </Calendar>
-              </DatePicker.Popover>
-            </DatePicker>
+              minValue={parseDate(frueheste)}
+              maxValue={parseDate(spaeteste)}
+            />
             {/* One wording in both states: a hint that rewrote itself on arming would move every
                 control under it, which is the shift this section exists to avoid. */}
             <Hint
@@ -224,7 +163,7 @@ export function BestaetigungAngaben({
  * **The row's shape does not change when the objection arms**: the cancel takes the slot the
  * objection stood in, so no new control lands under a finger already on the first.
  */
-export function BestaetigungEntscheidung({
+function BestaetigungEntscheidung({
   isConfirming,
   isPending,
   isDeclining,
@@ -250,7 +189,6 @@ export function BestaetigungEntscheidung({
         <Button
           type="submit"
           isPending={isPending || isDeclining}
-          isDisabled={isPending || isDeclining}
           aria-describedby={isConfirming ? undefined : beschreibtId}
           className={confirmButton(isConfirming)}>
           {!isConfirming && (
@@ -259,14 +197,14 @@ export function BestaetigungEntscheidung({
               aria-hidden="true"
             />
           )}
-          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Bestätigt..." : "Eintrag bestätigen"}
+          {isConfirming ? (isDeclining ? "Sendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Sendet..." : "Eintrag bestätigen"}
         </Button>
 
         {!isConfirming && (
           <Button
             type="button"
             variant="secondary"
-            isDisabled={isPending}
+            isPending={isPending}
             onPress={onWiderspruch}
             className={formButton({ intent: "cancel", stacks: true })}>
             {ABLEHNEN_LABEL}
@@ -352,9 +290,9 @@ export function BestaetigungFormPanel({
 
       setSubmitFieldErrors(antwort.fieldErrors ?? {}, { einwilligung: payload });
 
-      // A refusal on a path this form renders already speaks at its field. One naming only paths the
-      // form renders no control for would otherwise be shown nowhere at all.
-      if (!sprichtAmFeld(antwort.fieldErrors)) {
+      // For a failure belonging to no field alone: a field's refusal speaks at it, and one naming only paths
+      // no control renders is announced by `useServerFieldErrors`, which a second toast here would repeat.
+      if (!hasFieldErrors(antwort.fieldErrors)) {
         appToast.danger("Änderung nicht gespeichert", { description: antwort.error ?? NICHT_GESPEICHERT });
       }
       return;
@@ -373,10 +311,6 @@ export function BestaetigungFormPanel({
   const sendeWiderspruch = () => sende(antwortPayload(token, entwurf, true));
 
   const handleSubmit = () => {
-    // The disabled button is not the whole guard: `Enter` in the date field submits too, and a
-    // second press mid-flight would spend a token the first press is already spending.
-    if (isPending || isDeclining) return;
-
     // Armed, this press is the shared control's second one and is graded there — including the
     // double-click window, which a submit handler cannot see.
     if (isConfirming) {

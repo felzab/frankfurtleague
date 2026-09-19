@@ -24,7 +24,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { enteredNumber } from "@/shared/utils/numberField";
 
-import { strongPlayerCeiling } from "./kaderBounds.ts";
+import { kaderWithSquad, strongPlayerCeiling } from "./kaderBounds.ts";
 
 import type { BewerbungFormDraft } from "@/features/bewerbungen/types";
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
@@ -132,7 +132,7 @@ export function FormTeamSection({
               minValue={1}
               maxValue={BEWERBUNG_KADER_GROESSE_MAX}
               value={kader.voraussichtliche_groesse ?? NaN}
-              onChange={(next) => onKaderChange({ ...kader, voraussichtliche_groesse: enteredNumber(next) })}
+              onChange={(next) => onKaderChange(kaderWithSquad(kader, enteredNumber(next)))}
               onBlur={() => onFieldLeft(["kader.voraussichtliche_groesse"])}>
               <Label className={FIELD_LABEL}>Voraussichtliche Kadergröße</Label>
               <NumberField.Group className={FIELD_GROUP}>
@@ -188,7 +188,10 @@ export function FormTeamSection({
                 maxLength={BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH}
                 className={FIELD_TRIGGER}
               />
-              <ComboBox.Trigger />
+              {/* Named here rather than left to react-aria's own label, which follows the VISITOR's locale
+                  while this page is `lang="de"` — an English name on a German page for anyone whose
+                  browser is not German. */}
+              <ComboBox.Trigger aria-label="Vorschläge anzeigen" />
             </ComboBox.InputGroup>
             <FieldError className={FIELD_ERROR} />
 

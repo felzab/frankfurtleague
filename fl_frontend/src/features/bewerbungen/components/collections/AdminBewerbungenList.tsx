@@ -5,8 +5,9 @@ import { memo } from "react";
 import { ArrowRightFromSquare, GraduationCap } from "@gravity-ui/icons";
 
 import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
-import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
+import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellung";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
@@ -95,13 +96,13 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   // A new school and an existing club are decided differently — the first one gets created — so the
   // row says which it is before it is opened.
 
-  // One tone for both: a Herkunft is a kind and not a standing, so the word tells the two apart.
-  const renderHerkunft = (bewerbung: AdminBewerbungRow) =>
-    bewerbung.schule !== null ? (
-      <span className={labelBadge("info")}>Neue Schule</span>
-    ) : (
-      <span className={labelBadge("info")}>Bestehendes Team</span>
-    );
+  // One tone for both: a Herkunft is a kind and not a standing, so the word tells the two apart. No
+  // badge where it names neither: the name cell already reads „Kein Team benannt“ there.
+  const renderHerkunft = (bewerbung: AdminBewerbungRow) => {
+    const herkunft = bewerbungHerkunft(bewerbung);
+
+    return herkunft === null ? null : <span className={labelBadge("info")}>{BEWERBUNG_HERKUNFT_LABELS[herkunft]}</span>;
+  };
 
   // Beside the Herkunft badge: a second application for one club is a fact about where the row came
   // from, and the administrator decides it by declining whichever is not real.
@@ -186,7 +187,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     <div className={IDENTITY_ROW}>
       <GraduationCap
         aria-hidden="true"
-        className="text-brand size-4.5 shrink-0"
+        className="text-foreground-muted size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>

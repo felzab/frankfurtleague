@@ -48,7 +48,7 @@ describe("deriveKontakteDraftStatus", () => {
 
   /* The rows are unconditional: keyed on `kontakte` itself, every row reporting the loss would be
      filtered out before the comparison, and a withdrawal could not be executed at all. */
-  it("reports the block switched off as a change on every row that held something", () => {
+  it("reports the block gone as a change on every row that held something", () => {
     const status = deriveKontakteDraftStatus({ stored: block(), draft: EMPTY, fieldErrors: {} });
 
     assert.equal(status.isDirty, true);
@@ -89,12 +89,33 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
   });
 
-  it("keeps every row while the club records nobody at all, so the switch back is a change", () => {
+  it("keeps every row while the club records nobody at all, so entering somebody is a change", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: EMPTY, fieldErrors: {} });
 
     assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, null);
+  });
+
+  /* The editor opens a block of empty seats as no block at all, and a claim is all the two can still
+     differ by, so a row an erasure emptied would otherwise open dirty. */
+  it("reads a block holding nobody as no block, whatever claim it carries", () => {
+    const niemand = block({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" });
+
+    for (const [stored, draft] of [
+      [niemand, EMPTY],
+      [EMPTY, niemand],
+    ] as const) {
+      const status = deriveKontakteDraftStatus({ stored, draft, fieldErrors: {} });
+
+      assert.equal(status.isDirty, false, "nobody on file in one shape reads as a change from the other");
+      assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.storedText, null);
+    }
+    // The control: the same claim over somebody is still read, so the silence above is not the row going dark.
+    assert.equal(
+      deriveKontakteDraftStatus({ stored: block({ trainer_ist_zugleich: "ansprechperson" }), draft: block(), fieldErrors: {} }).isDirty,
+      true,
+    );
   });
 
   it("finds a contact error under the seat that holds the field", () => {

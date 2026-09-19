@@ -10,11 +10,13 @@ import {
   mirrorKontakte,
   renamedConfirmedSeatLabels,
   resolveTeamSaisonMembership,
+  settledErasureAnsicht,
   teamPageHref,
 } from "./utils";
 
 import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
+import type { FLKontaktErasureAnsichtResponse } from "./schemas";
 
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
   vorname: "Erika",
@@ -274,11 +276,51 @@ describe("renamedConfirmedSeatLabels", () => {
     assert.deepEqual(renamedConfirmedSeatLabels(mirrorKontakte(gehalten), mirrorKontakte(getippt)), ["Ansprechperson", "Trainer"]);
   });
 
-  /* A block filled in for the first time has no stamp to lose, and one the draft clears whole is what
-     `kontakte.block-removed` states instead. */
+  /* A block filled in for the first time has no stamp to lose, and a draft holding no block renames nobody. */
   it("names nothing where nothing was stored and nothing where the block goes", () => {
     assert.deepEqual(renamedConfirmedSeatLabels(null, block()), []);
     assert.deepEqual(renamedConfirmedSeatLabels(block(), null), []);
+  });
+});
+
+describe("settledErasureAnsicht", () => {
+  const ANSICHT: FLKontaktErasureAnsichtResponse = { acknowledged: 1, saison_teams: [], bewerbungen: [] };
+  const EMAIL = "erika@beispiel.de";
+
+  /* Outside a transition a rejection reaches no error boundary, so this arm is the only thing between a
+     lost connection and a placeholder that never leaves. */
+  it("refuses with the connection named where the read never answered", () => {
+    const gelesen = settledErasureAnsicht(EMAIL, { status: "rejected", reason: new Error("Failed to fetch") });
+
+    assert.equal(gelesen.status, "refused", "a read that never answered leaves the panel waiting on it");
+    assert.equal(gelesen.email, EMAIL, "the refusal is carried under no address, so it stands under whichever seat is armed next");
+    assert.equal(gelesen.status === "refused" ? gelesen.reason : "", "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.");
+  });
+
+  it("holds the seats where the read answered them", () => {
+    assert.deepEqual(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true, ansicht: ANSICHT } }), {
+      email: EMAIL,
+      status: "read",
+      sitze: ANSICHT,
+    });
+  });
+
+  /* A stored address the erasure payload refuses reaches the read as a field map, and the panel it
+     would mark a box on renders no box at all (`docs/backend/spec.md :: I104`). */
+  it("keeps a field message out of the refusal, whose panel has no field, and repeats a sentence the server gave", () => {
+    const feld = settledErasureAnsicht(EMAIL, {
+      status: "fulfilled",
+      value: { success: false, error: "Bitte prüfe die markierten Felder.", fieldErrors: { email: "Ungültig" } },
+    });
+    const gesagt = settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: false, error: "Keine Berechtigung." } });
+
+    assert.deepEqual(feld, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen noch einmal." });
+    assert.deepEqual(gesagt, { email: EMAIL, status: "refused", reason: "Keine Berechtigung." });
+  });
+
+  /* A success carrying no answer confirms nothing, and the write is closed until names are on screen. */
+  it("refuses a success that carried no seats", () => {
+    assert.equal(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true } }).status, "refused");
   });
 });
 

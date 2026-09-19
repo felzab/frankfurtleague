@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
+
+import "@/shared/testing/renderTest.ts";
 
 import type { Metadata } from "next";
 import type { FLBewerbungFensterResponse } from "./schemas";
@@ -142,11 +143,19 @@ describe("how the triage renders what the applicant typed", () => {
 
 /** Where the doubled window read takes its answer from, one case at a time. */
 const ANTWORT = "__flBewerbungFensterAntwort";
+/** The club list's own answer, so a case can fail that read alone. */
+const SCHULEN_ANTWORT = "__flBewerbungSchulenAntwort";
 
 /* The page's own three reads. A case sets what the window read answers; the two beside it are read
    inside the boundary alone, which no case here renders. */
-const BEWERBUNGEN_QUERIES_DOUBLE = `export const getBewerbungFenster = async () => globalThis.${ANTWORT};
-export const getBewerbungSchulen = async () => ({ schulen: [] });
+const BEWERBUNGEN_QUERIES_DOUBLE = `export const getBewerbungFenster = async () => {
+  if (globalThis.${ANTWORT} instanceof Error) throw globalThis.${ANTWORT};
+  return globalThis.${ANTWORT};
+};
+export const getBewerbungSchulen = async () => {
+  if (globalThis.${SCHULEN_ANTWORT} instanceof Error) throw globalThis.${SCHULEN_ANTWORT};
+  return { schulen: [] };
+};
 export const getBewerbungTrikotfarben = async () => ({ vergeben: [] });`;
 
 const SAISONS_QUERIES_DOUBLE = `export const getSaisons = async () => ({ saisons: [] });
@@ -167,37 +176,32 @@ const DOUBLED: [string, string][] = [
   ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
 ];
 
+// The page itself compiles through the shared harness's step, which this hook runs ahead of.
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Node resolves the package's subpaths only with their extension; Next's own bundler needs none.
-    if (specifier === "next/server" || specifier === "next/navigation") return nextResolve(`${specifier}.js`, context);
-    return nextResolve(specifier, context);
-  },
   load(url, context, nextLoad) {
     if (url.endsWith("/next/server.js")) return { format: "module", source: CONNECTION_DOUBLE, shortCircuit: true };
 
     const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
     if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
-    if (!url.endsWith(".tsx")) return nextLoad(url, context);
-
-    // The runner strips types and compiles no JSX, and the page's own body is JSX.
-    const compiled = ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
-      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
-    }).outputText;
-
-    return { format: "module", shortCircuit: true, source: compiled };
+    return nextLoad(url, context);
   },
 });
 
 /* Loaded rather than read: what a crawler is told is the object `generateMetadata` returns, and no
    assertion over the page's source text can show that. */
-const { generateMetadata } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
+const { default: BewerbungPage, generateMetadata } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
+const { NOT_FOUND_METADATA } = await import("@/shared/utils/notFoundMetadata.ts");
+
+/** What the window read answers in a case: a season's window, no season, or a read that failed. */
+type WindowRead = { fenster: FLBewerbungFensterResponse | null } | null | Error;
+
+const PAGE_PROPS = { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) };
 
 /** One season's metadata, with the window read answering `antwort`. */
-async function metadataFor(antwort: { fenster: FLBewerbungFensterResponse | null } | null): Promise<Metadata> {
+async function metadataFor(antwort: WindowRead): Promise<Metadata> {
   (globalThis as unknown as Record<string, unknown>)[ANTWORT] = antwort;
 
-  return generateMetadata({ params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
+  return generateMetadata(PAGE_PROPS);
 }
 
 const ABGELAUFEN: FLBewerbungFensterResponse = {
@@ -210,13 +214,18 @@ const ABGELAUFEN: FLBewerbungFensterResponse = {
 };
 
 describe("what the public application page tells a crawler about its season", () => {
-  /* The whole of what a mistyped year gets: `notFound()` from the metadata, which is the earliest the
-     answer is known. Raised in the body instead, the page it 404s has already rendered its sentence. */
-  it("answers not-found where no season carries the id", async () => {
-    await assert.rejects(
-      () => metadataFor(null),
-      (error: Error & { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
-    );
+  /* Answered rather than thrown: a `notFound()` from the metadata leaves the tab the layout's title
+     over the 404 panel the body throws, and a crawler an address to index that names no season. */
+  it("answers as every 404 does where no season carries the id", async () => {
+    assert.deepEqual(await metadataFor(null), NOT_FOUND_METADATA);
+  });
+
+  /* The same answer before any read: a year of the wrong length names no season the backend could know. */
+  it("answers as every 404 does where the id is malformed", async () => {
+    (globalThis as unknown as Record<string, unknown>)[ANTWORT] = { fenster: ABGELAUFEN };
+    const metadata = await generateMetadata({ params: Promise.resolve({ saison_id: "20266" }), searchParams: Promise.resolve({}) });
+
+    assert.deepEqual(metadata, NOT_FOUND_METADATA);
   });
 
   /* A season nobody has recorded a deadline for renders one sentence and no form. Indexed, that
@@ -225,9 +234,59 @@ describe("what the public application page tells a crawler about its season", ()
     assert.deepEqual((await metadataFor({ fenster: null })).robots, { index: false });
   });
 
+  /* The page renders the unreadable state rather than a 404, so the sentence saying the window could
+     not be read is what an indexed copy would keep. */
+  it("asks not to be indexed where the window could not be read", async () => {
+    assert.deepEqual((await metadataFor(new Error("backend unreachable"))).robots, { index: false });
+  });
+
   /* The control, and the boundary of the directive: a deadline that has passed is a real answer for
      the season it names, so the page stays a page a crawler may keep. */
   it("leaves a season whose deadline has passed indexable", async () => {
     assert.equal((await metadataFor({ fenster: ABGELAUFEN })).robots, undefined);
+  });
+});
+
+type ElementOf<P> = { type: (props: P) => Promise<unknown>; props: P };
+
+/** The page's body: the boundary's one child, called with the page's props, where the season's read and its 404 sit. */
+async function renderBody(antwort: WindowRead, schulen: Error | null = null): Promise<unknown> {
+  (globalThis as unknown as Record<string, unknown>)[ANTWORT] = antwort;
+  (globalThis as unknown as Record<string, unknown>)[SCHULEN_ANTWORT] = schulen;
+  const boundary = BewerbungPage(PAGE_PROPS) as unknown as { props: { children: ElementOf<typeof PAGE_PROPS> } };
+  const body = boundary.props.children;
+
+  return body.type(body.props);
+}
+
+describe("what the public application page answers for a season nobody knows", () => {
+  /* The metadata only titles the panel; the body's throw is the one thing making an unknown season a
+     404, and one thrown inside the read's own handlers would be caught as a read that failed. */
+  it("throws not-found from the body where no season carries the id", async () => {
+    await assert.rejects(
+      renderBody(null),
+      (error: { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
+      "an unknown season renders the page instead of the not-found panel",
+    );
+  });
+
+  /* The control, and the state the page owes a failed read: it renders the view with no window rather
+     than throwing, and says the window is unreadable rather than closed. */
+  it("hands the view an unreadable window where the read failed", async () => {
+    const gerendert = (await renderBody(new Error("backend unreachable"))) as { props: { isUnlesbar: boolean; fenster: unknown } };
+
+    assert.equal(gerendert.props.isUnlesbar, true, "a failed window read is reported as a state the page knows");
+    assert.equal(gerendert.props.fenster, null, "a failed window read hands the view a window it never got");
+  });
+
+  /* Read while the window runs, which is the one state that offers a picker: uncaught, one unreachable
+     list would take the whole form down with it. */
+  it("hands the view an unread club list where that read failed", async () => {
+    const gerendert = (await renderBody({ fenster: { ...ABGELAUFEN, laeuft: true } }, new Error("backend unreachable"))) as {
+      props: { isSchulenLesbar: boolean; schulen: unknown[] };
+    };
+
+    assert.equal(gerendert.props.isSchulenLesbar, false, "a failed club list read is reported as a list that was read");
+    assert.deepEqual(gerendert.props.schulen, [], "a failed club list read hands the view clubs it never got");
   });
 });

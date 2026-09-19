@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { catchError } from "next/error";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
@@ -93,11 +93,18 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
   }, [state, setSubmitFieldErrors]);
 
   const handleFormSubmit = () => {
+    // The pending button is not the whole guard: `Enter` in the read-only field submits the form too,
+    // and a second submit mid-flight would send a second link.
+    if (isPending) return;
+
     // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ signIn: { email } }, () => {
       const submitted = new FormData();
       submitted.set("email", email);
-      formAction(submitted);
+      // Inside a transition, as a dispatch from a submit handler must be: outside one `isPending` never turns true.
+      startTransition(() => {
+        formAction(submitted);
+      });
     });
   };
 
@@ -165,7 +172,10 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             name="email"
             type="email"
             value={email}
-            onChange={onEmailChange}>
+            onChange={onEmailChange}
+            // Read-only rather than disabled while the link sends: a disabled field drops the focus of
+            // the visitor who pressed `Enter` in it to the page.
+            isReadOnly={isPending}>
             <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
@@ -173,7 +183,6 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
               className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-(--motion-base) outline-none"
               placeholder="z.B. name@beispiel.de"
               type="email"
-              disabled={isPending}
             />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -181,7 +190,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
           <Button
             type="submit"
             variant="primary"
-            isDisabled={isPending}
+            isPending={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
             {isPending ? "Sendet..." : "Link senden"}
           </Button>
@@ -192,9 +201,10 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
             more surface the submit-block sweep has to carve an exception for. */}
         <div className="flex flex-col gap-y-4">
+          {/* Not `isRequired`: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
+              reaches a field inside a `form` alone, so here it draws a red star on a field nothing submits. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
-            isRequired
             name="email"
             type="email">
             <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>

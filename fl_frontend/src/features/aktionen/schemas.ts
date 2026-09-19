@@ -29,7 +29,7 @@ export const FLAktionSchema = z.object({
   trace_id: z.string(),
   // Null on a write made outside a request, which is what the system actor records.
   request: FLAktionRequestSchema.nullable(),
-  // Open rather than an enum of the nine names: a collection added on the backend must still list here.
+  // Open rather than an enum of the recorded names: a collection added on the backend must still list here.
   collection: z.string(),
   operation: z.enum(["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]),
   // An ObjectId everywhere but `saisons`, whose id is the season string. Null on a fan-out, which named a filter

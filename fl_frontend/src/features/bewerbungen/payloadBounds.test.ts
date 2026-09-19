@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { renderMarkup } from "@/shared/testing/renderTest";
 
-import { strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
+import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
 import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import {
   FLBewerbungKaderPayloadSchema,
@@ -378,6 +378,31 @@ describe("the rule a count is judged against as well as its ceiling", () => {
   it("binds that ceiling to the box the applicant types in", () => {
     // The function is only the form's ceiling while the form calls it.
     assert.match(readForm("FormTeamSection.tsx"), /maxValue=\{strongPlayerCeiling\(kader\.voraussichtliche_groesse\)\}/);
+  });
+
+  it("brings the strong count down with a lowered squad, to a pair the write path takes", () => {
+    // Squad 25 with 20 strong, lowered to 12: the strong box shows 12, and a draft left on 20 is refused under two 12s.
+    const gesenkt = kaderWithSquad({ voraussichtliche_groesse: 25, gute_spieler: 20 }, 12);
+
+    assert.deepEqual(gesenkt, { voraussichtliche_groesse: 12, gute_spieler: 12 });
+    assert.equal(FLBewerbungKaderPayloadSchema.safeParse(gesenkt).success, true);
+  });
+
+  it("leaves a strong count the new ceiling still holds, and invents none", () => {
+    assert.deepEqual(kaderWithSquad({ voraussichtliche_groesse: 25, gute_spieler: 3 }, 12), { voraussichtliche_groesse: 12, gute_spieler: 3 });
+    assert.deepEqual(kaderWithSquad({ voraussichtliche_groesse: 12, gute_spieler: 12 }, 25), {
+      voraussichtliche_groesse: 25,
+      gute_spieler: 12,
+    });
+    assert.deepEqual(kaderWithSquad({ voraussichtliche_groesse: null, gute_spieler: null }, 5), {
+      voraussichtliche_groesse: 5,
+      gute_spieler: null,
+    });
+    // An emptied squad box lifts the ceiling to the league's own, which holds every count the box could show.
+    assert.deepEqual(kaderWithSquad({ voraussichtliche_groesse: 12, gute_spieler: 7 }, null), {
+      voraussichtliche_groesse: null,
+      gute_spieler: 7,
+    });
   });
 
   it("accepts a squad rated strong to the last player", () => {

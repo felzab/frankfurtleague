@@ -816,7 +816,7 @@ pill routes through the discard guard and the button cannot.
 
 Every form whose fields are React state submits through
 `fl_frontend/src/shared/components/ui/formSubmit.ts :: runOnSubmit` — `onSubmit` with
-`preventDefault` (I32, whose row carries the one exception and the sweep that holds the rule).
+`preventDefault` (I32, whose row names the sweep that holds the rule).
 **Passing a function to a form's `action` instead discards the draft on every
 submit**, in silence: React treats a function `action` as a form action and resets the form's DOM
 element when the transition commits, and react-aria's `useFormReset` answers that event by pushing

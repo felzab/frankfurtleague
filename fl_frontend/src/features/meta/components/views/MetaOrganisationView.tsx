@@ -1,5 +1,6 @@
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { card } from "@/shared/components/ui/card";
+import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
@@ -7,6 +8,10 @@ import { typedObjectEntries } from "@/shared/utils/type";
 import { GROUPED_MEMBERS, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 import { META_TILE } from "../ui/tile";
+
+// Each step is n columns of 10.75rem plus the gaps between them: 10.75rem is the narrowest member card, at a
+// quarter-rem step, holding every word of its role and its line unbroken at its largest type.
+const COLUMNS = "@min-[23rem]:grid-cols-2 @min-[35.25rem]:grid-cols-3";
 
 export function MetaOrganisationView() {
   return (
@@ -22,9 +27,10 @@ export function MetaOrganisationView() {
           key={tag}
           eyebrow={TAG_EYEBROWS[tag]}
           title={TAG_TITLES[tag]}>
-          <div
+          <CardGrid
+            columns={COLUMNS}
             role="list"
-            className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`}>
+            className={CARDS_CASCADE}>
             {members.map((member) => (
               <div
                 role="listitem"
@@ -44,7 +50,7 @@ export function MetaOrganisationView() {
                 <p className="muted-meta">{member.desc}</p>
               </div>
             ))}
-          </div>
+          </CardGrid>
         </MetaSection>
       ))}
     </div>

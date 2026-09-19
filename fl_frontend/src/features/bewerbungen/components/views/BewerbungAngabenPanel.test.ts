@@ -123,3 +123,30 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(angabe(markup(), "Wunschgegner")), "Helmholtzschule");
   });
 });
+
+/** The first panel's heading, which is where the panel says which of the two the application is. */
+const ersterTitel = (html: string): string => textOf(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/s.exec(html)?.[1] ?? "").trim();
+
+describe("which of the two the panel says an application is", () => {
+  /* First: a heading the cut cannot find reads as the empty string, which the absences below pass on. */
+  it("heads a proposed school as a new school, although acceptance has named its club", () => {
+    assert.equal(ersterTitel(markup()), "Neue Schule");
+  });
+
+  it("heads a picked club as one already in the league, and says acceptance only enters it", () => {
+    const html = markup({ schule: null });
+
+    assert.equal(ersterTitel(html), "Bestehendes Team");
+    assert.equal(textOf(angabe(html, "Angaben zum Team")), "Das Team ist schon angelegt und wird bei einer Zusage nur aufgenommen.");
+  });
+
+  /* The row `REQ-BEWERBUNG-002` refuses. Headed as a club, it tells the administrator a club exists
+     and that acceptance only enters it, both of which are false. */
+  it("claims neither where the application names neither, and says so", () => {
+    const html = markup({ schule: null, team_id: null }, null);
+
+    assert.notEqual(ersterTitel(html), "", "the panel renders no heading to read");
+    assert.ok(!["Bestehendes Team", "Neue Schule"].includes(ersterTitel(html)), `the panel is headed „${ersterTitel(html)}“`);
+    assert.equal(textOf(angabe(html, "Angaben zum Team")), "Die Bewerbung nennt weder eine neue Schule noch ein bestehendes Team.");
+  });
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil } from "@gravity-ui/icons";
@@ -8,7 +8,8 @@ import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil } from "@gravity-ui
 import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
 
 import { einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
-import { istOffen, linkAngebot, sindEinePerson } from "@/features/bewerbungen/bestaetigungStand";
+import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz } from "@/features/bewerbungen/bestaetigungStand";
+import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import { FLBewerbungKontaktEmailPayloadSchema, gleicheAdresse } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -22,7 +23,7 @@ import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -50,6 +51,9 @@ const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], PillTone> = {
   // A decline's grade for a seat that ends the same way: neither can be confirmed, and both leave
   // the Absage as the one decision the application still takes.
   geloescht: "danger",
+  // The erased seat's chip, because it carries the erased seat's sentence: one sentence in two tones
+  // would read as two states.
+  unbeantwortet: "danger",
 };
 
 const STAND_ICON = {
@@ -57,12 +61,23 @@ const STAND_ICON = {
   ausstehend: Clock,
   abgelehnt: CircleXmark,
   geloescht: CircleXmark,
+  unbeantwortet: CircleXmark,
 } as const;
 
 /** The queue's own wording for the same fact, so the two admin surfaces read alike. */
 const KEINE_EMAIL = "Keine E-Mail";
 
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
+
+/**
+ * A rejection carries no status and no body, so the write may have committed. A second re-send is safe
+ * either way, which is why this one invites it.
+ */
+const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
+
+/** Unlike a re-send, a second correction to an address already stored is refused, so the row decides. */
+const KORREKTUR_OHNE_ANTWORT =
+  "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal.";
 
 /**
  * A readout above the fact panels rather than a section inside them, so the question deciding
@@ -76,14 +91,14 @@ export function BewerbungBestaetigungStrip({
 }: {
   bewerbungId: string;
   staende: readonly SitzBestaetigung[];
-  /** The day an incomplete application is deleted on, or `null` where none is recorded. */
+  /** The day an incomplete application is deleted after, or `null` where none is recorded. */
   frist: string | null;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
   isOpen: boolean;
 }) {
   const router = useRouter();
-  // Per seat rather than one flag: three buttons stand here, and one press must not disable the others.
-  const [sendendeRolle, setSendendeRolle] = useState<KontaktRolle | null>(null);
+  // Per seat rather than one flag: three buttons stand here, and one press must not hold the others.
+  const [sendendeRollen, setSendendeRollen] = useState<ReadonlySet<KontaktRolle>>(() => new Set());
 
   /**
    * One editor for the whole strip (`docs/frontend/spec.md :: I66` gives a panel one action row), so
@@ -93,19 +108,27 @@ export function BewerbungBestaetigungStrip({
 
   const panel = formPanel();
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
-  const offen = staende.filter(istOffen);
   const angebot = linkAngebot(staende);
+  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
 
-  const sendeErneut = async (sitz: SitzBestaetigung) => {
-    setSendendeRolle(sitz.rolle);
+  const sendeErneut = async (rolle: KontaktRolle) => {
+    setSendendeRollen((vorher) => new Set(vorher).add(rolle));
 
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: sitz.rolle });
+    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
+    // „Sendet...“ standing for good and reports nothing.
+    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(() => null);
 
-    setSendendeRolle(null);
+    // This seat alone, through the updater, so two writes settling never clear each other.
+    setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
 
     // Before the toast either way: the failure arm reports a write that committed, so the readout
-    // beneath it is stale on exactly the press that says so.
+    // beneath it is stale on exactly the press that says so. A rejected write may have committed too.
     router.refresh();
+
+    if (res === null) {
+      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ERNEUT_OHNE_ANTWORT });
+      return;
+    }
 
     if (!res.success) {
       appToast.danger("Link nicht erneut gesendet", { description: res.error });
@@ -140,16 +163,11 @@ export function BewerbungBestaetigungStrip({
               key={sitz.rolle}
               bewerbungId={bewerbungId}
               sitz={sitz}
-              // Every OTHER seat's address, the mirrored one excepted: the submission excepts the
-              // pair too, one person holding two seats being one address by construction.
-              belegteAdressen={staende
-                .filter((andere) => andere.rolle !== sitz.rolle && !sindEinePerson(andere, sitz))
-                .map((andere) => andere.email)
-                .filter((adresse) => adresse !== null)}
+              belegteAdressen={adressenAndererPersonen(staende, sitz)}
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
-              sendet={sendendeRolle === sitz.rolle}
+              sendet={sendendeRollen.has(sitz.rolle)}
               bearbeitet={korrektur === sitz.rolle}
-              onSendeErneut={() => void sendeErneut(sitz)}
+              onSendeErneut={() => void sendeErneut(sitz.rolle)}
               onKorrigieren={() => {
                 setKorrektur(sitz.rolle);
               }}
@@ -162,9 +180,7 @@ export function BewerbungBestaetigungStrip({
 
         {/* The deletion date stands here and nowhere else on the page: the reason under the closed
             Zusage says what is missing, and this says what happens if it stays missing. */}
-        {offen.length > 0 && frist !== null && (
-          <p className="muted-hint">Bleibt eine Bestätigung bis zum {formatSpielDatum(frist)} aus, wird die Bewerbung gelöscht.</p>
-        )}
+        {loeschung !== null && <p className="muted-hint">{loeschung}</p>}
       </div>
     </section>
   );
@@ -198,6 +214,7 @@ function SitzZeile({
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
   const zustellung = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
+  const erneutLabel = `Link erneut senden an ${sitz.label}`;
 
   const stiftRef = useRef<HTMLButtonElement>(null);
   const warBearbeitet = useRef(false);
@@ -234,7 +251,7 @@ function SitzZeile({
             <Button
               ref={stiftRef}
               type="button"
-              isDisabled={sendet}
+              isPending={sendet}
               aria-label={`E-Mail-Adresse von ${sitz.nameSatz} korrigieren`}
               onPress={onKorrigieren}
               className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
@@ -259,18 +276,27 @@ function SitzZeile({
         {zustellung !== null && <span className={`${labelBadge(zustellung.tone)} ${STRIP_CHIP}`}>{zustellung.label}</span>}
 
         {hatAngebot && !bearbeitet && (
-          <Button
-            type="button"
-            isDisabled={sendet}
-            aria-label={`Link erneut senden an ${sitz.label}`}
-            onPress={onSendeErneut}
-            className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
-            <PaperPlane
-              className="size-3.5"
-              aria-hidden="true"
-            />
-            <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
-          </Button>
+          // Closed rather than withheld where the seat has no address, so the refusal can name the
+          // pencil beside it as the way out. `sendet` is left out of the reason: it ends by itself.
+          <Hint
+            mode="refusal"
+            reason={sitz.email === null ? ERNEUT_OHNE_ADRESSE : null}
+            label={erneutLabel}
+            className="shrink-0">
+            <Button
+              type="button"
+              isPending={sendet}
+              isDisabled={sitz.email === null}
+              aria-label={erneutLabel}
+              onPress={onSendeErneut}
+              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+              <PaperPlane
+                className="size-3.5"
+                aria-hidden="true"
+              />
+              <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
+            </Button>
+          </Hint>
         )}
       </div>
 
@@ -306,7 +332,6 @@ function AdresseKorrigieren({
   onFertig: () => void;
 }) {
   const router = useRouter();
-  const hinweisId = useId();
 
   // Prefilled, because the commonest correction is one wrong character.
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
@@ -327,7 +352,7 @@ function AdresseKorrigieren({
   }, [formRef]);
 
   // A press that corrects nothing is a re-send wearing another name, and the re-send has its own
-  // control. The hint under it says what opens it.
+  // control. The refusal on it says what opens it.
   const unveraendert = email.trim() === "" || gleicheAdresse(email, gespeicherteAdresse ?? "");
 
   const schreibe = async () => {
@@ -339,8 +364,16 @@ function AdresseKorrigieren({
     }
 
     setSendet(true);
-    const res = await kontaktEmailKorrigierenAction(payload);
+    // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
+    const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
     setSendet(false);
+
+    if (res === null) {
+      // Left open: the draft is what a second press sends, and the refreshed row says whether one is owed.
+      router.refresh();
+      appToast.danger("Unklar, ob es bei uns angekommen ist", { description: KORREKTUR_OHNE_ANTWORT });
+      return;
+    }
 
     if (!res.success) {
       if (res.fieldErrors !== undefined) {
@@ -378,6 +411,10 @@ function AdresseKorrigieren({
       validationBehavior="aria"
       validationErrors={fieldErrors}
       onSubmit={runOnSubmit(() => {
+        // The pending button is not the whole guard: `Enter` in the field submits too, and a second
+        // correction mid-flight is refused as already stored.
+        if (sendet) return;
+
         guardSubmit({ korrektur: payload }, () => void schreibe());
       })}
       className={`${PANEL_REVEAL} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
@@ -402,33 +439,32 @@ function AdresseKorrigieren({
       </TextField>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-        <Button
-          type="submit"
-          variant="primary"
-          aria-describedby={unveraendert ? hinweisId : undefined}
-          isDisabled={sendet || unveraendert}
-          className={formButton({ intent: "submit", stacks: true })}>
-          {sendet ? "Sendet..." : "Korrigieren und Link senden"}
-        </Button>
-        {/* Closed while the write runs: a press that unmounts this box mid-transition drops the toast
+        {/* On the control, never a sentence beside it that the first keystroke would unmount under the
+            administrator typing (`docs/frontend/spec.md` §1.14). `sendet` is left out: it ends by itself. */}
+        <Hint
+          mode="refusal"
+          reason={!sendet && unveraendert ? "Gib zuerst eine andere E-Mail-Adresse ein." : null}
+          label="Korrigieren und Link senden">
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={sendet}
+            isDisabled={!sendet && unveraendert}
+            className={formButton({ intent: "submit", stacks: true })}>
+            {sendet ? "Sendet..." : "Korrigieren und Link senden"}
+          </Button>
+        </Hint>
+        {/* Held while the write runs: a press that unmounts this box mid-transition drops the toast
             that would have named the outcome. */}
         <Button
           type="button"
           variant="secondary"
-          isDisabled={sendet}
+          isPending={sendet}
           onPress={onFertig}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>
       </div>
-
-      {unveraendert && (
-        <Hint
-          mode="inline"
-          describes={hinweisId}
-          text="Gib zuerst eine andere E-Mail-Adresse ein."
-        />
-      )}
     </Form>
   );
 }

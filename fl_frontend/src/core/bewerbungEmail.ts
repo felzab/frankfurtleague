@@ -28,6 +28,7 @@ import {
   TEXT_COLOR,
   textFooter,
 } from "./emailShell";
+import { joinUnd } from "./joinUnd";
 
 import type { Aktion } from "./emailShell";
 
@@ -127,17 +128,6 @@ function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
 const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
-
-/**
- * German lists nothing with a comma before its last item. In `core` because both the message naming
- * a seat list and the fan-out addressing it need one, and
- * `fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY` shares code this way alone.
- */
-export function joinUnd(labels: readonly string[]): string {
-  if (labels.length < 2) return labels[0] ?? "";
-
-  return `${labels.slice(0, -1).join(", ")} und ${labels[labels.length - 1]!}`;
-}
 
 export type BewerbungEmail = { subject: string; html: string; text: string };
 
