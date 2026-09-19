@@ -25,7 +25,9 @@ const UndoRequestSchema = FLPatchSpielePaarungenPayloadSchema.extend({
  * this toast has not got, and a repair that would undo the undo.
  */
 const REPLAY_REFUSALS: Record<string, string> = {
-  "REQ-BOOKING-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist inzwischen stillgelegt.",
+  // No „inzwischen“: the row can have retired before the save being undone, as one a reopening kept booked has.
+  "REQ-BOOKING-001":
+    "Ein ursprünglicher Spielort oder Schiedsrichter ist stillgelegt oder gelöscht, und der ursprüngliche Stand würde ihn einem Spiel wieder zuteilen.",
   "REQ-CLASH-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist zu dieser Zeit inzwischen für ein anderes Spiel eingeteilt.",
   "REQ-DATE-001": "Ein ursprüngliches Datum liegt nicht mehr im Zeitraum seines Spieltags.",
   "REQ-ELIGIBILITY-001":

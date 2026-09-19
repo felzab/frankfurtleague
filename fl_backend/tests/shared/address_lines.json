@@ -1,0 +1,32 @@
+[
+  {
+    "case": "a complete address",
+    "name": "Sportplatz Ost",
+    "address": { "strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main" },
+    "maps_link": "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland"
+  },
+  {
+    "case": "no house number",
+    "name": "Sportplatz Ost",
+    "address": { "strasse": "Hanauer Landstraße", "hausnummer": "", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main" },
+    "maps_link": "Sportplatz Ost, Hanauer Landstraße, 60314 Ostend Frankfurt am Main, Deutschland"
+  },
+  {
+    "case": "no district",
+    "name": "Sportplatz Ost",
+    "address": { "strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "", "stadt": "Frankfurt am Main" },
+    "maps_link": "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
+  },
+  {
+    "case": "neither",
+    "name": "Sportplatz Ost",
+    "address": { "strasse": "Hanauer Landstraße", "hausnummer": "", "plz": "60314", "stadtteil": "", "stadt": "Frankfurt am Main" },
+    "maps_link": "Sportplatz Ost, Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland"
+  },
+  {
+    "case": "a district of spaces alone",
+    "name": "Sportplatz Ost",
+    "address": { "strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "   ", "stadt": "Frankfurt am Main" },
+    "maps_link": "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
+  }
+]

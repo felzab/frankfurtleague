@@ -141,30 +141,43 @@ async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterWriteResponse:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
 
-    assigned = await pull_many_from_db(
-        collection=spiele_collection,
-        db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-        projection={"spiel_nr": 1},
-    )
-    refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
+    async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
+        """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
 
-    stored = await pull_one_from_db(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        projection={"inactive_since": 1},
-    )
+        assigned = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            projection={"spiel_nr": 1},
+            session=session,
+        )
+        refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
 
-    updated_document_raw = await set_inactive_since(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        # `first_stamped` and never `today`: a second press would move the day they stopped
-        # officiating, which is the day a fee is reconciled against.
-        when=first_stamped(stored=stored, field="inactive_since", today=today),
-    )
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": schiedsrichter_id},
+            projection={"inactive_since": 1},
+            session=session,
+        )
+
+        return await set_inactive_since(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": schiedsrichter_id},
+            # `first_stamped` and never `today`: a second press would move the day they stopped
+            # officiating, which is the day a fee is reconciled against.
+            when=first_stamped(stored=stored, field="inactive_since", today=today),
+            session=session,
+        )
+
+    # The stamp inside the judgement's transaction, so a booking committing after the read of the
+    # fixtures conflicts on the referee it anchors rather than landing unseen
+    # (`app/api/spiele/crud.py :: anchor_a_booked_referee`).
+    async with db.start_session() as session:
+        updated_document_raw = await session.with_transaction(retire_the_referee)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
@@ -224,13 +237,14 @@ async def anonymise_schiedsrichter(
     itself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under
     the erasure is refused (`REQ-ANONYMISE-001`).
 
-    **It also retires the referee and unassigns them from every fixture with no result**, so they take
-    no NEW fixture (`REQ-BOOKING-001`), hold none of the fixtures still to be played, and cannot be
-    brought back (`REQ-ANONYMISE-003`): a booking of any kind would create fresh personal data about the
-    person who asked to be left out. Such a fixture loses the whole `schiedsrichter` block, the fee
-    agreed for it included, and answers `GET /spiele/action_required` until somebody assigns a referee
-    to it. A retirement already stamped keeps its own day. What a reader is shown in place of the
-    nulled name is the frontend's word, so no endpoint answers one.
+    **It also retires the referee and unassigns them from every fixture still to be played**, so they
+    hold none of those fixtures, take no new one and are refused on any a later save puts back among
+    them (`REQ-BOOKING-001`), and cannot be brought back (`REQ-ANONYMISE-003`): a booking of any kind
+    would create fresh personal data about the person who asked to be left out. Such a fixture loses the
+    whole `schiedsrichter` block, the fee agreed for it included, and answers
+    `GET /spiele/action_required` until somebody assigns a referee to it; a fixture played or called
+    off keeps its block under the nulled name. A retirement already stamped keeps its own day. What a
+    reader is shown in place of the nulled name is the frontend's word, so no endpoint answers one.
     """
 
     async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:

@@ -97,6 +97,24 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
     return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
 
 
+def is_unplayed(*, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
+    """Whether a fixture is still to be played, which every retirement, the erasure, the rollover and `REQ-BOOKING-001` ask alike.
+
+    `unplayed_filter` is the same partition asked of stored fixtures, and
+    `tests/api/test_spiele.py :: test_the_unplayed_filter_selects_what_the_predicate_answers` holds the two together.
+    """
+
+    # An ABANDONED fixture with no result still owes one, because a replay may follow; the two
+    # states that award nothing owe nothing.
+    return ergebnis is None and sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT
+
+
+def unplayed_filter() -> dict[str, Any]:
+    """`is_unplayed` as a `spiele` filter."""
+
+    return {"ergebnis": None, "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)}}
+
+
 # The one declaration of this competition's rounds; the order is the order they are PLAYED.
 PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
 
@@ -390,10 +408,51 @@ class FLBracketFaultSpieltag(_BracketFault):
     team_name: str = Field(min_length=1)
 
 
+class FLBracketFaultBooking(_BracketFault):
+    """A fixture still to be played booked onto a retired venue or referee (`docs/backend/spec.md :: I257`).
+
+    Nothing is taken off: only a person chooses between reactivating the row and booking another.
+    """
+
+    reason: Literal["retired_booking"]
+    # The fixture's field holding the reference, as `side` names a fixture's field.
+    booking: Literal["ort", "schiedsrichter"]
+    # The fixture's own copy: null where the erasure nulled a referee's, which is also how a reader
+    # tells an erased referee from one merely retired.
+    name: str | None
+    inactive_since: CustomDateString
+
+
+class FLBracketFaultClash(_BracketFault):
+    """A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.
+
+    It names the fixture that refusal names, so the report and a save's 409 point at one match.
+    """
+
+    reason: Literal["double_booked"]
+    # The faulted fixture's own season beside the other's: the read spans every season and `spiel_nr`
+    # is unique within one, so a reader names the other season only where the two differ.
+    saison_id: str
+    booking: Literal["ort", "schiedsrichter"]
+    name: str | None
+    other_spiel_id: CustomObjectId
+    other_saison_id: str
+    other_spiel_nr: CustomSpielNr
+    other_datum: CustomDateString
+    other_uhrzeit: CustomTimeString
+
+
 # Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`. Every reason the
 # write path refuses too reaches a stored document by hand edit alone.
 FLBracketFault = Annotated[
-    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag,
+    FLBracketFaultGruppe
+    | FLBracketFaultQuelle
+    | FLBracketFaultSpiel
+    | FLBracketFaultSlot
+    | FLBracketFaultOccupant
+    | FLBracketFaultSpieltag
+    | FLBracketFaultBooking
+    | FLBracketFaultClash,
     Field(discriminator="reason"),
 ]
 
@@ -412,7 +471,18 @@ class FLSpielBooking(BaseModel):
     uhrzeit: CustomTimeString
 
 
-FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
+class FLSpielSlotHolder(FLSpielBooking):
+    """Any fixture's claim on a venue or a referee, read across every season by `REQ-CLASH-001` and by its report alike."""
+
+    id: CustomObjectId = Field(validation_alias="_id")
+    # Unbounded, as a model echoing a stored id is (`docs/backend/spec.md :: I5`): this read spans every
+    # season, so one malformed id would answer 500 for a save in another.
+    saison_id: str
+    ort: _SpielOrtBooking | None
+    schiedsrichter: _SpielSchiedsrichterBooking | None
+
+
+FLSpielSlotHolderListAdapter = TypeAdapter(list[FLSpielSlotHolder])
 
 
 class FLPatchSpielDataPayload(BaseModel):
@@ -542,6 +612,10 @@ class _SpielRestore(_SpielPaarung):
     """A Paarung beside the fields outside it one write replaced: the whole of what an undo of that write puts back."""
 
     other_fields: FLSpielPriorOtherFields | None
+
+    # Its own field rather than a `replaced` entry, which restores unconditionally: this goes back only
+    # onto a fixture the replay leaves played or called off (`docs/backend/spec.md :: I256`).
+    voided_schiedsrichter: FLSpielPriorSchiedsrichter | None
 
 
 class FLPatchSpielPaarungPayload(_SpielRestore):
@@ -737,8 +811,8 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
 class FLSpieleActionRequiredResponse(BaseAPIResponse):
     """The matches needing attention, and why the bracket ones do.
 
-    A fault joins its match by `spiel_id`, never `spiel_nr`, which repeats across the seasons this
-    route spans. `spiele` carries every match a fault names.
+    A fault joins its match by `spiel_id`, never `spiel_nr`, which is unique within one season only.
+    `spiele` carries every match a fault names.
     """
 
     # The ADMIN shape, not the base tier's: a card on this page opens the modal that prints the
@@ -758,12 +832,15 @@ class _VoidedResult(BaseModel):
     # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
     # occupant leaves each of them true and none of them is cleared.
     voided_sonderereignis: FLSonderereignis | None
+    # Only ever an erased referee's, on a fixture this rewrite puts back among those still to be
+    # played (`docs/backend/spec.md :: I256`).
+    voided_schiedsrichter: FLSpielSchiedsrichterField | None
 
 
 class FLSpielAdvancement(_VoidedResult):
     """One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
 
-    Both voided fields are `None` where a slot merely filled from empty, so "was anything destroyed"
+    Every voided field is `None` where a slot merely filled from empty, so "was anything destroyed"
     is a null check.
     """
 

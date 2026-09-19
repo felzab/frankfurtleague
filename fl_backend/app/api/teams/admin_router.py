@@ -9,7 +9,7 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.crud import refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
@@ -257,6 +257,7 @@ async def delete_team(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLTeamWriteResponse:
     """
@@ -266,22 +267,32 @@ async def delete_team(
     alone: the seasons it played still happened.
     """
 
-    # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
-    junction_rows = await pull_many_from_db(
-        collection=saison_teams_collection,
-        db_filter={"team_id": team_id},
-        projection=["saison_id"],
-    )
-    saison_ids = [row["saison_id"] for row in junction_rows]
-    saison_rows = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={"_id": {"$in": saison_ids}},
-        projection=["status"],
-    )
+    async def retire_the_club(session: AsyncClientSession) -> Mapping[str, Any]:
+        """Judge the club's seasons, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
-    refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
+        # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
+        junction_rows = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"team_id": team_id},
+            projection=["saison_id"],
+            session=session,
+        )
+        saison_ids = [row["saison_id"] for row in junction_rows]
+        saison_rows = await pull_many_from_db(
+            collection=saisons_collection,
+            db_filter={"_id": {"$in": saison_ids}},
+            projection=["status"],
+            session=session,
+        )
 
-    updated_raw = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today)
+        refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
+
+        return await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today, session=session)
+
+    # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
+    # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
+    async with db.start_session() as session:
+        updated_raw = await session.with_transaction(retire_the_club)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -320,12 +331,7 @@ async def post_saison_team(
         # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
         # rather than inserting a row pointing at no club, and the season's own copy of the name and
         # shorthand is seeded from it.
-        team_raw = await pull_one_from_db(
-            collection=teams_collection,
-            db_filter={"_id": team_id},
-            projection=["name", "shorthand", "inactive_since"],
-            session=session,
-        )
+        team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id}, session=session)
 
         # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another
@@ -586,12 +592,7 @@ async def replace_saison_team(
         # The ONE read of the incoming club, and it earns its place three times over: an id naming
         # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
         # entry, and every rewritten fixture side takes the same two values.
-        incoming_raw = await pull_one_from_db(
-            collection=teams_collection,
-            db_filter={"_id": replacement_data.incoming_team_id},
-            projection=["name", "shorthand", "inactive_since"],
-            session=session,
-        )
+        incoming_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
 
         incoming_rows = await pull_many_from_db(
             collection=saison_teams_collection,

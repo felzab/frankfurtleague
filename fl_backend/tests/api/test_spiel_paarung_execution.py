@@ -424,6 +424,7 @@ class TestARewrittenPaarungLeavesNoScoreline:
                             # Nothing beyond the Paarung, which is what leaves the fields asserted
                             # below the stored document's rather than this request's.
                             "other_fields": None,
+                            "voided_schiedsrichter": None,
                         }
                     )
                 ],

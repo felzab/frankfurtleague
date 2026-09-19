@@ -1,10 +1,12 @@
+import asyncio
 import json
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-from typing import Any, get_args
+from typing import Any, cast, get_args
 
 import pytest
 from bson import ObjectId
 from pydantic import ValidationError
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
@@ -23,6 +25,7 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -315,6 +318,90 @@ class TestTheSeasonsThisTierMayNotRead:
         assert build_spieler_pipeline(FLSpielerFilterParams()) == build_spieler_pipeline(FLSpielerFilterParams(), [])
 
 
+class _Cursor:
+    """An answer holding nobody, in both shapes the read iterates: `aggregate`'s cursor and `find(...).limit(...)`."""
+
+    def limit(self, length: int) -> _Cursor:
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        return []
+
+
+class _Seasons:
+    """A seasons collection holding at most one `active` season and withholding none."""
+
+    def __init__(self, active: str | None) -> None:
+        self.active = active
+
+    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> dict[str, Any] | None:
+        return {"_id": self.active, "status": "active"} if self.active is not None and filter == {"status": "active"} else None
+
+    def find(self, **query: Any) -> _Cursor:
+        return _Cursor()
+
+
+class _Players:
+    """A players collection keeping the pipeline each read runs, which is where the season it resolved shows."""
+
+    def __init__(self) -> None:
+        self.pipelines: list[Sequence[Mapping[str, Any]]] = []
+
+    async def aggregate(self, pipeline: Sequence[Mapping[str, Any]], collation: Any = None, session: Any = None) -> _Cursor:
+        self.pipelines.append(pipeline)
+        return _Cursor()
+
+
+def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[Mapping[str, Any]]:
+    """The `$match` terms the read narrowed the squad rows on, as the handler itself built them."""
+
+    invalidate_saison_cache()
+    players = _Players()
+    asyncio.run(
+        get_spieler(spieler_collection=cast(AsyncCollection, players), saisons_collection=cast(AsyncCollection, seasons), filters=filters)
+    )
+    lookup = next(stage["$lookup"] for stage in players.pipelines[0] if "$lookup" in stage)
+
+    return [stage["$match"] for stage in lookup["pipeline"] if "$match" in stage]
+
+
+class TestTheSeasonASquadIsReadFor:
+    """`docs/backend/spec.md :: I4`: the squad page names a club and, for the running season, no season."""
+
+    @pytest.mark.parametrize(
+        ("named", "read"),
+        [
+            # Without the resolve a player in two of the club's seasons is two rows, and one who left last season stands in this one.
+            pytest.param(None, SAISON, id="no season reads the active one"),
+            # The resolve fills an ABSENT id only: a page on a past season asks for that season's squad.
+            pytest.param(WITHHELD_SAISON, WITHHELD_SAISON, id="a named season is read as named"),
+        ],
+    )
+    def test_naming_a_team_reads_its_squad_in_one_season(self, named: str | None, read: str):
+        terms = _junction_terms(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=named), _Seasons(SAISON))
+
+        assert {"team_id": TEAM_OID, "saison_id": read} in terms
+
+    def test_naming_neither_resolves_no_season(self):
+        """Every season's players: nothing names a squad, so no season is resolved to scope one."""
+        assert all("saison_id" not in term for term in _junction_terms(FLSpielerFilterParams(), _Seasons(SAISON)))
+
+    def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
+        """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
+        invalidate_saison_cache()
+
+        with pytest.raises(DocumentNotFoundException) as refused:
+            asyncio.run(
+                get_spieler(
+                    spieler_collection=cast(AsyncCollection, object()),
+                    saisons_collection=cast(AsyncCollection, _Seasons(None)),
+                    filters=FLSpielerFilterParams(team_id=TEAM_OID),
+                )
+            )
+
+        assert refused.value.error_code == DOCUMENT_NOT_FOUND
+
+
 class TestTheInitial:
     @pytest.mark.parametrize(
         ("stored", "served"),
@@ -509,6 +596,69 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     on_the_seed_loop(_seed())
 
     with unwritten(mongo_url, DATABASE_NAME):
+        yield mongo_url
+
+
+SQUAD_DATABASE_NAME = worker_database("fl_spieler_squad_season_test")
+PAST_SAISON = "2025"
+SQUAD_OIDS = {"Beide": ObjectId("6890a1b2c3d4e5f607390021"), "Ehemalig": ObjectId("6890a1b2c3d4e5f607390022")}
+
+
+@pytest.mark.db
+class TestTheSquadReadNamingNoSeasonExecuted:
+    """The squad page's own call, `?team_id=` and no season, against a club that played two seasons."""
+
+    def _vornamen(self, url: str, filters: FLSpielerFilterParams) -> list[str]:
+        async def body(database: AsyncDatabase) -> Any:
+            invalidate_saison_cache()
+            response = await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=filters)
+
+            return [row.vorname for row in response.spieler]
+
+        return on_the_seed_loop(body(shared_client(url)[SQUAD_DATABASE_NAME]))
+
+    def test_a_player_of_both_seasons_is_listed_once_and_one_of_the_past_season_alone_not_at_all(self, squad_url: str):
+        assert self._vornamen(squad_url, FLSpielerFilterParams(team_id=TEAM_OID)) == ["Paula"]
+
+    def test_the_past_season_named_still_lists_its_own_squad(self, squad_url: str):
+        """The control: the corpus really holds the past season's second player and the row the default leaves out."""
+        assert sorted(self._vornamen(squad_url, FLSpielerFilterParams(team_id=TEAM_OID, saison_id=PAST_SAISON))) == ["Paula", "Theo"]
+
+
+@pytest.fixture(scope="module")
+def squad_url(mongo_url: str) -> Iterator[str]:
+    """Two seasons of one club: a player in both, and one who played the past season alone."""
+
+    async def _seed() -> None:
+        # UNCONSTRAINED: a season here carries only the `status` the read resolves on, and the
+        # validator requires the whole of `rules` besides.
+        async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
+            await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
+            await database.spieler.insert_many(
+                [
+                    {**_spieler("Mueller", "Paula", "Beispiel"), "_id": SQUAD_OIDS["Beide"]},
+                    {**_spieler("Mueller", "Theo", "Beispiel"), "_id": SQUAD_OIDS["Ehemalig"]},
+                ]
+            )
+            await database.saison_spieler.insert_many(
+                [
+                    {**_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3"), "spieler_id": SQUAD_OIDS["Beide"]},
+                    {
+                        **_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q2"),
+                        "spieler_id": SQUAD_OIDS["Beide"],
+                        "saison_id": PAST_SAISON,
+                    },
+                    {
+                        **_squad_row("Mueller", nummer="9", position="Abwehr", stufe="Q4"),
+                        "spieler_id": SQUAD_OIDS["Ehemalig"],
+                        "saison_id": PAST_SAISON,
+                    },
+                ]
+            )
+
+    on_the_seed_loop(_seed())
+
+    with unwritten(mongo_url, SQUAD_DATABASE_NAME):
         yield mongo_url
 
 

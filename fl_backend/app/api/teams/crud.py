@@ -1,10 +1,13 @@
+from collections.abc import Mapping
+from typing import Any
+
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
-from app.core.crud import patch_many_in_db, pull_many_from_db, refuse
+from app.core.crud import patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
 
 
 async def refuse_a_full_gruppe(
@@ -42,3 +45,36 @@ async def refuse_a_full_gruppe(
     )
 
     refuse(find_entry_refusal(saison_status=saison_status, gruppe=gruppe, rules=rules, occupied=len(occupied_rows)))
+
+
+async def pull_a_club_to_enter(
+    *,
+    teams_collection: AsyncCollection,
+    team_id: Any,
+    # REQUIRED for `refuse_a_full_gruppe`'s reason: the anchor below closes the race.
+    session: AsyncClientSession,
+) -> Mapping[str, Any]:
+    """The club a junction row is about to name, read for `REQ-ENTER-005` and for the identity the row copies.
+
+    Its own module for `refuse_a_full_gruppe`'s reason: the entry, the acceptance and the replacement
+    all name a club, from two packages.
+    """
+
+    club = await pull_one_from_db(
+        collection=teams_collection,
+        db_filter={"_id": team_id},
+        projection=["name", "shorthand", "inactive_since"],
+        session=session,
+    )
+
+    # A retirement judges junction rows and writes only the club, so only a write to the club puts an
+    # entry in its write set (`docs/backend/spec.md :: I53`).
+    await patch_many_in_db(
+        collection=teams_collection,
+        db_filter={"_id": team_id},
+        # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
+        update={"$inc": {"bounded_writes": 1}},
+        session=session,
+    )
+
+    return club

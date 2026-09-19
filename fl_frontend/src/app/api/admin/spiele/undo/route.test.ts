@@ -23,11 +23,12 @@ const rowCodes = [...TABLE.matchAll(KEYED_ROW)].map((row) => row.groups?.code).f
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = `export const NextResponse = { json: (body) => ({ body }) };`;
+const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
 const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };`;
 const NEXT_HEADERS = `export const headers = async () => new Headers();`;
-const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;`;
+const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
+export const auth = async () => globalThis.__flUndoSession;`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.__flUndoCalls.push({ endpoint, method: options.method, body: options.body });
@@ -97,7 +98,11 @@ const anEntry = (spiel_id: string) => ({
   elfmeterschiessen: null,
   sonderereignis: null,
   other_fields: null,
+  voided_schiedsrichter: null,
 });
+
+/** The erased referee's booking a save took off, as its report carries it back. */
+const A_VOIDED_BOOKING = { schiedsrichter_id: "6890a1b2c3d4e5f607a10009", payment: 20 };
 
 const RESTORED = { acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [] };
 
@@ -110,10 +115,10 @@ const asRequest = (body: unknown) =>
 
 type Outcome = { success: boolean; message?: string; error?: string; warn?: boolean };
 
-async function post(body: unknown): Promise<Outcome> {
-  const answered = (await POST(asRequest(body))) as unknown as { body: Outcome };
+async function post(body: unknown): Promise<Outcome & { status: number }> {
+  const answered = (await POST(asRequest(body))) as unknown as { body: Outcome; status: number };
 
-  return answered.body;
+  return { ...answered.body, status: answered.status };
 }
 
 const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
@@ -167,6 +172,21 @@ describe("the undo route, driven", () => {
     );
   });
 
+  // The request mirror strips an undeclared key, and the backend puts the booking back only where the
+  // entry names it, so a key dropped here leaves a played fixture without the referee who officiated it.
+  it("sends the erased referee's booking the save took off along with its fixture", async () => {
+    const replayed = { ...aReplayOf(SPIEL_ID), paarungen: [{ ...anEntry(SPIEL_ID), voided_schiedsrichter: A_VOIDED_BOOKING }] };
+
+    const answered = await post(replayed);
+
+    assert.equal(answered.success, true);
+    const sent = JSON.parse(calls[0]?.body ?? "null") as { paarungen: { voided_schiedsrichter: unknown }[] };
+    assert.deepEqual(
+      sent.paarungen.map((entry) => entry.voided_schiedsrichter),
+      [A_VOIDED_BOOKING],
+    );
+  });
+
   it("clears every cached read the restored fixtures reach, with no staleness allowed", async () => {
     await post(aReplayOf(SPIEL_ID));
 
@@ -197,9 +217,25 @@ describe("the undo route, driven", () => {
     const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
     assert.equal(answered.success, false);
+    // 200, as every outcome but a lapsed session: the dispatch sends the admin to sign in on a 401.
+    assert.equal(answered.status, 200);
     assert.match(answered.error ?? "", /Herkunft passt nicht mehr/);
     // The whole of the outcome, and true of every entry: the backend committed none of them.
     assert.match(answered.error ?? "", /Die Änderung steht weiterhin\.$/);
+  });
+
+  // A row retired before the save being undone meets this refusal too, so a sentence dating the
+  // retirement after that save would tell the admin something the record contradicts.
+  it("words a retired or deleted booking without saying when it retired", async () => {
+    recorders.__flUndoAnswer = () => {
+      throw aRefusal(409, "REQ-BOOKING-001");
+    };
+
+    const answered = await post(aReplayOf(SPIEL_ID));
+
+    assert.equal(answered.success, false);
+    assert.match(answered.error ?? "", /stillgelegt oder gelöscht/);
+    assert.doesNotMatch(answered.error ?? "", /inzwischen/);
   });
 
   it("does not resolve a rejection it cannot word as a success", async () => {
@@ -239,7 +275,14 @@ describe("the undo route, driven", () => {
     recorders.__flUndoAnswer = () => ({
       ...RESTORED,
       advanced_to: [
-        { spiel_id: OTHER_SPIEL_ID, spiel_nr: 23, voided_ergebnis: "2:0", voided_elfmeterschiessen: null, voided_sonderereignis: null },
+        {
+          spiel_id: OTHER_SPIEL_ID,
+          spiel_nr: 23,
+          voided_ergebnis: "2:0",
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: null,
+          voided_schiedsrichter: null,
+        },
       ],
     });
 
@@ -252,12 +295,13 @@ describe("the undo route, driven", () => {
     assert.match(answered.message ?? "", /Ergebnis in Spiel 23 wurde dabei gelöscht/);
   });
 
-  it("writes nothing for a caller with no admin session", async () => {
+  it("answers a caller with no admin session 401 and writes nothing", async () => {
     recorders.__flUndoSession = null;
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
     assert.equal(answered.success, false);
+    assert.equal(answered.status, 401);
     assert.equal(calls.length, 0);
   });
 });

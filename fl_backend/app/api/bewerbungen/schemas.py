@@ -748,7 +748,7 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
 
     A leaked link's holder learns nothing its mail did not already say: a first name, a school, a
-    season, a role and a wording's version.
+    season, the roles one answer covers and a wording's version.
     """
 
     zustand: FLBewerbungEinwilligungZustand
@@ -756,6 +756,10 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # The school's name as submitted, or the picked club's.
     schule: str
     rolle: FLKontaktRolle
+    # The second seat this link's answer writes (`app/api/bewerbungen/services.py :: paired_seat`),
+    # and never `trainer_ist_zugleich` itself: null on every other seat, so no link says whether two
+    # OTHER seats are one person.
+    zugleich_rolle: FLKontaktRolle | None
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
     vorname: str | None
     text_version: str | None

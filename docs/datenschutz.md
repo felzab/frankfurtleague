@@ -168,7 +168,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   the erasure empties it in the same transaction and the fixture surfaces under
   `GET /spiele/action_required` until somebody assigns a referee to it; one fixture never vetoes a
   request to be forgotten, and the retirement's own refusal (`REQ-RETIRE-004`) therefore has nothing
-  left to refuse. A
+  left to refuse. A fixture played or called off keeps the booking under the nulled name, so a save
+  putting that fixture back among those still to be played is refused it as a new booking
+  (`fl_backend/app/api/spiele/services.py :: find_new_bookings`). A bracket resolution, or a side
+  emptied for a Spieltag clash (`docs/backend/spec.md` §1.3, step 3a), reopening one names no request and refuses nothing, so it takes the booking off in its own
+  write, the fee agreed for that match with it, and only an undo returning the fixture to played or
+  called off puts it back, where the booking engages the person for nothing still to come
+  (`docs/backend/spec.md :: I256`). A
   retirement the row already carried keeps its own day: a referee who stopped officiating last season
   is still owed the fee agreed then. `schule` is nulled beside the name because it is an attribute of
   the person, and beside a fixture list that never expires it narrows them to the few referees one

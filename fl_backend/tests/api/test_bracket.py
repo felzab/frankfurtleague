@@ -106,6 +106,7 @@ def a_release_of(spiel_nr: int, ergebnis: str | None = None) -> FLSpielReleasedS
         voided_ergebnis=ergebnis,
         voided_elfmeterschiessen=None,
         voided_sonderereignis=None,
+        voided_schiedsrichter=None,
     )
 
 
@@ -793,6 +794,21 @@ class TestPuttingBackWhatTheResolutionDestroyed:
 
         assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(25), MATCH_ID.format(29)]
 
+    def test_an_erased_referees_booking_the_write_took_off_travels_back_with_its_fixture(self, fixture_at: FixtureFactory, side: SideFactory):
+        """Carried on the report, never read back: the fixture holds no booking once the write has taken it off."""
+
+        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
+        taken_off = stored_at(spiele, 29).schiedsrichter
+        assert taken_off is not None
+
+        release = a_release_of(29, ergebnis="2:0").model_copy(update={"voided_schiedsrichter": taken_off})
+        named, moved = priors(spiele, [release])
+
+        assert named.voided_schiedsrichter is None
+        assert moved.voided_schiedsrichter is not None
+        restored = moved.voided_schiedsrichter
+        assert (restored.schiedsrichter_id, restored.payment) == (taken_off.schiedsrichter_id, taken_off.payment)
+
     def test_a_slice_missing_a_moved_fixture_is_refused(self, fixture_at: FixtureFactory, side: SideFactory):
         """A restore silently short of one fixture is the failure this refusal exists for -- `docs/backend/spec.md :: I108`'s reading."""
 
@@ -876,7 +892,7 @@ class TestPuttingBackWhatTheResolutionDestroyed:
 
         # `spiel_id` off both sides: the wholesale payload takes its target from the path, and a
         # replay entry names its own, so neither is a field a save writes.
-        paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields", "spiel_id"}
+        paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields", "voided_schiedsrichter", "spiel_id"}
         beyond = set(get_args(FLSpielRestorableField))
 
         assert set(FLPatchSpielDataPayload.model_fields) == paarung | beyond

@@ -268,6 +268,9 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
 
 
+OTHER_SAISON = "2025"
+
+
 class TestOneVenueAndOneRefereeAtATime:
     # Annotated rather than inferred: a plain `str` default widens the parameter and `BookedSlot` refuses it.
     def slot(
@@ -277,7 +280,7 @@ class TestOneVenueAndOneRefereeAtATime:
         nr: int = 3,
         datum: str = "2026-03-07",
     ) -> BookedSlot:
-        return BookedSlot(spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
+        return BookedSlot(spiel_id=ObjectId(), saison_id=OTHER_SAISON, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
 
     def test_the_buffer_is_four_hours(self):
         """Named in the test as well as the code, because it is a decision rather than a derivation."""
@@ -323,6 +326,8 @@ class TestOneVenueAndOneRefereeAtATime:
         assert refusal is not None
         assert "Schiedsrichter" in refusal.message
         assert "11" in refusal.message
+        # The season too: the other fixture can sit in any, and its number is unique within one alone.
+        assert OTHER_SAISON in refusal.message
 
 
 class TestRetiringAVenueOrAReferee:

@@ -8,6 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_for_admin
 from app.api.teams.router import get_team, get_teams
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
@@ -22,17 +23,27 @@ from tests.worker import worker_database
 from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_teams_public_read_test")
+BRACKET_DATABASE_NAME = worker_database("fl_teams_bracket_placings_test")
 
 SAISON = "2026"
+PAST_SAISON = "2025"
+# Holding a junction row and no season document, so nothing says it is past.
+UNDATED_SAISON = "2024"
 
 TEAM_OIDS = {
     "Helmholtz": ObjectId("6890a1b2c3d4e5f607420001"),
-    # The club that left the LEAGUE while still holding this season's junction row. The row is what
-    # would carry it into a standing the moment the base match on `inactive_since` is dropped.
+    # The club that left the LEAGUE while still holding the running season's junction row. The row is
+    # what would carry it into a standing the moment the match on `inactive_since` is dropped.
     "Lessing": ObjectId("6890a1b2c3d4e5f607420002"),
+    "Goethe": ObjectId("6890a1b2c3d4e5f607420003"),
 }
 
-RETIRED_ON = "2026-03-01"
+# After the running season's end date, which a season outlives until the next one is activated: a
+# match on that date rather than on `status` would list Lessing there.
+RETIRED_ON = "2026-08-01"
+# Before the past season's end date: activating its successor early closed it first, and a match on
+# that date would drop Goethe from a season it played.
+GOETHE_RETIRED_ON = "2025-05-01"
 
 # The three values a leak would carry: a teacher's mailbox, the number the league runs its whole
 # WhatsApp channel on, and a private person's date of birth.
@@ -55,14 +66,14 @@ ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def saison_document() -> dict[str, Any]:
+def saison_document(saison_id: str = SAISON, status: str = "active") -> dict[str, Any]:
     """Complete, rules included: the grouped read derives every figure in the table from them."""
 
     return {
-        "_id": SAISON,
-        "start_date": f"{SAISON}-01-01",
-        "end_date": f"{SAISON}-06-30",
-        "status": "active",
+        "_id": saison_id,
+        "start_date": f"{saison_id}-01-01",
+        "end_date": f"{saison_id}-06-30",
+        "status": status,
         "rules": {
             "win_points": 3,
             "draw_points": 1,
@@ -107,11 +118,11 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
     }
 
 
-def junction_row(key: str, shorthand: str) -> dict[str, Any]:
+def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` has no model of the row."""
 
     return {
-        "saison_id": SAISON,
+        "saison_id": saison_id,
         "team_id": TEAM_OIDS[key],
         "gruppe": "A",
         "austritt": None,
@@ -133,18 +144,28 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
 # from being left as a claim.
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
-    """One season, a live club and a retired one, and a junction row per club carrying three people's contact records."""
+    """A running season and a past one, a live club and two retired ones, and junction rows carrying three people's contact records."""
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document())
+            await database[Collection.SAISONS].insert_many([saison_document(), saison_document(PAST_SAISON, status="past")])
             await database[Collection.TEAMS].insert_many(
                 [
                     team_document("Helmholtz", "HG", inactive_since=None),
                     team_document("Lessing", "LE", inactive_since=RETIRED_ON),
+                    team_document("Goethe", "GO", inactive_since=GOETHE_RETIRED_ON),
                 ]
             )
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row("Helmholtz", "HG"), junction_row("Lessing", "LE")])
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    junction_row("Helmholtz", "HG"),
+                    junction_row("Lessing", "LE"),
+                    junction_row("Helmholtz", "HG", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LE", saison_id=PAST_SAISON),
+                    junction_row("Goethe", "GO", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LE", saison_id=UNDATED_SAISON),
+                ]
+            )
 
     on_the_seed_loop(_seed())
 
@@ -230,21 +251,27 @@ class TestTheBaseTierFilterSurface:
 
 @pytest.mark.db
 class TestARetiredClubStaysOutOfTheBaseTierReads:
-    """The whole chain against a real mongod: what is stored, and what the two shapes of `GET /teams` answer over it."""
+    """The whole chain against a real mongod, over the RUNNING season."""
 
     def test_the_corpus_really_holds_a_retired_club_in_this_seasons_group(self, seeded_url: str):
-        """First, because every case below would pass just as well against a corpus where nobody had left the league."""
+        """First, because every case below would pass just as well against a corpus where nobody had left the league.
+
+        Retired after the season's end date, so only its `status` can be what withholds the club.
+        """
 
         async def body(database: AsyncDatabase) -> Any:
             club = await database[Collection.TEAMS].find_one({"_id": TEAM_OIDS["Lessing"]})
-            row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Lessing"]})
+            row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Lessing"], "saison_id": SAISON})
+            saison = await database[Collection.SAISONS].find_one({"_id": SAISON})
 
-            return club, row
+            return club, row, saison
 
-        club, row = on_a_league(seeded_url, body)
+        club, row, saison = on_a_league(seeded_url, body)
 
         assert club["inactive_since"] == RETIRED_ON
         assert row["gruppe"] == "A"
+        assert saison["status"] == "active"
+        assert club["inactive_since"] > saison["end_date"]
 
     def test_the_standings_leave_it_out(self, seeded_url: str):
         response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(in_gruppen=True)))
@@ -263,6 +290,154 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
         response = on_a_league(seeded_url, lambda database: read_teams_for_admin(database, filters))
 
         assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
+
+
+@pytest.mark.db
+class TestAPastSeasonKeepsTheRetiredClubsThatPlayedIt:
+    """`docs/backend/spec.md :: I252`: a finished season's table has to add up with the fixtures it still shows."""
+
+    def test_the_standings_keep_them(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(saison_id=PAST_SAISON, in_gruppen=True)))
+
+        assert sorted(standing_names(response)) == ["Goethe", "Helmholtz", "Lessing"]
+
+    def test_the_flat_list_keeps_them_as_well(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(saison_id=PAST_SAISON)))
+
+        assert sorted(team.name for team in response.teams) == ["Goethe", "Helmholtz", "Lessing"]
+
+    def test_the_corpus_really_holds_a_club_retired_before_the_closed_seasons_end_date(self, seeded_url: str):
+        """The early activation: a match on the end date rather than on `status` drops Goethe from both cases above."""
+
+        saison = on_a_league(seeded_url, lambda database: database[Collection.SAISONS].find_one({"_id": PAST_SAISON}))
+
+        assert (saison["status"], GOETHE_RETIRED_ON < saison["end_date"]) == ("past", True)
+
+    @pytest.mark.parametrize(
+        ("include_inactive", "listed"),
+        [
+            pytest.param(False, [], id="the base read"),
+            # Non-vacuity: the admin switch reaches the row the retirement match withheld.
+            pytest.param(True, ["Lessing"], id="the admin switch"),
+        ],
+    )
+    def test_a_season_the_read_cannot_find_keeps_every_retired_club_out(self, seeded_url: str, include_inactive: bool, listed: list[str]):
+        """A season with no document is no evidence anybody finished it."""
+
+        async def body(database: AsyncDatabase) -> list[Any]:
+            filters = FLTeamsFilterParams(saison_id=UNDATED_SAISON, include_inactive=include_inactive)
+
+            return await (await database[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=None))).to_list(length=None)
+
+        assert [row["name"] for row in on_a_league(seeded_url, body)] == listed
+
+
+GRUPPENPHASE_SPIELTAG = ObjectId("6890a1b2c3d4e5f607420101")
+FINALE_SPIELTAG = ObjectId("6890a1b2c3d4e5f607420102")
+FINALE = ObjectId("6890a1b2c3d4e5f607420103")
+
+
+SHORTHANDS = {"Helmholtz": "HG", "Lessing": "LE", "Goethe": "GO"}
+
+
+def side(key: str, tore: int) -> dict[str, Any]:
+    return {"team_id": TEAM_OIDS[key], "name": key, "shorthand": SHORTHANDS[key], "tore": tore}
+
+
+def fixture(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> dict[str, Any]:
+    return {
+        "_id": spiel_id,
+        "spiel_nr": nr,
+        "saison_id": saison_id,
+        "saison_phase": "gruppenphase",
+        "spieltag_id": GRUPPENPHASE_SPIELTAG,
+        "team1": None,
+        "team2": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": f"{saison_id}-03-15",
+        "uhrzeit": "14:00:00",
+        "ort": None,
+        "schiedsrichter": None,
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
+        "notiz": None,
+        **overrides,
+    }
+
+
+def played_group(saison_id: str) -> list[dict[str, Any]]:
+    """Group A played out, Lessing winning both of its fixtures: its placing is first wherever it holds one.
+
+    And a Finale drawn from the group's first two placings, which the resolution fills.
+    """
+
+    return [
+        fixture(ObjectId("6890a1b2c3d4e5f607420111"), 1, saison_id, team1=side("Lessing", 5), team2=side("Helmholtz", 0), ergebnis="5:0"),
+        fixture(ObjectId("6890a1b2c3d4e5f607420112"), 2, saison_id, team1=side("Lessing", 5), team2=side("Goethe", 0), ergebnis="5:0"),
+        fixture(ObjectId("6890a1b2c3d4e5f607420113"), 3, saison_id, team1=side("Helmholtz", 2), team2=side("Goethe", 1), ergebnis="2:1"),
+        fixture(
+            FINALE,
+            4,
+            saison_id,
+            saison_phase="finale",
+            spieltag_id=FINALE_SPIELTAG,
+            team1_quelle={"type": "gruppe", "gruppe": "A", "platz": 1},
+            team2_quelle={"type": "gruppe", "gruppe": "A", "platz": 2},
+        ),
+    ]
+
+
+@pytest.mark.db
+class TestTheBracketPlacesTheClubsTheTableRanks:
+    """`docs/backend/spec.md :: I252` through the save's own resolution, over a season holding a club that left the league."""
+
+    @pytest.mark.parametrize(
+        ("saison_id", "status", "seeded"),
+        [
+            pytest.param(PAST_SAISON, "past", ("Lessing", "Helmholtz"), id="a past season seeds the retired club it placed"),
+            # The club the table withholds holds no placing, so the two still in the league take first and second.
+            pytest.param(SAISON, "active", ("Helmholtz", "Goethe"), id="a running season seeds the clubs below the retired one"),
+        ],
+    )
+    def test_the_finale_is_seeded_from_the_placings_the_table_ranks(
+        self, mongo_replica_set_url: str, saison_id: str, status: str, seeded: tuple[str, str]
+    ):
+        async def body() -> tuple[str | None, str | None]:
+            async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (client, database):
+                await database[Collection.SAISONS].insert_one(saison_document(saison_id, status=status))
+                await database[Collection.TEAMS].insert_many(
+                    [
+                        team_document(key, shorthand, inactive_since=RETIRED_ON if key == "Lessing" else None)
+                        for key, shorthand in SHORTHANDS.items()
+                    ]
+                )
+                await database[Collection.SAISON_TEAMS].insert_many(
+                    [junction_row(key, shorthand, saison_id=saison_id) for key, shorthand in SHORTHANDS.items()]
+                )
+                await database[Collection.SPIELE].insert_many(played_group(saison_id))
+
+                rules = FLSaisonRules.model_validate(saison_document(saison_id)["rules"])
+                async with client.start_session() as session:
+
+                    async def resolve(transaction: Any) -> Any:
+                        return await advance_bracket_winners(
+                            spiele_collection=database[Collection.SPIELE],
+                            teams_collection=database[Collection.TEAMS],
+                            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                            saison_id=saison_id,
+                            rules=rules,
+                            session=transaction,
+                        )
+
+                    await session.with_transaction(resolve)
+
+                finale = await database[Collection.SPIELE].find_one({"_id": FINALE}) or {}
+
+                return (finale.get("team1") or {}).get("name"), (finale.get("team2") or {}).get("name")
+
+        assert on_the_seed_loop(body()) == seeded
 
 
 @pytest.mark.db

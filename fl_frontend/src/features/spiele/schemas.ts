@@ -200,7 +200,7 @@ export const FLSpielSchema = z.object({
   ort: FLSpielOrtFieldPublicSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldPublicSchema.nullable(),
 
-  // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
+  // Not free text: `computeErgebnisFor` matches this pattern for S/U/N, and a malformed "3"
   // silently rendered as a loss for both teams.
   ergebnis: z.string().regex(ERGEBNIS_REGEX, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'").nullable(),
 
@@ -413,6 +413,39 @@ export const FLBracketFaultSpieltagSchema = z.object({
 export type FLBracketFaultSpieltag = z.infer<typeof FLBracketFaultSpieltagSchema>;
 
 /**
+ * A fixture still to be played booked onto a retired venue or referee. Nothing is taken off: the row
+ * may be reactivated, so which of that and another booking is the admin's call (`docs/backend/spec.md` I257).
+ */
+export const FLBracketFaultBookingSchema = z.object({
+  reason: z.literal("retired_booking"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  booking: z.enum(["ort", "schiedsrichter"]),
+  // Null where the erasure nulled a referee's copy, which is how a sentence tells erased from retired.
+  name: z.string().nonempty().nullable(),
+  inactive_since: CustomDateStringSchema,
+});
+export type FLBracketFaultBooking = z.infer<typeof FLBracketFaultBookingSchema>;
+
+/** A venue or referee this fixture claims less than four hours from another fixture's claim, one entry per claim. */
+export const FLBracketFaultClashSchema = z.object({
+  reason: z.literal("double_booked"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  // Both seasons, because the other fixture can sit in any and its number is unique within one alone:
+  // a sentence names the other's season exactly where the two differ.
+  saison_id: z.string(),
+  booking: FLBracketFaultBookingSchema.shape.booking,
+  name: FLBracketFaultBookingSchema.shape.name,
+  other_spiel_id: CustomObjectIdStringSchema,
+  other_saison_id: z.string(),
+  other_spiel_nr: z.int().positive(),
+  other_datum: CustomDateStringSchema,
+  other_uhrzeit: CustomTimeStringSchema,
+});
+export type FLBracketFaultClash = z.infer<typeof FLBracketFaultClashSchema>;
+
+/**
  * `discriminatedUnion` rather than a flat object of optional fields: each variant carries exactly
  * its own fault's fields, so nobody has to know which combinations mean anything.
  */
@@ -423,6 +456,8 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultSlotSchema,
   FLBracketFaultOccupantSchema,
   FLBracketFaultSpieltagSchema,
+  FLBracketFaultBookingSchema,
+  FLBracketFaultClashSchema,
 ]);
 export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
 
@@ -441,6 +476,8 @@ export const FLSpielAdvancementSchema = z.object({
   // Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
   // occupant leaves each of them true and none of them is cleared.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),
+  // Only ever an erased referee's, on a fixture the rewrite puts back among those still to be played.
+  voided_schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 });
 export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
 
@@ -458,6 +495,7 @@ export const FLSpielReleasedSideSchema = z.object({
   voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
   // A no-show alone, for `FLSpielAdvancementSchema`'s reason.
   voided_sonderereignis: FLSonderereignisSchema.nullable(),
+  voided_schiedsrichter: FLSpielAdvancementSchema.shape.voided_schiedsrichter,
 });
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
@@ -510,6 +548,9 @@ export const FLSpielPriorPaarungSchema = z.object({
   sonderereignis: FLSonderereignisSchema.nullable(),
   // Null on every fixture but the one the save named: a bracket resolution reaches the Paarung alone.
   other_fields: FLSpielPriorOtherFieldsSchema.nullable(),
+  // Carried through untouched: stripped here, the undo would leave a played fixture without the referee
+  // whose booking the save took off, where the backend puts it back.
+  voided_schiedsrichter: FLSpielPriorSchiedsrichterSchema.nullable(),
 });
 export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 
@@ -562,8 +603,8 @@ export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarung
 
 /**
  * `spiele` carries the filter's matches plus every match a fault names, so the client always holds
- * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which repeats across the
- * seasons this route spans.
+ * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which is unique within one
+ * season only.
  */
 export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
   // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the

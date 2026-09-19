@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo import AsyncMongoClient
@@ -10,16 +10,18 @@ from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rule
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     advance_bracket_winners,
+    anchor_a_booked_referee,
+    anchor_a_booked_venue,
     find_bracket_faults,
     preview_bracket_after_patch,
     pull_booked_referee,
     pull_booked_venue,
     pull_saison_membership,
+    pull_slot_holders,
     release_spieltag_sides,
     report_prior_paarungen,
 )
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
@@ -28,7 +30,6 @@ from app.api.spiele.schemas import (
     FLPatchSpielPaarungPayload,
     FLSpiel,
     FLSpielAdvancement,
-    FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
     FLSpieleAdminListResponse,
     FLSpieleAdminSingleResponse,
@@ -39,22 +40,25 @@ from app.api.spiele.schemas import (
     FLSpielReleasedSide,
 )
 from app.api.spiele.services import (
-    BookedSlot,
+    BookedReferences,
     ResolvedReferences,
     SpieltagRelease,
     apply_payload_to_spiel,
     build_spiele_filter,
     build_spiele_pipeline,
     build_spiele_sort,
-    days_a_clash_can_reach,
     find_booking_refusal,
+    find_claims_made,
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_references_to_anchor,
     find_result_removal_refusal,
     find_state_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
+    restore_the_voided_referee,
+    slots_booked_against,
     stored_in_slice,
 )
 from app.core.config import API_VERSION
@@ -123,14 +127,25 @@ async def get_spiele_action_required(
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
     saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleActionRequiredResponse:
     """List Spiele needing attention, and the bracket faults among them.
 
     Qualifying: cancelled, missing a date, time, venue or referee, past with no result, or a
-    knockout side with neither team nor `quelle`. Scoped to `saison_id`, every season without.
+    knockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none
+    is named, which answers 404 while no season is active.
+
+    The faults include a fixture still to be played that is booked onto a retired venue or referee,
+    and one whose venue or referee another fixture of any season claims less than four hours away.
     """
+
+    # Resolved as every other admin read resolves an omitted season: the selector sends none for the
+    # running one, so spanning the archive here would bury its queue under every other season's.
+    if saison_id is None:
+        saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
     # this list would silently omit a badge the grids show (`docs/backend/spec.md :: I32`).
@@ -138,9 +153,7 @@ async def get_spiele_action_required(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
             db_filter={
-                # Named first so the term reads before the conditions it narrows. Absent, it spreads
-                # to nothing and the read spans every season, which is what an unscoped call asks for.
-                **({} if saison_id is None else {"saison_id": saison_id}),
+                "saison_id": saison_id,
                 "$or": [
                     {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},
                     {"datum": None},
@@ -167,11 +180,11 @@ async def get_spiele_action_required(
         spiele_collection=spiele_collection,
         teams_collection=teams_collection,
         saisons_collection=saisons_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
         saison_id=saison_id,
     )
 
-    # Keyed by id, not `spiel_nr`, which repeats across seasons -- and this route still spans them
-    # when no `saison_id` is named.
     by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
@@ -244,7 +257,7 @@ async def _write_spiel_data(
         submitted: FLPatchSpielDataPayload | FLPatchSpielPaarungPayload,
         saison_id: str,
         saison_rules: FLSaisonRules,
-    ) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
+    ) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel, BookedReferences]:
         """Judge this payload against the season, and compose the fixture it saves to.
 
         Every refusal is raised here, so the `dry_run` preview cannot succeed where the save is
@@ -272,7 +285,12 @@ async def _write_spiel_data(
 
         # Completed HERE and never at the write, so the refusals, the composed result and the
         # resolution below all judge the one shape they were written against.
-        spiel_data = submitted if isinstance(submitted, FLPatchSpielDataPayload) else submitted.completed_with(stored)
+        restored_schiedsrichter = None if isinstance(submitted, FLPatchSpielDataPayload) else submitted.voided_schiedsrichter
+        spiel_data = (
+            submitted
+            if isinstance(submitted, FLPatchSpielDataPayload)
+            else restore_the_voided_referee(stored, submitted.completed_with(stored), restored_schiedsrichter, saison_rules)
+        )
 
         # First, and on the payload alone: the event the admin just chose is what the rest of this
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
@@ -326,63 +344,35 @@ async def _write_spiel_data(
             ),
         )
         # Before the clash: whether a ground exists at all is more basic than who else is on it.
-        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved))
+        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules, restored_schiedsrichter=restored_schiedsrichter))
 
-        # No `saison_id` in the query below: a double booking crosses competitions.
-
-        # The same partition the read below filters on, asked of THIS payload: an event that frees
-        # the slot cannot double-book anything, and judging it would make the admin move the fixture
-        # before recording that it was called off.
-        if spiel_data.datum is not None and spiel_data.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT:
-            claims: list[BookedSlot] = []
-            # Annotated rather than inferred: a bare tuple literal widens `resource` to `str`, which
-            # `BookedSlot` then refuses.
-            resources: tuple[tuple[Literal["Spielort", "Schiedsrichter"], str, CustomObjectId | None], ...] = (
-                ("Spielort", "ort.spielort_id", spiel_data.ort.spielort_id if spiel_data.ort is not None else None),
-                (
-                    "Schiedsrichter",
-                    "schiedsrichter.schiedsrichter_id",
-                    spiel_data.schiedsrichter.schiedsrichter_id if spiel_data.schiedsrichter is not None else None,
-                ),
+        claims = find_claims_made(stored, spiel_data)
+        holders = await pull_slot_holders(spiele_collection=spiele_collection, claims=claims, session=session)
+        refuse(
+            find_clash_refusal(
+                datum=spiel_data.datum,
+                uhrzeit=spiel_data.uhrzeit,
+                booked=[slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=spiel_id)],
             )
-            for resource, field, chosen in resources:
-                if chosen is None:
-                    continue
-                # VALIDATED, not read as a raw dict, for the reason
-                # `fl_backend/app/api/spiele/schemas.py :: FLSpielBooking` states.
-                bookings = FLSpielBookingListAdapter.validate_python(
-                    await spiele_collection.find(
-                        {
-                            field: chosen,
-                            # The neighbouring days too: `REQ-CLASH-001` measures a real interval, so
-                            # a fixture at 00:30 is refused against one at 23:30 the evening before,
-                            # and a read scoped to the payload's own date would never fetch it.
-                            "datum": {"$in": days_a_clash_can_reach(spiel_data.datum)},
-                            "uhrzeit": {"$ne": None},
-                            "_id": {"$ne": spiel_id},
-                            # An abandoned match used the ground and the referee; the rest freed both.
-                            "sonderereignis": {"$in": list(SONDEREREIGNIS_KEEPING_ITS_SLOT)},
-                        },
-                        {"spiel_nr": 1, "datum": 1, "uhrzeit": 1},
-                        session=session,
-                    ).to_list(length=None)
-                )
-                claims.extend(
-                    BookedSlot(spiel_nr=booking.spiel_nr, datum=booking.datum, uhrzeit=booking.uhrzeit, resource=resource)
-                    for booking in bookings
-                )
+        )
 
-            refuse(find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims))
-
-        return season, verdict.releases, apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved)
+        return (
+            season,
+            verdict.releases,
+            apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
+            # Returned rather than left to the caller to derive, so every transaction judging here
+            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1l).
+            find_references_to_anchor(stored, spiel_data, saison_rules),
+        )
 
     async def preview(spiel_id: CustomObjectId, spiel_data: FLPatchSpielDataPayload | FLPatchSpielPaarungPayload) -> FLPatchSpielDataResponse:
         """What this payload would move and destroy, judged against the season as it stands and written nowhere."""
 
         saison_id, saison_rules = await season_of(None, spiel_id)
-        season, releases, patched = await judge(None, spiel_id, spiel_data, saison_id, saison_rules)
+        season, releases, patched, _ = await judge(None, spiel_id, spiel_data, saison_id, saison_rules)
         advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
             teams_collection=teams_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
             saison_id=saison_id,
             rules=saison_rules,
             season=season,
@@ -409,7 +399,7 @@ async def _write_spiel_data(
         for spiel_id, spiel_data in entries:
             # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
             saison_id, saison_rules = await season_of(session, spiel_id)
-            season, releases, patched = await judge(session, spiel_id, spiel_data, saison_id, saison_rules)
+            season, releases, patched, anchored = await judge(session, spiel_id, spiel_data, saison_id, saison_rules)
 
             # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
             # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
@@ -424,15 +414,33 @@ async def _write_spiel_data(
 
             # Before the resolution: a slot this release opens can be refilled by that same resolution,
             # and the reverse order would leave the season one pass behind.
-            released_sides = await release_spieltag_sides(spiele_collection=spiele_collection, releases=releases, session=session)
+            released_sides, booked_again_by_the_release = await release_spieltag_sides(
+                spiele_collection=spiele_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                season=season,
+                releases=releases,
+                session=session,
+            )
 
-            advanced_to, bracket_faults = await advance_bracket_winners(
+            advanced_to, bracket_faults, booked_again_by_the_resolution = await advance_bracket_winners(
                 spiele_collection=spiele_collection,
                 teams_collection=teams_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
                 saison_id=saison_id,
                 rules=saison_rules,
                 session=session,
             )
+
+            # A retirement, the erasure and a rival save at the same hour each judge fixtures and write
+            # none of this pass's, so only a write to a row puts what this pass judged in their write
+            # sets (`docs/backend/spec.md :: I53`).
+            for booked in (anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
+                if booked.spielort_id is not None:
+                    await anchor_a_booked_venue(spielorte_collection=spielorte_collection, spielort_id=booked.spielort_id, session=session)
+                if booked.schiedsrichter_id is not None:
+                    await anchor_a_booked_referee(
+                        schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_id=booked.schiedsrichter_id, session=session
+                    )
 
             reports.append(
                 FLPatchSpielDataResponse(
@@ -523,6 +531,10 @@ async def patch_spiele_paarungen(
     `quelle`s are otherwise read from the stored document rather than from the request, so a value
     somebody moved since that save survives. Every refusal, and the resolution itself, are
     `PATCH /spiele/{spiel_id}`'s.
+
+    An entry's `voided_schiedsrichter` is the erased referee's booking that save took off the fixture.
+    It goes back only where the entry leaves the fixture played or called off and the fixture holds no
+    referee now; left still to be played, the fixture stays unassigned rather than refused.
 
     `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
     restore; one it puts back afterwards is the order doing its work rather than a loss. No

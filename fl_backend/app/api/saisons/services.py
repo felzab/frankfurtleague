@@ -4,7 +4,7 @@ from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus
-from app.api.spiele.schemas import MAX_QUALIFIERS, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSpiel
+from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel, is_unplayed
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 from app.core.exceptions import WriteRefusal
@@ -440,9 +440,7 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     slot being as unfinished as an unscored match.
     """
 
-    # An ABANDONED fixture with no result still owes one, because a replay may follow; the two
-    # states that award nothing owe nothing.
-    return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT)
+    return sorted(spiel.spiel_nr for spiel in spiele if is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis))
 
 
 def find_activation_refusal(*, target_status: str, target_fixtures: int, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:

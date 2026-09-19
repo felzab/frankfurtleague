@@ -14,6 +14,7 @@ them.
 | `database.py`                                              | The database a db test opens for itself: built once, emptied per call                                                   |
 | `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it                                               |
 | `payloads.py`                                              | The request bodies a test submits, built from a stored document                                                         |
+| `isolation.py`                                             | What a write raced by a rival reports: its refusal's code, or that it committed                                         |
 | `bracket_reference.py`                                     | The hand-written bracket rows the draw's construction is held to                                                        |
 | `shared/`                                                  | The custom types and shared schemas under `app/shared/`                                                                 |
 | `core/`                                                    | What `app/core/` declares, and what a real `mongod` does with it                                                        |

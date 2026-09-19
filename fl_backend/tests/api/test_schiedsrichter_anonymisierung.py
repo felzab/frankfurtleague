@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
     delete_schiedsrichter,
@@ -42,6 +43,7 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
     FLSpielSchiedsrichterField,
     FLSpielSchiedsrichterFieldPublic,
+    unplayed_filter,
 )
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, BookedReferee, ResolvedReferences, find_booking_refusal
 from app.core.collections import Collection
@@ -414,8 +416,10 @@ class TestBringingAnErasedRefereeBackIsRefused:
 # only case `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-AN_ERASED_REFEREE = BookedReferee(name=None, inactive_since=TODAY)
-A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT)
+AN_ERASED_REFEREE = BookedReferee(name=None, inactive_since=TODAY, anonymisiert_am=TODAY)
+A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT, anonymisiert_am=None)
+# A name typed back onto an erased row by hand: the stamp still says erased, and the refusal reads the stamp.
+A_STAMPED_REFEREE_CARRYING_A_NAME = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=TODAY, anonymisiert_am=TODAY)
 
 
 def booking_refusal(booked: BookedReferee):
@@ -433,6 +437,8 @@ def booking_refusal(booked: BookedReferee):
         payload,
         FLSpielListAdapter.validate_python([A_FIXTURE_HELD_BY_THE_OTHER_REFEREE]),
         ResolvedReferences(teams={}, schiedsrichter=booked),
+        FLSaisonRules.model_validate(SAISON_RULES),
+        restored_schiedsrichter=None,
     )
 
 
@@ -464,6 +470,15 @@ class TestAnErasedRefereeTakesNoNewFixture:
 
         assert refusal is not None
         assert "reactivate" not in refusal.message
+
+    def test_a_name_typed_back_onto_the_row_neither_names_them_nor_offers_a_reactivation(self):
+        """Keyed on the stamp (`docs/backend/spec.md :: I214`): reading the name would offer the way back `REQ-ANONYMISE-003` refuses."""
+
+        refusal = booking_refusal(A_STAMPED_REFEREE_CARRYING_A_NAME)
+
+        assert refusal is not None
+        assert "reactivate" not in refusal.message
+        assert REFEREE_NAMES[SCHIEDSRICHTER_OID] not in refusal.message
 
     def test_an_ordinarily_retired_referee_is_still_told_to_reactivate_them(self):
         """The control on the two cases above: a message that dropped the route back for every retired row would pass them."""
@@ -547,13 +562,14 @@ async def call_anonymisation(
     )
 
 
-async def call_retirement(database: AsyncDatabase, *, today: str) -> FLSchiedsrichterWriteResponse:
+async def call_retirement(database: AsyncDatabase, client: AsyncMongoClient, *, today: str) -> FLSchiedsrichterWriteResponse:
     """Every seeded fixture of this referee is PLAYED, so `find_referee_retire_refusal` refuses nothing and a case below fails on the date."""
 
     return await delete_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        db=client,
         today=today,
     )
 
@@ -1153,11 +1169,7 @@ def test_the_array_image_a_removal_files_is_emptied_too(mongo_replica_set_url: s
 def test_the_unplayed_assignment_filter_spells_the_definition_once():
     """The retirement's refusal and the erasure's unassign read this one filter, so a widening here moves both at once."""
 
-    assert build_unplayed_assignment_filter(SCHIEDSRICHTER_OID) == {
-        "schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID,
-        "ergebnis": None,
-        "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-    }
+    assert build_unplayed_assignment_filter(SCHIEDSRICHTER_OID) == {"schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID, **unplayed_filter()}
 
 
 def test_the_fixture_image_filter_names_the_collection_it_reads():
@@ -1488,7 +1500,7 @@ class TestTheRetirePressIsTheSecondWriterOfInactiveSince:
     def test_a_press_after_the_erasure_leaves_the_erasures_own_day(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_anonymisation(database, client)
-            await call_retirement(database, today=A_LATER_PRESS)
+            await call_retirement(database, client, today=A_LATER_PRESS)
 
             return await stored_referees(database)
 
@@ -1503,7 +1515,7 @@ class TestTheRetirePressIsTheSecondWriterOfInactiveSince:
         """The control: a press that stamped nothing at all would pass the case above and retire nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_retirement(database, today=A_LATER_PRESS)
+            await call_retirement(database, client, today=A_LATER_PRESS)
 
             return await stored_referees(database)
 

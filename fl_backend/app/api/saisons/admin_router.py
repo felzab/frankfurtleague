@@ -735,8 +735,9 @@ async def generate_spielplan(
             session=session,
         )
 
-        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated entry
-        # list draws a season short of teams and weighs a group occupancy no group holds.
+        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
+        # (`docs/backend/spec.md :: I45`): a truncated entry list draws a season short of teams and
+        # weighs a group occupancy no group holds.
         if len(entered_rows) > LIST_LIMIT_DEFAULT:
             raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
@@ -759,9 +760,9 @@ async def generate_spielplan(
             session=session,
         )
 
-        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
-        # counts fewer records than the season holds, and `REQ-SPIELPLAN-005`'s window opens on work a
-        # replace would then destroy.
+        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
+        # (`docs/backend/spec.md :: I45`): a truncated list counts fewer records than the season holds,
+        # and `REQ-SPIELPLAN-005`'s window opens on work a replace would then destroy.
         if len(stored_spiele) > LIST_LIMIT_DEFAULT:
             raise ValueError(
                 f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
@@ -919,9 +920,9 @@ async def undraw_spielplan(
             session=session,
         )
 
-        # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated list
-        # counts fewer records than the season holds, and `REQ-SPIELPLAN-006`'s window opens on a
-        # result the removals below would destroy.
+        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
+        # (`docs/backend/spec.md :: I45`): a truncated list counts fewer records than the season holds,
+        # and `REQ-SPIELPLAN-006`'s window opens on a result the removals below would destroy.
         if len(stored_spiele) > LIST_LIMIT_DEFAULT:
             raise ValueError(
                 f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"

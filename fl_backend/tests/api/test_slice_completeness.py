@@ -82,7 +82,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
 
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}))
+            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES, restored_schiedsrichter=None)
 
 
 RULES = FLSaisonRules.model_validate(
@@ -121,19 +121,22 @@ class _SeasonCollection:
 def run_advance(collection: _SeasonCollection) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured.
 
-    The same stand-in serves as the teams collection: no fixture here carries a `quelle`, so no group
-    standing is ever read.
+    The same stand-in serves as every collection: no fixture here carries a `quelle`, so nothing but
+    the season is read.
     """
 
-    return asyncio.run(
+    advanced, faults, _ = asyncio.run(
         advance_bracket_winners(
             spiele_collection=cast(AsyncCollection, collection),
             teams_collection=cast(AsyncCollection, collection),
+            schiedsrichter_collection=cast(AsyncCollection, collection),
             saison_id=SAISON_ID,
             rules=RULES,
             session=cast(AsyncClientSession, object()),
         )
     )
+
+    return advanced, faults
 
 
 class TestTheBracketWriteRefusesATruncatedSeason:
@@ -153,62 +156,48 @@ class TestTheBracketWriteRefusesATruncatedSeason:
         assert (advanced, faults) == ([], [])
 
 
-class _ArchiveCollections:
-    """The fault sweep's two reads at once: `aggregate` answers the fixtures, `find`/`limit`/`to_list` the seasons."""
+class _SweptCollections:
+    """The fault sweep's two reads at once: `aggregate` answers the fixtures, `find_one` the season row."""
 
-    def __init__(self, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None) -> None:
-        self.saisons = saisons
+    def __init__(self, saison: dict[str, Any], spiele: list[dict[str, Any]]) -> None:
+        self.saison = saison
         # The JOINED shape, because `build_spiele_pipeline` is what the real read runs; what is under
         # test here is the wiring above that pipeline rather than the pipeline itself.
-        self.spiele = spiele or []
+        self.spiele = spiele
 
-    # A coroutine, matching the driver: the read under test awaits `aggregate` and does not await
-    # `find`, so a synchronous double here would pass a cursor where a coroutine is expected.
-    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _ArchiveCollections:
-        return self
-
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _ArchiveCollections:
-        return self
-
-    def limit(self, count: int) -> _ArchiveCollections:
-        self.saisons = self.saisons[:count]
+    # Coroutines, matching the driver: a synchronous double would hand the sweep a cursor or a row
+    # where it awaits one.
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _SweptCollections:
         return self
 
     async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        # The fixture read arrives here with `length=None`; the season read is capped.
-        return self.spiele if length is None else self.saisons[:length]
+        return self.spiele
+
+    async def find_one(self, filter: Any, projection: Any = None, session: Any = None) -> dict[str, Any] | None:
+        # Matched on the id rather than answered unconditionally, so a sweep reading another season's
+        # rules walks nothing and the `gruppe_not_run` case below fails.
+        return self.saison if filter["_id"] == self.saison["_id"] else None
+
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _Rows:
+        """The double-booking read, answered with the whole corpus: which of it clashes is the sweep's to judge, not the filter's."""
+
+        return _Rows(self.spiele)
 
 
-class TestTheFaultSweepRefusesATruncatedArchive:
-    """The other read that asks one past the cap: an unread season reports no faults, which reads as a clean season."""
+class _Rows:
+    """A collection answering every `find` with the same rows, whether `pull_many_from_db` limits the cursor or a caller lists it bare."""
 
-    def test_an_archive_past_the_cap_is_refused(self):
-        seasons = [{"_id": str(2000 + index), "rules": RULES.model_dump()} for index in range(LIST_LIMIT_DEFAULT + 1)]
-        collections = _ArchiveCollections(seasons)
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
 
-        with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
-            asyncio.run(
-                find_bracket_faults(
-                    spiele_collection=cast(AsyncCollection, collections),
-                    teams_collection=cast(AsyncCollection, collections),
-                    saisons_collection=cast(AsyncCollection, collections),
-                )
-            )
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _Rows:
+        return self
 
-    def test_an_archive_at_the_cap_is_swept(self):
-        """The boundary the other way, so an off-by-one answers 500 for the largest readable archive rather than passing."""
+    def limit(self, count: int) -> _Rows:
+        return self
 
-        seasons = [{"_id": str(2000 + index), "rules": RULES.model_dump()} for index in range(LIST_LIMIT_DEFAULT)]
-
-        faults, faulted = asyncio.run(
-            find_bracket_faults(
-                spiele_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
-                teams_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
-                saisons_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
-            )
-        )
-
-        assert (faults, faulted) == ([], [])
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return self.rows
 
 
 # One matchday per sweep below, so no case can pass on a fault another sweep raised about the same
@@ -227,6 +216,16 @@ DEPARTURE = {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": "
 FIXTURE_DAY = "2026-03-15"
 
 CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED, SEEDED_FROM_A_GROUP_NOT_RUN = 1, 2, 3, 4
+AT_A_RETIRED_GROUND, REFEREED_FIRST, REFEREED_AN_HOUR_LATER = 5, 6, 7
+
+# Their own matchdays, so no club on them makes a double entry the sweep above would report.
+RETIRED_GROUND_SPIELTAG = "6890a1b2c3d4e5f607210004"
+REFEREED_FIRST_SPIELTAG = "6890a1b2c3d4e5f607210005"
+REFEREED_LATER_SPIELTAG = "6890a1b2c3d4e5f607210006"
+
+RETIRED_GROUND = "6890a1b2c3d4e5f607230001"
+RETIRED_ON = "2026-02-01"
+TWICE_BOOKED_REFEREE = "6890a1b2c3d4e5f607230002"
 
 # Two groups, so the reference below names one this season does not run: a season offering every
 # name `FLGruppenNames` spells could hold no such reference at all.
@@ -247,7 +246,7 @@ def _joined_side(team_id: str, name: str, austritt: dict[str, Any] | None = None
     }
 
 
-def faulted_archive(spiel: PayloadFactory) -> list[dict[str, Any]]:
+def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
     """One fixture per sweep, and only the last carries a `quelle`.
 
     The group it names is one this season does not run, so `resolve_bracket` is handed no standing
@@ -256,15 +255,21 @@ def faulted_archive(spiel: PayloadFactory) -> list[dict[str, Any]]:
 
     def fixture(nr: int, spieltag_id: str, team1: dict[str, Any] | None, team2: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         return spiel(
-            _id=MATCH_ID.format(nr),
-            spiel_nr=nr,
-            spieltag_id=spieltag_id,
-            saison_id=SAISON_ID,
-            datum=FIXTURE_DAY,
-            ergebnis=None,
-            team1=team1,
-            team2=team2,
-            **overrides,
+            **{
+                "_id": MATCH_ID.format(nr),
+                "spiel_nr": nr,
+                "spieltag_id": spieltag_id,
+                "saison_id": SAISON_ID,
+                "datum": FIXTURE_DAY,
+                "ergebnis": None,
+                "team1": team1,
+                "team2": team2,
+                # Booked by none unless `overrides` books one: the factory's shared ground and referee
+                # would otherwise double-book every fixture here against every other.
+                "ort": None,
+                "schiedsrichter": None,
+                **overrides,
+            }
         )
 
     return [
@@ -279,26 +284,51 @@ def faulted_archive(spiel: PayloadFactory) -> list[dict[str, Any]]:
             saison_phase="halbfinale",
             team1_quelle={"type": "gruppe", "gruppe": UNRUN_GRUPPE, "platz": 1},
         ),
+        fixture(
+            AT_A_RETIRED_GROUND,
+            RETIRED_GROUND_SPIELTAG,
+            _joined_side(BYSTANDER, "Bieber"),
+            _joined_side(OPPONENT, "Cronberg"),
+            ort={"spielort_id": RETIRED_GROUND, "name": "Bezirkssportanlage West", "maps_link": "Bezirkssportanlage West", "mietpreis": 40},
+        ),
+        fixture(
+            REFEREED_FIRST,
+            REFEREED_FIRST_SPIELTAG,
+            _joined_side(BYSTANDER, "Bieber"),
+            _joined_side(OPPONENT, "Cronberg"),
+            uhrzeit="18:00:00",
+            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_REFEREE, "name": "Anna Körner", "payment": 20},
+        ),
+        fixture(
+            REFEREED_AN_HOUR_LATER,
+            REFEREED_LATER_SPIELTAG,
+            _joined_side(BYSTANDER, "Bieber"),
+            _joined_side(OPPONENT, "Cronberg"),
+            uhrzeit="19:00:00",
+            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_REFEREE, "name": "Anna Körner", "payment": 20},
+        ),
     ]
 
 
 def sweep(spiel: PayloadFactory) -> tuple[list[FLBracketFault], list[Any]]:
     """`find_bracket_faults` over the corpus above, with the season row its second read needs."""
 
-    seasons = [{"_id": SAISON_ID, "rules": SWEPT_RULES.model_dump()}]
-    spiele = faulted_archive(spiel)
+    collections = cast(AsyncCollection, _SweptCollections({"_id": SAISON_ID, "rules": SWEPT_RULES.model_dump()}, faulted_season(spiel)))
 
     return asyncio.run(
         find_bracket_faults(
-            spiele_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
-            teams_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
-            saisons_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
+            spiele_collection=collections,
+            teams_collection=collections,
+            saisons_collection=collections,
+            spielorte_collection=cast(AsyncCollection, _Rows([{"_id": ObjectId(RETIRED_GROUND), "inactive_since": RETIRED_ON}])),
+            schiedsrichter_collection=cast(AsyncCollection, _Rows([])),
+            saison_id=SAISON_ID,
         )
     )
 
 
 class TestTheFaultSweepReportsWhatItsSweepsFound:
-    """That all three derivations are WIRED into the report, not merely written.
+    """That each sweep beside the walk is WIRED into the report.
 
     `find_bracket_faults` feeds `GET /spiele/action_required` alone, so a sweep whose result never
     reaches the return value is a fault the one page built to surface it never shows.
@@ -326,6 +356,23 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
 
         assert [(fault.spiel_nr, fault.gruppe) for fault in not_run] == [(SEEDED_FROM_A_GROUP_NOT_RUN, UNRUN_GRUPPE)]
 
+    def test_a_fixture_booked_onto_a_retired_ground_is_reported(self, spiel):
+        """Keyed on the row the ground read answers, so a report reading the fixture's own copy alone could not raise it."""
+
+        faults, _ = sweep(spiel)
+        retired = [fault for fault in faults if fault.reason == "retired_booking"]
+
+        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "ort", RETIRED_ON)]
+
+    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_fixtures(self, spiel):
+        faults, _ = sweep(spiel)
+        clashes = [fault for fault in faults if fault.reason == "double_booked"]
+
+        assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in clashes] == [
+            (REFEREED_FIRST, "schiedsrichter", REFEREED_AN_HOUR_LATER),
+            (REFEREED_AN_HOUR_LATER, "schiedsrichter", REFEREED_FIRST),
+        ]
+
     def test_every_faulted_fixture_is_attached_to_the_report(self, spiel):
         """The second half of the answer: a surface renders the fixture a fault names, so an unattached one has nothing to draw."""
 
@@ -336,6 +383,9 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
             CLASHING_SECOND,
             WITH_THE_DEPARTED,
             SEEDED_FROM_A_GROUP_NOT_RUN,
+            AT_A_RETIRED_GROUND,
+            REFEREED_FIRST,
+            REFEREED_AN_HOUR_LATER,
         ]
 
     def test_the_bracket_walk_contributes_nothing_to_this_corpus(self, spiel):
@@ -343,4 +393,10 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
 
         faults, _ = sweep(spiel)
 
-        assert {fault.reason for fault in faults} == {"fielded_twice", "departed_occupant", "gruppe_not_run"}
+        assert {fault.reason for fault in faults} == {
+            "fielded_twice",
+            "departed_occupant",
+            "gruppe_not_run",
+            "retired_booking",
+            "double_booked",
+        }

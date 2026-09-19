@@ -254,8 +254,11 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "A NEWLY assigned venue is read at the write, and one no `spielorte` row holds -- or one whose row is "
             "retired and takes no new fixtures -- is refused (`REQ-BOOKING-001`); a reference already stored is left "
-            "alone. Retiring the venue is refused from the other side while an UNPLAYED fixture holds it "
-            "(`REQ-RETIRE-003`), which is why a played one may keep a retired ground. "
+            "alone unless the save puts its fixture back among those still to be played, which books it again. "
+            "Retiring the venue is refused from the other side while an UNPLAYED fixture holds it "
+            "(`REQ-RETIRE-003`), which is why a played or called-off one may keep a retired ground. A bracket "
+            "resolution, or a side emptied for a Spieltag clash, reopening such a fixture keeps the ground and is "
+            "reported, not refused. "
             "The name and the maps link are read from that row rather than accepted, and they fan out on a rename; "
             "`mietpreis` deliberately does neither. It records what this fixture cost, so rewriting it would rewrite history."
         ),
@@ -268,13 +271,16 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.CASCADE,
         on_target_removed=Action.RESTRICT,
         note=(
-            "Read at the write when NEWLY assigned, as the venue beside it is, and refused where no row holds it or "
-            "the row it holds is retired; retiring the referee is refused from the other side for the reason the "
-            "venue's is (`REQ-RETIRE-004`). "
+            "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
+            "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
+            "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
             "The anonymisation retires the row itself, so an erased referee is refused a NEW fixture by the same rule "
             "and is never reactivated (`REQ-ANONYMISE-003`). It SATISFIES that refusal rather than consulting it: every "
-            "fixture with no result loses this reference in the same transaction, a request to be forgotten not being "
-            "something a booking may block, so a PLAYED fixture alone keeps its assignment, under a nulled name. "
+            "fixture still to be played loses this reference in the same transaction, a request to be forgotten not "
+            "being something a booking may block, so a PLAYED or CALLED-OFF fixture alone keeps its assignment, under a "
+            "nulled name, and a save reopening one is refused it. A bracket resolution, or a side emptied for a "
+            "Spieltag clash, reopening one takes the assignment off in its own write, as the erasure would have; a merely "
+            "retired referee stays and is reported. "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -1269,7 +1275,10 @@ RULES: tuple[Rule, ...] = (
         code="REQ-BOOKING-001",
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
-        summary="a venue or a referee NEWLY assigned to a fixture must name a row that exists and has not retired",
+        summary=(
+            "a venue or a referee NEWLY assigned to a fixture, or kept on one a save puts back among those still to be "
+            "played, must name a row that exists and has not retired"
+        ),
         implemented_by="app.api.spiele.services.find_booking_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestTheBookingRefusal",
     ),
@@ -1639,6 +1648,36 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestABracketSlotHeldByADisqualifiedClub",
+        surfaced_by="/admin/action_required",
+    ),
+    Unenforced(
+        subject="a fixture still to be played booked onto a retired venue or referee",
+        reason=(
+            "`REQ-BOOKING-001` judges what a SAVE books. A bracket resolution, or a side emptied for a Spieltag clash, voiding a played "
+            "fixture's result puts it back among those still to be played without any request naming it, and refusing "
+            "that would refuse the correction upstream -- or any save of the season, the resolution running whole -- over a "
+            "booking nobody touched, where a result a rewrite destroys is reported rather than refused. The row stays "
+            "booked and is reported as a derived fault (`docs/backend/spec.md :: I257`), because only a person chooses "
+            "between reactivating it and booking another, and a save keeping it books nothing new. An ERASED referee is "
+            "taken off in that same write instead (`docs/backend/spec.md :: I256`)."
+        ),
+        near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
+        proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
+        surfaced_by="/admin/action_required",
+    ),
+    Unenforced(
+        subject="one venue or referee claimed by two fixtures less than four hours apart",
+        reason=(
+            "`REQ-CLASH-001` judges the claims a SAVE makes that its fixture did not already make. A bracket resolution, or "
+            "a side emptied for a Spieltag clash, lifting a no-show has its fixture claim the slot that no-show freed, which another fixture "
+            "may since hold, and refusing the rewrite would refuse the correction upstream over a clash it never chose. "
+            "Which of the two moves is a competition call, so every claim is reported as a derived fault, and a save of "
+            "either fixture keeping its slot -- a note, a result -- commits, where refusing it would hold the legitimately "
+            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused "
+            "(`docs/backend/spec.md :: I257`)."
+        ),
+        near=("REQ-CLASH-001",),
+        proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
         surfaced_by="/admin/action_required",
     ),
     Unenforced(

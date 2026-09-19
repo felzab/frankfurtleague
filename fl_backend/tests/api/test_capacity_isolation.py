@@ -28,8 +28,8 @@ from app.api.teams.admin_router import patch_saison_team, post_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload
 from app.api.teams.services import ENTRY_GRUPPE_FULL
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.isolation import COMMITTED, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -39,10 +39,6 @@ DATABASE_NAME = worker_database("fl_capacity_isolation_test")
 SAISON = "2026"
 TEAMS_PER_GROUP = 4
 MAX_KADERGROESSE = 18
-
-# What a case reports where nothing refused at all. Reported rather than raised, so a write that
-# lands names the state it left instead of an exception that failed to arrive.
-COMMITTED = "the write committed"
 
 # The season field every writer judged against one of that season's bounds advances, which is the
 # whole of what puts two of them in one write set.
@@ -239,21 +235,6 @@ def on_a_league(url: str, body: Body, seed: dict[str, list[Any]]) -> Any:
             return await body(database, client)
 
     return on_the_seed_loop(_run())
-
-
-async def outcome_of(call: Awaitable[Any]) -> str:
-    """A refusal's code, or `COMMITTED`.
-
-    Only a refusal is caught: a write conflict reaching the caller is a retry that never happened,
-    and must surface as itself rather than as a write that declined.
-    """
-
-    try:
-        await call
-    except DocumentConflictException as refusal:
-        return str(refusal.error_code)
-
-    return COMMITTED
 
 
 async def anchor_now(database: AsyncDatabase) -> int:

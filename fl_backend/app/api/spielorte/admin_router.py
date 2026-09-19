@@ -1,9 +1,10 @@
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
+from app.api.spiele.schemas import unplayed_filter
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
@@ -100,6 +101,7 @@ async def delete_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielortWriteResponse:
     """
@@ -109,23 +111,24 @@ async def delete_spielort(
     while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
     """
 
-    # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
-    booked = await pull_many_from_db(
-        collection=spiele_collection,
-        db_filter={
-            "ort.spielort_id": spielort_id,
-            "ergebnis": None,
-            "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-        },
-        projection={"spiel_nr": 1},
-    )
-    refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))
+    async def retire_the_venue(session: AsyncClientSession) -> Mapping[str, Any]:
+        """Judge the venue's unplayed fixtures, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
-    updated_document_raw = await set_inactive_since(
-        collection=spielorte_collection,
-        db_filter={"_id": spielort_id},
-        when=today,
-    )
+        booked = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"ort.spielort_id": spielort_id, **unplayed_filter()},
+            projection={"spiel_nr": 1},
+            session=session,
+        )
+        refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))
+
+        return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=today, session=session)
+
+    # The stamp inside the judgement's transaction, so a booking committing after the read above
+    # conflicts on the venue it anchors rather than landing unseen
+    # (`app/api/spiele/crud.py :: anchor_a_booked_venue`).
+    async with db.start_session() as session:
+        updated_document_raw = await session.with_transaction(retire_the_venue)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
 

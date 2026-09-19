@@ -29,6 +29,7 @@ from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "saison_data"
+SAISON_PAST_AS_NAME = "saison_past_data"
 STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
 ABSAGE_COUNT_NAME = "anzahl"
@@ -148,6 +149,25 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
     }
 
 
+def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
+    """A club that left the league keeps its place in a `past` season and in no other (`docs/backend/spec.md :: I252`)."""
+
+    return [
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                # `status`, never `end_date`: activating the next season closes this one before its
+                # last day, and a club retiring in between played it all the same.
+                "pipeline": [{"$match": {"_id": saison_id, "status": "past"}}, {"$project": {"_id": 1}}],
+                "as": SAISON_PAST_AS_NAME,
+            }
+        },
+        # Not dropped on `REQ-RETIRE-001`'s strength: that refusal holds writes alone, and no report counts
+        # a club already stored retired in a running or planned season, so this match keeps one off the reads.
+        {"$match": {"$or": [{"inactive_since": None}, {f"{SAISON_PAST_AS_NAME}.0": {"$exists": True}}]}},
+    ]
+
+
 def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Without a season the junction join stops being strict -- one row per season a club played --
     # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
@@ -156,18 +176,13 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
 
     pipeline: list[Mapping[str, Any]] = []
 
-    base_match: dict[str, Any] = {}
+    if team_id is not None:
+        pipeline.append({"$match": {"_id": team_id}})
 
     # Clubs that left the league -- never a team that left one season, which keeps its row. The switch
     # is on the ADMIN model alone: a standings row carries no field that would mark one (`READ-SQUAD-002`).
     if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
-        base_match["inactive_since"] = None
-
-    if team_id is not None:
-        base_match["_id"] = team_id
-
-    if base_match:
-        pipeline.append({"$match": base_match})
+        pipeline.extend(build_retirement_stages(filters.saison_id))
 
     # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
     # Two independent terms, so "left the season" and "left it THIS way" compose into one match.

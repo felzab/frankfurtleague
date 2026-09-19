@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.saisons.crud import pull_current_saison_id
 from app.api.saisons.visibility import saison_is_withheld, withheld_saison_ids
 from app.api.spieler.schemas import (
     FLSpielerFilterParams,
@@ -28,15 +29,20 @@ async def get_spieler(
     filters: FLSpielerFilterParams = Depends(),
 ) -> FLSpielerListResponse:
     """
-    List players, normally for one team.
+    List players, normally one team's squad in one season.
 
-    Omitting `saison_id` does NOT resolve to the current season; callers narrow by `team_id` instead,
-    and a season this tier may not read adds no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
+    Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
+    while no season is active. Naming neither lists every season's players, a season this tier may not
+    read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
     """
 
-    # The named case ONLY, because it is the one an id can answer: no row this read serves says
-    # which season it came from, so a caller naming none is asking across all of them at once.
-    if filters.saison_id is not None:
+    # Resolved here, never as a field default, and only beside a team: a squad is one season's
+    # (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
+    if filters.saison_id is None and filters.team_id is not None:
+        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+
+    # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
+    elif filters.saison_id is not None:
         # Empty rather than 404, as `GET /spiele` answers it: an id naming no season already lists
         # nothing here, so a refusal would be the one answer confirming a withheld one exists.
         if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=filters.saison_id):

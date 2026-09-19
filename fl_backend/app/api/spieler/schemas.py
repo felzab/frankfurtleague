@@ -195,7 +195,7 @@ class _SaisonSpielerPayload(_SaisonSpielerWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored number would answer 500 for
-    # the whole list over one row (`docs/backend/spec.md :: I36`).
+    # the whole list over one row (`docs/backend/spec.md :: I254`).
     nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
 
 

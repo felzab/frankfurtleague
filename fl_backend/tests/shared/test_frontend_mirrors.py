@@ -1,3 +1,4 @@
+import json
 import math
 import re
 import string
@@ -14,13 +15,14 @@ from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.api.saisons.schemas import TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
+from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
 from app.shared.schemas import bounds
-from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress
+from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
     PERSON_NAME_PATTERN,
     PHONE_REGEX,
@@ -1211,3 +1213,45 @@ def test_each_unmirrored_refusal_is_still_spelled_only_here(message: str):
 
     for module in {module for module in ANSWER_REFUSALS.values() if module is not None}:
         assert message not in _source(module), f"{module} mirrors this refusal now, so the register has to pair the two"
+
+
+# One table both suites run their own join over, where every pair above is compared as text: a join
+# is behaviour, and neither tier can execute the other's
+# (`fl_frontend/src/features/spielorte/mapsLinkMirror.test.ts` holds the frontend half).
+ADDRESS_LINES: Final = Path(__file__).resolve().parent / "address_lines.json"
+
+
+class AddressLine(NamedTuple):
+    case: str
+    name: str
+    address: FLAddressPayload
+    maps_link: str
+
+
+def _address_lines() -> tuple[AddressLine, ...]:
+    """Each address through `FLAddressPayload`, the model the write path hands `_maps_link`."""
+
+    rows = json.loads(ADDRESS_LINES.read_bytes().decode("utf-8"))
+
+    return tuple(AddressLine(row["case"], row["name"], FLAddressPayload.model_validate(row["address"]), row["maps_link"]) for row in rows)
+
+
+@pytest.mark.parametrize("line", _address_lines(), ids=lambda line: line.case)
+def test_the_stored_maps_link_is_the_line_the_frontend_composes_for_the_same_venue(line: AddressLine):
+    """A join differing between tiers sends the venue table's link and a fixture's stored one to two different searches for one venue."""
+
+    assert _maps_link(line.name, line.address) == line.maps_link
+
+
+def test_the_shared_table_blanks_each_optional_part_alone_together_and_as_spaces():
+    """Two joins agree on a complete address however each treats a blank, so a table without these rows compares nothing that can part."""
+
+    lines = _address_lines()
+    blanked = {(not line.address.hausnummer, not line.address.stadtteil.strip()) for line in lines}
+
+    assert blanked == {(False, False), (True, False), (False, True), (True, True)}, (
+        f"the table blanks {sorted(blanked)} of the two optional parts"
+    )
+    assert any(line.address.stadtteil and not line.address.stadtteil.strip() for line in lines), (
+        "no row holds a district of spaces alone, which only a join that strips reads as blank"
+    )

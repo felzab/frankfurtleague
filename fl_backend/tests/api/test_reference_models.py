@@ -357,7 +357,7 @@ class TestSaisonSpielerRow:
 class TestASquadNumberOnTheWritePath:
     """The digits bound sits on the payloads alone.
 
-    A read model refusing a stored value answers 500 for the whole list (`docs/backend/spec.md :: I36`).
+    A read model refusing a stored value answers 500 for the whole list (`docs/backend/spec.md :: I254`).
     """
 
     PAYLOADS = [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload]
