@@ -415,7 +415,6 @@ class FLBracketFaultBooking(_BracketFault):
     """
 
     reason: Literal["retired_booking"]
-    # The fixture's field holding the reference, as `side` names a fixture's field.
     booking: Literal["ort", "schiedsrichter"]
     # The fixture's own copy: null where the erasure nulled a referee's, which is also how a reader
     # tells an erased referee from one merely retired.

@@ -256,6 +256,9 @@ the entries already written back with it.
 | 5d   | A fixture step 3a or step 5 puts back among those still to be played loses an erased referee's booking, named in `voided_schiedsrichter` (I256)                                    | A person who asked to be forgotten would stand booked for a match still to be played ([`docs/datenschutz.md`](../datenschutz.md))                               |
 | 5e   | Every reference step 1l hands back, and every one steps 3a and 5 book again, takes an `$inc` of `bounded_writes` on its row                                                        | A retirement, the erasure or a rival save reads fixtures and writes none of this one's, so each would commit unseen (I53)                                       |
 
+**Every anchor step 5e takes is a `patch_many_in_db`, so a save reopening booked fixtures files action-log
+rows on `spielorte` and `schiedsrichter` that change nothing a reader sees, as the season anchors do (I40).**
+
 **`dry_run=true` runs step 0, the whole of `judge`, a read-only step 3a, step 4, and a read-only step 5,
 and writes nothing** (I29). It resolves the bracket over a season assembled in memory and returns the
 same `FLPatchSpielDataResponse` the save does, so a preview promises what a save would do — **or the

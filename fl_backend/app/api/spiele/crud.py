@@ -193,6 +193,8 @@ async def _retirement_days(collection: AsyncCollection, ids: Set[Any]) -> dict[A
         collection=collection,
         db_filter={"_id": {"$in": list(ids)}, "inactive_since": {"$ne": None}},
         projection={"inactive_since": 1},
+        # `_id` is unique, so `len(ids)` rows is the whole answer and the cap can never cut it short (`docs/backend/spec.md :: I45`).
+        limit=len(ids),
     )
 
     return {row["_id"]: row["inactive_since"] for row in rows}

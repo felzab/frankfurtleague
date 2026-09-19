@@ -526,7 +526,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
     )
     def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Moved off the hour both are seeded at: a claim the fixture already made is judged by nobody.
+            # At 18:30, off the hour both are seeded at: a claim the fixture already made is judged by nobody.
             spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="18:30:00")
 
             try:

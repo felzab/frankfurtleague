@@ -25,6 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import annehmen_bewerbung
 from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
 from app.api.schiedsrichter.services import ANONYMISIERT_AM, REFEREE_STILL_ASSIGNED
@@ -46,6 +47,14 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
+
+
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
+
+    invalidate_saison_cache()
+
 
 SAISON = "2026"
 RETIRED_ON = "2026-03-01"
@@ -847,16 +856,58 @@ def semi_final(slot: Slot, **overrides: Any) -> dict[str, Any]:
 # The quarter-final corrected so Alpha won it, which rewrites the semi-final's slot and voids the result it was played to.
 REOPENED_BY_AN_OVERTURN = saved_in_the_editor(quarter_final(), team1={"team_id": ALPHA, "tore": 3}, team2={"team_id": BETA, "tore": 1})
 
-# The row's retirement, the reopened semi-final's booking of it, and that fixture's result.
-ReopenedStanding = tuple[str | None, ObjectId | None, str | None]
+
+def played_on_the_spieltag(slot: Slot) -> dict[str, Any]:
+    """`FIXTURE` played under `slot`'s booking by the club the save below fields elsewhere on its Spieltag."""
+
+    outgoing = {"team_id": OUTGOING, "name": "Schule OG", "shorthand": "OG", "tore": 2}
+    other = {"team_id": CLUB, "name": "Schule CL", "shorthand": "CL", "tore": 1}
+
+    return fixture_document(team1=outgoing, team2=other, ergebnis="2:1", **{slot.field: slot.stored})
 
 
-def reopening_of(slot: Slot) -> Callable[[AsyncDatabase], Awaitable[ReopenedStanding]]:
+# Holding nothing and claiming nothing, so the only booking the save touches is the one its release reopens.
+SECOND_ON_THE_SPIELTAG = fixture_document(_id=SECOND_FIXTURE, spiel_nr=2, uhrzeit="10:00:00")
+
+# Fielding the club a played fixture of the same Spieltag holds empties that side there and voids its result.
+REOPENED_BY_A_RELEASE = saved_in_the_editor(SECOND_ON_THE_SPIELTAG, team1={"team_id": OUTGOING, "tore": None})
+
+
+@dataclass(frozen=True)
+class Reopening:
+    """One of the two writes voiding a played fixture's result on nobody's request, and the fixture it reopens."""
+
+    name: str
+    write: Write
+    spiele: Callable[[Slot], list[dict[str, Any]]]
+    reopened: ObjectId
+
+
+REOPENINGS = [
+    pytest.param(Reopening("overturn", REOPENED_BY_AN_OVERTURN, lambda slot: [quarter_final(), semi_final(slot)], SEMI_FINAL), id="overturn"),
+    pytest.param(
+        Reopening("release", REOPENED_BY_A_RELEASE, lambda slot: [played_on_the_spieltag(slot), SECOND_ON_THE_SPIELTAG], FIXTURE), id="release"
+    ),
+]
+
+# The row's retirement, the reopened fixture's booking of it, that fixture's result, and the row's anchor count.
+ReopenedStanding = tuple[str | None, ObjectId | None, str | None, int]
+
+
+async def anchor_of(slot: Slot, database: AsyncDatabase) -> int:
+    """The row's `bounded_writes`: seeded at one, so a two is the anchor the write under test took on it."""
+
+    row = await database[slot.collection].find_one({"_id": slot.row_id}) or {}
+
+    return row["bounded_writes"]
+
+
+def reopening_of(slot: Slot, spiel_id: ObjectId) -> Callable[[AsyncDatabase], Awaitable[ReopenedStanding]]:
     async def standing(database: AsyncDatabase) -> ReopenedStanding:
         row = await database[slot.collection].find_one({"_id": slot.row_id}) or {}
-        fixture = await database[Collection.SPIELE].find_one({"_id": SEMI_FINAL}) or {}
+        fixture = await database[Collection.SPIELE].find_one({"_id": spiel_id}) or {}
 
-        return row.get("inactive_since"), (fixture.get(slot.field) or {}).get(slot.reference), fixture.get("ergebnis")
+        return row.get("inactive_since"), (fixture.get(slot.field) or {}).get(slot.reference), fixture.get("ergebnis"), row["bounded_writes"]
 
     return standing
 
@@ -867,40 +918,55 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
     `docs/backend/spec.md :: I257`, and `:: I256` for the erasure's strip.
     """
 
+    @pytest.mark.parametrize("reopening", REOPENINGS)
     @pytest.mark.parametrize(
         ("slot", "retirement", "hooked", "standing"),
         [
-            pytest.param(ORT, RETIRE_THE_VENUE, Collection.SPIELE, (RETIRED_ON, VENUE, None), id="venue"),
-            pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, Collection.SPIELE, (RETIRED_ON, REFEREE, None), id="referee"),
-            # The reopening read the referee as bookable; judged again, it finds them erased and keeps them off.
-            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, Collection.SCHIEDSRICHTER, (RETIRED_ON, None, None), id="erasure"),
+            pytest.param(ORT, RETIRE_THE_VENUE, Collection.SPIELE, (RETIRED_ON, VENUE, None, 2), id="venue"),
+            pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, Collection.SPIELE, (RETIRED_ON, REFEREE, None, 2), id="referee"),
+            # The reopening read the referee as bookable; judged again, it finds them erased, keeps them off and anchors nothing.
+            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, Collection.SCHIEDSRICHTER, (RETIRED_ON, None, None, 1), id="erasure"),
         ],
     )
     def test_the_reopening_commits_beside_the_retirement(
-        self, mongo_replica_set_url: str, slot: Slot, retirement: Retirement, hooked: Collection, standing: ReopenedStanding
+        self,
+        mongo_replica_set_url: str,
+        reopening: Reopening,
+        slot: Slot,
+        retirement: Retirement,
+        hooked: Collection,
+        standing: ReopenedStanding,
     ):
         """Landed after the reopening's first read of `hooked`, so the retirement judged the fixture still played."""
 
-        spiele = [quarter_final(), semi_final(slot)]
-        raced = interleaved(mongo_replica_set_url, REOPENED_BY_AN_OVERTURN, hooked, retirement.write, reopening_of(slot), spiele)
+        raced = interleaved(
+            mongo_replica_set_url, reopening.write, hooked, retirement.write, reopening_of(slot, reopening.reopened), reopening.spiele(slot)
+        )
 
         assert raced == (COMMITTED, COMMITTED, standing)
 
+    @pytest.mark.parametrize("reopening", REOPENINGS)
     @pytest.mark.parametrize(
         ("slot", "retirement", "standing"),
         [
-            pytest.param(ORT, RETIRE_THE_VENUE, (None, VENUE, None), id="venue"),
-            pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, (None, REFEREE, None), id="referee"),
-            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, (RETIRED_ON, None, None), id="erasure"),
+            pytest.param(ORT, RETIRE_THE_VENUE, (None, VENUE, None, 2), id="venue"),
+            pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, (None, REFEREE, None, 2), id="referee"),
+            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, (RETIRED_ON, None, None, 2), id="erasure"),
         ],
     )
     def test_the_retirement_is_judged_again_on_the_fixture_reopened(
-        self, mongo_replica_set_url: str, slot: Slot, retirement: Retirement, standing: ReopenedStanding
+        self, mongo_replica_set_url: str, reopening: Reopening, slot: Slot, retirement: Retirement, standing: ReopenedStanding
     ):
         """The reopening anchors the rows it books again, which is what the retirement conflicts on."""
 
-        spiele = [quarter_final(), semi_final(slot)]
-        raced = interleaved(mongo_replica_set_url, retirement.write, retirement.judged, REOPENED_BY_AN_OVERTURN, reopening_of(slot), spiele)
+        raced = interleaved(
+            mongo_replica_set_url,
+            retirement.write,
+            retirement.judged,
+            reopening.write,
+            reopening_of(slot, reopening.reopened),
+            reopening.spiele(slot),
+        )
 
         assert raced == (retirement.refused_with, COMMITTED, standing)
 
@@ -994,13 +1060,15 @@ def booked_hours_of(slot: Slot) -> Callable[[AsyncDatabase], Awaitable[list[tupl
     return hours
 
 
-def booked_hours_beside(slot: Slot, spiel_id: ObjectId, field: str) -> Callable[[AsyncDatabase], Awaitable[tuple[list[tuple[int, str]], Any]]]:
-    """`booked_hours_of`, and one fixture's `field`, which is what shows the write racing the booking really landed."""
+def booked_hours_beside(
+    slot: Slot, spiel_id: ObjectId, field: str
+) -> Callable[[AsyncDatabase], Awaitable[tuple[list[tuple[int, str]], Any, int]]]:
+    """`booked_hours_of`, one fixture's `field`, which shows the write racing the booking really landed, and the row's anchor count."""
 
-    async def standing(database: AsyncDatabase) -> tuple[list[tuple[int, str]], Any]:
+    async def standing(database: AsyncDatabase) -> tuple[list[tuple[int, str]], Any, int]:
         fixture = await database[Collection.SPIELE].find_one({"_id": spiel_id}) or {}
 
-        return await booked_hours_of(slot)(database), fixture.get(field)
+        return await booked_hours_of(slot)(database), fixture.get(field), await anchor_of(slot, database)
 
     return standing
 
@@ -1069,7 +1137,8 @@ class TestALiftedNoShowAndABookingAtItsHourAreJudgedAgainstEachOther:
         booking, standing = booked_an_hour_after_the_no_show(slot), booked_hours_beside(slot, SEMI_FINAL, "sonderereignis")
         raced = interleaved(mongo_replica_set_url, booking, Collection.SPIELE, REOPENED_BY_AN_OVERTURN, standing, a_no_show_bracket(slot))
 
-        assert raced == (FIXTURE_DOUBLE_BOOKED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00")], None))
+        # The reopening's anchor alone: the refused booking's is rolled back with it.
+        assert raced == (FIXTURE_DOUBLE_BOOKED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00")], None, 2))
 
     @pytest.mark.parametrize("slot", SLOTS)
     def test_the_reopening_judged_before_the_booking_committed_still_commits(self, mongo_replica_set_url: str, slot: Slot):
@@ -1078,7 +1147,8 @@ class TestALiftedNoShowAndABookingAtItsHourAreJudgedAgainstEachOther:
         booking, standing = booked_an_hour_after_the_no_show(slot), booked_hours_beside(slot, SEMI_FINAL, "sonderereignis")
         raced = interleaved(mongo_replica_set_url, REOPENED_BY_AN_OVERTURN, Collection.SPIELE, booking, standing, a_no_show_bracket(slot))
 
-        assert raced == (COMMITTED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00"), (LATER_SEMI_FINAL_NR, "19:00:00")], None))
+        # The booking's anchor, and the reopening's on the retry it forced.
+        assert raced == (COMMITTED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00"), (LATER_SEMI_FINAL_NR, "19:00:00")], None, 3))
 
 
 def a_clash_a_reopening_left(slot: Slot) -> list[dict[str, Any]]:
@@ -1091,8 +1161,8 @@ def a_clash_a_reopening_left(slot: Slot) -> list[dict[str, Any]]:
     ]
 
 
-# Where the row is left once the note has committed and the new claim beside it was refused.
-NOTED_BESIDE_THE_CLASH = ([(1, "18:00:00"), (2, "19:00:00")], NOTE)
+# Where the row is left once the note has committed and the new claim beside it was refused: nothing anchored, neither made a claim.
+NOTED_BESIDE_THE_CLASH = ([(1, "18:00:00"), (2, "19:00:00")], NOTE, 1)
 
 
 def noted_on_the_first(slot: Slot) -> Write:
@@ -1104,7 +1174,7 @@ def booked_onto_the_third(slot: Slot) -> Write:
 
 
 class TestASaveKeepingAClashingSlotAndANewClaimBesideItAreJudgedApart:
-    """A note on a claim its fixture already made commits, and a booking making a new one inside the buffer is refused, in either order.
+    """A kept claim is not judged and a new one is: the note commits and the booking beside it is refused, whichever lands inside the other.
 
     `docs/backend/spec.md :: I258`.
     """
