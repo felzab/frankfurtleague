@@ -11,6 +11,8 @@ refusals themselves are decided on in `tests/api/test_team_retire_refusal.py`,
 `tests/api/test_occupant_refusal.py`.
 """
 
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
