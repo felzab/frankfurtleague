@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, describe, it, mock } from "node:test";
 
@@ -13,7 +12,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -22,33 +21,14 @@ import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
 
 import type { ReactNode } from "react";
 
-type RaisedToast = { variant: string; title: string; description?: string };
-
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
 const { calls, answerWith } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
 
-const toasts: RaisedToast[] = [];
-(globalThis as unknown as Record<string, unknown>).__flSchiedsToasts = toasts;
-
-/* Replaced as `fl_frontend/src/shared/utils/undoDispatch.test.ts` replaces it: the real module hands its
-   raising to HeroUI's queue rather than back to the case that caused it. */
-const APP_TOAST = `const raise = (variant) => (title, options) => {
-  globalThis.__flSchiedsToasts.push({ variant, title, description: options?.description });
-  return String(globalThis.__flSchiedsToasts.length);
-};
-export const UNDO_TIMEOUT_MS = 1;
-export const appToast = { success: raise("success"), warning: raise("warning"), danger: raise("danger"), info: raise("info"), pending: raise("pending"), close: () => {}, clear: () => {} };`;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+/* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
+const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
@@ -82,7 +62,7 @@ const ANONYMISE_CODES = ["REQ-ANONYMISE-004"];
 
 /* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
 const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
-/* Read per slice rather than over the file: two mappers live here, and a search over the whole source
+/* Read per slice rather than over the file: three mappers live here, and a search over the whole source
    is satisfied by whichever one happens to carry the arm. */
 const ANONYMISE_MAP = sliceBetween(ACTIONS, "function mapAnonymiseRefusal", "export async function postSchiedsrichterAction");
 const RETIRE_ACTION = sliceBetween(
@@ -107,6 +87,12 @@ const CREATE_ACTION = sliceBetween(
 );
 /* The venue's copy of the same sentence, read where it is written rather than retyped here. */
 const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
+
+/** The route that REPLAYS the save, whose German is the third site `.claude/rules/cross-surface.md` names. */
+const UNDO_ROUTE = readFileSync(
+  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
+  "utf8",
+);
 
 const REACTIVATE_ACTION = sliceBetween(
   ACTIONS,
@@ -145,12 +131,13 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
-  /* Both the save and the reactivation now declare nothing of their own: a rule added to either and
-     left unmapped would reach the admin as the 409 fallback, which names an entry rather than a rule. */
-  it("leaves the save and the reactivation with no refusal of their own to word", () => {
+  /* Three endpoints declaring nothing, the undo replaying the save: a rule added to any of them and
+     left unmapped reaches the admin as the 409 fallback, which names an entry rather than a rule. */
+  it("leaves the save, its undo and the reactivation with no refusal of their own to word", () => {
     assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), []);
     assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), []);
     assert.ok(!REACTIVATE_ACTION.includes("serverErrorCode"), "the reactivation words a refusal its endpoint no longer declares");
+    assert.doesNotMatch(UNDO_ROUTE, /REQ-[A-Z]+-\d+/, "the undo words a refusal the replayed endpoint no longer declares");
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
@@ -202,7 +189,7 @@ describe("the referee name a unique index already holds", () => {
 });
 
 describe("what the anonymisation moves", () => {
-  /* The one cached read it moves: the nulled name lands on every Spiel as a rename does, and without
+  /* The one cached read it moves: the repointed booking lands on every Spiel as a rename does, and without
      the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
   it("invalidates the fixture reads, as the rename does", () => {
     assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
@@ -408,9 +395,9 @@ describe("the erasure on the referee's editor", () => {
     assert.doesNotMatch(alarm() ?? "", /neu@example\.de/, "the armed readout names the typed address the press does not reach");
   });
 
-  /* Both halves or neither: without the key the refresh remounts nothing, and without the refresh the boxes
-     keep the deleted values and the next save writes them back. The referee survives, so nothing leaves the page. */
-  it("refreshes after the write onto a view the page keys on the record, and stays on the page", async () => {
+  /* The row is deleted by the time this lands, so the page the panel stands on answers not-found: a
+     refresh would put the admin on that page, and a push would leave Back pointing at it. */
+  it("leaves the page it just deleted, by replacing it rather than pushing", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "Die Daten sind gelöscht." }));
     renderEditor();
     await pressTwice(userEvent.setup());
@@ -420,8 +407,14 @@ describe("the erasure on the referee's editor", () => {
       [["success", "Schiedsrichterdaten gelöscht"]],
       "the write answered without its toast, so nothing below is judged",
     );
-    assert.equal(seen.refresh, 1, "the cleared record never reaches the form");
-    assert.deepEqual([...seen.pushed, ...seen.replaced], [], "the erasure leaves the page it just cleared");
+    assert.deepEqual(seen.replaced, ["/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
+    assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
+    assert.equal(seen.refresh, 0, "the erasure re-reads a row it has deleted");
+  });
+
+  /* A rename is the surviving write on this page, and the draft mirrors the stored record: without
+     the key the saved values never reach the boxes and the form reads as dirty against them. */
+  it("keys the editor on the stored record, so a save remounts it", () => {
     assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");
   });
 });

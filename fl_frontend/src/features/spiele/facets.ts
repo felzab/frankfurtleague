@@ -1,5 +1,5 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
+import { bookedSchiedsrichterName } from "@/features/schiedsrichter/constants";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
 import { computeSpielStatus } from "./utils";
@@ -28,16 +28,6 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
  */
 function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
   return schiedsrichter.schiedsrichter_id;
-}
-
-/**
- * Two different absences: the ghost stands for people whose data are gone, a nameless row for an
- * entry somebody left unfinished. One word for both files a teacher under a deletion.
- */
-function schiedsrichterOptionLabel({ schiedsrichter_id, name }: { schiedsrichter_id: string; name: string | null }): string {
-  if (name !== null) return name;
-
-  return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID ? SCHIEDSRICHTER_ANONYM_LABEL : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
 }
 
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
@@ -190,12 +180,12 @@ export function buildSpielFacets({
     label: "Schiedsrichter",
     options: distinct(spiele, (spiel) =>
       spiel.schiedsrichter
-        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: schiedsrichterOptionLabel(spiel.schiedsrichter) }
+        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: bookedSchiedsrichterName(spiel.schiedsrichter) }
         : null,
     ),
     // Keyed as a fixture's referee is, so a link built from a row reaches the option its fixtures sit
     // under. The ghost reaches this list through no season's referees, only through their fixtures.
-    known: schiedsrichter.map((row) => ({ value: row.id, label: schiedsrichterOptionLabel({ schiedsrichter_id: row.id, name: row.name }) })),
+    known: schiedsrichter.map((row) => ({ value: row.id, label: bookedSchiedsrichterName({ schiedsrichter_id: row.id, name: row.name }) })),
     read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
   };
 

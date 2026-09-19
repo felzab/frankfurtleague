@@ -47,7 +47,7 @@ export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayloa
 }
 
 // Deletes the row and repoints every fixture that named them at the ghost, in one transaction. The
-// echoed document is the referee as they last stood, there being nothing left to read back.
+// echoed document is the GHOST: the person's row is gone, so no caller may read one back off this.
 export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterPayload): Promise<FLSchiedsrichterWriteResponse> {
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",

@@ -24,8 +24,8 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
 }
 
 /**
- * One referee by id, whatever state they are in — the only read that answers for an erased one, the
- * list above serving what can still be acted on.
+ * One referee by id, whatever state they are in — an erased one has no row for it to answer with,
+ * and the list above is narrowed besides.
  *
  * **Uncached** for the reason the list is.
  */

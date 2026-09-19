@@ -56,7 +56,7 @@ export const FLSchiedsrichterSchema = z.object({
 
   // Null on a hand-write that left the row nameless, and on the one row the erasure repoints fixtures
   // at. What a reader is shown instead is
-  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
   name: z.string().nonempty().nullable(),
   schule: z.string().nullable(),
   // The standard fee. A Spiel's embedded `payment` is what was agreed for that match, and changing
@@ -92,8 +92,8 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
 /**
- * What the retire, the reactivate and the anonymisation echo: one model for the three. Its row is
- * gone by the time it answers, so it echoes the referee as they LAST stood — no state to read back.
+ * What the retire, the reactivate and the erasure echo: one model for the three. The erasure's own
+ * row is deleted by then, so what it echoes is the GHOST — never the person, and never a state.
  */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,

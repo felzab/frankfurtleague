@@ -45,7 +45,7 @@ const hasNameInput = (html: string): boolean => /<input[^>]*name="name"/.test(ht
 describe("which page a referee's editor route answers with", () => {
   /* Every id this route serves is a person somebody can still edit: an erased referee's row is gone
      and the ghost answers not-found on every by-id route, so neither reaches this component at all. */
-  it("gives a nameless row the editor, a missing id being the route's own not-found answer", () => {
+  it("gives a nameless row the editor rather than a read-only page", () => {
     const html = view({ name: null, inactiveSince: null });
 
     assert.ok(hasNameInput(html), "a row somebody left nameless is presented read-only");

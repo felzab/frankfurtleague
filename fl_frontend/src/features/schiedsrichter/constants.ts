@@ -41,20 +41,22 @@ export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
   "Schon eingetragene Spiele behalten diese Person. Für neue Spiele steht sie nicht mehr zur Auswahl.";
 
 /**
- * Every surface rendering a referee's name reads it through here, so no cell, chip, tooltip or
- * aria-label can be the one that shows an empty space where a name was.
+ * **The id decides, never the null name alone**: one nameless booking is the ghost and the other a
+ * person still in the league, and one word for both reports a teacher as deleted.
  */
-export function schiedsrichterAnzeigename(name: string | null): string {
-  return name ?? SCHIEDSRICHTER_ANONYM_LABEL;
+export function bookedSchiedsrichterName({ schiedsrichter_id, name }: { schiedsrichter_id: string; name: string | null }): string {
+  if (name !== null) return name;
+
+  return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID ? SCHIEDSRICHTER_ANONYM_LABEL : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
 }
 
 /**
  * The word a FIXTURE's referee cell shows.
  *
- * One helper because the obvious spelling reads both absences through one chain —
+ * Its own helper because the obvious spelling reads both absences through one chain —
  * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which falls through to the no-referee placeholder for
- * an erased referee the fixture does hold.
+ * a fixture that does hold one.
  */
-export function spielSchiedsrichterAnzeige(schiedsrichter: { name: string | null } | null): string {
-  return schiedsrichter === null ? PLACEHOLDER.entity : schiedsrichterAnzeigename(schiedsrichter.name);
+export function spielSchiedsrichterAnzeige(schiedsrichter: { schiedsrichter_id: string; name: string | null } | null): string {
+  return schiedsrichter === null ? PLACEHOLDER.entity : bookedSchiedsrichterName(schiedsrichter);
 }

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
@@ -23,6 +23,8 @@ const NO_DRAFT: FLDraftStatus<string> = { fields: [], byPath: new Map(), changed
 
 const TODAY = "2026-04-01";
 const REFEREE_ID = "6890a1b2c3d4e5f607800001";
+/** A row somebody left without a name, which is a person still in the league and not an erasure. */
+const NAMELESS_ID = "6890a1b2c3d4e5f607800002";
 const PAYMENT = 20;
 
 const A_FIXTURE: FLSpiel = {
@@ -46,13 +48,13 @@ const A_FIXTURE: FLSpiel = {
 };
 
 /** The fixture as the draft preview reads it: the admin shape, so the fee is present. */
-function draftOf(name: string | null, booked: boolean = true): FLSpielWithDraftFields {
+function draftOf(name: string | null, { booked = true, id = REFEREE_ID } = {}): FLSpielWithDraftFields {
   return {
     ...A_FIXTURE,
     team1: null,
     team2: null,
     ort: null,
-    schiedsrichter: booked ? { schiedsrichter_id: REFEREE_ID, name, payment: PAYMENT } : null,
+    schiedsrichter: booked ? { schiedsrichter_id: id, name, payment: PAYMENT } : null,
   };
 }
 
@@ -69,22 +71,19 @@ function refereeCell(spiel: FLSpielWithDraftFields): string {
   return rendered.slice(at + "Schiedsrichter".length);
 }
 
-describe("what the draft preview renders where a referee's name was erased", () => {
-  // The floor for the two cases below: were the two words equal, each would pass on the other's value.
-  it("keeps the two absences apart", () => {
-    assert.notEqual(SCHIEDSRICHTER_ANONYM_LABEL, PLACEHOLDER.entity);
+describe("what the draft preview renders where a fixture's referee has no name", () => {
+  /* The floor under every case below: were any two of the three words equal, each would pass on
+     another's value. */
+  it("keeps the three absences apart", () => {
+    assert.equal(new Set([SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL, PLACEHOLDER.entity]).size, 3);
   });
 
-  /* The defect this replaces: `schiedsrichter?.name ?? PLACEHOLDER.entity` read the NAME through the
-     booking's own optional chain, so a nulled name fell through to the no-referee placeholder. */
-  it("shows the erasure's word rather than the no-referee placeholder", () => {
-    const cell = refereeCell(draftOf(null));
-
-    assert.equal(cell, SCHIEDSRICHTER_ANONYM_LABEL, "the erased referee does not read as erased");
-  });
-
-  it("still shows the placeholder where the fixture has no referee at all", () => {
-    assert.equal(refereeCell(draftOf(null, false)), PLACEHOLDER.entity);
+  /* Three different things the cell must not confuse: an erased person, a person whose entry is
+     unfinished, and no referee at all. Only the first is a deletion, and only the id says which. */
+  it("tells the ghost, a nameless entry and an unbooked fixture apart", () => {
+    assert.equal(refereeCell(draftOf(null, { id: GHOST_SCHIEDSRICHTER_ID })), SCHIEDSRICHTER_ANONYM_LABEL);
+    assert.equal(refereeCell(draftOf(null, { id: NAMELESS_ID })), SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
+    assert.equal(refereeCell(draftOf(null, { booked: false })), PLACEHOLDER.entity);
   });
 
   it("renders an ordinary referee's own name", () => {
@@ -94,7 +93,7 @@ describe("what the draft preview renders where a referee's name was erased", () 
 
 /** A row the admin list does serve, nameless because a hand-write left it so. */
 const NAMENLOS_IN_LIST: FLSchiedsrichter = {
-  id: "6890a1b2c3d4e5f607800002",
+  id: NAMELESS_ID,
   name: null,
   schule: null,
   default_payment: PAYMENT,
@@ -119,11 +118,18 @@ function pickerText(
   );
 }
 
-describe("what the referee picker's trigger renders for a fixture whose referee is gone from the list", () => {
+describe("what the referee picker's trigger renders for a fixture whose referee is off the list", () => {
   /* The erasure deletes the person's row and repoints their fixtures at the ghost, which the list
      excludes by id, so a fixture that HOLDS one is built from a list offering nobody. */
-  it("names the held referee even though the list offers nobody", () => {
-    assert.ok(pickerText({ schiedsrichter_id: REFEREE_ID, name: null, payment: PAYMENT }).includes(SCHIEDSRICHTER_ANONYM_LABEL));
+  it("names the held referee by its own id even though the list offers nobody", () => {
+    assert.ok(
+      pickerText({ schiedsrichter_id: GHOST_SCHIEDSRICHTER_ID, name: null, payment: PAYMENT }).includes(SCHIEDSRICHTER_ANONYM_LABEL),
+      "a fixture on the ghost does not read as erased",
+    );
+
+    const nameless = pickerText({ schiedsrichter_id: NAMELESS_ID, name: null, payment: PAYMENT });
+    assert.ok(nameless.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the held nameless row renders no stand-in name: ${nameless}`);
+    assert.ok(!nameless.includes(SCHIEDSRICHTER_ANONYM_LABEL), "a held nameless row claims an erasure that never touched it");
   });
 
   it("leaves the trigger empty where the fixture books nobody", () => {
@@ -131,10 +137,10 @@ describe("what the referee picker's trigger renders for a fixture whose referee 
   });
 });
 
-describe("which word the picker's two nameless arms take", () => {
+describe("which word the picker's OFFERED nameless row takes", () => {
   /* The list serves no erased person and never the ghost (`docs/backend/spec.md :: I227`), so a name
-     missing there is what a hand-write left, while a fixture's own null name is the ghost's. */
-  it("offers a nameless list row under the other word", () => {
+     missing there is what a hand-write left and never a deletion. */
+  it("offers a nameless list row under the unfinished-entry word", () => {
     const listed = pickerText(null, [NAMENLOS_IN_LIST]);
 
     assert.ok(listed.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the offered row renders no stand-in name: ${listed}`);

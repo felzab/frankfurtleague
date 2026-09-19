@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 // evaluates, and a static import beside it has already resolved (`docs/frontend/spec.md` §1.9).
 import { renderMarkup } from "../../shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "../../shared/utils/format.ts";
+import { GHOST_SCHIEDSRICHTER_ID } from "../schiedsrichter/constants.ts";
 import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "./components/ui/teamName.ts";
 import { FLSonderereignisSchema, FLSpielAdminSchema, FLSpielSchema } from "./schemas.ts";
 import {
@@ -58,7 +59,7 @@ const matchId = (spielNr: number): string => `6890a1b2c3d4e5f6071800${String(spi
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
 const TEAM_2 = "6890a1b2c3d4e5f607182933";
 
-const seite = (teamId: string, name: string, shorthand: string, tore: number | null = null): FLSpielTeamFieldJoined => ({
+const side = (teamId: string, name: string, shorthand: string, tore: number | null = null): FLSpielTeamFieldJoined => ({
   team_id: teamId,
   name,
   tore,
@@ -70,8 +71,8 @@ const seite = (teamId: string, name: string, shorthand: string, tore: number | n
 const SPIEL: FLSpiel = FLSpielSchema.parse({
   id: matchId(1),
   spieltag_id: "6890a1b2c3d4e5f607180301",
-  team1: seite(TEAM_1, "Team A", "TA"),
-  team2: seite(TEAM_2, "Team B", "TB"),
+  team1: side(TEAM_1, "Team A", "TA"),
+  team2: side(TEAM_2, "Team B", "TB"),
   team1_quelle: null,
   team2_quelle: null,
   datum: "2026-07-28",
@@ -610,9 +611,20 @@ function fieldedTwice(side: "team1" | "team2"): FLBracketFault {
   };
 }
 
-/** A fixture still to be played on a retired row; the callers vary which field books it and whether the erasure nulled its name. */
-function bookingFault(booking: "ort" | "schiedsrichter", name: string | null): FLBracketFault {
-  return { reason: "retired_booking", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, booking, name, inactive_since: "2026-02-01" };
+/** The row somebody left without a name, which is a person still in the league rather than an erasure. */
+const NAMELESS_BOOKING_ID = "6890a1b2c3d4e5f607180777";
+
+/** A fixture still to be played on a retired row; the callers vary which field books it and which row it is. */
+function bookingFault(booking: "ort" | "schiedsrichter", name: string | null, bookingId = NAMELESS_BOOKING_ID): FLBracketFault {
+  return {
+    reason: "retired_booking",
+    spiel_id: "6890a1b2c3d4e5f607180029",
+    spiel_nr: 29,
+    booking,
+    booking_id: bookingId,
+    name,
+    inactive_since: "2026-02-01",
+  };
 }
 
 /** One claim of a row another fixture claims an hour later, of the same season unless `otherSaisonId` names another. */
@@ -639,8 +651,8 @@ describe("toPatchPayload", () => {
     spieltag_id: "6890a1b2c3d4e5f607180301",
     spiel_nr: 29,
     sonderereignis: null,
-    team1: seite(TEAM_1, "Team A", "TA"),
-    team2: seite(TEAM_2, "Team B", "TB"),
+    team1: side(TEAM_1, "Team A", "TA"),
+    team2: side(TEAM_2, "Team B", "TB"),
     team1_quelle: null,
     team2_quelle: null,
     elfmeterschiessen: null,
@@ -660,8 +672,8 @@ describe("toPatchPayload", () => {
     ...SPIEL_ADMIN,
     id: matchId(spielNr),
     spiel_nr: spielNr,
-    team1: seite(TEAM_1, "Team A", "TA", goals(ergebnis, 0)),
-    team2: seite(TEAM_2, "Team B", "TB", goals(ergebnis, 1)),
+    team1: side(TEAM_1, "Team A", "TA", goals(ergebnis, 0)),
+    team2: side(TEAM_2, "Team B", "TB", goals(ergebnis, 1)),
     ergebnis,
   });
 
@@ -706,7 +718,7 @@ describe("toPatchPayload", () => {
     // The editor seeds its pickers from these copies, so a rename fanned out into the fixture has to
     // remount the tree. The key is the SEED's mirror, which the payload is only part of.
     const before = fixture(29, null);
-    const renamed: FLSpielAdmin = { ...before, team1: seite(TEAM_1, "Team A II", "TA") };
+    const renamed: FLSpielAdmin = { ...before, team1: side(TEAM_1, "Team A II", "TA") };
 
     assert.notEqual(spielStateKey(before), spielStateKey(renamed));
   });
@@ -916,16 +928,25 @@ describe("formatBracketFault", () => {
     );
   });
 
-  // An erased referee has no name to print and cannot be reactivated, so neither wording offers a day or a name.
+  /* The ghost has no name to print, no reactivation to offer and a sentinel day rather than a real
+     retirement, so neither wording offers a day or a name. */
   it("says an erased referee's data were deleted rather than printing a name nobody holds", () => {
+    const ghosted = bookingFault("schiedsrichter", null, GHOST_SCHIEDSRICHTER_ID);
+
+    assert.equal(formatBracketFault(ghosted), "Spiel 29 ist noch zu spielen und einem Schiedsrichter zugeteilt, dessen Daten gelöscht wurden");
+    assert.equal(describeBracketFaultOnCard(ghosted), "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht.");
+  });
+
+  /* A hand-write leaves a row nameless and the person is still there, so the same null name must NOT
+     report a deletion: the queue would tell an administrator a living teacher's data are gone. */
+  it("reports a nameless row that is not the ghost as the ordinary retired booking", () => {
+    const nameless = bookingFault("schiedsrichter", null);
+
     assert.equal(
-      formatBracketFault(bookingFault("schiedsrichter", null)),
-      "Spiel 29 ist noch zu spielen und einem Schiedsrichter zugeteilt, dessen Daten gelöscht wurden",
+      formatBracketFault(nameless),
+      "Spiel 29 ist noch zu spielen, doch derselbe Schiedsrichter ist seit dem 01.02.2026 stillgelegt",
     );
-    assert.equal(
-      describeBracketFaultOnCard(bookingFault("schiedsrichter", null)),
-      "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht.",
-    );
+    assert.doesNotMatch(describeBracketFaultOnCard(nameless), /gelöscht/, "a row nobody erased is reported as a deletion");
   });
 
   // Both fixtures carry an entry, each naming the other with its day and hour, since either may be the one to move.
@@ -1131,8 +1152,8 @@ describe("collectSpieltagTeamOccupancy", () => {
     id,
     spieltag_id: spieltagId,
     spiel_nr: nr,
-    team1: team1 === null ? null : seite(team1, "Team A", "TA"),
-    team2: team2 === null ? null : seite(team2, "Team B", "TB"),
+    team1: team1 === null ? null : side(team1, "Team A", "TA"),
+    team2: team2 === null ? null : side(team2, "Team B", "TB"),
   });
 
   const season = [

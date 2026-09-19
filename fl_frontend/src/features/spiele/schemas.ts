@@ -101,7 +101,7 @@ export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
   // list over one erased person; what a reader is shown instead is
-  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
   name: z.string().nonempty().nullable(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
@@ -413,15 +413,19 @@ export const FLBracketFaultSpieltagSchema = z.object({
 export type FLBracketFaultSpieltag = z.infer<typeof FLBracketFaultSpieltagSchema>;
 
 /**
- * A fixture still to be played booked onto a retired venue or referee. Nothing is taken off: the row
- * may be reactivated, so which of that and another booking is the admin's call (`docs/backend/spec.md` I257).
+ * A fixture still to be played booked onto a retired venue or referee. Nothing is taken off:
+ * reactivating the row or booking another is the admin's call (`docs/backend/spec.md` I257), and the
+ * ghost is the row no reactivation reaches (I259).
  */
 export const FLBracketFaultBookingSchema = z.object({
   reason: z.literal("retired_booking"),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   booking: z.enum(["ort", "schiedsrichter"]),
-  // Null where the booking names the ghost, which is how a sentence tells erased from retired;
+  // The retired row itself. What tells an erased referee from a row somebody left nameless, the null
+  // name below being true of both.
+  booking_id: CustomObjectIdStringSchema,
+  // Null on either of them;
   // unbounded past that (I93), a stored empty name failing here would take the whole report down.
   name: z.string().nullable(),
   inactive_since: CustomDateStringSchema,

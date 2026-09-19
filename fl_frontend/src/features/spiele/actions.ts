@@ -54,9 +54,8 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
   // One code covers both references and the failure body names neither, so the message names both.
 
-  // A reactivation is one of two ways out rather than the way out: an erased referee cannot be
-  // reactivated (`REQ-ANONYMISE-003`), and a repair promising one sends a teacher into a second
-  // refusal.
+  // A reactivation is one of two ways out rather than the way out: the row an erasure repoints a
+  // fixture at is permanently retired, and a repair promising one sends a teacher into a refusal.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
       error: buildRefusal({

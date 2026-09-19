@@ -1,7 +1,7 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
-import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { bookedSchiedsrichterName, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
@@ -28,8 +28,8 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
-  // The LIST's word for a nameless row rather than the erasure's, this read serving no stamped row
-  // (`docs/backend/spec.md :: I227`). Nothing written comes from here:
+  // The LIST's word for a nameless row rather than the erasure's, this read serving no erased person
+  // and never the ghost (`docs/backend/spec.md :: I227`). Nothing written comes from here:
   // `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchiedsrichterFieldPayloadSchema` carries
   // the id and the fee alone.
   const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
@@ -37,16 +37,15 @@ export function FormSchiedsrichterSection({
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
   }));
 
-  // The referee this fixture ALREADY holds, where the list offers nobody: the default read drops every
-  // retired row, and the erasure retires the person it erases. Without this the trigger renders blank
-  // on a fixture that HAS a referee.
+  // The referee this fixture ALREADY holds, where the list offers nobody: it drops every retired row
+  // and the ghost by id, so without this the trigger renders blank on a fixture that HAS a referee.
   const held: FLSchiedsrichterAngezeigt[] =
     schiedsrichterPayload === null || offered.some((candidate) => candidate.id === schiedsrichterPayload.schiedsrichter_id)
       ? []
       : [
           {
             id: schiedsrichterPayload.schiedsrichter_id,
-            name: schiedsrichterAnzeigename(schiedsrichterPayload.name),
+            name: bookedSchiedsrichterName(schiedsrichterPayload),
             // The fixture's own agreed fee, never a default this list has no row to read one from:
             // re-picking the held referee must not silently reprice the fixture.
             default_payment: schiedsrichterPayload.payment ?? 0,

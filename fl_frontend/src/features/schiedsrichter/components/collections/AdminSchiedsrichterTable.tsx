@@ -7,7 +7,7 @@ import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL, schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE,
@@ -66,7 +66,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   };
 
   // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
-  // rather than for somebody's name.
+  // rather than for somebody's name. „anonym“ cannot reach this cell: that word is the ghost's.
   /* A nameless row on this list is what a hand-write leaves: the one row an erasure creates is the
      ghost, which `GET /schiedsrichter` excludes by id, so no erased person reaches this cell. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
@@ -112,29 +112,24 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   );
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => {
-    const displayName = schiedsrichterAnzeigename(schiedsrichter.name);
-    // „anonym“ is the erasure's word and this list holds no erased person, so a nameless row's control
-    // is named for the entry rather than for a deletion that never touched it.
-    const einsatzLabel = schiedsrichter.name === null ? "Einsätze dieses Eintrags anzeigen" : `Einsätze von ${displayName} anzeigen`;
-
+    const { name } = schiedsrichter;
     const isRetired = schiedsrichter.inactive_since !== null;
 
-    // The italics that mark „anonym“ a state on screen reach a screen reader as nothing, so a label
-    // built on `displayName` announces the state as this person's name.
-    const rowSubject = schiedsrichter.name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${displayName}`;
-    const kontaktLabel = schiedsrichter.name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${displayName} kopieren`;
+    // The italics marking the stand-in word a STATE reach a screen reader as nothing, so every control
+    // on a nameless row names the entry rather than announcing that word as somebody's name.
+    const einsatzLabel = name === null ? "Einsätze dieses Eintrags anzeigen" : `Einsätze von ${name} anzeigen`;
+    const rowSubject = name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${name}`;
+    const kontaktLabel = name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${name} kopieren`;
 
-    // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
+    // The stored values and never a displayed stand-in: a clipboard carrying one reads as a detail
     // somebody could paste into a message.
-    const kontaktdaten = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
+    const kontaktdaten = [name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
     const hasKontakt = Boolean(schiedsrichter.kontakt.email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
       <RowActions>
-        {/* The row's ONE way elsewhere, so it stays inline: a menu holding a single item costs a press
-            and buys nothing. Admin-only, the public Spielsuche declaring no such facet. */}
-        {/* The row's own id, which is also the facet option its fixtures sit under: this list serves no
-            erased person and never the ghost, so no row here stands for more fixtures than its own. */}
+        {/* On the row's OWN id: this list serves no erased person and never the ghost, so no row here
+            stands for more fixtures than its own. Inline, and admin-only. */}
         <RowActionLink
           href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
           label="Einsätze anzeigen"

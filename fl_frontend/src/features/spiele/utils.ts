@@ -1,4 +1,5 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { GHOST_SCHIEDSRICHTER_ID } from "@/features/schiedsrichter/constants";
 import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
@@ -523,7 +524,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
       return `In Spiel ${fault.spiel_nr} steht ${fault.team_name} als ${sideLabel(fault.side)}, doch an diesem Spieltag ist ${fault.team_name} mehrfach aufgestellt`;
     // „Noch zu spielen“ leads because it is the whole fault: the same booking on a played fixture is lawful.
     case "retired_booking":
-      return fault.booking === "schiedsrichter" && fault.name === null
+      return isGhostBooking(fault)
         ? `Spiel ${fault.spiel_nr} ist noch zu spielen und einem Schiedsrichter zugeteilt, dessen Daten gelöscht wurden`
         : `Spiel ${fault.spiel_nr} ist noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt`;
     // Both fixtures carry an entry naming the other, so which one to move stays the admin's choice.
@@ -540,6 +541,13 @@ const otherSpiel = (fault: FLBracketFaultClash): string =>
   fault.other_saison_id === fault.saison_id
     ? `Spiel ${fault.other_spiel_nr}`
     : `Spiel ${fault.other_spiel_nr} der Saison ${fault.other_saison_id}`;
+
+/**
+ * **The id and never the null name**: a nameless referee somebody hand-wrote is still in the league,
+ * and reporting their data as deleted is what this prevents. The ghost's `inactive_since` is a
+ * sentinel day, so its sentence names none.
+ */
+const isGhostBooking = (fault: FLBracketFaultBooking): boolean => fault.booking_id === GHOST_SCHIEDSRICHTER_ID;
 
 /**
  * The booked row a booking fault names, as the editor labels its two fields, lower-case for mid-sentence. A
@@ -594,7 +602,7 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
     case "fielded_twice":
       return `${fault.team_name} ist an diesem Spieltag mehrfach aufgestellt, hier als ${sideLabel(fault.side)}.`;
     case "retired_booking":
-      return fault.booking === "schiedsrichter" && fault.name === null
+      return isGhostBooking(fault)
         ? "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht."
         : `Noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt.`;
     case "double_booked":

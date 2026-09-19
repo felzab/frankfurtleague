@@ -58,17 +58,17 @@ const table = (rows: FLSchiedsrichter[]): string =>
   );
 
 /** Every accessible name the markup emits. Both layouts render, so a control appears once per layout. */
-const namen = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((treffer) => treffer[1] ?? "");
+const accessibleNames = (html: string): string[] => [...html.matchAll(/aria-label="([^"]*)"/g)].map((treffer) => treffer[1] ?? "");
 
 describe("the referee row's copy control", () => {
   /* `navigator.clipboard.writeText("")` resolves, so a row with nothing to copy would clear the
      clipboard the administrator was holding and the toast would report it as a copy. */
   it("is offered for a referee whose details are there and withheld for a row holding none", () => {
-    const gelebt = namen(table([LIVE])).filter((name) => name.startsWith("Kontaktdaten"));
-    const leer = namen(table([NAMENLOS])).filter((name) => name.startsWith("Kontaktdaten"));
+    const named = accessibleNames(table([LIVE])).filter((name) => name.startsWith("Kontaktdaten"));
+    const nameless = accessibleNames(table([NAMENLOS])).filter((name) => name.startsWith("Kontaktdaten"));
 
-    assert.ok(gelebt.length > 0, "the live row stopped offering the copy, so the case below proves nothing");
-    assert.deepEqual(leer, [], "the empty row still offers a copy that would clear the clipboard");
+    assert.ok(named.length > 0, "the live row stopped offering the copy, so the case below proves nothing");
+    assert.deepEqual(nameless, [], "the empty row still offers a copy that would clear the clipboard");
   });
 
   /* The name alone would land on the clipboard under „Kontaktdaten kopiert“, a toast promising a way to
@@ -77,12 +77,12 @@ describe("the referee row's copy control", () => {
     const html = table([OHNE_KONTAKT]);
 
     assert.deepEqual(
-      namen(html).filter((name) => name.startsWith("Kontaktdaten")),
+      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],
       "a row carrying only a name still offers to copy its contact details",
     );
     assert.ok(
-      namen(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
+      accessibleNames(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
       "the named row lost the link to its editor, so the case above passes for the wrong reason",
     );
   });
@@ -90,10 +90,10 @@ describe("the referee row's copy control", () => {
   /* The rest of the row survives an empty one, so a change that dropped every control would pass the
      case above for the wrong reason. */
   it("leaves the nameless row its other controls", () => {
-    const leer = namen(table([NAMENLOS]));
+    const nameless = accessibleNames(table([NAMENLOS]));
 
     assert.ok(
-      leer.some((name) => name.includes("bearbeiten")),
+      nameless.some((name) => name.includes("bearbeiten")),
       "the nameless row lost the link to its editor",
     );
   });
@@ -101,31 +101,31 @@ describe("the referee row's copy control", () => {
 
 describe("what a screen reader is told a row is about", () => {
   /* The word is rendered in italics precisely so a reader takes it for a state, and italics reach a
-     screen reader as nothing: a label carrying it announces „anonym“ as this person's name. */
+     screen reader as nothing: a label carrying it announces the state as this person's name. */
   it("names the state on a nameless row and the referee on a named one", () => {
     // Both nameless rows, because a control withheld for want of a value is a control the assertion
     // never reaches: the copy is the one this row's empty twin does not render.
-    const leer = [...namen(table([NAMENLOS])), ...namen(table([NAMENLOS_MIT_KONTAKT]))];
-    const gelebt = namen(table([LIVE]));
+    const nameless = [...accessibleNames(table([NAMENLOS])), ...accessibleNames(table([NAMENLOS_MIT_KONTAKT]))];
+    const named = accessibleNames(table([LIVE]));
 
     assert.ok(
-      leer.every((name) => !name.includes(SCHIEDSRICHTER_ANONYM_LABEL)),
-      `a control announces „${SCHIEDSRICHTER_ANONYM_LABEL}“ as a name: ${leer.join(" · ")}`,
+      nameless.every((name) => !name.includes(SCHIEDSRICHTER_ANONYM_LABEL)),
+      `a control announces „${SCHIEDSRICHTER_ANONYM_LABEL}“ as a name: ${nameless.join(" · ")}`,
     );
     assert.ok(
-      leer.some((name) => name.includes("ohne Namen")),
+      nameless.some((name) => name.includes("ohne Namen")),
       "no control on the nameless row says the name is missing",
     );
     assert.ok(
-      gelebt.some((name) => name.includes(LIVE.name ?? "")),
+      named.some((name) => name.includes(LIVE.name ?? "")),
       "a named row stopped naming the referee its controls act on",
     );
   });
 });
 
 describe("what the name cell shows where the row holds no name", () => {
-  /* This list serves no stamped row (`docs/backend/spec.md :: I227`), so the erasure's word in the
-     cell would claim a deletion that never ran. */
+  /* This list serves no erased person and never the ghost (`docs/backend/spec.md :: I227`), so the
+     erasure's word in the cell would claim a deletion that never ran. */
   it("shows the word for a row left nameless rather than the erasure's", () => {
     const cell = textOf(table([NAMENLOS]), " ");
 

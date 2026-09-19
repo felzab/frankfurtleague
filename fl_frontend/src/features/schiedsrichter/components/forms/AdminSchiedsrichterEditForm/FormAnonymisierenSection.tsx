@@ -14,6 +14,7 @@ import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -23,9 +24,9 @@ import type { FLKontakt } from "@/shared/schemas";
 const NOT_RECORDED = "Nicht hinterlegt";
 
 /**
- * The referee's anonymisation, on `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. **A
- * confirmation step and no undo**: one press nulls the name on the row and every match, clears the
- * school and both contact fields, stamps the day, and empties every log row's pre-image.
+ * The referee's erasure, on `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. **A
+ * confirmation step and no undo**: one press deletes the row, repoints every fixture that named
+ * them at the ghost, and empties every log row's pre-image.
  */
 export function FormAnonymisierenSection({
   schiedsrichterId,
@@ -44,10 +45,14 @@ export function FormAnonymisierenSection({
    * readout alone — an emptied field is not an empty log, so an empty record still has work to do.
    */
   kontakt: FLKontakt;
-  /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
+  /**
+   * Runs before the write; `false` cancels. The editor refuses while a draft is unsaved — the press
+   * leaves this page at once, so an unsaved draft would go with no chance to save it.
+   */
   onBeforeAnonymise: () => boolean;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const { isConfirming, isPending: isAnonymising, press, cancel } = useTwoPressConfirm(onBeforeAnonymise);
 
   const panel = formPanel({ tone: "danger" });
@@ -62,10 +67,9 @@ export function FormAnonymisierenSection({
       }
 
       appToast.success("Schiedsrichterdaten gelöscht", { description: res.message });
-      // Load-bearing, not cosmetic: the page keys the view on the stored record, so this is what
-      // remounts the form onto the cleared one. Without it the boxes keep the deleted values, the
-      // draft reads as clean, and the next save of any field writes them back.
-      router.refresh();
+      // `replace`, never `push`: this page is the erased referee's own and now answers not-found, so
+      // Back must not return to it. The action's own revalidation is what refreshes the list.
+      router.replace(saisonHref("/admin/schiedsrichter"));
     });
   };
 

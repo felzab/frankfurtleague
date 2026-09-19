@@ -5,14 +5,14 @@ import { AdminSchiedsrichterEditForm } from "@/features/schiedsrichter/component
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-/**
- * Retiring is the referee list's own dialog; reactivating is here, a fact about the row rather than
- * a value the save bar commits, and it writes immediately through its own endpoint.
- */
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
 import type { FLKontakt } from "@/shared/schemas";
 
+/**
+ * Retiring is the referee list's own dialog; reactivating is here, a fact about the row rather than
+ * a value the save bar commits, and it writes immediately through its own endpoint.
+ */
 export function AdminSchiedsrichterEditView({
   schiedsrichter,
   inactiveSince,
