@@ -6,6 +6,7 @@ import { CircleCheck } from "@gravity-ui/icons";
 
 import { Button, Form } from "@heroui/react";
 
+import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import {
@@ -226,10 +227,6 @@ export function BewerbungForm({
   };
 
   const handleSubmit = () => {
-    // The disabled button is not the whole guard: `Enter` in any field submits the form too, and a
-    // second press mid-flight would post the application twice.
-    if (isPending) return;
-
     const payload = bewerbungPayload(draft);
     // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ bewerbung: payload }, writeAfterBlock);
@@ -281,8 +278,11 @@ export function BewerbungForm({
           ref={eingereichtRef}
           role="status"
           tabIndex={-1}
-          className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
-          <CircleCheck className="text-success-strong size-10" />
+          className={ergebnisPanel({ tone: "erfolg" })}>
+          <CircleCheck
+            aria-hidden="true"
+            className="text-success-strong size-10"
+          />
           <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
           {/* No seat is named, each holding a link of its own: the reader is the one person who can
               chase the other two, which is why the panel asks rather than reassures. */}
@@ -315,7 +315,7 @@ export function BewerbungForm({
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"
         validationErrors={mergedErrors}
-        className="flex w-full flex-col gap-5"
+        className="flex w-full flex-col gap-6"
         onSubmit={runOnSubmit(handleSubmit)}>
         <FormSchuleSection
           schulen={schulen}
@@ -382,9 +382,8 @@ export function BewerbungForm({
           <Button
             type="submit"
             isPending={isPending}
-            isDisabled={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Wird abgeschickt..." : "Bewerbung abschicken"}
+            {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
           </Button>
         </div>
       </Form>

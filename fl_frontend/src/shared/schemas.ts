@@ -3,8 +3,9 @@ import { z } from "zod";
 import { isDeliverableAddress } from "@/core/emailAddress";
 
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py` or
-// `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie, and a
-// pattern is outside the contract comparison entirely.
+// `fl_backend/app/shared/schemas/addresses.py`; on a WRITE, looser makes the message a lie. A pattern
+// is outside `fl_frontend/src/core/apiContract.test.ts`, so
+// `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` is where one is held to its twin.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
 // (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
@@ -31,15 +32,21 @@ export const CustomDateStringSchema = z.iso
   .date({ error: "Bitte gib ein gültiges Datum ein." })
   .refine((value) => !value.startsWith("0000"), { error: "Bitte gib ein gültiges Datum ein." });
 
+// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
+// can pair it with the backend's spelling.
+const TIME_REGEX = /^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+
 /**
  * `HH:MM:SS`, seconds required. Not `z.iso.time()`, which also accepts `"14:30"` and `"14:30:00.5"` where the backend's
  * `CustomTimeString` refuses both — the looser schema would let the form submit a value the API answers with a 422.
  */
-export const CustomTimeStringSchema = z
-  .string()
-  .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/, { error: "Bitte gib eine gültige Uhrzeit ein." });
+export const CustomTimeStringSchema = z.string().regex(TIME_REGEX, { error: "Bitte gib eine gültige Uhrzeit ein." });
 
-export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, {
+// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS`
+// can hold it against the backend's own rule for an id.
+const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
+
+export const CustomObjectIdStringSchema = z.string().regex(OBJECT_ID_REGEX, {
   // German, like every message here, because a failure reaches a `<FieldError>` under a picker rather than a console.
   error: "Bitte wähle den Eintrag erneut aus.",
 });
@@ -70,6 +77,10 @@ export const ExternalUrlSchema = z
   // follows the host sends a trusting reader to the attacker.
   .refine((value) => !carriesUserinfo(value), { error: "Die Adresse darf keine Anmeldedaten vor dem @-Zeichen enthalten." });
 
+// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS`
+// can hold it against the backend's spelling. `u` is what makes `\p{L}` a Unicode property class here rather than the letter `p`.
+const PERSON_NAME_REGEX = /^\p{L}[\p{L}\-' ]*$/u;
+
 /**
  * Letters by Unicode property rather than `[A-Za-z]`; digits and symbols are out, which is what stops a note being
  * typed into a name field. **On the write path only** — a read model refusing a stored name 500s the whole response.
@@ -77,7 +88,7 @@ export const ExternalUrlSchema = z
 export const PersonNameSchema = z
   .string()
   .nonempty({ error: "Bitte gib einen Namen ein." })
-  .regex(/^\p{L}[\p{L}\-' ]*$/u, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
+  .regex(PERSON_NAME_REGEX, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
 
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),

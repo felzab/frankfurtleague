@@ -33,7 +33,7 @@ export function ConfirmActionRow({
         <Button
           type="button"
           variant="secondary"
-          isDisabled={isPending}
+          isPending={isPending}
           onPress={onCancel}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen

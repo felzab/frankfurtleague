@@ -9,8 +9,12 @@ import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLKontaktpersonPayload, FLSaisonTeamKontaktePayload, FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
-import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
-import type { SaisonTeamKontaktePayloadDraft } from "./types";
+import type { QueryResult } from "@/shared/types/types";
+import type { FLKontaktErasureAnsichtResponse, FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
+import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
+
+/** The one repair the erasure panel holds: arming it again is what reads the list a second time. */
+const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
 
 /** One count as German reads it, with a word for none and a word for one. */
 function countPhrase(count: number, singular: string, plural: string): string {
@@ -60,6 +64,27 @@ export function describeKontaktErasureUmfang(erasure: FLKontaktErasureResponse):
         : `Bei ${String(erasure.redacted_aktionen)} Einträgen im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt.`;
 
   return `${kontakte} ${protokoll}`;
+}
+
+/**
+ * What the erasure panel holds once its read has SETTLED, either way. A rejection reached no
+ * judgement, so its sentence names the connection and nothing that was asked about.
+ */
+export function settledErasureAnsicht(
+  email: string,
+  settled: PromiseSettledResult<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>>,
+): ErasureAnsicht {
+  if (settled.status === "rejected") return { email, status: "refused", reason: `Prüfe die Verbindung. ${NOCH_EINMAL}` };
+
+  const res = settled.value;
+  if (res.success && res.ansicht !== undefined) return { email, status: "read", sitze: res.ansicht };
+
+  // A field map with no field to lay it on: the address came off the stored record, so
+  // `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` would send the reader to a
+  // box this panel does not render.
+  const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
+
+  return { email, status: "refused", reason: gesagt ?? NOCH_EINMAL };
 }
 
 /**

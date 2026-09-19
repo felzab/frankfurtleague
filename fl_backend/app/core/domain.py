@@ -103,8 +103,8 @@ class Rule:
 
     code: str
     #: The endpoints that perform it, ` · `-separated. Spell that separator otherwise and
-    #: `fl_frontend/src/core/refusalRegister.ts :: OPERATION_SEPARATOR` splits nothing, so every
-    #: slice's refusal check goes quiet rather than red.
+    #: `fl_frontend/src/shared/testing/refusalRegister.ts :: OPERATION_SEPARATOR` splits nothing,
+    #: so every slice's refusal check goes quiet rather than red.
     operation: str
     aggregate: str
     #: ONE CLAUSE naming what is refused, present tense, no closing period -- a table cell, not a
@@ -254,8 +254,11 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "A NEWLY assigned venue is read at the write, and one no `spielorte` row holds -- or one whose row is "
             "retired and takes no new fixtures -- is refused (`REQ-BOOKING-001`); a reference already stored is left "
-            "alone. Retiring the venue is refused from the other side while an UNPLAYED fixture holds it "
-            "(`REQ-RETIRE-003`), which is why a played one may keep a retired ground. "
+            "alone unless the save puts its fixture back among those still to be played, which books it again. "
+            "Retiring the venue is refused from the other side while an UNPLAYED fixture holds it "
+            "(`REQ-RETIRE-003`), which is why a played or called-off one may keep a retired ground. A bracket "
+            "resolution, or a side emptied for a Spieltag clash, reopening such a fixture keeps the ground and is "
+            "reported, not refused. "
             "The name and the maps link are read from that row rather than accepted, and they fan out on a rename; "
             "`mietpreis` deliberately does neither. It records what this fixture cost, so rewriting it would rewrite history."
         ),
@@ -266,15 +269,17 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SCHIEDSRICHTER,
         on_reference_created=Action.RESTRICT,
         on_target_change=Action.CASCADE,
-        on_target_removed=Action.RESTRICT,
+        on_target_removed=Action.CASCADE,
         note=(
-            "Read at the write when NEWLY assigned, as the venue beside it is, and refused where no row holds it or "
-            "the row it holds is retired; retiring the referee is refused from the other side for the reason the "
-            "venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation retires the row itself, so an erased referee is refused a NEW fixture by the same rule "
-            "and is never reactivated (`REQ-ANONYMISE-003`). It SATISFIES that refusal rather than consulting it: every "
-            "fixture with no result loses this reference in the same transaction, a request to be forgotten not being "
-            "something a booking may block, so a PLAYED fixture alone keeps its assignment, under a nulled name. "
+            "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
+            "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
+            "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
+            "The anonymisation is the one removal, and it CASCADES rather than being refused: a request to be forgotten "
+            "is not something a booking may block, so the row is deleted and every fixture naming it is repointed at the "
+            "ghost in the same transaction, each keeping its own `payment`. The ghost is permanently retired, so a "
+            "fixture holding it takes no new booking and is refused a save putting it back among those still to be "
+            "played; one a bracket resolution or a Spieltag release reopens keeps it and is reported as a retired "
+            "booking, exactly as a merely retired referee is. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`). "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -892,10 +897,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` and the anonymisation both stamp it, the erasure keeping a day the row already carries, and "
-        "`POST /reactivate` clears it unless the erasure has run (`REQ-ANONYMISE-003`); `DELETE` is refused while an "
-        "unplayed fixture still names this referee, and the erasure's stamp never meets that refusal, having emptied "
-        "every such booking first",
+        "`DELETE` stamps it and `POST /reactivate` clears it, `DELETE` being refused while an unplayed fixture still "
+        "names this referee; the anonymisation writes it on no row, deleting the referee instead and leaving their "
+        "fixtures on the ghost, which carries a stamp of its own and is reachable by neither control",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
 )
@@ -1269,7 +1273,10 @@ RULES: tuple[Rule, ...] = (
         code="REQ-BOOKING-001",
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
         aggregate="Saison-Spielplan",
-        summary="a venue or a referee NEWLY assigned to a fixture must name a row that exists and has not retired",
+        summary=(
+            "a venue or a referee NEWLY assigned to a fixture, or kept on one a save puts back among those still to be "
+            "played, must name a row that exists and has not retired"
+        ),
         implemented_by="app.api.spiele.services.find_booking_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestTheBookingRefusal",
     ),
@@ -1392,28 +1399,12 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
     ),
     Rule(
-        code="REQ-ANONYMISE-001",
+        code="REQ-ANONYMISE-004",
         operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
         aggregate="Schiedsrichter",
-        summary="contact details entered again while an anonymisation runs are refused, never left standing",
-        implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
-    ),
-    Rule(
-        code="REQ-ANONYMISE-002",
-        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
-        aggregate="Schiedsrichter",
-        summary="a name or a contact detail may not be written back onto an anonymised referee",
-        implemented_by="app.api.schiedsrichter.services.find_anonymisation_undo_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused",
-    ),
-    Rule(
-        code="REQ-ANONYMISE-003",
-        operation="POST /schiedsrichter/{schiedsrichter_id}/reactivate",
-        aggregate="Schiedsrichter",
-        summary="a referee whose data were erased on request may not be brought back",
-        implemented_by="app.api.schiedsrichter.services.find_reactivation_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestBringingAnErasedRefereeBackIsRefused",
+        summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
+        implemented_by="app.api.schiedsrichter.services.find_ghost_erasure_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestErasingTheGhostIsRefused",
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -1639,6 +1630,36 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestABracketSlotHeldByADisqualifiedClub",
+        surfaced_by="/admin/action_required",
+    ),
+    Unenforced(
+        subject="a fixture still to be played booked onto a retired venue or referee",
+        reason=(
+            "`REQ-BOOKING-001` judges what a SAVE books. A bracket resolution, or a side emptied for a Spieltag clash, voiding a played "
+            "fixture's result puts it back among those still to be played without any request naming it, and refusing "
+            "that would refuse the correction upstream -- or any save of the season, the resolution running whole -- over a "
+            "booking nobody touched, where a result a rewrite destroys is reported rather than refused. The row stays "
+            "booked and is reported as a derived fault (`docs/backend/spec.md :: I257`), because only a person chooses "
+            "between reactivating it and booking another, and a save keeping it books nothing new. The ghost a referee's "
+            "erasure leaves is a retired row like any other and is reported the same way (`docs/backend/spec.md :: I259`)."
+        ),
+        near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
+        proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
+        surfaced_by="/admin/action_required",
+    ),
+    Unenforced(
+        subject="one venue or referee claimed by two fixtures less than four hours apart",
+        reason=(
+            "`REQ-CLASH-001` judges the claims a SAVE makes that its fixture did not already make. A bracket resolution, or "
+            "a side emptied for a Spieltag clash, lifting a no-show has its fixture claim the slot that no-show freed, which another fixture "
+            "may since hold, and refusing the rewrite would refuse the correction upstream over a clash it never chose. "
+            "Which of the two moves is a competition call, so every claim is reported as a derived fault, and a save of "
+            "either fixture keeping its slot -- a note, a result -- commits, where refusing it would hold the legitimately "
+            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused "
+            "(`docs/backend/spec.md :: I257`)."
+        ),
+        near=("REQ-CLASH-001",),
+        proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
         surfaced_by="/admin/action_required",
     ),
     Unenforced(

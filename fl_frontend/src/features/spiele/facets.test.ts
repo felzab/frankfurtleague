@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { applyFacets, readFacetSelection } from "@/shared/utils/facets.ts";
+import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { applyFacets, offeredOptions, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { ANONYMISED_SCHIEDSRICHTER_VALUE, buildSpielFacets, schiedsrichterFacetValue } from "./facets.ts";
+import { buildSpielFacets } from "./facets.ts";
 
 import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
 
@@ -17,8 +17,10 @@ const ALPHA = "6890a1b2c3d4e5f607182911";
 const BETA = "6890a1b2c3d4e5f607182912";
 const GAMMA = "6890a1b2c3d4e5f607182913";
 
-const ANONYMISIERT_EINS = "6890a1b2c3d4e5f607182921";
-const ANONYMISIERT_ZWEI = "6890a1b2c3d4e5f607182922";
+/** The row every erased referee's fixtures are repointed at; no season's referee list ever holds it. */
+const GHOST = GHOST_SCHIEDSRICHTER_ID;
+/** A row somebody left without a name, which is a different thing and keeps its own fixtures. */
+const NAMENLOS = "6890a1b2c3d4e5f607182922";
 const COLLINA = "6890a1b2c3d4e5f607182923";
 
 function team(id: string, name: string, shorthand: string): FLSpielTeamFieldJoined {
@@ -49,13 +51,15 @@ function spiel(spielNr: number, over: Partial<FLSpiel> = {}): FLSpiel {
   };
 }
 
-/* The erasure nulls the embedded name; no fixture ever stores a word standing for it. */
-const ANONYMISIERT_A = spiel(1, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_EINS, name: null } });
-const ANONYMISIERT_B = spiel(2, { schiedsrichter: { schiedsrichter_id: ANONYMISIERT_ZWEI, name: null } });
+/* Two erased referees' fixtures arrive under ONE id, the erasure having repointed both at the ghost;
+   the embedded name is null on each, no fixture ever storing a word standing for it. */
+const GHOSTED_A = spiel(1, { schiedsrichter: { schiedsrichter_id: GHOST, name: null } });
+const GHOSTED_B = spiel(2, { schiedsrichter: { schiedsrichter_id: GHOST, name: null } });
 const NAMED = spiel(3, { schiedsrichter: { schiedsrichter_id: COLLINA, name: "Pierluigi Collina" } });
+const NAMELESS = spiel(5, { schiedsrichter: { schiedsrichter_id: NAMENLOS, name: null } });
 const UNASSIGNED = spiel(4);
 
-const SEASON: readonly FLSpiel[] = [ANONYMISIERT_A, ANONYMISIERT_B, NAMED, UNASSIGNED];
+const SEASON: readonly FLSpiel[] = [GHOSTED_A, GHOSTED_B, NAMED, NAMELESS, UNASSIGNED];
 
 /** Handed in out of alphabetical order, which is the order the matchdays are played. */
 const SPIELTAGE = [
@@ -69,7 +73,7 @@ const ADMIN_FACETS = buildSpielFacets({ spiele: SEASON, today: TODAY, isAdmin: t
 const SCHIEDSRICHTER_PARAM = "schiedsrichter";
 
 const SCHIEDSRICHTER_FACET = ADMIN_FACETS.find((facet) => facet.param === SCHIEDSRICHTER_PARAM);
-const MERGED_OPTION = SCHIEDSRICHTER_FACET?.options.find((option) => option.value === ANONYMISED_SCHIEDSRICHTER_VALUE);
+const GHOST_OPTION = SCHIEDSRICHTER_FACET?.options.find((option) => option.value === GHOST);
 
 describe("the referee facet an administrator is offered", () => {
   /* First: every assertion below asserts nothing where the cut finds no facet. */
@@ -78,38 +82,32 @@ describe("the referee facet an administrator is offered", () => {
     assert.equal(SCHIEDSRICHTER_FACET.label, "Schiedsrichter");
   });
 
-  it("offers one option for all the anonymised referees together", () => {
-    const merged = SCHIEDSRICHTER_FACET?.options.filter((option) => option.value === ANONYMISED_SCHIEDSRICHTER_VALUE) ?? [];
+  /* Not a merge this reader performs: the erasure repointed both fixtures at one row, so one option
+     is what the season's own data already say. */
+  it("offers one option for every erased referee's fixtures together", () => {
+    const ghosted = SCHIEDSRICHTER_FACET?.options.filter((option) => option.value === GHOST) ?? [];
 
-    assert.equal(merged.length, 1, `${String(merged.length)} options merge the anonymised referees, which an administrator cannot tell apart`);
+    assert.equal(ghosted.length, 1, `${String(ghosted.length)} options stand for the ghost, which an administrator cannot tell apart`);
   });
 
-  /* The option a reader picks says a word; the value the URL carries says none of it, so rewording
-     the label leaves every saved link selecting the same fixtures. */
-  it("labels that one option with the erasure's displayed word and keys it on neither a name nor an id", () => {
-    assert.equal(MERGED_OPTION?.label, SCHIEDSRICHTER_ANONYM_LABEL);
-    assert.notEqual(MERGED_OPTION?.value, SCHIEDSRICHTER_ANONYM_LABEL);
-    assert.notEqual(MERGED_OPTION?.value, ANONYMISIERT_EINS);
+  /* Two different absences, and one word for both would file a teacher's unfinished entry under a
+     deletion that never touched them. */
+  it("words the ghost as the erasure's own and a nameless row as an unfinished entry", () => {
+    assert.equal(GHOST_OPTION?.label, SCHIEDSRICHTER_ANONYM_LABEL);
+    assert.equal(SCHIEDSRICHTER_FACET?.options.find((option) => option.value === NAMENLOS)?.label, SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
   });
 
-  it("narrows to the fixtures of every anonymised referee under that one option", () => {
-    const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${MERGED_OPTION?.value ?? ""}`));
+  it("narrows to the fixtures of every erased referee under that one option", () => {
+    const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${GHOST}`));
 
-    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [ANONYMISIERT_A, ANONYMISIERT_B]);
+    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [GHOSTED_A, GHOSTED_B]);
   });
 
-  /* The referee table's „Einsätze anzeigen“ builds its link from a referee ROW, which the erasure
-     leaves standing under its own id — so what that link carries has to reach the merged option. */
-  it("resolves a link built from an anonymised referee's own id to every anonymised referee's fixtures", () => {
-    const linked = schiedsrichterFacetValue({ id: ANONYMISIERT_EINS, name: null });
-    const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${linked}`));
+  // Paired with the case above, which one option over every nameless row would also satisfy.
+  it("keeps a nameless row's own fixtures off the ghost's option", () => {
+    const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${NAMENLOS}`));
 
-    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [ANONYMISIERT_A, ANONYMISIERT_B]);
-  });
-
-  // Paired with the case above, which a value merging everybody would also satisfy.
-  it("leaves a named referee's link on their own id", () => {
-    assert.equal(schiedsrichterFacetValue({ id: COLLINA, name: "Pierluigi Collina" }), COLLINA);
+    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [NAMELESS]);
   });
 
   it("keeps a named referee on an option of their own", () => {
@@ -118,8 +116,34 @@ describe("the referee facet an administrator is offered", () => {
     assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [NAMED]);
   });
 
-  it("files a fixture with no referee under no option, rather than under the merged one", () => {
+  it("files a fixture with no referee under no option, rather than under the ghost's", () => {
     assert.deepEqual(SCHIEDSRICHTER_FACET?.read(UNASSIGNED), []);
+  });
+
+  /* The referee list links each row on its own id, so a season whose fixtures name a referee the
+     list holds still offers that row — and the ghost, which no list holds, is not added by it. */
+  it("offers a listed referee no fixture of the season names, and never the ghost", () => {
+    const facets = buildSpielFacets({
+      spiele: [NAMED],
+      today: TODAY,
+      isAdmin: true,
+      schiedsrichter: [
+        { id: NAMENLOS, name: null },
+        { id: COLLINA, name: "Pierluigi Collina" },
+      ],
+    });
+    const facet = facets.find((candidate) => candidate.param === SCHIEDSRICHTER_PARAM) ?? assert.fail("the season offers no referee facet");
+    const selection = readFacetSelection(facets, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${NAMENLOS}`));
+
+    assert.deepEqual(selection, { [SCHIEDSRICHTER_PARAM]: [NAMENLOS] });
+    assert.deepEqual(
+      offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).filter((option) => option.value === NAMENLOS),
+      [{ value: NAMENLOS, label: SCHIEDSRICHTER_OHNE_NAMEN_LABEL }],
+    );
+    assert.ok(
+      offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).every((option) => option.value !== GHOST),
+      "the ghost is offered on a season whose fixtures never name it",
+    );
   });
 });
 

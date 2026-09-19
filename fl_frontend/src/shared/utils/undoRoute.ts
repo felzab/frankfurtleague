@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getAdminSession } from "@/core/auth";
+import { auth, getAdminSession } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
@@ -57,8 +57,15 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
+  // 200 for every outcome but a turned-away caller, the body carrying it: the dispatch reads any other
+  // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
+  let status: 200 | 401 | 403 = 200;
+
   const result = await runAdminMutation(route.mutationName, async () => {
     if (!(await getAdminSession())) {
+      // `fl_frontend/src/proxy.ts`'s two destinations, asked only once refused, so an admin's undo pays one session
+      // read: the proxy never sees `/api/admin/*`.
+      status = (await auth()) === null ? 401 : 403;
       return { success: false as const, error: ADMIN_FORBIDDEN };
     }
 
@@ -95,6 +102,5 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     };
   });
 
-  // Always 200: the body carries the outcome, so a non-2xx would read as a transport failure.
-  return NextResponse.json(result);
+  return NextResponse.json(result, { status });
 }

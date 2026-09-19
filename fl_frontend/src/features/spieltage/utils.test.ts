@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { spielFields } from "@/shared/testing/fixtures.ts";
+
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { FLSpielSchema } from "../spiele/schemas.ts";
+import { FLSpieltagWithSpieleSchema } from "./schemas.ts";
 import { buildSpieltagPhaseProgress, orderRoundsByWiring, spieltagLabels } from "./utils.ts";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "../saisons/schemas.ts";
@@ -10,13 +14,36 @@ import type { FLSpieltagWithSpiele } from "./schemas.ts";
 
 const sieger = (spielNr: number): FLSpielQuelle => ({ type: "spiel", spiel_nr: spielNr, ausgang: "sieger" });
 
+/** Parsed at construction: a field the shared literal has fallen behind on fails where the fixture is built. */
+const SPIEL: FLSpiel = FLSpielSchema.parse(
+  spielFields({
+    id: "6890a1b2c3d4e5f607180001",
+    spieltag_id: "6890a1b2c3d4e5f607180101",
+    team1: null,
+    team2: null,
+    saison_phase: "viertelfinale",
+  }),
+);
+
+/** Complete and parsed at construction, for `SPIEL`'s reason. */
+const SPIELTAG: FLSpieltagWithSpiele = FLSpieltagWithSpieleSchema.parse({
+  id: "6890a1b2c3d4e5f607180201",
+  beginn: null,
+  ende: null,
+  anzahl_spiele: 0,
+  position: 1,
+  saison_phase: "viertelfinale",
+  saison_id: "2026",
+  spiele: [],
+} satisfies FLSpieltagWithSpiele);
+
 function makeSpiel(spielNr: number, team1Quelle: FLSpielQuelle | null = null, team2Quelle: FLSpielQuelle | null = null): FLSpiel {
-  return { spiel_nr: spielNr, team1_quelle: team1Quelle, team2_quelle: team2Quelle } as FLSpiel;
+  return { ...SPIEL, spiel_nr: spielNr, team1_quelle: team1Quelle, team2_quelle: team2Quelle };
 }
 
 // Keyed on `id`: a matchday carries no name, and the id is what every consumer identifies one by.
 function makeRound(id: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
-  return { id, spiele } as unknown as FLSpieltagWithSpiele;
+  return { ...SPIELTAG, id, spiele };
 }
 
 const numbers = (round: FLSpieltagWithSpiele) => round.spiele.map((spiel) => spiel.spiel_nr);

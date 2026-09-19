@@ -42,7 +42,8 @@ async def get_teams(
     List teams for a season.
 
     `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
-    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.
+    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
+    is listed in a `past` season alone.
     """
 
     # Resolved here, never as a field default, which cannot query the database. It also flips

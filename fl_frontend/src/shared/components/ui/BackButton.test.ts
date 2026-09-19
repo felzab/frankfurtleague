@@ -2,44 +2,30 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries the router context, and the pill's exit reads it. A Next release that
-   moves the module fails this file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+
+import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { goBackOrPush } = await import("@/shared/hooks/useEditorExit.ts");
 const { BackButton } = await import("./BackButton.tsx");
 
-type Navigation = { back: number; pushed: string[] };
-
-function spyRouter(seen: Navigation) {
-  return {
-    back: () => void (seen.back += 1),
-    forward: () => undefined,
-    refresh: () => undefined,
-    push: (href: string) => void seen.pushed.push(href),
-    replace: () => undefined,
-    prefetch: () => undefined,
-    bfcacheId: "",
-  };
-}
-
 /**
  * The press, reproduced at the function the transition wraps: `renderToStaticMarkup` dispatches no
  * event, and the server build of `startTransition` refuses to be called at all.
  */
-function pressed(fallbackHref: string, historyLength: number): Navigation {
-  const seen: Navigation = { back: 0, pushed: [] };
+function pressed(fallbackHref: string, historyLength: number): Navigations {
+  const { router, seen } = recordingRouter();
 
   // The runner has no DOM, so neither branch of the guard is its default and a length is the whole
   // of what the guard reads.
   Object.defineProperty(globalThis, "window", { value: { history: { length: historyLength } }, configurable: true, writable: true });
 
   try {
-    goBackOrPush(spyRouter(seen), fallbackHref);
+    goBackOrPush(router, fallbackHref);
   } finally {
     Reflect.deleteProperty(globalThis, "window");
   }
@@ -47,8 +33,7 @@ function pressed(fallbackHref: string, historyLength: number): Navigation {
   return seen;
 }
 
-const markup = (props: { fallbackHref: string; spacing?: "mb-6" | "-mb-3" }): string =>
-  renderTree(h(AppRouterContext.Provider, { value: spyRouter({ back: 0, pushed: [] }) }, h(BackButton, props)));
+const markup = (props: { fallbackHref: string; spacing?: "mb-6" | "mb-0" }): string => renderTree(underNext(h(BackButton, props)));
 
 describe("the exit behind every Zurück pill", () => {
   it("goes back where the tab has a page behind it", () => {
@@ -78,12 +63,12 @@ describe("the pill", () => {
     assert.match(html, /disabled:pointer-events-none/, "the pill carries no styling for the pending state I68 requires");
   });
 
-  it("takes the tightening as a substitution, so one margin reaches the class string", () => {
-    assert.match(markup({ fallbackHref: "/dashboard/teams" }), /\bmb-6\b/, "the default spacing left the pill against the content under it");
+  it("takes the yielded spacing as a substitution, so one margin reaches the class string", () => {
+    assert.match(markup({ fallbackHref: "/dashboard/teams" }), /\bmb-6\b/, "the default spacing is not in the class string");
 
-    const tight = markup({ fallbackHref: "/dashboard/teams", spacing: "-mb-3" });
+    const yielded = markup({ fallbackHref: "/dashboard/teams", spacing: "mb-0" });
 
-    assert.match(tight, /-mb-3/, "the tightening never reached the class string");
-    assert.doesNotMatch(tight, /\bmb-6\b/, "both margins are emitted, and with no `twMerge` the stylesheet's order decides");
+    assert.match(yielded, /\bmb-0\b/, "the yielded spacing never reached the class string");
+    assert.doesNotMatch(yielded, /\bmb-6\b/, "both margins are emitted, and with no `twMerge` the stylesheet's order decides");
   });
 });

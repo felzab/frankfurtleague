@@ -21,6 +21,7 @@ this table. **The first row that matches decides.**
 | Is on no page                                                       | **Stop.** List the ids from the index table                                                                       |
 | Was already concluded by a closing commit                           | **Stop.** Report that commit — its body is the record. A regression opens a new id, not this one                  |
 | Carries `Status: Standing`                                          | **Stop.** Report the entry's own trigger and ask whether it has fired                                             |
+| Carries `Status: Skipped`                                           | **Stop.** A deferred entry is not restarted without a ruling lifting it (`docs/_roadmap/protocol.md` §4)          |
 | Carries `Status: Blocked`, or a `Depends on` naming a present entry | **Ask before starting.** If the blocker was decided out of band, ask for that decision — it is input to this item |
 | Names an audit pass that owns it                                    | **Ask** whether this session does the work, or the pass does                                                      |
 
@@ -36,10 +37,10 @@ the change (CLAUDE.md §2).
 
 1. **Sort the carried-forward context, and say back which sentence is which.**
 
-   | Kind                          | Looks like                                                                        | Treatment                                                                                                                       |
-   | ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-   | **A decision**                | "The first knockout round is always group-seeded"                                 | Fact. Nobody here can re-derive it and no file records it — restate it and build on it                                          |
-   | **A description of the tree** | "The backend is green", "one file is the only compile blocker", "closed in <sha>" | Claim. It was true when written and the tree has moved since. **Check the branch, whether it compiles, and every SHA it names** |
+   | Kind                          | Looks like                                                                          | Treatment                                                                                                                       |
+   | ----------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+   | **A decision**                | "The first knockout round is always group-seeded"                                   | Fact. Nobody here can re-derive it and no file records it — restate it and build on it                                          |
+   | **A description of the tree** | "The backend is green", "one file is the only compile blocker", "closed in `<sha>`" | Claim. It was true when written and the tree has moved since. **Check the branch, whether it compiles, and every SHA it names** |
 
    A correction here costs one command; the same correction after the work is built on it costs the
    work.

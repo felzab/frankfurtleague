@@ -92,13 +92,15 @@ export function FormSonderereignisSection({
             // no event.
             isRequired
             name="sonderereignis"
-            value={sonderereignis ?? undefined}
+            // `null` and never `undefined` for no event: react-stately reads `undefined` as uncontrolled, so the first
+            // pick would switch the picker to controlled.
+            value={sonderereignis}
             onChange={handleChange}
             isInvalid={status?.error ? true : undefined}
             className="w-full">
             <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
 
-            <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
+            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
               {/* From the prop rather than `Select.Value`, which resolves its label out of the
                   react-aria collection and shows HeroUI's English placeholder on a render where that
                   collection has not committed — `SaisonSelector`'s reason. */}

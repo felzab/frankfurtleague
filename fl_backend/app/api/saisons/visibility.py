@@ -59,8 +59,9 @@ async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[st
         limit=LIST_LIMIT_DEFAULT + 1,
     )
 
-    # One over the cap, as the fault sweep asks (`docs/backend/spec.md :: I45`): a truncated set
-    # narrows on fewer seasons than exist, which is a LEAK rather than a short answer.
+    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
+    # (`docs/backend/spec.md :: I45`): a truncated set narrows on fewer seasons than exist, which is a
+    # LEAK rather than a short answer.
     if len(withheld) > LIST_LIMIT_DEFAULT:
         raise ValueError(f"more than {LIST_LIMIT_DEFAULT} seasons are withheld, which is more than one read can narrow on")
 

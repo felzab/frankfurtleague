@@ -39,6 +39,17 @@ export async function resolveSaisonId(
 }
 
 /**
+ * An absent id is the running season and fetches nothing. An admin page reads the public list too: a finished season
+ * stands in it, and a planned one is unfinished either way.
+ */
+export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefined): Promise<boolean> {
+  if (resolvedSaisonId === undefined) return false;
+
+  const { saisons } = await getSaisons();
+  return saisons.some((saison) => saison.id === resolvedSaisonId && saison.status === "past");
+}
+
+/**
  * Which season a page addresses: the one asked for, else the running one. It returns rather than
  * redirecting or raising, so the page's own `notFound()` stays where a reader of the page meets it.
  */
@@ -54,11 +65,18 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
  * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
  */
 export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
+  const saisonId = await parseSaisonIdParam(paramsPromise);
+  if (saisonId === null) notFound();
+
+  return saisonId;
+}
+
+/** The same judgement without the throw, for `generateMetadata`, which answers a 404's title where a throw leaves the layout's. */
+export async function parseSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string | null> {
   const parsed = z
     .string()
     .length(SAISON_ID_LENGTH)
     .safeParse((await paramsPromise).saison_id);
-  if (!parsed.success) notFound();
 
-  return parsed.data;
+  return parsed.success ? parsed.data : null;
 }

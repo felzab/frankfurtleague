@@ -10,11 +10,13 @@ import {
   mirrorKontakte,
   renamedConfirmedSeatLabels,
   resolveTeamSaisonMembership,
+  settledErasureAnsicht,
   teamPageHref,
 } from "./utils";
 
 import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
+import type { FLKontaktErasureAnsichtResponse } from "./schemas";
 
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
   vorname: "Erika",
@@ -120,9 +122,9 @@ describe("applySeatPresence", () => {
   /* What the composed payload does with it: the Trainer reads the named seat, so emptying that seat
      is what empties the Trainer — through `mirrorKontakte`, not through the switch. */
   it("empties the composed trainer by emptying the seat the claim names", () => {
-    const geleert = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "ansprechperson", false).next;
+    const emptied = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "ansprechperson", false).next;
 
-    assert.equal(mirrorKontakte(geleert).trainer, null);
+    assert.equal(mirrorKontakte(emptied).trainer, null);
   });
 });
 
@@ -247,38 +249,78 @@ describe("renamedConfirmedSeatLabels", () => {
   /* The server reads these as one person and keeps the stamp, so each is a save the banner must let
      through silently — the „ß“ pair being the one a lower-casing fold gets wrong. */
   it("stays silent where the case, the inner spacing or „ß“ against „ss“ is the whole difference", () => {
-    const wie = (gehalten: Partial<KontaktpersonDraft>, getippt: Partial<KontaktpersonDraft>): readonly string[] =>
-      renamedConfirmedSeatLabels(block({ trainer: person(gehalten) }), block({ trainer: person(getippt) }));
+    const howStored = (heldBack: Partial<KontaktpersonDraft>, typed: Partial<KontaktpersonDraft>): readonly string[] =>
+      renamedConfirmedSeatLabels(block({ trainer: person(heldBack) }), block({ trainer: person(typed) }));
 
-    assert.deepEqual(wie({ vorname: "Erika" }, { vorname: "ERIKA" }), []);
-    assert.deepEqual(wie({ vorname: "Anna Maria" }, { vorname: " Anna   Maria " }), []);
-    assert.deepEqual(wie({ nachname: "Weiß" }, { nachname: "WEISS" }), []);
-    assert.deepEqual(wie({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
+    assert.deepEqual(howStored({ vorname: "Erika" }, { vorname: "ERIKA" }), []);
+    assert.deepEqual(howStored({ vorname: "Anna Maria" }, { vorname: " Anna   Maria " }), []);
+    assert.deepEqual(howStored({ nachname: "Weiß" }, { nachname: "WEISS" }), []);
+    assert.deepEqual(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however
      the two boxes split it, and the stamp the server clears would go unannounced. */
   it("names a seat where a name moved from one box into the other", () => {
-    const gehalten = block({ trainer: person({ vorname: "Anna Maria", nachname: "Weiß" }) });
-    const getippt = block({ trainer: person({ vorname: "Anna", nachname: "Maria Weiß" }) });
+    const heldBack = block({ trainer: person({ vorname: "Anna Maria", nachname: "Weiß" }) });
+    const typed = block({ trainer: person({ vorname: "Anna", nachname: "Maria Weiß" }) });
 
-    assert.deepEqual(renamedConfirmedSeatLabels(gehalten, getippt), ["Trainer"]);
+    assert.deepEqual(renamedConfirmedSeatLabels(heldBack, typed), ["Trainer"]);
   });
 
   /* While the claim stands the composed Trainer READS the named seat, so renaming that seat unstamps two
      seats, which is why the caller hands over the mirrored block. */
   it("names the Trainer as well where the shared-seat claim points at the renamed seat", () => {
-    const gehalten = block({ trainer_ist_zugleich: "ansprechperson" });
-    const getippt = { ...gehalten, ansprechperson: person({ vorname: "Max", nachname: "Anders", email: "max@beispiel.de" }) };
+    const heldBack = block({ trainer_ist_zugleich: "ansprechperson" });
+    const typed = { ...heldBack, ansprechperson: person({ vorname: "Max", nachname: "Anders", email: "max@beispiel.de" }) };
 
-    assert.deepEqual(renamedConfirmedSeatLabels(mirrorKontakte(gehalten), mirrorKontakte(getippt)), ["Ansprechperson", "Trainer"]);
+    assert.deepEqual(renamedConfirmedSeatLabels(mirrorKontakte(heldBack), mirrorKontakte(typed)), ["Ansprechperson", "Trainer"]);
   });
 
-  /* A block filled in for the first time has no stamp to lose, and one the draft clears whole is what
-     `kontakte.block-removed` states instead. */
+  /* A block filled in for the first time has no stamp to lose, and a draft holding no block renames nobody. */
   it("names nothing where nothing was stored and nothing where the block goes", () => {
     assert.deepEqual(renamedConfirmedSeatLabels(null, block()), []);
     assert.deepEqual(renamedConfirmedSeatLabels(block(), null), []);
+  });
+});
+
+describe("settledErasureAnsicht", () => {
+  const PREVIEW: FLKontaktErasureAnsichtResponse = { acknowledged: 1, saison_teams: [], bewerbungen: [] };
+  const EMAIL = "erika@beispiel.de";
+
+  /* Outside a transition a rejection reaches no error boundary, so this arm is the only thing between a
+     lost connection and a placeholder that never leaves. */
+  it("refuses with the connection named where the read never answered", () => {
+    const readBack = settledErasureAnsicht(EMAIL, { status: "rejected", reason: new Error("Failed to fetch") });
+
+    assert.equal(readBack.status, "refused", "a read that never answered leaves the panel waiting on it");
+    assert.equal(readBack.email, EMAIL, "the refusal is carried under no address, so it stands under whichever seat is armed next");
+    assert.equal(readBack.status === "refused" ? readBack.reason : "", "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.");
+  });
+
+  it("holds the seats where the read answered them", () => {
+    assert.deepEqual(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true, ansicht: PREVIEW } }), {
+      email: EMAIL,
+      status: "read",
+      sitze: PREVIEW,
+    });
+  });
+
+  /* A stored address the erasure payload refuses reaches the read as a field map, and the panel it
+     would mark a box on renders no box at all (`docs/backend/spec.md :: I104`). */
+  it("keeps a field message out of the refusal, whose panel has no field, and repeats a sentence the server gave", () => {
+    const fieldOf = settledErasureAnsicht(EMAIL, {
+      status: "fulfilled",
+      value: { success: false, error: "Bitte prüfe die markierten Felder.", fieldErrors: { email: "Ungültig" } },
+    });
+    const said2 = settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: false, error: "Keine Berechtigung." } });
+
+    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen noch einmal." });
+    assert.deepEqual(said2, { email: EMAIL, status: "refused", reason: "Keine Berechtigung." });
+  });
+
+  /* A success carrying no answer confirms nothing, and the write is closed until names are on screen. */
+  it("refuses a success that carried no seats", () => {
+    assert.equal(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true } }).status, "refused");
   });
 });
 
@@ -299,7 +341,7 @@ describe("resolveTeamSaisonMembership", () => {
   const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erfasst_von: "person" } };
 
   // The server derives the token and this side only carries it, so any value stands in for one here.
-  const STAND = "9f2c";
+  const TOKEN = "9f2c";
 
   const membership = (saison_id: string): FLTeamMembership => ({
     saison_id,
@@ -307,7 +349,7 @@ describe("resolveTeamSaisonMembership", () => {
     austritt: null,
     trikot_farbe: null,
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
-    kontakte_stand: STAND,
+    kontakte_stand: TOKEN,
   });
 
   /* The header names the SELECTED season and a save writes onto that season's row. Falling back to
@@ -337,7 +379,7 @@ describe("resolveTeamSaisonMembership", () => {
   it("carries the token the save is judged against", () => {
     const resolved = resolveTeamSaisonMembership([membership("2025")], { id: "2025", status: "active" });
 
-    assert.equal(resolved.membership?.kontakte_stand, STAND);
+    assert.equal(resolved.membership?.kontakte_stand, TOKEN);
   });
 });
 
@@ -383,23 +425,23 @@ describe("what a seat's switch does to what was entered", () => {
   /* A switch is not a delete. Rebuilt from `buildEmptyKontaktperson`, turning a seat off and on again
      threw away everything the admin had typed into it, with no undo and no warning. */
   it("gives the person back when the seat is switched on again", () => {
-    const erika = person({ vorname: "Erika", email: "erika@beispiel.de" });
-    const voll = block({ ansprechperson: erika });
+    const erikaSeat = person({ vorname: "Erika", email: "erika@beispiel.de" });
+    const fullBlock = block({ ansprechperson: erikaSeat });
 
-    const aus = applySeatPresence(voll, "ansprechperson", false);
-    assert.equal(aus.next.ansprechperson, null, "switching a seat off no longer empties it");
+    const takenOut = applySeatPresence(fullBlock, "ansprechperson", false);
+    assert.equal(takenOut.next.ansprechperson, null, "switching a seat off no longer empties it");
 
-    const wieder = applySeatPresence(aus.next, "ansprechperson", true, erika);
-    assert.deepEqual(wieder.next.ansprechperson, erika, "the seat came back with something other than the person it held");
+    const again2 = applySeatPresence(takenOut.next, "ansprechperson", true, erikaSeat);
+    assert.deepEqual(again2.next.ansprechperson, erikaSeat, "the seat came back with something other than the person it held");
   });
 
   /* A seat that has never held anybody has nothing to give back, and must still open as three empty
      boxes rather than as whatever another seat left behind. */
   it("opens an untouched seat empty", () => {
-    const leer = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true);
+    const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true);
 
-    assert.notEqual(leer.next.ansprechperson, null, "switching an empty seat on left it holding nobody");
-    assert.equal(leer.next.ansprechperson?.vorname, "", "an untouched seat opened holding somebody's name");
+    assert.notEqual(emptyBlock.next.ansprechperson, null, "switching an empty seat on left it holding nobody");
+    assert.equal(emptyBlock.next.ansprechperson?.vorname, "", "an untouched seat opened holding somebody's name");
   });
 
   /* Re-judged on the way to empty only: a seat just switched back on holds values the admin entered

@@ -11,8 +11,8 @@ import type {
 type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
 
 /**
- * An absent `saison_id` does NOT resolve to the current season here: the read narrows by `team_id`,
- * and by nothing the base tier withholds or hides (`READ-PUPIL-002`, `READ-SQUAD-002`).
+ * A `team_id` without a `saison_id` reads the running season, and 404s while none is active; naming
+ * neither lists every season the base tier is not withheld from (`docs/backend/spec.md :: I4`).
  */
 export type FLSpielerFilterParams = {
   team_id?: string;
@@ -83,6 +83,9 @@ export type SpielerSaisonMembership = {
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
 export type SpielerSaisonContext = Pick<SpielerSaisonMembership, "saisonId" | "saisonStatus">;
+
+/** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */
+export type RowReturn = "open" | "clubLeft" | "squadFull";
 
 /** One team a squad picker may put a player in, with the season it belongs to. */
 export type SpielerTeamOption = {

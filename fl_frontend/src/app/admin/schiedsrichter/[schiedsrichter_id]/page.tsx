@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
-import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { resolveSchiedsrichterId } from "@/features/schiedsrichter/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -25,12 +25,13 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // `include_inactive`, or a retired referee's own editor answers not-found.
-  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
-  const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
-  if (!schiedsrichter) {
+  // By id and never off the referee list, which is narrowed and filtered: a row that list does not
+  // hold still opens here. An erased referee has no row at all, and the ghost answers not-found.
+  const schiedsrichterRes = await getSchiedsrichterById(schiedsrichterId);
+  if (schiedsrichterRes === null) {
     notFound();
   }
+  const { schiedsrichter } = schiedsrichterRes;
 
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
@@ -44,7 +45,6 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         default_payment: schiedsrichter.default_payment,
       }}
       inactiveSince={schiedsrichter.inactive_since}
-      anonymisiertAm={schiedsrichter.anonymisiert_am}
     />
   );
 }

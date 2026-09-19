@@ -1,21 +1,34 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { createElement as h } from "react";
+
+import { render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import {
   applyFacets,
   countActiveFacets,
   countFacetOptions,
   isFacetOptionReachable,
+  offeredOptions,
   readFacetSelection,
   readFacetSelectionFromRoute,
 } from "./facets";
 
 import type { Facet } from "./facets";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { AdminCrudView } = await import("@/shared/components/ui/AdminCrudView.tsx");
 
 type Row = { id: string; status: string; gruppe: string | null; stufen: string[] };
 
@@ -199,6 +212,70 @@ describe("readFacetSelection", () => {
   });
 });
 
+/**
+ * Options off the rows on hand, beside every value that exists. `Z` exists and no row holds it; its own array,
+ * so the `readFacetSelection` cache keyed on the facet set cannot answer for `FACETS`.
+ */
+const LINKED: readonly Facet<Row>[] = [
+  FACETS[0]!,
+  {
+    ...FACETS[1]!,
+    known: [
+      { value: "A", label: "A" },
+      { value: "Z", label: "Gruppe Z" },
+      // Two rows of one vocabulary mapped onto one value, as every anonymised referee is.
+      { value: "Z", label: "Gruppe Z" },
+    ],
+  },
+];
+
+const GRUPPE_LINKED = LINKED[1]!;
+
+describe("a value a link names that no row on hand holds", () => {
+  /* A link from another list carries a real value nothing here holds, and dropping it shows the reader
+     a page nobody asked anything of in place of an empty answer naming what they came for. */
+  it("is kept in the selection where the facet knows it", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z")), { gruppe: ["Z"] });
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=A,Z")), { gruppe: ["A", "Z"] });
+  });
+
+  it("is offered under its own label, once, after the options the rows hold", () => {
+    assert.deepEqual(offeredOptions(GRUPPE_LINKED, ["Z"]), [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+      { value: "Z", label: "Gruppe Z" },
+    ]);
+  });
+
+  it("counts zero, and stays reachable while picked so it can be removed", () => {
+    const counts = countFacetOptions(ROWS, LINKED, { gruppe: ["Z"] }, GRUPPE_LINKED);
+
+    assert.deepEqual(counts, { A: 2, B: 1, Z: 0 });
+    assert.equal(isFacetOptionReachable(counts["Z"] ?? -1, true), true);
+  });
+
+  it("narrows the rows to nothing rather than to everything", () => {
+    assert.deepEqual(applyFacets(ROWS, LINKED, readFacetSelection(LINKED, new URLSearchParams("gruppe=Z"))), []);
+  });
+
+  it("is dropped where it names nothing the facet knows either", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=6890a1b2c3d4e5f6071900ff")), {});
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z,unsinn")), { gruppe: ["Z"] });
+  });
+
+  /* Once removed nothing names it, so it leaves the panel rather than standing there as a dead row. */
+  it("is offered no longer once the URL stops naming it", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("")), {});
+    assert.equal(offeredOptions(GRUPPE_LINKED, []), GRUPPE_LINKED.options);
+    assert.deepEqual(countFacetOptions(ROWS, LINKED, {}, GRUPPE_LINKED), { A: 2, B: 1 });
+  });
+
+  it("leaves a facet that declares no vocabulary exactly as it was", () => {
+    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z")), {});
+    assert.equal(offeredOptions(FACETS[1]!, ["Z"]), FACETS[1]!.options);
+  });
+});
+
 describe("readFacetSelectionFromRoute", () => {
   it("reads a route's parameters exactly as the bar reads the query string", () => {
     // One reader for both halves: a page narrowing its own request differently from the control that
@@ -366,34 +443,85 @@ describe("every facet set in the app", () => {
   });
 });
 
-const UI_DIR = path.resolve(import.meta.dirname, "..", "components", "ui");
-
-/** Each module of the bar, against every component it renders that has to be handed the told counts. */
-const COUNT_HOPS: [string, string[]][] = [
-  ["AdminCrudView.tsx", ["<FilterLeiste"]],
-  ["FilterLeiste.tsx", ["<FilterRow", "<FilterPill", "<FilterPanel"]],
-  ["FilterPanel.tsx", ["<FilterPanelBody"]],
+/** The triage queue's shape: the page fetched only what `stand` selects, so the rows on hand cannot count its other option. */
+const TOLD_FACETS: readonly Facet<Row>[] = [
+  {
+    param: "stand",
+    label: "Stand",
+    options: [
+      { value: "aktiv", label: "Aktiv" },
+      { value: "stillgelegt", label: "Stillgelegt" },
+    ],
+    narrowsTheRead: true,
+    read: (row) => [row.status],
+  },
 ];
+
+/** Apart from both counts the served rows give, so a cell counting them instead reads as neither. */
+const TOLD = { stand: { aktiv: 4, stillgelegt: 9 } };
+
+const SERVED = ROWS.filter((row) => row.status === "aktiv");
+
+/** The whole region a narrowing view renders, under the contexts its bar reads the URL through. */
+function renderRegion(query: string): void {
+  render(
+    underNext(
+      h(AdminCrudView<Row>, {
+        items: SERVED,
+        searchKeys: ["id"],
+        facets: TOLD_FACETS,
+        facetCounts: TOLD,
+        renderTable: () => null,
+      }),
+      { search: query, pathname: "/admin/bewerbungen" },
+    ),
+  );
+}
+
+/**
+ * Asserts the open panel offers exactly these options, IN ORDER, each found by role and name rather
+ * than by the elements inside it: what the counts have to reach is the reader.
+ */
+function assertPanelOptions(expected: readonly (readonly [string, string])[]): void {
+  const panel = within(screen.getByRole("dialog"));
+  const shown = panel.getAllByRole("option");
+
+  assert.equal(shown.length, expected.length, "the panel offers a different number of options");
+
+  // `String.raw`, or the `\s` is a bare `s` and the pattern matches a label nothing renders.
+  const found = expected.map(([label, count]) => panel.getByRole("option", { name: new RegExp(String.raw`^${label}\s*${count}$`) }));
+
+  assert.deepEqual(
+    found.map((option) => shown.indexOf(option)),
+    expected.map((_, at) => at),
+    "the panel lists its options in another order",
+  );
+}
 
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
+/* `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes every
+   other case, while the panel silently returns to counting the rows one read served. */
 describe("the counts a server-narrowed facet is told", () => {
-  /* Read as source because nothing here can be rendered: every one of these sits under
-     `useUrlFilters`, whose `useSearchParams` answers null with no Router around it, so a render
-     throws before any markup exists. */
-  it("is forwarded by every hop between the view and the cell that reads it", () => {
-    // `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes
-    // every other case, while the panel silently returns to counting the rows one read served.
-    for (const [module, rendered] of COUNT_HOPS) {
-      const source = readFileSync(path.join(UI_DIR, module), "utf8");
-      const hops = rendered.reduce((total, element) => total + occurrences(source, element), 0);
+  // One case per panel: the add control and a pill each hand the counts on by their own route.
+  it("reach the add control's panel through every hop from the view", async () => {
+    renderRegion("");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Filter hinzufügen" }));
 
-      assert.ok(hops > 0, `${module} renders none of ${rendered.join(", ")}, so this case compares nothing there`);
-      assert.ok(
-        occurrences(source, "facetCounts=") >= hops,
-        `${module} renders ${String(hops)} of the bar's parts without passing facetCounts`,
-      );
-    }
+    assertPanelOptions([
+      ["Aktiv", "4"],
+      ["Stillgelegt", "9"],
+    ]);
+  });
+
+  it("reach a pill's panel through every hop from the view", async () => {
+    renderRegion("stand=aktiv");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Stand: Aktiv ändern" }));
+
+    assertPanelOptions([
+      ["Aktiv", "4"],
+      ["Stillgelegt", "9"],
+    ]);
   });
 
   it("is handed to `AdminCrudView` by every view whose facets say the server narrows", () => {
@@ -420,13 +548,15 @@ describe("the counts a server-narrowed facet is told", () => {
 });
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
+// Stands in for I13 over the admin views; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 // Separators normalised before it is tested, so the pattern does not have to know the platform's.
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
 
-/** Every `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
-const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name), floor);
+/** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
+const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
 
+// Stands in for I13 over the app tree; `docs/frontend/spec.md` §4 records the shapes no check reaches.
 /**
  * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
  * matched: a pattern skipping leading block comments backtracks exponentially (CodeQL `js/redos`).
@@ -453,6 +583,27 @@ function isClientModule(source: string): boolean {
   return source.startsWith('"use client"', at) || source.startsWith("'use client'", at);
 }
 
+/**
+ * The exported component's own parameter list. A window taken to the file's first `)` instead stops
+ * inside whatever precedes the component — a props type, a JSDoc, a helper's signature — with the
+ * props outside it.
+ */
+function parameterList(source: string, viewName: string): string {
+  // Blanked rather than dropped, so a `)` inside a comment cannot close the list early.
+  const blanked = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
+  const opener = `export function ${viewName}(`;
+  const opened = blanked.indexOf(opener);
+  if (opened === -1) throw new Error(`${viewName} exports no function of its own name, so this case reads nothing there`);
+
+  let depth = 1;
+  for (let offset = opened + opener.length; offset < blanked.length; offset++) {
+    if (blanked[offset] === "(") depth++;
+    if (blanked[offset] === ")") depth--;
+    if (depth === 0) return blanked.slice(opened + opener.length, offset);
+  }
+  throw new Error(`${viewName}'s parameter list is never closed`);
+}
+
 describe("who may hold a facet", () => {
   /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
      (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
@@ -460,7 +611,9 @@ describe("who may hold a facet", () => {
   it("keeps every facets module out of the server half of the app", () => {
     const leaks = sourcesUnder(APP_DIR, 50)
       .filter((file) => !isClientModule(readFileSync(file, "utf8")))
-      .filter((file) => /from "[^"]*facets"/.test(readFileSync(file, "utf8")))
+      // The extension optional: `tsconfig-alias-hook.mjs` resolves both spellings, so a specifier
+      // carrying one is the same import.
+      .filter((file) => /from "[^"]*facets(?:\.tsx?)?"/.test(readFileSync(file, "utf8")))
       .map((file) => asPosix(path.relative(APP_DIR, file)));
 
     assert.deepEqual(
@@ -477,10 +630,20 @@ describe("who may hold a facet", () => {
     const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
     assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
 
-    const nehmen = views
-      .filter((file) => /\bfacets\s*[,:}]/.test(readFileSync(file, "utf8").split(")")[0] ?? ""))
-      .map((file) => asPosix(path.relative(FEATURES_DIR, file)));
+    const unreadable: string[] = [];
+    const taken: string[] = [];
 
-    assert.deepEqual(nehmen, [], `these views take their facets as a prop instead of building them:\n  ${nehmen.join("\n  ")}`);
+    for (const file of views) {
+      const params = parameterList(readFileSync(file, "utf8"), path.basename(file, ".tsx"));
+      const named = asPosix(path.relative(FEATURES_DIR, file));
+
+      // A parameter taken whole keeps its props in a type this reads nothing of, so the shape is
+      // reported rather than passed over.
+      if (!params.trimStart().startsWith("{")) unreadable.push(named);
+      else if (/\bfacets\s*[,:}]/.test(params)) taken.push(named);
+    }
+
+    assert.deepEqual(unreadable, [], `these views take a parameter object this case cannot read:\n  ${unreadable.join("\n  ")}`);
+    assert.deepEqual(taken, [], `these views take their facets as a prop instead of building them:\n  ${taken.join("\n  ")}`);
   });
 });

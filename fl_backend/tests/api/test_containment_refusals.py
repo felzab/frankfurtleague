@@ -7,6 +7,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import SAISON_SPAN_BELOW_SCHEDULE, SAISON_SPAN_BELOW_SPIELTAGE, find_saison_span_refusal
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED, find_referee_retire_refusal
+from app.api.spiele.schemas import unplayed_filter
 from app.api.spiele.services import (
     CLASH_BUFFER_MINUTES,
     FIXTURE_DOUBLE_BOOKED,
@@ -25,7 +26,7 @@ from app.api.spieler.services import (
     find_squad_refusal,
     find_squad_rolle_refusal,
 )
-from app.api.spielorte.services import VENUE_STILL_BOOKED, find_venue_retire_refusal
+from app.api.spielorte.services import VENUE_STILL_BOOKED, build_unplayed_booking_filter, find_venue_retire_refusal
 from app.api.spieltage.services import (
     SPIELTAG_OUTSIDE_SAISON,
     SPIELTAG_SPAN_BELOW_FIXTURES,
@@ -268,6 +269,9 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
 
 
+OTHER_SAISON = "2025"
+
+
 class TestOneVenueAndOneRefereeAtATime:
     # Annotated rather than inferred: a plain `str` default widens the parameter and `BookedSlot` refuses it.
     def slot(
@@ -277,7 +281,7 @@ class TestOneVenueAndOneRefereeAtATime:
         nr: int = 3,
         datum: str = "2026-03-07",
     ) -> BookedSlot:
-        return BookedSlot(spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
+        return BookedSlot(spiel_id=ObjectId(), saison_id=OTHER_SAISON, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
 
     def test_the_buffer_is_four_hours(self):
         """Named in the test as well as the code, because it is a decision rather than a derivation."""
@@ -323,6 +327,8 @@ class TestOneVenueAndOneRefereeAtATime:
         assert refusal is not None
         assert "Schiedsrichter" in refusal.message
         assert "11" in refusal.message
+        # The season too: the other fixture can sit in any, and its number is unique within one alone.
+        assert OTHER_SAISON in refusal.message
 
 
 class TestRetiringAVenueOrAReferee:
@@ -349,6 +355,13 @@ class TestRetiringAVenueOrAReferee:
 
         assert refusal is not None
         assert "and 6 more" in refusal.message
+
+    def test_the_unplayed_booking_filter_spells_the_definition_once(self):
+        """The venue twin of `app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`, so neither seam narrows alone."""
+
+        spielort_id = ObjectId("6890a1b2c3d4e5f607182930")
+
+        assert build_unplayed_booking_filter(spielort_id) == {"ort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 class TestASquadEntry:

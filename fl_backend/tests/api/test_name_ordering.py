@@ -68,7 +68,6 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
-            "anonymisiert_am": None,
         }
         for index, name in enumerate(NAMES)
     ]

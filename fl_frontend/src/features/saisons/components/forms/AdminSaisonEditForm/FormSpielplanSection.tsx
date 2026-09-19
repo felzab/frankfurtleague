@@ -5,20 +5,32 @@ import { useRouter } from "next/navigation";
 
 import { Calendar, CalendarXmark } from "@gravity-ui/icons";
 
-import { Button, Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { drawGroupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
-import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
+import {
+  drawGroupCountOptions,
+  drawnSpieltage,
+  MAX_TEAMS_PER_GROUP,
+  qualifierCountOptions,
+  teamsPerGroupFloor,
+} from "@/features/saisons/shapeOffer";
+import {
+  buildSpielplanVorschau,
+  describeAngesetzteSpiele,
+  describeSpielplanPermanenz,
+  describeSpielplanUmfang,
+  describeSpieltageCount,
+} from "@/features/saisons/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -26,17 +38,14 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
-import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons";
+import { spielplanHoldsADraw, spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
 import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react";
-
-/** The two writes this panel offers, keyed as the operation picker below reads them back. */
-type SpielplanOperation = "anlegen" | "zuruecknehmen";
+import type { SpielplanOperation } from "./blockedReasons";
 
 /**
  * The season's fixture list, over `POST` and `DELETE /saisons/{saison_id}/spielplan`. **One panel and
@@ -74,8 +83,8 @@ export function FormSpielplanSection({
   endDate: string;
   /**
    * How full this season's groups stand. **`REQ-SPIELPLAN-004` asks each offered group for exactly
-   * `teams_per_group`**, so a redraw shape the entries do not fit is the one refusal here that costs a
-   * press rather than a save.
+   * `teams_per_group`**, so the boxes' own floors admit redraw shapes the entries do not fit, which the
+   * press is closed over.
    */
   gruppenOccupancy: SaisonGruppenOccupancy;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
@@ -102,44 +111,29 @@ export function FormSpielplanSection({
     startDate,
     endDate,
     vorschauSpieltage: vorschau.spieltage,
+    gruppen: { groups: rules.number_of_groups, teams: rules.teams_per_group, occupancy: gruppenOccupancy },
   };
 
-  const drawBlockedReason = spielplanBlockedReason(controlInput);
-  const undrawBlockedReason = spielplanUndrawBlockedReason(controlInput);
   const holdsADraw = spielplanHoldsADraw(controlInput);
-  // Derived from the same input as the reason above, so the sentence the admin agrees to and the
+  // Derived from the same input as the press below, so the sentence the admin agrees to and the
   // flag the request carries can never describe different operations.
   const replacesDraw = spielplanReplacesDraw(controlInput);
 
-  const bothOpen = drawBlockedReason === null && undrawBlockedReason === null;
-
-  // Null until the admin picks, and ONLY where both are open: each destroys the same rows, so a
-  // preselection would arm the operation nobody read.
+  // Null until the admin picks: each write destroys the same rows, so a preselection would arm the
+  // operation nobody read.
   const [picked, setPicked] = useState<SpielplanOperation | null>(null);
 
-  // Never null, because a closed panel still has to name an operation to report a reason for. The
-  // draw is that fallback: it is this panel's primary act, and its reason names a way back where the
-  // record half of the window is what closed it.
-  const operation: SpielplanOperation = bothOpen ? (picked ?? "anlegen") : undrawBlockedReason === null ? "zuruecknehmen" : "anlegen";
+  // The standing reason is the closure the page stands in, which the body states as well as the control.
+  const { bothOpen, operation, isUnchosen, standingReason, closedReason } = spielplanPress({ input: controlInput, picked, shape });
   const isDrawing = operation === "anlegen";
-
-  // The unchosen state closes the control through the same channel a refusal does, so the prompt
-  // reaches the hint on the button and the body below it without a second mechanism.
-  const closedReason =
-    bothOpen && picked === null
-      ? `Beides löscht die Spieltage und Spiele, die Saison ${saisonId} jetzt hält. Wähle oben aus, was passieren soll.`
-      : isDrawing
-        ? drawBlockedReason
-        : undrawBlockedReason;
 
   // The closure the callout below states as a rule, which is the whole of what a reader in this state
   // needs: a hint and a banner on one panel never carry the same fact (`docs/frontend/spec.md` §1.12).
   const isClosureCalledOut = holdsADraw && saisonStatus === "active";
 
-  // Graded on the act ON OFFER, so a first draw stays neutral: it destroys nothing. Read off the two
-  // reasons rather than off `closedReason`, which the unchosen prompt fills while both acts stand open.
-  const isDestructiveOnOffer = holdsADraw && (drawBlockedReason === null || undrawBlockedReason === null);
-  const panel = formPanel({ tone: isDestructiveOnOffer ? "danger" : "neutral" });
+  // Graded on the act ON OFFER, so a first draw stays neutral: it destroys nothing, and the undraw is never
+  // on offer without the replace.
+  const panel = formPanel({ tone: replacesDraw ? "danger" : "neutral" });
 
   // ONE expression for all three boxes: react-aria's `Select` has no read-only state, so the trio's
   // two halves spell the freeze differently and a control left off either spelling would still be
@@ -151,7 +145,13 @@ export function FormSpielplanSection({
   const shapeRows = describeShapeRows(readShape(rules), shape);
   const isShapeMoved = shapeRows.some((row) => row.isChanged);
 
+  // Taken at the press and never re-derived while the write runs: a season moving under it moves the operation
+  // on offer, and the running press would then name a write nobody sent.
+  const [runningLabel, setRunningLabel] = useState("");
+
   const handlePress = () => {
+    setRunningLabel(isDrawing ? (replacesDraw ? "Legt neu an..." : "Legt an...") : "Nimmt zurück...");
+
     // What makes the guard's second run load-bearing here: the draw READS the rules it is guarded
     // against, so a draft typed after arming would go with the refresh while the draw used the stored ones.
     press(async () => {
@@ -162,7 +162,7 @@ export function FormSpielplanSection({
 
         if (!res.success) {
           appToast.danger(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", {
-            description: res.error ?? UNKNOWN_REFUSAL,
+            description: res.error,
           });
           return;
         }
@@ -172,7 +172,7 @@ export function FormSpielplanSection({
         const res = await undrawSpielplanAction({ id: saisonId });
 
         if (!res.success) {
-          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error ?? UNKNOWN_REFUSAL });
+          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error });
           return;
         }
 
@@ -194,6 +194,11 @@ export function FormSpielplanSection({
       router.refresh();
     });
   };
+
+  // The object stays in both labels: under a danger heading a bare verb is agreed to without the
+  // reader having to hold what it refers to.
+  const restingLabel = isDrawing ? (replacesDraw ? "Spielplan neu anlegen" : "Spielplan anlegen") : "Spielplan zurücknehmen";
+  const armedLabel = isDrawing ? (replacesDraw ? "Ja, löschen und neu anlegen" : "Ja, Spielplan anlegen") : "Ja, Spielplan zurücknehmen";
 
   return (
     <section className={panel.root()}>
@@ -285,7 +290,11 @@ export function FormSpielplanSection({
           </ToggleButtonGroup>
         )}
 
-        {closedReason === null ? (
+        {isUnchosen ? (
+          <p className="muted-hint">
+            Beides löscht die Spieltage und Spiele, die Saison <strong>{saisonId}</strong> jetzt hält.
+          </p>
+        ) : standingReason === null ? (
           <p className="muted-hint">
             {isDrawing ? (
               replacesDraw ? (
@@ -304,10 +313,10 @@ export function FormSpielplanSection({
             )}
           </p>
         ) : (
-          /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
-             so a reader who never points at a closed button would never learn why. Except where the
-             callout above already serves that reader. */
-          !isClosureCalledOut && <p className="muted-hint">{closedReason}</p>
+          /* In the body as well as on the control: a refusal hint opens only on a hover or a press, so
+             a reader who does neither never learns why. Except where the callout above already serves
+             that reader. */
+          !isClosureCalledOut && <p className="muted-hint">{standingReason}</p>
         )}
 
         {/* Offered on a REPLACE alone, which is where the endpoint takes them: a first draw runs off
@@ -428,13 +437,22 @@ export function FormSpielplanSection({
 
                   <div className="flex w-full flex-col gap-y-1">
                     <h3 className={FORM_SECTION_HEADING}>Daraus entsteht</h3>
-                    {/* The served schedule was derived from the STORED numbers, so it describes no season
-                        once they move. Recomputing it here would be a second derivation of the draw, which
-                        `buildSpielplanVorschau` exists to avoid — so the panel says what it does not know. */}
+                    {/* The served schedule was derived from the STORED numbers, so it describes no season once they move. */}
                     {isShapeMoved ? (
-                      <p className="fluid-xs text-foreground font-medium">
-                        Wie viele Spieltage und Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest.
-                      </p>
+                      <>
+                        <dl className="flex w-full flex-col gap-y-1">
+                          {/* Mirrored rather than unknown: the press is already judged against this count. */}
+                          <ConfirmReadoutRow
+                            label="Spieltage"
+                            value={describeSpieltageCount(drawnSpieltage(shape))}
+                          />
+                        </dl>
+                        {/* The fixture count is mirrored nowhere, and a second derivation of the draw is what
+                            `buildSpielplanVorschau` exists to avoid. */}
+                        <p className="fluid-xs text-foreground font-medium">
+                          Wie viele Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest.
+                        </p>
+                      </>
                     ) : (
                       <dl className="flex w-full flex-col gap-y-1">
                         <ConfirmReadoutRow
@@ -455,16 +473,7 @@ export function FormSpielplanSection({
               )}
             </div>
 
-            {/* A first draw on a PLANNED season is the one branch with a repair: the undraw beside it
-                removes what this press writes (`REQ-SPIELPLAN-006`). Nothing replays the rows
-                elsewhere, the log's images being a record to read rather than a restore. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
-              {holdsADraw
-                ? "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück."
-                : saisonStatus === "future"
-                  ? "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde."
-                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück."}
-            </p>
+            <p className="fluid-xxs text-foreground leading-normal font-medium">{describeSpielplanPermanenz({ holdsADraw, saisonStatus })}</p>
           </ConfirmReveal>
         )}
 
@@ -473,51 +482,29 @@ export function FormSpielplanSection({
           isPending={isWriting}
           onCancel={cancel}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
-              treatment the rollover established. `isWriting` is left out: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={isWriting ? null : closedReason}>
-            <Button
-              type="button"
-              variant="primary"
-              isDisabled={isWriting || closedReason !== null}
-              onPress={handlePress}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming &&
-                (isDrawing ? (
-                  <Calendar
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                  />
-                ) : (
-                  <CalendarXmark
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                  />
-                ))}
-              {/* The object stays in every label: under a danger heading a bare verb is agreed to
-                  without the reader having to hold what it refers to. */}
-              {isDrawing
-                ? isWriting
-                  ? replacesDraw
-                    ? "Wird neu angelegt..."
-                    : "Wird angelegt..."
-                  : isConfirming
-                    ? replacesDraw
-                      ? "Ja, löschen und neu anlegen"
-                      : "Ja, Spielplan anlegen"
-                    : replacesDraw
-                      ? "Spielplan neu anlegen"
-                      : "Spielplan anlegen"
-                : isWriting
-                  ? "Wird zurückgenommen..."
-                  : isConfirming
-                    ? "Ja, Spielplan zurücknehmen"
-                    : "Spielplan zurücknehmen"}
-            </Button>
-          </Hint>
+              treatment the rollover established. */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
+            isPending={isWriting}
+            reason={closedReason}
+            resting={restingLabel}
+            armed={armedLabel}
+            running={runningLabel}
+            icon={
+              isDrawing ? (
+                <Calendar
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              ) : (
+                <CalendarXmark
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              )
+            }
+            onPress={handlePress}
+          />
         </ConfirmActionRow>
       </div>
     </section>

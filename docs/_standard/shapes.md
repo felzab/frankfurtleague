@@ -24,7 +24,7 @@ skeletons against nothing, and the rule each cites is the only thing holding it 
 ## A spec sheet
 
 The four section headings are compared as literal text against
-`scripts/checks/docs_gate/checks.py :: SPEC_SECTIONS`, in this order, with **no other `##` heading on
+`scripts/checks/docs_gate/kernel.py :: SPEC_SECTIONS`, in this order, with **no other `##` heading on
 the page**: a fifth section repoints every citation of "section 3" without changing a word of one.
 The arrow in the third is `→`. Contract subsections number from `1.1` upward with no gap, and an
 invariant row has exactly three cells.

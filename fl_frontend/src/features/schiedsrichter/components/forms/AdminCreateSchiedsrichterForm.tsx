@@ -51,27 +51,25 @@ export function AdminCreateSchiedsrichterForm({
       )}
       schema={FLPostSchiedsrichterPayloadSchema}
       toPayload={toPayload}
-      onSubmit={async (draft) => {
+      onSubmit={async (payload) => {
         // The block in `EntityForm` has already proved this parses, so the record below reads the PARSED
-        // fee rather than the draft's, which still carries the empty case.
-        const payload = FLPostSchiedsrichterPayloadSchema.parse(toPayload(draft));
-        const res = await postSchiedsrichterAction(payload);
-        const success = res.success && !!res.created_id;
+        // fee rather than the payload's, whose type still carries the empty case.
+        const parsed = FLPostSchiedsrichterPayloadSchema.parse(payload);
+        const res = await postSchiedsrichterAction(parsed);
 
-        if (success && res.created_id) {
-          onCreated?.({
-            id: res.created_id,
-            name: draft.name,
-            schule: draft.schule,
-            kontakt: payload.kontakt,
-            default_payment: payload.default_payment,
-            // Just created, so current — and `null` is what current means for both dates.
-            inactive_since: null,
-            anonymisiert_am: null,
-          });
-        }
+        if (!res.success) return res;
 
-        return { ...res, success };
+        onCreated?.({
+          id: res.created_id,
+          name: parsed.name,
+          schule: parsed.schule,
+          kontakt: parsed.kontakt,
+          default_payment: parsed.default_payment,
+          // Just created, so current — and `null` is what current means.
+          inactive_since: null,
+        });
+
+        return res;
       }}
       marksRequired
       successMessage="Schiedsrichter angelegt"

@@ -47,9 +47,9 @@ PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ
 
 _CODE_PATTERN = "REQ-"
 
-# Spelled here as well as in `fl_frontend/src/core/refusalRegister.ts`, which cannot import a Python
-# constant: a rule declared against several endpoints joins them, and a reader taking the whole
-# string as one token would find no route serving it.
+# Spelled here as well as in `fl_frontend/src/shared/testing/refusalRegister.ts`, which cannot
+# import a Python constant: a rule declared against several endpoints joins them, and a reader
+# taking the whole string as one token would find no route serving it.
 OPERATION_SEPARATOR = " · "
 
 # The declaration's own module, which never answers for a reason's own text: it is dropped from

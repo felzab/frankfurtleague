@@ -7,7 +7,9 @@ import type { FieldErrors } from "@/shared/utils/validation";
 
 /** The fields the referee editor owns, widened to what a draft holds mid-edit. */
 export type FLSchiedsrichterDraftFields = {
-  name: string;
+  // Nullable for the STORED side alone, a hand-write being able to leave a row without a name; the
+  // draft's box holds `""` for the same row, and `emptyAsNull` below reads the two as one value.
+  name: string | null;
   schule: string | null;
   kontakt: FLKontakt;
   default_payment: number | null;

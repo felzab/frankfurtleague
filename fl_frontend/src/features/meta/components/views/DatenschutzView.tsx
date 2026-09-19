@@ -157,7 +157,7 @@ function MailLink() {
 
 export function DatenschutzView() {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col gap-5`}>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-6`}>
       <header className="flex w-full flex-col gap-3">
         <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>Datenschutzerklärung</h1>
       </header>

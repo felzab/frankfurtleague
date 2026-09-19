@@ -5,36 +5,25 @@ import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { eraseKontaktpersonAction, readKontaktErasureAnsichtAction } from "@/features/kontakte/actions";
+import { settledErasureAnsicht } from "@/features/kontakte/utils";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import { DRAFT_IN_THE_WAY } from "./banners";
 import { FormKontaktReveal } from "./FormKontaktReveal";
 
-import type { FLKontaktErasureAnsichtResponse } from "@/features/kontakte/schemas";
+import type { ErasureAnsicht } from "@/features/kontakte/types";
 
-/** What the draft guard says here: the write lands on the server and this page re-reads after it. */
-const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
-
-/** The one repair this panel holds: arming it again is what reads the list a second time. */
-const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
-
-/**
- * What the arming press learned, carried WITH the address it asked about: this seat's own boxes stay
- * live while the panel is armed, so an answer read for one address must not stand under another.
- */
-type ErasureAnsicht = { email: string } & (
-  { status: "reading" } | { status: "read"; sitze: FLKontaktErasureAnsichtResponse } | { status: "refused"; reason: string }
-);
+/** A refused read, said once for the reveal's body and the closed press alike, so the two cannot part. */
+const ohneUebersicht = (reason: string): string =>
+  `Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. ${reason}`;
 
 /** The armed reveal's body, in the three states the read leaves it in. */
 function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
@@ -48,11 +37,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
   }
 
   if (ansicht?.status === "refused") {
-    return (
-      <p className="fluid-xxs text-foreground leading-normal font-medium">
-        Die Übersicht, wer dabei gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. {ansicht.reason}
-      </p>
-    );
+    return <p className="fluid-xxs text-foreground leading-normal font-medium">{ohneUebersicht(ansicht.reason)}</p>;
   }
 
   // The app's one „not yet here“ treatment rather than a sentence the names then replace: what
@@ -84,19 +69,12 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   const readAnsicht = async () => {
     setGelesen({ email, status: "reading" });
 
-    const res = await readKontaktErasureAnsichtAction({ email });
+    // Settled, never awaited bare: outside a transition a rejected action (no connection, an answer
+    // from something standing in front of this application) leaves the placeholder up and the write
+    // closed beneath it for good.
+    const [settled] = await Promise.allSettled([readKontaktErasureAnsichtAction({ email })]);
 
-    if (res.success && res.ansicht !== undefined) {
-      setGelesen({ email, status: "read", sitze: res.ansicht });
-      return;
-    }
-
-    // A field map with no field to lay it on: the address came off the stored record, so
-    // `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED` would send the reader to a
-    // box this panel does not render.
-    const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
-
-    setGelesen({ email, status: "refused", reason: gesagt ?? NOCH_EINMAL });
+    setGelesen(settledErasureAnsicht(email, settled));
   };
 
   const handleErase = () => {
@@ -110,7 +88,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
       const res = await eraseKontaktpersonAction({ email });
 
       if (!res.success) {
-        appToast.danger("Kontaktperson nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Kontaktperson nicht gelöscht", { description: res.error });
         return;
       }
 
@@ -124,6 +102,16 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
       router.refresh();
     });
   };
+
+  /* The object stays in the label: a bare „Ja, endgültig löschen“ reads as whatever the page is
+     about, and this one reaches every season rather than this seat. */
+  const ARMED_LABEL = "Ja, Kontaktperson endgültig löschen";
+
+  // A refused read alone names a reason: a read still running ends by itself, as the write does.
+  const closedReason = !isPending && isConfirming && ansicht?.status === "refused" ? ohneUebersicht(ansicht.reason) : null;
+
+  // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
+  const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
 
   // The seat's own sub-block rule, as the Kenntnisnahme block above it uses: one divider treatment per
   // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
@@ -145,27 +133,25 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
         isConfirming={isConfirming}
         isPending={isPending}
         onCancel={cancel}>
-        <Button
-          type="button"
-          variant="primary"
-          // Closed until the names are on screen: they ARE the confirmation, so a press taken over the
-          // placeholder or over a refused read would confirm nothing.
-          isDisabled={isPending || (isConfirming && ansicht?.status !== "read")}
-          onPress={handleErase}
-          className={confirmButton(isConfirming)}>
-          {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
-              press, and step two is already announcing itself in words. */}
-          {!isConfirming && (
+        <ConfirmPressButton
+          isConfirming={isConfirming}
+          isPending={isPending}
+          // The arming read holds the press without being the write: the press left the keyboard's
+          // focus here, and the control says „Löscht...“ for the deletion alone.
+          held={isReading}
+          reason={closedReason}
+          resting="Kontaktperson löschen"
+          armed={ARMED_LABEL}
+          running="Löscht..."
+
+          icon={
             <TrashBin
+              className="size-4.5"
               aria-hidden="true"
-              width={18}
-              height={18}
             />
-          )}
-          {/* The object stays in the label: a bare „Ja, endgültig löschen“ reads as whatever the page
-              is about, and this one reaches every season rather than this seat. */}
-          {isPending ? "Löscht..." : isConfirming ? "Ja, Kontaktperson endgültig löschen" : "Kontaktperson löschen"}
-        </Button>
+          }
+          onPress={handleErase}
+        />
       </ConfirmActionRow>
     </div>
   );

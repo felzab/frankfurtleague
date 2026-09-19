@@ -138,7 +138,7 @@ export function FormErgebnisSection({
 
       <div className={styles.body()}>
         {/* Named by its visible content: an `aria-label` would override it with a copy. */}
-        <div className="flex w-full flex-col gap-y-1.5">
+        <div className="flex w-full flex-col gap-y-2">
           <Switch
             aria-describedby={bothSidesResolved ? undefined : "ergebnis-eintragen-hint"}
             isDisabled={!bothSidesResolved}

@@ -11,7 +11,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { FieldError, Form, Input, Label, TextField } from "@heroui/react";
 
+import { renderTree } from "@/shared/testing/renderTest.ts";
+
+import type { FLAddress } from "@/shared/schemas.ts";
 import type { ComponentProps, ReactNode } from "react";
+
+const { AddressFields } = await import("./AddressFields.tsx");
+
+const NO_ADDRESS: FLAddress = { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" };
 
 /**
  * What `EntityForm` puts on a form that marks its required fields. Asserted rather than written inline
@@ -89,13 +96,27 @@ describe("what a required field asks of the browser", () => {
 });
 
 describe("what an opt-in required prop actually reaches", () => {
-  it("hands the district's required-ness to the caller, defaulting off", async () => {
-    // The component cannot be imported here — the runner reads no `.tsx` — so this grades the wiring while the
-    // case above grades the mechanism it depends on. The default keeps every admin address optional.
-    const source = await readFile(path.join(import.meta.dirname, "AddressFields.tsx"), "utf8");
+  /** The district's box as the address editor renders it under the app's own mode. */
+  const districtBox = (isStadtteilRequired?: boolean): string => {
+    const html = renderTree(
+      h(
+        Form,
+        { validationBehavior: "aria" },
+        h(AddressFields, {
+          value: NO_ADDRESS,
+          onChange: () => undefined,
+          ...(isStadtteilRequired === undefined ? {} : { isStadtteilRequired }),
+        }),
+      ),
+    );
 
-    assert.match(source, /isStadtteilRequired = false,/);
-    assert.match(source, /isRequired=\{isStadtteilRequired\}\s*\n\s*name=\{`\$\{namePrefix\}\.stadtteil`\}/);
+    return /<input\b[^>]*\bname="address\.stadtteil"[^>]*>/.exec(html)?.[0] ?? assert.fail("the address editor renders no district box");
+  };
+
+  // The default keeps every admin address optional; the application form is the one caller opting in.
+  it("hands the district's required-ness to the caller, defaulting off", () => {
+    assert.doesNotMatch(districtBox(), /\baria-required="true"/, "the district is required where no caller asked for it");
+    assert.match(districtBox(true), /\baria-required="true"/, "the caller's opt-in never reaches the district's box");
   });
 });
 

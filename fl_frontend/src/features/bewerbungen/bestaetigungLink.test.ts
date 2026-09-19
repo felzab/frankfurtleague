@@ -21,12 +21,12 @@ const MINTER = ["../../app/api/bewerbung/route.ts", "sweep.ts", "actions.ts"].ma
  * two literals agreeing is what let three modules drift apart in the first place.
  */
 function redactedParameterNames(): string[] {
-  const ab = readFileSync(EDGE_CONFIG, "utf8");
-  const block = ab.slice(ab.indexOf("map $request_uri $credential_free_uri {"));
-  const bis = block.slice(0, block.indexOf("}"));
-  const alternationen = [...bis.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|"));
+  const from2 = readFileSync(EDGE_CONFIG, "utf8");
+  const block = from2.slice(from2.indexOf("map $request_uri $credential_free_uri {"));
+  const to2 = block.slice(0, block.indexOf("}"));
+  const alternations = [...to2.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|"));
 
-  return [...new Set(alternationen)];
+  return [...new Set(alternations)];
 }
 
 describe("the confirmation link every minter spells", () => {
@@ -43,16 +43,15 @@ describe("the confirmation link every minter spells", () => {
   /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link
      spelled with any other parameter writes the credential into the access line and the referer. */
   it("names a parameter the edge's own redaction map replaces", () => {
-    const redigiert = redactedParameterNames();
+    const redacted = redactedParameterNames();
     const name = /\?(\w+)=/.exec(bestaetigungsLink(ORIGIN, "beispiel-eins"))?.[1] ?? "";
 
-    assert.ok(redigiert.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-    assert.ok(redigiert.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
+    assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
   });
 
-  /* The defect this closes: a link built on the published origin sends a reader of the local stack
-     into production, and the two origins are separate settings for the reason
-     `docs/frontend/spec.md :: I186` gives. */
+  /* A link built on the published origin sends a reader of the local stack into production, and the
+     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
   it("is minted on the configured origin by every module that mints one, and on the published one by none", () => {
     for (const { name, source } of MINTER) {
       assert.match(source, /bestaetigungsLink\(origin/, `${name} mints its link on something other than the origin it read`);

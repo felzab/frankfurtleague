@@ -338,14 +338,14 @@ class TestThePlannedSeasonsContentsAreWithheldFromTheBaseTier:
         }
 
     def test_its_squad_rows_are_absent_from_a_list_narrowed_by_club(self, seeded_league: str):
-        """The other route in: the club plays in all three seasons, and `?team_id=` alone names no season for the id gate to judge.
+        """The other route in: the club plays in all three seasons, and `?team_id=` alone reads the running one.
 
         Naming a team makes the junction join strict, so the player left with no row drops out here rather than reading as a player.
         """
 
         served = on_a_league(seeded_league, lambda database: read_spieler(database, None, team_id=TEAM_OID))
 
-        assert squad_rows_served(served) == {(SPIELER_VORNAME, NUMMER_OF[ARCHIVED]), (SPIELER_VORNAME, NUMMER_OF[RUNNING])}
+        assert squad_rows_served(served) == {(SPIELER_VORNAME, NUMMER_OF[RUNNING])}
 
     def test_its_matchdays_are_not_listed(self, seeded_league: str):
         assert raised_by(seeded_league, lambda database: read_spieltage(database, PLANNED)).status_code == 404

@@ -35,7 +35,9 @@ export function EditFormLayout({
           isLeaving={isLeaving}
         />
 
-        {/* Splits at `xl`, not `lg`: the admin sidemenu leaves too little beside the rail. */}
+        {/* Splits at `xl`, not `lg`: the admin sidemenu leaves too little beside the rail. Past `2xl` the rail takes the
+            width rather than the form column: `DraftChangeList` and `SpielDraftPreview` truncate their values, so the
+            step buys characters. */}
         <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
           {/* Explicit grid placement, not `order-*`: DOM order is the mobile reading order, and on a
               phone the rail's warnings belong above the fields rather than below every panel. */}

@@ -33,9 +33,9 @@ secrets/
 # nothing -- a deliberate one needs `git add -f`.
 .npmrc
 
-# Fixture directories scripts/gate/verify.sh and scripts/gate/selfcheck.sh build; their EXIT trap misses
-# Ctrl-C and SIGKILL. Unignored, a leftover is an untracked change the next scoped run refuses
-# over, and one guard-branch-bash.sh denies on main.
+# What a run leaves in the checkout: the gate's fixtures, whose EXIT trap misses Ctrl-C, and a mail
+# sink holding magic links. Unignored, a leftover is an untracked change a scoped run refuses over
+# and guard-branch-bash.sh denies on main.
 .tmp-*/
 
 # Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path

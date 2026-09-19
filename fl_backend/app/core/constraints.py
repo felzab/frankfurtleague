@@ -374,8 +374,8 @@ _SPIEL_SCHIEDSRICHTER_FIELD = _object(
     required=("schiedsrichter_id", "name", "payment"),
     properties={
         "schiedsrichter_id": {"bsonType": "objectId"},
-        # Null where the referee's data were erased, the block itself surviving: the booking and the
-        # fee are the fixture's own record and outlive the name it copied.
+        # Null where the fixture was repointed at the ghost, the block itself surviving: the booking
+        # and the fee are the fixture's own record and outlive the name it copied.
         "name": {"bsonType": _STRING_OR_NULL},
         "payment": {"bsonType": "int"},
     },
@@ -611,17 +611,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SCHIEDSRICHTER: {
         "$jsonSchema": _object(
-            required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since", "anonymisiert_am"),
+            required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                # Null once the erasure has run. Required all the same, so a row carries the key
-                # whichever state it is in and `uniq_schiedsrichter_name`'s filter can read it.
+                # Null on the ghost alone, which stands behind nobody
+                # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`). Required all the same, so
+                # `uniq_schiedsrichter_name` indexes one value per row rather than a missing key.
                 "name": {"bsonType": _STRING_OR_NULL},
                 "schule": {"bsonType": _STRING_OR_NULL},
                 "default_payment": {"bsonType": "int"},
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
-                "anonymisiert_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -741,15 +741,10 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # nothing merges two of these: a second row under one name would be a state only a person could
     # undo, by renaming one.
     UniqueIndex(Collection.SPIELORTE, "uniq_spielort_name", ("name",), "a name identifies exactly one venue"),
-    # Erased rows are OUT, where the venue index above takes every row: their name is null, and an
-    # index covering them would refuse the SECOND person ever to ask for their data to be erased.
-    UniqueIndex(
-        Collection.SCHIEDSRICHTER,
-        "uniq_schiedsrichter_name",
-        ("name",),
-        "a name identifies exactly one referee whose data stand",
-        partial_filter={"anonymisiert_am": None},
-    ),
+    # Every row, as the venue index above takes every row: an erasure deletes the referee rather
+    # than nulling them, so the one null name this can meet is the ghost's and there is only ever
+    # one ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+    UniqueIndex(Collection.SCHIEDSRICHTER, "uniq_schiedsrichter_name", ("name",), "a name identifies exactly one referee"),
     # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
     # holds several matchdays numbered 1.
     UniqueIndex(
@@ -889,7 +884,13 @@ class ConstraintSummary:
     ttl_indexes: int
 
 
-async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
+async def apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
+    """One collection's validator, attached as the boot attaches it.
+
+    Public because a migration run BEFORE the boot needs the new validator in place before its
+    own writes, and a second spelling of this command would carry a different strictness.
+    """
+
     command = {
         "collMod": collection_name,
         "validator": validator,
@@ -996,7 +997,7 @@ async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     # validator, so an overlap would leave a collection nothing ever validates.
     await _apply_concurrently(
         [
-            (collection_name, partial(_apply_validator, db, collection_name, validator))
+            (collection_name, partial(apply_validator, db, collection_name, validator))
             for collection_name, validator in COLLECTION_VALIDATORS.items()
         ]
     )
@@ -1068,8 +1069,8 @@ async def report_duplicates(db: AsyncDatabase) -> list[DuplicateReport]:
 
     for index in UNIQUE_INDEXES:
         offenders: list[Mapping[str, Any]] = [
-            # The index's own reach, ahead of the grouping: without it two erased referees group as a
-            # duplicate the boot would refuse, and an operator is sent to rename a row that has no name.
+            # The index's own reach, ahead of the grouping: rows outside it would group as a
+            # duplicate the boot never refuses, sending an operator to repair data the index ignores.
             *([{"$match": dict(index.partial_filter)}] if index.partial_filter is not None else []),
             {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
             {"$match": {"n": {"$gt": 1}}},

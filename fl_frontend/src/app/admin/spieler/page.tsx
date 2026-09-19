@@ -10,6 +10,7 @@ import { getSpielerMemberships } from "@/features/spieler/queries";
 import { countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
+import { CreateTriggerPlaceholder } from "@/shared/components/ui/AdminCrudLoading";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
@@ -35,8 +36,7 @@ export default function AdminSpielerPage(props: NextPageProps) {
         />
       }
       createModal={
-        // The fallback holds the trigger's own height, so the header row does not jump.
-        <Suspense fallback={<div className="h-12 lg:h-15" />}>
+        <Suspense fallback={<CreateTriggerPlaceholder label={SPIELER_CRUD_COPY.createLabel} />}>
           <CreateSpielerModalLoader searchParams={props.searchParams} />
         </Suspense>
       }>

@@ -15,6 +15,11 @@ export type Facet<TItem> = {
   label: string;
   options: readonly FacetOption[];
   /**
+   * Values that exist beyond `options`, for a facet whose options come off the rows on hand. One the URL names is
+   * kept and offered while picked, so a link from another list still names what it asked for.
+   */
+  known?: readonly FacetOption[];
+  /**
    * What the facet selects while its parameter is ABSENT — for a surface whose useful opening state is already
    * narrowed. An empty parameter is what turns it off, so the unnarrowed list stays reachable. Offered values only.
    */
@@ -40,6 +45,25 @@ export type FacetCounts = Readonly<Record<string, Readonly<Record<string, number
  */
 export function isFacetOptionReachable(count: number, isPicked: boolean): boolean {
   return count > 0 || isPicked;
+}
+
+/**
+ * `options`, then each `known` value `picked` names that they lack. **Every reader of a facet's options goes through
+ * this** — the selection, the counts, the pill and the panel — or a kept value is selected with nothing naming it.
+ */
+export function offeredOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): readonly FacetOption[] {
+  if (facet.known === undefined || picked.length === 0) return facet.options;
+
+  const seen = new Set(facet.options.map((option) => option.value));
+  const linked: FacetOption[] = [];
+  for (const option of facet.known) {
+    // A vocabulary may map two rows onto one value, and a repeated value is a repeated ListBox key.
+    if (seen.has(option.value) || !picked.includes(option.value)) continue;
+    seen.add(option.value);
+    linked.push(option);
+  }
+
+  return linked.length === 0 ? facet.options : [...facet.options, ...linked];
 }
 
 /** What is selected right now, by facet param. An absent or empty entry means "no opinion". */
@@ -79,7 +103,7 @@ export function countFacetOptions<TItem>(
   const base = applyFacets(items, others, selection);
 
   const counts: Record<string, number> = {};
-  for (const option of facet.options) counts[option.value] = 0;
+  for (const option of offeredOptions(facet, selection[facet.param] ?? [])) counts[option.value] = 0;
 
   for (const item of base) {
     for (const value of facet.read(item)) {
@@ -95,8 +119,8 @@ export function countFacetOptions<TItem>(
 const lastReadSelection = new WeakMap<object, { search: string; selection: FacetSelection }>();
 
 /**
- * Comma-joined, one parameter per facet; a value the facet does not offer is dropped, the query
- * string being editable, and `defaultValues` answer where nothing offered survives.
+ * Comma-joined, one parameter per facet; a value the facet neither offers nor knows is dropped, the
+ * query string being editable, and `defaultValues` answer where nothing survives.
  * **The result is referentially stable while the query string is.**
  */
 export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], params: URLSearchParams): FacetSelection {
@@ -113,8 +137,9 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
     // facet off, and every "show me all of them" link in the app is written as that form.
     if (raw === "") continue;
 
-    const offered = new Set(facet.options.map((option) => option.value));
-    const picked = raw === null ? [] : raw.split(",").filter((value) => offered.has(value));
+    const named = raw === null ? [] : raw.split(",");
+    const offered = new Set(offeredOptions(facet, named).map((option) => option.value));
+    const picked = named.filter((value) => offered.has(value));
 
     // Absent and unrecognised answer alike, with the default. Two admin lists can spell one parameter
     // differently, and reading a foreign value as the off-switch hands the reader an unnarrowed list

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const FEATURES = path.join(SRC, "features");
@@ -23,23 +23,21 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
  * together; `freeText` is owed PER undeclared column, not per table.
  */
 const TABLES = [
-  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 224 },
-  // Its free-text column is the Ansprechperson, a name over an address: the club beside it is
-  // declared, so the width above the floor lands on the pair that goes on reading longer.
-  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 160 },
-  { file: "features/teams/components/collections/AdminKontakteTable.tsx", controls: 2, alternates: 0, freeText: 256 },
-  { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 3, alternates: 0, freeText: 304 },
-  { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 176 },
-  { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 4, alternates: 1, freeText: 176 },
-  { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 5, alternates: 1, freeText: 224 },
-  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 6, alternates: 1, freeText: 256 },
+  // Two undeclared columns, the one row here that is two blocks of like weight, so `freeText` is
+  // owed twice.
+  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 240 },
+  { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 2, alternates: 0, freeText: 224 },
+  { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 240 },
+  { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 3, alternates: 1, freeText: 240 },
+  { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 4, alternates: 1, freeText: 240 },
+  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 3, alternates: 1, freeText: 336 },
 ];
 
 const read = (file: string): string => readFileSync(path.join(SRC, file), "utf8");
 
-/** Every `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
+/** Every shipped `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
 const tsxUnder = (dir: string): string[] =>
-  filesUnder(dir, (name) => name.endsWith(".tsx"), 100).map((full) => path.relative(SRC, full).split(path.sep).join("/"));
+  filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 100).map((full) => path.relative(SRC, full).split(path.sep).join("/"));
 
 /** Each `@theme` block's body. Tailwind takes a theme variable from nowhere else, so nor does this. */
 function themeBlocks(css: string): string[] {
@@ -72,48 +70,92 @@ function px(value: string | undefined): number | null {
 }
 
 /**
+ * A theme variable in pixels, raising where the stylesheets declare none. A non-null assertion here
+ * would be TypeScript's alone: at runtime `px` answers null, arithmetic reads that as zero, and the
+ * ceiling below rises silently past every floor it guards.
+ */
+function themePx(name: string): number {
+  const measured = px(THEME.get(name));
+  if (measured === null) throw new Error(`the theme declares no --${name} this reader can measure`);
+
+  return measured;
+}
+
+/**
  * `w-44` and `min-w-5xl` in pixels. Both scales come from the theme: a numeric step is a multiple of
  * `--spacing`, and a named one is the `--container-*` of that name.
  */
 function widthPx(token: string): number | null {
   const step = /^(?:min-)?w-(\d+(?:\.\d+)?)$/.exec(token);
-  if (step !== null) {
-    const spacing = px(THEME.get("spacing"));
-    return spacing === null ? null : Number(step[1]) * spacing;
-  }
+  if (step !== null) return Number(step[1]) * themePx("spacing");
 
   const named = /^(?:min-)?w-([a-z0-9]+)$/.exec(token);
   return named === null ? null : px(THEME.get(`container-${named[1]!}`));
 }
 
-type Element = { tag: string; classes: readonly string[]; start: number; end: number };
+/** `AdminCrudShell`'s `sm:p-8`, both sides. */
+const SHELL_INSET = 2 * 8 * themePx("spacing");
+/** `card()`'s `border`, one pixel each side. */
+const CARD_BORDER = 2;
+/**
+ * The classic scrollbar `AppShell`'s `main` reserves through `scrollbar-gutter-stable`, at the widest
+ * a shipped desktop browser draws one; a platform drawing overlay scrollbars reserves nothing.
+ */
+const SCROLLBAR = 17;
+
+/**
+ * The narrowest table any viewport gives: the `lg` step less the docked rail, against the `md` step
+ * with the rail a drawer. **The wider breakpoint binds**, the rail taking its width out of the
+ * content column from `lg` up.
+ */
+const STEP =
+  Math.min(themePx("breakpoint-md") - SHELL_INSET, themePx("breakpoint-lg") - themePx("width-sidemenu") - SHELL_INSET) -
+  CARD_BORDER -
+  SCROLLBAR;
+
+type Element = { tag: string; classes: readonly string[]; interpolated: readonly string[]; start: number; end: number };
+
+/** The class attribute of one element, however it is spelled, or `undefined` where the element declares none. */
+function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
+  const found = opening.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+
+  return found !== undefined && ts.isJsxAttribute(found) ? found.initializer : undefined;
+}
+
+/** The names a class attribute interpolates: a shared inset arrives as one of these and never as a token `classesOf` can read. */
+function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
+  const declared = classAttribute(opening, source);
+  if (declared === undefined || !ts.isJsxExpression(declared) || declared.expression === undefined) return [];
+
+  const expression = declared.expression;
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (!ts.isTemplateExpression(expression)) return [];
+
+  return expression.templateSpans.flatMap((span) => (ts.isIdentifier(span.expression) ? [span.expression.text] : []));
+}
 
 /** A template's own text counts, so a width written beside an interpolation is still declared. */
 function classesOf(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
-  for (const attribute of opening.attributes.properties) {
-    if (!ts.isJsxAttribute(attribute) || attribute.name.getText(source) !== "className") continue;
+  const declared = classAttribute(opening, source);
+  let written: string | null = null;
 
-    const declared = attribute.initializer;
-    let written: string | null = null;
-
-    if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
-    else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
-      const expression = declared.expression;
-      if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
-      else if (ts.isTemplateExpression(expression))
-        written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
-    }
-
-    return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
+  if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
+  else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
+    const expression = declared.expression;
+    if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
+    else if (ts.isTemplateExpression(expression))
+      written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
   }
 
-  return [];
+  return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
 }
 
 /* Parsed rather than matched as text: the Prettier plugin owns the order inside a class attribute, and
    a guard reading one as a string is the brittleness that already bit this file once. */
-function elementsOf(file: string): Element[] {
-  const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+function elementsIn(text: string, name: string): Element[] {
+  const source = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const found: Element[] = [];
 
   const visit = (node: ts.Node): void => {
@@ -122,6 +164,7 @@ function elementsOf(file: string): Element[] {
       found.push({
         tag: opening.tagName.getText(source),
         classes: classesOf(opening, source),
+        interpolated: interpolatedNames(opening, source),
         start: node.getStart(source),
         end: node.getEnd(),
       });
@@ -133,24 +176,56 @@ function elementsOf(file: string): Element[] {
   return found;
 }
 
-/** The one `Table.Content` and the columns declared inside it, which is what fixed layout allocates over. */
-function tableOf(file: string): { content: Element | null; columns: Element[] } {
+const elementsOf = (file: string): Element[] => elementsIn(read(file), file);
+
+/**
+ * The one `Table.Content`, the columns fixed layout allocates over, and the cells under them: a
+ * column and its cells are two ways to write the same disappearance, and the grid feels both.
+ */
+function tableOf(file: string): { content: Element | null; columns: Element[]; cells: Element[] } {
   const elements = elementsOf(file);
   const contents = elements.filter((element) => element.tag === "Table.Content");
   const content = contents.length === 1 ? contents[0]! : null;
+  const inside = (tag: string): Element[] =>
+    content === null ? [] : elements.filter((element) => element.tag === tag && element.start >= content.start && element.end <= content.end);
 
-  return {
-    content,
-    columns:
-      content === null
-        ? []
-        : elements.filter((element) => element.tag === "Table.Column" && element.start >= content.start && element.end <= content.end),
-  };
+  return { content, columns: inside("Table.Column"), cells: inside("Table.Cell") };
+}
+
+/** A utility's own name, every variant prefix stripped, so `max-lg:hidden` and `@2xl:min-w-40` both reach the test below. */
+const utilityOf = (token: string): string => token.slice(token.lastIndexOf(":") + 1);
+
+/**
+ * A class that makes the element it sits on exist at one width and not another. A bare width is the
+ * allocation fixed layout needs; the same width behind a variant is the allocation changing.
+ */
+function widthConditional(token: string): boolean {
+  const utility = utilityOf(token);
+
+  return utility === "hidden" || (utility !== token && /^(?:min-|max-)?w-/.test(utility));
 }
 
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
 
-describe("the eight admin CRUD tables", () => {
+const TABLE_BOX = new Set(["Table", "Table.ScrollContainer", "Table.Content"]);
+
+/** The shared inset each element kind takes, `fl_frontend/src/shared/components/ui/adminTable.ts`'s pair for a column and its cell's. */
+const INSETS: Record<string, readonly string[]> = {
+  "Table.Column": ["COLUMN_EDGE", "COLUMN_INNER"],
+  "Table.Cell": ["CELL_EDGE", "CELL_INNER"],
+};
+
+/** Every inset utility Tailwind spells, the logical sides among them: one written as a token is one the shared pair did not give. */
+const PADDING = /^-?p[trblsexy]?-/;
+
+/** `w-full` and `max-w-full` are the box taking what it is given; `min-w-*` is the floor above. */
+function selfCapped(token: string): boolean {
+  const utility = utilityOf(token);
+
+  return /^(?:max-)?w-/.test(utility) && utility !== "w-full" && utility !== "max-w-full";
+}
+
+describe("the six admin CRUD tables", () => {
   /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
      it could ever move: the drift worth catching is a ninth table added in some other slice. */
   it("are every collection in the tree that pairs the shared emptiness with a react-aria table", () => {
@@ -178,11 +253,14 @@ describe("the eight admin CRUD tables", () => {
      layout the columns collapse the moment the rows go. A declared width is then an allocation. */
   it("lay their columns out fixed, over a minimum the declared ones cannot exhaust", () => {
     for (const { file, freeText } of TABLES) {
-      const { content, columns } = tableOf(file);
+      const { content, columns, cells } = tableOf(file);
 
       assert.ok(content !== null, `${file}: expected exactly one Table.Content`);
       assert.ok(content.classes.includes("table-fixed"), `${file}: leaves its columns to auto layout`);
       assert.ok(columns.length > 0, `${file}: declares no columns the guard can read`);
+      /* The row template writes one cell per column. Read here so the cell sweep below cannot go
+         quiet on a renamed tag, which would leave it passing over an empty population. */
+      assert.equal(cells.length, columns.length, `${file}: declares ${String(columns.length)} columns and ${String(cells.length)} cells`);
 
       const floors = content.classes.filter((token) => token.startsWith("min-w-"));
       assert.equal(floors.length, 1, `${file}: names ${String(floors.length)} floors for its free-text columns`);
@@ -194,12 +272,86 @@ describe("the eight admin CRUD tables", () => {
         `${file}: declares ${declared.join(" ")}, and the theme resolves none of ${declared.filter((_token, index) => widths[index] === null).join(" ")}`,
       );
 
-      const owed = widths.reduce<number>((sum, width) => sum + width!, 0) + freeText * (columns.length - declared.length);
+      const free = columns.length - declared.length;
+      assert.ok(free >= 1, `${file}: declares a width on every column, so the roster's allowance binds nothing`);
+
+      /* `freeText` is declared, never measured: lower it and the floor together and the equality
+         below still passes over an identity column too narrow for a name. Legibility at a width
+         needs a browser and is asserted nowhere. */
+      const widest = Math.max(...widths.map((width) => width!), 0);
+      assert.ok(
+        freeText >= widest,
+        `${file}: allows its free-text column ${String(freeText)}px beside a bounded column of ${String(widest)}px — the identity block takes the remainder and is never the narrower`,
+      );
+
+      const owed = widths.reduce<number>((sum, width) => sum + width!, 0) + freeText * free;
       assert.equal(
         widthPx(floors[0]!),
         owed,
         `${file}: ${floors[0]!} is not the ${String(owed)}px its ${String(declared.length)} declared columns plus ${String(columns.length - declared.length)} free-text one(s) come to`,
       );
+
+      // The floor the columns asked for, against the width a viewport can give: over the step the
+      // scroll container below is reached at every width the table renders at, which is the one
+      // outcome it is not there for.
+      assert.ok(
+        widthPx(floors[0]!)! <= STEP,
+        `${file}: ${floors[0]!} is ${String(widthPx(floors[0]!))}px, over the ${String(STEP)}px the narrowest content column gives a table`,
+      );
+
+      /* A react-aria grid navigates its collection rather than the DOM, so `ArrowRight` hands the
+         focused key to a `display:none` cell: one dead keypress per hidden column per row, and an
+         `aria-colcount` over columns nothing can reach. */
+      for (const element of [...columns, ...cells]) {
+        const banned = element.classes.filter(widthConditional);
+        assert.deepEqual(banned, [], `${file}: a ${element.tag} carrying ${banned.join(" ")} exists at one width and not another`);
+      }
+    }
+  });
+
+  /* Each declared width above was measured against the inset its column carries, and the arithmetic
+     reads no inset at all (`fl_frontend/src/shared/components/ui/adminTable.ts :: COLUMN_INNER`). */
+  it("take every column inset from the shared pair rather than spelling one", () => {
+    for (const { file } of TABLES) {
+      const { columns, cells } = tableOf(file);
+
+      for (const element of [...columns, ...cells]) {
+        const taken = element.interpolated.filter((name) => INSETS[element.tag]?.includes(name) === true);
+        assert.equal(
+          taken.length,
+          1,
+          `${file}: a ${element.tag} takes ${taken.length === 0 ? "no inset from adminTable.ts" : `${String(taken.length)} of its insets — ${taken.join(", ")}`}`,
+        );
+
+        const spelled = element.classes.filter((token) => PADDING.test(utilityOf(token)));
+        assert.deepEqual(
+          spelled,
+          [],
+          `${file}: a ${element.tag} spells ${spelled.join(" ")} of its own, which no floor above was measured with`,
+        );
+      }
+    }
+  });
+
+  /* The bar above the table takes `AdminCrudShell`'s whole capped column, and fixed layout hands the
+     surplus to the one undeclared column. A table capping itself stops growing under a toolbar that
+     does not. */
+  it("take the shell's column whole, so the surplus above the floor reaches the undeclared column", () => {
+    for (const { file } of TABLES) {
+      // The desktop wrapper too: a cap there stops the table as surely as one on the table itself.
+      const boxes = elementsOf(file).filter((element) => TABLE_BOX.has(element.tag) || element.classes.includes("md:block"));
+      const tags = new Set(boxes.map((box) => box.tag));
+
+      for (const tag of TABLE_BOX) assert.ok(tags.has(tag), `${file}: names no ${tag} for this sweep to read`);
+
+      for (const box of boxes) {
+        const capping = box.classes.filter(selfCapped);
+        assert.deepEqual(
+          capping,
+          [],
+          `${file}: its ${box.tag} carries ${capping.join(" ")} and stops short of the column the bar above it fills`,
+        );
+      }
     }
   });
 
@@ -207,7 +359,7 @@ describe("the eight admin CRUD tables", () => {
      and nothing else reports it: fixed layout will not widen the column to take the new control. */
   it("size the Aktionen column from the controls a row can hold", () => {
     for (const { file, controls, alternates } of TABLES) {
-      const declared = read(file).match(/<RowAction(?:Link|Copy|Restore|Delete)\b/g)?.length ?? 0;
+      const declared = read(file).match(/<RowAction(?:Link|Copy|Restore|Delete|Menu)\b/g)?.length ?? 0;
       assert.equal(declared, controls + alternates, `${file}: holds a control the roster here does not count`);
 
       // The only column ended right, which is what makes it the Aktionen one.
@@ -219,5 +371,74 @@ describe("the eight admin CRUD tables", () => {
         `${file}: its Aktionen column is not the width ${String(controls)} controls need`,
       );
     }
+  });
+});
+
+/* No table hides a column today, so a sweep over the tree alone cannot tell this reader from one
+   that matches nothing. A variant spelling is caught here or nowhere. */
+describe("the reader behind the hidden-column sweep", () => {
+  it("takes a disappearance behind any variant prefix, and leaves an unconditional width alone", () => {
+    for (const token of [
+      "hidden",
+      "lg:hidden",
+      "max-lg:hidden",
+      "not-lg:hidden",
+      "@2xl:hidden",
+      "md:hover:hidden",
+      "md:w-40",
+      "lg:min-w-40",
+      "@max-md:max-w-40",
+    ])
+      assert.ok(widthConditional(token), `${token}: read as unconditional`);
+
+    for (const token of ["w-24", "min-w-156", "max-w-full", "text-right", "table-fixed", "border-b"])
+      assert.ok(!widthConditional(token), `${token}: read as conditional`);
+  });
+});
+
+/* No table spells an inset of its own today, so the sweep over the tree cannot tell this reader from
+   one that matches nothing. A logical side, and one behind a variant, are caught here or nowhere. */
+describe("the reader behind the hand-spelled inset sweep", () => {
+  it("takes every side an inset can be written on, and leaves the utilities that set none", () => {
+    for (const token of ["p-4", "px-6", "py-4", "pt-2", "pb-1", "pl-4", "pr-4", "ps-3", "pe-3", "sm:px-6", "@2xl:py-2", "-p-1"])
+      assert.ok(PADDING.test(utilityOf(token)), `${token}: read as setting no inset`);
+
+    for (const token of ["pointer-events-none", "place-items-center", "peer", "w-24", "min-w-156", "text-right", "font-bold", "border-b"])
+      assert.ok(!PADDING.test(utilityOf(token)), `${token}: read as an inset`);
+  });
+
+  /* A column interpolates its inset inside a template and a cell passes the constant bare, so a
+     reader handling one shape reports the other as taking no inset and fails a compliant table. */
+  it("reads a shared inset out of either attribute shape, and a hand-spelled one out of neither", () => {
+    const [column, shared, spelling] = elementsIn(
+      "const T = () => (<Table.Content>" +
+        "<Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24 px-6`}>Gruppe</Table.Column>" +
+        "<Table.Cell className={CELL_EDGE}>x</Table.Cell>" +
+        '<Table.Cell className="px-6 py-4">y</Table.Cell>' +
+        "</Table.Content>);",
+      "sample.tsx",
+    ).filter((element) => element.tag !== "Table.Content");
+
+    assert.deepEqual(column?.interpolated, ["TABLE_HEADING", "COLUMN_INNER"]);
+    assert.deepEqual(shared?.interpolated, ["CELL_EDGE"]);
+    assert.deepEqual(spelling?.interpolated, []);
+
+    const insets = (element: Element | undefined) => (element?.classes ?? []).filter((token) => PADDING.test(utilityOf(token)));
+
+    assert.deepEqual(insets(column), ["px-6"], "an inset written beside the interpolation is missed");
+    assert.deepEqual(insets(shared), [], "the constant's own inset is read as a hand-spelled one");
+    assert.deepEqual(insets(spelling), ["px-6", "py-4"]);
+  });
+});
+
+/* No admin table caps itself today, so the sweep over the tree cannot tell this reader from one that
+   matches nothing. A cap written behind a variant is caught here or nowhere. */
+describe("the reader behind the self-cap sweep", () => {
+  it("takes a width that stops a box short, and leaves the two that take the column whole", () => {
+    for (const token of ["max-w-page", "max-w-4xl", "max-w-[1400px]", "w-96", "lg:max-w-page", "@2xl:w-80"])
+      assert.ok(selfCapped(token), `${token}: read as taking the column whole`);
+
+    for (const token of ["w-full", "max-w-full", "min-w-156", "table-fixed", "hidden", "md:block", "h-fit", "p-0"])
+      assert.ok(!selfCapped(token), `${token}: read as a cap`);
   });
 });

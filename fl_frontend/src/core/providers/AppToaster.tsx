@@ -82,7 +82,7 @@ export function AppToaster() {
                   variant="primary"
                   // A toast's one action is the way out of what it reported, so it takes the brand
                   // fill -- never a severity colour, which reads as "this button is the danger".
-                  className="bg-brand-solid text-brand-solid-foreground fluid-xs data-hovered:bg-brand-solid-hover mt-1 h-8 rounded-lg px-3.5 font-semibold transition-colors">
+                  className="bg-brand-solid text-brand-solid-foreground fluid-xs data-hovered:bg-brand-solid-hover h-8 rounded-lg px-3.5 font-semibold transition-colors">
                   {actionProps.children}
                 </Toast.ActionButton>
               )}

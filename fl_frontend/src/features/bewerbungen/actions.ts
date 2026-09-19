@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
@@ -9,13 +9,14 @@ import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
+import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
@@ -79,7 +80,7 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
           // The fields are named as `BewerbungAngabenPanel` labels them, so the administrator reading this finds
           // each one. Schulform is absent because the validator's enum keeps it out of this rule.
           reason:
-            "Die Angaben dieser Schule ergeben kein gültiges Team: Team-Name, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
+            "Die Angaben dieser Schule ergeben kein gültiges Team: Team, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
           repair: { before: "Lehne die Bewerbung ab und lege das Team", after: "mit korrigierten Angaben selbst an" },
           where: TEAMS_PAGE,
         }),
@@ -231,7 +232,7 @@ export async function annehmenBewerbungAction(
       annahmeOperation = await annehmenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -244,6 +245,7 @@ export async function annehmenBewerbungAction(
     // (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -310,7 +312,7 @@ export async function ablehnenBewerbungAction(
       absageOperation = await ablehnenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -318,8 +320,10 @@ export async function ablehnenBewerbungAction(
       return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, unlike the acceptance: this moves the application's own `status` and
-    // `entscheidung`, and no cached read holds an application — both triage reads are uncached.
+    // No tag moves, unlike the acceptance: this moves the application's own `status` and
+    // `entscheidung`, and no cached read holds an application. The refresh is what brings the
+    // uncached triage reads back.
+    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "ablehnenBewerbungAction",
@@ -345,28 +349,24 @@ export async function ablehnenBewerbungAction(
 }
 
 /** A re-send 409 as the message it should render, or `null` when the code is none of these. */
-function mapEinwilligungErneutRefusal(error: unknown): { error?: string } | null {
+function mapEinwilligungErneutRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
     // The code the two decisions answer, given the re-send's own words: a link minted against a
     // decided application would ask somebody to confirm a seat nothing is waiting for.
     case "REQ-BEWERBUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
-          repair: "Lade die Seite neu",
-        }),
-      };
+      return buildRefusal({
+        reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
+        repair: "Lade die Seite neu",
+      });
     // Answered, declined, or a seat an application from before the workflow holds: one sentence for
     // all three, because the control is offered from a page whose state has since moved.
     case "REQ-BEWERBUNG-011":
-      return {
-        error: buildRefusal({
-          reason: "Für diese Rolle steht keine Bestätigung mehr aus",
-          repair: "Lade die Seite neu",
-        }),
-      };
+      return buildRefusal({
+        reason: "Für diese Rolle steht keine Bestätigung mehr aus",
+        repair: "Lade die Seite neu",
+      });
     default:
       return null;
   }
@@ -377,9 +377,6 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
-
-/** The correction beside this control is the repair, so the sentence sends the administrator there rather than nowhere. */
-const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine ein.";
 
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
@@ -489,7 +486,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     const person = bewerbung.kontakte[validated.data.rolle];
 
     if (person === null) return { success: false, error: SITZ_LEER };
-    if (person.email === "") return { success: false, error: KEINE_ADRESSE };
+    if (person.email === "") return { success: false, error: ERNEUT_OHNE_ADRESSE };
 
     const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
 
@@ -500,7 +497,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       erneutOperation = await erneutSendenEinwilligung(validated.data);
     } catch (error) {
       const refusal = mapEinwilligungErneutRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
@@ -508,8 +505,9 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own confirmation block
+    // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
+    refresh();
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
@@ -593,7 +591,7 @@ export async function kontaktEmailKorrigierenAction(
       korrekturOperation = await korrigierenKontaktEmail(validated.data);
     } catch (error) {
       const refusal = mapKontaktEmailRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -601,8 +599,9 @@ export async function kontaktEmailKorrigierenAction(
       return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as on the decline: this moves the application's own contact block and
+    // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
+    refresh();
 
     let zustellung;
     try {

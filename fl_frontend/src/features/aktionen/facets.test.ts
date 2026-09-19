@@ -101,8 +101,8 @@ describe("the origin facet on the change log", () => {
 });
 
 /** The other two dimensions, cut out by the parameters the endpoint spells them with. */
-const BEREICH_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
-const ART_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
+const AREA_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
+const KIND_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
 
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "..", "fl_backend", "openapi.json");
 const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --write";
@@ -120,8 +120,8 @@ function publishedQueryNames(): string[] {
 describe("the dimensions the read itself narrows on", () => {
   /* First: a facet the cut fails to find would leave every assertion below reading `undefined`. */
   it("offers the area and the operation as facets at all", () => {
-    assert.ok(BEREICH_FACET, "no facet reads the area parameter");
-    assert.ok(ART_FACET, "no facet reads the operation parameter");
+    assert.ok(AREA_FACET, "no facet reads the area parameter");
+    assert.ok(KIND_FACET, "no facet reads the operation parameter");
   });
 
   /* Read off the published document, so a backend rename fails here rather than leaving every term the
@@ -189,11 +189,11 @@ describe("what the log asks the endpoint to narrow to", () => {
 });
 
 /** What one narrowed answer holds: the picked area's rows, the cap having cut every other. */
-const NUR_TEAMS: AdminAktionRow[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
+const ONLY_TEAMS: AdminAktionRow[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
 
 /** Which options `FilterPanel :: FacetCell` would leave pressable, given the counts it was handed. */
 function pressableAreas(counts: Record<string, number>, picked: readonly string[]): string[] {
-  return (BEREICH_FACET?.options ?? [])
+  return (AREA_FACET?.options ?? [])
     .filter((option) => isFacetOptionReachable(counts[option.value] ?? 0, picked.includes(option.value)))
     .map((option) => option.value);
 }
@@ -208,7 +208,7 @@ describe("the counts the area facet is told", () => {
   /* Non-vacuity, and the defect itself: counted against the rows one narrowed read served, every
      other area stands at zero and goes dead. */
   it("loses that area where the counts are taken off the rows served instead", () => {
-    const offRows = countFacetOptions([...NUR_TEAMS], AKTIONEN_FACETS, { [AKTIONEN_COLLECTION_PARAM]: ["teams"] }, BEREICH_FACET!);
+    const offRows = countFacetOptions([...ONLY_TEAMS], AKTIONEN_FACETS, { [AKTIONEN_COLLECTION_PARAM]: ["teams"] }, AREA_FACET!);
 
     assert.equal(offRows.spielorte, 0);
     assert.deepEqual(pressableAreas(offRows, ["teams"]), ["teams"]);
@@ -222,7 +222,7 @@ describe("the counts the area facet is told", () => {
 });
 
 /** Two areas, each written by one kind of actor alone, so picking an origin empties one of them outright. */
-const GEMISCHTES_PROTOKOLL: AdminAktionRow[] = [
+const MIXED_LOG: AdminAktionRow[] = [
   { ...row("system-1", { kind: "system", email: "SYSTEM" }), collection: "teams" },
   { ...row("system-2", { kind: "system", email: "SYSTEM" }), collection: "teams" },
   { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de" }), collection: "spielorte" },
@@ -251,7 +251,7 @@ describe("the counts the endpoint can answer", () => {
   /* Non-vacuity, and the reading the case below turns on: unnarrowed, both areas hold rows and both
      are offered. */
   it("offers both areas while no origin is picked", () => {
-    assert.deepEqual(pressableAreas(toldCounts(GEMISCHTES_PROTOKOLL, {}, BEREICH_FACET!), []), ["teams", "spielorte"]);
+    assert.deepEqual(pressableAreas(toldCounts(MIXED_LOG, {}, AREA_FACET!), []), ["teams", "spielorte"]);
   });
 
   /* The defect's mirror image: an area counted without the origin selection applied is offered, pressed,
@@ -259,7 +259,7 @@ describe("the counts the endpoint can answer", () => {
   it("leaves out an area the picked origin empties", () => {
     const selection = readFacetSelection(AKTIONEN_FACETS, new URLSearchParams(`${AKTIONEN_HERKUNFT_PARAM}=system`));
 
-    assert.deepEqual(pressableAreas(toldCounts(GEMISCHTES_PROTOKOLL, selection, BEREICH_FACET!), []), ["teams"]);
+    assert.deepEqual(pressableAreas(toldCounts(MIXED_LOG, selection, AREA_FACET!), []), ["teams"]);
   });
 
   /* The request half: the endpoint cannot count what it is not told, so the term rides with the two the

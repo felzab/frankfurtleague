@@ -7,11 +7,12 @@ import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
 
-import { declaredCodes } from "../../core/refusalRegister.ts";
 import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
+  bewerbungHerkunft,
   bewerbungJudgedPaths,
   bewerbungTeamName,
   buildBewerbungRows,
@@ -36,7 +37,7 @@ import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./type
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /** The proposed school, of which only `team_name` decides the answer. */
-const SCHULE: FLBewerbung["schule"] = {
+const SCHOOL: FLBewerbung["schule"] = {
   team_name: "Ernst-Reuter",
   full_name: "Ernst-Reuter-Schule",
   shorthand: "ER",
@@ -80,7 +81,7 @@ describe("what an acceptance reports", () => {
 
 describe("the club an application names", () => {
   it("takes a proposed school's own name before any club list", () => {
-    const named = bewerbungTeamName({ schule: SCHULE, team_id: null }, TEAMS);
+    const named = bewerbungTeamName({ schule: SCHOOL, team_id: null }, TEAMS);
 
     assert.equal(named, "Ernst-Reuter");
   });
@@ -97,6 +98,28 @@ describe("the club an application names", () => {
   });
 });
 
+describe("which of the two an application asks the league to enter", () => {
+  it("is a new school where it proposes one", () => {
+    assert.equal(bewerbungHerkunft({ schule: SCHOOL, team_id: null }), "neue_schule");
+  });
+
+  it("is an existing club where it picked one", () => {
+    assert.equal(bewerbungHerkunft({ schule: null, team_id: "6890a1b2c3d4e5f607190002" }), "bestehendes_team");
+  });
+
+  /* An acceptance writes the created club's id back beside the school, so a decided new school carries
+     both; asking the id first files it as a club that was already in the league. */
+  it("stays a new school once the acceptance has named the club it created", () => {
+    assert.equal(bewerbungHerkunft({ schule: SCHOOL, team_id: "6890a1b2c3d4e5f607190002" }), "neue_schule");
+  });
+
+  /* The row `REQ-BEWERBUNG-002` refuses. Any answer but none here is a badge, a filter option and a
+     panel title each claiming a club or a school the application never named. */
+  it("is neither where the application names neither", () => {
+    assert.equal(bewerbungHerkunft({ schule: null, team_id: null }), null);
+  });
+});
+
 /** One application, of which only `saison_id` decides anything below. */
 function bewerbung(id: string, saisonId: string): FLBewerbung {
   return {
@@ -105,7 +128,7 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     eingereicht_am: "2026-05-01",
     status: "eingereicht",
     team_id: null,
-    schule: SCHULE,
+    schule: SCHOOL,
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: null },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
@@ -211,15 +234,15 @@ describe("the birthdate window a contact person's date has to fall in", () => {
   /* The endpoint's own rule restated rather than its result quoted, so both bounds are judged
      against what it accepts: whole years, a birthday not yet reached this year not having happened
      (`fl_backend/app/api/bewerbungen/schemas.py :: _whole_years_between`). */
-  function ganzeJahre(geboren: string, heute: string): number {
+  function wholeYears(geboren: string, today2: string): number {
     const [gJahr = 0, gMonat = 0, gTag = 0] = geboren.split("-").map(Number);
-    const [hJahr = 0, hMonat = 0, hTag = 0] = heute.split("-").map(Number);
+    const [hJahr = 0, hMonat = 0, hTag = 0] = today2.split("-").map(Number);
 
     return hJahr - gJahr - (hMonat < gMonat || (hMonat === gMonat && hTag < gTag) ? 1 : 0);
   }
 
-  const naechsterTag = (tag: string): string => parseDate(tag).add({ days: 1 }).toString();
-  const vorherigerTag = (tag: string): string => parseDate(tag).subtract({ days: 1 }).toString();
+  const nextDay = (tag: string): string => parseDate(tag).add({ days: 1 }).toString();
+  const previousDay = (tag: string): string => parseDate(tag).subtract({ days: 1 }).toString();
 
   /* Bounds and not an age: the picker needs a `minValue` and a `maxValue`, the schema needs a string
      comparison, and one derivation serving both is what stops the two drifting apart. */
@@ -237,13 +260,13 @@ describe("the birthdate window a contact person's date has to fall in", () => {
   /* Both tiers refuse the same set. A band the page turns away and the endpoint accepts is a
      contact person told to correct a date that was right. */
   it("ends both bounds exactly where the endpoint's whole-year count does", () => {
-    for (const heute of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
-      const { frueheste, spaeteste } = geburtsdatumSpanne(heute);
+    for (const today2 of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
+      const { frueheste, spaeteste } = geburtsdatumSpanne(today2);
 
-      assert.equal(ganzeJahre(frueheste, heute), BEWERBUNG_MAX_ALTER, `${heute}: the earliest date offered is not the oldest accepted`);
-      assert.equal(ganzeJahre(vorherigerTag(frueheste), heute), BEWERBUNG_MAX_ALTER + 1, `${heute}: the day before it is accepted too`);
-      assert.equal(ganzeJahre(spaeteste, heute), BEWERBUNG_MIN_ALTER, `${heute}: the latest date offered is not the youngest accepted`);
-      assert.equal(ganzeJahre(naechsterTag(spaeteste), heute), BEWERBUNG_MIN_ALTER - 1, `${heute}: the day after it is accepted too`);
+      assert.equal(wholeYears(frueheste, today2), BEWERBUNG_MAX_ALTER, `${today2}: the earliest date offered is not the oldest accepted`);
+      assert.equal(wholeYears(previousDay(frueheste), today2), BEWERBUNG_MAX_ALTER + 1, `${today2}: the day before it is accepted too`);
+      assert.equal(wholeYears(spaeteste, today2), BEWERBUNG_MIN_ALTER, `${today2}: the latest date offered is not the youngest accepted`);
+      assert.equal(wholeYears(nextDay(spaeteste), today2), BEWERBUNG_MIN_ALTER - 1, `${today2}: the day after it is accepted too`);
     }
   });
 });
@@ -279,25 +302,25 @@ describe("the public form's coach mirror", () => {
   /* The direction is the whole of it, and the OPPOSITE of the admin editor's. Reversed, ticking the
      box would wipe the very person who was just declared to be the coach. */
   it("fills the Trainer seat from whichever seat declared itself the coach", () => {
-    const gespiegelt = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "ansprechperson" }));
+    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "ansprechperson" }));
 
-    assert.equal(gespiegelt.trainer.vorname, "Erika");
-    assert.equal(gespiegelt.trainer, gespiegelt.ansprechperson, "the two seats hold two records rather than one");
-    assert.equal(gespiegelt.stellvertretung.vorname, "Lena", "a seat the claim does not name was overwritten");
+    assert.equal(mirroredPair.trainer.vorname, "Erika");
+    assert.equal(mirroredPair.trainer, mirroredPair.ansprechperson, "the two seats hold two records rather than one");
+    assert.equal(mirroredPair.stellvertretung.vorname, "Lena", "a seat the claim does not name was overwritten");
   });
 
   it("fills it from the Stellvertretung where that seat is the one that declared itself", () => {
-    const gespiegelt = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "stellvertretung" }));
+    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "stellvertretung" }));
 
-    assert.equal(gespiegelt.trainer.vorname, "Lena");
-    assert.equal(gespiegelt.ansprechperson.vorname, "Erika");
+    assert.equal(mirroredPair.trainer.vorname, "Lena");
+    assert.equal(mirroredPair.ansprechperson.vorname, "Erika");
   });
 
   it("moves nobody while the claim names nobody", () => {
-    const gespiegelt = mirrorBewerbungTrainer(kontakte());
+    const mirroredPair = mirrorBewerbungTrainer(kontakte());
 
-    assert.equal(gespiegelt.trainer.vorname, "Tim");
-    assert.equal(gespiegelt.ansprechperson.vorname, "Erika");
+    assert.equal(mirroredPair.trainer.vorname, "Tim");
+    assert.equal(mirroredPair.ansprechperson.vorname, "Erika");
   });
 });
 
@@ -407,7 +430,7 @@ describe("the submission's refusals against the backend's register", () => {
      „spielt schon mit“ are two readings a German sentence separates and no structural check does —
      and only one is what the backend refuses. */
   it("says of each code what the backend constant it answers refuses", () => {
-    const feld = (code: string) => Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
+    const fieldOf = (code: string) => Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
     const banner = (code: string) => mapBewerbungSubmitRefusal(refusalFor(code))?.error ?? "";
 
     // The season stopped taking applications; nothing about the school is at fault.
@@ -415,19 +438,19 @@ describe("the submission's refusals against the backend's register", () => {
     assert.doesNotMatch(banner("REQ-BEWERBUNG-004"), /Schule|Kürzel/);
 
     // Both-or-neither: the answer is the choice itself, not a clash with anything stored.
-    assert.match(feld("REQ-BEWERBUNG-005"), /entweder/);
-    assert.match(feld("REQ-BEWERBUNG-005"), /oder/);
+    assert.match(fieldOf("REQ-BEWERBUNG-005"), /entweder/);
+    assert.match(fieldOf("REQ-BEWERBUNG-005"), /oder/);
 
     /* The picker never offered this club, so a reload is the primary repair; the new-school arm is an
        alternative and has to carry the free-Kürzel qualifier, or it promises a path `-008` refuses. */
-    assert.match(feld("REQ-BEWERBUNG-006"), /[Ll]ade die Seite neu/);
-    assert.match(feld("REQ-BEWERBUNG-006"), /frei\w* Kürzel/);
+    assert.match(fieldOf("REQ-BEWERBUNG-006"), /[Ll]ade die Seite neu/);
+    assert.match(fieldOf("REQ-BEWERBUNG-006"), /frei\w* Kürzel/);
 
     /* PLAYS, present tense and scoped to THIS season. `/spielt/` alone matches inside „mitgespielt“,
        which says past seasons; the register says a club standing in the season applied for. */
-    assert.match(feld("REQ-BEWERBUNG-007"), /\bspielt\b/);
-    assert.match(feld("REQ-BEWERBUNG-007"), /dieser Saison/);
-    assert.doesNotMatch(feld("REQ-BEWERBUNG-007"), /beworben|Bewerbung|gespielt|früher|einmal/);
+    assert.match(fieldOf("REQ-BEWERBUNG-007"), /\bspielt\b/);
+    assert.match(fieldOf("REQ-BEWERBUNG-007"), /dieser Saison/);
+    assert.doesNotMatch(fieldOf("REQ-BEWERBUNG-007"), /beworben|Bewerbung|gespielt|früher|einmal/);
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
@@ -440,13 +463,13 @@ describe("the submission's refusals against the backend's register", () => {
     assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
 
     // Beyond the table: words that disclose a club's existence or its past without naming a status.
-    const verraeter = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
+    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
 
     for (const code of ["REQ-BEWERBUNG-006", "REQ-BEWERBUNG-008"]) {
-      const satz = Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
+      const refusalText = Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
 
-      for (const wort of verraeter) {
-        assert.ok(!satz.toLowerCase().includes(wort.toLowerCase()), `${code} discloses roster state with „${wort}“`);
+      for (const numberWord of telltale) {
+        assert.ok(!refusalText.toLowerCase().includes(numberWord.toLowerCase()), `${code} discloses roster state with „${numberWord}“`);
       }
     }
   });
@@ -455,22 +478,22 @@ describe("the submission's refusals against the backend's register", () => {
      mirrored; what is left is a drifted client, and a reload is the remedy for that rather than the
      resubmission a bare „Versuche es erneut“ asks for. */
   it("answers a body refusal without sending the applicant to a box", () => {
-    const antwort = mapBewerbungSubmitRefusal(badStatus(422, "REQ-VAL-001"));
+    const mappedRefusal = mapBewerbungSubmitRefusal(badStatus(422, "REQ-VAL-001"));
 
-    assert.notEqual(antwort, null, "a 422 falls through to the shared handler");
-    assert.equal(antwort?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
+    assert.notEqual(mappedRefusal, null, "a 422 falls through to the shared handler");
+    assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
 
     // Every box the form owns: a refusal that cannot know which one broke may point at none of them.
     for (const box of ["Telefon", "E-Mail", "Vorname", "Nachname", "Geburtsdatum", "Kader", "Trikot", "Kürzel"]) {
-      assert.doesNotMatch(antwort?.error ?? "", new RegExp(box), `the answer sends the applicant to „${box}“`);
+      assert.doesNotMatch(mappedRefusal?.error ?? "", new RegExp(box), `the answer sends the applicant to „${box}“`);
     }
 
-    assert.match(antwort?.error ?? "", /Seite neu/, "the answer offers no way out of a stale client");
+    assert.match(mappedRefusal?.error ?? "", /Seite neu/, "the answer offers no way out of a stale client");
   });
 });
 
 describe("what the blur-time Kürzel check says short of a refusal", () => {
-  const verdikt = (shorthand: string, vergeben: boolean) => ({ shorthand: shorthand, vergeben: vergeben });
+  const verdictOf = (shorthand: string, vergeben: boolean) => ({ shorthand: shorthand, vergeben: vergeben });
 
   /* Nothing to say about a code nobody has finished typing: a line under a half-typed box describes
      a value the check was never asked about. */
@@ -490,13 +513,13 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
      reads „noch frei“ from the last code it typed and finds out at the submit. */
   it("says the code is unjudged where no verdict covers the value in the box", () => {
     assert.equal(kuerzelHinweis("GG", null, false), KUERZEL_UNGEPRUEFT);
-    assert.equal(kuerzelHinweis("GG", verdikt("GY", false), false), KUERZEL_UNGEPRUEFT);
-    assert.equal(kuerzelHinweis("GG", verdikt("GY", true), false), KUERZEL_UNGEPRUEFT);
+    assert.equal(kuerzelHinweis("GG", verdictOf("GY", false), false), KUERZEL_UNGEPRUEFT);
+    assert.equal(kuerzelHinweis("GG", verdictOf("GY", true), false), KUERZEL_UNGEPRUEFT);
   });
 
   it("confirms a free code, and leaves a taken one to the field error", () => {
-    assert.match(kuerzelHinweis("GG", verdikt("GG", false), false) ?? "", /noch frei/);
-    assert.equal(kuerzelHinweis("GG", verdikt("GG", true), false), null);
+    assert.match(kuerzelHinweis("GG", verdictOf("GG", false), false) ?? "", /noch frei/);
+    assert.equal(kuerzelHinweis("GG", verdictOf("GG", true), false), null);
   });
 });
 
@@ -507,7 +530,7 @@ describe("the confirmation's refusals against the backend's register", () => {
     assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
   });
 
-  /* A declared code this maps nowhere reaches the contact person as a bare „Speichern fehlgeschlagen“
+  /* A declared code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation declares", () => {
     const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code)) !== null);
@@ -526,37 +549,37 @@ describe("the confirmation's refusals against the backend's register", () => {
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("asks its caller to read the already-answered link rather than naming a state", () => {
-    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"));
+    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"));
 
-    assert.equal(antwort?.nachlesen, true, "the already-answered refusal no longer asks for the read");
-    assert.equal(antwort?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
-    assert.equal(antwort?.fieldErrors, undefined, "a refusal that spends the token landed on the form's one field");
+    assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
+    assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
+    assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal that spends the token landed on the form's one field");
   });
 
   /* The age refusal spends no token, so it has to land on the one field the page renders: a `zustand`
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field and never as a state", () => {
-    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"));
+    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"));
 
-    assert.equal(antwort?.zustand, undefined, "a refusal the token survives closed the form anyway");
-    assert.equal(antwort?.fieldErrors?.geburtsdatum, ALTER_AUSSERHALB);
+    assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
+    assert.equal(mappedRefusal?.fieldErrors?.geburtsdatum, ALTER_AUSSERHALB);
   });
 
   /* A drifted client, since every body rule the panel can break is mirrored. The remedy is the
      reload, and the answer names no box: nothing here knows which one broke. */
   it("answers a body refusal without pointing at the one field", () => {
-    const antwort = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"));
+    const mappedRefusal = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"));
 
-    assert.notEqual(antwort, null, "a 422 falls through to the shared handler");
-    assert.equal(antwort?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
-    assert.doesNotMatch(antwort?.error ?? "", /Geburtsdatum/);
+    assert.notEqual(mappedRefusal, null, "a 422 falls through to the shared handler");
+    assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
+    assert.doesNotMatch(mappedRefusal?.error ?? "", /Geburtsdatum/);
   });
 });
 
 describe("which stamped wording an answer is stored under", () => {
-  const FREMD = {
+  const FOREIGN = {
     token: "kein-echtes-token",
-    antwort: "erteilt" as const,
+    mappedRefusal: "erteilt" as const,
     geburtsdatum: "1984-05-09",
     whatsapp: false,
     text_version: "2019-01-erfunden",
@@ -565,9 +588,9 @@ describe("which stamped wording an answer is stored under", () => {
   /* The label names which words were on screen, and only this server knows that. Taken from the
      body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
   it("replaces whatever label the request carried with the registry's own", () => {
-    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
+    assert.equal(stampEinwilligungFassung(FOREIGN).text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
     assert.notEqual(
-      FREMD.text_version,
+      FOREIGN.text_version,
       BESTAETIGUNG_KENNTNISNAHME.textVersion,
       "the fixture already carries the label, so this compares nothing",
     );
@@ -576,8 +599,8 @@ describe("which stamped wording an answer is stored under", () => {
   /* Only that one field: the answer, the date and the scope are the person's own, and a stamp that
      rewrote any of them would record something nobody pressed. */
   it("moves nothing else the person answered", () => {
-    const { text_version: _fassung, ...gesendet } = FREMD;
-    const { text_version: _gestempelt, ...bewahrt } = stampEinwilligungFassung(FREMD);
+    const { text_version: _fassung, ...gesendet } = FOREIGN;
+    const { text_version: _gestempelt, ...bewahrt } = stampEinwilligungFassung(FOREIGN);
 
     assert.deepEqual(bewahrt, gesendet);
   });

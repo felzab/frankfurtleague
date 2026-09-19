@@ -8,6 +8,10 @@ import type { FLBewerbungStatus } from "./schemas";
 export const BEWERBUNGEN_CRUD_COPY = {
   searchLabel: "Bewerbungen suchen",
   searchPlaceholder: "z.B. Goethe-Gymnasium oder eine Ansprechperson",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Bewerbungen für diese Suche.",
+  emptyForFilters: "Keine Bewerbungen für diese Filter.",
+  emptyOverall: "Es sind noch keine Bewerbungen eingegangen.",
 } as const;
 
 type BewerbungStatusOption = {
@@ -39,6 +43,15 @@ export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
   eingereicht: "info",
   angenommen: "success",
   abgelehnt: "danger",
+};
+
+/** Which of the two things an application asks the league to enter: a school it does not hold yet, or a club it does. */
+export type BewerbungHerkunft = "neue_schule" | "bestehendes_team";
+
+/** What each is called, on the queue's badge, its filter and the application's own page alike. */
+export const BEWERBUNG_HERKUNFT_LABELS: Record<BewerbungHerkunft, string> = {
+  neue_schule: "Neue Schule",
+  bestehendes_team: "Bestehendes Team",
 };
 
 /**
@@ -109,6 +122,13 @@ export const SCHULE_NICHT_IN_LISTE = "neue-schule";
 
 /** What that option reads as, in the trigger as well as in the list — one string, so the two agree. */
 export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
+
+/**
+ * A re-send's answer for a seat holding no address, whether the action refuses the press or the strip closes the
+ * control first: one sentence, naming the correction that stands beside the control on the strip.
+ */
+export const ERNEUT_OHNE_ADRESSE =
+  "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
 
 /**
  * `KONTAKT_ROLLEN` under its long wording, never a second table: two lists of one set drift, and the

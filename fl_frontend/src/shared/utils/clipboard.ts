@@ -15,6 +15,8 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Two constants because a toast's title is the outcome and its description the detail; the first line alone must carry it. */
-export const CLIPBOARD_ERROR_TITLE = "Kopieren nicht möglich";
+/**
+ * The one sentence under every failed copy: the browser's refusal is the same wherever the press is,
+ * while the title names the thing that press was after and is written at the press.
+ */
 export const CLIPBOARD_ERROR_DETAIL = "Dieser Browser gibt die Zwischenablage nicht frei.";

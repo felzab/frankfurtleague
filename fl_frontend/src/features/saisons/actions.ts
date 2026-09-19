@@ -1,14 +1,14 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { RECORDED_FACTS_NONE } from "./constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE } from "./constants";
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import {
   FLActivateSaisonPayloadSchema,
@@ -164,6 +164,8 @@ function invalidateRollover(): void {
   updateTag("spiele");
   updateTag("spieltage");
   updateTag("teams");
+  // A squad read naming a club and no season answers for the running one (`docs/backend/spec.md :: I4`).
+  updateTag("spieler");
 }
 
 /**
@@ -209,10 +211,7 @@ function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | nu
     // instead, and where it is made: group membership stands on the team pages. Short, over and
     // stranded share one repair.
     case "REQ-SPIELPLAN-004":
-      return (
-        "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
-        "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an."
-      );
+      return GRUPPEN_OFF_RULES;
     // The window closed under a confirmed replace, so the page is stale. A reload, like `-001`: the
     // panel it returns to names the half that closed and, for the record half, the way out of it.
     case "REQ-SPIELPLAN-005":
@@ -254,7 +253,7 @@ export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
-): Promise<ActionResult<{ created_id?: string }>> {
+): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSaisonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -273,7 +272,7 @@ export async function postSaisonAction(
       postOperation = await postSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
-      if (refusal) return { success: false, error: VALIDATION_FAILED, ...refusal };
+      if (refusal) return refusalResult(refusal);
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
       }
@@ -286,11 +285,14 @@ export async function postSaisonAction(
 
     // A create lands `future`, so nothing resolving the current season moves. Only the list does.
     updateTag("saisons");
+    refresh();
 
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: `Saison ${postOperation.created_id} angelegt. Zur laufenden Saison wird sie erst mit der Umstellung.`,
+      // The id is the body's rather than the title's: `fl_frontend/src/core/toastTitles.test.ts`
+      // holds every title to a closed set, which one carrying a season could never join.
+      message: `Saison ${validated.data.id} wird erst mit der Umstellung zur laufenden Saison.`,
     };
   });
 }
@@ -316,7 +318,7 @@ export async function patchSaisonAction(
       patchOperation = await patchSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -325,6 +327,7 @@ export async function patchSaisonAction(
     }
 
     invalidateSaisonAndTable();
+    refresh();
 
     return {
       success: true,
@@ -386,6 +389,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     invalidateRollover();
+    refresh();
 
     // Any count but 1 is worth naming: 0 is a no-op, and more than one means the database had drifted
     // into a state nothing can express and this call repaired it.
@@ -477,6 +481,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 
     updateTag("spiele");
     updateTag(`spiele:saison_id:${validated.data.saison_id}`);
+    refresh();
 
     const umgeschrieben =
       swapOperation.rewritten_spiele === 0
@@ -528,6 +533,7 @@ export async function generateSpielplanAction(
     }
 
     invalidateSpielplan(validated.data.id);
+    refresh();
 
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
@@ -589,6 +595,7 @@ export async function undrawSpielplanAction(
 
     // The draw's tag set, this removing exactly what that write created.
     invalidateSpielplan(validated.data.id);
+    refresh();
 
     // A season can carry the watermark with neither collection behind it, so a zero pair does not by
     // itself mean nothing was removed. Hence three messages rather than one sentence over the counts.

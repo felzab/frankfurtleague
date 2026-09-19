@@ -24,6 +24,26 @@ slices, which is why the lint is scoped to `src/core/` and `src/shared/` rather 
 cross-feature imports generally. There are no
 barrel files and exports are named ([`spec.md`](spec.md) I10, I11).
 
+**That rule says what may import what, and not which of the two folders a module belongs in.**
+`src/core/` is what the server process is and what every surface needs before a page exists —
+configuration, the API client, auth, mail, logging, the domain constants a schema and an email both
+read. `src/shared/` is what a rendered page is built from — components, hooks and the utilities
+those call. **No lint decides it**: ESLint reads an import graph rather than what a module is for,
+so the test is applied when the module is written and the rule stays scoped to the direction
+([`spec.md`](spec.md) I9).
+
+**Where I9 forecloses the answer, the test is not consulted.** A module some `core` module imports
+cannot sit in `shared`, and a module importing anything from `shared` cannot sit in `core` — so a
+test-only reader a `core` test needs belongs in `core` however little it resembles the server
+process (`fl_frontend/src/core/treeWalk.ts`, `fl_frontend/src/core/stdoutCapture.ts`), and a
+route-handler spine reaching a `shared` utility belongs in `shared` however much it resembles one
+(`fl_frontend/src/shared/utils/publicRoute.ts`). **The test decides only what I9 leaves open**, and
+a module whose importers all sit outside both folders is always open.
+
+**Neither folder invents grouping subfolders to express membership** — a second nesting level is
+refused ([`../../.claude/CLAUDE.md`](../../.claude/CLAUDE.md) §7), so a module whose folder is
+arguable is argued about rather than filed under a new name.
+
 ## Data flow
 
 Reads are cached with `"use cache"`, and a write is a server action that invalidates tags. The

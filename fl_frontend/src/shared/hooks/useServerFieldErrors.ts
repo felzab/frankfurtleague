@@ -20,9 +20,8 @@ export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
   repair: "Versuche es noch einmal",
 });
 
-const reportUnhandledFieldError = (): void => {
-  appToast.danger("Speichern fehlgeschlagen", { description: UNHANDLED_FIELD_REFUSAL });
-};
+/** What an editor calls a failed save. The admin's word, which the public form replaces with its own. */
+const DEFAULT_FAILURE_TITLE = "Änderung nicht gespeichert";
 
 /** Focus order inside a react-aria field root, once the named element has refused focus itself. */
 const FOCUSABLE = "input:not([type=hidden]), select, textarea, button:not([tabindex='-1']), [tabindex='0']";
@@ -95,7 +94,7 @@ export function needsUnhandledReport(fieldErrors: FieldErrors, rendered: boolean
  * Focus has to move from an effect rather than from the submit handler: the message is rendered by the render this
  * state change causes, and focusing a field before it can announce one leaves a screen reader with nothing to read.
  */
-export function useServerFieldErrors() {
+export function useServerFieldErrors(failureTitle?: string) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -103,8 +102,12 @@ export function useServerFieldErrors() {
     const form = formRef.current;
     if (form === null || Object.keys(fieldErrors).length === 0) return;
 
-    if (needsUnhandledReport(fieldErrors, focusFirstRefusal(form, fieldErrors))) reportUnhandledFieldError();
-  }, [fieldErrors]);
+    // The caller's own word for a failed save, defaulted HERE rather than in the signature: a title
+    // resolved at the raise is one `docs/frontend/spec.md :: I42`'s register can read.
+    if (needsUnhandledReport(fieldErrors, focusFirstRefusal(form, fieldErrors))) {
+      appToast.danger(failureTitle ?? DEFAULT_FAILURE_TITLE, { description: UNHANDLED_FIELD_REFUSAL });
+    }
+  }, [fieldErrors, failureTitle]);
 
   return { fieldErrors, setFieldErrors, formRef };
 }

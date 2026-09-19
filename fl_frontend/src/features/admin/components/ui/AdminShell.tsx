@@ -3,7 +3,7 @@
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 
-import { ADMIN_SHELL_FALLBACK, ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
+import { ADMIN_SHELL_FALLBACK, ADMIN_SHELL_UNLISTED_SECTIONS, ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
 
 import type React from "react";
 
@@ -19,6 +19,7 @@ export function AdminShell({ saisonMetadataDisplay, children }: { saisonMetadata
       linkPrefix="/admin"
       iconDictionary={ADMIN_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
+      unlistedSections={ADMIN_SHELL_UNLISTED_SECTIONS}
       fallbackTitle={ADMIN_SHELL_FALLBACK.label}
       fallbackHint={ADMIN_SHELL_FALLBACK.hint}
       onSignOut={signOutAction}>

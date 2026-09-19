@@ -19,7 +19,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -213,18 +212,9 @@ export function AdminSaisonEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
-    const blocking = resolveBlockingBanners(banners);
-    if (blocking !== null) {
-      setConfirmingBanners(blocking);
-      return;
-    }
-    handleFormSubmit();
-  };
-
-  const handleFormSubmit = () => {
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
-    guardSubmit({ saison: buildPayload() }, writeAfterBlock);
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
+    // (`docs/frontend/spec.md :: I255`). The dialog holds the gate's snapshot, which a revalidation cannot move.
+    guardSubmit({ saison: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 
   const writeAfterBlock = () => {
@@ -245,8 +235,8 @@ export function AdminSaisonEditForm({
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { saison: payload });
         // ALWAYS toasted, field errors or not: a failure belonging to no field would be silent.
-        appToast.danger("Speichern fehlgeschlagen", {
-          description: res.error ?? "Die Saison konnte nicht gespeichert werden.",
+        appToast.danger("Änderung nicht gespeichert", {
+          description: res.error,
         });
         return;
       }
@@ -411,7 +401,8 @@ export function AdminSaisonEditForm({
         onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
           setConfirmingBanners(null);
-          handleFormSubmit();
+          // Never back through the gate: it judged this draft before raising the dialog, and would raise it again.
+          writeAfterBlock();
         }}
       />
     </DraftStatusProvider>

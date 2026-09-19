@@ -793,6 +793,17 @@ class TestPuttingBackWhatTheResolutionDestroyed:
 
         assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(25), MATCH_ID.format(29)]
 
+    def test_a_released_fixture_keeps_the_booking_it_was_holding(self, fixture_at: FixtureFactory, side: SideFactory):
+        """A rewrite takes nothing off a booking, so the report names one only where `other_fields` does (`docs/backend/spec.md :: I257`)."""
+
+        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
+        held = stored_at(spiele, 29).schiedsrichter
+        assert held is not None
+
+        _, moved = priors(spiele, [a_release_of(29, ergebnis="2:0")])
+
+        assert moved.other_fields is None, "a fixture the write only released names no field beyond its Paarung"
+
     def test_a_slice_missing_a_moved_fixture_is_refused(self, fixture_at: FixtureFactory, side: SideFactory):
         """A restore silently short of one fixture is the failure this refusal exists for -- `docs/backend/spec.md :: I108`'s reading."""
 

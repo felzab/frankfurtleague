@@ -96,6 +96,12 @@ const SEASONLESS: Record<string, string> = {
 };
 
 /**
+ * Components that carry the season for their caller, each with the file where they do it: the caller
+ * hands one a bare path. The derivation is asserted below — the NAME is never the evidence.
+ */
+const CARRIER_COMPONENTS: Record<string, string> = { ShellNotFound: "shared/components/ui/ShellNotFound.tsx" };
+
+/**
  * A carrier call standing immediately before the literal, so the literal is its FIRST argument.
  * Whitespace alone may sit between, which is what a formatter puts there.
  */
@@ -141,10 +147,24 @@ function collectNavigations(): Navigation[] {
         );
       }
 
+      /* The element the literal sits in, found by the nearest opening `<`: a prop's value holds none
+         of its own, so this is the tag the literal is an attribute of rather than one merely nearby. */
+      const opened = code.lastIndexOf("<", match.index);
+      const enclosing = opened === -1 ? undefined : /^<([A-Za-z][\w.]*)/.exec(code.slice(opened))?.[1];
+      const carrier = enclosing === undefined ? undefined : CARRIER_COMPONENTS[enclosing];
+
+      if (carrier !== undefined) {
+        assert.match(
+          readFileSync(path.join(SRC_DIR, ...carrier.split("/")), "utf8"),
+          /useSaisonHref\(\)/,
+          `${file}: a route is handed to <${String(enclosing)}>, which no longer derives the season itself`,
+        );
+      }
+
       /* The literal must BE the carrier's first argument, not merely stand near one. `includes` blessed
          any route within reach of a wrapped neighbour, which is what four links in a row look like —
          so an unwrapped fifth added beside them passed the sweep. */
-      const carries = named !== undefined || CARRIER_CALL.test(window) || namesSaisonParam(route);
+      const carries = named !== undefined || carrier !== undefined || CARRIER_CALL.test(window) || namesSaisonParam(route);
 
       found.push({ file, route, carries });
     }
@@ -184,7 +204,7 @@ describe("every admin navigation carries the season", () => {
   /* A relative target resolves against whatever page it fires from, so it names no `/admin` literal
      and the sweep above cannot see it at all. None exists today; this is what keeps that true. */
   it("routes no navigation through a relative path", () => {
-    const relativ: string[] = [];
+    const relative: string[] = [];
 
     for (const full of SOURCE_FILES) {
       const file = path.relative(SRC_DIR, full).split(path.sep).join("/");
@@ -192,16 +212,16 @@ describe("every admin navigation carries the season", () => {
       for (const match of stripCommentLines(readFileSync(full, "utf8")).matchAll(
         /\b(?:router\.(?:push|replace)|redirect)\(\s*["`]([^"`]*)["`]/g,
       )) {
-        const ziel = match[1] ?? "";
+        const target = match[1] ?? "";
         /* `${pathname}?…` is the page rewriting its OWN query — absolute, because `pathname` is, and
            season-scoped already for the same reason. Any OTHER interpolation is a target this sweep
            cannot resolve, so it is reported rather than assumed. */
-        const absolut = ziel.startsWith("/") || ziel.startsWith("${pathname}") || /^[a-z]+:/.test(ziel);
-        if (!absolut) relativ.push(`${file} :: ${ziel}`);
+        const isAbsolute = target.startsWith("/") || target.startsWith("${pathname}") || /^[a-z]+:/.test(target);
+        if (!isAbsolute) relative.push(`${file} :: ${target}`);
       }
     }
 
-    assert.deepEqual(relativ, [], "these navigations name a relative target, which no sweep over `/admin` literals can check");
+    assert.deepEqual(relative, [], "these navigations name a relative target, which no sweep over `/admin` literals can check");
   });
 
   /* An exemption that no longer matches anything is how this list rots into a place to hide a link. */

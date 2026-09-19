@@ -1,13 +1,15 @@
 """
-CORE · the source sweeps holding a count-then-insert rule to the write that closes its race
+CORE · the source sweeps holding a rule judged on a read to the write that closes its race
 
-A count is a read, and a snapshot re-validates no read, so a rule decided on one is held only where
-every writer that judges it also WRITES the document the count is scoped by. Three helpers do that
-here, and what this module proves is that no site can reach one of those rules past its helper, and
-that no caller can reach a helper without the transaction's session: the parameter is required, so
-an omission is a `TypeError` at the call rather than a race under a rule that reads as held.
+A snapshot re-validates no read, so a rule decided on one is held only where every writer that
+judges it also WRITES the document that read is scoped by: the season a count is taken in, or the
+club, the venue or the referee a retirement stamps. The helpers below do that, and what this module
+proves is that no site can reach one of those rules past its helper, and that no caller can reach a
+helper without the transaction's session: the parameter is required, so an omission is a `TypeError`
+at the call rather than a race under a rule that reads as held.
 
-`tests/api/test_capacity_isolation.py` drives the conflict itself against a replica set.
+`tests/api/test_capacity_isolation.py` and `tests/api/test_reference_isolation.py` drive the
+conflicts themselves against a replica set.
 """
 
 import ast
@@ -17,19 +19,28 @@ from typing import Any
 
 import pytest
 
+from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
 from app.api.spieler.admin_router import _refuse_a_full_squad
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
-from app.api.teams.crud import refuse_a_full_gruppe
-from tests.core.app_source import WRITE_HELPERS, app_calls, callee, calls_in, carries_session, declared, module_of, transactional_callbacks
+from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
+from tests.core.app_source import (
+    WRITE_HELPERS,
+    app_calls,
+    callee,
+    calls_in,
+    carries_session,
+    declared,
+    module_of,
+    session_handoffs,
+    transactional_callbacks,
+)
 
 # The `app/core/crud.py` helper each anchor is made through: one log row carrying the filter and the
 # count, where `patch_one_in_db` would log a whole season pre-image on every bounded write.
 ANCHOR_HELPER = "patch_many_in_db"
 
-# The collection dependency every anchor writes, spelled as the parameter its helper takes.
-ANCHOR_COLLECTION = "saisons_collection"
-
-# The one field all three advance. One rather than one per rule: a fourth rule the season's own
+# The one field every anchor advances. One rather than one per rule: a further rule the season's own
 # bounds decide takes it with no decision, and two admin writes contending is a retry.
 ANCHOR_FIELD = "bounded_writes"
 
@@ -73,9 +84,63 @@ CALLERS: dict[str, frozenset[str]] = {
         }
     ),
     "_refuse_an_out_of_order_beginn": frozenset({"app/api/spieltage/admin_router.py :: redate_the_matchday"}),
+    "pull_a_club_to_enter": frozenset(
+        {
+            "app/api/teams/admin_router.py :: enter_the_club",
+            "app/api/teams/admin_router.py :: hand_the_row_over",
+            "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
+        }
+    ),
+    # One callback for both routes that book a fixture, the replay going through the editor's own.
+    "anchor_a_booked_venue": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
+    "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
 }
 
 CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
+
+# Every anchoring helper, and the collection dependency its anchor writes spelled as the parameter it takes.
+ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
+    *((function, "saisons_collection") for function in CHOKE_POINT_FUNCTIONS),
+    (pull_a_club_to_enter, "teams_collection"),
+    (anchor_a_booked_venue, "spielorte_collection"),
+    (anchor_a_booked_referee, "schiedsrichter_collection"),
+)
+
+ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)
+
+# Every helper whose read a guarded refusal is judged on. The two booking reads sit apart from their
+# anchors, which the save takes once the whole payload is judged, so they are held here by name.
+JUDGED_READS: tuple[Callable[..., Any], ...] = (*CHOKE_POINT_FUNCTIONS, pull_a_club_to_enter, pull_booked_venue, pull_booked_referee)
+
+# Every scope reaching a rule judged BESIDE its anchor rather than inside the helper taking it, or
+# choosing what such a rule judges: a site added beside these judges a row nothing conflicts with.
+JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
+    # Beside the club's helper: the replacement asks `REQ-ENTER-005` in an order `find_replacement_refusal` keeps.
+    "find_club_entry_refusal": frozenset(
+        {
+            "app/api/teams/admin_router.py :: enter_the_club",
+            "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
+            "app/api/teams/services.py :: find_replacement_refusal",
+        }
+    ),
+    "find_replacement_refusal": frozenset({"app/api/teams/admin_router.py :: hand_the_row_over"}),
+    # Beside the save's anchors, which it takes once the whole payload is judged, off the one set `judge` hands back.
+    "find_booking_refusal": frozenset({"app/api/spiele/admin_router.py :: judge"}),
+    "find_clash_refusal": frozenset({"app/api/spiele/admin_router.py :: judge"}),
+    "find_references_to_anchor": frozenset({"app/api/spiele/admin_router.py :: judge"}),
+    "find_new_bookings": frozenset(
+        {"app/api/spiele/services.py :: find_booking_refusal", "app/api/spiele/services.py :: find_references_to_anchor"}
+    ),
+    "find_claims_made": frozenset({"app/api/spiele/admin_router.py :: judge", "app/api/spiele/services.py :: find_references_to_anchor"}),
+    "find_slot_claims": frozenset(
+        {
+            "app/api/spiele/services.py :: find_claims_made",
+            # The fault report's read and its judgement: a report writes nothing, so it has nothing to anchor.
+            "app/api/spiele/crud.py :: find_bracket_faults",
+            "app/api/spiele/services.py :: find_double_bookings",
+        }
+    ),
+}
 
 
 def _app_callers_of(called: str) -> set[str]:
@@ -94,7 +159,7 @@ def _keyword(call: ast.Call, name: str) -> ast.expr | None:
     return next((keyword.value for keyword in call.keywords if keyword.arg == name), None)
 
 
-@pytest.mark.parametrize("function", CHOKE_POINT_FUNCTIONS, ids=lambda function: function.__name__)
+@pytest.mark.parametrize("function", ANCHORING_FUNCTIONS, ids=lambda function: function.__name__)
 def test_a_choke_point_cannot_be_called_without_the_transactions_session(function: Callable[..., Any]):
     """Forgetting the anchor write means forgetting the session, which is a `TypeError` at the call.
 
@@ -114,9 +179,38 @@ def test_every_site_reaching_the_rule_is_pinned(function: Callable[..., Any], ru
     assert _app_callers_of(rule) == sites
 
 
-@pytest.mark.parametrize("function", CHOKE_POINT_FUNCTIONS, ids=lambda function: function.__name__)
-def test_a_choke_point_anchors_the_season_the_count_is_scoped_by(function: Callable[..., Any]):
-    """Drop the `$inc` and this fails, where the refusal itself and every suite over it stay green."""
+@pytest.mark.parametrize(("rule", "sites"), sorted(JUDGED_BESIDE_THE_ANCHOR.items()), ids=lambda value: value if isinstance(value, str) else "")
+def test_every_site_judging_a_rule_beside_its_anchor_is_pinned(rule: str, sites: frozenset[str]):
+    assert _app_callers_of(rule) == sites
+
+
+def test_every_callback_judging_a_retired_club_reads_the_club_through_its_helper():
+    judging = {site for rule in ("find_club_entry_refusal", "find_replacement_refusal") for site in JUDGED_BESIDE_THE_ANCHOR[rule]}
+
+    assert judging - {"app/api/teams/services.py :: find_replacement_refusal"} == CALLERS["pull_a_club_to_enter"]
+
+
+def test_every_transaction_judging_a_booking_anchors_it():
+    """The anchors sit in the callback around `judge`, which the preview reaches too.
+
+    A second transaction handed `judge` that anchors nothing books a row no retirement conflicts with.
+    """
+
+    judging_callbacks = {
+        handoff.where for handoff in session_handoffs() if handoff.called == "judge" and handoff.declared_in == module_of(patch_spiel_data)
+    }
+
+    assert judging_callbacks, "no transaction is seen handing `judge` its session, so the clause below is vacuous"
+    assert judging_callbacks == CALLERS["anchor_a_booked_venue"] == CALLERS["anchor_a_booked_referee"]
+
+
+@pytest.mark.parametrize(("function", "collection_parameter"), ANCHORS, ids=lambda value: getattr(value, "__name__", ""))
+def test_a_choke_point_anchors_the_document_its_read_is_scoped_by(function: Callable[..., Any], collection_parameter: str):
+    """One anchor per helper, on the session, keyed on the document -- a convention spanning files.
+
+    `tests/api/test_reference_isolation.py` and `:: test_capacity_isolation.py` read the count back
+    at the sites they drive, and this is the shape at every helper.
+    """
 
     anchors = _anchor_calls(function)
 
@@ -125,21 +219,24 @@ def test_a_choke_point_anchors_the_season_the_count_is_scoped_by(function: Calla
     anchor = anchors[0]
     collection = _keyword(anchor, "collection")
 
-    assert isinstance(collection, ast.Name) and collection.id == ANCHOR_COLLECTION
+    assert isinstance(collection, ast.Name) and collection.id == collection_parameter
     assert carries_session(anchor), "the anchor commits on its own, so no rival contends with it"
 
     db_filter = _keyword(anchor, "db_filter")
 
     assert isinstance(db_filter, ast.Dict)
     assert [key.value for key in db_filter.keys if isinstance(key, ast.Constant)] == ["_id"], (
-        "the anchor is keyed on something other than the season, so two writers of one season may miss each other"
+        "the anchor is keyed on something other than one document, so two writers of it may miss each other"
     )
 
 
-def test_the_three_anchors_advance_one_field():
-    """Spelled at three sites rather than shared from one, so this is what holds the three spellings together."""
+def test_every_anchor_advances_one_field():
+    """Spelled at every site rather than shared from one, so this is what holds the spellings together.
 
-    updates = {function.__name__: _keyword(_anchor_calls(function)[0], "update") for function in CHOKE_POINT_FUNCTIONS}
+    An `$inc` too: a `$set` of a constant rewrites nothing the second time and joins no write set.
+    """
+
+    updates = {function.__name__: _keyword(_anchor_calls(function)[0], "update") for function in ANCHORING_FUNCTIONS}
 
     assert all(update is not None for update in updates.values()), f"an anchor passes no `update` at all: {updates}"
 
@@ -148,9 +245,9 @@ def test_the_three_anchors_advance_one_field():
     assert set(spelled.values()) == {"{'$inc': {'" + ANCHOR_FIELD + "': 1}}"}, spelled
 
 
-@pytest.mark.parametrize("function", CHOKE_POINT_FUNCTIONS, ids=lambda function: function.__name__)
+@pytest.mark.parametrize("function", JUDGED_READS, ids=lambda function: function.__name__)
 def test_a_choke_point_judges_on_reads_of_its_own_session(function: Callable[..., Any]):
-    """Held by NAME where `tests/core/test_write_shapes.py` holds these three by reach.
+    """Held by NAME where `tests/core/test_write_shapes.py` holds these by reach.
 
     A choke point called from no transactional callback leaves that sweep's population and stays in
     this one, and a read left off the session judges what committed last.

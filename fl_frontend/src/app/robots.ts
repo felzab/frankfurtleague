@@ -3,7 +3,22 @@ import { SITE_URL } from "@/core/brand";
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const aiBots = ["Amazonbot", "Applebot-Extended", "Bytespider", "CCBot", "ClaudeBot", "GPTBot", "meta-externalagent", "Google-Extended"];
+  // Declares the AI-training opt-out the edge enforces. The edge's list sits in a dashboard no
+  // file reads, so nothing compares the two (`docs/ops/spec.md :: 1.8`).
+  // `Meta-ExternalFetcher` is left off: it is the user-initiated fetch, which documents bypassing
+  // this file anyway.
+  const aiBots = [
+    "Amazonbot",
+    "Applebot-Extended",
+    "Bytespider",
+    "CCBot",
+    "ClaudeBot",
+    "GPTBot",
+    "Google-Extended",
+    "meta-externalagent",
+    "Meta-ExternalAds",
+    "Meta-WebIndexer",
+  ];
 
   return {
     sitemap: `${SITE_URL}/sitemap.xml`,

@@ -302,6 +302,37 @@ class TestTheListNarrowsOnOneDocument:
 
         assert collection.requested_filter["document_id"] == "2026_27"
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "6890a1b2 c3d4e5f6 071829",
+            "6890a1b2\tc3d4e5f6\t071829",
+            "6890a1b2\nc3d4e5f6\n071829",
+            "6890a1b2\rc3d4e5f6\r071829",
+            "6890a1b2\vc3d4e5f6\v071829",
+            "6890a1b2\fc3d4e5f6\f071829",
+        ],
+    )
+    def test_an_id_bson_decodes_shorter_asks_for_the_text_as_given(self, value: str):
+        """`ObjectId.is_valid` accepts all six, so none is redundant: `bytes.fromhex` skips every ASCII whitespace character.
+
+        Compiled, the eleven-byte id reaches the driver zero-padded into a well-formed id nobody
+        typed, and the log answers for that other document.
+        """
+
+        collection = _LogCollection(log_of(3))
+        run_list(collection, document_id=value)
+
+        assert collection.requested_filter["document_id"] == value
+
+    def test_an_upper_case_id_asks_for_the_stored_objectid(self):
+        """Guards the fold: bson lower-cases a well-formed upper-case id, and a round trip compared exactly would send this one as text."""
+
+        collection = _LogCollection(log_of(3))
+        run_list(collection, document_id="6890A1B2C3D4E5F607200010")
+
+        assert collection.requested_filter["document_id"] == ObjectId("6890a1b2c3d4e5f607200010")
+
     def test_an_unfiltered_read_names_no_document(self):
         collection = _LogCollection(log_of(3))
         run_list(collection)

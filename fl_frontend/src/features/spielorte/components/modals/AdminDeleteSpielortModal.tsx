@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteSpielortAction } from "@/features/spielorte/actions";
+import { SPIELORT_RETIREMENT_CONSEQUENCE } from "@/features/spielorte/constants";
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
@@ -18,8 +19,9 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
       heading="Spielort stilllegen"
       entityLabel="den Spielort"
       entityName={ort.name}
-      consequence="Schon eingetragene Spiele behalten diesen Ort. Er steht künftig nur nicht mehr zur Auswahl."
+      consequence={SPIELORT_RETIREMENT_CONSEQUENCE}
       successMessage="Spielort stillgelegt"
+      failureMessage="Spielort nicht stillgelegt"
       onConfirm={() => deleteSpielortAction({ id: ort.id })}
     />
   );

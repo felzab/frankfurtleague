@@ -92,16 +92,104 @@ export function renderTree(tree: ReactNode): string {
 }
 
 /**
- * The words inside markup. It repeats because one pass over `<a<b>>` leaves `<a` standing, which a
- * caller then reads as text — the shape CodeQL's incomplete-multi-character-sanitization names.
+ * The words inside markup, each tag replaced by `separator`. The empty default joins what stood either
+ * side of a tag; a caller reading across an element boundary passes a space, or two words become one.
  */
-export function textOf(html: string): string {
+export function textOf(html: string, separator = ""): string {
   let text = html;
 
+  // To a FIXPOINT rather than in one pass — the shape CodeQL's
+  // incomplete-multi-character-sanitization names: a pattern leaving a tag standing hands the caller
+  // markup to read as text, and this one is free to change.
   for (let previous = ""; text !== previous;) {
     previous = text;
-    text = text.replace(/<[^>]*>/g, "");
+    text = text.replace(/<[^>]*>/g, separator);
   }
 
   return text;
+}
+
+export type RefusalWrapper = {
+  /** What the overlay, the one tab stop, is named. */
+  name: string;
+  /** The closed control's own accessible name: its `aria-label` where it carries one, and its words where it does not. */
+  label: string;
+  reason: string;
+};
+
+const attributeOf = (tag: string, name: string): string | null => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? null;
+
+function closingDiv(html: string, from: number): number {
+  const tags = /<div\b|<\/div>/g;
+  tags.lastIndex = from;
+
+  for (let depth = 1, tag = tags.exec(html); tag !== null; tag = tags.exec(html)) {
+    depth += tag[0] === "</div>" ? -1 : 1;
+    if (depth === 0) return tag.index;
+  }
+
+  return html.length;
+}
+
+/** The markup inside the `inert` box standing immediately before `at`, which is where the overlay covers its control. */
+function coveredBefore(html: string, at: number): string | null {
+  const boxes = [...html.slice(0, at).matchAll(/<div\b[^>]*>/g)].filter((opening) => attributeOf(opening[0], "inert") !== null);
+
+  for (const box of boxes.toReversed()) {
+    const start = box.index + box[0].length;
+    const end = closingDiv(html, start);
+    if (end + "</div>".length === at) return html.slice(start, end);
+  }
+
+  return null;
+}
+
+/**
+ * The control an `inert` box holds, where it is closed: a disabled button, or a link with no `href` to follow. An open
+ * control under the overlay is a closure announced over a control that works, and no refusal.
+ */
+function closedControl(covered: string): { attributes: string; inner: string } | null {
+  const control = /<(button|a)\b([^>]*)>([\s\S]*?)<\/\1>/.exec(covered);
+  if (control === null) return null;
+
+  const attributes = control[2] ?? "";
+  const isClosed = control[1] === "button" ? attributeOf(attributes, "disabled") !== null : attributeOf(attributes, "href") === null;
+
+  return isClosed ? { attributes, inner: control[3] ?? "" } : null;
+}
+
+/**
+ * Every refusal `fl_frontend/src/shared/components/ui/Hint.tsx :: RefusalHint` renders, in document order, from
+ * either renderer's markup. Both halves of the closure decide it: a heading's reveal hint is a popover trigger too,
+ * and announces nothing closed.
+ */
+export function refusalWrappers(html: string): RefusalWrapper[] {
+  return [...html.matchAll(/<div\b[^>]*>/g)].flatMap((opening) => {
+    const tag = opening[0];
+    if (attributeOf(tag, "data-slot") !== "popover-trigger" || attributeOf(tag, "aria-disabled") !== "true") return [];
+
+    const covered = coveredBefore(html, opening.index);
+    const control = covered === null ? null : closedControl(covered);
+    if (control === null) return [];
+
+    const describedBy = attributeOf(tag, "aria-describedby") ?? "";
+    const literal = describedBy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const description = new RegExp(`<(\\w+)\\b([^>]*\\sid="${literal}"[^>]*)>([\\s\\S]*?)</\\1>`).exec(html);
+    const words = textOf(control.inner, " ").replace(/\s+/g, " ").trim();
+    const name = attributeOf(tag, "aria-label") ?? "";
+
+    // Refused here rather than left to each panel test: speech input finds the one tab stop by the words on screen
+    // (WCAG 2.5.3), and every panel test reads its refusals through this reader. An icon-only control has no words.
+    if (!name.includes(words))
+      throw new Error(`a refusal named „${name}“ covers a control reading „${words}“, which its name does not contain`);
+
+    return [
+      {
+        name,
+        label: attributeOf(control.attributes, "aria-label") ?? words,
+        // Read only where the description is hidden: a reason standing in the flow is the defect the overlay exists against.
+        reason: description !== null && attributeOf(description[2] ?? "", "hidden") !== null ? textOf(description[3] ?? "") : "",
+      },
+    ];
+  });
 }

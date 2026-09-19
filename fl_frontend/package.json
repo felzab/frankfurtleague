@@ -25,7 +25,7 @@
     "typegen": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder next typegen",
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
-    "test": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --enable-source-maps --import ./tsconfig-alias-hook.mjs --test",
+    "test": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --enable-source-maps --import ./tsconfig-alias-hook.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./worker-exit-reporter.mjs --test-reporter-destination=stderr",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },
   "dependencies": {
@@ -50,6 +50,10 @@
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
@@ -60,6 +64,7 @@
     "eslint-config-next": "^16.3.4",
     "eslint-plugin-better-tailwindcss": "^4.7.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.26",
     "prettier": "3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",

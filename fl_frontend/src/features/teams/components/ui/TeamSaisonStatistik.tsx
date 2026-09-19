@@ -2,7 +2,13 @@ import { Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 
+import { Tordifferenz } from "./Tordifferenz";
+
 import type { FLTeamStatistik } from "../../schemas";
+
+// Each step is n tiles of 9.5rem plus the `gap-4` between them: 9.5rem is the narrowest tile, at a
+// quarter-rem step, holding „15 / 10 / 12“ on one line at its largest type.
+const COLUMNS = "@min-[20rem]:grid-cols-2 @min-[51.5rem]:grid-cols-5";
 
 /**
  * The `statistik_scope=gesamt` figures, which no other surface shows — hence the line under the
@@ -18,30 +24,45 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
         </p>
       </div>
 
-      {/* Punkte spans the narrow row: an odd card count leaves one alone on two columns, and it is
-          the figure the rest produce rather than a peer. Undone at `lg`, where all fit on one row. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {[
-          { label: "Punkte", value: statistik.punkte, isSummary: true },
-          { label: "Spiele", value: statistik.anzahl_gespielte_spiele, isSummary: false },
-          { label: "S / U / N", value: `${statistik.siege} / ${statistik.unentschieden} / ${statistik.niederlagen}`, isSummary: false },
-          { label: "Tore", value: `${statistik.tore_geschossen}:${statistik.tore_kassiert}`, isSummary: false },
-          { label: "Differenz", value: statistik.tore_geschossen - statistik.tore_kassiert, isSummary: false },
-        ].map((stat) => (
-          <Card
-            key={stat.label}
-            variant="default"
-            // The separating space belongs in the template literal, never inside the string:
-            // prettier's Tailwind plugin trims class strings, so the classes would glue together.
-            className={`${card()} ${stat.isSummary ? "col-span-2 lg:col-span-1" : ""}`}>
-            <Card.Content className="py-4 text-center">
-              <p className="fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
-              <p className={`font-numeric text-foreground font-extrabold tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
-                {stat.value}
-              </p>
-            </Card.Content>
-          </Card>
-        ))}
+      {/* A query container of its own rather than `CardGrid`, whose `role` would announce one record's
+          five figures as a list of records. */}
+      <div className="@container">
+        {/* Punkte spans the two-column row: an odd card count leaves one alone on two columns, and it
+            is the figure the rest produce rather than a peer. Undone at five, where all fit on one row. */}
+        <div className={`grid grid-cols-1 gap-4 ${COLUMNS}`}>
+          {[
+            { label: "Punkte", value: statistik.punkte, isSummary: true },
+            { label: "Spiele", value: statistik.anzahl_gespielte_spiele, isSummary: false },
+            { label: "S / U / N", value: `${statistik.siege} / ${statistik.unentschieden} / ${statistik.niederlagen}`, isSummary: false },
+            { label: "Tore", value: `${statistik.tore_geschossen}:${statistik.tore_kassiert}`, isSummary: false },
+            {
+              label: "Differenz",
+              value: (
+                <Tordifferenz
+                  geschossen={statistik.tore_geschossen}
+                  kassiert={statistik.tore_kassiert}
+                />
+              ),
+              isSummary: false,
+            },
+          ].map((stat) => (
+            <Card
+              key={stat.label}
+              variant="default"
+              // The separating space belongs in the template literal, never inside the string:
+              // prettier's Tailwind plugin trims class strings, so the classes would glue together.
+              className={`${card()} ${stat.isSummary ? "@min-[20rem]:col-span-2 @min-[51.5rem]:col-span-1" : ""}`}>
+              <Card.Content className="py-4 text-center">
+                <p className="fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
+                {/* „15 / 10 / 12“ broken at a slash reads as two figures; the steps above never force a break. */}
+                <p
+                  className={`font-numeric text-foreground font-extrabold whitespace-nowrap tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
+                  {stat.value}
+                </p>
+              </Card.Content>
+            </Card>
+          ))}
+        </div>
       </div>
     </section>
   );

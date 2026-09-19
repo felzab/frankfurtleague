@@ -47,7 +47,10 @@ export function EditPageHeader({
         onPress={onLeave}
         isDisabled={isLeaving}
         className={`${formButton({ intent: "nav", size: "sm" })} mb-6 w-fit gap-x-2`}>
-        <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+        <ArrowUturnCwLeft
+          aria-hidden="true"
+          className="size-4 shrink-0"
+        />
         <span>Zurück</span>
       </Button>
 
@@ -60,9 +63,9 @@ export function EditPageHeader({
           {reactivate !== undefined && (
             <Button
               onPress={reactivate.onPress}
-              isDisabled={reactivate.isPending}
+              isPending={reactivate.isPending}
               className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-              {reactivate.isPending ? "Reaktiviert..." : "Reaktivieren"}
+              {reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
             </Button>
           )}
         </div>

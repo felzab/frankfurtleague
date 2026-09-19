@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { catchError } from "next/error";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
@@ -13,7 +13,6 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { handleSignIn } from "../../actions";
 import { SignInActionFallback } from "../ui/SignInActionFallback";
@@ -88,24 +87,31 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
-    appToast.danger("Anmeldung fehlgeschlagen", {
-      description: state.error ?? UNKNOWN_REFUSAL,
+    appToast.danger("Anmeldelink nicht gesendet", {
+      description: state.error,
     });
   }, [state, setSubmitFieldErrors]);
 
   const handleFormSubmit = () => {
+    // The pending button is not the whole guard: `Enter` in the read-only field submits the form too,
+    // and a second submit mid-flight would send a second link.
+    if (isPending) return;
+
     // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ signIn: { email } }, () => {
       const submitted = new FormData();
       submitted.set("email", email);
-      formAction(submitted);
+      // Inside a transition, as a dispatch from a submit handler must be: outside one `isPending` never turns true.
+      startTransition(() => {
+        formAction(submitted);
+      });
     });
   };
 
   if (isSubmitted) {
     return (
-      /* Deliberately "falls diese Adresse freigegeben ist": the action answers identically
-         either way, and a confirmation naming a real outcome is the membership test again. */
+      /* The confirmation is read off the answer rather than written here: the two arms of
+         `fl_frontend/src/features/auth/actions.ts :: handleSignIn` have to read identically. */
       <div
         role="status"
         className="flex flex-col items-center gap-y-3 py-6 text-center">
@@ -114,7 +120,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
         {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-        <p className="muted-hint text-pretty">{state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}</p>
+        <p className="muted-hint text-pretty">{state.message}</p>
         {/* The action does not navigate, so without this the only way back is a page reload. */}
         <Button
           type="button"
@@ -157,7 +163,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
           ref={formRef}
           validationErrors={fieldErrors}
           onSubmit={runOnSubmit(handleFormSubmit)}
-          className="flex flex-col gap-y-5">
+          className="flex flex-col gap-y-4">
           {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
             stopped matching the words a voice-control user reads. `TextField` associates it. */}
           <TextField
@@ -166,15 +172,17 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             name="email"
             type="email"
             value={email}
-            onChange={onEmailChange}>
+            onChange={onEmailChange}
+            // Read-only rather than disabled while the link sends: a disabled field drops the focus of
+            // the visitor who pressed `Enter` in it to the page.
+            isReadOnly={isPending}>
             <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
             <Input
-              className="border-border bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-(--motion-base) outline-none"
               placeholder="z.B. name@beispiel.de"
               type="email"
-              disabled={isPending}
             />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -182,9 +190,9 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
           <Button
             type="submit"
             variant="primary"
-            isDisabled={isPending}
+            isPending={isPending}
             className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Wird gesendet..." : "Link senden"}
+            {isPending ? "Sendet..." : "Link senden"}
           </Button>
         </Form>
       </Tabs.Panel>
@@ -192,13 +200,16 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
       <Tabs.Panel id="Spieler">
         {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
             more surface the submit-block sweep has to carve an exception for. */}
-        <div className="flex flex-col gap-y-5">
+        <div className="flex flex-col gap-y-4">
+          {/* Not `isRequired`: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
+              reaches a field inside a `form` alone, so here it draws a red star on a field nothing submits. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
-            isRequired
             name="email"
             type="email">
             <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            {/* Left under the decoration grade rather than taking `border-control`: WCAG 1.4.11 exempts
+                an inactive component, and a box that reads as reachable offers a sign-in nothing serves. */}
             <Input
               className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
               placeholder="Noch nicht verfügbar"

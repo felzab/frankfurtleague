@@ -3,7 +3,7 @@ import type { FLPostSchiedsrichterPayload, FLSchiedsrichter, FLSchiedsrichterPay
 /**
  * A referee whose `name` is the word on screen rather than the stored one, so a control that must
  * show something takes an erased referee without a null reaching it. Built through
- * `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+ * `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
  */
 export type FLSchiedsrichterAngezeigt = FLSchiedsrichter & { name: string };
 
@@ -18,7 +18,7 @@ type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 export type FLSchiedsrichterFilterParams = {
   default_payment?: number;
   // A switch, not a value to match on: retirement is a date, and a caller wanting the retired
-  // referees wants them beside the live ones — the admin list, which is where one is reactivated.
+  // referees wants them beside the live ones.
   include_inactive?: boolean;
 
   limit?: number;

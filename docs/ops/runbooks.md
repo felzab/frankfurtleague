@@ -53,12 +53,17 @@ the machine is outside the repository. What it does tell you:
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
-  carries the schema's key set rather than the schema, so **a name the frontend does not declare
-  refuses the deploy at exit 2 with nothing recreated** and the remedy is one of three — delete the
-  line, correct its spelling, or declare the name in the schema, nothing in that schema reading an
-  undeclared one. A value it holds is judged at boot and nowhere else. It does catch the misspelling
-  whose value is EMPTY that the backend's reader drops, and a line its reader cannot take at all is
-  an advisory rather than a refusal ([`spec.md`](spec.md) §1.5).
+  carries the schema's key sets rather than the schema, so **a name the frontend does not
+  declare, and a name it requires that the file gives no value, each refuse the deploy at exit 2
+  with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
+  spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
+  **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
+  from the shell that ran compose and reaching the container as nothing at all. That is where a
+  release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
+  the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
+  judged at boot and nowhere else. It does catch the misspelling whose value is EMPTY
+  that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
+  than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
@@ -150,7 +155,7 @@ ordinary constraint change, and assuming which of the two you are in is what thi
 
 **A collection the change ADDS is the free case, and `--check` says so by counting nothing.** The
 namespace does not exist, so `report_violations` answers `0 of 0` and there is no backfill to hunt:
-`_apply_validator` creates the collection with the validator already attached
+`apply_validator` creates the collection with the validator already attached
 (`fl_backend/app/core/constraints.py :: NAMESPACE_NOT_FOUND`), which either `--apply` or the deploy's
 own boot reaches. A `0 of 0` against a collection you expected to hold rows is the case to stop on.
 
@@ -160,13 +165,14 @@ then `--apply` or the deploy's own boot to attach the validators
 serves), then `--check` again.
 
 **A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
-validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
+validator is attached strict (`fl_backend/app/core/constraints.py :: apply_validator`) and the
 previous one lists the old name under `required`, so a `$rename` run under it produces a document
 missing a required field and is refused for every row; the same strictness refuses an erasure's
 `$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
-which is why the rename cannot wait either. **This repository holds no migration runner and no
-migration**: the command belongs to the change that needs it and is run by hand against the
-database, so what is written here is the order alone.
+which is why the rename cannot wait either. **This repository holds no migration RUNNER**: a
+migration belongs to the change that needs it and is run by hand against the database, as a command
+typed at a prompt where it fits in one and as a script beside the ops tools where it does not
+(`scripts/ops/ghost_schiedsrichter.py`), so what is written here is the order alone.
 
 1. `--check` from the new checkout while the old image still serves. Every row is reported as
    missing the new name, which is the confirmation that the rename is owed rather than a finding to
@@ -246,6 +252,44 @@ drop is the whole procedure, and it belongs in the deploy's own window rather th
 between the stack coming down and the new build coming up, because the refusal above is what the boot
 answers with while the old index stands.
 
+**A uniqueness rule WIDENED — a `partial_filter` removed — is the same refusal from the other side,
+and the drop is only half the procedure.** `collMod` reaches the filter in neither direction, so the
+live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
+inside the wide one, so any that would collide have to move before the boot rebuilds it. That makes
+the migration a script rather than a typed command, and fixes its order: move the rows, drop the
+index last. `scripts/ops/ghost_schiedsrichter.py` is this release's, and it is re-runnable step by
+step, so a run that dies partway is repaired by running it again rather than by repairing rows by
+hand. **Run `--check`, read its counts, then `--apply`, and do all of it before the `--check` at the
+head of this section**: that run groups every row against the widened rule, so it answers about the
+database the boot will meet only once the rows have moved.
+
+On the server the script is mounted beside the `app/` this section's first `docker run` mounts, the
+backend image's build context being `fl_backend/` alone (`fl_backend/.dockerignore`), and the image's
+working directory is what resolves both:
+
+```bash
+docker run --rm --network <compose-network> \
+  -v "$PWD/fl_backend/app:/app/app:ro" \
+  -v "$PWD/fl_backend/.env:/app/.env:ro" \
+  -v "$PWD/scripts/ops/ghost_schiedsrichter.py:/app/ghost_schiedsrichter.py:ro" \
+  <backend-image> python ghost_schiedsrichter.py --check
+```
+
+Dev, on Windows, is `cd fl_backend && .venv/Scripts/python ../scripts/ops/ghost_schiedsrichter.py --check`.
+Either way the seven variables and the refusal naming them are `python -m app.core.constraints`'s
+(`fl_backend/app/core/config.py :: BackendConfig`), and no credential is typed on the line.
+
+**Read the index line from `--check`, never from `--apply`'s answer alone.** From MongoDB 8.1 a drop
+of a name the collection does not hold answers `ok` rather than raising, so a run against a database
+that never built the index cannot be told from one that removed it by the drop itself; the script
+reports the presence it read first, and that is the only reading either way.
+
+**A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
+it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
+re-running the migration before the retry is what clears it, which is a command rather than a repair.
+Where the earlier build declares no index of that name, nothing rebuilds it and the retry needs only
+the rows.
+
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
 reads the club and answers 404 for an id `teams` does not hold
@@ -282,11 +326,11 @@ its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_
 that field directly — and it takes the season's club reads with it: the name is what
 `fl_backend/app/api/teams/services.py :: build_team_pipeline` projects, and `GET /teams`, `GET /teams/{team_id}`
 and the admin twin `GET /teams/list/admin` (`fl_backend/app/api/teams/admin_router.py :: get_teams_for_admin`)
-are each built on that pipeline. **It does not stop at that season's own reads:**
-`fl_backend/app/api/spiele/crud.py :: find_bracket_faults` derives the whole archive's faults in one request
-and resolves every season whose knockout slots draw on a group placing against that same pipeline, so one
-such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
-included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
+are each built on that pipeline. `GET /spiele/action_required` for that season goes down with them once its
+knockout slots draw on a group placing, because `fl_backend/app/api/spiele/crud.py :: find_bracket_faults`
+resolves those against that same pipeline. Every other season's queue still loads, so a queue failing for one
+season alone points at that season's rows — or at a malformed `uhrzeit` on another season's fixture booked
+within a day onto one of its venues or referees ([`docs/backend/spec.md`](../backend/spec.md#3-violation--remedy)). The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
@@ -650,7 +694,10 @@ reading the file needs the host's root either way.
 them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later deploy has none.
 
 1. **Issue the tunnel's token in the dashboard and put the value on the server** at
-   `./secrets/tunnel_token`, beside the compose file and readable by root alone. `.gitignore` covers
+   `./secrets/tunnel_token`, beside the compose file, owned by uid and gid 65532 with mode `400`: the
+   pinned connector image runs as that user, and Compose hands a file secret over as a bind mount
+   keeping the host's owner and mode, so a file readable by root alone leaves the connector
+   restarting in a loop. `.gitignore` covers
    `secrets/`, so a checkout that holds the credential still cannot commit it, and preflight refuses
    the deploy by name where the file is absent ([`spec.md`](spec.md) §1.2).
 2. **Read the two env files against the documented shapes before anything comes down.**
@@ -712,13 +759,13 @@ are taken by hand in the mail provider's own console; step 3 is a line in the se
 file, and it is the one that stops the frontend booting.
 
 1. Create an endpoint at `https://<the league's domain>/api/mail/zustellung`.
-2. Subscribe exactly six events -- `email.delivered`, `email.bounced`, `email.complained`,
-   `email.suppressed`, `email.failed` and `email.delivery_delayed` -- and **neither `email.opened`
+2. Subscribe exactly six events — `email.delivered`, `email.bounced`, `email.complained`,
+   `email.suppressed`, `email.failed` and `email.delivery_delayed` — and **neither `email.opened`
    nor `email.clicked`**, which the published notice promises are not measured
    ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 3. Copy the signing secret into the frontend's environment as `RESEND_WEBHOOK_SECRET`. **It begins
    `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
-   the boot check does not, deliberately -- refusing at start beats answering 400 to every event.
+   the boot check does not, deliberately — refusing at start beats answering 400 to every event.
 4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
    step 2.
 
@@ -815,15 +862,15 @@ snapshot was restored, so which requests fall after it is answerable later.
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,
-so such a row refuses an erasure's own `$set` — which is every write below.
+so such a row refuses any erasure below that writes over it rather than removing it.
 
 **Then read every erasure the mailbox answered inside the window, and run each again.** A restored row
 does not look erased, and each role's guard reads something the restore took away:
 
-- **A referee.** The name, school and contact members are back and `anonymisiert_am` is unstamped, so
-  both the undo refusal and the reactivation refusal read the row as never erased
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I214) and it is editable and bookable
-  again. `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`.
+- **A referee.** The whole row is back, with its name, school and contact members, and every fixture
+  the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
+  they are editable and bookable. `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren` does all
+  of it again.
 - **A pupil.** The person and their squad rows are back and standing, so the erasure is refused until
   the retirement is stamped again (`REQ-PURGE-001`): `DELETE /spieler/{spieler_id}`, then
   `DELETE /spieler/{spieler_id}/erasure`.

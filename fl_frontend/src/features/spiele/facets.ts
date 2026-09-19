@@ -1,5 +1,5 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { schiedsrichterAnzeigename } from "@/features/schiedsrichter/constants";
+import { bookedSchiedsrichterName } from "@/features/schiedsrichter/constants";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
 import { computeSpielStatus } from "./utils";
@@ -22,25 +22,12 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
   label: SONDEREREIGNIS_LABELS[event],
 }));
 
-// Its own word rather than the label
-// `fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`, so rewording
-// what a reader sees does not change what a saved link selects.
 /**
- * The merged option's value, in the URL and never on screen: no referee id collides with it, an id
- * being an ObjectId string.
+ * Keyed on the id a fixture embeds: the erasure repoints every erased referee's fixtures at the one
+ * ghost, so they already arrive under a single id and need no option merged by hand.
  */
-export const ANONYMISED_SCHIEDSRICHTER_VALUE = "anonymisiert";
-
-/**
- * The erasure nulls the name on the row and on every fixture, so an option keyed on the id would
- * offer one wordless entry per erased person: identical to read, and selectable one at a time.
- */
-export function schiedsrichterFacetValue({ id, name }: { id: string; name: string | null }): string {
-  return name === null ? ANONYMISED_SCHIEDSRICHTER_VALUE : id;
-}
-
 function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
-  return schiedsrichterFacetValue({ id: schiedsrichter.schiedsrichter_id, name: schiedsrichter.name });
+  return schiedsrichter.schiedsrichter_id;
 }
 
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
@@ -62,6 +49,9 @@ export function buildSpielFacets({
   today,
   isAdmin,
   spieltage = [],
+  teams = [],
+  spielorte = [],
+  schiedsrichter = [],
 }: {
   spiele: readonly FLSpiel[];
   today: string;
@@ -72,12 +62,19 @@ export function buildSpielFacets({
    * off altogether, rather than offering a dimension with nothing in it.
    */
   spieltage?: readonly { id: string; label: string }[];
+  /**
+   * Every club, venue and referee the page may read, fixtures or none. They label a value a link from
+   * another list names and no fixture here holds, which the options alone would drop without a word.
+   */
+  teams?: readonly { id: string; name: string }[];
+  spielorte?: readonly { id: string; name: string }[];
+  schiedsrichter?: readonly { id: string; name: string | null }[];
 }): Facet<FLSpiel>[] {
   const teamOptions = distinct(spiele, (spiel) => (spiel.team1 ? { id: spiel.team1.team_id, label: spiel.team1.name } : null)).concat(
     distinct(spiele, (spiel) => (spiel.team2 ? { id: spiel.team2.team_id, label: spiel.team2.name } : null)),
   );
   // Both sides feed one option list, so a club appears once whichever side it played on.
-  const teams = [...new Map(teamOptions.map((option) => [option.value, option])).values()].sort((left, right) =>
+  const teamOptionsInSaison = [...new Map(teamOptions.map((option) => [option.value, option])).values()].sort((left, right) =>
     left.label.localeCompare(right.label, "de"),
   );
 
@@ -98,7 +95,8 @@ export function buildSpielFacets({
   const team: Facet<FLSpiel> = {
     param: "team",
     label: "Team",
-    options: teams,
+    options: teamOptionsInSaison,
+    known: teams.map((team) => ({ value: team.id, label: team.name })),
     // An unoccupied slot contributes nothing, which keeps an unresolved knockout fixture out of a
     // club's filtered list rather than wrongly in it.
     read: (spiel) => [spiel.team1?.team_id, spiel.team2?.team_id].filter((id): id is string => id !== undefined),
@@ -108,6 +106,7 @@ export function buildSpielFacets({
     param: "ort",
     label: "Ort",
     options: distinct(spiele, (spiel) => (spiel.ort ? { id: spiel.ort.spielort_id, label: spiel.ort.name } : null)),
+    known: spielorte.map((spielort) => ({ value: spielort.id, label: spielort.name })),
     read: (spiel) => (spiel.ort === null ? [] : [spiel.ort.spielort_id]),
   };
 
@@ -176,18 +175,23 @@ export function buildSpielFacets({
     read: (spiel) => (spiel.sonderereignis === null ? [] : [spiel.sonderereignis]),
   };
 
-  const schiedsrichter: Facet<FLSpiel> = {
+  const schiedsrichterFacet: Facet<FLSpiel> = {
     param: "schiedsrichter",
     label: "Schiedsrichter",
     options: distinct(spiele, (spiel) =>
       spiel.schiedsrichter
-        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: schiedsrichterAnzeigename(spiel.schiedsrichter.name) }
+        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: bookedSchiedsrichterName(spiel.schiedsrichter) }
         : null,
     ),
+    // Keyed as a fixture's referee is, so a link built from a row reaches the option its fixtures sit
+    // under. The ghost reaches this list through no season's referees, only through their fixtures.
+    known: schiedsrichter.map((row) => ({ value: row.id, label: bookedSchiedsrichterName({ schiedsrichter_id: row.id, name: row.name }) })),
     read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
   };
 
-  // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The
+  // `ansetzung` follows `status` because it is the only facet that narrows these rows to an
+  // incomplete fixture; the season-wide queue at
+  // `fl_frontend/src/app/admin/action_required/page.tsx` is where one is found off this list. The
   // tail carries no ranking.
-  return [status, ansetzung, team, phase, spieltag, ort, ergebnis, sonderereignis, schiedsrichter].filter((facet) => facet !== undefined);
+  return [status, ansetzung, team, phase, spieltag, ort, ergebnis, sonderereignis, schiedsrichterFacet].filter((facet) => facet !== undefined);
 }

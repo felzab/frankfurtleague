@@ -142,8 +142,8 @@ def _searched_shapes() -> frozenset[str]:
 def _excluded_shapes(dockerignore: Path) -> frozenset[str]:
     """One `.dockerignore`'s block of credential shapes, read from the comment that marks it.
 
-    The block ends at the first blank line past a pattern; a comment inside it is skipped, one
-    file explaining a single entry in the middle of the run.
+    The block ends at the first blank line past a pattern; a comment inside it is skipped, each
+    explaining the entry below it.
     """
     lines = dockerignore.read_text(encoding="utf-8").splitlines()
     marked = [i for i, line in enumerate(lines) if "Matched by shape" in line]

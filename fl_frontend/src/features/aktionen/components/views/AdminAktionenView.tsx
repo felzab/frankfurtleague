@@ -112,6 +112,9 @@ export function AdminAktionenView({
           anzahl_je_herkunft: anzahlJeHerkunft,
         })}
         leserichtung={richtung}
+        // No sentence of its own for an empty narrowing: the notice above already names the record or
+        // the Vorgang and the way out, so the empty state says what every list says of a filter.
+        readNarrowedByRoute={dokumentId !== null || vorgangId !== null}
         renderTable={({ filteredItems, emptiness }) => (
           <AdminAktionenTable
             filteredAktionen={filteredItems}

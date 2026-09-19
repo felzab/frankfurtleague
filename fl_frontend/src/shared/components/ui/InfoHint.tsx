@@ -6,6 +6,7 @@ import { Popover } from "@heroui/react";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 
+import { HintPanel } from "./Hint";
 import { hintTrigger } from "./hintTrigger";
 import { overlayPanel } from "./overlayPanel";
 
@@ -16,27 +17,37 @@ import type { ReactNode } from "react";
  * children; a hint held to the length cap is `Hint`'s `reveal` mode.
  */
 export function InfoHint({ label, children, trigger }: { label: string; children: ReactNode; trigger?: ReactNode }) {
-  const { isOpen, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
+  const { isOpen, isDialogOpen, isOpenedByHover, panelKey, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
 
   return (
     <Popover
-      isOpen={isOpen}
+      isOpen={isDialogOpen}
       onOpenChange={onOpenChange}>
       <Popover.Trigger
         aria-label={label}
         className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
-        onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
+        onPointerMove={openFromHover}>
+        {trigger ?? (
+          <CircleInfo
+            aria-hidden="true"
+            className="size-(--hint-icon-size)"
+          />
+        )}
       </Popover.Trigger>
 
       <Popover.Content
+        key={panelKey}
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
         placement="top"
-        offset={8}>
-        <Popover.Dialog
-          ref={captureDialog}
-          className={`${overlayPanel()} fluid-xs text-foreground [&_strong]:text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none [&_strong]:font-bold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-y-1.5`}>
+        offset={8}
+        isNonModal={isOpenedByHover}>
+        <HintPanel
+          isOpenedByHover={isOpenedByHover}
+          panelRef={captureDialog}
+          className={`${overlayPanel()} fluid-xs text-foreground [&_strong]:text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none [&_strong]:font-bold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-y-1`}>
           {children}
-        </Popover.Dialog>
+        </HintPanel>
       </Popover.Content>
     </Popover>
   );

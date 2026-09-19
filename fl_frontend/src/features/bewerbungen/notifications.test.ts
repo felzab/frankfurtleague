@@ -306,31 +306,31 @@ describe("which mailbox is sent which link", () => {
     };
     // The local stack's own origin, as every minter now hands the helper (`docs/frontend/spec.md :: I186`).
     const origin = "http://localhost:3000";
-    const eigener = bestaetigungsLink(origin, "erste");
+    const ownLink2 = bestaetigungsLink(origin, "erste");
     const gespiegelter = bestaetigungsLink(origin, "zweite");
 
-    const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: eigener, trainer: gespiegelter });
+    const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: ownLink2, trainer: gespiegelter });
     const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");
 
-    assert.deepEqual(gepaart?.seats, [{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: eigener }]);
+    assert.deepEqual(gepaart?.seats, [{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: ownLink2 }]);
 
     const mail = buildBewerbungBestaetigungEmail({
       saisonId: "2627",
       origin: origin,
       schule: "Lessing-Kolleg",
-      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: eigener }],
+      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: ownLink2 }],
       fristText: "30.09.2026",
     });
 
     // Both branches: a reader whose client draws no HTML meets the same one link in the text.
-    for (const teil of [mail.html, mail.text]) {
+    for (const half of [mail.html, mail.text]) {
       const adressen = new Set(
-        [...teil.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0]).filter((url) => url.includes("bestaetigung")),
+        [...half.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0]).filter((url) => url.includes("bestaetigung")),
       );
 
-      assert.deepEqual([...adressen], [eigener], "the message offers a second link for the seat the first one already answers");
-      assert.match(teil, /Stellvertretung/, "the message no longer names the seat the person was entered under");
-      assert.match(teil, /Trainerin oder Trainer/, "the message no longer names the seat the Trainer claim mirrors");
+      assert.deepEqual([...adressen], [ownLink2], "the message offers a second link for the seat the first one already answers");
+      assert.match(half, /Stellvertretung/, "the message no longer names the seat the person was entered under");
+      assert.match(half, /Trainerin oder Trainer/, "the message no longer names the seat the Trainer claim mirrors");
     }
   });
 
@@ -580,11 +580,11 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
       buildMail: buildMailThatThrowsFor("Trainer"),
     });
 
-    const zeilen = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
-    assert.equal(zeilen.length, 1);
-    assert.equal(zeilen[0]?.meta.error_code, "FE-MAIL-002");
+    const failedLines = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
+    assert.equal(failedLines.length, 1);
+    assert.equal(failedLines[0]?.meta.error_code, "FE-MAIL-002");
     /* The address stays off the stream, as it does for a refused send (`docs/logging/spec.md :: L9`). */
-    assert.ok(!JSON.stringify(zeilen[0]).includes("erste@schule.de"));
+    assert.ok(!JSON.stringify(failedLines[0]).includes("erste@schule.de"));
   });
 });
 
@@ -677,8 +677,8 @@ describe("what an accepted send records about itself", () => {
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
     assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [] });
-    const zeile = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
-    assert.equal(zeile?.meta.error_code, "FE-MAIL-003");
-    assert.ok(!JSON.stringify(zeile).includes("erika@schule.de"), "the recipient travels on the log line");
+    const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
+    assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
+    assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
   });
 });

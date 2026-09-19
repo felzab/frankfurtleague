@@ -7,7 +7,7 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandHero({ title, lead }: { title: string; lead: string }) {
   return (
-    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-center gap-x-5 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
+    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-center gap-x-6 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
       <PitchTrace />
 
       <div className="relative flex min-w-0 flex-1 flex-col gap-y-3">

@@ -1,5 +1,7 @@
 "use server";
 
+import { refresh } from "next/cache";
+
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
@@ -10,7 +12,7 @@ import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht 
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type {
   FLKontaktErasureAnsichtResponse,
   FLKontaktErasurePayload,
@@ -57,9 +59,12 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
       return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate: no cached read holds a contact person.
+    // No tag moves: no cached read holds a contact person.
     // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
     // and not across requests, and no public team read carries `kontakte`.
+
+    // The admin's own list is uncached, so no tag reaches it.
+    refresh();
 
     return {
       success: true,
@@ -111,7 +116,8 @@ export async function patchSaisonTeamKontakteAction(
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, for the erasure's reason above.
+    // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
+    refresh();
 
     return {
       success: true,
@@ -129,7 +135,7 @@ export async function patchSaisonTeamKontakteAction(
  */
 export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
-): Promise<ActionResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
+): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
   return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

@@ -179,22 +179,28 @@ here says whether the backend accepts what it holds. Its own answer is above."
 }
 
 # Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# set (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`) rather than the schema itself.
+# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, `:: REQUIRED_ENVIRONMENT_NAMES`
+# and `:: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
 check_frontend_env_names() {
   local rc=0
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs || rc=$?
+  # `--production` because this script has one deployment, the production stack the compose file
+  # above names: the reader judges names, and the schema's production-only half rests on a VALUE.
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs --production || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's environment file, and the line above names the variables
-its schema does not declare. Nothing in that schema reads such a name, so the line reads as omitted
-and the shipped default serves production -- delete it, correct its spelling, or declare it in the
-schema.
+    refuse "the frontend refuses this host's environment file, and the line above names the variables.
+An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
+default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
+required name is one the boot gate would meet instead, after the recreate and behind an edge already
+answering 502 -- write it into the file WITH A VALUE, a bare \`NAME\` line taking its value from the
+shell that ran compose, which here holds none.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.
     warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether every name in it is one the frontend declares. Its own answer is above."
+here says whether it holds every name the frontend requires and none it does not declare. Its own
+answer is above."
   else
-    ok "every name in fl_frontend/.env is one the frontend's schema declares"
+    ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
   fi
 }
 

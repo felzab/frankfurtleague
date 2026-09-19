@@ -73,7 +73,7 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
     | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version")
-    | {"saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
+    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
 )
 
 # `_id` is here and not in the view's, whose own line says why
@@ -259,9 +259,38 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["ansprechperson"]))
 
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert (response.vorname, response.text_version) == ("Quillhilde", "v3")
+        assert (response.vorname, response.text_version, response.zugleich_rolle) == ("Quillhilde", "v3", None)
         rendered = response.model_dump_json()
         assert "Mustermann" not in rendered and "example.com" not in rendered and "1234567" not in rendered
+
+    @pytest.mark.parametrize(
+        ("seat", "zugleich_rolle"),
+        [("ansprechperson", "trainer"), ("trainer", "ansprechperson"), ("stellvertretung", None)],
+    )
+    def test_a_double_seated_persons_link_names_their_second_seat_and_no_other_link_does(
+        self, mongo_replica_set_url: str, seat: str, zugleich_rolle: str | None
+    ):
+        """The third seat is load-bearing: serving the declaration itself would tell the Stellvertretung that two OTHER seats are one person."""
+
+        paired = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW[seat]), documents=[paired])
+
+        assert (response.rolle, response.zugleich_rolle) == (seat, zugleich_rolle)
+
+    def test_the_seats_the_view_names_are_the_seats_the_answer_writes(self, mongo_replica_set_url: str):
+        paired = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            view = await ansicht(database, RAW["trainer"])
+            await answer(database, client, RAW["trainer"])
+
+            return view, await stored(database)
+
+        view, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
+
+        stamped = {seat for seat in KONTAKT_SEATS if document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY}
+        assert stamped == {view.rolle, view.zugleich_rolle}
 
     def test_a_picked_clubs_application_names_the_club(self, mongo_replica_set_url: str):
         picked = bewerbung_document(PICKED_BEWERBUNG_OID, team_id=CLUB_OID, schule=None)

@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-const collectTsxFiles = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
+const collectTsxFiles = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
 
 /**
  * **Found by the CONTROL, never by how the empty case is spelled.** Grepping for `isNaN` finds only the sites

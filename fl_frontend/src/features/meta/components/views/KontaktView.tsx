@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Envelope } from "@gravity-ui/icons";
 
 import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
+import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
@@ -13,7 +15,9 @@ import { MetaSection } from "../ui/MetaSection";
 import type { ReactNode } from "react";
 import type { KontaktChannelId } from "../../types";
 
-const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
+// Each step is n columns of 16.5rem plus the gaps between them: 16.5rem is the narrowest channel card, at a
+// quarter-rem step, holding the league's address unbroken at its largest type.
+const COLUMNS = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
 
 const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
 
@@ -61,19 +65,20 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
       <MetaSection
         eyebrow="So erreichst Du uns"
         title="Kanäle">
-        <div
+        <CardGrid
+          columns={COLUMNS}
           role="list"
-          className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`}>
+          className={CARDS_CASCADE}>
           {KONTAKT_CHANNELS.map((channel) => (
             <div
               role="listitem"
               key={channel.id}
-              className={`${card()} flex flex-col justify-between gap-y-5 p-5 sm:p-6`}>
+              className={`${card()} flex flex-col justify-between gap-y-6 p-5 sm:p-6`}>
               <div className="flex flex-col gap-y-4">
                 <div className="flex flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={TILE}>
+                    className={BRAND_TILE}>
                     {GLYPH[channel.id]}
                   </span>
                   <span className="fluid-base text-foreground font-bold">{channel.name}</span>
@@ -91,7 +96,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
               </Link>
             </div>
           ))}
-        </div>
+        </CardGrid>
       </MetaSection>
     </div>
   );

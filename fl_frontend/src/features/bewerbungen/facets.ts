@@ -1,6 +1,7 @@
 import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
-import { BEWERBUNG_STATUS_OPTIONS } from "./constants";
+import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_OPTIONS } from "./constants";
+import { bewerbungHerkunft } from "./utils";
 
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
 import type { FLBewerbungenListResponse } from "./schemas";
@@ -49,16 +50,12 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
   {
     param: "herkunft",
     label: "Herkunft",
-    options: [
-      { value: "neue_schule", label: "Neue Schule" },
-      { value: "bestehendes_team", label: "Bestehendes Team" },
-    ],
-    // Exactly one of the two carries a value on a well-formed application, and a row carrying neither
-    // matches no option rather than being filed under the wrong one — that row is what
-    // `REQ-BEWERBUNG-002` refuses to accept.
+    options: Object.entries(BEWERBUNG_HERKUNFT_LABELS).map(([value, label]) => ({ value: value, label: label })),
+    // A row naming neither matches no option rather than being filed under the wrong one.
     read: (bewerbung) => {
-      if (bewerbung.schule !== null) return ["neue_schule"];
-      return bewerbung.team_id !== null ? ["bestehendes_team"] : [];
+      const herkunft = bewerbungHerkunft(bewerbung);
+
+      return herkunft === null ? [] : [herkunft];
     },
   },
 ];

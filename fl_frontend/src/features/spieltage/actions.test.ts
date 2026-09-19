@@ -5,9 +5,9 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { FLSaisonPhaseSchema } from "../saisons/schemas.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";

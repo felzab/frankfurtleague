@@ -186,7 +186,6 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
             "default_payment": 20,
             "kontakt": kontakt(),
             "inactive_since": None,
-            "anonymisiert_am": None,
         }
     )
 

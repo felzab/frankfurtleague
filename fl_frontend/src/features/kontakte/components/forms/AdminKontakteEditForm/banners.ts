@@ -1,13 +1,17 @@
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-type KontakteBannerId =
-  "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.block-removed" | "kontakte.seats-emptied" | "kontakte.confirmation-cleared";
+type KontakteBannerId = "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.seats-emptied" | "kontakte.confirmation-cleared";
 
-/** The one panel spot: the block switch is what raises every change banner this editor has. */
 type KontakteBannerSpot = "kontakte-block";
 
 export type KontakteBanner = RailBanner<KontakteBannerId> & { inline: KontakteBannerSpot | null };
+
+/**
+ * What the draft guard says before either of the editor's two deletions: each write lands on the
+ * server and the page re-reads after it, so one wording here keeps the two panels from parting.
+ */
+export const DRAFT_IN_THE_WAY = "Das Löschen liest die Seite neu und verwirft die nicht gespeicherten Änderungen.";
 
 /**
  * One list, not two: the rail and the panel must never disagree about what is raised, and a second
@@ -17,15 +21,12 @@ export function buildKontakteBanners({
   saisonId,
   saisonStatus,
   isMember,
-  isBlockRemoved,
   emptiedSeatLabels,
   renamedConfirmedSeatLabels,
 }: {
   saisonId: string;
   saisonStatus: TeamSaisonMembership["saisonStatus"];
   isMember: boolean;
-  /** The block stood and the draft clears it, which takes every seat with it. */
-  isBlockRemoved: boolean;
   /** The seats that held somebody and hold nobody in the draft, in the panel's own order. */
   emptiedSeatLabels: readonly string[];
   /** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */
@@ -59,23 +60,7 @@ export function buildKontakteBanners({
     });
   }
 
-  if (isBlockRemoved) {
-    banners.push({
-      id: "kontakte.block-removed",
-      severity: "warning",
-      raisedBy: "change",
-      // Every seat goes with the block, whether it held somebody or not, so the sentence states the
-      // resulting condition rather than counting what is lost.
-      title: `Für Saison ${saisonId} ist danach niemand mehr hinterlegt`,
-      body: "Die Angaben stehen danach nur noch im Änderungsprotokoll.",
-      // The block's own removal makes each per-seat sentence redundant: both name seats inside a block
-      // that is going whole.
-      supersedes: ["kontakte.seats-emptied", "kontakte.confirmation-cleared"],
-      inline: "kontakte-block",
-    });
-  }
-
-  if (!isBlockRemoved && emptiedSeatLabels.length > 0) {
+  if (emptiedSeatLabels.length > 0) {
     banners.push({
       id: "kontakte.seats-emptied",
       severity: "warning",
@@ -88,7 +73,7 @@ export function buildKontakteBanners({
     });
   }
 
-  if (!isBlockRemoved && renamedConfirmedSeatLabels.length > 0) {
+  if (renamedConfirmedSeatLabels.length > 0) {
     banners.push({
       id: "kontakte.confirmation-cleared",
       severity: "warning",

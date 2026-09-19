@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "../../core/refusalRegister.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
 import { BEWERBUNG_DUBLETTE_LABEL, markBewerbungDubletten } from "./duplicates.ts";
 
 import type { FLBewerbung } from "./schemas.ts";
@@ -50,24 +51,24 @@ function bewerbung(
    (`fl_backend/tests/api/test_bewerbungen_read.py :: TestWhatCountsAsOneCollisionKey`). */
 const CLUB = "111111111111111111111111";
 const CLUB_KOLLIDIERT = `2627 team ${CLUB}`;
-const KUERZEL_KOLLIDIERT = "2627 kuerzel GG";
+const SHORTHAND_COLLIDES = "2627 kuerzel GG";
 
 describe("applications a triage has to decide between", () => {
   /* The endpoint's cap parted the pair, so this page holds one half and the other is nowhere:
      grouped over the loaded rows alone, the half on screen is a group of one and reads as a clean
      application. */
   it("marks the half of a pair the read's cap left on the page", () => {
-    const geladen = [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: "ER" })];
+    const loadedRows = [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: "ER" })];
 
-    assert.deepEqual([...markBewerbungDubletten(geladen, [KUERZEL_KOLLIDIERT])], [["a", "kuerzel"]]);
+    assert.deepEqual([...markBewerbungDubletten(loadedRows, [SHORTHAND_COLLIDES])], [["a", "kuerzel"]]);
   });
 
   /* The inverse, and the case that fails the moment somebody re-derives the marking from the rows:
      two halves of a real pair are on the page and the queue says nothing collides. */
   it("marks nothing the server did not name, whatever the loaded rows share", () => {
-    const paar = [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: "GG" })];
+    const pairOf = [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: "GG" })];
 
-    assert.equal(markBewerbungDubletten(paar, []).size, 0);
+    assert.equal(markBewerbungDubletten(pairOf, []).size, 0);
   });
 
   /* The first of the two ways a club reaches the queue twice: one club picked by two applications. */
@@ -92,7 +93,7 @@ describe("applications a triage has to decide between", () => {
   it("marks both applications proposing one Kürzel, whichever case it was typed in", () => {
     const dubletten = markBewerbungDubletten(
       [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: " gg " }), bewerbung("c", { kuerzel: "ER" })],
-      [KUERZEL_KOLLIDIERT],
+      [SHORTHAND_COLLIDES],
     );
 
     assert.deepEqual(
@@ -113,7 +114,7 @@ describe("applications a triage has to decide between", () => {
         bewerbung("b", { kuerzel: "GG", status: "abgelehnt" }),
         bewerbung("c", { kuerzel: "GG" }),
       ],
-      [CLUB_KOLLIDIERT, KUERZEL_KOLLIDIERT],
+      [CLUB_KOLLIDIERT, SHORTHAND_COLLIDES],
     );
 
     assert.deepEqual([...dubletten.keys()], ["c"]);
@@ -124,7 +125,7 @@ describe("applications a triage has to decide between", () => {
   it("keeps two seasons apart", () => {
     const dubletten = markBewerbungDubletten(
       [bewerbung("a", { kuerzel: "GG", saisonId: "2627" }), bewerbung("b", { kuerzel: "GG", saisonId: "2728" })],
-      [KUERZEL_KOLLIDIERT],
+      [SHORTHAND_COLLIDES],
     );
 
     assert.deepEqual([...dubletten.keys()], ["a"]);
@@ -133,7 +134,7 @@ describe("applications a triage has to decide between", () => {
   /* A club's id and a proposed code are different keys: an application picking a club and one
      proposing a school are never the same application twice, whatever either spells. */
   it("never collides a picked club with a proposed Kürzel", () => {
-    const dubletten = markBewerbungDubletten([bewerbung("a", { team: "GG" })], [KUERZEL_KOLLIDIERT]);
+    const dubletten = markBewerbungDubletten([bewerbung("a", { team: "GG" })], [SHORTHAND_COLLIDES]);
 
     assert.equal(dubletten.size, 0);
   });
@@ -141,7 +142,7 @@ describe("applications a triage has to decide between", () => {
   /* The row `REQ-BEWERBUNG-002` refuses: it names neither, so there is no key to look up and no
      answer from the server can reach it. */
   it("passes over an application naming neither a club nor a Kürzel", () => {
-    const dubletten = markBewerbungDubletten([bewerbung("a", {}), bewerbung("b", { kuerzel: "  " })], [KUERZEL_KOLLIDIERT]);
+    const dubletten = markBewerbungDubletten([bewerbung("a", {}), bewerbung("b", { kuerzel: "  " })], [SHORTHAND_COLLIDES]);
 
     assert.equal(dubletten.size, 0);
   });
@@ -151,7 +152,7 @@ describe("applications a triage has to decide between", () => {
   it("marks all three where a club applied three times", () => {
     const dubletten = markBewerbungDubletten(
       [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: "GG" }), bewerbung("c", { kuerzel: "GG" })],
-      [KUERZEL_KOLLIDIERT],
+      [SHORTHAND_COLLIDES],
     );
 
     assert.deepEqual([...dubletten.keys()], ["a", "b", "c"]);

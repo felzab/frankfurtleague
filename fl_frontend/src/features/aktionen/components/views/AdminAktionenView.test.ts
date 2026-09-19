@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `useUrlFilters` reads the first and `useSearchParams` the
-   second — and the view renders under both. A Next release that moves either module fails this file at
-   import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
+
+import { AKTIONEN_CRUD_COPY } from "../../constants.ts";
 
 import type { AdminAktionRow } from "../../types.ts";
 
@@ -36,7 +34,7 @@ const ROW: AdminAktionRow = {
 };
 
 /** The whole log, served complete and narrowed to nothing. Each case names the one prop it is about. */
-const GANZES_PROTOKOLL: ViewProps = {
+const WHOLE_LOG: ViewProps = {
   aktionen: [ROW],
   vollstaendig: true,
   anzahlJeCollection: { teams: 1 },
@@ -47,32 +45,15 @@ const GANZES_PROTOKOLL: ViewProps = {
   richtung: "desc",
 };
 
-/** What `useRouter` hands the bar's own controls. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 /**
- * The two contexts the view reads and no prop carries: the router the bar narrows through, and the
- * query the way out of a narrowing rides.
+ * The contexts the view reads and no prop carries: the router the bar narrows through, and the query
+ * the way out of a narrowing rides.
  */
 const view = (props: Partial<ViewProps> = {}, query = "saison_id=2526"): string =>
-  renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(SearchParamsContext.Provider, { value: new URLSearchParams(query) }, h(AdminAktionenView, { ...GANZES_PROTOKOLL, ...props })),
-    ),
-  );
+  renderTree(underNext(h(AdminAktionenView, { ...WHOLE_LOG, ...props }), { search: query }));
 
 /** Each notice's own heading, which is how one of three in a single markup is found. */
-const TITEL = {
+const HEADING = {
   dokument: "Nur ein Datensatz",
   vorgang: "Nur ein Vorgang",
   gekappt: "Das Protokoll ist unvollständig",
@@ -109,18 +90,18 @@ describe("the notice a cut-short log carries", () => {
   /* The filter is the one control that reaches the dropped rows, so a notice naming the loss alone
      reads as the recorded history being unavailable. */
   it("says that a filter reaches the rows this page is missing", () => {
-    assert.match(noticeText(view({ vollstaendig: false }), TITEL.gekappt), /Ein Filter holt dagegen auch Zeilen, die hier fehlen\./);
+    assert.match(noticeText(view({ vollstaendig: false }), HEADING.gekappt), /Ein Filter holt dagegen auch Zeilen, die hier fehlen\./);
   });
 
   /* The search field sits above the same rows and does NOT re-read, so the two controls are named
      apart or the reader takes the sentence above for a property of both. */
   it("keeps the search bound to the loaded rows in the same breath", () => {
-    assert.match(noticeText(view({ vollstaendig: false }), TITEL.gekappt), /Auch die Suche erfasst nur die geladenen Zeilen\./);
+    assert.match(noticeText(view({ vollstaendig: false }), HEADING.gekappt), /Auch die Suche erfasst nur die geladenen Zeilen\./);
   });
 
   it("names the end the rows were served from", () => {
-    assert.match(noticeText(view({ vollstaendig: false, richtung: "desc" }), TITEL.gekappt), /Geladen sind nur die neuesten Änderungen;/);
-    assert.match(noticeText(view({ vollstaendig: false, richtung: "asc" }), TITEL.gekappt), /Geladen sind nur die ältesten Änderungen;/);
+    assert.match(noticeText(view({ vollstaendig: false, richtung: "desc" }), HEADING.gekappt), /Geladen sind nur die neuesten Änderungen;/);
+    assert.match(noticeText(view({ vollstaendig: false, richtung: "asc" }), HEADING.gekappt), /Geladen sind nur die ältesten Änderungen;/);
   });
 
   /* Non-vacuity for every case above, which would each pass on a notice that stands unconditionally
@@ -132,18 +113,18 @@ describe("the notice a cut-short log carries", () => {
   /* The three states the sentence has to hold in. A count of rows would need a scope word in two of
      them (`docs/backend/spec.md :: I208`); what picking a value would leave needs none. */
   it("says what picking a filter value would leave, in every narrowing", () => {
-    const zahlen = /Jede Zahl an einem Filter sagt Dir, wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst\.$/;
+    const countSentence = /Jede Zahl an einem Filter sagt Dir, wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst\.$/;
 
     for (const narrowing of [{}, { dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
-      const text = noticeText(view({ vollstaendig: false, ...narrowing }), TITEL.gekappt);
+      const text = noticeText(view({ vollstaendig: false, ...narrowing }), HEADING.gekappt);
 
-      assert.match(text, zahlen);
+      assert.match(text, countSentence);
       assert.doesNotMatch(text, /zählt die Zeilen|ganze Protokoll/, "the notice describes a number as a count of rows");
     }
   });
 
   it("renders at warning rather than at the info the two narrowing notices take", () => {
-    assert.equal(notice(view({ vollstaendig: false }), TITEL.gekappt).headingClass, headingAt("warning"));
+    assert.equal(notice(view({ vollstaendig: false }), HEADING.gekappt).headingClass, headingAt("warning"));
     assert.notEqual(headingAt("warning"), headingAt("info"), "the two severities are indistinguishable, so this proves nothing");
   });
 
@@ -156,30 +137,30 @@ describe("the notice a cut-short log carries", () => {
 
 describe("the notices a narrowing raises", () => {
   it("names the one record the list was narrowed to", () => {
-    const gefunden = notice(view({ dokumentId: ROW.document_id }), TITEL.dokument);
+    const raisedNotice = notice(view({ dokumentId: ROW.document_id }), HEADING.dokument);
 
-    assert.match(textOf(gefunden.body), /Datensatz 68c1f0a2b3c4d5e6f7a8b9c0\./, "the notice names no record");
-    assert.equal(gefunden.headingClass, headingAt("info"), "the narrowing is announced as loudly as the cut");
+    assert.match(textOf(raisedNotice.body), /Datensatz 68c1f0a2b3c4d5e6f7a8b9c0\./, "the notice names no record");
+    assert.equal(raisedNotice.headingClass, headingAt("info"), "the narrowing is announced as loudly as the cut");
   });
 
   /* The number itself, because no cell renders it: the row action that led here put it in the URL, and
      a support request is answered by quoting it. */
   it("names the Vorgang, and says so where that one is answered whole", () => {
-    const ganz = view({ vorgangId: ROW.trace_id });
+    const wholeLog = view({ vorgangId: ROW.trace_id });
 
-    assert.match(noticeText(ganz, TITEL.vorgang), /Zeilen des Vorgangs 8f14e45fceea167a, vollständig\./);
-    assert.equal(notice(ganz, TITEL.vorgang).headingClass, headingAt("info"), "the narrowing is announced as loudly as the cut");
-    assert.match(noticeText(view({ vorgangId: ROW.trace_id, vollstaendig: false }), TITEL.vorgang), /Zeilen des Vorgangs 8f14e45fceea167a\./);
+    assert.match(noticeText(wholeLog, HEADING.vorgang), /Zeilen des Vorgangs 8f14e45fceea167a, vollständig\./);
+    assert.equal(notice(wholeLog, HEADING.vorgang).headingClass, headingAt("info"), "the narrowing is announced as loudly as the cut");
+    assert.match(noticeText(view({ vorgangId: ROW.trace_id, vollstaendig: false }), HEADING.vorgang), /Zeilen des Vorgangs 8f14e45fceea167a\./);
   });
 
   /* The way out keeps the shell on the selector's season, or the sidemenu and the season selector both
      fall back to the default the moment a reader leaves the narrowing. */
   it("carries the shell's season out of the narrowing, and writes no season where the URL names none", () => {
-    const mitSaison = anchor(notice(view({ dokumentId: ROW.document_id }), TITEL.dokument).body);
-    assert.equal(mitSaison.href, "/admin/aktionen?saison_id=2526");
-    assert.equal(mitSaison.name, "Alle Änderungen anzeigen");
+    const withSeason = anchor(notice(view({ dokumentId: ROW.document_id }), HEADING.dokument).body);
+    assert.equal(withSeason.href, "/admin/aktionen?saison_id=2526");
+    assert.equal(withSeason.name, "Alle Änderungen anzeigen");
 
-    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), TITEL.vorgang).body).href, "/admin/aktionen");
+    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/admin/aktionen");
   });
 
   it("raises neither notice while the URL narrows to nothing", () => {
@@ -190,14 +171,47 @@ describe("the notices a narrowing raises", () => {
      as a property of the whole log rather than of the selection above it. */
   it("puts the narrowing above the notice about the cut", () => {
     const html = view({ vollstaendig: false, dokumentId: ROW.document_id, vorgangId: ROW.trace_id });
-    const at = (titel: string) => {
-      const stelle = html.indexOf(titel);
-      assert.notEqual(stelle, -1, `the view no longer heads a notice: ${titel}`);
+    const at = (heading: string) => {
+      const found = html.indexOf(heading);
+      assert.notEqual(found, -1, `the view no longer heads a notice: ${heading}`);
 
-      return stelle;
+      return found;
     };
 
-    assert.ok(at(TITEL.dokument) < at(TITEL.vorgang), "the record notice sits below the Vorgang's");
-    assert.ok(at(TITEL.vorgang) < at(TITEL.gekappt), "the cut is reported above the narrowing that scoped it");
+    assert.ok(at(HEADING.dokument) < at(HEADING.vorgang), "the record notice sits below the Vorgang's");
+    assert.ok(at(HEADING.vorgang) < at(HEADING.gekappt), "the cut is reported above the narrowing that scoped it");
+  });
+});
+
+/** A read that answered nothing, which is the one state the empty message is drawn in. */
+const NOTHING: Partial<ViewProps> = { aktionen: [], anzahlJeCollection: {}, anzahlJeOperation: {}, anzahlJeHerkunft: {} };
+
+describe("what an empty log says about itself", () => {
+  /* The floor: an untouched log with no row really has recorded nothing, and every case below would
+     pass on a view that never said so. */
+  it("says nothing has been recorded while nothing narrows the read", () => {
+    const html = view(NOTHING);
+
+    assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "an empty log does not say nothing was recorded");
+    assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "an empty log blames a filter nobody set");
+  });
+
+  /* An unknown id reaches here from a pasted link: the endpoint removed every other row, so a log
+     claiming it recorded nothing would be false about every write it holds. */
+  it("blames the narrowing, never the log, where one record or one Vorgang answered nothing", () => {
+    for (const narrowing of [{ dokumentId: ROW.document_id }, { vorgangId: ROW.trace_id }]) {
+      const html = view({ ...NOTHING, ...narrowing });
+
+      assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), `${JSON.stringify(narrowing)}: the empty narrowing is not the filter's`);
+      assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), `${JSON.stringify(narrowing)}: the log claims it recorded nothing`);
+    }
+  });
+
+  /* Every facet here narrows the read, so an area that answered nothing is a subset rather than a log. */
+  it("blames the filter where an area picked in the bar answered nothing", () => {
+    const html = view(NOTHING, "saison_id=2526&collection=spielorte");
+
+    assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "the empty area is not the filter's");
+    assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "the log claims it recorded nothing");
   });
 });

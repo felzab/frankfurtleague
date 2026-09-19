@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
@@ -12,7 +12,7 @@ import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielPriorPaarung } from "./schemas";
 
@@ -54,13 +54,15 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
   // One code covers both references and the failure body names neither, so the message names both.
 
-  // A reactivation is one of two ways out rather than the way out: an erased referee cannot be
-  // reactivated (`REQ-ANONYMISE-003`), and a repair promising one sends a teacher into a second
-  // refusal.
+  // A reactivation is one of two ways out rather than the way out: the row an erasure repoints a
+  // fixture at is permanently retired, and a repair promising one sends a teacher into a refusal.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
       error: buildRefusal({
-        reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
+        // The second clause for the save that picked nothing: lifting a call-off or clearing a result
+        // books the fixture's own venue and referee again.
+        reason:
+          "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis Du gerade entfernst",
         repair: "Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist",
       }),
     };
@@ -133,6 +135,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       updateTag(`spiele:saison_id:${saisonId.data}`);
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
+    refresh();
 
     // The faults the resolution walked past ride along: the save that introduces one is when its
     // cause is known.
@@ -155,7 +158,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * same code the save uses. **No `updateTag` here, ever** — nothing changed, so it would evict every
  * cached match list on every keystroke.
  */
-export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<ActionResult<MovedFixtures>> {
+export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

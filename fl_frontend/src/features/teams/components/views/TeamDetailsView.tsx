@@ -14,10 +14,22 @@ import type { FLTeam } from "../../schemas";
  * Composition only, and nothing here hands a function to a client leaf — the callbacks live below
  * the boundary, on the side that holds the state (`docs/frontend/spec.md :: I13`).
  */
-export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
+export function TeamDetailsView({
+  teamData,
+  teamSpiele,
+  today,
+  saisonId,
+  isFinishedSaison,
+}: {
+  teamData: FLTeam;
+  teamSpiele: FLSpiel[];
+  today: string;
+  saisonId: string | undefined;
+  isFinishedSaison: boolean;
+}) {
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>
-      <TeamDetailsBackButton />
+      <TeamDetailsBackButton saisonId={saisonId} />
 
       <TeamIdentityCard teamData={teamData} />
 
@@ -34,6 +46,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
         teamSpiele={teamSpiele}
         teamId={teamData.id}
         today={today}
+        isFinishedSaison={isFinishedSaison}
       />
     </div>
   );

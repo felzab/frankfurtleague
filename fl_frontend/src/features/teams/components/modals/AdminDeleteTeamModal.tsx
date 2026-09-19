@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteTeamAction } from "@/features/teams/actions";
+import { TEAM_RETIREMENT_CONSEQUENCE } from "@/features/teams/constants";
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
@@ -18,8 +19,9 @@ export function AdminDeleteTeamModal({ teamData, isOpen, onClose }: { teamData: 
       heading="Team stilllegen"
       entityLabel="das Team"
       entityName={team.name}
-      consequence="Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl."
+      consequence={TEAM_RETIREMENT_CONSEQUENCE}
       successMessage="Team stillgelegt"
+      failureMessage="Team nicht stillgelegt"
       onConfirm={() => deleteTeamAction({ id: team.id })}
     />
   );

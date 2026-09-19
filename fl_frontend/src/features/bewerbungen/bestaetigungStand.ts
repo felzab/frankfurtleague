@@ -1,6 +1,8 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { istDauerhaftUnzustellbar } from "./zustellung";
+
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLBewerbung, FLBewerbungZustellung } from "./schemas";
 
@@ -14,6 +16,9 @@ type Stand =
   // No day: an erasure takes the seat's block with the person it belonged to, and the day it
   // happened on is stored nowhere the application can be read from.
   | { art: "geloescht" }
+  // Never answered, on an application already decided: its link opens nothing
+  // (`fl_backend/app/api/bewerbungen/services.py :: link_is_over`), so nothing is outstanding.
+  | { art: "unbeantwortet" }
   | { art: "ausstehend"; verschicktAm: string; erinnertAm: string | null };
 
 export type SitzBestaetigung = {
@@ -41,8 +46,8 @@ export type SitzBestaetigung = {
  * application acceptable, so it answers "no such state" rather than three outstanding seats, which
  * would close the Zusage on every queued application.
  */
-export function bestaetigungsStand(bewerbung: BewerbungSitze): SitzBestaetigung[] | null {
-  const { bestaetigungen, kontakte } = bewerbung;
+export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] | null {
+  const { bestaetigungen, kontakte, status } = bewerbung;
 
   if (bestaetigungen === null) return null;
 
@@ -66,7 +71,12 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze): SitzBestaetigung[
             // names nobody who could answer one.
             person === null || verlauf === null
             ? { art: "geloescht" }
-            : { art: "ausstehend", verschicktAm: verlauf.verschickt_am, erinnertAm: verlauf.erinnert_am };
+            : // The decided half of `link_is_over` alone. Past the deadline a still-open application
+              // keeps `ausstehend`: a re-send restarts the deadline, so the seat waits on a control the
+              // strip still offers.
+              status !== "eingereicht"
+              ? { art: "unbeantwortet" }
+              : { art: "ausstehend", verschicktAm: verlauf.verschickt_am, erinnertAm: verlauf.erinnert_am };
 
     const name = person === null ? null : `${person.vorname} ${person.nachname}`;
 
@@ -121,7 +131,9 @@ function standSatz(stand: Stand): string {
   // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one
   // root for a seat's refusal and the league's decision puts two facts about one row under one word.
   if (stand.art === "abgelehnt") return `Widersprochen am ${formatSpielDatum(stand.am)}`;
-  if (stand.art === "geloescht") return "Keine Bestätigung mehr möglich";
+  // One sentence for both, because it is one fact: neither seat can be confirmed. A second wording
+  // would read as a third terminal state beside the Widerspruch.
+  if (stand.art === "geloescht" || stand.art === "unbeantwortet") return "Keine Bestätigung mehr möglich";
 
   if (stand.erinnertAm !== null) return `Ausstehend, erinnert am ${formatSpielDatum(stand.erinnertAm)}`;
 
@@ -146,8 +158,16 @@ export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
  * Whether two seats are one person, read off the claim `trainer_ist_zugleich` records. The one
  * exception the submission's duplicate-address rule makes, and so the one this side must make too.
  */
-export function sindEinePerson(a: SitzBestaetigung, b: SitzBestaetigung): boolean {
+function sindEinePerson(a: SitzBestaetigung, b: SitzBestaetigung): boolean {
   return (a.rolle === "trainer" && b.zugleichTrainer) || (b.rolle === "trainer" && a.zugleichTrainer);
+}
+
+/** Every address the correction on `sitz` may not take: another person's, never its own mirror's. */
+export function adressenAndererPersonen(staende: readonly SitzBestaetigung[], sitz: SitzBestaetigung): string[] {
+  return staende
+    .filter((andere) => andere.rolle !== sitz.rolle && !sindEinePerson(andere, sitz))
+    .map((andere) => andere.email)
+    .filter((adresse) => adresse !== null);
 }
 
 /**
@@ -191,4 +211,44 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, tea
   // so a second list here is the same fact from the other side (my wording, 2026-09-04 and
   // 2026-09-08).
   return "Eine Zusage ist ohne alle Bestätigungen nicht möglich.";
+}
+
+/**
+ * What becomes of an incomplete application at its deadline, or `null` where the deletion clock does
+ * not reach it. Mirrors `fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`, whose sweep
+ * reads `eingereicht` alone.
+ */
+export function loeschungsSatz({
+  staende,
+  frist,
+  eingereicht,
+  heute,
+}: {
+  staende: readonly SitzBestaetigung[];
+  frist: string | null;
+  eingereicht: boolean;
+  /** The Europe/Berlin day, which is the one the backend's clock compares against. */
+  heute: string;
+}): string | null {
+  if (!eingereicht || frist === null || !staende.some(istOffen)) return null;
+
+  const tag = formatSpielDatum(frist);
+  // `announcement_is_undeliverable`: the sweep holds an application whose notice the provider would
+  // refuse, so a promised deletion is false for exactly the row an administrator can still repair.
+  const gehalten = istDauerhaftUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);
+
+  // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
+  if (frist >= heute) {
+    // „Die Frist für die Bestätigungen“ is the deletion notice's own phrase, so the administrator reads
+    // what the school is sent (`fl_frontend/src/core/bewerbungEmail.ts`).
+    return gehalten
+      ? `Die Frist für die Bestätigungen läuft bis zum ${tag}. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
+      : `Bleibt eine Bestätigung bis zum ${tag} aus, wird die Bewerbung gelöscht.`;
+  }
+
+  return gehalten
+    ? `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
+    : // The sweep's own cadence (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`).
+      // The local stack arms no sweep, so there the row outlives this sentence.
+      `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.`;
 }

@@ -190,7 +190,8 @@ under the same stamp and a `-failed` suffix; a deploy made by hand owes the same
 ### 1.3 Client-side crashes
 
 A client component cannot reach the server-only logger, so a browser-side crash would be recorded
-nowhere. The error boundary (`fl_frontend/src/app/error.tsx`) posts crashes **without a digest** to
+nowhere. Every error boundary posts crashes **without a digest**, through
+`fl_frontend/src/shared/hooks/useReportClientCrash.ts`, to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
 `FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
 unauthenticated by design, which is why nginx gives it a pair of `limit_req` zones of its own
@@ -200,8 +201,8 @@ request's own trace — the browser cannot know the crashed request's — so the
 route and the time. **A digest belongs to the other half of the split**: a failure rendered with one
 is already recorded as `FE-RSC-001` by `fl_frontend/src/core/instrumentation.ts`, and the report a
 visitor sends by hand carries the digest, the route and the time together
-(`fl_frontend/src/shared/components/ui/Error.tsx :: reportBody`), which is why that form says in so
-many words that a client crash has none.
+(`fl_frontend/src/shared/components/ui/CrashReportLink.tsx :: reportBody`), which is why that form
+says in so many words that a client crash has none.
 
 ### 1.4 Development logging
 
@@ -281,7 +282,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | A total backend outage reports HTTP 200                  | The error boundary streams after headers are sent, so status is no health signal                                            | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live`, the apex host with no trailing slash — either variation answers a redirect a monitor reads as green ([`docs/ops/spec.md`](../ops/spec.md) §3) |
 | A request was slow and no line says where the time went  | Each hop meters its own span, and nothing joins the figures (1.2, `nginx/prod.conf :: log_format fl_json`)                  | An edge `duration_s` with an empty `upstream_duration_s` is nginx or the network; a large backend `duration_ms` is the application                                                                            |
 | An application service's log lines vanish after a deploy | `up -d --force-recreate frontend backend` replaces both containers and their log files                                      | Read the deploy's copy under `scripts/ops/deploy.sh :: copy_streams` (1.2)                                                                                                                                    |
-| One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                           | Search on digest plus time plus route, then follow the `FE-RSC-001` line's trace; the error page's report link pre-fills them (`fl_frontend/src/shared/components/ui/Error.tsx :: reportHref`)                |
+| One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                           | Search on digest plus time plus route, then follow the `FE-RSC-001` line's trace; the error page's report link pre-fills them (`fl_frontend/src/shared/components/ui/CrashReportLink.tsx :: reportHref`)      |
 | Non-JSON lines appear in a stream                        | nginx's error log and both services' boot lines are outside the contract                                                    | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                                                                                                            |
 | A log line carries personal data                         | A handler logged a rejected value rather than the field that carried it                                                     | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                                                |
 | A sign-in token appears in nginx's error stream          | A callback request FAILED, and the error log repeats the whole request line — L11 governs the access line alone (section 4) | Treat that token as spent: it is single-use and short-lived (`fl_frontend/src/core/auth.ts :: Resend`). The stream dies with the container on the next deploy (1.2)                                           |

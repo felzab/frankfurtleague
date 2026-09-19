@@ -15,12 +15,16 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   return (
     <span
       role="status"
-      aria-label={label}
       className={`${skeletonBlock()} fluid-xxs inline-block rounded ${width}`}>
+      {/* In the subtree rather than in `aria-label`: a live region announces its content and not its
+          name, so a name is all a reader would not hear. */}
+      <span className="sr-only">{label}</span>
       &nbsp;
     </span>
   );
 }
+
+const COLUMN_HEADING = "fluid-xs text-foreground font-semibold tracking-wider uppercase";
 
 const NAVIGATION_LINKS = [
   { href: "/about", label: "About" },
@@ -43,7 +47,8 @@ const RECHTLICHES_LINKS = [
 function FooterNavColumn({ title, links }: { title: string; links: readonly { href: string; label: string }[] }) {
   return (
     <div className="flex flex-col gap-y-3">
-      <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">{title}</h3>
+      {/* `h2`, the rung under the page's `h1`: the footer follows every page, so a lower rung here skips one. */}
+      <h2 className={COLUMN_HEADING}>{title}</h2>
       <nav
         aria-label={title}
         className="flex flex-col gap-y-2">
@@ -61,6 +66,29 @@ function FooterNavColumn({ title, links }: { title: string; links: readonly { hr
   );
 }
 
+/**
+ * `mask` takes the whole utility rather than a URL: Tailwind scans source text for candidates, so a
+ * class assembled from a prop is one it never emits and the mark renders as a bare box.
+ */
+function FooterSocialLink({ href, label, mask }: { href: string; label: string; mask: string }) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      className="hover:bg-hover -m-1.5 flex rounded-md p-1.5 transition-colors">
+      {/* `flex` on the link and `block` here are load-bearing: on a text line, the line's height rather than
+          the 24px glyph sizes the hover fill. Each mask source must be a silhouette on a transparent ground. */}
+      <span
+        aria-hidden="true"
+        className={`bg-foreground block size-6 mask-contain mask-center mask-no-repeat ${mask}`}
+      />
+    </Link>
+  );
+}
+
 // `serverStatusSlot` is injected by the composition root rather than imported, so this layout primitive
 // keeps zero feature dependencies — the same technique as `Sidemenu`'s `saisonMetadataDisplay`.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
@@ -70,7 +98,9 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
 
     // `pb-2`, not `pb-6`: the old fixed box overflowed and left eight pixels under the copyright
     // row; the floor keeps that look by stating it.
-    <footer className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
+
+    // A `<div>`: `PublicShell` wraps this in the page's one `<footer>` landmark.
+    <div className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
       {/* Five tracks for four columns: the brand takes two, so each list keeps a track of its own. */}
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-5">
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
@@ -91,48 +121,25 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         />
 
         <div className="flex flex-col gap-y-3">
-          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
+          <h2 className={COLUMN_HEADING}>Socials</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <Link
+            <FooterSocialLink
               href="https://www.threads.com/@frankfurt.league"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Threads-Profil"
-              className="transition-opacity hover:opacity-80">
-              {/* `inline-block` is load-bearing: width and height do not apply to a non-replaced inline box, so a
-                  bare span renders 0×0. Each mask source must be a silhouette on a transparent background. */}
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="Threads-Profil"
+              mask="mask-[url('/icons/footer/threads/threads_logo_black.svg')]"
+            />
 
-            <Link
+            <FooterSocialLink
               href="https://github.com/felzab/frankfurtleague"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub-Profil"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/github/github_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="GitHub-Profil"
+              mask="mask-[url('/icons/footer/github/github_logo_black.svg')]"
+            />
 
-            <Link
+            <FooterSocialLink
               href={INSTAGRAM_URL}
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram-Profil"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
+              label="Instagram-Profil"
+              mask="mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]"
+            />
           </div>
         </div>
       </div>
@@ -143,7 +150,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         <Suspense
           fallback={
             <FooterSlotSkeleton
-              width="w-64"
+              width="w-96 max-w-full"
               label="Copyright wird geladen"
             />
           }>
@@ -159,6 +166,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
           {serverStatusSlot}
         </Suspense>
       </div>
-    </footer>
+    </div>
   );
 }

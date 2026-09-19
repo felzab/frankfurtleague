@@ -21,10 +21,21 @@ describe("formatAddress", () => {
     assert.equal(formatAddress(), "Keine Adresse hinterlegt");
   });
 
-  // Stadtteil is optional: an address without one is complete, so nothing may render an empty
-  // "()" tail. The hausnummer's trailing space stays — the street template keeps one slot for it.
+  // Stadtteil is optional: an address without one is complete, so nothing may render an empty "()" tail.
   it("drops the stadtteil parenthesis when it is empty", () => {
-    assert.equal(formatAddress({ ...address, hausnummer: "", stadtteil: "" }), "Hanauer Landstraße , 60314 Frankfurt am Main");
+    assert.equal(formatAddress({ ...address, stadtteil: "" }), "Hanauer Landstraße 12a, 60314 Frankfurt am Main");
+  });
+
+  it("closes the street up to its comma where the hausnummer is empty", () => {
+    assert.equal(formatAddress({ ...address, hausnummer: "" }), "Hanauer Landstraße, 60314 Frankfurt am Main (Ostend)");
+  });
+
+  it("drops an empty hausnummer and an empty stadtteil together", () => {
+    assert.equal(formatAddress({ ...address, hausnummer: "", stadtteil: "" }), "Hanauer Landstraße, 60314 Frankfurt am Main");
+  });
+
+  it("reads a part holding only whitespace as empty", () => {
+    assert.equal(formatAddress({ ...address, hausnummer: " ", stadtteil: " " }), "Hanauer Landstraße, 60314 Frankfurt am Main");
   });
 });
 
@@ -35,6 +46,23 @@ describe("formatAddressFull", () => {
 
   it("renders an empty stadtteil without a double space", () => {
     assert.equal(formatAddressFull({ ...address, stadtteil: "" }), "Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland");
+  });
+
+  // The venue list copies this line to the clipboard, so a stray space before the comma travels into
+  // whatever message it is pasted in.
+  it("closes the street up to its comma where the hausnummer is empty", () => {
+    assert.equal(formatAddressFull({ ...address, hausnummer: "" }), "Hanauer Landstraße, 60314 Ostend Frankfurt am Main, Deutschland");
+  });
+
+  it("drops an empty hausnummer and an empty stadtteil together", () => {
+    assert.equal(formatAddressFull({ ...address, hausnummer: "", stadtteil: "" }), "Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland");
+  });
+
+  it("reads a part holding only whitespace as empty", () => {
+    assert.equal(
+      formatAddressFull({ ...address, hausnummer: " ", stadtteil: " " }),
+      "Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland",
+    );
   });
 });
 
@@ -61,7 +89,7 @@ describe("formatSpielDatum", () => {
   });
 
   it("returns the fallback for a null date", () => {
-    assert.equal(formatSpielDatum(null), "TBD");
+    assert.equal(formatSpielDatum(null), "Termin offen");
     assert.equal(formatSpielDatum(null, "/"), "/");
   });
 

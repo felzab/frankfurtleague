@@ -1,6 +1,8 @@
-import { RECORDED_FACTS_ANY } from "@/features/saisons/constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_ANY } from "@/features/saisons/constants";
+import { drawGruppenRefusal, drawnSpieltage, drawShapeRefusal, fitsAnOfferedShape } from "@/features/saisons/shapeOffer";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
 /** Everything the draw control and the undraw beside it are decided from, read from one page render. */
 export type SpielplanControlInput = {
@@ -13,17 +15,30 @@ export type SpielplanControlInput = {
   spieltageCount: number;
   /** `REQ-SPIELPLAN-005`'s condition: how many fixtures carry something entered against them. */
   erfassteSpieleCount: number;
-  /** Whether the season's served schedule reaches a knockout round at all. */
+  /** Whether the season's served schedule reaches a knockout round at all, which a FIRST draw is judged on. */
   hasKoRunden: boolean;
   /** The season's STORED span, `REQ-DATE-005`'s offered side — what the draw would run on. */
   startDate: string;
   endDate: string;
-  /** `REQ-DATE-005`'s required side: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
+  /** `REQ-DATE-005`'s required side for a FIRST draw: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
   vorschauSpieltage: number;
+  /** `REQ-SPIELPLAN-004`'s condition over the season's STORED two numbers, which a first draw runs from. */
+  gruppen: Parameters<typeof drawGruppenRefusal>[0];
 };
 
 // One day of UTC milliseconds. Date-only strings parse as UTC midnights, so dividing by it is exact.
 const MS_PER_DAY = 86_400_000;
+
+/**
+ * One spelling for both closures: the repair is the season's own dates whichever of them closed the
+ * press, and a second could send two admins to two different panels for one fault.
+ */
+const SPAN_TOO_SHORT_REPAIR = "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison.";
+
+/** Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. */
+function offeredDays(startDate: string, endDate: string): number {
+  return (Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1;
+}
 
 /**
  * `REQ-SPIELPLAN-005`'s window, mirroring the two figures
@@ -35,7 +50,7 @@ function isReplaceWindowOpen({ saisonStatus, erfassteSpieleCount }: SpielplanCon
 }
 
 /** The undraw's half of the same input. The bracket and the span describe a draw a removal never makes. */
-export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden" | "startDate" | "endDate" | "vorschauSpieltage">;
+export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden" | "startDate" | "endDate" | "vorschauSpieltage" | "gruppen">;
 
 /**
  * **One expression for every reader**: the replace flag, the reason gating it, the undraw's offer and
@@ -73,20 +88,96 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
       : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Neu anlegen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
 
-  // After the window, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
+  // Nothing past the window for a replace, which draws from the panel's boxes and not the stored rules:
+  // closing it here unmounts the very boxes that repair it. `spielplanShapeBlockedReason` closes its press.
+  if (replacesDraw) return null;
+
+  if (drawGruppenRefusal(input.gruppen) !== null) return GRUPPEN_OFF_RULES;
+
+  // After the groups, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
   // pass, and on its `stored=None` path `REQ-RULES-001` reduces to a qualifier product reaching no
   // bracket, which is exactly an empty knockout list.
   if (!hasKoRunden) return "Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt Regeln und speichere sie.";
 
   // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
-  // worth measuring. Inclusive as the backend counts — a season running one day offers one.
-  if ((Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1 < vorschauSpieltage)
-    return (
-      "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. " +
-      "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison."
-    );
+  // worth measuring.
+  if (offeredDays(startDate, endDate) < vorschauSpieltage)
+    return `Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. ${SPAN_TOO_SHORT_REPAIR}`;
 
   return null;
+}
+
+/**
+ * A REPLACE's press over the numbers in its boxes, apart from `spielplanBlockedReason`, whose closure
+ * unmounts the boxes that repair it. In the endpoint's order, the span weighed against the matchdays
+ * the SENT numbers imply.
+ */
+export function spielplanShapeBlockedReason({
+  shape,
+  occupancy,
+  startDate,
+  endDate,
+}: {
+  shape: FLSpielplanShape;
+  occupancy: SaisonGruppenOccupancy;
+  /** The season's STORED span, which the draw weighs the sent numbers against. */
+  startDate: string;
+  endDate: string;
+}): string | null {
+  const refusal = drawShapeRefusal({ shape, occupancy });
+
+  if (refusal === "gruppenOffSize" || refusal === "groupsInUse") return GRUPPEN_OFF_RULES;
+  // `REQ-RULES-001` refuses a bracket too large and one with no shape alike, in one sentence.
+  if (refusal !== null) return "Aus diesen Zahlen entsteht keine KO-Runde. Ändere die Gruppen oder die Qualifikanten pro Gruppe.";
+
+  if (offeredDays(startDate, endDate) < drawnSpieltage(shape))
+    return `Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben. ${SPAN_TOO_SHORT_REPAIR}`;
+
+  return null;
+}
+
+/** The two writes the Spielplan panel offers, keyed as its operation picker reads them back. */
+export type SpielplanOperation = "anlegen" | "zuruecknehmen";
+
+/**
+ * The Spielplan panel's one press: which write it makes, and why it stands closed. The draw is the operation
+ * wherever the reader has not picked, being the panel's primary act, and the undraw is never on offer without it.
+ */
+export function spielplanPress({
+  input,
+  picked,
+  shape,
+}: {
+  input: SpielplanControlInput;
+  /** Honoured only while both writes stand open: anywhere else a pick left standing names a write the page does not offer. */
+  picked: SpielplanOperation | null;
+  /** The numbers in the replace's boxes, which judge its press and nothing else. */
+  shape: FLSpielplanShape;
+}): { bothOpen: boolean; operation: SpielplanOperation; isUnchosen: boolean; standingReason: string | null; closedReason: string | null } {
+  const drawBlockedReason = spielplanBlockedReason(input);
+  const undrawBlockedReason = spielplanUndrawBlockedReason(input);
+  const bothOpen = drawBlockedReason === null && undrawBlockedReason === null;
+
+  const operation = bothOpen && picked !== null ? picked : "anlegen";
+  const isUnchosen = bothOpen && picked === null;
+  const isReplacing = operation === "anlegen" && spielplanReplacesDraw(input);
+
+  // A replace's groups refusal stands on the page where the clubs fit no offered shape: no step in the boxes lifts
+  // it, and the team page is the repair (`docs/frontend/spec.md` §1.14).
+  const standingReason =
+    (operation === "anlegen" ? drawBlockedReason : undrawBlockedReason) ??
+    (isReplacing && !fitsAnOfferedShape(input.gruppen.occupancy) ? GRUPPEN_OFF_RULES : null);
+
+  // Said on the control alone rather than in the panel's body, where a pick or a step would take it away under
+  // the reader's hands (`docs/frontend/spec.md` §1.14).
+  const closedReason = isUnchosen
+    ? "Wähle „Neu anlegen“ oder „Zurücknehmen“."
+    : (standingReason ??
+      (isReplacing
+        ? spielplanShapeBlockedReason({ shape, occupancy: input.gruppen.occupancy, startDate: input.startDate, endDate: input.endDate })
+        : null));
+
+  return { bothOpen, operation, isUnchosen, standingReason, closedReason };
 }
 
 /**

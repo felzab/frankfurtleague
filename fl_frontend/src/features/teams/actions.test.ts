@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 
@@ -34,7 +34,7 @@ const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENT
 const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
 
 describe("the team actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts each mapper out of the file before reading it", () => {
     assert.ok(ENTRY_MAP.includes('error.serverErrorCode === "REQ-ENTER-002"'), "the entry mapper's branches are outside its slice");
     assert.ok(!ENTRY_MAP.includes("REQ-REPLACE"), "the entry mapper's slice runs on into the replacement's branches");

@@ -15,8 +15,15 @@ from app.api.spiele.schemas import (
     FLSpielQuelleSpiel,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
+    is_unplayed,
+    unplayed_filter,
 )
+from app.core.collections import Collection
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
+from tests.worker import worker_database
+
+UNPLAYED_DATABASE_NAME = worker_database("fl_spiele_unplayed_test")
 
 
 def test_accepts_a_valid_spiel(spiel):
@@ -100,6 +107,28 @@ def test_an_abandoned_fixture_keeps_its_slot_and_a_called_off_one_frees_it():
 
     assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
     assert "ausgefallen" in SONDEREREIGNIS_RECORDING_AN_ABSENCE
+
+
+@pytest.mark.db
+def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_url: str):
+    """Every event, with a result and without: the retirements select with the filter, and the booking rule weighs with the predicate.
+
+    Unconstrained, because only the two fields the partition reads are stored.
+    """
+
+    cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis))]
+
+    async def selected() -> set[int]:
+        async with a_clean_database(mongo_url, UNPLAYED_DATABASE_NAME, constraints=False) as (_, database):
+            spiele = database[Collection.SPIELE]
+            await spiele.insert_many([{"_id": nr, "ergebnis": ergebnis, "sonderereignis": event} for nr, (ergebnis, event) in enumerate(cases)])
+
+            return {row["_id"] for row in await spiele.find(unplayed_filter(), {"_id": 1}).to_list(length=None)}
+
+    answered = {nr for nr, (ergebnis, event) in enumerate(cases) if is_unplayed(ergebnis=ergebnis, sonderereignis=event)}
+
+    assert answered and len(answered) < len(cases), "the predicate answers every case alike, so agreeing with it proves nothing"
+    assert on_the_seed_loop(selected()) == answered
 
 
 class TestUnresolvedSides:

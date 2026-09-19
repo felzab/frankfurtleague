@@ -355,6 +355,9 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
+    # serves only the pair it resolves for this link's own seat.
+    "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
@@ -365,8 +368,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's, and `trainer_ist_zugleich` besides: the answer takes its wording from the
-# payload, names no school, and `paired_seat` reads that key.
+# Narrower than the view's: the answer takes its wording from the payload and names no school.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am"),

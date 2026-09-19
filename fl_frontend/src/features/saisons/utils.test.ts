@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
+
+import { FLSpielSchema } from "../spiele/schemas.ts";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
@@ -9,6 +12,9 @@ import {
   buildSpielplanVorschau,
   buildSpieltagBound,
   describeAngesetzteSpiele,
+  describeKaderAustragung,
+  describeKaderAustragungDanach,
+  describeSpielplanPermanenz,
   describeSpielplanUmfang,
   holdsDrawnSpiele,
   searchWithoutSaisonId,
@@ -86,49 +92,38 @@ describe("buildSpielplanBestand", () => {
   const TEAM_1 = "2".repeat(24);
   const TEAM_2 = "3".repeat(24);
 
-  const seite = (tore: number | null, teamId: string): FLSpiel["team1"] => ({
-    team_id: teamId,
-    tore,
-    name: "SV Beispiel",
-    shorthand: "SVB",
-    austritt_type: null,
-  });
+  /**
+   * The shared side, narrowed to this schema's own `austritt_type` union.
+   *
+   * `fl_frontend/src/shared/testing/fixtures.ts` types that field as a plain string, a module under
+   * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
+   */
+  const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...sharedSide(teamId), tore, austritt_type: null });
 
   const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 
+  // Parsed at construction: a field the shared literal has fallen behind on fails where the fixture
+  // is built rather than wherever it is read.
   /**
    * A group fixture as the draw leaves it: both sides OCCUPIED, neither wired, nothing entered. An
    * empty-sided one is an EMPTIED fixture instead, which is a state the endpoint counts.
    */
-  const GRUPPENSPIEL: FLSpiel = {
-    id: "0".repeat(24),
-    spieltag_id: "1".repeat(24),
-    team1: seite(null, TEAM_1),
-    team2: seite(null, TEAM_2),
-    team1_quelle: null,
-    team2_quelle: null,
-    datum: null,
-    uhrzeit: null,
-    ort: null,
-    schiedsrichter: null,
-    ergebnis: null,
-    elfmeterschiessen: null,
-    spiel_nr: 1,
-    sonderereignis: null,
-    saison_phase: "gruppenphase",
-    saison_id: "2026",
-    notiz: null,
-  };
+  const GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
+    spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: side(TEAM_1), team2: side(TEAM_2) }),
+  );
 
   /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
-  const KOSPIEL: FLSpiel = {
-    ...GRUPPENSPIEL,
-    saison_phase: "halbfinale",
-    team1: null,
-    team2: null,
-    team1_quelle: QUELLE,
-    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
-  };
+  const KOSPIEL: FLSpiel = FLSpielSchema.parse(
+    spielFields({
+      id: "0".repeat(24),
+      spieltag_id: "1".repeat(24),
+      saison_phase: "halbfinale",
+      team1: null,
+      team2: null,
+      team1_quelle: QUELLE,
+      team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+    }),
+  );
 
   const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...GRUPPENSPIEL, ...fields });
   const koSpiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...KOSPIEL, ...fields });
@@ -139,7 +134,7 @@ describe("buildSpielplanBestand", () => {
   const koBestandOf = (...spiele: FLSpiel[]) => buildSpielplanBestand({ gruppenSpiele: [], playoffSpiele: spiele });
 
   const ORT: FLSpiel["ort"] = { spielort_id: "3".repeat(24), name: "Platz 1", maps_link: "https://example.invalid" };
-  const SCHIRI: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "4".repeat(24), name: "A. Beispiel" };
+  const REFEREE: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "4".repeat(24), name: "A. Beispiel" };
 
   /* BOTH shapes the draw writes, because the predicate reads them as inverses. Judge a side without
      its phase and one of the two reads as an edit, which shuts the window on every drawn season. */
@@ -155,9 +150,9 @@ describe("buildSpielplanBestand", () => {
      bracket would be replaced over a recorded result if one read were dropped. The tie is a played
      one: which CLAUSE answers belongs to the cases below. */
   it("counts both halves of the season's partition", () => {
-    const gespielt = koSpiel({ team1: seite(2, TEAM_1), team2: seite(1, TEAM_2), ergebnis: "2:1" });
+    const played = koSpiel({ team1: side(TEAM_1, 2), team2: side(TEAM_2, 1), ergebnis: "2:1" });
 
-    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel()], playoffSpiele: [gespielt] }), {
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel()], playoffSpiele: [played] }), {
       spiele: 2,
       erfasst: 1,
       angesetzt: 0,
@@ -180,8 +175,8 @@ describe("buildSpielplanBestand", () => {
      goals with no `ergebnis` at all, and replacing it would delete a number somebody entered. Zero is
      one of them, which is why the drawn sides carry `null`. */
   it("counts a lone goal count on either side as recorded", () => {
-    assert.equal(bestandOf(spiel({ team1: seite(2, TEAM_1) })).erfasst, 1);
-    assert.equal(bestandOf(spiel({ team2: seite(0, TEAM_2) })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team1: side(TEAM_1, 2) })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team2: side(TEAM_2, 0) })).erfasst, 1);
   });
 
   /* Stored only beside a result, so one standing alone got there by hand. Read `ergebnis` for both
@@ -208,8 +203,8 @@ describe("buildSpielplanBestand", () => {
      somebody — by hand, or by the resolution the group phase feeds. The provenance is left standing,
      so the clause below cannot be what answers. */
   it("counts a bracket slot that holds a club", () => {
-    assert.equal(koBestandOf(koSpiel({ team1: seite(null, TEAM_1) })).erfasst, 1);
-    assert.equal(koBestandOf(koSpiel({ team2: seite(null, TEAM_2) })).erfasst, 1);
+    assert.equal(koBestandOf(koSpiel({ team1: side(TEAM_1) })).erfasst, 1);
+    assert.equal(koBestandOf(koSpiel({ team2: side(TEAM_2) })).erfasst, 1);
   });
 
   /* Clearing the provenance is the one way out of automatic upkeep, and it is the edit the shared
@@ -222,7 +217,7 @@ describe("buildSpielplanBestand", () => {
   /* The state the window was judged wrong on: an admin seeded ONE slot by hand, which fills the side
      and clears its provenance together, over a draw that is otherwise untouched. */
   it("counts a bracket slot seeded by hand over an otherwise untouched draw", () => {
-    const seeded = koSpiel({ team1: seite(null, TEAM_1), team1_quelle: null });
+    const seeded = koSpiel({ team1: side(TEAM_1), team1_quelle: null });
 
     assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel(), spiel()], playoffSpiele: [seeded] }), {
       spiele: 3,
@@ -242,7 +237,7 @@ describe("buildSpielplanBestand", () => {
      Leave either out and the panel offers a press that comes back a 409. */
   it("counts a venue and a referee as recorded, which is what closes the replace", () => {
     assert.equal(bestandOf(spiel({ ort: ORT })).erfasst, 1);
-    assert.equal(bestandOf(spiel({ schiedsrichter: SCHIRI })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ schiedsrichter: REFEREE })).erfasst, 1);
   });
 
   /* Drop the note clause and this fails: an admin's note is work the draw never wrote, so the
@@ -259,16 +254,16 @@ describe("buildSpielplanBestand", () => {
      the bookings back here and the readout claims a loss on a season the control never offers. */
   it("counts a date and a kickoff time as scheduled, and a booking as neither", () => {
     assert.equal(bestandOf(spiel({ datum: "2026-05-09" })).angesetzt, 1);
-    assert.equal(bestandOf(spiel({ uhrzeit: "14:30" })).angesetzt, 1);
+    assert.equal(bestandOf(spiel({ uhrzeit: "14:30:00" })).angesetzt, 1);
 
     assert.equal(bestandOf(spiel({ ort: ORT })).angesetzt, 0);
-    assert.equal(bestandOf(spiel({ schiedsrichter: SCHIRI })).angesetzt, 0);
+    assert.equal(bestandOf(spiel({ schiedsrichter: REFEREE })).angesetzt, 0);
   });
 
   /* The two figures answer different questions, and only `erfasst` closes the replace. A merely dated
      season is replaceable, which is precisely why the other figure is carried at all. */
   it("keeps the scheduled count out of the recorded one", () => {
-    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30" }), spiel({ ergebnis: "1:1" }));
+    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30:00" }), spiel({ ergebnis: "1:1" }));
 
     assert.deepEqual(bestand, { spiele: 2, erfasst: 1, angesetzt: 1 });
   });
@@ -433,6 +428,43 @@ describe("the German the two windows share", () => {
   it("claims nothing about every manual change being caught", () => {
     for (const sentence of [RECORDED_FACTS_NONE, RECORDED_FACTS_ANY]) {
       assert.doesNotMatch(sentence, /Änderung|geändertes Team|Aufstellung|Besetzung/);
+    }
+  });
+});
+
+describe("describeSpielplanPermanenz", () => {
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a permanence
+     claim there sends an admin away from a control the panel offers. */
+  it("points a first draw on a planned season at the undraw, inside the window it runs in", () => {
+    const firstDraw = describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" });
+
+    assert.match(firstDraw, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
+    // The window closes on anything entered, which „noch kein Spiel gewertet“ would understate.
+    assert.match(firstDraw, /zu keinem ihrer Spiele etwas eingetragen wurde/);
+    assert.doesNotMatch(firstDraw, /keinen Weg zurück/);
+  });
+
+  /* Nothing writes removed matchdays and fixtures back: `/spiele` has neither a create nor a delete. */
+  it("claims no way back in every other state, and names the deletion wherever a draw is held", () => {
+    for (const saisonStatus of ["future", "active", "past"] as const) {
+      for (const holdsADraw of [true, false]) {
+        if (!holdsADraw && saisonStatus === "future") continue;
+        const sentence = describeSpielplanPermanenz({ holdsADraw, saisonStatus });
+
+        assert.match(sentence, /Es gibt in der Verwaltung keinen Weg zurück\./, `${saisonStatus}, holding a draw: ${String(holdsADraw)}`);
+        if (holdsADraw) assert.match(sentence, /Die Spieltage und Spiele oben werden dabei gelöscht\./);
+      }
+    }
+  });
+});
+
+describe("the squad sentences of a replacement", () => {
+  /* AUSTRAGEN and never STILLLEGEN (`docs/glossary.md`): the league-wide verb would claim these pupils left every
+     season there is, and a deletion word that the rows went rather than being stamped. */
+  it("word the squad rows with the verb a squad row takes, at the press and after it", () => {
+    for (const sentence of [describeKaderAustragung("SG Alpha"), describeKaderAustragungDanach("SG Alpha")]) {
+      assert.match(sentence, /Kadereinträge von SG Alpha .*ausgetragen/);
+      assert.doesNotMatch(sentence, /stillgelegt|gelöscht|entfernt/);
     }
   });
 });

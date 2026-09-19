@@ -23,8 +23,8 @@ export function AdminCrudShell({
     // The gutter sits outside the cap, so `max-w-page` measures content rather than content plus padding
     // (`EditFormLayout` splits the same way).
     <div className="w-full p-6 sm:p-8">
-      {/* The placeholder's minimum runs here because this mounts when the navigation starts, which is the clock
-          the region below the boundary cannot read for itself (`globals.css`). It paints nothing, and the property
+      {/* The placeholder's minimum runs here because this mounts when the page arrives, ahead of the rows the
+          boundary below waits on, which mount too late to start it (`globals.css`). It paints nothing; the property
           it animates inherits to `children`. */}
       <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8">
         {/* Below `sm` the two are one joined control, sharing a seam with no gap; the corner and label flattening

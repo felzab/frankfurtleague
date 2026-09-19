@@ -286,7 +286,7 @@ do_image_user() {
 
 # The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
 # two lists together.
-IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" \) -print'
+IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
 do_image_context() {
   local name found rc
   for name in frontend backend; do

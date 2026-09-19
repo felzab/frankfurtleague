@@ -96,7 +96,7 @@ for (const route of ROUTES) {
 
 /* Test files are out: `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts` quotes the
    guard's first line as a fixture, and a sweep taking that for the code would be reading its own
-   words back (`.claude/rules/frontend.md`). */
+   words back (`.claude/rules/cross-surface.md`). */
 const isSweptSource = (name: string) => /\.tsx?$/.test(name) && !isTestFile(name);
 
 /* The same listing reached off the tree instead of off the routes, which is what leaves either one

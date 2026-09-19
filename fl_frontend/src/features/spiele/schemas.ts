@@ -101,7 +101,7 @@ export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
   // list over one erased person; what a reader is shown instead is
-  // `fl_frontend/src/features/schiedsrichter/constants.ts :: schiedsrichterAnzeigename`.
+  // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
   name: z.string().nonempty().nullable(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
@@ -200,7 +200,7 @@ export const FLSpielSchema = z.object({
   ort: FLSpielOrtFieldPublicSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldPublicSchema.nullable(),
 
-  // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
+  // Not free text: `computeErgebnisFor` matches this pattern for S/U/N, and a malformed "3"
   // silently rendered as a loss for both teams.
   ergebnis: z.string().regex(ERGEBNIS_REGEX, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'").nullable(),
 
@@ -413,6 +413,44 @@ export const FLBracketFaultSpieltagSchema = z.object({
 export type FLBracketFaultSpieltag = z.infer<typeof FLBracketFaultSpieltagSchema>;
 
 /**
+ * A fixture still to be played booked onto a retired venue or referee. Nothing is taken off:
+ * reactivating the row or booking another is the admin's call (`docs/backend/spec.md` I257), and the
+ * ghost is the row no reactivation reaches (I259).
+ */
+export const FLBracketFaultBookingSchema = z.object({
+  reason: z.literal("retired_booking"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  booking: z.enum(["ort", "schiedsrichter"]),
+  // The retired row itself. What tells an erased referee from a row somebody left nameless, the null
+  // name below being true of both.
+  booking_id: CustomObjectIdStringSchema,
+  // Null on either of them;
+  // unbounded past that (I93), a stored empty name failing here would take the whole report down.
+  name: z.string().nullable(),
+  inactive_since: CustomDateStringSchema,
+});
+export type FLBracketFaultBooking = z.infer<typeof FLBracketFaultBookingSchema>;
+
+/** A venue or referee this fixture claims less than four hours from another fixture's claim, one entry per claim. */
+export const FLBracketFaultClashSchema = z.object({
+  reason: z.literal("double_booked"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  // Both seasons, because the other fixture can sit in any and its number is unique within one alone:
+  // a sentence names the other's season exactly where the two differ.
+  saison_id: z.string(),
+  booking: FLBracketFaultBookingSchema.shape.booking,
+  name: FLBracketFaultBookingSchema.shape.name,
+  other_spiel_id: CustomObjectIdStringSchema,
+  other_saison_id: z.string(),
+  other_spiel_nr: z.int().positive(),
+  other_datum: CustomDateStringSchema,
+  other_uhrzeit: CustomTimeStringSchema,
+});
+export type FLBracketFaultClash = z.infer<typeof FLBracketFaultClashSchema>;
+
+/**
  * `discriminatedUnion` rather than a flat object of optional fields: each variant carries exactly
  * its own fault's fields, so nobody has to know which combinations mean anything.
  */
@@ -423,6 +461,8 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultSlotSchema,
   FLBracketFaultOccupantSchema,
   FLBracketFaultSpieltagSchema,
+  FLBracketFaultBookingSchema,
+  FLBracketFaultClashSchema,
 ]);
 export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
 
@@ -562,8 +602,8 @@ export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarung
 
 /**
  * `spiele` carries the filter's matches plus every match a fault names, so the client always holds
- * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which repeats across the
- * seasons this route spans.
+ * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which is unique within one
+ * season only.
  */
 export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
   // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the

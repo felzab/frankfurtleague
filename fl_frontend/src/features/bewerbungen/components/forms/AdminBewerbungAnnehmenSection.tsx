@@ -5,30 +5,24 @@ import { useRouter } from "next/navigation";
 
 import { SealCheck } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
-
-/** The sentence the disabled acceptance is described by. This control renders at most once per page. */
-const ZUSAGE_BUTTON_HINT_ID = "bewerbung-zusage-hinweis";
 
 /** What the readout reads where no colour has been assigned — the season's row accepts that answer. */
 const KEINE_FARBE = "Keine Angabe";
@@ -77,8 +71,8 @@ export function AdminBewerbungAnnehmenSection({
 
   const panel = formPanel();
 
-  // The reason under the control, in the order the endpoint judges them: what the page already knows
-  // is refused first, and the group is the one thing left for the administrator to supply.
+  // Why the control is closed, in the order the endpoint judges them: what the page already knows is
+  // refused first, and the group is the one thing left for the administrator to supply.
   const grund = hindernis ?? (gruppe === null ? "Wähle zuerst eine Gruppe." : null);
 
   const handleAccept = () => {
@@ -95,7 +89,7 @@ export function AdminBewerbungAnnehmenSection({
 
         // Suppressed where the picker carries the message, so a refusal about the chosen group is
         // not also said in a toast that names no field.
-        if (fieldError === null) appToast.danger("Zusage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Bewerbung nicht angenommen", { description: res.error });
         return;
       }
 
@@ -107,6 +101,7 @@ export function AdminBewerbungAnnehmenSection({
     });
   };
 
+  // The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what is taken into what.
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
@@ -220,40 +215,34 @@ export function AdminBewerbungAnnehmenSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
+            <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow
                 isConfirming={isConfirming}
                 isPending={isAccepting}
                 onCancel={cancel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  aria-describedby={!isAccepting && grund !== null ? ZUSAGE_BUTTON_HINT_ID : undefined}
-                  isDisabled={isAccepting || grund !== null}
-                  onPress={handleAccept}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
+                {/* On the control, never a sentence beside it that a pick would unmount
+                    (`docs/frontend/spec.md` §1.14). */}
+                <ConfirmPressButton
+                  isConfirming={isConfirming}
+                  isPending={isAccepting}
+                  reason={grund}
+                  resting="Bewerbung annehmen"
+                  armed="Ja, Team verbindlich aufnehmen"
+                  running="Nimmt auf..."
+                  icon={
                     <SealCheck
+                      className="size-4.5"
                       aria-hidden="true"
-                      width={18}
-                      height={18}
                     />
-                  )}
-                  {/* The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what
-                      is taken into what. */}
-                  {isAccepting ? "Nimmt auf..." : isConfirming ? "Ja, Team verbindlich aufnehmen" : "Bewerbung annehmen"}
-                </Button>
+                  }
+                  onPress={handleAccept}
+                />
               </ConfirmActionRow>
 
-              {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
-                  treatment for a control disabled for a reason already on screen. */}
-              {!isAccepting && grund !== null && (
-                <Hint
-                  mode="inline"
-                  describes={ZUSAGE_BUTTON_HINT_ID}
-                  text={grund}
-                />
-              )}
+              {/* A plain sentence, not an inline hint needing a control to point at it: the wrapper covers
+                  the control (`docs/frontend/spec.md` §1.14). It stands beside the press because the
+                  page's own read raises it, and no pick here does. */}
+              {hindernis !== null && <p className="muted-hint">{hindernis}</p>}
             </div>
           </>
         )}

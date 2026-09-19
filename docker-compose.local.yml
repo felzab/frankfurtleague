@@ -6,12 +6,13 @@
 #
 # Invariants:
 # - Mirrors docker-compose.yml except where the difference is deliberate: it BUILDS rather than
-#   pulls, overrides API_URL, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI, runs its own
-#   mongo and waits on it, keeps that mongo's data in a named volume, publishes the edge on 3000:80
-#   where production publishes nothing, runs no tunnel connector and so declares neither its ipam
-#   subnet nor its token secret, mounts nginx/local.conf and no ./certs, keeps the access log in
-#   the checkout where production keeps it under /var/log, and sets no resource limits. A
-#   difference beyond those is a difference production will not have caught. This list and
+#   pulls, overrides API_URL, APP_ENV, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI, mounts the
+#   mail sink the frontend writes into, runs its own mongo and waits on it, keeps that mongo's data
+#   in a named volume, publishes the edge on 3000:80 where production publishes nothing, runs no
+#   tunnel connector and so declares neither its ipam subnet nor its token secret, mounts
+#   nginx/local.conf and no ./certs, keeps the access log in the checkout where production keeps it
+#   under /var/log, and sets no resource limits. A difference beyond those is a difference
+#   production will not have caught. This list and
 #   `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS` change together.
 
 x-logging: &default-logging
@@ -30,6 +31,10 @@ services:
       # Overrides whatever .env holds, because inside the compose network the backend is not on
       # localhost -- it is reachable by service name.
       - API_URL=http://backend:8000
+      # The stack's own declaration, overriding whatever .env holds -- and .env here is legitimately a
+      # copy of production's, which local.sh tells the developer to take from the password manager.
+      # Nothing else stops this stack mailing the league's real contact people.
+      - APP_ENV=local
       # http:// and localhost specifically: `fl_frontend/src/core/config.ts` refuses a non-loopback
       # http URL, because @auth/core derives the session cookie's Secure flag from this protocol.
       # Loopback is the one exemption.
@@ -42,9 +47,14 @@ services:
       # the local stack in against production while every other read came from the container below.
       - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
-      # sweep here mails the league's real contact people: the database below can hold a production
-      # dump, and .env carries the real AUTH_RESEND_KEY.
+      # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
+      # it raises.
       - BEWERBUNG_SWEEP=off
+    volumes:
+      # `/app` is root-owned and the container runs as `nextjs`, so without this the sink has
+      # nowhere to write. In the checkout for the access log's reason below: the developer opens the
+      # file rather than copying it out.
+      - ./.tmp-mail:/app/.tmp-mail
     restart: unless-stopped
     networks:
       - frankfurtleague-net

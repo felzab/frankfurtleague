@@ -15,6 +15,11 @@ from app.shared.schemas.custom import CustomNonEmptyString
 HAUSNUMMER_PATTERN = r"^([0-9\-abcABC]+)?$"
 
 
+def _join_present(parts: tuple[str, ...], separator: str) -> str:
+    # `strip`, because `stadtteil` is stored unstripped: a part of spaces alone would still take a separator.
+    return separator.join(part for part in parts if part.strip())
+
+
 # The SOURCE OF TRUTH; `fl_frontend/src/shared/schemas.ts :: FLAddressSchema` mirrors it by hand.
 class FLAddress(BaseModel):
     strasse: CustomNonEmptyString
@@ -26,7 +31,12 @@ class FLAddress(BaseModel):
 
     @property
     def to_string(self) -> str:
-        return f"{self.strasse} {self.hausnummer}, {self.plz} {self.stadtteil} {self.stadt}"
+        # Joined, so a blank part leaves no „Feldweg , 60437“ in the stored `maps_link`; the venue create form
+        # rebuilds that line with `fl_frontend/src/shared/utils/format.ts :: formatAddressFull`, which has to join alike.
+        strasse = _join_present((self.strasse, self.hausnummer), " ")
+        ort = _join_present((self.plz, self.stadtteil, self.stadt), " ")
+
+        return _join_present((strasse, ort), ", ")
 
 
 # What every WRITE payload embeds. The ceilings are here and not on `FLAddress`, which a read model

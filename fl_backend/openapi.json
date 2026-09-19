@@ -351,7 +351,7 @@
     "/api/v0/teams": {
       "get": {
         "summary": "List teams, flat or grouped",
-        "description": "List teams for a season.\n\n`in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.",
+        "description": "List teams for a season.\n\n`in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league\nis listed in a `past` season alone.",
         "operationId": "get_teams_api_v0_teams_get",
         "security": [
           {
@@ -994,7 +994,7 @@
     "/api/v0/spieler": {
       "get": {
         "summary": "List Spieler",
-        "description": "List players, normally for one team.\n\nOmitting `saison_id` does NOT resolve to the current season; callers narrow by `team_id` instead,\nand a season this tier may not read adds no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).",
+        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).",
         "operationId": "get_spieler_api_v0_spieler_get",
         "security": [
           {
@@ -1829,7 +1829,7 @@
     "/api/v0/schiedsrichter": {
       "get": {
         "summary": "List Schiedsrichter",
-        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.",
+        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nThe ghost is OFF this list whatever the query string asks for: no person stands behind it, so\nthere is nothing an administrator could book it for, edit on it or reactivate it into\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
         "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
         "security": [
           {
@@ -1930,7 +1930,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee. `inactive_since` and `anonymisiert_am` are set to null here and are on no payload.",
+        "description": "Create a referee. `inactive_since` is set to null here and is on no payload.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -1975,7 +1975,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -2019,7 +2019,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save reaching a referee whose data were erased is refused (`REQ-ANONYMISE-002`): the payload\ncarries a name on every field it edits, so an erased row takes no edit at all.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2477,7 +2477,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, every season without.",
+        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "security": [
           {
@@ -4017,7 +4017,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nA referee whose data were erased is refused (`REQ-ANONYMISE-003`): the erasure retires them, and\nbringing them back would offer a nameless row for a new fixture, which is fresh personal data\nabout the person who asked to be left out.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -4063,7 +4063,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Anonymise a Schiedsrichter",
-        "description": "Null the referee's name, school, telephone number and email address, and stamp the day it was done.\n\nWritten to the row, to every Spiel they officiated and to the log, in one transaction. The row\nitself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under\nthe erasure is refused (`REQ-ANONYMISE-001`).\n\n**It also retires the referee and unassigns them from every fixture with no result**, so they take\nno NEW fixture (`REQ-BOOKING-001`), hold none of the fixtures still to be played, and cannot be\nbrought back (`REQ-ANONYMISE-003`): a booking of any kind would create fresh personal data about the\nperson who asked to be left out. Such a fixture loses the whole `schiedsrichter` block, the fee\nagreed for it included, and answers `GET /spiele/action_required` until somebody assigns a referee\nto it. A retirement already stamped keeps its own day. What a reader is shown in place of the\nnulled name is the frontend's word, so no endpoint answers one.",
+        "description": "Delete the referee's document and repoint every fixture that named them at the ghost.\n\nThe row does not survive, and nothing on it is nulled in place: the fixtures keep their own\n`payment` and read from then on as officiated by nobody. It cannot be undone, and an id already\nerased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).\n\n**The response carries the ghost rather than the person**: the row the path named is gone, and\nanswering an erasure with the name and contact details it just destroyed would serve them once\nmore. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.\n\n**The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported\nby `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and\na save putting a played or called-off one back among those still to be played is refused it\n(`REQ-BOOKING-001`).",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {
@@ -4795,7 +4795,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6249,6 +6249,22 @@
             ],
             "title": "Rolle"
           },
+          "zugleich_rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "trainer",
+                  "ansprechperson",
+                  "stellvertretung"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zugleich Rolle"
+          },
           "vorname": {
             "anyOf": [
               {
@@ -6278,11 +6294,12 @@
           "saison_id",
           "schule",
           "rolle",
+          "zugleich_rolle",
           "vorname",
           "text_version"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, a role and a wording's version."
+        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, the roles one answer covers and a wording's version."
       },
       "FLBewerbungEinwilligungAntwortPayload": {
         "properties": {
@@ -7780,6 +7797,144 @@
         "title": "FLBewerbungenListResponse",
         "description": "The queue, newest first, and whether that is the whole of it.\n\nA cut answer still marks a collision: `dubletten_schluessel` is taken over every open\napplication, so a pair the cap parted is named at both ends."
       },
+      "FLBracketFaultBooking": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "const": "retired_booking",
+            "title": "Reason"
+          },
+          "booking": {
+            "type": "string",
+            "enum": [
+              "ort",
+              "schiedsrichter"
+            ],
+            "title": "Booking"
+          },
+          "booking_id": {
+            "type": "string",
+            "title": "Booking Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "inactive_since": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "spiel_nr",
+          "reason",
+          "booking",
+          "booking_id",
+          "name",
+          "inactive_since"
+        ],
+        "title": "FLBracketFaultBooking",
+        "description": "A fixture still to be played booked onto a retired venue or referee (`docs/backend/spec.md :: I257`).\n\nNothing is taken off: only a person chooses between reactivating the row and booking another."
+      },
+      "FLBracketFaultClash": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "const": "double_booked",
+            "title": "Reason"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "booking": {
+            "type": "string",
+            "enum": [
+              "ort",
+              "schiedsrichter"
+            ],
+            "title": "Booking"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "other_spiel_id": {
+            "type": "string",
+            "title": "Other Spiel Id"
+          },
+          "other_saison_id": {
+            "type": "string",
+            "title": "Other Saison Id"
+          },
+          "other_spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Other Spiel Nr"
+          },
+          "other_datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Other Datum"
+          },
+          "other_uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Other Uhrzeit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "spiel_nr",
+          "reason",
+          "saison_id",
+          "booking",
+          "name",
+          "other_spiel_id",
+          "other_saison_id",
+          "other_spiel_nr",
+          "other_datum",
+          "other_uhrzeit"
+        ],
+        "title": "FLBracketFaultClash",
+        "description": "A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.\n\nIt names the fixture that refusal names, so the report and a save's 409 point at one match."
+      },
       "FLBracketFaultGruppe": {
         "properties": {
           "spiel_id": {
@@ -9236,12 +9391,19 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultSpieltag"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultBooking"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultClash"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "double_booked": "#/components/schemas/FLBracketFaultClash",
                   "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
                   "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
                   "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
@@ -9249,6 +9411,7 @@
                   "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
                   "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "retired_booking": "#/components/schemas/FLBracketFaultBooking",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
                   "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
                   "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
@@ -9415,12 +9578,19 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultSpieltag"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultBooking"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultClash"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "double_booked": "#/components/schemas/FLBracketFaultClash",
                   "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
                   "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
                   "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
@@ -9428,6 +9598,7 @@
                   "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
                   "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "retired_booking": "#/components/schemas/FLBracketFaultBooking",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
                   "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
                   "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
@@ -11066,18 +11237,6 @@
               }
             ],
             "title": "Inactive Since"
-          },
-          "anonymisiert_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Anonymisiert Am"
           }
         },
         "type": "object",
@@ -11087,8 +11246,7 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since",
-          "anonymisiert_am"
+          "inactive_since"
         ],
         "title": "FLSchiedsrichter"
       },
@@ -11158,7 +11316,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."
+        "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
       },
       "FLSpielAdvancement": {
         "properties": {
@@ -11221,7 +11379,7 @@
           "voided_sonderereignis"
         ],
         "title": "FLSpielAdvancement",
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nBoth voided fields are `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check."
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check."
       },
       "FLSpielElfmeterschiessen": {
         "properties": {
@@ -12374,12 +12532,19 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultSpieltag"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultBooking"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultClash"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "double_booked": "#/components/schemas/FLBracketFaultClash",
                   "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
                   "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
                   "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
@@ -12387,6 +12552,7 @@
                   "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
                   "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "retired_booking": "#/components/schemas/FLBracketFaultBooking",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
                   "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
                   "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
@@ -12404,7 +12570,7 @@
           "spiele"
         ],
         "title": "FLSpieleActionRequiredResponse",
-        "description": "The matches needing attention, and why the bracket ones do.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, which repeats across the seasons this\nroute spans. `spiele` carries every match a fault names."
+        "description": "The matches needing attention, and why the bracket ones do.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, which is unique within one season only.\n`spiele` carries every match a fault names."
       },
       "FLSpieleAdminListResponse": {
         "properties": {

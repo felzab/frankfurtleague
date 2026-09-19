@@ -118,7 +118,7 @@ export function FormRegelnSection({
         {/* One group and not two: every number here answers what a single fixture is worth, and the
             forfeit result is that same question asked of a fixture nobody played. */}
         {/* The panel body's own between-group step, so the one break inside this group is not its smallest gap. */}
-        <div className="flex w-full flex-col gap-y-5">
+        <div className="flex w-full flex-col gap-y-6">
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
             <div className={FIELD_PAIR}>

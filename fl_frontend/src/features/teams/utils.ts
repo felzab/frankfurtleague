@@ -6,8 +6,9 @@ import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTI
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { TrikotFarbeOption } from "./constants";
-import type { FLGruppenTeam, FLKontaktperson, FLTeamMembership, FLTeamWithMemberships, FLTrikotFarbe } from "./schemas";
+import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamMembership, FLTeamWithMemberships, FLTrikotFarbe } from "./schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
 /**
@@ -119,13 +120,17 @@ export const computePlatzByTeamId = (teams: readonly FLGruppenTeam[]): ReadonlyM
 export type SaisonPhaseOutcome =
   /** Its fixture was won on goals. */
   | "won"
+  /** Its fixture finished level and the shoot-out went its way. */
+  | "wonInShootOut"
   /** Its fixture was lost on goals — the run ends here. */
   | "out"
-  /** Its round was played and a later one fields the team, so it got through whatever the goals said. */
+  /** Its fixture finished level and the shoot-out went against it — the run ends here. */
+  | "outInShootOut"
+  /** Its round was played and a later one's winner or group placing fields the team, whatever the goals said. */
   | "advanced"
   /** Its fixture carries no result yet. */
   | "pending"
-  /** Its fixture finished level and no later round fields the team, so nobody here may name a winner. */
+  /** Its fixture finished level with no shoot-out and no later round fields the team, so nobody here may name a winner. */
   | "level"
   /**
    * **Only the group phase reaches this, and it must never acquire an outcome word.** Failing a group
@@ -158,7 +163,13 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
     else fixtures.push(spiel);
   }
 
-  const deepestRank = Math.max(-1, ...[...byPhase.keys()].map((phase) => PHASE_RANK[phase]));
+  // The deepest round the team is ADVANCED into: a side fed as `verlierer` — the third-place play-off —
+  // stands in a later round too, and a side no reference feeds may be either, so neither proves the team
+  // came through.
+  const deepestAdvancedRank = Math.max(
+    -1,
+    ...spiele.filter((spiel) => isAdvancedInto(spiel, teamId)).map((spiel) => PHASE_RANK[spiel.saison_phase]),
+  );
   const verlauf: SaisonPhaseVerlauf[] = [];
 
   // The declared sequence, so a season configured for different knockout rounds needs no edit here.
@@ -166,11 +177,11 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
     const fixtures = byPhase.get(phase);
     if (fixtures === undefined) continue;
 
-    const standsInALaterRound = PHASE_RANK[phase] < deepestRank;
+    const standsInALaterRound = PHASE_RANK[phase] < deepestAdvancedRank;
 
     if (phase === "gruppenphase") {
-      // Two readings and never a third: a knockout fixture beside a group that was actually played is
-      // evidence the group was come through, and anything else is evidence of nothing at all.
+      // Two readings and never a third: a knockout side the team is advanced into, beside a group that
+      // was actually played, is evidence the group was come through, and anything else is evidence of nothing.
       const played = fixtures.some((spiel) => computeErgebnisFor({ spiel, teamId }) !== "?");
       verlauf.push({ phase, outcome: standsInALaterRound && played ? "advanced" : "unknown" });
       continue;
@@ -182,22 +193,56 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
   return verlauf;
 };
 
+/** Whether the team holds a side of this fixture that a group placing or a match's winner feeds. */
+const isAdvancedInto = (spiel: FLSpiel, teamId: string): boolean => {
+  const quelle = spiel.team1?.team_id === teamId ? spiel.team1_quelle : spiel.team2?.team_id === teamId ? spiel.team2_quelle : null;
+
+  return quelle !== null && (quelle.type === "gruppe" || quelle.ausgang === "sieger");
+};
+
 /**
  * How one knockout round went: off the round's own result where that is a win, off the bracket's
  * movement everywhere else.
  */
 const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInALaterRound: boolean): SaisonPhaseOutcome => {
-  const results = fixtures.map((spiel) => computeErgebnisFor({ spiel, teamId }));
+  const entscheidungen = fixtures.map((spiel) => computeEntscheidungFor({ spiel, teamId }));
+  const decided = (ergebnisFor: "S" | "N", imElfmeterschiessen: boolean): boolean =>
+    entscheidungen.some((entscheidung) => entscheidung.ergebnisFor === ergebnisFor && entscheidung.imElfmeterschiessen === imElfmeterschiessen);
 
-  if (results.includes("W")) return "won";
-  // Occupancy, never a shoot-out: a level knockout is a draw to every reader but the bracket. A round
-  // with no result at all is still open, however deep the team stands.
-  if (standsInALaterRound && results.some((result) => result !== "?")) return "advanced";
-  // Occupancy outranks a loss: a manual pick that did not qualify is warned and never refused, so a
-  // beaten team can be fielded in the next round, and a later fixture disproves `out`.
-  if (results.includes("L")) return "out";
+  if (decided("S", false)) return "won";
+  if (decided("S", true)) return "wonInShootOut";
+  // A round with no result at all is still open, however deep the team stands.
+  if (standsInALaterRound && entscheidungen.some((entscheidung) => entscheidung.ergebnisFor !== "?")) return "advanced";
+  if (decided("N", false)) return "out";
+  if (decided("N", true)) return "outInShootOut";
   // "?" is a fixture carrying no result: a malformed scoreline is refused at the API boundary.
-  return results.every((result) => result === "?") ? "pending" : "level";
+  return entscheidungen.every((entscheidung) => entscheidung.ergebnisFor === "?") ? "pending" : "level";
+};
+
+/** One team's result in one fixture, and whether the shoot-out rather than the goals decided it. */
+type EntscheidungFor = { ergebnisFor: FLSpielErgebnisFor; imElfmeterschiessen: boolean };
+
+/**
+ * The bracket's reading of a level knockout (`docs/backend/spec.md :: I25`), for the team page's
+ * rounds and fixtures alone. **Never a figure**: the table and the Saisonstatistik count the fixture as
+ * the draw it finished as (`docs/backend/spec.md :: I25a`).
+ */
+export const computeEntscheidungFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: string }): EntscheidungFor => {
+  const ergebnisFor = computeErgebnisFor({ spiel, teamId });
+  const shootOut = spiel.elfmeterschiessen;
+
+  // `fl_backend/app/api/spiele/services.py :: _outcome_of` reads no shoot-out on a group fixture, and
+  // a level count names nobody, so neither may name a winner here.
+  if (ergebnisFor !== "U" || spiel.saison_phase === "gruppenphase" || shootOut === null || shootOut.team1 === shootOut.team2) {
+    return { ergebnisFor, imElfmeterschiessen: false };
+  }
+
+  // "U" already placed the team on one of the two sides, so a team that is not team1 is team2.
+  const ownIsTeam1 = spiel.team1?.team_id === teamId;
+  const own = ownIsTeam1 ? shootOut.team1 : shootOut.team2;
+  const other = ownIsTeam1 ? shootOut.team2 : shootOut.team1;
+
+  return { ergebnisFor: own > other ? "S" : "N", imElfmeterschiessen: true };
 };
 
 /**
@@ -224,8 +269,8 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
 });
 
 /**
- * The three blank seats, for the same moment. All three are PRESENT: a block filled in for the first
- * time records three whole people, an empty seat being what an erasure leaves and nothing else.
+ * The three blank seats, for the same moment. All three are PRESENT: a new block asks for three whole
+ * people, and a seat left empty is one the admin switches off rather than the state it starts in.
  */
 export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
   trainer: buildEmptyKontaktperson(),
@@ -233,6 +278,14 @@ export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
   stellvertretung: buildEmptyKontaktperson(),
   trainer_ist_zugleich: null,
 });
+
+/**
+ * Two shapes store nobody on file — `null` on a row nobody filled in, three empty seats on one switched
+ * off or erased — and both are read alike. The claim is not read: over nobody it names nobody.
+ */
+export function holdsNobody(kontakte: FLSaisonTeamKontakte | SaisonTeamKontakteDraft | null): boolean {
+  return kontakte === null || KONTAKT_ROLLEN.every(({ value }) => kontakte[value] === null);
+}
 
 /**
  * Whether two seats really hold one person. The flag alone is an assertion the backend never checks,
@@ -249,7 +302,7 @@ const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boo
 export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontakteRow[] {
   return teams.flatMap((team) => {
     const kontakte = team.memberships.find((membership) => membership.saison_id === saisonId)?.kontakte ?? null;
-    if (kontakte === null) return [];
+    if (kontakte === null || holdsNobody(kontakte)) return [];
 
     const seats: AdminKontaktSeat[] = KONTAKT_ROLLEN.map(({ value, label }) => {
       const person = kontakte[value];
@@ -285,6 +338,24 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
       },
     ];
   });
+}
+
+/**
+ * The season `/dashboard/teams/[team_id]` shows a club in, or `null` where that page would 404. A
+ * planned season is withheld from the public tier, and a request naming one lands on the running
+ * season (`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId`).
+ */
+export function publicTeamSaisonId(
+  saisons: readonly Pick<FLSaison, "id" | "status">[],
+  selectedSaisonId: string | undefined,
+  memberships: readonly Pick<FLTeamMembership, "saison_id">[],
+): string | null {
+  const selected = saisons.find((saison) => saison.id === selectedSaisonId);
+  const shown = selected?.status === "future" ? saisons.find((saison) => saison.status === "active") : selected;
+
+  // The strict junction join: a club with no row in the shown season is no team there at all
+  // (`docs/glossary.md :: Team`).
+  return shown !== undefined && memberships.some((membership) => membership.saison_id === shown.id) ? shown.id : null;
 }
 
 /**

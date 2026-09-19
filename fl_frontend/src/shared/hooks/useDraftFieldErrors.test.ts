@@ -1,24 +1,38 @@
+import "../testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
+import { act, createElement, startTransition, Suspense, use, useState } from "react";
+
+import { render } from "@testing-library/react";
 import ts from "typescript";
 import { z } from "zod";
 
-import { filesUnder } from "../../core/treeWalk.ts";
+import { filesUnder, isTestFile } from "../../core/treeWalk.ts";
+import { appToast } from "../utils/appToast.ts";
 // Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
   applyVerdicts,
+  BLOCKED_SUBMIT_TITLE,
+  blockedSubmitDetail,
   differsFromSubmitted,
   forgivenVerdicts,
+  markedFieldCount,
   mergeFieldVerdicts,
   missingVerdicts,
+  settledVerdicts,
   submitDecision,
   submitRefusals,
+  useDraftFieldErrors,
   verdictMessage,
 } from "./useDraftFieldErrors.ts";
+import { UNHANDLED_FIELD_REFUSAL } from "./useServerFieldErrors.ts";
 
+import type { BlockingBanners, RailBanner } from "../components/ui/railBanner.ts";
+import type { FieldErrors } from "../utils/validation.ts";
 import type { FieldVerdicts } from "./useDraftFieldErrors.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
@@ -120,18 +134,41 @@ describe("verdictMessage", () => {
     assert.equal(verdictMessage(FOUND, { rules: { erlaubte_stufen: [] } }, "rules.erlaubte_stufen"), "Bitte wähle mindestens eine Stufe.");
   });
 
-  it("is what the hook publishes through, and not a routine standing beside it", () => {
-    // The cases above grade the decision; this one grades the WIRING, which no assertion here can
-    // execute. Without it, deleting the call leaves every case above passing.
-    const source = readFileSync(path.join(import.meta.dirname, "useDraftFieldErrors.ts"), "utf8");
+  it("is what the hook publishes through, and not a routine standing beside it", async () => {
+    // The cases above grade the decision; this one drives the hook that has to consult it. Without it,
+    // a blur publishing the schema's map directly leaves every case above passing.
+    const latest: { hook: GateHook | null } = { hook: null };
+    render(
+      createElement(GateProbe, {
+        names: ["shorthand", "full_name"],
+        onRender: (hook) => {
+          latest.hook = hook;
+        },
+      }),
+    );
+    const blur = (draft: unknown) =>
+      act(async () => {
+        latest.hook?.validatePaths("team", draft, ["shorthand"]);
+      });
 
-    assert.match(source, /verdictMessage\(found, draft, path, \{ afterSubmit: hasAttemptedSubmit \}\)/);
+    await blur({ shorthand: "", full_name: "" });
+    assert.deepEqual(latest.hook?.fieldErrors, {}, "a blur on an emptied field names it missing before send was pressed");
+
+    await blur({ shorthand: "A", full_name: "" });
+    assert.deepEqual(latest.hook?.fieldErrors, { shorthand: CLIENT_SHORTHAND }, "a blur on a wrong value publishes nothing");
+
+    // A press the gate lets through, which is what records that send was pressed.
+    await act(async () => {
+      latest.hook?.guardSubmit({ team: { shorthand: "AB", full_name: "FC Beispiel" } }, () => {});
+    });
+    await blur({ shorthand: "", full_name: "FC Beispiel" });
+    assert.deepEqual(latest.hook?.fieldErrors, { shorthand: CLIENT_SHORTHAND }, "a blur after send was pressed still hides a missing value");
   });
 });
 
 describe("mergeFieldVerdicts", () => {
   it("keeps a submit's message when the blur that followed changed nothing", () => {
-    // The whole bug. `reportValidity()` moves focus INTO the refused field, so the admin's next Tab
+    // The whole bug. `focusFirstRefusal` moves focus INTO the refused field, so the admin's next Tab
     // records a `null` on it — newer than the refusal, and about the very value it refused.
     const verdicts: FieldVerdicts = { datum: onSameValue(null) };
 
@@ -339,6 +376,38 @@ describe("missingVerdicts", () => {
   });
 });
 
+describe("what a blocked submit announces", () => {
+  it("says how many fields are marked, spelled per count", () => {
+    // A `FieldError` is a plain span in no live region, so without a toast the press is silent to a reader.
+    assert.match(blockedSubmitDetail(1), /^Ein Feld/);
+    assert.match(blockedSubmitDetail(4), /^4 Felder/);
+  });
+
+  it("calls no refused field a missing answer, the same press refusing wrong and taken values", () => {
+    for (const marked of [1, 4]) {
+      assert.doesNotMatch(blockedSubmitDetail(marked), /Angabe|fehlt/, "a duplicate e-mail address is told it is missing");
+    }
+  });
+
+  it("points at the marks rather than restating them", () => {
+    assert.match(blockedSubmitDetail(2), /markiert/);
+  });
+
+  it("sends the reader in no direction, on either count", () => {
+    // Every editor on the site shares this sentence, and on the public application form the marked field
+    // stands above the button that raised it. `focusFirstRefusal` moves the caret to the mark regardless.
+    const richtung = /\bunten\b|\boben\b|darunter|darüber/i;
+    const gesagt = "the toast names a place only some of the forms sharing it put the mark";
+
+    assert.doesNotMatch(blockedSubmitDetail(1), richtung, gesagt);
+    assert.doesNotMatch(blockedSubmitDetail(4), richtung, gesagt);
+  });
+
+  it("says the save did not happen, in a title distinct from every other refusal", () => {
+    assert.equal(BLOCKED_SUBMIT_TITLE, "Noch nicht abgeschickt");
+  });
+});
+
 describe("submitRefusals", () => {
   it("says nothing about a draft every schema accepts", () => {
     const clean = submitRefusals({ payloads: { team: { shorthand: "FC", full_name: "FC Beispiel" } }, schemas: { team: TEAM_SCHEMA } });
@@ -377,17 +446,277 @@ describe("submitRefusals", () => {
 
     assert.deepEqual(clean, { blocked: false });
   });
+});
 
-  it("hands the write to the guard rather than answering whether one may run", () => {
-    // The TYPE is the guard: `guardSubmit` returns `void` and takes the write, so an ignored answer is a
-    // compile error at every call site. This pins only what the signature cannot say.
-    const source = readFileSync(path.join(import.meta.dirname, "useDraftFieldErrors.ts"), "utf8");
-    const BLOCK = ["    if (decision.blocked) {", "      setSubmitFieldErrors(decision.refusals, payloads);"].join("\n");
+/** A consequence the draft itself causes, which is what raises `ConfirmSaveModal`. */
+const CONSEQUENCE: RailBanner = {
+  id: "probe.fan-out",
+  severity: "warning",
+  raisedBy: "change",
+  title: "Jedes Spiel an diesem Ort ändert sich mit",
+  inline: null,
+};
 
-    assert.ok(source.includes(BLOCK), "the block no longer publishes its refusals");
-    // Marked AND announced: a `FieldError` sits in no live region, so a blocked press is silent without this.
-    assert.match(source, /appToast[.]danger[(]BLOCKED_SUBMIT_TITLE/, "a blocked submit stopped announcing itself");
-    assert.match(source, /const guardSubmit = \([^)]*write: \(\) => void\): void =>/, "the guard answers a question again");
+/** A grave situation the page opened on, which asks nothing however it is graded. */
+const STANDING: RailBanner = {
+  id: "probe.retired",
+  severity: "danger",
+  raisedBy: "state",
+  title: "Dieser Eintrag ist stillgelegt",
+  inline: null,
+};
+
+/** What one press left: the map the form renders, the toasts raised, the lists handed to the dialog, the writes run. */
+type Press = { fieldErrors: FieldErrors; toasts: string[]; confirmed: BlockingBanners[]; writes: number };
+
+type GateHook = ReturnType<typeof useDraftFieldErrors<"team">>;
+
+/** The hook as an editor holds it, over a form holding one control under each name given. */
+function GateProbe({ names, onRender }: { names: readonly string[]; onRender: (hook: GateHook) => void }) {
+  const hook = useDraftFieldErrors({ schemas: { team: TEAM_SCHEMA } });
+  onRender(hook);
+
+  return createElement("form", { ref: hook.formRef }, ...names.map((name, index) => createElement("input", { key: index, name })));
+}
+
+/** A form holding one control under each name given, which is all of a form `markedFieldCount` reads. */
+const formNaming = (...names: string[]): HTMLFormElement => {
+  const form = document.createElement("form");
+  for (const name of names) form.append(Object.assign(document.createElement("input"), { name }));
+
+  return form;
+};
+
+/** One press of the hook's own gate, made in a mounted form holding one control under each name given. */
+async function pressSave(
+  payload: unknown,
+  banners?: readonly RailBanner[],
+  names: readonly string[] = ["shorthand", "full_name"],
+): Promise<Press> {
+  const press: Press = { fieldErrors: {}, toasts: [], confirmed: [], writes: 0 };
+  const latest: { hook: GateHook | null } = { hook: null };
+  const danger = mock.method(appToast, "danger", (title: string, options?: { description?: string }) => {
+    press.toasts.push(`${title}: ${options?.description ?? ""}`);
+    return "";
+  });
+  const { unmount } = render(
+    createElement(GateProbe, {
+      names,
+      onRender: (hook) => {
+        latest.hook = hook;
+      },
+    }),
+  );
+
+  try {
+    const write = () => {
+      press.writes += 1;
+    };
+    const confirm = (blocking: BlockingBanners) => {
+      press.confirmed.push(blocking);
+    };
+
+    await act(async () => {
+      latest.hook?.guardSubmit({ team: payload }, write, banners === undefined ? undefined : { banners, confirm });
+    });
+    press.fieldErrors = latest.hook?.fieldErrors ?? {};
+  } finally {
+    danger.mock.restore();
+    // Before the next press in the same case mounts its own form.
+    unmount();
+  }
+
+  return press;
+}
+
+describe("a press on an editor whose draft raises a consequence", () => {
+  it("marks and announces a draft the schemas refuse, and raises no dialog over it", async () => {
+    const press = await pressSave({ shorthand: "", full_name: "FC Beispiel" }, [CONSEQUENCE]);
+
+    assert.deepEqual(press.fieldErrors, { shorthand: CLIENT_SHORTHAND }, "the refused field is not marked");
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`], "the blocked press is not announced");
+    // The defect this order exists against: a consequence accepted over a save the same press then refuses.
+    assert.deepEqual(press.confirmed, [], "the dialog asks about a save the draft's own refusal blocks");
+    assert.equal(press.writes, 0);
+  });
+
+  it("raises the dialog over a draft it would send, and leaves the one write to the dialog's confirm", async () => {
+    const press = await pressSave({ shorthand: "FC", full_name: "FC Beispiel" }, [STANDING, CONSEQUENCE]);
+
+    assert.deepEqual(press.confirmed, [[CONSEQUENCE]], "the dialog lists something other than the consequence the save causes");
+    assert.equal(press.writes, 0, "the press wrote beside raising the dialog, so its confirm writes a second time");
+    assert.deepEqual(press.toasts, []);
+    assert.deepEqual(press.fieldErrors, {});
+  });
+
+  it("writes once where nothing the save causes needs asking", async () => {
+    for (const banners of [undefined, [], [STANDING]]) {
+      const press = await pressSave({ shorthand: "FC", full_name: "FC Beispiel" }, banners);
+
+      assert.equal(press.writes, 1, `${JSON.stringify(banners)} kept a clean draft from writing exactly once`);
+      assert.deepEqual(press.confirmed, [], `${JSON.stringify(banners)} confirmed a save that causes nothing`);
+    }
+  });
+});
+
+describe("markedFieldCount", () => {
+  it("counts one field where one control writes several refused paths", () => {
+    // The application's consent switch: one press writes all three seats, so the schema refuses three paths.
+    const refusals = {
+      "kontakte.ansprechperson.einwilligung.erteilt": "Ohne diese Kenntnisnahme …",
+      "kontakte.stellvertretung.einwilligung.erteilt": "Ohne diese Kenntnisnahme …",
+      "kontakte.trainer.einwilligung.erteilt": "Ohne diese Kenntnisnahme …",
+    };
+
+    assert.equal(markedFieldCount(formNaming("kontakte.ansprechperson.einwilligung.erteilt"), refusals), 1);
+  });
+
+  it("counts a field once however many elements carry its name", () => {
+    // A `NumberField` names its hidden input beside the visible one, and a radio group names each radio.
+    assert.equal(markedFieldCount(formNaming("kader.gute_spieler", "kader.gute_spieler"), { "kader.gute_spieler": "…" }), 1);
+  });
+
+  it("leaves out a refused path no control renders, and a control nothing refused", () => {
+    // A Trainer sharing a seat is a copy with no box: its refusal is on the wire and on no field.
+    const refusals = { "kontakte.stellvertretung.email": "Diese E-Mail-Adresse …", "kontakte.trainer.email": "Diese E-Mail-Adresse …" };
+
+    assert.equal(markedFieldCount(formNaming("kontakte.stellvertretung.email", "kontakte.stellvertretung.telefon"), refusals), 1);
+  });
+
+  it("counts nothing where no form is mounted", () => {
+    assert.equal(markedFieldCount(null, { shorthand: CLIENT_SHORTHAND }), 0);
+  });
+});
+
+describe("a blocked press's announcement", () => {
+  it("names the fields the form marks rather than the paths the schema refused", async () => {
+    // Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them.
+    const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["shorthand"]);
+
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`]);
+  });
+
+  it("raises nothing where no field is marked, leaving the press to the unhandled-refusal report", async () => {
+    // `useServerFieldErrors` announces a map no control renders; a second toast would point at marks nobody sees.
+    const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["website_url"]);
+
+    assert.deepEqual(
+      press.toasts,
+      [`Änderung nicht gespeichert: ${UNHANDLED_FIELD_REFUSAL}`],
+      "the press raised a toast beside the report, or no report",
+    );
+    assert.equal(press.writes, 0, "a press nothing marked still wrote");
+  });
+});
+
+describe("settledVerdicts", () => {
+  const inputs = (payload: unknown, submitted: unknown, afterSubmit: boolean) => ({
+    shown: {},
+    payloads: { team: payload },
+    schemas: { team: TEAM_SCHEMA },
+    submitted: { team: submitted },
+    afterSubmit,
+  });
+
+  it("hands back the very verdicts it was given once a commit has nothing to change", () => {
+    const empty = { shorthand: "", full_name: "" };
+    const once = settledVerdicts({}, inputs(empty, empty, true));
+
+    assert.notDeepEqual(once, {}, "a submitted empty draft published no missing value");
+    assert.equal(settledVerdicts(once, inputs(empty, empty, true)), once);
+  });
+});
+
+/** Past this many renders of one press the form is not settling; the loop it guards against never stops by itself. */
+const RENDER_CEILING = 50;
+
+describe("the forgiveness effect, committed by react-dom's client", () => {
+  /** A transition that suspends on a promise nothing resolves, so the verdict update it carries stays queued. */
+  const NEVER = new Promise<never>(() => {});
+
+  function Suspends(): null {
+    use(NEVER);
+    return null;
+  }
+
+  function mountEditor(start: unknown) {
+    const probe = {
+      renders: 0,
+      hook: null as ReturnType<typeof useDraftFieldErrors<"team">> | null,
+      hold: null as ((held: boolean) => void) | null,
+      retype: null as ((payload: unknown) => void) | null,
+    };
+
+    const onRender = (hook: ReturnType<typeof useDraftFieldErrors<"team">>) => {
+      probe.renders += 1;
+      if (probe.renders > RENDER_CEILING) throw new Error(`the editor rendered ${String(RENDER_CEILING)} times without settling`);
+      probe.hook = hook;
+    };
+
+    const onHold = (hold: (held: boolean) => void) => {
+      probe.hold = hold;
+    };
+
+    const onRetype = (retype: (payload: unknown) => void) => {
+      probe.retype = retype;
+    };
+
+    function Editor({ payload, report }: { payload: unknown; report: typeof onRender }) {
+      const hook = useDraftFieldErrors({ schemas: { team: TEAM_SCHEMA } });
+      hook.useForgiveFixed({ team: payload });
+      report(hook);
+      return null;
+    }
+
+    function Page({ report, reportHold, reportRetype }: { report: typeof onRender; reportHold: typeof onHold; reportRetype: typeof onRetype }) {
+      const [held, setHeld] = useState(false);
+      const [payload, setPayload] = useState(start);
+      reportHold(setHeld);
+      reportRetype(setPayload);
+      return createElement(Suspense, { fallback: null }, held ? createElement(Suspends) : null, createElement(Editor, { payload, report }));
+    }
+
+    render(createElement(Page, { report: onRender, reportHold: onHold, reportRetype: onRetype }));
+    const retype = (payload: unknown) =>
+      act(async () => {
+        probe.retype?.(payload);
+      });
+
+    return { probe, retype };
+  }
+
+  it("settles after a blocked press while another update is held pending", async () => {
+    // The browser's crash, React error 185: with an update held, React cannot drop a no-op one and replays it from
+    // the queue's base, so an effect queueing on every commit re-renders the form until the depth limit.
+    const empty = { shorthand: "", full_name: "" };
+    const { probe } = mountEditor(empty);
+
+    await act(async () => {
+      startTransition(() => {
+        probe.hold?.(true);
+        probe.hook?.validatePaths("team", { shorthand: "A", full_name: "" }, ["shorthand"]);
+      });
+    });
+
+    probe.renders = 0;
+    await act(async () => {
+      probe.hook?.guardSubmit({ team: empty }, () => {});
+    });
+
+    assert.ok(probe.renders <= 3, `a blocked press took ${String(probe.renders)} renders to settle`);
+    assert.deepEqual(Object.keys(probe.hook?.fieldErrors ?? {}).sort(), ["full_name", "shorthand"], "the press marked nothing");
+  });
+
+  it("still forgives a field the moment its value is fixed", async () => {
+    const empty = { shorthand: "", full_name: "" };
+    const { probe, retype } = mountEditor(empty);
+
+    await act(async () => {
+      probe.hook?.guardSubmit({ team: empty }, () => {});
+    });
+    await retype({ shorthand: "AB", full_name: "" });
+
+    assert.deepEqual(probe.hook?.fieldErrors, { full_name: "Bitte gib den vollständigen Namen ein." });
   });
 });
 
@@ -424,7 +753,7 @@ describe("applyVerdicts", () => {
 });
 
 const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200).map((file) => [
     path.relative(SRC_DIR, file).split(path.sep).join("/"),
     readFileSync(file, "utf8"),
   ]),

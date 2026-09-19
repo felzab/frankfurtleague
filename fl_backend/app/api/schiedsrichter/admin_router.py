@@ -14,23 +14,24 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
-    ANONYMISED_SCHIEDSRICHTER,
-    ANONYMISIERT_AM,
+    build_assignment_filter,
     build_booked_image_filter,
+    build_ghost_repoint,
+    build_ghost_schiedsrichter,
+    build_referee_filter,
     build_unplayed_assignment_filter,
-    find_anonymisation_refusal,
-    find_anonymisation_undo_refusal,
-    find_reactivation_refusal,
+    find_ghost_erasure_refusal,
     find_referee_retire_refusal,
     first_stamped,
-    holds_an_anonymisable_value,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
+    erase_many_from_db,
     insert_live,
     patch_many_in_db,
     patch_one_in_db,
+    post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
     refuse,
@@ -47,6 +48,7 @@ from app.core.dependencies import (
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -60,13 +62,11 @@ async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
 ) -> FLPostSchiedsrichterResponse:
-    """Create a referee. `inactive_since` and `anonymisiert_am` are set to null here and are on no payload."""
+    """Create a referee. `inactive_since` is set to null here and is on no payload."""
 
-    # `insert_live` stamps `inactive_since` for every collection that has one; this second date is
-    # the referee's alone, so the row it is required on is the one that writes it.
     post_operation = await insert_live(
         collection=schiedsrichter_collection,
-        document={**schiedsrichter_data.model_dump(mode="json"), ANONYMISIERT_AM: None},
+        document=schiedsrichter_data.model_dump(mode="json"),
     )
 
     return FLPostSchiedsrichterResponse(
@@ -92,37 +92,22 @@ async def patch_schiedsrichter(
 
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
 
-    A save reaching a referee whose data were erased is refused (`REQ-ANONYMISE-002`): the payload
-    carries a name on every field it edits, so an erased row takes no edit at all.
+    The ghost answers 404 here as it does to every read: a name written onto it would appear on the
+    fixtures of every referee already erased.
     """
 
     async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSchiedsrichterResponse:
-        patched = schiedsrichter_data.model_dump(mode="json")
-
-        # Read THROUGH the session, where the anonymisation's own guard reads outside one: this `$set`
-        # moves the row, so a rival erasure conflicts on the write set and the retry re-reads (I53).
-        refuse(
-            find_anonymisation_undo_refusal(
-                stored=await pull_one_from_db(
-                    collection=schiedsrichter_collection,
-                    db_filter={"_id": schiedsrichter_id},
-                    projection={"kontakt": 1, "name": 1, ANONYMISIERT_AM: 1},
-                    session=session,
-                ),
-            )
-        )
-
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
-            db_filter={"_id": schiedsrichter_id},
-            update={"$set": patched},
+            db_filter=build_referee_filter(schiedsrichter_id),
+            update={"$set": schiedsrichter_data.model_dump(mode="json")},
             session=session,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
 
         fan_out = await patch_many_in_db(
             collection=spiele_collection,
-            db_filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
+            db_filter=build_assignment_filter(updated_document.id),
             update={"$set": {"schiedsrichter.name": updated_document.name}},
             session=session,
         )
@@ -141,30 +126,45 @@ async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterWriteResponse:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
 
-    assigned = await pull_many_from_db(
-        collection=spiele_collection,
-        db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-        projection={"spiel_nr": 1},
-    )
-    refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
+    async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
+        """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
 
-    stored = await pull_one_from_db(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        projection={"inactive_since": 1},
-    )
+        # The row FIRST: the ghost is not a referee this endpoint addresses, and judging its
+        # fixtures before reading it would answer 409 for a row the API says is not there.
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            projection={"inactive_since": 1},
+            session=session,
+        )
 
-    updated_document_raw = await set_inactive_since(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        # `first_stamped` and never `today`: a second press would move the day they stopped
-        # officiating, which is the day a fee is reconciled against.
-        when=first_stamped(stored=stored, field="inactive_since", today=today),
-    )
+        assigned = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            projection={"spiel_nr": 1},
+            session=session,
+        )
+        refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
+
+        return await set_inactive_since(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            # `first_stamped` and never `today`: a second press would move the day they stopped
+            # officiating, which is the day a fee is reconciled against.
+            when=first_stamped(stored=stored, field="inactive_since", today=today),
+            session=session,
+        )
+
+    # The stamp inside the judgement's transaction, so a booking committing after the read of the
+    # fixtures conflicts on the referee it anchors rather than landing unseen
+    # (`app/api/spiele/crud.py :: anchor_a_booked_referee`).
+    async with db.start_session() as session:
+        updated_document_raw = await session.with_transaction(retire_the_referee)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
@@ -180,26 +180,15 @@ async def reactivate_schiedsrichter(
 ) -> FLSchiedsrichterWriteResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
 
-    A referee whose data were erased is refused (`REQ-ANONYMISE-003`): the erasure retires them, and
-    bringing them back would offer a nameless row for a new fixture, which is fresh personal data
-    about the person who asked to be left out.
+    The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
+    person behind it.
     """
 
-    # Outside a transaction, unlike the anonymisation's own guard: this refusal reads a field this
-    # write does not touch, so there is no write set for a rival erasure to conflict on.
-    refuse(
-        find_reactivation_refusal(
-            anonymisiert_am=(
-                await pull_one_from_db(
-                    collection=schiedsrichter_collection,
-                    db_filter={"_id": schiedsrichter_id},
-                    projection={ANONYMISIERT_AM: 1},
-                )
-            ).get(ANONYMISIERT_AM)
-        )
+    updated_document_raw = await set_inactive_since(
+        collection=schiedsrichter_collection,
+        db_filter=build_referee_filter(schiedsrichter_id),
+        when=None,
     )
-
-    updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=None)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
@@ -216,87 +205,65 @@ async def anonymise_schiedsrichter(
     aktionen_collection: AktionenCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
-    today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterWriteResponse:
-    """Null the referee's name, school, telephone number and email address, and stamp the day it was done.
+    """Delete the referee's document and repoint every fixture that named them at the ghost.
 
-    Written to the row, to every Spiel they officiated and to the log, in one transaction. The row
-    itself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under
-    the erasure is refused (`REQ-ANONYMISE-001`).
+    The row does not survive, and nothing on it is nulled in place: the fixtures keep their own
+    `payment` and read from then on as officiated by nobody. It cannot be undone, and an id already
+    erased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).
 
-    **It also retires the referee and unassigns them from every fixture with no result**, so they take
-    no NEW fixture (`REQ-BOOKING-001`), hold none of the fixtures still to be played, and cannot be
-    brought back (`REQ-ANONYMISE-003`): a booking of any kind would create fresh personal data about the
-    person who asked to be left out. Such a fixture loses the whole `schiedsrichter` block, the fee
-    agreed for it included, and answers `GET /spiele/action_required` until somebody assigns a referee
-    to it. A retirement already stamped keeps its own day. What a reader is shown in place of the
-    nulled name is the frontend's word, so no endpoint answers one.
+    **The response carries the ghost rather than the person**: the row the path named is gone, and
+    answering an erasure with the name and contact details it just destroyed would serve them once
+    more. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.
+
+    **The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported
+    by `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and
+    a save putting a played or called-off one back among those still to be played is refused it
+    (`REQ-BOOKING-001`).
     """
 
-    async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
-        async def stored_referee(read_session: AsyncClientSession | None) -> Mapping[str, Any]:
-            """The fields the erasure judges itself by, read either through the transaction or outside it.
+    # Before the transaction: the ghost is refused whatever the database holds, and a read of it
+    # inside the callback would answer 404 and hide the reason.
+    refuse(find_ghost_erasure_refusal(schiedsrichter_id=schiedsrichter_id))
 
-            A `schiedsrichter_id` naming nobody raises the 404 here, before anything is written.
-            """
+    async def erase_the_referee(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
+        # In-session, so the 404 for an id already erased is decided on the snapshot the delete
+        # below writes, and a rival rename conflicts rather than landing between them. Projected
+        # to the id: nothing here reads a value this call destroys.
+        await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_referee_filter(schiedsrichter_id),
+            projection={"_id": 1},
+            session=session,
+        )
 
-            return await pull_one_from_db(
-                collection=schiedsrichter_collection,
-                db_filter={"_id": schiedsrichter_id},
-                projection={"kontakt": 1, "name": 1, "schule": 1, "inactive_since": 1, ANONYMISIERT_AM: 1},
-                session=read_session,
-            )
+        # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
+        # row nothing holds -- which `REQ-BOOKING-001` would then read as an unknown referee and
+        # `GET /spiele/action_required` would report as nothing at all.
+        ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
+        if ghost is None:
+            ghost = build_ghost_schiedsrichter()
+            await post_one_to_db(collection=schiedsrichter_collection, document=ghost, session=session)
 
-        # BEFORE the write, which is what makes the guard below reachable: a row this snapshot reads
-        # as cleared AND stamped is `$set` to what it holds.
-        stored = await stored_referee(session)
-        rewrites_nothing = not holds_an_anonymisable_value(stored) and stored.get(ANONYMISIERT_AM) is not None
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter=build_assignment_filter(schiedsrichter_id),
+            update=build_ghost_repoint(),
+            session=session,
+        )
 
-        # Not `set_inactive_since` for the retirement: its own `patch_one_in_db` would file a second
-        # log row holding the values this write is clearing. ONE `$set` describes the state the row is
-        # left in.
-        updated_document_raw = await patch_one_in_db(
+        # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
+        # here would file the person's whole document into the log this call exists to clear
+        # (`docs/backend/spec.md :: I48`).
+        await erase_many_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            update={
-                "$set": {
-                    **ANONYMISED_SCHIEDSRICHTER,
-                    "inactive_since": first_stamped(stored=stored, field="inactive_since", today=today),
-                    ANONYMISIERT_AM: first_stamped(stored=stored, field=ANONYMISIERT_AM, today=today),
-                }
-            },
             session=session,
         )
-
-        # The fee goes with the block: nothing was earned on a match still to be played, and a
-        # reassignment writes the next referee's own default compensation.
-        await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-            # Null rather than `$unset`: `spiele` requires the key, so a removed one fails the
-            # collection validator on the row's next write.
-            update={"$set": {"schiedsrichter": None}},
-            session=session,
-        )
-
-        # The embedded copies, in this same transaction: a fixture stores the name rather than a
-        # reference the row could redirect, so an erasure reaching the row alone leaves the person
-        # named on every match they officiated.
-        await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id},
-            update={"$set": {"schiedsrichter.name": None}},
-            session=session,
-        )
-
-        # The fan-out above needs no arm of its own: `patch_many_in_db` records a filter and a count
-        # and no pre-image, so its row names nobody (`docs/backend/spec.md :: I40`).
 
         # ONE stamp for both passes, so a row cannot say which of the two reached it.
         stamp = log_stamp(germany_now)
 
-        # AFTER the referee patch, so it reaches the row that patch itself just wrote -- the one
-        # holding the values being cleared. Redacting first would leave exactly that copy behind.
         await patch_many_in_db(
             collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
@@ -314,17 +281,12 @@ async def anonymise_schiedsrichter(
             session=session,
         )
 
-        # Only on the no-op path: a `$set` rewriting nothing joins no write set, so a re-entry
-        # outside the API raises no conflict to retry on.
-        if rewrites_nothing:
-            # Read OUTSIDE the session, where that re-entry is visible and this write is not (I53).
-            refuse(find_anonymisation_refusal(re_entered=holds_an_anonymisable_value(await stored_referee(None))))
+        return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**ghost))
 
-        return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
-
-    # ONE transaction over both (`docs/backend/spec.md :: I42`): a referee cleared while the log
-    # still holds their details reports an anonymisation that did not happen.
+    # ONE transaction over all of it (`docs/backend/spec.md :: I42`): a referee deleted while a
+    # fixture still names them strands that fixture, and one deleted while the log still holds their
+    # details reports an erasure that did not happen.
     async with db.start_session() as session:
-        # `with_transaction` over a bare one -- the callback derives both writes from the path id,
+        # `with_transaction` over a bare one -- the callback derives every write from the path id,
         # so a retry is safe.
-        return await session.with_transaction(clear_the_details_and_the_record)
+        return await session.with_transaction(erase_the_referee)

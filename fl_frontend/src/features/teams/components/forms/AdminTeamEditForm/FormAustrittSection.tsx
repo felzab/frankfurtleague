@@ -1,22 +1,15 @@
 "use client";
 
-import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { AUSTRITT_OPTIONS } from "@/features/teams/constants";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import {
-  DATE_PICKER_CALENDAR,
-  DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  TOGGLE_GROUP_ALIGN,
-} from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
@@ -29,17 +22,6 @@ const ART_LABEL_ID = "austritt-art";
 
 /** The id the durability sentence publishes, carried by the reason's own field in `aria-describedby`. */
 const GRUND_HINT_ID = "austritt-grund-hinweis";
-
-/**
- * **No hover or press variant**: HeroUI's own fills are `@layer components` and these utilities are
- * declared last, so each state's resting background suppresses them. `StufenPicker`'s chip, widened
- * for word-length labels.
- */
-const ART_CHIP =
-  "border-border bg-transparent text-foreground-muted " +
-  "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
-  "data-[selected=true]:ring-brand-solid-foreground " +
-  "fluid-xs h-9 rounded-lg border px-4 font-extrabold tracking-wide transition-colors";
 
 /**
  * `austritt` is required with no default: lifting one sends an explicit `null`, not a quiet
@@ -105,7 +87,7 @@ export function FormAustrittSection({
             <TextField
               name="austritt.type"
               // The proxy is what makes a refusal land: `ToggleButtonGroup` takes no `name`, so it
-              // joins no field context and `form.reportValidity()` cannot see the group.
+              // joins no field context, and `focusFirstRefusal` finds a control by its `name` alone.
               value={art ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
@@ -136,7 +118,7 @@ export function FormAustrittSection({
                   <ToggleButton
                     key={option.value}
                     id={option.value}
-                    className={ART_CHIP}>
+                    className={OPTION_CHIP}>
                     {option.label}
                   </ToggleButton>
                 ))}
@@ -168,56 +150,15 @@ export function FormAustrittSection({
 
               {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
                   refuse it empty. `missingVerdicts` supplies the German instead, on submit. */}
-              <DatePicker
+              <AppDatePicker
                 isRequired
+                name="austritt.datum"
+                label={<FieldLabel path="austritt">Wirksam ab</FieldLabel>}
+                calendarLabel="Wirksamkeitsdatum auswählen"
                 value={datum}
                 onChange={onDatumChange}
                 onBlur={() => onValidateFields(["austritt.datum"])}
-                name="austritt.datum"
-                className="w-full">
-                <FieldLabel path="austritt">Wirksam ab</FieldLabel>
-                <DateField.Group
-                  fullWidth
-                  className={FIELD_GROUP}>
-                  <DateField.Input className="fluid-sm">
-                    {(segment) => (
-                      <DateField.Segment
-                        segment={segment}
-                        className="data-[type=literal]:text-foreground-muted"
-                      />
-                    )}
-                  </DateField.Input>
-                  <DateField.Suffix>
-                    <DatePicker.Trigger>
-                      <DatePicker.TriggerIndicator />
-                    </DatePicker.Trigger>
-                  </DateField.Suffix>
-                </DateField.Group>
-                <FieldError className={FIELD_ERROR} />
-                <DatePicker.Popover
-                  className={DATE_PICKER_POPOVER}
-                  placement={DATE_PICKER_PLACEMENT}>
-                  <Calendar
-                    aria-label="Wirksamkeitsdatum auswählen"
-                    className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-                    <Calendar.Header className="bg-transparent">
-                      <Calendar.YearPickerTrigger>
-                        <Calendar.YearPickerTriggerHeading />
-                        <Calendar.YearPickerTriggerIndicator />
-                      </Calendar.YearPickerTrigger>
-                      <Calendar.NavButton slot="previous" />
-                      <Calendar.NavButton slot="next" />
-                    </Calendar.Header>
-                    <Calendar.Grid>
-                      <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-                      <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-                    </Calendar.Grid>
-                    <Calendar.YearPickerGrid>
-                      <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-                    </Calendar.YearPickerGrid>
-                  </Calendar>
-                </DatePicker.Popover>
-              </DatePicker>
+              />
             </div>
           </>
         )}

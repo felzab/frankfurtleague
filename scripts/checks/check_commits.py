@@ -108,6 +108,15 @@ TRAILER_EVIDENCE_RE: Final = re.compile(
     r"|^[A-Za-z][A-Za-z0-9]*:[ \t]\S*[^\s.!?][ \t]*$"
 )
 
+# What makes ONE line a trailer with no paragraph to corroborate it. `TRAILER_EVIDENCE_RE` is the
+# wrong test here: its hyphenated-name arm reads a line wrapping onto a hyphenated word as a
+# trailer, harmless only while `trailer_block` demands every line.
+GLUED_TRAILER_RE: Final = re.compile(
+    # The one name the convention admits needs no value test: no line of prose opens on `Closes:`.
+    r"^[Cc]loses:[ \t]\S"
+    r"|^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*:[ \t]\S*[^\s.!?][ \t]*$"
+)
+
 # An id is read aloud, so `i`, `l`, `o`, `0` and `1` are out.
 ENTRY_ALPHABET: Final = "[abcdefghjkmnpqrstuvwxyz23456789]"
 # The hyphen parts a roadmap entry's id from an ordinary identifier, which is what makes
@@ -192,19 +201,39 @@ def branch_commits(base: str) -> list[str] | None:
     return None if out is None else out.split()
 
 
+def paragraphs(message: str) -> list[str]:
+    """The message's blank-line-separated blocks, subject first."""
+    return [block for block in re.split(r"\n[ \t]*\n", message.strip()) if block.strip()]
+
+
 def trailer_block(message: str) -> list[str]:
     """The message's closing paragraph where that paragraph is a run of trailers, else nothing.
 
     git needs a paragraph below the subject before it reads trailers at all, so a one-paragraph
     message is never one.
     """
-    paragraphs = [block for block in re.split(r"\n[ \t]*\n", message.strip()) if block.strip()]
-    if len(paragraphs) < 2:
+    blocks = paragraphs(message)
+    if len(blocks) < 2:
         return []
-    lines = [line for line in paragraphs[-1].split("\n") if line.strip()]
+    lines = [line for line in blocks[-1].split("\n") if line.strip()]
     if not all(TRAILER_LINE_RE.match(line) for line in lines):
         return []
     return lines if any(TRAILER_EVIDENCE_RE.match(line) for line in lines) else []
+
+
+def glued_trailers(message: str) -> list[str]:
+    """Every trailer-shaped line below the subject that git will not read as a trailer.
+
+    A trailer with no blank line over it leaves `trailer_block` empty rather than malformed, so no
+    arm reading that block can see it.
+    """
+    blocks = paragraphs(message)
+    if len(blocks) < 2:
+        return []
+    # The closing paragraph is dropped only where it IS the trailer block: a trailer glued into one
+    # that is not is the very fault being looked for.
+    scanned = blocks[1:-1] if trailer_block(message) else blocks[1:]
+    return [line for block in scanned for line in block.split("\n") if GLUED_TRAILER_RE.match(line)]
 
 
 def entry_tokens_departed(diff: str) -> frozenset[str]:
@@ -300,6 +329,11 @@ def check_message(message: str, short: str, *, is_bot: bool = False, departed: f
     named = [what for pattern, what, binds_a_bot in BANNED if (binds_a_bot or not is_bot) and pattern.search(message)]
     for what in named:
         fail(f"the message carries {what}")
+    # Not gated on `departed`: this is a shape, and a shape is checked wherever a message is, the
+    # commit-msg hook included (`docs/_git/spec.md :: 1.3 Commits`), which is where it still costs
+    # nothing to repair.
+    if not named and (glued := glued_trailers(message)):
+        fail(f"`{glued[0]}` is inside a paragraph - a trailer needs a blank line over it, and git reads this one as prose")
     # Only where none of the named patterns matched: a Co-authored-by line is both.
     block = [] if named else trailer_block(message)
     # Before the arms below, which compare the entries as sets: a line written twice is one member

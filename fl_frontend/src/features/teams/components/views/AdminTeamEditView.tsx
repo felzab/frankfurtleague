@@ -1,23 +1,21 @@
 "use client";
 
-import { useTransition } from "react";
-
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+/**
+ * Every exit routes through the form's discard guard. The header states identity and nothing live;
+ * its one control is reactivation, because a retired club's state is club-level, not a form field.
+ */
+import { useReactivation } from "@/shared/hooks/useReactivation";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
-/**
- * Every exit routes through the form's discard guard. The header states identity and nothing live;
- * its one control is reactivation, because a retired club's state is club-level, not a form field.
- */
 export function AdminTeamEditView({
   team,
   saison,
@@ -35,17 +33,9 @@ export function AdminTeamEditView({
   swap: SaisonGruppenSwapContext;
   today: string;
 }) {
-  const [isReactivating, startReactivating] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateTeamAction, noun: "Team" });
 
   const isRetired = team.inactive_since !== null;
-
-  const handleReactivate = () => {
-    startReactivating(async () => {
-      const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Team reaktiviert");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
-    });
-  };
 
   return (
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
@@ -62,13 +52,10 @@ export function AdminTeamEditView({
           chip: isRetired ? (
             <RetiredBadge since={team.inactive_since} />
           ) : (
-            // The TeamCard's chip, so the Kürzel wears one colour everywhere.
-            <span
-              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-sm`}>
-              {team.shorthand}
-            </span>
+            // The TeamCard's own square, so the Kürzel wears one colour everywhere.
+            <span className={`${DISPLAY_HEADING} ${BRAND_TILE}`}>{team.shorthand}</span>
           ),
-          reactivate: isRetired ? { isPending: isReactivating, onPress: handleReactivate } : undefined,
+          reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: team.id }) } : undefined,
         }}
       />
     </div>

@@ -16,8 +16,9 @@ const asOption = ({ id, start_date, end_date }: FLSaison): SaisonSelectorOption 
  */
 export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }) {
   await connection();
-  // The admin branch is guarded by `proxy.ts` alone: the shell's chrome is the layout's, rendered
-  // beside `AdminAuthGuard` rather than under it, which every other admin-tier read sits inside.
+  // The admin branch carries no guard of its own, so a caller placing it outside `AdminAuthGuard`
+  // serves the planned seasons to whoever drew the render -- `fl_frontend/src/app/admin/layout.tsx`
+  // places it under one.
   const [currentSaisonRes, saisonsRes] = await Promise.all([
     // `OrNull`, never the throwing read: this is layout chrome, so a 404 between seasons would
     // take every dashboard and admin page down with it.

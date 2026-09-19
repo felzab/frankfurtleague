@@ -18,8 +18,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 export default function LandingPage() {
   return (
     <>
-      <section className="max-w-page flex w-full flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <section className="max-w-page flex w-full flex-col gap-6 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="border-border bg-surface relative flex flex-col justify-between overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
@@ -28,7 +28,7 @@ export default function LandingPage() {
                   year to name, and a chip holding nothing reads as a value that failed to load. */}
               <Suspense
                 fallback={
-                  <SaisonChip>
+                  <SaisonChip isLaufend>
                     {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
                     <span className="invisible">Saison 0000</span>
                   </SaisonChip>
@@ -63,7 +63,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-5 lg:grid-cols-1">
             <Link
               href="/dashboard/teams#top"
               prefetch={false}
@@ -128,7 +128,8 @@ async function CurrentSaisonChip() {
   const current = await getCurrentSaisonOrNull();
   if (current === null) return null;
 
-  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
+  // `/saisons/current` answers the active season alone, so this chip always names a running one.
+  return <SaisonChip isLaufend>Saison {current.saison.id}</SaisonChip>;
 }
 
 /**

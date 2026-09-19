@@ -2,6 +2,7 @@ import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
 import { tv } from "tailwind-variants";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { ReactNode, RefObject } from "react";
@@ -50,28 +51,53 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
 const ANGABE_LABEL = "fluid-xxs text-foreground-muted font-bold";
 const ANGABE_WERT = "fluid-sm";
 
+type Fakt = {
+  label: string;
+  wert: string;
+  /** The one value nothing bounds — a school's name — which takes the width the others leave. */
+  unbegrenzt?: boolean;
+};
+
+const fakt = tv({
+  slots: {
+    // `min-w-0` on every cell, or one long word would push the row past the panel's edge.
+    zelle: "flex min-w-0 flex-col gap-y-0.5",
+    wert: ANGABE_WERT,
+  },
+  variants: {
+    unbegrenzt: {
+      // A line of its own on a phone; from `sm` it grows into the width the other facts leave.
+      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP },
+      false: { zelle: "flex-initial" },
+    },
+  },
+});
+
 /**
  * The mails' own fact panel in the page's tokens
- * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **A row at every width**: three facts
- * stacked down a phone are its whole first screen.
+ * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **Every value is read whole**: no
+ * ellipsis, since a phone has no pointer to hover a `title` with.
  */
-export function FaktenBanner({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
+export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   // The mail's 8px rather than a panel's arc, which the page's box count reads as `rounded-2xl`.
+  // Wrapping below `sm` alone: from there every fact fits one row, and a stack would spend the first
+  // screen on them.
   return (
-    <dl className="bg-surface border-border flex w-full flex-row items-start gap-x-4 rounded-lg border px-4 py-3 text-left sm:gap-x-6">
-      {zeilen.map(({ label, wert }) => (
-        <div
-          key={label}
-          className="flex min-w-0 flex-1 flex-col gap-y-0.5">
-          <dt className={`${ANGABE_LABEL} truncate`}>{label}</dt>
-          {/* The row never wraps, so a school name the cell cannot seat is readable nowhere else. */}
-          <dd
-            className={`${ANGABE_WERT} truncate`}
-            title={wert}>
-            <Wert>{wert}</Wert>
-          </dd>
-        </div>
-      ))}
+    <dl className="bg-surface border-border flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
+      {zeilen.map(({ label, wert, unbegrenzt = false }) => {
+        const { zelle, wert: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
+
+        return (
+          <div
+            key={label}
+            className={zelle()}>
+            <dt className={ANGABE_LABEL}>{label}</dt>
+            <dd className={wertKlasse()}>
+              <Wert>{wert}</Wert>
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }
@@ -98,10 +124,12 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
 }
 
 /**
- * The tint pair is `BewerbungForm.tsx`'s receipt panel, one formula for both tones: a third spelling
- * of a tinted box is one nobody re-measures against the scheme.
+ * The receipt panel at both ends of the application — this page's states and the form's own
+ * „eingegangen“ box
+ * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`) — one
+ * formula for both tones, a second spelling being one nobody re-measures against the scheme.
  */
-const ergebnisPanel = tv({
+export const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",
   variants: {
     tone: {

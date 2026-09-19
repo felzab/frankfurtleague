@@ -1,21 +1,23 @@
 import asyncio
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
 from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
+from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.saisons.cache import invalidate_saison_cache
+from app.api.spiele.admin_router import get_spiele_action_required
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.main import create_app
 from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
-
-pytestmark = pytest.mark.db
 
 CONTAINER_SELECTION_MS = 10_000
 
@@ -23,6 +25,19 @@ PATH = f"/api/v{API_VERSION}/spiele/action_required"
 
 SAISON = "2026"
 OTHER_SAISON = "2025"
+PLANNED_SAISON = "2027"
+
+RULES: dict[str, Any] = {
+    "win_points": 3,
+    "draw_points": 1,
+    "qualifiers_per_group": 2,
+    "number_of_groups": 4,
+    "teams_per_group": 4,
+    "tiebreak_order": "tordifferenz",
+    "max_kadergroesse": 18,
+    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+}
 
 # Fixed rather than generated, so a failure names the same fixture every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -38,8 +53,19 @@ HOME = ObjectId("6890a1b2c3d4e5f607970011")
 AWAY = ObjectId("6890a1b2c3d4e5f607970012")
 
 
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
+
+    invalidate_saison_cache()
+
+
 def _side(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+
+
+def saison_document(saison_id: str, status: str) -> dict[str, Any]:
+    return {"_id": saison_id, "start_date": f"{saison_id}-01-01", "end_date": f"{saison_id}-06-30", "status": status, "rules": dict(RULES)}
 
 
 def spiel_document(
@@ -64,7 +90,7 @@ def spiel_document(
         "team2": away,
         "team1_quelle": None,
         "team2_quelle": None,
-        # The attention condition this corpus rests on, so every seeded fixture is in the unscoped list.
+        # The attention condition this corpus rests on, so every seeded fixture is in its season's list.
         "datum": None,
         "uhrzeit": None,
         "ort": None,
@@ -80,7 +106,7 @@ def spiel_document(
 # from being left as a claim.
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
-    """Two seasons, in the database `build_test_config` names.
+    """Three seasons, in the database `build_test_config` names.
 
     The other season carries BOTH halves: a fixture needing attention, and a stored double entry,
     so a scope reaching only one half still fails a case here.
@@ -91,6 +117,15 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     client = MongoClient(mongo_url)
     try:
         database = a_clean_database_sync(client, mongo_url, database_name)
+        database[Collection.SAISONS].insert_many(
+            [
+                saison_document(OTHER_SAISON, "past"),
+                saison_document(SAISON, "active"),
+                # The newest and empty, so a default taking the newest season rather than the active
+                # one serves an empty list.
+                saison_document(PLANNED_SAISON, "future"),
+            ]
+        )
         database[Collection.SPIELE].insert_many(
             [
                 spiel_document(WANTED, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG),
@@ -126,6 +161,7 @@ def ids_of(response: Response) -> set[str]:
     return {spiel["id"] for spiel in response.json()["spiele"]}
 
 
+@pytest.mark.db
 class TestTheSeasonScopesBothHalves:
     """`saison_id` narrows the attention read AND the fault sweep.
 
@@ -155,19 +191,50 @@ class TestTheSeasonScopesBothHalves:
         assert ids_of(response) == {str(UNWANTED), str(FAULTED)}
         assert [fault["reason"] for fault in response.json()["bracket_faults"]] == ["fielded_twice", "fielded_twice"]
 
-    def test_naming_no_season_still_spans_them_all(self, seeded_url: str):
-        """The optional half of the shape: an absent parameter preserves what every other caller gets today."""
-
-        response = answered(seeded_url, PATH)
-
-        assert ids_of(response) == {str(WANTED), str(UNWANTED), str(FAULTED)}
-        assert response.json()["bracket_faults"] != []
-
     def test_a_season_no_fixture_names_is_empty_rather_than_everything(self, seeded_url: str):
-        """A filter dropped for an unknown value is the mistake that reads as working: it would serve all three."""
+        """A filter dropped for an unknown value is the mistake that reads as working: it would serve seasons nobody named."""
 
         response = answered(seeded_url, f"{PATH}?saison_id=1999")
 
         assert response.status_code == 200
         assert ids_of(response) == set()
         assert response.json()["bracket_faults"] == []
+
+
+@pytest.mark.db
+class TestNamingNoSeasonScopesToTheActiveOne:
+    """The call the page makes for the running season, whose selector strips `?saison_id=` from the URL."""
+
+    def test_naming_no_season_serves_the_active_season_alone(self, seeded_url: str):
+        """Both halves: the attention read defaulting alone would still union the other season's faulted fixture in."""
+
+        response = answered(seeded_url, PATH)
+
+        assert (response.status_code, ids_of(response), response.json()["bracket_faults"]) == (200, {str(WANTED)}, [])
+
+
+class _NoActiveSaison:
+    """A seasons collection answering every lookup with nothing, as a league between two seasons does."""
+
+    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> None:
+        return None
+
+
+class TestNamingNoSeasonWithNoneActive:
+    def test_it_is_refused_before_any_fixture_is_read(self):
+        """No read method on the fixture collections: a handler reading fixtures with no season to scope them to fails on the attribute."""
+
+        with pytest.raises(DocumentNotFoundException) as refused:
+            asyncio.run(
+                get_spiele_action_required(
+                    spiele_collection=cast(AsyncCollection, object()),
+                    teams_collection=cast(AsyncCollection, object()),
+                    saisons_collection=cast(AsyncCollection, _NoActiveSaison()),
+                    spielorte_collection=cast(AsyncCollection, object()),
+                    schiedsrichter_collection=cast(AsyncCollection, object()),
+                    saison_id=None,
+                    today="2026-03-15",
+                )
+            )
+
+        assert refused.value.error_code == DOCUMENT_NOT_FOUND

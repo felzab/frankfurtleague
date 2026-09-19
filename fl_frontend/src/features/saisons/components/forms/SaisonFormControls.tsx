@@ -1,18 +1,9 @@
 "use client";
 
-import { Calendar, DateField, DatePicker, FieldError, ListBox, NumberField, Select } from "@heroui/react";
+import { FieldError, ListBox, NumberField, Select } from "@heroui/react";
 
 import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
-import {
-  DATE_PICKER_CALENDAR,
-  DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_COUNT_INPUT,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_MARKER,
-  FIELD_TRIGGER,
-} from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_MARKER, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
 import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
 import { enteredNumber } from "@/shared/utils/numberField";
@@ -20,94 +11,7 @@ import { enteredNumber } from "@/shared/utils/numberField";
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
 import type { Key } from "@heroui/react";
-import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
-
-export function SaisonDateField({
-  name,
-  label,
-  ariaLabel,
-  value,
-  onChange,
-  onBlur,
-  isRequired = false,
-  minValue,
-  maxValue,
-}: {
-  /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
-  name: string;
-  label: ReactNode;
-  /** Names the calendar popover, which has no label of its own to inherit. */
-  ariaLabel: string;
-  value: CalendarDate | null;
-  onChange: (next: CalendarDate | null) => void;
-  onBlur?: () => void;
-  isRequired?: boolean;
-  /**
-   * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
-   * `aria`'s realtime validation and marks a half-typed year (`.claude/rules/frontend.md`). The schema refuses an
-   * out-of-span date, on blur and at submit.
-   */
-  minValue?: CalendarDate;
-  maxValue?: CalendarDate;
-}) {
-  return (
-    <DatePicker
-      isRequired={isRequired}
-      value={value}
-      onChange={onChange}
-      onBlur={onBlur}
-      name={name}
-      className="w-full">
-      {label}
-      <DateField.Group
-        fullWidth
-        className={FIELD_GROUP}>
-        <DateField.Input className="fluid-sm">
-          {(segment) => (
-            <DateField.Segment
-              segment={segment}
-              className="data-[type=literal]:text-foreground-muted"
-            />
-          )}
-        </DateField.Input>
-        <DateField.Suffix>
-          <DatePicker.Trigger>
-            <DatePicker.TriggerIndicator />
-          </DatePicker.Trigger>
-        </DateField.Suffix>
-      </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
-      <DatePicker.Popover
-        className={DATE_PICKER_POPOVER}
-        placement={DATE_PICKER_PLACEMENT}>
-        <Calendar
-          aria-label={ariaLabel}
-          minValue={minValue}
-          maxValue={maxValue}
-          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-          <Calendar.Header className="bg-transparent">
-            {/* The year picker earns its place here more than anywhere else in the app: a season's dates
-                are usually a year away from today, so a month-by-month walk would be twelve presses. */}
-            <Calendar.YearPickerTrigger>
-              <Calendar.YearPickerTriggerHeading />
-              <Calendar.YearPickerTriggerIndicator />
-            </Calendar.YearPickerTrigger>
-            <Calendar.NavButton slot="previous" />
-            <Calendar.NavButton slot="next" />
-          </Calendar.Header>
-          <Calendar.Grid>
-            <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-            <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-          </Calendar.Grid>
-          <Calendar.YearPickerGrid>
-            <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-          </Calendar.YearPickerGrid>
-        </Calendar>
-      </DatePicker.Popover>
-    </DatePicker>
-  );
-}
 
 /**
  * An emptied box records `null`, never the floor: substituting `minValue` silently answers a question nobody
@@ -198,7 +102,6 @@ export function SaisonCountSelect({
       isRequired
       name={name}
       isDisabled={isDisabled}
-      aria-label={ariaLabel}
       value={String(value)}
       onChange={(key: Key | null) => {
         // The disabled flag alone does not stop a pick: react-aria's hidden native mirror renders a
@@ -270,7 +173,6 @@ export function SaisonTiebreakSelect({
       isRequired
       name={name}
       isDisabled={isDisabled}
-      aria-label="Tiebreak"
       value={value}
       onChange={(key: Key | null) => {
         if (!key) return;
@@ -287,7 +189,7 @@ export function SaisonTiebreakSelect({
       <FieldError className={FIELD_ERROR} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
           what this field decides, and the trigger shows only the criterion's name. */}
-      <ol className="mt-2 flex w-full flex-col gap-y-1.5">
+      <ol className="flex w-full flex-col gap-y-1">
         {/* The WHOLE chain, because the two options are the same three rungs in a different order, so
             a sentence naming only the leader leaves a reader comparing one word against one word. */}
         {tiebreakLadder(value).map((rung, index) => (
@@ -304,7 +206,7 @@ export function SaisonTiebreakSelect({
         ))}
       </ol>
       {/* Outside the list: the chain ENDS, and a fourth numbered rung would read as a fourth criterion. */}
-      <p className="fluid-xxs text-foreground-muted mt-1.5 font-medium">{TIEBREAK_LADDER_TAIL}</p>
+      <p className="fluid-xxs text-foreground-muted font-medium">{TIEBREAK_LADDER_TAIL}</p>
       <Select.Popover className={SELECT_POPOVER}>
         <ListBox aria-label="Tiebreak auswählen">
           {TIEBREAK_ORDER_OPTIONS.map((option) => (

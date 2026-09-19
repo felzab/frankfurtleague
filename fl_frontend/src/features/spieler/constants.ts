@@ -1,14 +1,13 @@
+import { buildRefusal } from "@/shared/utils/refusal";
+
 import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 
-type RolleOption = { value: FLSpielerRolle; label: string; kuerzel: string };
+type RolleOption = { value: FLSpielerRolle; label: string };
 
-/**
- * The German for each squad role, and the marker the phone layout shows in the Kürzel chip's box.
- * Every surface reads this rather than writing its own, so no two can name a role differently.
- */
+/** The German for each squad role. Every surface reads this rather than writing its own, so no two can name a role differently. */
 export const ROLLE_OPTIONS: readonly RolleOption[] = [
-  { value: "kapitaen", label: "Kapitän", kuerzel: "C" },
-  { value: "co_kapitaen", label: "Co-Kapitän", kuerzel: "CC" },
+  { value: "kapitaen", label: "Kapitän" },
+  { value: "co_kapitaen", label: "Co-Kapitän" },
 ];
 
 /** The find cannot miss: `rolle` is the closed set this table enumerates, and the parse refuses anything else. */
@@ -18,14 +17,15 @@ export function rolleLabel(rolle: FLSpielerRolle): string {
   return rolleOption(rolle)?.label ?? "";
 }
 
-/** Always rendered with the full label as its hint, so the letters never stand alone. */
-export function rolleKuerzel(rolle: FLSpielerRolle): string {
-  return rolleOption(rolle)?.kuerzel ?? "";
-}
-
 export const SPIELER_CRUD_COPY = {
   searchLabel: "Spieler suchen",
   searchPlaceholder: "z.B. Lena Meier oder 7",
+  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
+  createLabel: "Neuen Spieler anlegen",
+  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
+  emptyForQuery: "Keine Spieler für diese Suche.",
+  emptyForFilters: "Keine Spieler für diese Filter.",
+  emptyOverall: "Es wurden noch keine Spieler angelegt.",
 } as const;
 
 /** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */
@@ -67,11 +67,31 @@ export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"],
 export const NUMMER_MAX_LENGTH = 4;
 
 /**
- * One sentence, stated by the schema's regex over a validated payload and by the field's own
- * `patternMismatch`. Both reach one slot on one value, so a drift between them would read as two
- * rules. The figure is `NUMMER_MAX_LENGTH`'s, never spelt again.
+ * The squad number's only refusal, carried by the schema's regex to the field on both forms. The
+ * figure is `NUMMER_MAX_LENGTH`'s, never spelt again, so the sentence cannot name a cap the input
+ * does not hold.
  */
 export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern.`;
+
+/**
+ * Neutral throughout, as every sentence naming a pupil is: half the league's squads are girls, and a
+ * masculine demonstrative or pronoun here names the wrong person for them.
+ */
+export const RETIREMENT_CONSEQUENCE =
+  "Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl.";
+
+/**
+ * The state after a retirement, which the editor's banner shows for as long as it lasts and the
+ * action toasts once. Two readers meeting different words would read them as two different states.
+ */
+export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
+
+/**
+ * The tail of the message a create earns when the person was stored but their squad row was not. A
+ * noun rather than a pronoun: a refusal sentence can precede this one, and a pronoun would reach
+ * back past it.
+ */
+export const CREATE_WITHOUT_SQUAD_NEEDS_A_SAISON = "Nimm den Spieler über die Spielerseite in eine Saison auf.";
 
 /**
  * `REQ-PURGE-001` in German, said once — the REPAIR rather than the state, which the Callout beside
@@ -107,3 +127,9 @@ export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
   "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln oder trage " +
   "zuerst einen anderen Spieler aus.";
+
+// The index spans retired rows and creating never revives, so the message names the one path that does.
+export const ALREADY_IN_SAISON = buildRefusal({
+  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
+  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
+});

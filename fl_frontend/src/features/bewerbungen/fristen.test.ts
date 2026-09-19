@@ -48,7 +48,7 @@ const EIN_SITZ = {
    only a render of it reads the clock it states. */
 const ZWEI_SITZE = { ...EIN_SITZ, seats: [ERIKA, JONAS] } satisfies BewerbungBestaetigungData;
 
-const NACHRICHTEN = [
+const MESSAGES = [
   ["the link message", buildBewerbungBestaetigungEmail(EIN_SITZ)],
   ["the link message to a shared inbox", buildBewerbungBestaetigungEmail(ZWEI_SITZE)],
   ["the reminder", buildBewerbungErinnerungEmail(EIN_SITZ)],
@@ -82,37 +82,37 @@ const NACHRICHTEN = [
 ] as const;
 
 /** German writes a small count in words, so „drei Tage“ is as much a clock as „14 Tage“ is. */
-const ZAHLWORT: Readonly<Record<string, number>> = { drei: 3, vierzehn: 14 };
+const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, vierzehn: 14 };
 
 /** Every day count a text states, and `null` for one written in a word this reader does not hold. */
-function tageIn(text: string): (number | null)[] {
+function daysIn(text: string): (number | null)[] {
   // Letters and digits alone: the markup puts a `>` against the number, and a non-whitespace run
   // would carry the whole opening tag into the token.
   return [...text.matchAll(/([\p{L}\d]+)\s+Tage[n]?\b/gu)].map((treffer) => {
-    const wort = (treffer[1] ?? "").toLowerCase();
+    const word = (treffer[1] ?? "").toLowerCase();
 
-    return /^\d+$/.test(wort) ? Number(wort) : (ZAHLWORT[wort] ?? null);
+    return /^\d+$/.test(word) ? Number(word) : (NUMBER_WORD[word] ?? null);
   });
 }
 
-const gelesen = (mail: { html: string; text: string }): (number | null)[] => tageIn(`${mail.html} ${mail.text}`);
+const readLink = (mail: { html: string; text: string }): (number | null)[] => daysIn(`${mail.html} ${mail.text}`);
 
 describe("the two clocks the workflow messages state", () => {
   /* First: a set of messages naming no day at all would leave every case below passing over nothing,
      and a builder that stopped stating its clock is exactly what that looks like. */
   it("finds a day count in the messages at all", () => {
-    const gefunden = NACHRICHTEN.flatMap(([, mail]) => gelesen(mail));
+    const foundLink = MESSAGES.flatMap(([, mail]) => readLink(mail));
 
-    assert.ok(gefunden.length >= NACHRICHTEN.length, "the messages state fewer day counts than there are messages");
+    assert.ok(foundLink.length >= MESSAGES.length, "the messages state fewer day counts than there are messages");
   });
 
   it("states no day count but the two the constants set", () => {
-    for (const [wer, mail] of NACHRICHTEN) {
-      for (const zahl of gelesen(mail)) {
-        assert.ok(zahl !== null, `${wer} writes a day count in a word this case cannot read`);
+    for (const [wer, mail] of MESSAGES) {
+      for (const number of readLink(mail)) {
+        assert.ok(number !== null, `${wer} writes a day count in a word this case cannot read`);
         assert.ok(
-          zahl === BEWERBUNG_ERINNERUNG_TAGE || zahl === BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
-          `${wer} states ${String(zahl)} days, which is neither clock`,
+          number === BEWERBUNG_ERINNERUNG_TAGE || number === BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+          `${wer} states ${String(number)} days, which is neither clock`,
         );
       }
     }
@@ -121,20 +121,20 @@ describe("the two clocks the workflow messages state", () => {
   /* Each on its own, so a bound raised to the other's number cannot pass by the set still holding
      two members. */
   it("states each of the two somewhere across them", () => {
-    const alle = new Set(NACHRICHTEN.flatMap(([, mail]) => gelesen(mail)));
+    const allSeats = new Set(MESSAGES.flatMap(([, mail]) => readLink(mail)));
 
-    assert.ok(alle.has(BEWERBUNG_ERINNERUNG_TAGE), "no message states the reminder's clock");
-    assert.ok(alle.has(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE), "no message states the deletion's clock");
+    assert.ok(allSeats.has(BEWERBUNG_ERINNERUNG_TAGE), "no message states the reminder's clock");
+    assert.ok(allSeats.has(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE), "no message states the deletion's clock");
   });
 
   /* The stamped text is never interpolated from the constant: the words are what somebody was shown,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
   it("holds the stamped wordings to the deletion clock, written in a word", () => {
-    const gefunden = Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => tageIn(fassung.absaetze.join(" ")));
+    const foundLink = Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => daysIn(fassung.absaetze.join(" ")));
 
-    assert.ok(gefunden.length > 0, "no stored wording states a day count, so this case compares nothing");
-    for (const zahl of gefunden) {
-      assert.equal(zahl, BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, "a stored wording states a deletion clock the bound no longer sets");
+    assert.ok(foundLink.length > 0, "no stored wording states a day count, so this case compares nothing");
+    for (const number of foundLink) {
+      assert.equal(number, BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, "a stored wording states a deletion clock the bound no longer sets");
     }
   });
 });

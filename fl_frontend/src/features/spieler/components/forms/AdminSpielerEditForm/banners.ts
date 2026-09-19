@@ -1,4 +1,4 @@
-import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, RETIREMENT_KEEPS_SQUAD_ROWS } from "@/features/spieler/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { SpielerSaisonMembership } from "@/features/spieler/types";
@@ -55,7 +55,7 @@ export function buildSpielerBanners({
       raisedBy: "state",
       title: "Diese Person erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
-      body: "Die Kadereinträge dieser Person bleiben erhalten.",
+      body: RETIREMENT_KEEPS_SQUAD_ROWS,
       inline: null,
     });
   }

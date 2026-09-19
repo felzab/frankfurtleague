@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 
 // Source text because the table is module-private, and a test-only export of it would be a seam.
 const ROUTE = readFileSync(path.resolve(import.meta.dirname, "route.ts"), "utf8");
@@ -23,11 +23,12 @@ const rowCodes = [...TABLE.matchAll(KEYED_ROW)].map((row) => row.groups?.code).f
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = `export const NextResponse = { json: (body) => ({ body }) };`;
+const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
 const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };`;
 const NEXT_HEADERS = `export const headers = async () => new Headers();`;
-const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;`;
+const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
+export const auth = async () => globalThis.__flUndoSession;`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.__flUndoCalls.push({ endpoint, method: options.method, body: options.body });
@@ -110,10 +111,10 @@ const asRequest = (body: unknown) =>
 
 type Outcome = { success: boolean; message?: string; error?: string; warn?: boolean };
 
-async function post(body: unknown): Promise<Outcome> {
-  const answered = (await POST(asRequest(body))) as unknown as { body: Outcome };
+async function post(body: unknown): Promise<Outcome & { status: number }> {
+  const answered = (await POST(asRequest(body))) as unknown as { body: Outcome; status: number };
 
-  return answered.body;
+  return { ...answered.body, status: answered.status };
 }
 
 const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
@@ -126,7 +127,7 @@ beforeEach(() => {
 });
 
 describe("the undo route's replay refusals against the endpoint it replays", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the replay table out of the route before reading it", () => {
     assert.notEqual(TABLE, "", "the table's opening or the declaration closing it stopped matching");
     assert.ok(!TABLE.includes("export async function POST"), "the cut runs on into the handler, whose lines this reader would take for rows");
@@ -197,9 +198,25 @@ describe("the undo route, driven", () => {
     const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
     assert.equal(answered.success, false);
+    // 200, as every outcome but a lapsed session: the dispatch sends the admin to sign in on a 401.
+    assert.equal(answered.status, 200);
     assert.match(answered.error ?? "", /Herkunft passt nicht mehr/);
     // The whole of the outcome, and true of every entry: the backend committed none of them.
     assert.match(answered.error ?? "", /Die Änderung steht weiterhin\.$/);
+  });
+
+  // A row retired before the save being undone meets this refusal too, so a sentence dating the
+  // retirement after that save would tell the admin something the record contradicts.
+  it("words a retired or deleted booking without saying when it retired", async () => {
+    recorders.__flUndoAnswer = () => {
+      throw aRefusal(409, "REQ-BOOKING-001");
+    };
+
+    const answered = await post(aReplayOf(SPIEL_ID));
+
+    assert.equal(answered.success, false);
+    assert.match(answered.error ?? "", /stillgelegt oder gelöscht/);
+    assert.doesNotMatch(answered.error ?? "", /inzwischen/);
   });
 
   it("does not resolve a rejection it cannot word as a success", async () => {
@@ -239,7 +256,13 @@ describe("the undo route, driven", () => {
     recorders.__flUndoAnswer = () => ({
       ...RESTORED,
       advanced_to: [
-        { spiel_id: OTHER_SPIEL_ID, spiel_nr: 23, voided_ergebnis: "2:0", voided_elfmeterschiessen: null, voided_sonderereignis: null },
+        {
+          spiel_id: OTHER_SPIEL_ID,
+          spiel_nr: 23,
+          voided_ergebnis: "2:0",
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: null,
+        },
       ],
     });
 
@@ -252,12 +275,13 @@ describe("the undo route, driven", () => {
     assert.match(answered.message ?? "", /Ergebnis in Spiel 23 wurde dabei gelöscht/);
   });
 
-  it("writes nothing for a caller with no admin session", async () => {
+  it("answers a caller with no admin session 401 and writes nothing", async () => {
     recorders.__flUndoSession = null;
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
     assert.equal(answered.success, false);
+    assert.equal(answered.status, 401);
     assert.equal(calls.length, 0);
   });
 });

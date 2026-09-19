@@ -97,14 +97,21 @@ const LAYER_BOUNDARY = {
 };
 
 /**
- * `stdoutCapture` swaps `process.stdout.write` out for the length of a call, which in a server
- * process swallows the log stream. Nothing else in the toolchain would say so: the module
- * type-checks, builds and imports anywhere.
+ * Modules belonging to the suite alone; nothing else in the toolchain would say so.
+ *
+ * `stdoutCapture` swaps `process.stdout.write` out for a call's length, swallowing a server's log
+ * stream; `actionSources` and `schemeReader` read a repository a deployed bundle does not carry.
  */
-const TEST_ONLY = {
-  group: ["**/stdoutCapture.ts", "**/stdoutCapture"],
-  message: "stdoutCapture replaces process.stdout.write: a *.test.ts(x) file may import it, production code may not.",
-};
+const TEST_ONLY = [
+  {
+    group: ["**/stdoutCapture.ts", "**/stdoutCapture"],
+    message: "stdoutCapture replaces process.stdout.write: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    group: ["**/actionSources.ts", "**/actionSources", "**/schemeReader.ts", "**/schemeReader"],
+    message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
+  },
+];
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
@@ -151,9 +158,9 @@ const eslintConfig = defineConfig([
 
   // The test-only ban, which a `*.test.ts(x)` file alone escapes. Each block restates the boundary
   // above it for `restrictImports`'s reason.
-  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY) },
-  { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.core) },
-  { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(TEST_ONLY, LAYER_BOUNDARY.shared) },
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY) },
+  { files: ["src/core/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.core) },
+  { files: ["src/shared/**/*.{ts,tsx}"], ignores: TEST_FILES, rules: restrictImports(...TEST_ONLY, LAYER_BOUNDARY.shared) },
 
   // The one site the rule above exists to protect: it IS the guard, so it is the only place the
   // platform call belongs.

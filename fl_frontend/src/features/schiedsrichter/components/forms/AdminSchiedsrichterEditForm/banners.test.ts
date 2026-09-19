@@ -10,6 +10,7 @@ import type { SchiedsrichterBanner } from "./banners.ts";
 const build = (overrides: Partial<Parameters<typeof buildSchiedsrichterBanners>[0]> = {}): readonly SchiedsrichterBanner[] =>
   buildSchiedsrichterBanners({
     isRetired: false,
+    isNameless: false,
     isNameChanged: false,
     ...overrides,
   });
@@ -54,6 +55,29 @@ describe("buildSchiedsrichterBanners", () => {
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {
     assert.equal(ids(build({ isRetired: true, isNameChanged: true }))[0], "schiedsrichter.retired");
+  });
+
+  /* The row reached this editor because no erasure stamp routed it away, so the one thing the empty
+     name box must not read as is a deletion. */
+  it("says a nameless row was not deleted, and asks nothing at the save", () => {
+    const [banner] = build({ isNameless: true });
+
+    assert.equal(banner?.id, "schiedsrichter.nameless");
+    assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.raisedBy, "state");
+    assert.match(banner?.body ?? "", /Gelöscht wurde hier nichts/, "the banner stopped denying a deletion");
+    assert.equal(resolveBlockingBanners(build({ isNameless: true })), null);
+  });
+
+  /* The fan-out is the same write either way, and a row holding no name has no old one to replace:
+     the warning has to keep the consequence without claiming a name that was never there. */
+  it("words the rename against a row that never had a name, without dropping the fan-out", () => {
+    const [, banner] = build({ isNameless: true, isNameChanged: true });
+
+    assert.equal(banner?.id, "schiedsrichter.name-changed");
+    assert.doesNotMatch(banner?.title ?? "", /den alten|neue[nr]? Name/, "the warning still replaces a name this row never held");
+    assert.match(banner?.title ?? "", /in jedem Spiel/, "the warning stopped saying the name reaches every match");
+    assert.match(banner?.body ?? "", /längst gespielt/, "the warning stopped naming the matches already played");
   });
 
   it("grades the rename as the one banner that stops a save", () => {

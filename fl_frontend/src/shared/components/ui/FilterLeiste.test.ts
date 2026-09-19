@@ -4,13 +4,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `useUrlFilters` reads the first and `useFacetSelection`
-   the second — and the bar renders under both. A Next release that moves either module fails this
-   file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets.ts";
@@ -51,29 +47,8 @@ const FACETS: readonly Facet<Row>[] = [
   },
 ];
 
-/** What `useRouter` hands the control. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const bar = (query: string, leserichtung?: Leserichtung): string =>
-  renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams(query) },
-        h(FilterLeiste<Row>, { facets: FACETS, items: ROWS, leserichtung: leserichtung }),
-      ),
-    ),
-  );
+  renderTree(underNext(h(FilterLeiste<Row>, { facets: FACETS, items: ROWS, leserichtung: leserichtung }), { search: query }));
 
 /** The collection react-aria mirrors into a hidden native `<select>`, in document order. */
 function mirroredOptions(html: string): { value: string; label: string; isSelected: boolean }[] {

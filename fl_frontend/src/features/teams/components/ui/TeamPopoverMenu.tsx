@@ -9,6 +9,7 @@ import { Badge, Popover, Separator } from "@heroui/react";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
 
@@ -22,10 +23,17 @@ export function TeamPopoverMenu({
   teamAustritt,
   placement = "right",
   onNavigate,
+  saisonId,
   children,
 }: {
   teamName: string;
   teamId: string;
+  /**
+   * The season both links open in, `undefined` where the running one is meant. Required for the reason
+   * `teamAustritt` is: the junction join is strict, so a caller forgetting it sends a past season's club
+   * to „nicht gefunden“.
+   */
+  saisonId: string | undefined;
   /**
    * Required, not optional: a caller omitting it compiles clean and renders no badge, where `tsc`
    * should be catching the next caller that cannot supply it.
@@ -64,13 +72,16 @@ export function TeamPopoverMenu({
       <Popover
         isOpen={isOpen}
         onOpenChange={setIsOpen}>
-        {/* `min-w-0 max-w-full` on each layer is what lets a caller's `truncate` work: HeroUI's
+        {/* `min-w-0 max-w-full` on each layer is what lets a caller's name wrap or clip: HeroUI's
             `.popover__trigger` keeps `min-width:auto` as a flex item, and `.badge-anchor` bakes in
             `shrink-0`, which `shrink` undoes. */}
         {/* The trigger IS the control — no <button> inside. `Popover.Trigger` renders a focusable
             `div role="button"` (react-aria `Pressable`), so nesting a real button gives every team
             name TWO tab stops. */}
-        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
+        {/* The property list is spelled out because `transition-colors` replaces HeroUI's own rather
+            than extending it, dropping the `box-shadow` the focus ring rides.
+            `fl_frontend/src/app/globals.css :: .date-picker__trigger` is the same spelling. */}
+        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-[color,background-color,box-shadow] duration-(--motion-fast)">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 
@@ -83,7 +94,9 @@ export function TeamPopoverMenu({
             <Popover.Arrow className="fill-surface" />
 
             <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
-              <span className="truncate pr-2">{teamName}</span>
+              {/* Wrapped and never clipped: this panel is where a name a card cuts short reads whole,
+                  on touch as with a pointer. */}
+              <span className="min-w-0 pr-2 text-balance wrap-break-word">{teamName}</span>
               {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: the plain accent measures
                   3.76:1 on this panel in light and 4.06:1 in dark, both under the 4.5:1 this size
                   answers to. */}
@@ -106,26 +119,26 @@ export function TeamPopoverMenu({
             <div className="fluid-sm flex size-full flex-col gap-y-1">
               <Link
                 prefetch={false}
-                href={`/dashboard/teams/${teamId}`}
+                href={withSaisonId(`/dashboard/teams/${teamId}`, saisonId)}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                {/* The row's own colour, never the brand: the top-nav menu and the rail keep the brand for the
+                    active entry, so a brand glyph on a row nobody is on reads as the current page. */}
                 <CircleInfo
-                  className="text-brand shrink-0"
-                  width={18}
-                  height={18}
+                  aria-hidden="true"
+                  className="size-4.5 shrink-0"
                 />
                 <span>Team-Details</span>
               </Link>
 
               <Link
                 prefetch={false}
-                href={`/dashboard/spieler/${teamId}`}
+                href={withSaisonId(`/dashboard/spieler/${teamId}`, saisonId)}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <Persons
-                  className="text-brand shrink-0"
-                  width={18}
-                  height={18}
+                  aria-hidden="true"
+                  className="size-4.5 shrink-0"
                 />
                 <span>Kader</span>
               </Link>

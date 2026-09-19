@@ -6,8 +6,9 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
+import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
-import { COUNT_BADGE, PILL_TINT } from "@/shared/components/ui/badges";
+import { COUNT_BADGE, trackCountBadge } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
@@ -16,7 +17,7 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react";
 import type { FLActionUrgency } from "../../utils";
 
@@ -31,7 +32,7 @@ const SECTION_PARAM = "section";
  * Success is reserved for a cleared category, and `none` — `abgesagt` — shares `details`' blue on
  * purpose: a fixture that did not happen asks nothing.
  */
-const URGENCY_TINT: Record<FLActionUrgency, PillTone> = {
+const URGENCY_TONE: Record<FLActionUrgency, FeedbackTone> = {
   blocking: "danger",
   results: "warning",
   details: "info",
@@ -39,20 +40,22 @@ const URGENCY_TINT: Record<FLActionUrgency, PillTone> = {
 };
 
 /**
- * The selected count lies on `Tabs.Indicator`'s brand fill rather than on `surface`, so no
- * `PillTone` fits it: it borrows that fill's own foreground instead of adding a third colour, a
- * pairing that holds in both themes while `--fg-base` flips.
+ * The selected count lies on `Tabs.Indicator`'s brand fill rather than on the track, so no recipe
+ * fits it: it borrows that fill's foreground instead of adding a third colour, a pairing that
+ * holds in both themes while `--fg-base` flips.
  */
-const SELECTED_BADGE = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
+const SELECTED_BADGE = `${COUNT_BADGE} bg-brand-solid-foreground/20 text-brand-solid-foreground`;
 
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
   today,
+  isFinishedSaison,
 }: {
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
   today: string;
+  isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,7 +80,7 @@ export function AdminSpieleActionRequiredView({
 
   /**
    * `replaceState` and not `router.replace`: the page's query is deliberately uncached, so a router
-   * navigation would re-read the whole archive just to switch sections. Not `pushState` — Back
+   * navigation would re-read the season's queue just to switch sections. Not `pushState` — Back
    * should leave the list rather than walk it.
    */
   const selectSection = (category: string) => {
@@ -111,7 +114,7 @@ export function AdminSpieleActionRequiredView({
           wrapping, so a sibling passed to it is swallowed, and its chevrons are positioned against
           it — the track's edge only while it is the track. */}
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center gap-x-2 lg:w-[90%]">
+        <div className="max-w-toolbar flex w-full flex-row items-center justify-center gap-x-2">
           {/* No `overflow-x-auto` on the list: the container's chevrons appear only while its
               `ScrollShadow` detects overflow, and a list that scrolls itself hides that. `w-max` is
               the half of HeroUI's floor that must stay — it is what the detection reads. */}
@@ -123,7 +126,7 @@ export function AdminSpieleActionRequiredView({
                 const label = ACTION_REQUIRED_LABELS[section.category];
                 const isActive = section.category === activeSection.category;
                 const isCleared = section.spiele.length === 0;
-                const countTint = isActive ? SELECTED_BADGE : PILL_TINT[isCleared ? "success" : URGENCY_TINT[label.urgency]];
+                const countClass = isActive ? SELECTED_BADGE : trackCountBadge(isCleared ? "success" : URGENCY_TONE[label.urgency]);
 
                 return (
                   <Tabs.Tab
@@ -133,7 +136,7 @@ export function AdminSpieleActionRequiredView({
                      share the rail equally and become slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
-                    <span className={`${COUNT_BADGE} ${countTint}`}>{section.spiele.length}</span>
+                    <span className={countClass}>{section.spiele.length}</span>
                     <Tabs.Indicator className={TAB_INDICATOR} />
                   </Tabs.Tab>
                 );
@@ -158,25 +161,26 @@ export function AdminSpieleActionRequiredView({
           key={section.category}
           id={section.category}
           className="flex w-full flex-col items-center px-4 pt-0 pb-4 outline-none sm:px-8">
-          <div className="max-w-page flex w-full flex-col items-center gap-y-5">
+          <div className="max-w-page flex w-full flex-col items-center gap-y-6">
             {section.spiele.length === 0 ? (
               <EmptyState
                 tone="positive"
-                title="Keine Spiele in dieser Kategorie"
+                title="In dieser Kategorie braucht kein Spiel etwas."
               />
             ) : (
               // Faults reach the `bracket_fault` section alone: the one list already filtered by that
               // diagnosis, and the only category whose tab cannot state the reason itself.
-              <div
+              <SpielCardGrid
                 role="list"
-                className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+                className={CARDS_CASCADE}>
                 <SpielCardsList
                   spiele={[...section.spiele]}
                   today={today}
+                  isFinishedSaison={isFinishedSaison}
                   isAdmin
                   faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
                 />
-              </div>
+              </SpielCardGrid>
             )}
           </div>
         </Tabs.Panel>

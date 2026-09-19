@@ -13,7 +13,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
 
 export function ImpressumView() {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col gap-5`}>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-6`}>
       <header className="flex w-full flex-col gap-3">
         <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>Impressum</h1>
       </header>

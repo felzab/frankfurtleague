@@ -1,12 +1,16 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { GHOST_SCHIEDSRICHTER_ID } from "@/features/schiedsrichter/constants";
 import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLAustrittType, FLGruppenNames } from "@/features/teams/schemas";
+import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type {
   FLBracketFault,
+  FLBracketFaultBooking,
+  FLBracketFaultClash,
   FLPatchSpielDataPayload,
   FLSonderereignis,
   FLSpiel,
@@ -54,24 +58,56 @@ export const computeSpielStatus = ({
   return "vergangen";
 };
 
+/**
+ * Whether a Termin can still come, which separates an open appointment from an unrecorded one: a
+ * played fixture's date and time, a called-off one's and a finished season's are simply unrecorded.
+ */
+export const canStillBePlayed = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">, isFinishedSaison: boolean): boolean =>
+  spiel.ergebnis === null && !isAbgesagt(spiel.sonderereignis) && !isFinishedSaison;
+
 /** The one derivation the three `SpielCard` variants share; they stay separate themselves. */
-export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen">) => ({
-  datum: formatSpielDatum(spiel.datum),
+export const formatSpielDisplay = (
+  spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen" | "sonderereignis">,
+  isFinishedSaison: boolean,
+) => ({
+  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
   elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),
 });
 
 /**
- * Returned beside the score and never folded into it, the table counting the fixture as the draw
- * it finished as. The spaces are `\u202F` escapes: a narrow no-break space holds the token on one
- * line and reads as a plain space in an editor.
+ * The shoot-out's counts in fixture order, returned beside the score and never folded into it, the
+ * table counting the fixture as the draw it finished as. The mark is
+ * `fl_frontend/src/features/spiele/components/ui/ImElfmeterschiessen.tsx`'s, which speaks it in full.
  */
 export const formatElfmeterschiessen = (elfmeterschiessen: FLSpiel["elfmeterschiessen"]): string | null =>
-  elfmeterschiessen === null ? null : `${elfmeterschiessen.team1}:${elfmeterschiessen.team2}\u202Fi.\u202FE.`;
+  elfmeterschiessen === null ? null : `${elfmeterschiessen.team1}:${elfmeterschiessen.team2}`;
 
-/** Win / loss / draw / unknown, from one team's point of view. */
-export type FLSpielErgebnisFor = "W" | "L" | "D" | "?";
+/**
+ * The mark a result decided in a shoot-out carries wherever it is shown. The spaces are `\u202F`
+ * escapes: a narrow no-break space holds the token on one line and reads as a plain space in an editor.
+ */
+export const IM_ELFMETERSCHIESSEN = "i.\u202FE.";
+
+/** What a screen reader hears for that mark, which it would otherwise spell out as two letters. */
+export const IM_ELFMETERSCHIESSEN_GESPROCHEN = "im Elfmeterschießen";
+
+/**
+ * Every surface's score grading. A stored result outranks the event: a forfeit's awarded score is what
+ * the Saisontabelle counts. Danger only where none is stored, the placeholder then being one nothing
+ * will ever fill.
+ */
+export const ergebnisTone = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">): ErgebnisTone =>
+  spiel.ergebnis !== null ? "success" : isAbgesagt(spiel.sonderereignis) ? "danger" : "warning";
+
+export type ErgebnisTone = Extract<FeedbackTone, "success" | "danger" | "warning">;
+
+/**
+ * Sieg / Unentschieden / Niederlage / unknown, from one team's point of view, in the letters the
+ * Saisontabelle and the Saisonstatistik head their columns with.
+ */
+export type FLSpielErgebnisFor = "S" | "U" | "N" | "?";
 
 /**
  * Kept in step with `FLSpielSchema.ergebnis`, which enforces the same shape at the API boundary.
@@ -98,7 +134,7 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
   const own = Number(match[side]);
   const other = Number(match[side === 1 ? 2 : 1]);
 
-  return own === other ? "D" : own > other ? "W" : "L";
+  return own === other ? "U" : own > other ? "S" : "N";
 };
 
 /**
@@ -325,6 +361,10 @@ export const listDependentSpiele = (
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
 };
 
+// The trailing point is the LAST sentence's: `join` puts one between the pieces and none at the end,
+// so a toast body composed without it renders an unpunctuated sentence.
+const asOneParagraph = (sentences: readonly string[]): string => `${sentences.join(". ")}.`;
+
 /**
  * **"aktualisiert", not "eingetragen"**: `advanced_to` reports an emptied slot as readily as a
  * filled one. **`Paarung`, not `Aufstellung`** — the site stores a starting line-up too. Silence is
@@ -335,7 +375,7 @@ export const formatSpielUpdateMessage = (
   bracketFaults: readonly FLBracketFault[] = [],
   releasedSides: readonly FLSpielReleasedSide[] = [],
 ): string => {
-  return ["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)].join(". ");
+  return asOneParagraph(["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)]);
 };
 
 /**
@@ -349,7 +389,7 @@ export const describeMovedSpiele = (
 ): string | undefined => {
   const sentences = movedSpielSentences(advancedTo, bracketFaults, releasedSides);
 
-  return sentences.length === 0 ? undefined : sentences.join(". ");
+  return sentences.length === 0 ? undefined : asOneParagraph(sentences);
 };
 
 /** Every sentence naming what a write reached beyond the fixture it was asked about, in reading order. */
@@ -482,7 +522,47 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     // one fixture reads as the same sentence twice.
     case "fielded_twice":
       return `In Spiel ${fault.spiel_nr} steht ${fault.team_name} als ${sideLabel(fault.side)}, doch an diesem Spieltag ist ${fault.team_name} mehrfach aufgestellt`;
+    // „Noch zu spielen“ leads because it is the whole fault: the same booking on a played fixture is lawful.
+    case "retired_booking":
+      return isGhostBooking(fault)
+        ? `Spiel ${fault.spiel_nr} ist noch zu spielen und einem Schiedsrichter zugeteilt, dessen Daten gelöscht wurden`
+        : `Spiel ${fault.spiel_nr} ist noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt`;
+    // Both fixtures carry an entry naming the other, so which one to move stays the admin's choice.
+    case "double_booked":
+      return `In Spiel ${fault.spiel_nr} ist ${bookedRow(fault)} auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als vier Stunden entfernt`;
   }
+};
+
+/**
+ * The other fixture of a clash, its season named only where it is not the faulted fixture's own: a
+ * match number is unique within one season alone, and the clash is judged across every season.
+ */
+const otherSpiel = (fault: FLBracketFaultClash): string =>
+  fault.other_saison_id === fault.saison_id
+    ? `Spiel ${fault.other_spiel_nr}`
+    : `Spiel ${fault.other_spiel_nr} der Saison ${fault.other_saison_id}`;
+
+/**
+ * **The id and never the null name**: a nameless referee somebody hand-wrote is still in the league,
+ * and reporting their data as deleted is what this prevents. The ghost's `inactive_since` is a
+ * sentinel day, so its sentence names none.
+ */
+const isGhostBooking = (fault: FLBracketFaultBooking): boolean => fault.booking_id === GHOST_SCHIEDSRICHTER_ID;
+
+/**
+ * The booked row a booking fault names, as the editor labels its two fields, lower-case for mid-sentence. A
+ * row whose copy the erasure nulled has no name to print, so the article carries the sentence alone.
+ */
+const bookedRow = (fault: FLBracketFaultBooking | FLBracketFaultClash): string => {
+  const fieldLabel = fault.booking === "ort" ? "Spielort" : "Schiedsrichter";
+
+  return fault.name === null ? `derselbe ${fieldLabel}` : `der ${fieldLabel} ${fault.name}`;
+};
+
+const bookedRowAtStart = (fault: FLBracketFaultBooking | FLBracketFaultClash): string => {
+  const row = bookedRow(fault);
+
+  return `${row.charAt(0).toLocaleUpperCase("de-DE")}${row.slice(1)}`;
 };
 
 /**
@@ -521,18 +601,22 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
         : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}, steht aber noch in diesem Spiel.`;
     case "fielded_twice":
       return `${fault.team_name} ist an diesem Spieltag mehrfach aufgestellt, hier als ${sideLabel(fault.side)}.`;
+    case "retired_booking":
+      return isGhostBooking(fault)
+        ? "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht."
+        : `Noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt.`;
+    case "double_booked":
+      return `${bookedRowAtStart(fault)} ist auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als vier Stunden entfernt.`;
   }
 };
 
-/**
- * **Keyed on `spiel_id`, never `spiel_nr`**: the action-required route spans seasons and every
- * season has a match 29. A list rather than a sentence, since one fixture can carry several faults
- * that are corrected separately.
- */
+/** A list rather than a sentence, since one fixture can carry several faults that are corrected separately. */
 export const groupBracketFaultsBySpielId = (faults: readonly FLBracketFault[]): ReadonlyMap<string, readonly string[]> => {
   const bySpielId = new Map<string, string[]>();
 
   for (const fault of faults) {
+    // `spiel_id`, never `spiel_nr`: a `spiel_nr` is unique within its season alone, and nothing in a
+    // fault list says it holds one season.
     const sentences = bySpielId.get(fault.spiel_id);
     if (sentences === undefined) bySpielId.set(fault.spiel_id, [describeBracketFaultOnCard(fault)]);
     else sentences.push(describeBracketFaultOnCard(fault));

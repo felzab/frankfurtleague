@@ -1,6 +1,6 @@
 import "server-only";
 
-import { joinUnd } from "@/core/bewerbungEmail";
+import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 

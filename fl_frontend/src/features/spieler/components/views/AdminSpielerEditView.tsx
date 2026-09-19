@@ -1,23 +1,20 @@
 "use client";
 
-import { useTransition } from "react";
-
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
-
-import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
-
 /**
  * Every exit routes through the form's discard guard.
  *
  * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
  * read alike invite the wrong one. The erasure is neither, and sits below both.
  */
+import { useReactivation } from "@/shared/hooks/useReactivation";
+
+import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
@@ -33,24 +30,10 @@ export function AdminSpielerEditView({
   /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
   membershipCount: number;
 }) {
-  const [isWritingStatus, startWritingStatus] = useTransition();
+  const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
 
   const isRetired = spieler.inactive_since !== null;
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
-
-  const runStatusWrite = (
-    write: () => Promise<{ success: boolean; message?: string; error?: string }>,
-    failureHeading: string,
-    savedDetail: string,
-  ) => {
-    startWritingStatus(async () => {
-      const res = await write();
-      // Named rather than left to „Gespeichert“: the page header is where the press was, and a bare
-      // confirmation there says a write landed without saying which of the page's writes it was.
-      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
-      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
-    });
-  };
 
   return (
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
@@ -70,17 +53,7 @@ export function AdminSpielerEditView({
               {saison.membership.nummer}
             </span>
           ) : undefined,
-          reactivate: isRetired
-            ? {
-                isPending: isWritingStatus,
-                onPress: () =>
-                  runStatusWrite(
-                    () => reactivateSpielerAction({ id: spieler.id }),
-                    "Reaktivieren fehlgeschlagen",
-                    "Der Spieler steht wieder zur Auswahl.",
-                  ),
-              }
-            : undefined,
+          reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: spieler.id }) } : undefined,
         }}
       />
     </div>

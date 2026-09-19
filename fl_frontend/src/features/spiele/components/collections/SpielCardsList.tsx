@@ -16,9 +16,11 @@ export function SpielCardsList({
   today,
   isAdmin = false,
   faultsBySpielId,
+  isFinishedSaison,
 }: {
   spiele: FLSpiel[];
   today: string;
+  isFinishedSaison: boolean;
   isAdmin?: boolean;
   /**
    * Keyed by `spiel_id`. A map rather than a field on the fixture, a fault being derived over the
@@ -39,6 +41,7 @@ export function SpielCardsList({
             key={hasFaults ? undefined : spielData.id}
             spielData={spielData}
             today={today}
+            isFinishedSaison={isFinishedSaison}
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasFaults}
@@ -83,6 +86,7 @@ export function SpielCardsList({
         <SpielDetailsModal
           spielData={selectedSpiel}
           today={today}
+          isFinishedSaison={isFinishedSaison}
           isOpen={true}
           onClose={() => setSelectedSpiel(null)}
         />

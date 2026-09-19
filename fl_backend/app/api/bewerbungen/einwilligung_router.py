@@ -67,7 +67,8 @@ async def get_einwilligung_ansicht(
     """
     Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
 
-    The seat's state, the school, the season, the role, the holder's first name and the consent wording's version.
+    The seat's state, the school, the season, the role, the holder's first name and the consent wording's version,
+    and `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
     so a reopened link shows what became of it.
@@ -90,6 +91,8 @@ async def get_einwilligung_ansicht(
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
+        # The answer's own resolution, so the page names exactly the seats a press will write.
+        zugleich_rolle=paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat),
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
     )

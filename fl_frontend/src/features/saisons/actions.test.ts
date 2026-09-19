@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
+import { GRUPPEN_OFF_RULES } from "./constants.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
@@ -47,7 +49,7 @@ function activateBranch(code: string): string {
 }
 
 describe("the saison actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts each mapper out of the file before reading it", () => {
     assert.ok(RULES_MAP.includes('case "REQ-DATE-005":'), "the editor's switch is outside its slice");
     // The arm rather than the code: the draw's mapper opens on `case "REQ-SPIELPLAN-001":`, so an
@@ -265,11 +267,14 @@ describe("the German each widened refusal renders", () => {
   /* `REQ-SPIELPLAN-004` refuses a group off its size in EITHER direction, and a club standing in a
      group the season does not offer. A message naming only the short direction misdirects both. */
   it("covers all three shapes of the draw's group refusal", () => {
-    const arm = armOf(SPIELPLAN_MAP, "REQ-SPIELPLAN-004");
+    assert.match(GRUPPEN_OFF_RULES, /genau so viele Teams/);
+    assert.match(GRUPPEN_OFF_RULES, /nicht anbietet/);
+  });
 
-    assert.match(arm, /genau so viele Teams/);
-    assert.match(arm, /nicht anbietet/);
-    assert.doesNotMatch(arm, /zu wenige/);
+  /* The wiring between two modules, which no call reaches: the mapper is module-private. Spelled in
+     the arm again and the closed press, which reads the declaration, says something the refusal does not. */
+  it("answers the draw's group refusal with the declaration the closed press reads", () => {
+    assert.match(armOf(SPIELPLAN_MAP, "REQ-SPIELPLAN-004"), /^\s*return GRUPPEN_OFF_RULES;\s*$/);
   });
 
   /* `REQ-ACTIVATE-003` is the one activation refusal with a remedy the admin can act on here. */

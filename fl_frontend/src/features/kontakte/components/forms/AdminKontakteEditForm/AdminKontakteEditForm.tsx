@@ -16,6 +16,7 @@ import {
   teamPageHref,
   toKontaktePayload,
 } from "@/features/kontakte/utils";
+import { holdsNobody } from "@/features/teams/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -23,7 +24,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -79,8 +79,11 @@ export function AdminKontakteEditForm({
   // The token the read served, echoed and never rebuilt here. A club outside the season has no row
   // and so no token, and the save that would carry the empty string is a 404 before it is judged.
   const kontakteStand = storedMembership?.kontakte_stand ?? "";
+  // Nobody on file opens as a block nobody has entered, whichever shape stores it: seeded raw, a block
+  // an erasure emptied opens with every seat switched off where an absent one opens with all three on.
+  const seed = holdsNobody(storedKontakte) ? null : storedKontakte;
 
-  const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedKontakte);
+  const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(seed);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
@@ -127,7 +130,6 @@ export function AdminKontakteEditForm({
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
-    isBlockRemoved: storedKontakte !== null && kontakte === null,
     // Off the two COMPOSED blocks, never the controls: emptying the named seat empties the Trainer
     // with it, and neither seat's own control was pressed.
     emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
@@ -137,7 +139,7 @@ export function AdminKontakteEditForm({
   });
 
   const resetDraftToStored = () => {
-    setKontakte(storedKontakte);
+    setKontakte(seed);
 
     setSubmitFieldErrors({}, {});
   };
@@ -151,18 +153,9 @@ export function AdminKontakteEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
-    const blocking = resolveBlockingBanners(banners);
-    if (blocking !== null) {
-      setConfirmingBanners(blocking);
-      return;
-    }
-    handleFormSubmit();
-  };
-
-  const handleFormSubmit = () => {
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
-    guardSubmit({ kontakte: buildPayload() }, writeAfterBlock);
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
+    // (`docs/frontend/spec.md :: I255`). The dialog holds the gate's snapshot, which a revalidation cannot move.
+    guardSubmit({ kontakte: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 
   const writeAfterBlock = () => {
@@ -176,7 +169,7 @@ export function AdminKontakteEditForm({
 
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { kontakte: payload });
-        appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Die Kontakte konnten nicht gespeichert werden." });
+        appToast.danger("Änderung nicht gespeichert", { description: res.error });
         return;
       }
 
@@ -246,7 +239,7 @@ export function AdminKontakteEditForm({
             <FormKontakteLoeschenSection
               teamId={teamId}
               saisonId={saison.saisonId}
-              hasStored={storedKontakte !== null}
+              hasStored={!holdsNobody(storedKontakte)}
               stand={kontakteStand}
               isDirty={isDirty}
             />
@@ -276,7 +269,8 @@ export function AdminKontakteEditForm({
         onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
           setConfirmingBanners(null);
-          handleFormSubmit();
+          // Never back through the gate: it judged this draft before raising the dialog, and would raise it again.
+          writeAfterBlock();
         }}
       />
     </DraftStatusProvider>

@@ -1,27 +1,33 @@
 import { connection } from "next/server";
 
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
+
+import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
 import { getTeams } from "@/features/teams/queries";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { saisonPhrase, seasonScopedMetadata } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Spieler",
-  description: "Die Kader aller Teams der laufenden Saison der Frankfurt League.",
-  openGraph: openGraphFor("/dashboard/spieler"),
-  alternates: {
-    canonical: "/dashboard/spieler",
-  },
-};
+export async function generateMetadata(props: NextPageProps): Promise<Metadata> {
+  const saisonId = await resolveSaisonId(props.searchParams);
+
+  return {
+    title: "Spieler",
+    description: `Die Kader aller Teams ${saisonPhrase(saisonId)} der Frankfurt League.`,
+    ...seasonScopedMetadata("/dashboard/spieler", saisonId, await runningSaisonId()),
+  };
+}
 
 export default async function TeamSpielerPage(props: NextPageProps) {
   await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
-  const teamsRes = await getTeams({ saison_id: specifiedSaisonId });
+  const [teamsRes, isFinishedSaison] = await Promise.all([
+    getTeams({ saison_id: specifiedSaisonId }),
+    resolveIsFinishedSaison(specifiedSaisonId),
+  ]);
 
   if (teamsRes.format !== "list") {
     throw new Error(`Expected a "list" teams response, got "${teamsRes.format}".`);
@@ -31,6 +37,8 @@ export default async function TeamSpielerPage(props: NextPageProps) {
     <TeamSelectionView
       teams={teamsRes.teams}
       urlPrefix="/dashboard/spieler"
+      saisonId={specifiedSaisonId}
+      isFinishedSaison={isFinishedSaison}
     />
   );
 }

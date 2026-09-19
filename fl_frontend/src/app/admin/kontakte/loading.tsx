@@ -1,5 +1,5 @@
-import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
+import { AdminCrudLoading } from "@/shared/components/ui/AdminCrudLoading";
 
 export default function Loading() {
-  return <AdminCrudFallback />;
+  return <AdminCrudLoading shape="cards" />;
 }

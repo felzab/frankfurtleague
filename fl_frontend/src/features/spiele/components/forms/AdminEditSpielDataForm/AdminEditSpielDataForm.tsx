@@ -13,7 +13,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -80,6 +79,7 @@ export function AdminEditSpielDataForm({
   schiedsrichter,
   saisonSpiele,
   numberOfGroups,
+  isFinishedSaison,
   today,
   categorize,
   pageHeader,
@@ -91,6 +91,7 @@ export function AdminEditSpielDataForm({
   saisonSpiele: FLSpiel[];
   /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
   numberOfGroups: number | null;
+  isFinishedSaison: boolean;
   today: string;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
@@ -295,7 +296,7 @@ export function AdminEditSpielDataForm({
 
   /**
    * For a control the user TYPES into, on blur. Writes only the client-side verdicts: the submit's
-   * map calls `reportValidity()`, which on a blur throws focus off the field being tabbed past.
+   * map runs `focusFirstRefusal`, which on a blur throws focus off the field being tabbed past.
    */
   const validateFields = (paths: readonly string[]) => validatePaths("spiel", buildPayload(), paths);
 
@@ -341,32 +342,24 @@ export function AdminEditSpielDataForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // Refusal banners are excluded: each names a save the endpoint refuses, where this gate confirms
-    // what a save would cause. Left in, one turns the next Save into a dialog about a failure.
-    const blocking = resolveBlockingBanners(banners.filter((banner) => !isSpielRefusalBannerId(banner.id)));
-    if (blocking !== null) {
-      // Snapshotted, not read live: a background revalidation would move the list under the dialog.
-      setConfirmingBanners(blocking);
-      return;
-    }
-    handleFormSubmit();
-  };
-
-  const handleFormSubmit = () => {
-    // The one draft-to-wire conversion, reached by both submit routes: a still-empty field becomes
-    // a message on its own path rather than a value cast onto a type forbidding it
-    // (`docs/frontend/spec.md` I33).
+    // The one draft-to-wire conversion: a still-empty field becomes a message on its own path rather than
+    // a value cast onto a type forbidding it (`docs/frontend/spec.md` I33).
     const payload = buildPayload();
     // The shared block, so this form refuses on the same terms as every other one. It records the DRAFT,
     // not the parsed value: a later blur hands `validatePaths` the draft, so the two compare path by path
     // with no parse standing between them.
-    guardSubmit({ spiel: payload }, writeAfterBlock);
+    guardSubmit({ spiel: payload }, writeAfterBlock, {
+      // Refusal banners are excluded: each names a save the endpoint refuses, where this gate confirms
+      // what a save would cause. Left in, one turns the next Save into a dialog about a failure.
+      banners: banners.filter((banner) => !isSpielRefusalBannerId(banner.id)),
+      confirm: setConfirmingBanners,
+    });
   };
 
   const writeAfterBlock = () => {
     const payload = buildPayload();
-    // Never `safeParse` here — the block above has already proved it parses, and a second failure branch
-    // would be one nothing can reach.
+    // Never `safeParse` here: the gate proved this draft parses before either route reached here, and the
+    // dialog between them holds it still, so a second failure branch would be one nothing can reach.
     const narrowed = FLPatchSpielDataPayloadSchema.parse(payload);
 
     startTransition(async () => {
@@ -383,8 +376,8 @@ export function AdminEditSpielDataForm({
 
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
-          appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || "Versuche es erneut.",
+          appToast.danger("Änderung nicht gespeichert", {
+            description: res.error,
           });
         }
         return;
@@ -410,7 +403,7 @@ export function AdminEditSpielDataForm({
         // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
         // so no server log holds the diagnosis. One that reached the server stays generic.
         reportRejection: (dispatchError) =>
-          appToast.danger("Rücknahme konnte nicht gesendet werden", {
+          appToast.danger("Änderung nicht zurückgenommen", {
             description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
             timeout: DIAGNOSIS_TIMEOUT_MS,
           }),
@@ -488,6 +481,7 @@ export function AdminEditSpielDataForm({
               <SpielRail
                 previewSpiel={previewSpiel}
                 today={today}
+                isFinishedSaison={isFinishedSaison}
                 banners={banners}
               />
             }>
@@ -589,7 +583,8 @@ export function AdminEditSpielDataForm({
         onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
           setConfirmingBanners(null);
-          handleFormSubmit();
+          // Never back through the gate: it judged this draft before raising the dialog, and would raise it again.
+          writeAfterBlock();
         }}
       />
     </DraftStatusProvider>

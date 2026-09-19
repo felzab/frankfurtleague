@@ -1,8 +1,7 @@
 from typing import Any
 
-from bson import ObjectId
-
 from app.core.crud import build_sort
+from app.shared.schemas.custom import parse_object_id
 
 
 def document_id_term(value: str | None) -> dict[str, Any] | None:
@@ -15,7 +14,9 @@ def document_id_term(value: str | None) -> dict[str, Any] | None:
     if value is None:
         return None
 
-    return {"document_id": ObjectId(value) if ObjectId.is_valid(value) else value}
+    compiled = parse_object_id(value)
+
+    return {"document_id": value if compiled is None else compiled}
 
 
 def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:

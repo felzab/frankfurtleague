@@ -16,6 +16,8 @@ from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, pat
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
+    FLBracketFaultBooking,
+    FLBracketFaultClash,
     FLBracketFaultGruppe,
     FLBracketFaultOccupant,
     FLBracketFaultQuelle,
@@ -25,20 +27,31 @@ from app.api.spiele.schemas import (
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielSlotHolder,
 )
 from app.api.spiele.services import (
+    BOOKING_UNKNOWN_RESOURCE,
+    FIXTURE_DOUBLE_BOOKED,
     STATE_RESULT_ON_A_NON_EVENT,
+    BookedVenue,
+    ResolvedReferences,
     SaisonMembership,
     find_booking_refusal,
+    find_claims_made,
     find_clash_refusal,
     find_departed_occupants,
+    find_double_bookings,
     find_eligibility_refusal,
     find_fixture_date_refusal,
     find_result_removal_refusal,
+    find_retired_bookings,
+    find_slot_claims,
     find_state_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
+    reopens,
     resolve_bracket,
+    slots_booked_against,
 )
 from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler, post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
@@ -48,6 +61,7 @@ from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refus
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
+from app.core.exceptions import WriteRefusal
 from tests.core.app_source import (
     APP_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
@@ -447,6 +461,159 @@ class TestABracketSlotHeldByADisqualifiedClub:
         assert resolution.bracket_faults == []
 
 
+RETIRED_GROUND = "6890a1b2c3d4e5f607240001"
+GROUND_RETIRED_ON = "2026-02-01"
+RETIRED_GROUND_BOOKING = {
+    "spielort_id": RETIRED_GROUND,
+    "name": "Bezirkssportanlage West",
+    "maps_link": "Bezirkssportanlage West",
+    "mietpreis": 40,
+}
+RULES_OF_THE_SEASON = _rules()
+
+
+@pytest.fixture
+def a_semi_final_played_at_a_retired_ground(spiel: PayloadFactory) -> list[dict[str, Any]]:
+    """Played where the ground has since retired, which `REQ-RETIRE-003` lets it do."""
+
+    return [
+        spiel(
+            _id=MATCH_ID.format(SLOT_NR),
+            spiel_nr=SLOT_NR,
+            spieltag_id=SPIELTAG_TWO,
+            saison_phase="halbfinale",
+            team1=_side(ADLER, "Adler", tore=2),
+            team2=_side(BIEBER, "Bieber", tore=1),
+            ergebnis="2:1",
+            ort=RETIRED_GROUND_BOOKING,
+            schiedsrichter=None,
+        )
+    ]
+
+
+class TestARetiredBookingOnAReopenedFixture:
+    """That a rewrite voiding a played result keeps a retired booking and reports it, while a save newly booking the row stays refused."""
+
+    def test_the_reopened_fixture_is_reported_and_the_played_one_is_not(self, a_semi_final_played_at_a_retired_ground):
+        (played,) = FLSpielListAdapter.validate_python(a_semi_final_played_at_a_retired_ground)
+        # What `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` writes over a slot whose occupant changed.
+        reopened = played.model_copy(update={"team1": played.team2, "team2": None, "ergebnis": None})
+        retired = {ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}
+
+        assert reopens(played, ergebnis=reopened.ergebnis, sonderereignis=reopened.sonderereignis)
+        assert find_retired_bookings([played], retired_venues=retired, retired_referees={}) == []
+        assert [
+            (fault.spiel_nr, fault.booking, fault.inactive_since)
+            for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
+        ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
+
+    def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
+        """Both directions of `REQ-BOOKING-001`: the state stands because the reopened fixture's next save books nothing."""
+
+        (document,) = a_semi_final_played_at_a_retired_ground
+        reopened_document = {**document, "team1": document["team2"], "team2": None, "ergebnis": None}
+        unbooked_document = {**reopened_document, "ort": None}
+        resolved = ResolvedReferences(
+            teams={},
+            ort=BookedVenue(
+                name=RETIRED_GROUND_BOOKING["name"], maps_link=RETIRED_GROUND_BOOKING["maps_link"], inactive_since=GROUND_RETIRED_ON
+            ),
+        )
+
+        kept = find_booking_refusal(
+            ObjectId(MATCH_ID.format(SLOT_NR)),
+            _resubmit([reopened_document], SLOT_NR),
+            FLSpielListAdapter.validate_python([reopened_document]),
+            resolved,
+            RULES_OF_THE_SEASON,
+        )
+        newly_booked = find_booking_refusal(
+            ObjectId(MATCH_ID.format(SLOT_NR)),
+            _resubmit([reopened_document], SLOT_NR),
+            FLSpielListAdapter.validate_python([unbooked_document]),
+            resolved,
+            RULES_OF_THE_SEASON,
+        )
+
+        assert kept is None
+        assert newly_booked is not None and newly_booked.error_code == BOOKING_UNKNOWN_RESOURCE
+
+
+LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
+
+
+@pytest.fixture
+def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpiel]:
+    """Two fixtures of one day at one ground, 18:00 and 19:00: the first's no-show has just been lifted by a rewrite."""
+
+    return FLSpielListAdapter.validate_python(
+        [
+            spiel(
+                _id=MATCH_ID.format(nr),
+                spiel_nr=nr,
+                spieltag_id=SPIELTAG_TWO,
+                saison_phase="halbfinale",
+                team1=None,
+                team2=None,
+                ergebnis=None,
+                uhrzeit=uhrzeit,
+                schiedsrichter=None,
+            )
+            for nr, uhrzeit in ((LIFTED_NO_SHOW_NR, "18:00:00"), (BOOKED_AN_HOUR_LATER_NR, "19:00:00"))
+        ]
+    )
+
+
+def _holders_of(spiele: list[FLSpiel]) -> list[FLSpielSlotHolder]:
+    """The fixtures as the report's read of every claim hands them back."""
+
+    return [FLSpielSlotHolder.model_validate(spiel.model_dump(by_alias=False) | {"_id": spiel.id}) for spiel in spiele]
+
+
+def _clash_refusal_of(stored: FLSpiel, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
+    """`REQ-CLASH-001` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
+
+    payload = _resubmit([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
+    claims = find_claims_made(stored, payload)
+
+    return find_clash_refusal(
+        datum=payload.datum,
+        uhrzeit=payload.uhrzeit,
+        booked=[slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=stored.id)],
+    )
+
+
+class TestADoubleBookingALiftedNoShowLeaves:
+    """That a lifted no-show's clash is reported on both fixtures, a save keeping either slot passes, and a new claim beside it is refused."""
+
+    def test_both_claims_are_reported_and_none_while_the_no_show_stood(self, a_lifted_no_show_beside_a_later_booking):
+        lifted, later = a_lifted_no_show_beside_a_later_booking
+        still_a_no_show = lifted.model_copy(update={"sonderereignis": "nichtantreten_team2"})
+
+        reported = find_double_bookings([lifted, later], _holders_of([lifted, later]))
+
+        assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in reported] == [
+            (LIFTED_NO_SHOW_NR, "ort", BOOKED_AN_HOUR_LATER_NR),
+            (BOOKED_AN_HOUR_LATER_NR, "ort", LIFTED_NO_SHOW_NR),
+        ]
+        # A no-show freed the slot, and the report's read filters it out as the refusal's does.
+        assert find_double_bookings([later], _holders_of([later])) == []
+        assert find_slot_claims(still_a_no_show) == []
+
+    def test_a_save_keeping_either_slot_passes_and_a_claim_made_inside_the_buffer_is_refused(self, a_lifted_no_show_beside_a_later_booking):
+        """Both directions: a note stands on a claim already made, and a new hour inside the buffer of the other is judged."""
+
+        lifted, later = a_lifted_no_show_beside_a_later_booking
+        holders = _holders_of([lifted, later])
+
+        assert _clash_refusal_of(lifted, holders, notiz="Nur eine Notiz") is None
+        assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
+
+        moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
+        assert moved_inside is not None and moved_inside.error_code == FIXTURE_DOUBLE_BOOKED
+        assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
+
+
 class TestNoBracketFaultIsStored:
     """That the discriminator every fault variant carries is on no collection, so no fault can have been written."""
 
@@ -457,7 +624,14 @@ class TestNoBracketFaultIsStored:
     def test_every_variant_is_discriminated_by_that_field(self):
         """Pinned so the check above keeps meaning what it says: a variant discriminated some other way would slip past it."""
 
-        for variant in (FLBracketFaultGruppe, FLBracketFaultQuelle, FLBracketFaultSpiel, FLBracketFaultOccupant):
+        for variant in (
+            FLBracketFaultGruppe,
+            FLBracketFaultQuelle,
+            FLBracketFaultSpiel,
+            FLBracketFaultOccupant,
+            FLBracketFaultBooking,
+            FLBracketFaultClash,
+        ):
             assert "reason" in variant.model_fields
 
 

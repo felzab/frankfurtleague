@@ -20,11 +20,36 @@ const STATUS_TINT: Record<FLSpielStatus, PillTone> = {
 };
 
 const STATUS_ICONS: Record<FLSpielStatus, React.ReactElement> = {
-  vergangen: <CircleCheckFill className="size-3.5" />,
-  heute: <Calendar className="size-3.5" />,
-  ausstehend: <Clock className="size-3.5" />,
-  unbekannt: <CircleQuestion className="size-3.5" />,
-  abgesagt: <XmarkShapeFill className="size-3.5" />,
+  vergangen: (
+    <CircleCheckFill
+      aria-hidden="true"
+      className="size-3.5"
+    />
+  ),
+  heute: (
+    <Calendar
+      aria-hidden="true"
+      className="size-3.5"
+    />
+  ),
+  ausstehend: (
+    <Clock
+      aria-hidden="true"
+      className="size-3.5"
+    />
+  ),
+  unbekannt: (
+    <CircleQuestion
+      aria-hidden="true"
+      className="size-3.5"
+    />
+  ),
+  abgesagt: (
+    <XmarkShapeFill
+      aria-hidden="true"
+      className="size-3.5"
+    />
+  ),
 };
 
 // One word per status, shared with `fl_frontend/src/features/spiele/facets.ts :: buildSpielFacets`:

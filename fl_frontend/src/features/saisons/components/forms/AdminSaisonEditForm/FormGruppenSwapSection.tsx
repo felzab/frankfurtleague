@@ -5,29 +5,25 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 
-/** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
+/** The pair's accessible name, a fixed id because the panel renders once on its page. */
 const PAIR_LABEL_ID = "gruppentausch-paar";
-const BUTTON_HINT_ID = "gruppentausch-hinweis";
 
 /** This panel's wording for each refusal `findSwapPartnerRefusal` returns, short enough to sit in a row. */
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
@@ -45,12 +41,11 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
   return (
     <div
       aria-hidden="true"
-      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-1.5 justify-self-center rounded-full px-3 font-bold">
+      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
+        aria-hidden="true"
         className="size-4 shrink-0 rotate-90 sm:rotate-0"
-        width={16}
-        height={16}
       />
       {first !== null && second !== null && (
         <span>
@@ -149,7 +144,7 @@ export function FormGruppenSwapSection({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
 
       if (!res.success) {
-        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Gruppen nicht getauscht", { description: res.error });
         return;
       }
 
@@ -162,10 +157,9 @@ export function FormGruppenSwapSection({
     });
   };
 
-  // Rendered only while the button is disabled for a reason a reader can act on. A swap in flight
-  // names nothing: the label already says so.
   const missingPickHint = first === null ? "Wähle zwei Teams aus zwei verschiedenen Gruppen." : "Wähle noch das zweite Team.";
   const isMissingAPick = first === null || second === null;
+  const restingLabel = "Gruppen tauschen";
 
   return (
     <section className={panel.root()}>
@@ -264,39 +258,28 @@ export function FormGruppenSwapSection({
               </ConfirmReveal>
             )}
 
-            <div className="flex w-full flex-col gap-y-1.5">
-              <ConfirmActionRow
+            <ConfirmActionRow
+              isConfirming={isConfirming}
+              isPending={isSwapping}
+              onCancel={cancel}>
+              {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                  §1.14). */}
+              <ConfirmPressButton
                 isConfirming={isConfirming}
                 isPending={isSwapping}
-                onCancel={cancel}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  aria-describedby={!isSwapping && isMissingAPick ? BUTTON_HINT_ID : undefined}
-                  isDisabled={isSwapping || isMissingAPick}
-                  onPress={handleSwap}
-                  className={confirmButton(isConfirming)}>
-                  {!isConfirming && (
-                    <ArrowRightArrowLeft
-                      aria-hidden="true"
-                      width={18}
-                      height={18}
-                    />
-                  )}
-                  {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
-                </Button>
-              </ConfirmActionRow>
-              {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the
-                  treatment `FormErgebnisSection` established for a control disabled for a reason the
-                  page already shows. */}
-              {!isSwapping && isMissingAPick && (
-                <Hint
-                  mode="inline"
-                  describes={BUTTON_HINT_ID}
-                  text={missingPickHint}
-                />
-              )}
-            </div>
+                reason={isMissingAPick ? missingPickHint : null}
+                resting={restingLabel}
+                armed="Ja, Gruppen tauschen"
+                running="Tauscht..."
+                icon={
+                  <ArrowRightArrowLeft
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleSwap}
+              />
+            </ConfirmActionRow>
           </>
         )}
       </div>

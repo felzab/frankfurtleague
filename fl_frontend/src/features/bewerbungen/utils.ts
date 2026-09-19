@@ -10,6 +10,7 @@ import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAE
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { BewerbungHerkunft } from "./constants";
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";
 import type {
   AdminBewerbungRow,
@@ -59,6 +60,16 @@ export function bewerbungTeamName(bewerbung: Pick<FLBewerbung, "schule" | "team_
   if (bewerbung.team_id === null) return null;
 
   return teams.find((team) => team.id === bewerbung.team_id)?.name ?? null;
+}
+
+/**
+ * Which of the two an application is, or `null` where it names neither — the row `REQ-BEWERBUNG-002` refuses, which no
+ * surface may file under either. The school is asked first: an accepted one names the club it created too.
+ */
+export function bewerbungHerkunft(bewerbung: Pick<FLBewerbung, "schule" | "team_id">): BewerbungHerkunft | null {
+  if (bewerbung.schule !== null) return "neue_schule";
+
+  return bewerbung.team_id === null ? null : "bestehendes_team";
 }
 
 /**

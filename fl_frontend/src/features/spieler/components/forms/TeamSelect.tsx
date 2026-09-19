@@ -2,7 +2,7 @@
 
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
-import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
+import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
@@ -63,8 +63,11 @@ export function TeamSelect({
     <Select
       isRequired={isRequired}
       name={name}
-      aria-label="Team"
-      value={value ?? undefined}
+      // Only without the visible `Label`: beside it the trigger is named twice, „Team Team“.
+      aria-label={withOwnLabel ? undefined : "Team"}
+      // `null` and never `undefined` for no team: react-stately reads `undefined` as uncontrolled, so the first pick
+      // would switch the picker to controlled.
+      value={value}
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
@@ -93,7 +96,7 @@ export function TeamSelect({
               <span className="flex shrink-0 flex-row items-center gap-x-2">
                 {team.isSquadFull === true && <span className={item.note()}>Kader voll</span>}
                 {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
-                <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
+                <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
               </span>
             </ListBox.Item>
           ))}

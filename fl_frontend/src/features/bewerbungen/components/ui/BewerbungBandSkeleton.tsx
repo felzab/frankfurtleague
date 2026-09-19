@@ -14,8 +14,10 @@ export function BewerbungBandSkeleton() {
   return (
     <div
       role="status"
-      aria-label="Bewerbungsfenster wird geladen"
       className={styles.root()}>
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">Bewerbungsfenster wird geladen</span>
       <div className="flex w-full flex-row items-center gap-3 lg:w-auto">
         <span className={`${skeletonBlock()} size-2 shrink-0 rounded-full`} />
         {/* The sentence's own line box, carried invisibly so the bar sits in it rather than beside

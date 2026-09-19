@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
+import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -93,10 +95,13 @@ export function BewerbungAngabenPanel({
   staende: readonly SitzBestaetigung[] | null;
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
+  const herkunft = bewerbungHerkunft(bewerbung);
 
   return (
     <>
-      <Panel title={schule === null ? "Bestehendes Team" : "Neue Schule"}>
+      {/* Neither arm's name where the application names neither: that row is the one acceptance refuses,
+          and a title claiming a club would send the administrator looking for one. */}
+      <Panel title={herkunft === null ? "Schule oder Team" : BEWERBUNG_HERKUNFT_LABELS[herkunft]}>
         <dl className={ANGABEN_GRID}>
           <Angabe label="Team">
             {teamName === null ? (
@@ -120,7 +125,9 @@ export function BewerbungAngabenPanel({
               application stored before it existed, which is not a school leaving a box empty. */}
           <Angabe label="Größe der Stufe">{bewerbung.stufengroesse === null ? <Leer /> : String(bewerbung.stufengroesse)}</Angabe>
 
-          {schule === null ? (
+          {herkunft === null ? (
+            <Angabe label="Angaben zum Team">Die Bewerbung nennt weder eine neue Schule noch ein bestehendes Team.</Angabe>
+          ) : schule === null ? (
             // The club already exists, so its own page carries everything else about it. Nothing is
             // restated here that a rename there would leave standing wrong.
             <Angabe label="Angaben zum Team">Das Team ist schon angelegt und wird bei einer Zusage nur aufgenommen.</Angabe>
@@ -139,7 +146,7 @@ export function BewerbungAngabenPanel({
       </Panel>
 
       <Panel title="Kontaktpersonen">
-        <div className="flex w-full flex-col gap-y-5">
+        <div className="flex w-full flex-col gap-y-6">
           {KONTAKT_ROLLEN.map(({ value, label }) => {
             const person = kontakte[value];
             const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;

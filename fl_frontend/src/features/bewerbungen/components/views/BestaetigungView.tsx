@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { joinUnd } from "@/core/joinUnd";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
@@ -15,7 +16,6 @@ import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
 import { ABSATZ, BestaetigungErgebnis, FaktenBanner, GespeicherteAngaben, Wert } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
-import type { KontaktRolle } from "@/features/teams/constants";
 import type { ReactNode } from "react";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
@@ -43,9 +43,15 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The application page's own column, so the two ends of the workflow are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-5 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-const rollenLangform = (rolle: KontaktRolle): string => KONTAKT_ROLLEN.find((eintrag) => eintrag.value === rolle)?.langform ?? "";
+/**
+ * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
+ * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them, so the page names
+ * the reader what the mail that brought them here named them.
+ */
+const rollenLangform = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string =>
+  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => eintrag.value === rolle || eintrag.value === zugleich_rolle).map((eintrag) => eintrag.langform));
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
 function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet): Stand {
@@ -87,7 +93,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   return (
     <section className={SEITE}>
       <header className="flex w-full flex-col gap-3">
-        {saison !== null && <SaisonChip>Saison {saison}</SaisonChip>}
+        {/* No dot: the link's read carries the season's id and never its status, so the page cannot say it is running. */}
+        {saison !== null && <SaisonChip isLaufend={false}>Saison {saison}</SaisonChip>}
         <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
         {/* The facts the mail led with, in the mail's own panel: standing in a sentence under the
@@ -95,11 +102,16 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         {stand.zustand === "gueltig" && (
           <FaktenBanner
             zeilen={[
-              { label: "Schule", wert: stand.ansicht.schule },
+              { label: "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
               { label: "Saison", wert: stand.ansicht.saison_id },
-              { label: "Deine Rolle", wert: rollenLangform(stand.ansicht.rolle) },
+              { label: "Deine Rolle", wert: rollenLangform(stand.ansicht) },
             ]}
           />
+        )}
+        {/* Said here because the stamped wording cannot say it: one press confirms both seats, and a
+            Widerspruch empties both. */}
+        {stand.zustand === "gueltig" && stand.ansicht.zugleich_rolle !== null && (
+          <p className={ABSATZ}>Du bist in dieser Bewerbung zweimal eingetragen, und Deine Antwort gilt für beide Einträge.</p>
         )}
       </header>
 
@@ -109,7 +121,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           vorname={stand.ansicht.vorname}
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
-          rolle={rollenLangform(stand.ansicht.rolle)}
+          rolle={rollenLangform(stand.ansicht)}
           onAbschluss={(abschluss) => {
             setHatGeantwortet(true);
             setStand(nachAntwort(abschluss, stand.ansicht));
@@ -122,7 +134,16 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ}>
-            Danke, <Wert>{stand.ansicht.vorname}</Wert>. Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
+            Danke, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
+            {stand.ansicht.zugleich_rolle === null ? (
+              <>
+                Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
+              </>
+            ) : (
+              <>
+                Deine beiden Einträge für die Schule <Wert>{stand.ansicht.schule}</Wert> sind bestätigt.
+              </>
+            )}
           </p>
           {/* What the press stored and nothing the reader already knows: the school, the season and
               the seat are what they just confirmed, and the heading above says they did. */}
@@ -211,7 +232,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
 /** The two actions this page offers, in the width the panel gives them rather than the page's. */
 function Aktion({ children }: { children: ReactNode }) {
-  return <div className="mt-2 flex w-full max-w-xs flex-col">{children}</div>;
+  return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 
 function ZurLiga() {

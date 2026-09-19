@@ -9,6 +9,7 @@ import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler
 import { rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
+import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -16,7 +17,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -108,7 +108,7 @@ export function AdminSpielerEditForm({
     saison_id: saison.saisonId,
     team_id: teamId,
     // Emptied means absent — the boundary where `""` becomes null, as on the person half.
-    nummer: nummer.trim() === "" ? null : nummer.trim(),
+    nummer: nummerPayload(nummer),
     position,
     stufe,
     is_nachgetragen: isNachgetragen,
@@ -170,12 +170,9 @@ export function AdminSpielerEditForm({
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
-  // The predicate `REQ-SQUAD-001` counts, asked of the same fact: `teams` is exactly this season's
-  // junction rows, and a club replacement repoints one away from the squad rows still naming it.
-  const isRowTeamInSaison = storedMembership === null || teams.some((team) => team.teamId === storedMembership.team_id);
   // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
   // the club it already names, which a transfer in the draft can have moved away from without it.
-  const isRowSquadFull = storedMembership !== null && teams.find((team) => team.teamId === storedMembership.team_id)?.isSquadFull === true;
+  const rowReturn = storedMembership === null ? "open" : judgeRowReturn(storedMembership.team_id, teams);
 
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
@@ -183,7 +180,7 @@ export function AdminSpielerEditForm({
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
-    isRowTeamInSaison,
+    isRowTeamInSaison: rowReturn !== "clubLeft",
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
     isSquadFull,
@@ -211,16 +208,6 @@ export function AdminSpielerEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
-    const blocking = resolveBlockingBanners(banners);
-    if (blocking !== null) {
-      setConfirmingBanners(blocking);
-      return;
-    }
-    handleFormSubmit();
-  };
-
-  const handleFormSubmit = () => {
     // Only the halves this press writes: judging an untouched half refuses a save over a field nobody sends.
     guardSubmit(
       {
@@ -228,6 +215,9 @@ export function AdminSpielerEditForm({
         ...(saisonDirty ? { saisonSpieler: buildSaisonPayload() } : {}),
       },
       writeAfterBlock,
+      // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
+      // (`docs/frontend/spec.md :: I255`).
+      { banners, confirm: setConfirmingBanners },
     );
   };
 
@@ -251,7 +241,7 @@ export function AdminSpielerEditForm({
           savedParts.push("Personendaten gespeichert.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error ?? "Die Personendaten konnten nicht gespeichert werden.");
+          failedNotes.push(res.error);
         }
       }
 
@@ -262,14 +252,14 @@ export function AdminSpielerEditForm({
           if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error ?? "Der Kadereintrag konnte nicht gespeichert werden.");
+          failedNotes.push(res.error);
         }
       }
 
       if (failedNotes.length > 0) {
         setSubmitFieldErrors(collectedErrors, { spieler: personPayload, saisonSpieler: saisonPayload });
         // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
-        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {
+        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", {
           description: [...savedParts, ...failedNotes].join(" "),
         });
         return;
@@ -376,8 +366,7 @@ export function AdminSpielerEditForm({
               spielerId={spieler.id}
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}
-              isRowTeamInSaison={isRowTeamInSaison}
-              isRowSquadFull={isRowSquadFull}
+              rowReturn={rowReturn}
               banners={banners}
             />
           )}
@@ -416,7 +405,8 @@ export function AdminSpielerEditForm({
         onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
           setConfirmingBanners(null);
-          handleFormSubmit();
+          // Never back through the gate: it judged this draft before raising the dialog, and would raise it again.
+          writeAfterBlock();
         }}
       />
     </DraftStatusProvider>

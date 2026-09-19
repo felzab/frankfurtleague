@@ -1,9 +1,21 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
+from app.api.spiele.schemas import unplayed_filter
 from app.core.exceptions import WriteRefusal
 
 # A played fixture never blocks: its `ort` is an embedded record.
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"
+
+
+def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
+    """Named in the slice rather than spelled at its one call, as the referee's twin is.
+
+    One spelling of the partition for the retirement's refusal and for any later reader of it
+    (`app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`).
+    """
+
+    return {"ort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:

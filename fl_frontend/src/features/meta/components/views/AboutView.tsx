@@ -12,14 +12,13 @@ import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { getTeams } from "@/features/teams/queries";
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { BRAND_TILE } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
-
-const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
 
 const CHIP = `${PILL_RADIUS} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
 // The border answers the hover and not the text: `TeamPopoverMenu`'s trigger already spells
@@ -48,8 +47,11 @@ export function AboutView() {
         <div className={`${card()} grid grid-cols-1 gap-3 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-4 sm:p-6 lg:p-8`}>
           <span
             aria-hidden="true"
-            className={TILE}>
-            <StarFill className="size-5" />
+            className={BRAND_TILE}>
+            <StarFill
+              aria-hidden="true"
+              className="size-5"
+            />
           </span>
           <p className="fluid-base text-foreground leading-relaxed font-medium text-pretty">
             Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball.
@@ -76,10 +78,10 @@ export function AboutView() {
                   <Accordion.Trigger className="fluid-base text-foreground data-hovered:bg-hover flex w-full items-center justify-between gap-x-4 px-5 py-4 font-bold transition-colors ring-inset sm:px-6">
                     <span>{item.q}</span>
 
-                    <Accordion.Indicator className="text-brand shrink-0">
+                    <Accordion.Indicator className="text-foreground-muted shrink-0">
                       <ChevronsDownWide
-                        width={20}
-                        height={20}
+                        aria-hidden="true"
+                        className="size-5"
                       />
                     </Accordion.Indicator>
                   </Accordion.Trigger>
@@ -102,10 +104,11 @@ export function AboutView() {
         aside={
           <Suspense
             fallback={
-              <SaisonChip>
-                {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
-                <span className="invisible">Saison 0000</span>
-              </SaisonChip>
+              /* The landing chip's exact box, held invisible whole: the dot claims a running season, and
+                 nothing has been read here yet. */
+              <div className="invisible">
+                <SaisonChip isLaufend>Saison 0000</SaisonChip>
+              </div>
             }>
             <AktuelleSaison />
           </Suspense>
@@ -125,15 +128,18 @@ async function AktuelleSaison() {
   const current = await getCurrentSaisonOrNull();
   if (current === null) return null;
 
-  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
+  // `/saisons/current` answers the active season alone, so this chip always names a running one.
+  return <SaisonChip isLaufend>Saison {current.saison.id}</SaisonChip>;
 }
 
 function TeamChipSkeleton() {
   return (
     <div
       role="status"
-      aria-label="Teams werden geladen"
       className="flex flex-wrap gap-2">
+      {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
+          to, and a name is not content, so the region announced nothing at all. */}
+      <span className="sr-only">Teams werden geladen</span>
       {TEAM_CHIP_SKELETON_WIDTHS.map((width, i) => (
         // Built from the real chip's own string, so a placeholder is exactly one chip tall at every
         // breakpoint.
@@ -163,7 +169,9 @@ async function ParticipatingTeamsDisplay() {
           key={teamData.id}
           teamName={teamData.name}
           teamId={teamData.id}
-          teamAustritt={teamData.austritt?.type ?? null}>
+          teamAustritt={teamData.austritt?.type ?? null}
+          // The chips list the running season and name none of their own.
+          saisonId={undefined}>
           <Chip
             size="md"
             className={teamData.austritt !== null ? CHIP_AUSGETRETEN : CHIP_AKTIV}>

@@ -5,8 +5,9 @@ import { SearchField } from "@heroui/react";
 import { dismissControl } from "@/core/dismissControl";
 
 /**
- * The group owns the focus affordance, a border colour change rather than a ring, which is why the inner input carries
- * `outline-none`. `className` is the caller's outer width only; `attachEnd` is the one chrome exception.
+ * The group owns the focus affordance, the field's shared brand edge rather than the input's own ring, which is why
+ * the inner input carries `outline-none`. `className` is the caller's outer width only; `attachEnd` is the one chrome
+ * exception.
  */
 export function SearchBar({
   label,
@@ -31,7 +32,7 @@ export function SearchBar({
       onChange={onChange}
       className={className}>
       <SearchField.Group
-        className={`bg-surface border-border flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-200 lg:h-15 ${
+        className={`bg-surface border-control flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-(--motion-base) lg:h-15 ${
           attachEnd ? "max-sm:rounded-r-none max-sm:border-r-0" : ""
         }`}>
         <SearchField.SearchIcon className="text-foreground-muted shrink-0" />

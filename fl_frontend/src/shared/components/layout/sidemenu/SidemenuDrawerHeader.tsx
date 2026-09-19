@@ -22,9 +22,8 @@ export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
         className="text-foreground-muted hover:bg-hover hover:text-foreground -mr-1 shrink-0 rounded-md p-1.5 transition-colors"
         aria-label="Menü schließen">
         <Xmark
+          className="size-5"
           aria-hidden="true"
-          width={20}
-          height={20}
         />
       </button>
     </div>

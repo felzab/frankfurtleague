@@ -15,7 +15,7 @@ export function TeamAustrittNote({ austritt }: { austritt: FLAustritt | null }) 
     // mistaken for.
     <section
       aria-label={zustand}
-      className="border-danger/40 bg-danger/15 flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 sm:p-6">
+      className="border-danger/40 bg-danger/15 flex w-full flex-col gap-y-2 rounded-2xl border p-4 sm:p-6">
       {/* `-strong` on a `/15` tint, the pairing the accent tokens were measured at. */}
       <strong className="fluid-xs text-danger-strong font-extrabold tracking-tight">
         {zustand} seit {formatSpielDatum(austritt.datum)}

@@ -10,11 +10,13 @@ import { dismissControl } from "@/core/dismissControl";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { textLink } from "@/shared/components/ui/textLink";
-import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
+import { buildMapsSearchUrl, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../utils";
+import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
+import { ERGEBNIS_INK, SpielScore } from "../ui/SpielScore";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
+import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "../ui/teamName";
 
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
@@ -25,15 +27,17 @@ import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schem
 function TeamNameLine({
   team,
   quelle,
+  saisonId,
   onNavigate,
 }: {
   team: FLSpielTeamFieldJoined | null;
   quelle: FLSpielQuelle | null;
+  saisonId: string;
   onNavigate: () => void;
 }) {
   if (team === null) {
     return (
-      <span className="fluid-xl text-foreground-muted max-w-full truncate font-bold italic">{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP} font-bold italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
     );
   }
 
@@ -42,9 +46,12 @@ function TeamNameLine({
       teamName={team.name}
       teamId={team.team_id}
       teamAustritt={team.austritt_type}
+      saisonId={saisonId}
       placement="top"
       onNavigate={onNavigate}>
-      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>
+      <strong className={`fluid-xl hover:text-brand ${TEAM_NAME_WRAP} font-bold transition-colors duration-(--motion-base)`}>
+        {team.name}
+      </strong>
     </TeamPopoverMenu>
   );
 }
@@ -59,14 +66,26 @@ export function SpielDetailsModal({
   isOpen,
   onClose,
   today,
+  isFinishedSaison,
 }: {
   spielData: FLSpiel | null;
   isOpen: boolean;
   onClose: () => void;
   today: string;
+  isFinishedSaison: boolean;
 }) {
-  const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(
-    spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null },
+  const displaySpiel = spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null, sonderereignis: null };
+  const {
+    datum: spielDatum,
+    ergebnis: spielErgebnis,
+    elfmeterschiessen: spielElfmeterschiessen,
+  } = formatSpielDisplay(displaySpiel, isFinishedSaison);
+  // In words, as the Ort and Schiedsrichter cells do, never the cards' digit mask: this cell stands
+  // under a heading in a list of facts. The Datum cell's predicate picks which words, so one
+  // appointment never reads two ways.
+  const spielUhrzeit = formatUhrzeit(
+    displaySpiel.uhrzeit,
+    canStillBePlayed(displaySpiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity,
   );
   // The stored `maps_link`, not an address: the embedded copy carries no `FLAddress`.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
@@ -101,7 +120,10 @@ export function SpielDetailsModal({
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
                   <Modal.Heading className="fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
                   <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
-                    <CircleInfo className="size-full" />
+                    <CircleInfo
+                      aria-hidden="true"
+                      className="size-full"
+                    />
                   </Modal.Icon>
                 </div>
                 <div className="flex h-fit w-full flex-row items-center justify-start gap-x-2">
@@ -119,14 +141,24 @@ export function SpielDetailsModal({
                   <TeamNameLine
                     team={spielData.team1}
                     quelle={spielData.team1_quelle}
+                    saisonId={spielData.saison_id}
                     onNavigate={onClose}
                   />
 
-                  <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">gegen</span>
+                  {/* The score stands where the cards put it, between the two sides, and in place of a
+                      „gegen“ that an unplayed fixture's `-:-` already says — to a sighted reader. */}
+                  <SpielScore
+                    ergebnis={spielErgebnis}
+                    elfmeterschiessen={spielElfmeterschiessen}
+                    className={`fluid-lg my-1 flex flex-col items-center text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+                  />
+                  {/* Spoken, so the two names read as a pairing rather than as two names around punctuation. */}
+                  <span className="sr-only">gegen</span>
 
                   <TeamNameLine
                     team={spielData.team2}
                     quelle={spielData.team2_quelle}
+                    saisonId={spielData.saison_id}
                     onNavigate={onClose}
                   />
                 </div>

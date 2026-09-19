@@ -4,15 +4,13 @@ import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
 
-import { Button } from "@heroui/react";
-
 import { eraseSpielerAction } from "@/features/spieler/actions";
 import { ERASURE_NEEDS_RETIREMENT } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -20,7 +18,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 /**
  * The pupil's erasure, on `DELETE /spieler/{spieler_id}/erasure`. **A confirmation step and no undo**,
@@ -54,7 +51,7 @@ export function FormLoeschenSection({
       const res = await eraseSpielerAction({ id: spielerId });
 
       if (!res.success) {
-        appToast.danger("Spieler nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Spieler nicht gelöscht", { description: res.error });
         return;
       }
 
@@ -64,6 +61,9 @@ export function FormLoeschenSection({
       router.replace(saisonHref("/admin/spieler"));
     });
   };
+
+  // The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
+  // löschen“ is agreed to without the reader having to hold what it refers to.
 
   return (
     <section className={panel.root()}>
@@ -129,28 +129,22 @@ export function FormLoeschenSection({
           isPending={isErasing}
           onCancel={cancel}>
           {/* The reason is said on the control as well as in the body above it, the treatment the
-              rollover established. `isErasing` is left out: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={isErasing ? null : blockedReason}>
-            <Button
-              type="button"
-              variant="primary"
-              isDisabled={isErasing || blockedReason !== null}
-              onPress={handleErase}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming && (
-                <TrashBin
-                  aria-hidden="true"
-                  width={18}
-                  height={18}
-                />
-              )}
-              {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
-                  löschen“ is agreed to without the reader having to hold what it refers to. */}
-              {isErasing ? "Löscht..." : isConfirming ? "Ja, Spieler endgültig löschen" : "Spieler endgültig löschen"}
-            </Button>
-          </Hint>
+              rollover established. */}
+          <ConfirmPressButton
+            isConfirming={isConfirming}
+            isPending={isErasing}
+            reason={blockedReason}
+            resting="Spieler endgültig löschen"
+            armed="Ja, Spieler endgültig löschen"
+            running="Löscht..."
+            icon={
+              <TrashBin
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleErase}
+          />
         </ConfirmActionRow>
       </div>
     </section>

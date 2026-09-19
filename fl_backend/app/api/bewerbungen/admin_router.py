@@ -31,7 +31,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.teams.crud import refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -121,12 +121,7 @@ async def annehmen_bewerbung(
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
         # school being created cannot have left, so only a PICKED club is checked.
         if schule is None:
-            team_raw = await pull_one_from_db(
-                collection=teams_collection,
-                db_filter={"_id": picked_team_id},
-                projection=["name", "shorthand", "inactive_since"],
-                session=session,
-            )
+            team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=picked_team_id, session=session)
             refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
             # The club's OWN `_id`, never the application's copy of it: this read is what proves the
             # club exists, so the id the junction row carries comes from the document it resolved.

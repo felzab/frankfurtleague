@@ -207,7 +207,6 @@ def schiedsrichter_document() -> dict[str, Any]:
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": {"telefon": None, "email": None},
         "inactive_since": None,
-        "anonymisiert_am": None,
     }
 
 

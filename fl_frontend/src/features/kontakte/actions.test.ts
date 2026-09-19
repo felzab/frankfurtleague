@@ -4,16 +4,12 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `useRouter` reads the first and `useSearchParams` the
-   second — and the seats below render under both. A Next release that moves either module fails this
-   file at import rather than quietly. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
-import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from "./utils.ts";
@@ -43,17 +39,6 @@ const { FormKontakteSection } = await import("./components/forms/AdminKontakteEd
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontaktePage } = await import("@/app/admin/kontakte/page.tsx");
 
-/** What `useRouter` hands the erasure control. `bfcacheId` is a value rather than a call. */
-const ROUTER = {
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined,
-  bfcacheId: "",
-};
-
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
   nachname,
@@ -72,7 +57,7 @@ const BLOCK: FLSaisonTeamKontakte = {
 };
 
 /** The same three with no address, which is the one state the write has no key for. */
-const BLOCK_OHNE_ADRESSE: FLSaisonTeamKontakte = {
+const BLOCK_WITHOUT_ADDRESS: FLSaisonTeamKontakte = {
   ...BLOCK,
   trainer: person("Ada", "Byron", ""),
   ansprechperson: person("Grace", "Hopper", ""),
@@ -82,26 +67,21 @@ const BLOCK_OHNE_ADRESSE: FLSaisonTeamKontakte = {
 /** The seats under every context they read: the router, the query the way out rides, the draft status. */
 const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: ROUTER },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2526") },
-        h(DraftStatusProvider, {
-          status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
-          children: h(FormKontakteSection, {
-            value: kontakte,
-            isMember: true,
-            teamHref: "/admin/teams/t1?saison_id=2526",
-            banners: [],
-            onChange: () => undefined,
-            onFieldLeft: () => undefined,
-            isDirty: false,
-            onValidateSelection: () => undefined,
-          }),
+    underNext(
+      h(DraftStatusProvider, {
+        status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
+        children: h(FormKontakteSection, {
+          value: kontakte,
+          isMember: true,
+          teamHref: "/admin/teams/t1?saison_id=2526",
+          banners: [],
+          onChange: () => undefined,
+          onFieldLeft: () => undefined,
+          isDirty: false,
+          onValidateSelection: () => undefined,
         }),
-      ),
+      }),
+      { search: "saison_id=2526" },
     ),
   );
 
@@ -110,15 +90,9 @@ const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
 
 /** The list page's own return. Its table sits behind the boundary, whose fallback stands here. */
 const PAGE_MARKUP = renderTree(
-  h(
-    AppRouterContext.Provider,
-    { value: ROUTER },
-    h(
-      SearchParamsContext.Provider,
-      { value: new URLSearchParams("saison_id=2526") },
-      h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }),
-    ),
-  ),
+  underNext(h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }), {
+    search: "saison_id=2526",
+  }),
 );
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
@@ -157,7 +131,7 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
 }
 
 describe("the erasure against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
   it("cuts the action out of the file before reading it", () => {
     assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
@@ -191,11 +165,12 @@ describe("what the erasure moves", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
      render pass, the public team reads carry no `kontakte` at all, and the applications and the log
      are uncached too. */
-  it("invalidates nothing, and says why", () => {
+  it("moves no tag, and says why", () => {
     assert.ok(!ACTIONS.includes("updateTag("), "a contacts write clears a cached read its endpoint does not move");
-    assert.ok(!ACTIONS.includes('from "next/cache"'), "a contacts write reaches the cache API for something");
+    // The import spelled whole: the slice reaches `next/cache` for the router refresh and nothing else.
+    assert.match(ACTIONS, /^import \{ refresh \} from "next\/cache";$/m, "a contacts write reaches the cache API for more than a refresh");
     // Both of the module's writes, so a second one added without the reasoning fails here.
-    assert.equal([...ACTIONS.matchAll(/Nothing to invalidate/g)].length, 2, "an absent invalidation is left unexplained");
+    assert.equal([...ACTIONS.matchAll(/No tag moves/g)].length, 2, "an absent invalidation is left unexplained");
   });
 
   /* The address travels in the BODY. A path or a query segment would file it in the access log, in
@@ -288,7 +263,7 @@ describe("the report the toast carries", () => {
 
     for (const report of reports) {
       assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const satz of report.split(". ")) assert.match(satz, /\b(wurde|wurden|war|gab|ist)\b/, `„${satz}“ carries no verb`);
+      for (const sentence2 of report.split(". ")) assert.match(sentence2, /\b(wurde|wurden|war|gab|ist)\b/, `„${sentence2}“ carries no verb`);
       // The endpoint withholds the person, and a report is the one place a copy could creep back in.
       assert.doesNotMatch(report, /@/, "the report names an address");
     }
@@ -329,7 +304,7 @@ describe("where the control stands", () => {
       "the mirrored seat offers its own erasure",
     );
     // The address is the whole key, so a seat holding none can offer nothing to erase.
-    assert.deepEqual(offers(BLOCK_OHNE_ADRESSE), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
+    assert.deepEqual(offers(BLOCK_WITHOUT_ADDRESS), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
   });
 
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
@@ -362,7 +337,7 @@ describe("what the save hands the write", () => {
      guard at a path no control renders, so the row stops being editable at all. */
   it("takes a seat the person widened and writes it at the scope an administrator may spell", () => {
     const trainer = person("Ada", "Byron", "ada@example.org");
-    const gespeichert: FLSaisonTeamKontakte = {
+    const storedBlock: FLSaisonTeamKontakte = {
       ...BLOCK,
       trainer: { ...trainer, einwilligung: { ...trainer.einwilligung, umfang: "kontaktdaten_whatsapp" } },
     };
@@ -371,7 +346,7 @@ describe("what the save hands the write", () => {
     const payload = {
       team_id: "507f1f77bcf86cd799439011",
       saison_id: "2526",
-      kontakte: toKontaktePayload(mirrorKontakte(gespeichert)),
+      kontakte: toKontaktePayload(mirrorKontakte(storedBlock)),
       kontakte_stand: "9f2c",
     };
 

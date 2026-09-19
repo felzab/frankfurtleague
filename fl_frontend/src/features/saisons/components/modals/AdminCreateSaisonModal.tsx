@@ -5,6 +5,7 @@ import { Plus } from "@gravity-ui/icons";
 import { Button, useOverlayState } from "@heroui/react";
 
 import { AdminCreateSaisonForm } from "@/features/saisons/components/forms/AdminCreateSaisonForm";
+import { SAISONS_CRUD_COPY } from "@/features/saisons/constants";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
@@ -21,10 +22,11 @@ export function AdminCreateSaisonModal() {
         onPress={modalState.open}
         className={formButton({ intent: "trigger" })}>
         <Plus
-          width={18}
-          height={18}
+          aria-hidden="true"
+          className="size-4.5"
         />
-        <span className="hidden sm:inline">Neue Saison anlegen</span>
+        {/* Hidden from sight rather than from the tree below `sm`: it is the button's only name. */}
+        <span className="max-sm:sr-only">{SAISONS_CRUD_COPY.createLabel}</span>
       </Button>
 
       <FormModal

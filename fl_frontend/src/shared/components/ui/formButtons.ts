@@ -63,7 +63,8 @@ export const formButton = tv({
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
       /**
        * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the
-       * two share that row; below `sm` it continues the bar, with flattened left corners and no label.
+       * two share that row; below `sm` it continues the bar, with flattened left corners and its label for screen
+       * readers alone.
        */
       trigger:
         "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground shrink-0 gap-x-2 font-bold shadow-sm max-sm:rounded-l-none max-sm:px-4 lg:h-15",
@@ -95,11 +96,13 @@ export const formButton = tv({
 export const confirmButton = (isConfirming: boolean): string =>
   `${formButton({ intent: isConfirming ? "destructive" : "submit", stacks: true })} flex items-center gap-x-2`;
 
+// The distance above the band is the host column's gap, never a margin here: a margin in a shared
+// constant composes with whatever gap each host declares (`docs/frontend/spec.md :: I240`).
 /**
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.
  * **A call site must not add `w-full`**: with no `twMerge` in the path, `.w-full` is emitted last and silently wins.
  */
-export const MODAL_FOOTER = "border-border -mx-4 mt-2 w-[calc(100%+2rem)] border-t px-4 pt-4";
+export const MODAL_FOOTER = "border-border -mx-4 w-[calc(100%+2rem)] border-t px-4 pt-4";
 
 /** The band with a symmetrical pair in it, its flex shape declared beside the width a site must not restate. */
 export const MODAL_FOOTER_ROW = `${MODAL_FOOTER} flex flex-row items-center justify-evenly gap-3`;
@@ -108,4 +111,4 @@ export const MODAL_FOOTER_ROW = `${MODAL_FOOTER} flex flex-row items-center just
  * The band for a pair that is not symmetrical — one of the two discards work. Stacked at every width, since
  * `ModalShell`'s narrow size cannot seat both labels side by side and a sometimes-stacked pair reads as two designs.
  */
-export const MODAL_FOOTER_STACK = `${MODAL_FOOTER} flex min-w-0 flex-col gap-2.5`;
+export const MODAL_FOOTER_STACK = `${MODAL_FOOTER} flex min-w-0 flex-col gap-3`;

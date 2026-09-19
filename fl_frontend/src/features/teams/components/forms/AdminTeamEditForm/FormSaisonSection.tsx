@@ -15,9 +15,10 @@ import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
+import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -26,7 +27,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -34,9 +34,6 @@ import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
-
-/** The sentence the disabled swap button is described by. This control renders at most once per page. */
-const SWAP_BUTTON_HINT_ID = "gruppentausch-team-hinweis";
 
 /**
  * Different words from the season panel's for the same codes, deliberately: here one side is fixed
@@ -99,7 +96,7 @@ function GruppenTauschControl({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
 
       if (!res.success) {
-        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        appToast.danger("Gruppen nicht getauscht", { description: res.error });
         return;
       }
 
@@ -147,7 +144,7 @@ function GruppenTauschControl({
             Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
-          <div className="flex w-full flex-col gap-y-1.5">
+          <div className="flex w-full flex-col gap-y-2">
             <RefusableSelect
               label="Tauschen mit"
               placeholder="Team wählen"
@@ -183,38 +180,28 @@ function GruppenTauschControl({
             </ConfirmReveal>
           )}
 
-          <div className="flex w-full flex-col gap-y-1.5">
-            <ConfirmActionRow
+          <ConfirmActionRow
+            isConfirming={isConfirming}
+            isPending={isSwapping}
+            onCancel={cancel}>
+            {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                §1.14). */}
+            <ConfirmPressButton
               isConfirming={isConfirming}
               isPending={isSwapping}
-              onCancel={cancel}>
-              <Button
-                type="button"
-                variant="primary"
-                aria-describedby={!isSwapping && partner === null ? SWAP_BUTTON_HINT_ID : undefined}
-                isDisabled={isSwapping || partner === null}
-                onPress={handleSwap}
-                className={confirmButton(isConfirming)}>
-                {!isConfirming && (
-                  <ArrowRightArrowLeft
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
-              </Button>
-            </ConfirmActionRow>
-            {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
-            treatment for a control disabled for a reason already on screen. */}
-            {!isSwapping && partner === null && (
-              <Hint
-                mode="inline"
-                describes={SWAP_BUTTON_HINT_ID}
-                text="Wähle zuerst ein Team."
-              />
-            )}
-          </div>
+              reason={partner === null ? "Wähle zuerst ein Team." : null}
+              resting="Gruppen tauschen"
+              armed="Ja, Gruppen tauschen"
+              running="Tauscht..."
+              icon={
+                <ArrowRightArrowLeft
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              }
+              onPress={handleSwap}
+            />
+          </ConfirmActionRow>
         </>
       )}
     </div>
@@ -268,8 +255,7 @@ export function FormSaisonSection({
 
   /**
    * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
-   * unsaved-error badge and a `reportValidity()` that moves focus to a form half this branch does
-   * not render.
+   * unsaved-error badge, and `focusFirstRefusal` would answer it as a save nobody pressed.
    */
   const [entryGruppeError, setEntryGruppeError] = useState<string | null>(null);
 
@@ -285,7 +271,7 @@ export function FormSaisonSection({
 
       if (res.success) {
         setEntryGruppeError(null);
-        appToast.success(res.message ?? "Team aufgenommen");
+        appToast.success("Team aufgenommen", { description: res.message });
         return;
       }
 
@@ -294,7 +280,7 @@ export function FormSaisonSection({
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
       // also said in a toast that names no field.
       if (gruppeError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
+        appToast.danger("Team nicht aufgenommen", { description: res.error });
       }
     });
   };
@@ -325,7 +311,10 @@ export function FormSaisonSection({
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
-                  <LockFill className="text-foreground-muted size-3.5 shrink-0" />
+                  <LockFill
+                    aria-hidden="true"
+                    className="text-foreground-muted size-3.5 shrink-0"
+                  />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>
@@ -396,14 +385,22 @@ export function FormSaisonSection({
                 offer={gruppeOffer}
                 error={entryGruppeError ?? undefined}
               />
-              <Button
-                type="button"
-                variant="primary"
-                isDisabled={isEntering}
-                onPress={handleEnterSaison}
-                className={formButton({ intent: "submit" })}>
-                {isEntering ? "Speichert..." : `In Saison ${saison.saisonId} aufnehmen`}
-              </Button>
+              {/* Closed until a group is picked, rather than pressed into a refusal whose message lands under the
+                  picker and moves the row (`docs/frontend/spec.md` §1.14). */}
+              <Hint
+                mode="refusal"
+                reason={!isEntering && gruppe === null ? "Wähle zuerst eine Gruppe." : null}
+                label={`In Saison ${saison.saisonId} aufnehmen`}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isPending={isEntering}
+                  isDisabled={!isEntering && gruppe === null}
+                  onPress={handleEnterSaison}
+                  className={`${formButton({ intent: "submit" })} w-full`}>
+                  {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
+                </Button>
+              </Hint>
             </div>
           </div>
         ) : (

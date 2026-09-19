@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Final
 
@@ -7,15 +8,17 @@ from app.api.saisons.services import SHAPE_RULES_FIELDS
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 
-# Source text rather than an import: the mapper is TypeScript, and the backend holds no second copy
-# of its German that could be read instead.
-ACTIONS: Final = (REPO_ROOT / "fl_frontend" / "src" / "features" / "saisons" / "actions.ts").read_text(encoding="utf-8")
+SAISONS: Final = REPO_ROOT / "fl_frontend" / "src" / "features" / "saisons"
+
+# Source text rather than a call: the sentence is a server action's return, and calling one outside
+# a request raises Next's request-scope error, the mapper being module-private besides -- the
+# standing exception (`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
+ACTIONS: Final = (SAISONS / "actions.ts").read_text(encoding="utf-8")
 
 SHAPE_REFUSAL: Final = "REQ-RULES-011"
 
-# One German noun phrase per frozen field. The backend composes its own message per field that
-# moved; the German arm is one static sentence, so a further shape field would go unnamed in it
-# while nothing on this side failed.
+# One German noun phrase per frozen field. The arm states one sentence per repair, so a further
+# shape field would go unnamed in it while nothing on this side failed.
 GERMAN_OF: Final = {
     "number_of_groups": "Gruppen",
     "teams_per_group": "Teams pro Gruppe",
@@ -38,6 +41,24 @@ def _arm(code: str) -> str:
 ARM: Final = _arm(SHAPE_REFUSAL)
 
 
+def _names(german: str, text: str) -> bool:
+    """Whether one phrase stands in a text as a whole word.
+
+    German compounds a term into a longer word meaning something else, so `Gruppenphase` satisfies a
+    substring search for the group COUNT while naming no count at all.
+    """
+
+    return re.search(rf"(?<!\w){re.escape(german)}(?!\w)", text) is not None
+
+
+def test_a_phrase_inside_a_longer_german_word_names_no_field():
+    """The reader on input: every site in the tree spells these phrases as whole words already."""
+
+    assert _names("Gruppen", "Für Gruppen und Teams pro Gruppe")
+    assert not _names("Gruppen", "Die Gruppenphase ist gesperrt")
+    assert not _names("Qualifikant", "Die Qualifikanten pro Gruppe")
+
+
 def test_the_german_arm_is_still_where_this_module_cuts_it():
     """Anti-vacuity: a boundary that stopped matching would leave every case below true of an empty string."""
 
@@ -56,4 +77,4 @@ def test_the_table_names_exactly_the_fields_the_write_path_freezes():
 def test_the_german_arm_names_every_field_the_refusal_freezes(field: str, german: str):
     """The failure this guards: an arm naming a repair for some of the frozen fields reads as complete and is not."""
 
-    assert german in ARM, f"{SHAPE_REFUSAL} freezes {field} and its message never names it"
+    assert _names(german, ARM), f"{SHAPE_REFUSAL} freezes {field} and its message never names {german}"

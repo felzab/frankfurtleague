@@ -199,9 +199,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
-            # Required of every row, so `uniq_schiedsrichter_name`'s filter can tell an erased
-            # referee from one whose data stand.
-            "anonymisiert_am": None,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
         # one carries a value, a write-path rule no validator of types and enums can state
@@ -477,37 +474,23 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
     assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
 
 
-def test_a_second_erased_referee_is_fine(mongo_url: str):
-    """`uniq_schiedsrichter_name`'s `partial_filter` is what makes this pass: both rows carry a null name.
+def test_a_second_nameless_referee_is_refused(mongo_url: str):
+    """The rule reaches every row, so the one nameless row it can ever meet is the ghost.
 
-    Without it the SECOND erasure the league ever performs is refused, and an administrator is shown
-    a create-collision on a deletion.
+    A second would split the fixtures of everybody erased across two sentinels nobody can tell apart
+    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     """
 
-    async def body(database: AsyncDatabase) -> int:
-        erased = {**valid_documents()["schiedsrichter"], "name": None, "anonymisiert_am": "2026-04-01"}
-        await database.schiedsrichter.insert_one(erased)
-        await database.schiedsrichter.insert_one({**erased, "_id": TEAM_OID, "anonymisiert_am": "2026-05-02"})
-        return await database.schiedsrichter.count_documents({})
-
-    assert on_the_shipped_schema(mongo_url, body) == 2
-
-
-def test_the_erasure_filter_reaches_a_row_written_before_the_field_existed(mongo_url: str):
-    """Seeded before the constraints, because the shipped validator requires the key: only a row stored under an older schema can lack it."""
-
     async def body(database: AsyncDatabase) -> str:
-        pre_backfill = {key: value for key, value in valid_documents()["schiedsrichter"].items() if key != "anonymisiert_am"}
-        await database.schiedsrichter.insert_many([pre_backfill, {**pre_backfill, "_id": TEAM_OID}])
-
+        nameless = {**valid_documents()["schiedsrichter"], "name": None}
+        await database.schiedsrichter.insert_one(nameless)
         try:
-            await apply_constraints(database)
-        except RuntimeError as failure:
-            return "raised" if "uniq_schiedsrichter_name" in str(failure) else f"raised the wrong thing: {failure}"
+            await database.schiedsrichter.insert_one({**nameless, "_id": TEAM_OID})
+        except OperationFailure as failure:
+            return f"rejected:{failure.code}"
+        return "accepted"
 
-        return "carried on"
-
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
 
 
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_url: str):
@@ -744,24 +727,13 @@ def test_the_check_mode_reports_two_venues_or_two_referees_sharing_a_name(mongo_
     assert groups["uniq_schiedsrichter_name"] == 1
 
 
-def test_the_check_mode_passes_over_two_erased_referees(mongo_url: str):
-    """A report the index would not raise sends an operator to rename a row that has no name left to rename.
-
-    The reported pair above is the control: without it a reader that matched nothing would pass this.
-    """
-
-    async def body(database: AsyncDatabase) -> int:
-        erased = {**valid_documents()["schiedsrichter"], "name": None, "anonymisiert_am": "2026-04-01"}
-        await database.schiedsrichter.insert_many([erased, {**erased, "_id": TEAM_OID, "anonymisiert_am": "2026-05-02"}])
-
-        return next(report.groups for report in await report_duplicates(database) if report.index.name == "uniq_schiedsrichter_name")
-
-    assert on_an_unconstrained_database(mongo_url, body) == 0
-
-
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)
 def test_each_unique_index_is_built_with_the_reach_it_declares(mongo_url: str, index):
-    """A `partial_filter` the apply drops builds a rule over every row, which the pairs above cannot see: they seed no excluded row."""
+    """Every declared rule is BUILT, and built at the reach it declares.
+
+    No index declares a `partial_filter` today, so what this holds is that none acquires one
+    unnoticed: the duplicate pairs above seed no row an added filter would exclude.
+    """
 
     async def body(database: AsyncDatabase) -> Any:
         built = {row["name"]: row.get("partialFilterExpression") async for row in await database[index.collection].list_indexes()}

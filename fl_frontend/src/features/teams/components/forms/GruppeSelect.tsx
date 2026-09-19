@@ -55,8 +55,11 @@ export function GruppeSelect({
     <Select
       isRequired={isRequired}
       name={name}
-      aria-label="Gruppe"
-      value={value ?? undefined}
+      // Only without the visible `Label`: beside it the trigger is named twice, „Gruppe Gruppe“.
+      aria-label={withOwnLabel ? undefined : "Gruppe"}
+      // `null` and never `undefined` for no group: react-stately reads `undefined` as uncontrolled, so the first pick
+      // would switch the picker to controlled.
+      value={value}
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">

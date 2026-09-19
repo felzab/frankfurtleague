@@ -18,6 +18,9 @@
 # shape the install would never reach `deps` and the build would not say why. Excluded anyway --
 # a registry token in a shipped image is found too late.
 **/.npmrc
+# The mail sink a deployment that is not production writes into. Each file names a real
+# person and carries a live sign-in link, and `pnpm dev` writes it inside this context.
+**/.tmp-*
 
 # Reinstalled by the deps stage from the lockfile, and the host tree is built for another platform,
 # so copying it in would be both wrong and the largest thing in the context.

@@ -1,4 +1,5 @@
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { holdsNobody } from "@/features/teams/utils";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -129,7 +130,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
     group: "Kontakte",
     read: (source) => {
       const kontakte = source.kontakte;
-      return kontakte === null ? null : trainerZugleichLabel(kontakte.trainer_ist_zugleich);
+      // Read as the absent block wherever nobody is on file: over nobody the claim names nobody, and
+      // read off a block of empty seats it would call nobody-to-nobody a change the save could write.
+      return kontakte === null || holdsNobody(kontakte) ? null : trainerZugleichLabel(kontakte.trainer_ist_zugleich);
     },
   },
 ];

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
@@ -28,51 +30,80 @@ export function ConfirmSaveModal({
 }) {
   // The list must outlive the prop going null, or the body blanks while the dialog animates out.
   const shown = useRetainedValue(banners);
+
+  // One press per raise: the buttons stay pressable through the exit animation, and the guard in
+  // `confirm` is what stops a second press there sending the write again. Re-armed on the next
+  // raise, which may hand the same list back.
+  const isOpen = banners !== null;
+  const [raised, setRaised] = useState(isOpen);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  if (isOpen !== raised) {
+    setRaised(isOpen);
+    if (isOpen) setIsConfirmed(false);
+  }
+
   if (shown === null) return null;
+
+  const confirm = () => {
+    if (isConfirmed) return;
+    setIsConfirmed(true);
+    onConfirm();
+  };
 
   const count = shown.length;
 
   return (
     <ModalShell
-      isOpen={banners !== null}
+      isOpen={isOpen}
       onClose={onClose}
       heading="Speichern trotz Hinweisen?"
       size="form"
       role="alertdialog"
       icon={
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <TriangleExclamation className="text-danger-strong size-5" />
+          <TriangleExclamation
+            aria-hidden="true"
+            className="text-danger-strong size-5"
+          />
         </div>
       }>
-      <div className="flex w-full min-w-0 flex-col pt-1">
-        <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
-          <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
-            {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
-          </span>{" "}
-          {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
-        </p>
+      <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">
+        {/* The count and the banners it counts keep a rung of their own, so the column above them is
+            free to give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
+        <div className="flex w-full flex-col gap-y-4">
+          <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
+            <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
+              {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
+            </span>{" "}
+            {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
+          </p>
 
-        <div className="mt-4 flex w-full flex-col gap-y-3">
-          {shown.map((banner) => (
-            <Callout
-              key={banner.id}
-              severity={banner.severity}
-              title={banner.title}>
-              {banner.body}
-            </Callout>
-          ))}
+          <div className="flex w-full flex-col gap-y-3">
+            {shown.map((banner) => (
+              <Callout
+                key={banner.id}
+                severity={banner.severity}
+                title={banner.title}>
+                {banner.body}
+              </Callout>
+            ))}
+          </div>
         </div>
 
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
-        <div className={`${MODAL_FOOTER_STACK} mt-6`}>
+        <div className={MODAL_FOOTER_STACK}>
+          {/* Held, never closed: the press that started the save left the keyboard's focus here, and a
+              disabled button drops it to the page (`docs/frontend/spec.md` §1.14). */}
           <Button
             type="button"
             variant="primary"
+            isPending={isConfirmed}
             className={formButton({ intent: "destructive", fullWidth: true })}
-            onPress={onConfirm}>
+            onPress={confirm}>
             Trotzdem speichern
           </Button>
-          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels. */}
+          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels.
+              It closes the dialog rather than the save, so the save running is no reason to close it. */}
           <Button
             type="button"
             variant="secondary"

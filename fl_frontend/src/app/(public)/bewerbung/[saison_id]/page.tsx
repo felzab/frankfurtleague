@@ -4,10 +4,11 @@ import { connection } from "next/server";
 
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
-import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
+import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -15,24 +16,25 @@ import type { Metadata } from "next";
 export async function generateMetadata(props: NextPageProps<{ saison_id: string }>): Promise<Metadata> {
   // `generateMetadata` is not part of the App Shell, so it awaits at the top level.
   await connection();
-  const saison_id = await resolveSaisonIdParam(props.params);
 
-  // The not-found answer is decided here rather than in the body, whose read sits inside a boundary
-  // the response has already begun streaming past: the status is fixed from that first byte.
+  // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
+  // title, while the body's throw renders the same panel. The status is 200 either way (`docs/frontend/spec.md :: I242`).
+  const saison_id = await parseSaisonIdParam(props.params);
+  if (saison_id === null) return NOT_FOUND_METADATA;
 
   // Caught for the body's reason: a window this page could not read is a state it renders, and a
   // failed read answering not-found would take the season down with the backend.
   const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
-  if (antwort === null) notFound();
+  if (antwort === null) return NOT_FOUND_METADATA;
 
   return {
     title: `Bewerbung Saison ${saison_id}`,
     description: `Melde Dein Schulteam für die Saison ${saison_id} der Frankfurt League an.`,
     openGraph: openGraphFor(`/bewerbung/${saison_id}`),
     alternates: { canonical: `/bewerbung/${saison_id}` },
-    // A season with no deadline recorded is not content worth indexing: an indexed copy of that one
-    // sentence outlives the day an administrator records the window (`docs/frontend/spec.md` §1.13).
-    ...(antwort?.fenster === null ? { robots: { index: false } } : {}),
+    // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
+    // than content: an indexed copy outlives the day the window is there to show (`docs/frontend/spec.md` §1.13).
+    ...(antwort === undefined || antwort.fenster === null ? { robots: { index: false } } : {}),
   };
 }
 
@@ -58,12 +60,10 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this
   // read never learnt.
 
-  // The season no document names lands on the same state as one recording no window: the metadata
-  // has already answered it not-found, and neither leaves the view a deadline to show.
-  const fenster = await getBewerbungFenster(saison_id).then(
-    (antwort) => ({ isUnlesbar: false, fenster: antwort?.fenster ?? null }),
-    () => ({ isUnlesbar: true, fenster: null }),
-  );
+  const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
+  // Outside the read's own handlers: a `notFound()` thrown inside `.then` would be caught as a failed read.
+  if (antwort === null) notFound();
+  const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
 
   // A closed page shows no picker, and the club list is a read of the league's roster nothing on
   // such a page asked for. A failure degrades to the new-school arm rather than taking the whole

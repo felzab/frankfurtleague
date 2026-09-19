@@ -420,6 +420,18 @@ function normalisiereTelefon(value: string): string {
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
+/**
+ * Asked instead of zod's default, which skips a refinement once any check in the block aborts — the consent switch
+ * left off is one — so a shared address would wait for a second press.
+ */
+const SITZE_LESBAR = z.object({ ansprechperson: z.object({}), stellvertretung: z.object({}), trainer: z.object({}) });
+
+/**
+ * Two values are compared only where each one's own field accepts it. An empty or malformed box carries its own
+ * refusal, and two empty telephone boxes fold to one number.
+ */
+const feldNimmt = (feld: z.ZodType, wert: unknown): boolean => feld.safeParse(wert).success;
+
 // By value, because `einwilligung` is an object and two equal acknowledgements are two objects. One
 // level of nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison
 // is total.
@@ -442,44 +454,53 @@ export const FLBewerbungKontaktePayloadSchema = z
     // which would let a submission claim both at once.
     trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
   })
-  .superRefine((kontakte, ctx) => {
-    for (const [erste, zweite] of KONTAKT_PAARE) {
-      // The declared pair IS one person and shares everything by construction. Every other pair is
-      // two people the league has to be able to tell apart when one of them stops answering.
-      if (zweite === "trainer" && erste === kontakte.trainer_ist_zugleich) continue;
+  .superRefine(
+    (kontakte, ctx) => {
+      const { email: emailFeld, telefon: telefonFeld } = FLBewerbungKontaktpersonPayloadSchema.shape;
 
-      if (gleicheAdresse(kontakte[erste].email, kontakte[zweite].email)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.",
-          path: [zweite, "email"],
-        });
-      }
+      for (const [erste, zweite] of KONTAKT_PAARE) {
+        // The declared pair IS one person and shares everything by construction. Every other pair is
+        // two people the league has to be able to tell apart when one of them stops answering.
+        if (zweite === "trainer" && erste === kontakte.trainer_ist_zugleich) continue;
 
-      if (gleicheNummer(kontakte[erste].telefon, kontakte[zweite].telefon)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
-          path: [zweite, "telefon"],
-        });
-      }
-    }
+        const [eine, andere] = [kontakte[erste], kontakte[zweite]];
 
-    // The seat the Trainer also holds is filled FROM the Trainer, so a difference is a drifted client
-    // rather than something an applicant can type — and a banner naming no field cannot explain it.
-    const zugleich = kontakte.trainer_ist_zugleich;
-    if (zugleich !== null) {
-      for (const feld of Object.keys(kontakte.trainer) as (keyof FLBewerbungKontaktpersonPayload)[]) {
-        if (!gleicherWert(kontakte[zugleich][feld], kontakte.trainer[feld])) {
+        if (feldNimmt(emailFeld, eine.email) && feldNimmt(emailFeld, andere.email) && gleicheAdresse(eine.email, andere.email)) {
           ctx.addIssue({
             code: "custom",
-            message: "Diese Angabe muss mit der des Trainers übereinstimmen.",
-            path: [zugleich, feld],
+            message: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.",
+            path: [zweite, "email"],
+          });
+        }
+
+        if (feldNimmt(telefonFeld, eine.telefon) && feldNimmt(telefonFeld, andere.telefon) && gleicheNummer(eine.telefon, andere.telefon)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
+            path: [zweite, "telefon"],
           });
         }
       }
-    }
-  });
+
+      // Parsed rather than compared with `null`: this pass also runs beside a refused claim, which names no seat.
+      const zugleich = FLTrainerZugleichSchema.safeParse(kontakte.trainer_ist_zugleich);
+
+      // The seat the Trainer also holds is filled FROM the Trainer, so a difference is a drifted client
+      // rather than something an applicant can type — and a banner naming no field cannot explain it.
+      if (zugleich.success) {
+        for (const feld of Object.keys(kontakte.trainer) as (keyof FLBewerbungKontaktpersonPayload)[]) {
+          if (!gleicherWert(kontakte[zugleich.data][feld], kontakte.trainer[feld])) {
+            ctx.addIssue({
+              code: "custom",
+              message: "Diese Angabe muss mit der des Trainers übereinstimmen.",
+              path: [zugleich.data, feld],
+            });
+          }
+        }
+      }
+    },
+    { when: ({ value }) => SITZE_LESBAR.safeParse(value).success },
+  );
 export type FLBewerbungKontaktePayload = z.infer<typeof FLBewerbungKontaktePayloadSchema>;
 
 /**
@@ -498,16 +519,19 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 });
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
+// `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
+// refinement below so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS` can pair the two spellings.
+const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
+
 /**
  * A name is a name: none of them belongs in one, and refusing the class is cheaper than
  * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
  * line in a decision mail besides (`:: I46`).
  */
-// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`. One asymmetry,
-// fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED with one is taken
-// by the API and refused here. No contract test compares patterns.
+// One asymmetry, fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED
+// with one is taken by the API and refused here.
 const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !/[\x00\n\v\f\r\u0085\u2028\u2029]/.test(wert), {
+  schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
     error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
 
@@ -637,6 +661,9 @@ export const FLPostBewerbungPayloadSchema = z
     // and an issue keyed to the record itself would reach no input at all.
     error: "Bitte wähle eine Schule aus oder trage eine neue ein.",
     path: ["team_id"],
+    // Without it zod skips this once any check aborts — an emptied number box is one — and an unpicked school stays
+    // unmarked until a second press. Only an object has both keys to read.
+    when: ({ value }) => typeof value === "object" && value !== null,
   });
 export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
@@ -681,6 +708,8 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,
+  // The second seat one answer on this link writes, where the same person holds two; null otherwise.
+  zugleich_rolle: FLKontaktRolleSchema.nullable(),
   // Null once a decline has cleared the seat, which is why the page renders a name for `gueltig`
   // alone: a dead link's panel has nobody to name and must not invent one.
   vorname: z.string().nullable(),

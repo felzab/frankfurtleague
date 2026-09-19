@@ -24,6 +24,7 @@ function club(id: string, inSaison: boolean): AdminTeamRow {
     inactive_since: null,
     selected: inSaison ? { gruppe: "A", austritt: null } : null,
     isRetireable: false,
+    publicSaisonId: inSaison ? SAISON_ID : null,
   };
 }
 

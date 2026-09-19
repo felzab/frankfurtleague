@@ -2,7 +2,7 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -79,34 +79,34 @@ export function FormZeitraumSection({
           {isSingleDay ? (
             // The Datum label sits on the `beginn` path because `REQ-DATE-002` is the only refusal
             // this save can put on a field, and one picker leaves one place for it to land.
-            <SaisonDateField
+            <AppDatePicker
               isRequired
               name="beginn"
               minValue={spanStart}
               maxValue={spanEnd}
-              ariaLabel="Datum auswählen"
+              calendarLabel="Datum auswählen"
               label={<FieldLabel path="beginn">Datum</FieldLabel>}
               value={asCalendarDate(beginn)}
               onChange={(next) => onBeginnChange(next?.toString() ?? "")}
             />
           ) : (
             <>
-              <SaisonDateField
+              <AppDatePicker
                 isRequired
                 name="beginn"
                 minValue={spanStart}
                 maxValue={spanEnd}
-                ariaLabel="Beginn auswählen"
+                calendarLabel="Beginn auswählen"
                 label={<FieldLabel path="beginn">Beginn</FieldLabel>}
                 value={asCalendarDate(beginn)}
                 onChange={(next) => onBeginnChange(next?.toString() ?? "")}
               />
-              <SaisonDateField
+              <AppDatePicker
                 isRequired
                 name="ende"
                 minValue={spanStart}
                 maxValue={spanEnd}
-                ariaLabel="Ende auswählen"
+                calendarLabel="Ende auswählen"
                 label={<FieldLabel path="ende">Ende</FieldLabel>}
                 value={asCalendarDate(ende)}
                 onChange={(next) => onEndeChange(next?.toString() ?? "")}

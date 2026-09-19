@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { sliceBetween } from "../../core/refusalRegister.ts";
+import { sliceBetween } from "@/shared/testing/refusalRegister.ts";
+
 import { FIRST_SAISON_YEAR, FLPostSaisonPayloadSchema, SAISON_ID_PATTERN } from "./schemas.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");

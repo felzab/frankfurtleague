@@ -136,7 +136,7 @@ class TestACreateUnderATakenVenueNameIsRefused:
         assert (response.status_code, response.json()["error_code"]) == (409, DUPLICATE_KEY)
 
     def test_the_name_a_retired_venue_holds_is_refused_the_same_way(self, seeded_url: str):
-        """Nothing merges two venues, so a retired row keeps its name; the index carries no `partial_filter`, unlike the referee's."""
+        """Nothing merges two venues, so a retired row keeps its name, and the index reaches every row as the referee's now does."""
 
         response = served(seeded_url, SPIELORTE, payload(RETIRED_NAME))
 

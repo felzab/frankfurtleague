@@ -1,10 +1,10 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -31,14 +31,14 @@ function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldEr
 }
 
 /** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
-function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+function mapRetireRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-RETIRE-003") {
-    return {
-      error:
-        "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben. Verlege diese Spiele auf einen anderen Spielort oder sage sie ab.",
-    };
+    return buildRefusal({
+      reason: "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben",
+      repair: "Verlege diese Spiele auf einen anderen Spielort oder sage sie ab",
+    });
   }
   return null;
 }
@@ -46,7 +46,7 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
-): Promise<ActionResult<{ created_id?: string }>> {
+): Promise<ActionResult<{ created_id: string }>> {
   return runAdminMutation("postSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -68,13 +68,15 @@ export async function postSpielortAction(
       postOperation = await postSpielort(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
     if (!postOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
+
+    refresh();
 
     return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
@@ -105,7 +107,7 @@ export async function patchSpielortAction(
       patchOperation = await patchSpielort(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -115,6 +117,7 @@ export async function patchSpielortAction(
 
     // A rename fans into every match embedding this venue, which is the one cached read it reaches.
     updateTag("spiele");
+    refresh();
 
     return {
       success: true,
@@ -146,7 +149,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
       patchOperation = await deleteSpielort(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
-      if (refusal) return { success: false, ...refusal };
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
@@ -154,17 +157,20 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
+    refresh();
+
     return {
       success: true,
       updated_document: patchOperation.updated_document,
-      message: "Spielort stillgelegt. Seine Spiele bleiben erhalten.",
+      message: "Seine Spiele bleiben erhalten.",
     };
   });
 }
 
 /**
- * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
- * document carries. The endpoint refuses nothing — a venue coming back takes no fixtures with it.
+ * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
+ * the admin's own list, which is uncached. The endpoint refuses nothing — a venue coming back takes
+ * no fixtures with it.
  */
 export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("reactivateSpielortAction", async () => {
@@ -186,6 +192,8 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
+
+    refresh();
 
     return {
       success: true,

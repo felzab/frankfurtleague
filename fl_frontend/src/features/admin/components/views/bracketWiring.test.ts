@@ -6,8 +6,16 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { PILL_TINT } from "@/shared/components/ui/badges.ts";
+import { elementsIn, parseModule, staticValue } from "@/shared/testing/jsxReader.ts";
+import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+
+import type { JsxRead } from "@/shared/testing/jsxReader.ts";
 
 const VIEW = "AdminBracketWiringView.tsx";
+
+/* Reached with `await import` and never a static import beside the harness above, which registers the
+   JSX compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
+const { AdminBracketWiringView } = await import("./AdminBracketWiringView.tsx");
 
 /** A `Map` and not the record itself, so a tone name the view invented reads back as absent rather than as `any`. */
 const TONE_PAIRS = new Map<string, string>(Object.entries(PILL_TINT));
@@ -18,47 +26,20 @@ const TONE_PAIRS = new Map<string, string>(Object.entries(PILL_TINT));
  * parse cannot reach is left unpinned.
  */
 const text = readFileSync(path.resolve(import.meta.dirname, VIEW), "utf8");
-const source = ts.createSourceFile(VIEW, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-
-type Element = {
-  tag: string;
-  /** An interpolated call contributes none, so a class it hides is unpinned rather than assumed absent. */
-  classes: readonly string[];
-  /** The className attribute's own source, which is where a recipe call shows and `classes` cannot. */
-  classSource: string;
-  role: string | null;
-  /** Whether it is taken out of the accessibility tree, however the attribute spells it. */
-  isHidden: boolean;
-  /** Its whole source, which is what tells one cell of a row from another. */
-  body: string;
-  /** Its DIRECT children's source, which is what tells the element carrying a string from the box around it. */
-  own: string;
-  /** Where it sits in the file, which is what places one element inside another. */
-  start: number;
-  end: number;
-};
+const source = parseModule(VIEW, text);
+const elements = elementsIn(source);
 
 /** A span of the file an element can sit inside. */
 type Range = { start: number; end: number };
 
-function attributeNode(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttribute | undefined {
-  for (const attribute of opening.attributes.properties) {
-    if (ts.isJsxAttribute(attribute) && attribute.name.getText(source) === name) return attribute;
-  }
-
-  return undefined;
-}
-
-function attributeOf(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttributeValue | undefined {
-  return attributeNode(opening, name)?.initializer;
-}
+/** The className attribute's own source, which is where a recipe call shows and `classes` cannot. */
+const classSourceOf = (element: JsxRead): string => element.attributes.get("className")?.getText(source) ?? "";
 
 /** A bare `aria-hidden` is `true`, and `aria-hidden="false"` leaves the element in the tree, so neither is read as its presence. */
-function isHiddenFrom(opening: ts.JsxOpeningLikeElement): boolean {
-  const declared = attributeNode(opening, "aria-hidden");
-  if (declared === undefined) return false;
+function isHiddenFrom(element: JsxRead): boolean {
+  if (!element.attributes.has("aria-hidden")) return false;
 
-  const value = declared.initializer;
+  const value = element.attributes.get("aria-hidden");
   if (value === undefined) return true;
   if (ts.isStringLiteral(value)) return value.text !== "false";
   if (ts.isJsxExpression(value) && value.expression !== undefined) return value.expression.kind !== ts.SyntaxKind.FalseKeyword;
@@ -66,49 +47,11 @@ function isHiddenFrom(opening: ts.JsxOpeningLikeElement): boolean {
   return true;
 }
 
-/** A template's own text counts: an `align-top` written beside an interpolation is still declared. */
-function classesOf(opening: ts.JsxOpeningLikeElement): string[] {
-  const declared = attributeOf(opening, "className");
-  let written: string | null = null;
-
-  if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
-  else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
-    const expression = declared.expression;
-
-    if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
-    else if (ts.isTemplateExpression(expression)) {
-      written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
-    }
-  }
-
-  return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
-}
-
-function staticAttribute(opening: ts.JsxOpeningLikeElement, name: string): string | null {
-  const declared = attributeOf(opening, name);
-
-  return declared !== undefined && ts.isStringLiteral(declared) ? declared.text : null;
-}
-
-const elements: Element[] = [];
+/* Read with a walk of their own: the shared reader answers about elements, and these two cases are about
+   a call and a constructed index, neither of which is one. */
 const calls: string[] = [];
 const constructed: string[] = [];
 const visit = (node: ts.Node): void => {
-  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-    const opening = ts.isJsxElement(node) ? node.openingElement : node;
-
-    elements.push({
-      tag: opening.tagName.getText(source),
-      classes: classesOf(opening),
-      classSource: attributeOf(opening, "className")?.getText(source) ?? "",
-      role: staticAttribute(opening, "role"),
-      isHidden: isHiddenFrom(opening),
-      body: node.getText(source),
-      own: ts.isJsxElement(node) ? node.children.map((child) => child.getText(source)).join("") : "",
-      start: node.getStart(source),
-      end: node.getEnd(),
-    });
-  }
   if (ts.isCallExpression(node)) calls.push(node.expression.getText(source));
   if (ts.isNewExpression(node) && node.expression.getText(source) === "Map") constructed.push(node.getText(source));
   ts.forEachChild(node, visit);
@@ -116,9 +59,9 @@ const visit = (node: ts.Node): void => {
 visit(source);
 
 const tags = new Set(elements.map((element) => element.tag));
-const taggedAs = (tag: string): Element[] => elements.filter((element) => element.tag === tag);
+const taggedAs = (tag: string): JsxRead[] => elements.filter((element) => element.tag === tag);
 /** Whitespace-free, so a prettier reflow of a child expression does not move the element it belongs to. */
-const carries = (element: Element, child: string): boolean => element.own.replace(/\s+/g, "") === child;
+const carries = (element: JsxRead, child: string): boolean => element.own.replace(/\s+/g, "") === child;
 
 function namedImportsFrom(module: string): Set<string> {
   const names = new Set<string>();
@@ -161,7 +104,7 @@ function rangeOfFunction(name: string): Range | null {
 }
 
 /** `SlotWiring` is declared at top level and drawn nowhere but the pair cell, so what it renders lands in that cell. */
-const inside = (element: Element, ranges: readonly (Range | null)[]): boolean =>
+const inside = (element: JsxRead, ranges: readonly (Range | null)[]): boolean =>
   ranges.some((range) => range !== null && element.start >= range.start && element.end <= range.end);
 
 /** What a function destructures out of its one props object, empty where it takes none the guard can read. */
@@ -198,7 +141,7 @@ describe("the bracket wiring review", () => {
     /* The recipe and not only the component name: a slot or a row rebuilt as `<div className={card()}>`
        is the same decision, and the round panel around the table is the one card this view owes. */
     const wiring = [taggedAs("Table.Content")[0] ?? null, rangeOfFunction("SlotWiring")];
-    const recipes = elements.filter((element) => /\bcard\(/.test(element.classSource) && inside(element, wiring));
+    const recipes = elements.filter((element) => /\bcard\(/.test(classSourceOf(element)) && inside(element, wiring));
 
     assert.deepEqual(
       recipes.map((element) => element.tag),
@@ -219,7 +162,7 @@ describe("the bracket wiring review", () => {
   /* `.cards-cascade [role="listitem"]` in `fl_frontend/src/app/globals.css` is a DESCENDANT selector,
      so a second one anywhere inside a round panel takes the card entrance as well. */
   it("marks one list item per round and none below it", () => {
-    const items = elements.filter((element) => element.role === "listitem");
+    const items = elements.filter((element) => staticValue(element.attributes.get("role")) === "listitem");
 
     assert.equal(items.length, 1, `${VIEW}: ${String(items.length)} elements carry role="listitem", and the cascade animates each of them`);
   });
@@ -302,9 +245,9 @@ describe("the bracket wiring review", () => {
 
   describe("a fixture's row", () => {
     const cells = taggedAs("Table.Cell");
-    const pairCell = cells.filter((cell) => cell.body.includes("SlotWiring"));
-    const actionCell = cells.filter((cell) => cell.body.includes("adminSpielEditHref"));
-    const numberCell = cells.filter((cell) => !cell.body.includes("SlotWiring") && !cell.body.includes("adminSpielEditHref"));
+    const pairCell = cells.filter((cell) => cell.text.includes("SlotWiring"));
+    const actionCell = cells.filter((cell) => cell.text.includes("adminSpielEditHref"));
+    const numberCell = cells.filter((cell) => !cell.text.includes("SlotWiring") && !cell.text.includes("adminSpielEditHref"));
 
     /* Before the cases under it, which read all three: a row the guard cannot take apart would report
        the alignment of nothing. */
@@ -313,7 +256,7 @@ describe("the bracket wiring review", () => {
       assert.equal(pairCell.length, 1, `${VIEW}: expected one cell drawing SlotWiring, found ${String(pairCell.length)}`);
       assert.equal(actionCell.length, 1, `${VIEW}: expected one cell linking into the editor, found ${String(actionCell.length)}`);
       assert.equal(numberCell.length, 1, `${VIEW}: expected one remaining cell, found ${String(numberCell.length)}`);
-      assert.ok(numberCell[0]?.body.includes("spiel.spiel_nr"), `${VIEW}: the remaining cell is not the fixture number's`);
+      assert.ok(numberCell[0]?.text.includes("spiel.spiel_nr"), `${VIEW}: the remaining cell is not the fixture number's`);
     });
 
     /* The shape the doubled number had: a marker drawn for the eye and hidden from the reading, one
@@ -325,7 +268,7 @@ describe("the bracket wiring review", () => {
       assert.ok(slot !== null, `${VIEW}: SlotWiring is no longer a declaration the guard can place`);
 
       const silenced = elements.filter(
-        (element) => element.isHidden && element.own.trim() !== "" && inside(element, [pairCell[0] ?? null, slot]),
+        (element) => isHiddenFrom(element) && element.own.trim() !== "" && inside(element, [pairCell[0] ?? null, slot]),
       );
 
       assert.deepEqual(
@@ -348,5 +291,22 @@ describe("the bracket wiring review", () => {
         assert.deepEqual(declared, [], `${VIEW}: the ${which} cell declares ${declared.join(" ")}, so it no longer sits level with the other`);
       }
     });
+  });
+});
+
+describe("the bracket wiring's empty state", () => {
+  const empty = (isFinishedSaison: boolean): string =>
+    textOf(renderMarkup(AdminBracketWiringView, { rounds: [], saisonId: "2026", isFinishedSaison }), " ");
+
+  /* A finished season's bracket is not still to come, so a „noch“ or a hint waiting on the Spieltage tells a
+     reader of a past season to come back for rounds that were never drawn. */
+  it("says a finished season has no Finalrunden, and promises none", () => {
+    assert.ok(empty(true).includes("Für diese Saison gibt es keine Finalrunden."), empty(true));
+    assert.doesNotMatch(empty(true), /noch|sobald/i);
+  });
+
+  it("keeps the running season's promise that the KO-Runde's Spieltage are still to come", () => {
+    assert.ok(empty(false).includes("Für diese Saison gibt es noch keine Finalrunden."), empty(false));
+    assert.ok(empty(false).includes("Sobald die Spieltage der KO-Runde angelegt sind"), empty(false));
   });
 });

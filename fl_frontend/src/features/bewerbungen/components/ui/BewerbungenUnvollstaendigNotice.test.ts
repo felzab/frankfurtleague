@@ -1,49 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
-import { createElement as h } from "react";
+import { renderMarkup } from "@/shared/testing/renderTest.ts";
 
-import { renderToStaticMarkup } from "react-dom/server";
-import ts from "typescript";
-
-import type { ComponentType } from "react";
+import type { ComponentProps } from "react";
 import type { BewerbungenUnvollstaendig } from "./BewerbungenUnvollstaendigNotice.tsx";
 
-/**
- * `node --test` strips types but compiles no JSX, and resolves neither `next/link`'s subpath nor the
- * extensionless imports its dependencies ship. Local, so no other test pays for a transpile.
- */
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/link") return nextResolve("next/link.js", context);
-    try {
-      return nextResolve(specifier, context);
-    } catch (error) {
-      // A published ESM package importing `./x` with no extension, which Node alone will not resolve.
-      if (!specifier.startsWith(".") || specifier.includes(".js")) throw error;
-      return nextResolve(`${specifier}.js`, context);
-    }
-  },
-  load(url, context, nextLoad) {
-    if (!url.endsWith(".tsx")) return nextLoad(url, context);
-    const source = ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
-      compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
-    }).outputText;
-
-    return { format: "module", shortCircuit: true, source: source };
-  },
-});
-
+/* Reached with `await import` and never a static import beside the harness, which registers the JSX
+   compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { BewerbungenUnvollstaendigNotice } = await import("./BewerbungenUnvollstaendigNotice.tsx");
 const { Callout } = await import("@/shared/components/ui/Callout.tsx");
 
-const markup = (props: BewerbungenUnvollstaendig): string => renderToStaticMarkup(h(BewerbungenUnvollstaendigNotice, props));
+const markup = (props: BewerbungenUnvollstaendig): string => renderMarkup(BewerbungenUnvollstaendigNotice, props);
 
-const NEUESTE: BewerbungenUnvollstaendig = { richtung: "desc", umkehrHref: "?q=schule&order=asc" };
-const AELTESTE: BewerbungenUnvollstaendig = { richtung: "asc", umkehrHref: "?q=schule&order=desc" };
+const NEWEST: BewerbungenUnvollstaendig = { richtung: "desc", umkehrHref: "?q=schule&order=asc" };
+const OLDEST: BewerbungenUnvollstaendig = { richtung: "asc", umkehrHref: "?q=schule&order=desc" };
 
 /** The class list of the outermost element, which is where `Callout` puts its severity. */
 const rootClass = (html: string): string => /^<div class="([^"]*)"/.exec(html)?.[1] ?? "";
@@ -61,44 +32,43 @@ describe("the notice a truncated queue carries", () => {
   /* Against `Callout`'s own two severities rather than a class string: a literal would keep passing
      if the recipe were retokenised, and would say nothing about which severity was picked. */
   it("renders at warning, not at danger or info", () => {
-    const severity = (name: "warning" | "danger" | "info") =>
-      rootClass(renderToStaticMarkup(h(Callout as ComponentType<never>, { severity: name, title: "t" } as never)));
+    const severity = (name: ComponentProps<typeof Callout>["severity"]) => rootClass(renderMarkup(Callout, { severity: name, title: "t" }));
 
-    assert.equal(rootClass(markup(NEUESTE)), severity("warning"));
+    assert.equal(rootClass(markup(NEWEST)), severity("warning"));
     assert.notEqual(severity("warning"), severity("danger"), "the two severities are indistinguishable, so this proves nothing");
-    assert.notEqual(rootClass(markup(NEUESTE)), severity("info"));
+    assert.notEqual(rootClass(markup(NEWEST)), severity("info"));
   });
 
   /* A dismissible notice would leave a partial queue looking whole, and the operator who closed it
      with no way back. Asserted on the markup, `Callout` rendering its close control as a button. */
   it("offers nothing to close it with", () => {
-    for (const props of [NEUESTE, AELTESTE]) {
+    for (const props of [NEWEST, OLDEST]) {
       assert.doesNotMatch(markup(props), /<button/, "the notice can be dismissed");
       assert.doesNotMatch(markup(props), /aria-hidden="true"[^>]*>\s*$/, "the notice hides itself from assistive technology");
     }
   });
 
   it("reverses the read through a real link that says what it does", () => {
-    const neueste = anchor(markup(NEUESTE));
-    assert.equal(neueste.href, "?q=schule&order=asc", "the link drops the search text or the order");
-    assert.equal(neueste.name, "Lade die ältesten zuerst");
+    const newest = anchor(markup(NEWEST));
+    assert.equal(newest.href, "?q=schule&order=asc", "the link drops the search text or the order");
+    assert.equal(newest.name, "Lade die ältesten zuerst");
 
-    const aelteste = anchor(markup(AELTESTE));
-    assert.equal(aelteste.href, "?q=schule&order=desc");
-    assert.equal(aelteste.name, "Lade die neuesten zuerst");
+    const oldest = anchor(markup(OLDEST));
+    assert.equal(oldest.href, "?q=schule&order=desc");
+    assert.equal(oldest.name, "Lade die neuesten zuerst");
 
     // An `aria-label` here would replace the visible words with something a speaking user cannot read back.
-    for (const { attrs } of [neueste, aelteste]) assert.doesNotMatch(attrs, /aria-label/);
+    for (const { attrs } of [newest, oldest]) assert.doesNotMatch(attrs, /aria-label/);
   });
 
   /* One block, so the sentence is announced as a sentence. Split across paragraphs or spans with
      their own roles, the link would be read out detached from the loss it repairs. */
   it("announces the whole explanation as one block", () => {
-    for (const props of [NEUESTE, AELTESTE]) {
+    for (const props of [NEWEST, OLDEST]) {
       const html = markup(props);
-      const absaetze = html.match(/<p[ >]/g) ?? [];
+      const paragraphs = html.match(/<p[ >]/g) ?? [];
 
-      assert.equal(absaetze.length, 1, "the explanation is split across blocks");
+      assert.equal(paragraphs.length, 1, "the explanation is split across blocks");
       assert.match(html, /<p[^>]*>[^<]*<a [^>]*>[^<]*<\/a>[^<]*<\/p>/, "the link is not inline in the explanation");
       assert.doesNotMatch(html, /<p[^>]*>(?:(?!<\/p>).)*?role="/s, "an element inside the sentence claims a role of its own");
     }
@@ -107,20 +77,20 @@ describe("the notice a truncated queue carries", () => {
   /* The order is the message: what truncation COSTS before what it offers. Led by the reversal, the
      notice reads as a sorting preference rather than as a permanent hole in the duplicate marking. */
   it("says what truncation costs before what it offers", () => {
-    for (const props of [NEUESTE, AELTESTE]) {
+    for (const props of [NEWEST, OLDEST]) {
       const html = markup(props);
       const at = (teil: string) => {
-        const stelle = html.indexOf(teil);
-        assert.notEqual(stelle, -1, `the notice no longer says: ${teil}`);
+        const at2 = html.indexOf(teil);
+        assert.notEqual(at2, -1, `the notice no longer says: ${teil}`);
 
-        return stelle;
+        return at2;
       };
 
-      const reihenfolge = [at("Dubletten werden über alle"), at("Die Zahlen am Filter"), at("Geladen sind"), at("Auch diese Ansicht")];
+      const order2 = [at("Dubletten werden über alle"), at("Die Zahlen am Filter"), at("Geladen sind"), at("Auch diese Ansicht")];
 
       assert.deepEqual(
-        [...reihenfolge].sort((a, b) => a - b),
-        reihenfolge,
+        [...order2].sort((a, b) => a - b),
+        order2,
         "the notice leads with something other than the duplicate loss",
       );
     }
@@ -130,7 +100,7 @@ describe("the notice a truncated queue carries", () => {
      bewerbungenQueueFacetCounts`), so distrusting them here sends an operator reversing the read over a
      number that was already whole. */
   it("distrusts the one facet counted off the served rows and no other", () => {
-    for (const props of [NEUESTE, AELTESTE]) {
+    for (const props of [NEWEST, OLDEST]) {
       const html = markup(props);
 
       assert.match(html, /Die Zahlen am Filter Herkunft zählen nur die geladenen Zeilen\./);
@@ -142,12 +112,12 @@ describe("the notice a truncated queue carries", () => {
   /* The reversed view is just as truncated, and it is the only view whose own incompleteness the
      operator cannot infer from having clicked something. */
   it("says it is still incomplete from both ends of the queue", () => {
-    for (const props of [NEUESTE, AELTESTE]) {
+    for (const props of [NEWEST, OLDEST]) {
       assert.match(markup(props), /Auch diese Ansicht bleibt unvollständig\./);
       assert.match(markup(props), /Dubletten werden über alle Bewerbungen erkannt/);
     }
 
-    assert.match(markup(NEUESTE), /Geladen sind die neuesten Bewerbungen/);
-    assert.match(markup(AELTESTE), /Geladen sind die ältesten Bewerbungen/);
+    assert.match(markup(NEWEST), /Geladen sind die neuesten Bewerbungen/);
+    assert.match(markup(OLDEST), /Geladen sind die ältesten Bewerbungen/);
   });
 });

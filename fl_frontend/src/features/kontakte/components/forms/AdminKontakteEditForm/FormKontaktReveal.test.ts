@@ -10,7 +10,7 @@ import type { FLKontaktSitz } from "../../../schemas.ts";
    static import beside it resolves first and dies on the extension. */
 const { FormKontaktReveal } = await import("./FormKontaktReveal.tsx");
 
-const TRAINERIN: FLKontaktSitz = { saison_id: "2526", rolle: "trainer", vorname: "Wiltrudis", nachname: "Quastenflosser" };
+const TRAINER_SEAT: FLKontaktSitz = { saison_id: "2526", rolle: "trainer", vorname: "Wiltrudis", nachname: "Quastenflosser" };
 const ANSPRECHPERSON: FLKontaktSitz = { saison_id: "2425", rolle: "ansprechperson", vorname: "Ortwinia", nachname: "Pfeffernuss" };
 
 const markup = (saison_teams: FLKontaktSitz[], bewerbungen: FLKontaktSitz[]): string =>
@@ -18,12 +18,12 @@ const markup = (saison_teams: FLKontaktSitz[], bewerbungen: FLKontaktSitz[]): st
 const words = (saison_teams: FLKontaktSitz[], bewerbungen: FLKontaktSitz[]): string => textOf(markup(saison_teams, bewerbungen));
 
 /** Whom each listed seat is held for, in document order. */
-const genannte = (html: string): string[] => [...html.matchAll(/<dd\b[^>]*>(.*?)<\/dd>/g)].map((treffer) => textOf(treffer[1] ?? ""));
+const namedSeats = (html: string): string[] => [...html.matchAll(/<dd\b[^>]*>(.*?)<\/dd>/g)].map((treffer) => textOf(treffer[1] ?? ""));
 
 describe("the reveal an erasure is confirmed over", () => {
   it("names every seat the address holds, across both collections", () => {
     assert.deepEqual(
-      genannte(markup([TRAINERIN], [ANSPRECHPERSON])),
+      namedSeats(markup([TRAINER_SEAT], [ANSPRECHPERSON])),
       ["Wiltrudis Quastenflosser", "Ortwinia Pfeffernuss"],
       "the confirmation names fewer people than the write would clear",
     );
@@ -33,14 +33,14 @@ describe("the reveal an erasure is confirmed over", () => {
     // A person's name is the `<dd>` under the place's `<dt>`, which is the emphasis every other
     // admin readout gives one — in prose it would read as the sentence's least important half.
     assert.match(
-      markup([TRAINERIN], []),
+      markup([TRAINER_SEAT], []),
       /<dt[^>]*>Saison 2526 · [^<]*<\/dt><dd[^>]*>Wiltrudis Quastenflosser<\/dd>/,
       "a seat is two strings sharing a line",
     );
   });
 
   it("places an application seat in its Bewerbung and never in a Saison", () => {
-    const text = words([], [TRAINERIN]);
+    const text = words([], [TRAINER_SEAT]);
 
     assert.match(text, /Bewerbung 2526/, "an application seat is not placed in the application it sits on");
     assert.doesNotMatch(text, /Saison 2526/, "an application reads as a season already played");
@@ -51,19 +51,19 @@ describe("the reveal an erasure is confirmed over", () => {
     assert.ok(KONTAKT_ROLLEN.length >= 3, "the seat table is short of the three a block holds");
 
     for (const { value, label } of KONTAKT_ROLLEN) {
-      assert.ok(words([{ ...TRAINERIN, rolle: value }], []).includes(`Saison 2526 · ${label}`), `${value} is placed without its own label`);
+      assert.ok(words([{ ...TRAINER_SEAT, rolle: value }], []).includes(`Saison 2526 · ${label}`), `${value} is placed without its own label`);
     }
   });
 
   it("keeps one person's two seats in one season apart", () => {
     // `trainer_ist_zugleich` seats one person twice in one row, and without the role beside the name
     // the pair renders as one line written out twice.
-    const paar = markup([TRAINERIN, { ...TRAINERIN, rolle: "ansprechperson" }], []);
+    const pairOf = markup([TRAINER_SEAT, { ...TRAINER_SEAT, rolle: "ansprechperson" }], []);
 
-    assert.equal(genannte(paar).length, 2, "one person's two seats collapse into one row");
+    assert.equal(namedSeats(pairOf).length, 2, "one person's two seats collapse into one row");
     assert.notEqual(
-      /<dt[^>]*>([^<]*)<\/dt>/.exec(paar)?.[1],
-      [...paar.matchAll(/<dt[^>]*>([^<]*)<\/dt>/g)][1]?.[1],
+      /<dt[^>]*>([^<]*)<\/dt>/.exec(pairOf)?.[1],
+      [...pairOf.matchAll(/<dt[^>]*>([^<]*)<\/dt>/g)][1]?.[1],
       "two seats of one season are labelled alike",
     );
   });

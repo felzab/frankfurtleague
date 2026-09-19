@@ -2,37 +2,49 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, squadIsFull } from "./utils.ts";
+import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
+import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
 
-import type { FLSpielerWithMemberships } from "./schemas.ts";
+import type { FLSpielerMembership, FLSpielerWithMemberships } from "./schemas.ts";
 
 const TEAM_A = "6890a1b2c3d4e5f607180001";
 const TEAM_B = "6890a1b2c3d4e5f607180002";
 
+const MEMBERSHIP: FLSpielerMembership = {
+  saison_id: "2026",
+  team_id: TEAM_A,
+  nummer: null,
+  position: null,
+  stufe: null,
+  is_nachgetragen: false,
+  rolle: null,
+  inactive_since: null,
+};
+
+/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
+const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
+  id: "6890a1b2c3d4e5f607180003",
+  vorname: "X",
+  nachname: null,
+  inactive_since: null,
+  geburtsdatum: null,
+  einwilligung: null,
+  memberships: [MEMBERSHIP],
+} satisfies FLSpielerWithMemberships);
+
 function person(
   id: string,
-  memberships: Partial<FLSpielerWithMemberships["memberships"][number]>[],
+  memberships: Partial<FLSpielerMembership>[],
   // The PERSON's own retirement, which is a different fact from any row's: separate here because the
   // squad count deliberately ignores it.
   personInactiveSince: string | null = null,
 ): FLSpielerWithMemberships {
   return {
+    ...SPIELER,
     id,
-    vorname: "X",
-    nachname: null,
     inactive_since: personInactiveSince,
-    memberships: memberships.map((membership) => ({
-      saison_id: "2026",
-      team_id: TEAM_A,
-      nummer: null,
-      position: null,
-      stufe: null,
-      is_nachgetragen: false,
-      rolle: null,
-      inactive_since: null,
-      ...membership,
-    })),
-  } as FLSpielerWithMemberships;
+    memberships: memberships.map((membership) => ({ ...MEMBERSHIP, ...membership })),
+  };
 }
 
 describe("describeErasureUmfang", () => {
@@ -48,7 +60,7 @@ describe("describeErasureUmfang", () => {
   it("writes whole sentences rather than a telegraphic list", () => {
     for (const report of [describeErasureUmfang(0, 0), describeErasureUmfang(1, 1), describeErasureUmfang(3, 12)]) {
       assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const satz of report.split(". ")) assert.match(satz, /\b(wurde|wurden|gab|stand)\b/, `„${satz}“ carries no verb`);
+      for (const sentence of report.split(". ")) assert.match(sentence, /\b(wurde|wurden|gab|stand)\b/, `„${sentence}“ carries no verb`);
     }
   });
 
@@ -199,5 +211,37 @@ describe("squadIsFull", () => {
      accepts, on a figure nothing on that page could show the admin. */
   it("refuses nothing where the cap is unknown", () => {
     assert.equal(squadIsFull(99, null), false);
+  });
+});
+
+describe("judgeRowReturn", () => {
+  const stored = { teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" };
+  const other = { teamId: TEAM_B, name: "TSV Beta", shorthand: "TSB" };
+
+  /* `REQ-SQUAD-001` is asked first there, so a replaced club is reported before any squad count, and a
+     reader is never sent to free a place in a season the club has left. */
+  it("refuses a row whose club the season no longer holds, whatever any squad's room", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [{ ...other, isSquadFull: true }]), "clubLeft");
+    assert.equal(judgeRowReturn(TEAM_A, []), "clubLeft");
+  });
+
+  // The row's own club and no other: the count is per squad.
+  it("refuses a row whose own club's squad is full, and no row for another club's", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [{ ...stored, isSquadFull: true }, other]), "squadFull");
+    assert.equal(judgeRowReturn(TEAM_A, [stored, { ...other, isSquadFull: true }]), "open");
+  });
+
+  // An unknown cap refuses nothing, as `SpielerTeamOption.isSquadFull` declares.
+  it("opens a row whose club's room is unknown", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [stored]), "open");
+  });
+});
+
+describe("nummerPayload", () => {
+  // Both squad forms send through it, so one number is never refused on one form and taken on the other.
+  it("sends a number without the space around it, and an emptied box as no number", () => {
+    assert.equal(nummerPayload(" 7 "), "7");
+    assert.equal(nummerPayload("  "), null);
+    assert.equal(nummerPayload(null), null);
   });
 });

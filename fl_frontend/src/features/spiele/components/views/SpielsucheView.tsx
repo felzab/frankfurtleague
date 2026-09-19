@@ -14,6 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { buildSpielFacets } from "../../facets";
 import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
+import { SpielCardGrid } from "../ui/SpielCardGrid";
 
 import type { FLSpiel } from "../../schemas";
 
@@ -40,16 +41,25 @@ export function SpielsucheView({
   spiele,
   today,
   isAdmin = false,
+  isFinishedSaison,
   spieltage,
+  teams,
+  spielorte,
+  schiedsrichter,
 }: {
   spiele: FLSpiel[];
   today: string;
   isAdmin?: boolean;
+  isFinishedSaison: boolean;
   /**
    * The season's matchdays, labelled, for the facet of the same name. Absent on a route that fetched
    * none, and `fl_frontend/src/features/spiele/facets.ts :: buildSpielFacets` then omits the facet.
    */
   spieltage?: readonly { id: string; label: string }[];
+  /** What `buildSpielFacets` labels a linked value with; absent where the route's tier reads no such list. */
+  teams?: readonly { id: string; name: string }[];
+  spielorte?: readonly { id: string; name: string }[];
+  schiedsrichter?: readonly { id: string; name: string | null }[];
 }) {
   const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
 
@@ -64,9 +74,12 @@ export function SpielsucheView({
     }));
   }, [spiele]);
 
-  // Three facets derive their options from the fixtures, so none of those can offer a value narrowing
-  // to nothing. `spieltag` is the exception, and reads zero for a matchday nothing is drawn into yet.
-  const facets = useMemo(() => buildSpielFacets({ spiele, today, isAdmin, spieltage }), [spiele, today, isAdmin, spieltage]);
+  // A facet's zero is not "nothing to find": `spieltag` reads it for a matchday nothing is drawn into
+  // yet, and a club, venue or referee a link names reads it where no fixture here holds one.
+  const facets = useMemo(
+    () => buildSpielFacets({ spiele, today, isAdmin, spieltage, teams, spielorte, schiedsrichter }),
+    [spiele, today, isAdmin, spieltage, teams, spielorte, schiedsrichter],
+  );
   // The controls are `FilterLeiste`'s and they meet this side in the URL, so it only reads.
   const selection = useFacetSelection(facets);
 
@@ -89,8 +102,8 @@ export function SpielsucheView({
     ? "Suche nach einem Spiel oder setze einen Filter."
     : shown.length === 0
       ? spielQuery === ""
-        ? "Keine Spiele für diese Filter"
-        : `Keine Spiele für „${spielQuery}“`
+        ? "Keine Spiele für diese Filter."
+        : `Keine Spiele für „${spielQuery}“.`
       : null;
 
   return (
@@ -121,15 +134,16 @@ export function SpielsucheView({
         {/* ALWAYS mounted, an empty grid being a zero-height box. A third branch beside the two
             messages is rebuilt whenever a query crosses "nothing found" to "something found",
             replaying every surviving card's entrance for one row. */}
-        <div
+        <SpielCardGrid
           role="list"
-          className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+          className={CARDS_CASCADE}>
           <SpielCardsList
             spiele={shown}
             today={today}
             isAdmin={isAdmin}
+            isFinishedSaison={isFinishedSaison}
           />
-        </div>
+        </SpielCardGrid>
       </div>
     </div>
   );

@@ -5,26 +5,31 @@ import { useRouter } from "next/navigation";
 
 import { Ban } from "@gravity-ui/icons";
 
-import { Button, FieldError, Label, TextArea, TextField } from "@heroui/react";
+import { FieldError, Label, TextArea, TextField } from "@heroui/react";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
+import { FLAblehnenBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
-/** The sentence the disabled decline is described by. This control renders at most once per page. */
-const ABSAGE_BUTTON_HINT_ID = "bewerbung-absage-hinweis";
+/**
+ * The cap and its wording are the write's own (`docs/frontend/spec.md :: I18`), asked of the field that
+ * judges it: a second spelling here is a bound the two tiers can disagree about.
+ */
+const zuLangSatz = (grund: string): string | null => {
+  const geprueft = FLAblehnenBewerbungPayloadSchema.shape.grund.safeParse(grund);
 
-const TOO_LONG = `Der Grund darf höchstens ${String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen lang sein.`;
+  return geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null);
+};
 
 /**
  * The decline, on `POST /bewerbungen/{bewerbung_id}/ablehnen`. **A confirmation step and no undo**:
@@ -47,6 +52,11 @@ export function AdminBewerbungAblehnenSection({
   const [grund, setGrund] = useState("");
   /** The refusal the API answered with, which lands on this field. Cleared on the next keystroke. */
   const [grundError, setGrundError] = useState<string | null>(null);
+  /**
+   * The bound's verdict, published when the field is left and only retracted by a keystroke: a
+   * message between two keystrokes describes a reason nobody finished writing (`.claude/rules/frontend.md`).
+   */
+  const [laengeError, setLaengeError] = useState<string | null>(null);
 
   const panel = formPanel();
 
@@ -55,15 +65,12 @@ export function AdminBewerbungAblehnenSection({
      it measures, and the trimmed value is what the write carries and the school reads. */
   const trimmedGrund = grund.trim();
 
-  const isTooLong = trimmedGrund.length > BEWERBUNG_GRUND_MAX_LENGTH;
   const isEmpty = trimmedGrund === "";
-  const error = grundError ?? (isTooLong ? TOO_LONG : null);
+  const zuLang = isEmpty ? null : zuLangSatz(grund);
+  const error = grundError ?? laengeError;
+  const closedReason = isEmpty ? "Schreibe zuerst einen Grund." : zuLang !== null ? "Kürze den Grund." : null;
 
   const handleDecline = () => {
-    // Ahead of `press`, so an empty or over-long reason neither arms nor writes. The button is
-    // disabled in both states; this is what holds if a press reaches the handler anyway.
-    if (isEmpty || isTooLong) return;
-
     press(async () => {
       const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund });
 
@@ -71,7 +78,7 @@ export function AdminBewerbungAblehnenSection({
         const fieldError = res.fieldErrors?.grund ?? null;
         setGrundError(fieldError);
 
-        if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
+        if (fieldError === null) appToast.danger("Bewerbung nicht abgelehnt", { description: res.error });
         return;
       }
 
@@ -111,15 +118,17 @@ export function AdminBewerbungAblehnenSection({
           value={grund}
           onChange={(next) => {
             setGrundError(null);
+            if (next.trim() === "" || zuLangSatz(next) === null) setLaengeError(null);
             setGrund(next);
             cancel();
           }}
+          onBlur={() => setLaengeError(zuLang)}
           isInvalid={error !== null ? true : undefined}>
           <Label className={FIELD_LABEL}>Grund für die Absage</Label>
           <TextArea
             fullWidth
             placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
-            className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
+            className={`${FIELD_TEXTAREA} min-h-24`}
           />
           <FieldError className={FIELD_ERROR}>{error}</FieldError>
         </TextField>
@@ -158,37 +167,28 @@ export function AdminBewerbungAblehnenSection({
           </ConfirmReveal>
         )}
 
-        <div className="flex w-full flex-col gap-y-1.5">
-          <ConfirmActionRow
+        <ConfirmActionRow
+          isConfirming={isConfirming}
+          isPending={isDeclining}
+          onCancel={cancel}>
+          {/* On the control, never a sentence beside it that the first keystroke would unmount under the
+              admin typing (`docs/frontend/spec.md` §1.14). */}
+          <ConfirmPressButton
             isConfirming={isConfirming}
             isPending={isDeclining}
-            onCancel={cancel}>
-            <Button
-              type="button"
-              variant="primary"
-              aria-describedby={!isDeclining && (isEmpty || isTooLong) ? ABSAGE_BUTTON_HINT_ID : undefined}
-              isDisabled={isDeclining || isEmpty || isTooLong}
-              onPress={handleDecline}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming && (
-                <Ban
-                  aria-hidden="true"
-                  width={18}
-                  height={18}
-                />
-              )}
-              {isDeclining ? "Sagt ab..." : isConfirming ? "Ja, Absage verbindlich verschicken" : "Bewerbung ablehnen"}
-            </Button>
-          </ConfirmActionRow>
-
-          {!isDeclining && (isEmpty || isTooLong) && (
-            <Hint
-              mode="inline"
-              describes={ABSAGE_BUTTON_HINT_ID}
-              text={isEmpty ? "Schreibe zuerst einen Grund." : "Kürze den Grund."}
-            />
-          )}
-        </div>
+            reason={closedReason}
+            resting="Bewerbung ablehnen"
+            armed="Ja, Absage verbindlich verschicken"
+            running="Sagt ab..."
+            icon={
+              <Ban
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleDecline}
+          />
+        </ConfirmActionRow>
       </div>
     </section>
   );

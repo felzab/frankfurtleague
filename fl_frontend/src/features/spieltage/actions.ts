@@ -1,10 +1,10 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -67,7 +67,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
       patchOperation = await patchSpieltag(validated.data);
     } catch (error) {
       const refusal = mapSpieltagRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      if (refusal) return refusalResult(refusal);
       throw error;
     }
 
@@ -76,6 +76,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     invalidateSpieltage();
+    refresh();
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
   });

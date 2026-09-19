@@ -7,26 +7,28 @@ import { Button, Card } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
-import { formatSpielDisplay, isAbgesagt } from "../../utils";
+import { ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
 
-export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FLSpiel; onOpenInfoModal?: () => void }) {
+export function SpielCardCompact({
+  spielData,
+  isFinishedSaison,
+  onOpenInfoModal,
+}: {
+  spielData: FLSpiel;
+  isFinishedSaison: boolean;
+  onOpenInfoModal?: () => void;
+}) {
   const {
     datum: spielDatum,
     uhrzeit: spielUhrzeit,
     ergebnis: spielErgebnis,
     elfmeterschiessen: spielElfmeterschiessen,
-  } = formatSpielDisplay(spielData);
-
-  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
-  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
-  // than a result still owed.
-  const ergebnisTint =
-    spielData.ergebnis !== null ? "text-success-strong" : isAbgesagt(spielData.sonderereignis) ? "text-danger-strong" : "text-warning-strong";
+  } = formatSpielDisplay(spielData, isFinishedSaison);
 
   return (
     <Card className={`${card()} w-full p-4`}>
@@ -60,8 +62,11 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                   /* `flex` here and on the span, and `bg-hover-muted`, for `SpielCard.tsx`'s
                      reasons at the same control. `rounded-xl` is spelled, not inherited: HeroUI's
                      base radius clamps to a circle at this size. */
-                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[32px] w-[32px] rounded-xl p-0 transition-colors duration-200">
-                  <CircleExclamation className="m-0 size-4" />
+                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex size-8 rounded-xl p-0 transition-colors duration-(--motion-base)">
+                  <CircleExclamation
+                    aria-hidden="true"
+                    className="m-0 size-4.5"
+                  />
                 </Button>
               </IconTooltip>
             </span>
@@ -69,30 +74,32 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
         </div>
 
         {/* Equal 1fr tracks centre the score whatever the names measure; the popover carries the
-            full name a truncation drops. */}
+            full name past a second line. */}
         <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
           <span className="flex min-w-0 justify-end">
             <SpielTeamSlot
               team={spielData.team1}
               quelle={spielData.team1_quelle}
+              saisonId={spielData.saison_id}
               text={spielData.team1?.name || "Team 1"}
-              className="fluid-sm lg:fluid-base max-w-full truncate text-right font-bold"
+              className="fluid-sm lg:fluid-base text-right font-bold"
             />
           </span>
 
-          {/* `-strong` and a second line under the score, as on the other two cards. */}
+          {/* A second line under the score, as on the other two cards. */}
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${ergebnisTint}`}
+            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
           />
 
           <span className="flex min-w-0 justify-start">
             <SpielTeamSlot
               team={spielData.team2}
               quelle={spielData.team2_quelle}
+              saisonId={spielData.saison_id}
               text={spielData.team2?.name || "Team 2"}
-              className="fluid-sm lg:fluid-base max-w-full truncate text-left font-bold"
+              className="fluid-sm lg:fluid-base text-left font-bold"
             />
           </span>
         </div>

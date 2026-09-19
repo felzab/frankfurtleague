@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import asyncio
 from collections.abc import Callable
 from typing import Any, NoReturn, cast
@@ -11,10 +10,10 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.admin_router import _write_spiel_data
 from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
+    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
@@ -36,6 +35,7 @@ from app.api.spiele.services import (
     STATE_NO_SHOW_WITHOUT_TWO_SIDES,
     STATE_RESULT_ON_A_NON_EVENT,
     BookedReferee,
+    BookedReferences,
     BookedSlot,
     BookedVenue,
     ResolvedReferences,
@@ -43,19 +43,24 @@ from app.api.spiele.services import (
     SlotAdvancement,
     SpieltagRelease,
     apply_payload_to_spiel,
+    build_slot_holder_filter,
     days_a_clash_can_reach,
     find_advancement_occupancy_refusal,
     find_booking_refusal,
+    find_claims_made,
     find_clash_refusal,
     find_departed_occupants,
     find_double_entries,
     find_eligibility_refusal,
+    find_references_to_anchor,
     find_result_removal_refusal,
+    find_retired_bookings,
+    find_slot_claims,
     find_state_refusal,
     judge_spieltag_occupancy,
 )
 from app.core.exceptions import DocumentConflictException, WriteRefusal
-from tests.core.app_source import declared
+from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -229,6 +234,8 @@ LIVE_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Fra
 RETIRED_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
 LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None)
 RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01")
+# The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01")
 
 
 def patched_spiel(
@@ -447,16 +454,30 @@ class TestComposingTheDisplayCopies:
         assert patched.ort is None and patched.schiedsrichter is None
 
 
-def booking_refusal_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+def booking_refusal(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> WriteRefusal | None:
     stored = stored_spiel(season_docs, nr)
-    refusal = find_booking_refusal(
+
+    return find_booking_refusal(
         ObjectId(stored["_id"]),
         payload_for(season_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(season_docs),
         resolved,
+        RULES,
     )
 
+
+def booking_refusal_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+    refusal = booking_refusal(season_docs, nr, resolved, **overrides)
+
     return None if refusal is None else refusal.error_code
+
+
+def booking_refusal_message_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+    """The sentence rather than the code, for the one case where two rows share a code and must not share a wording."""
+
+    refusal = booking_refusal(season_docs, nr, resolved, **overrides)
+
+    return None if refusal is None else refusal.message
 
 
 class TestTheBookingRefusal:
@@ -494,6 +515,231 @@ class TestTheBookingRefusal:
         resolved = references(schiedsrichter=resolved_referee)
 
         assert booking_refusal_for(season, 1, resolved, schiedsrichter=A_DIFFERENT_REFEREE) == BOOKING_UNKNOWN_RESOURCE
+
+
+# Both rows retired, so a save passing one of them by is refused for the other.
+BOTH_RETIRED = {"ort": RETIRED_VENUE, "schiedsrichter": RETIRED_REFEREE}
+
+# One row retired and the other live, so a refusal can only be the retired one's.
+ONE_RETIRED = {
+    "ort": {"ort": RETIRED_VENUE, "schiedsrichter": LIVE_REFEREE},
+    "schiedsrichter": {"ort": LIVE_VENUE, "schiedsrichter": RETIRED_REFEREE},
+}
+
+
+def as_seeded(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return season_docs
+
+
+def called_off_first(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """`season` with spiel 1 called off, which a retirement passes by."""
+
+    return [{**season_docs[0], "sonderereignis": "ausgefallen"}, *season_docs[1:]]
+
+
+# Spiel 2 with its result cleared, which `is_unplayed` reads beside the event.
+CLEARED = {"team1": team(CRONBERG, "Cronberg"), "team2": team(DORNBUSCH, "Dornbusch")}
+
+# The two ways a save puts a fixture back among those still to be played.
+REOPENING_SAVES = [
+    pytest.param(called_off_first, 1, {"sonderereignis": None}, id="lifting a call-off"),
+    pytest.param(as_seeded, 2, CLEARED, id="clearing a result"),
+]
+
+
+class TestAFixtureReopenedBooksWhatItKeeps:
+    """`REQ-BOOKING-001` on a kept reference: a save putting its fixture back among those still to be played books it again."""
+
+    @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
+    @pytest.mark.parametrize("slot", ["ort", "schiedsrichter"])
+    def test_a_save_reopening_the_fixture_books_the_retired_row_it_kept(self, season, seasoned, nr, overrides, slot):
+        """The retirement's case: the fixture it passed by would stand to be played by a row the league has taken out of service."""
+
+        assert booking_refusal_for(seasoned(season), nr, references(**ONE_RETIRED[slot]), **overrides) == BOOKING_UNKNOWN_RESOURCE
+
+    @pytest.mark.parametrize(
+        ("seasoned", "nr", "overrides"),
+        [
+            pytest.param(called_off_first, 1, {"notiz": "Platz gesperrt"}, id="an edit leaving the fixture called off"),
+            # Played before the save and after it, so the retirement that spared it is still right to.
+            pytest.param(
+                as_seeded,
+                2,
+                {"team1": team(CRONBERG, "Cronberg", tore=3), "team2": team(DORNBUSCH, "Dornbusch", tore=3)},
+                id="a corrected result",
+            ),
+            # The step out of the partition, which a retired row may take: nothing is left to play.
+            pytest.param(as_seeded, 1, {"sonderereignis": "ausgefallen"}, id="calling the fixture off"),
+        ],
+    )
+    def test_a_save_leaving_the_fixture_where_it_was_books_nothing(self, season, seasoned, nr, overrides):
+        assert booking_refusal_for(seasoned(season), nr, references(**BOTH_RETIRED), **overrides) is None
+
+
+# Spiel 2's own result, which is what the replay of its Paarung writes back.
+PLAYED_AGAIN = {"team1": team(CRONBERG, "Cronberg", tore=3), "team2": team(DORNBUSCH, "Dornbusch", tore=1)}
+
+
+A_NAMELESS_RETIRED_REFEREE = ObjectId("6890a1b2c3d4e5f607182939")
+REFEREE_RETIRED_ON = "2026-01-15"
+
+
+def booked_by(season_docs: list[dict[str, Any]], nr: int, schiedsrichter_id: ObjectId) -> dict[str, Any]:
+    """One fixture of `season` holding a NAMELESS referee booking, which is what both rows below leave on one."""
+
+    stored = stored_spiel(season_docs, nr)
+
+    return {**stored, "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": None, "payment": 20}}
+
+
+class TestTheGhostIsToldFromAnyOtherNamelessRow:
+    """A null name says a name is missing, never WHICH row is missing it, so the queue reads the id.
+
+    Calling a merely retired row a deletion tells an administrator that somebody asked to be
+    forgotten who did not.
+    """
+
+    def test_each_fault_names_the_row_it_is_about(self, season):
+        ghosted = booked_by(season, 1, GHOST_SCHIEDSRICHTER_ID)
+        retired = booked_by(season, 29, A_NAMELESS_RETIRED_REFEREE)
+
+        faults = find_retired_bookings(
+            FLSpielListAdapter.validate_python([ghosted, retired]),
+            retired_venues={},
+            retired_referees={GHOST_SCHIEDSRICHTER_ID: GHOST_INACTIVE_SINCE, A_NAMELESS_RETIRED_REFEREE: REFEREE_RETIRED_ON},
+        )
+
+        assert [(fault.spiel_nr, fault.booking_id) for fault in faults] == [(1, GHOST_SCHIEDSRICHTER_ID), (29, A_NAMELESS_RETIRED_REFEREE)]
+        # The premise: both rows leave the same null, so nothing but the id parts them.
+        assert {fault.name for fault in faults} == {None}
+
+    def test_a_venue_fault_names_its_own_row_too(self, season):
+        """Required on both arms, so a reader reaches the venue by id as well rather than by its name alone."""
+
+        retired_ground = {"spielort_id": ObjectId(ANOTHER_SPIELORT), "name": "Platz", "maps_link": "Platz, Frankfurt", "mietpreis": 40}
+        booked = {**stored_spiel(season, 1), "ort": retired_ground}
+
+        (fault,) = find_retired_bookings(
+            FLSpielListAdapter.validate_python([booked]),
+            retired_venues={ObjectId(ANOTHER_SPIELORT): REFEREE_RETIRED_ON},
+            retired_referees={},
+        )
+
+        assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
+
+    def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, season):
+        """`REQ-CLASH-001` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
+
+        Counted, it would report two strangers' matches as one person double-booked and refuse a
+        save that merely re-times either.
+        """
+
+        ghosted, retired = FLSpielListAdapter.validate_python(
+            [booked_by(season, 1, GHOST_SCHIEDSRICHTER_ID), booked_by(season, 29, A_NAMELESS_RETIRED_REFEREE)]
+        )
+
+        def referees_claimed(spiel):
+            return [claim.reference for claim in find_slot_claims(spiel) if claim.resource == "Schiedsrichter"]
+
+        assert referees_claimed(ghosted) == []
+        # The control: the same fixture shape under any other id still claims its slot.
+        assert referees_claimed(retired) == [A_NAMELESS_RETIRED_REFEREE]
+
+
+class TestTheGhostIsRefusedAsAnyRetiredRowIs:
+    """`REQ-BOOKING-001` meets the ghost where it meets any retired referee.
+
+    Its own class because the ghost is the one retired row with no name, and the sentence a named
+    row gets offers a reactivation it never takes.
+    """
+
+    def test_a_save_reopening_the_fixture_is_refused_it(self, season):
+        assert booking_refusal_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **CLEARED) == BOOKING_UNKNOWN_RESOURCE
+
+    def test_a_save_leaving_the_fixture_played_keeps_it(self, season):
+        """A played fixture records who officiated it, and after an erasure that record is the ghost."""
+
+        assert booking_refusal_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **PLAYED_AGAIN) is None
+
+    def test_the_sentence_names_the_resource_and_offers_no_reactivation(self, season):
+        """Read against the named row's own sentence.
+
+        One wording for both prints a referee called nothing and offers a control the ghost has not
+        got.
+        """
+
+        ghost = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **CLEARED)
+        named = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=RETIRED_REFEREE), **CLEARED)
+
+        assert ghost is not None and "the Schiedsrichter chosen" in ghost and "reactivate" not in ghost
+        assert named is not None and "B. Whistle" in named and "reactivate" in named
+
+
+def anchored_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> BookedReferences:
+    return find_references_to_anchor(FLSpiel.model_validate(stored_spiel(season_docs, nr)), payload_for(season_docs, nr, **overrides), RULES)
+
+
+def held_by(season_docs: list[dict[str, Any]], nr: int) -> BookedReferences:
+    stored = FLSpiel.model_validate(stored_spiel(season_docs, nr))
+
+    return BookedReferences(
+        spielort_id=stored.ort.spielort_id if stored.ort is not None else None,
+        schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
+    )
+
+
+NOTHING_ANCHORED = BookedReferences(spielort_id=None, schiedsrichter_id=None)
+
+
+def untimed_first(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """`season` with spiel 1 given no time, so it claims nothing."""
+
+    return [{**season_docs[0], "uhrzeit": None}, *season_docs[1:]]
+
+
+# A result and a note on spiel 1, which leave its claims as they were.
+A_RESULT = {"team1": team(ADLER, "Adler", tore=2), "team2": team(BIEBER, "Bieber", tore=0)}
+A_NOTE = {"notiz": "Anstoß verschoben"}
+
+
+class TestTheReferencesASaveAnchors:
+    """`find_references_to_anchor`: a reference either rule judges blind is anchored, and a save moving no claim serialises with nobody."""
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            pytest.param(A_RESULT, id="a result"),
+            pytest.param(A_NOTE, id="a note"),
+            # A claim given up cannot double-book anything, and a retirement passes the fixture by.
+            pytest.param({"sonderereignis": "ausgefallen"}, id="calling the fixture off"),
+        ],
+    )
+    def test_a_save_making_no_claim_and_no_booking_anchors_nothing(self, season, overrides):
+        """The claim a result or a note keeps was in every rival's snapshot, so neither the clash rule nor the anchors take it up again."""
+
+        assert anchored_for(season, 1, **overrides) == NOTHING_ANCHORED
+
+    @pytest.mark.parametrize(
+        ("seasoned", "nr", "overrides"),
+        [
+            # The race `REQ-BOOKING-001` never sees: neither reference moves, and both claims do.
+            pytest.param(as_seeded, 1, {"uhrzeit": "10:00:00"}, id="a kept booking moved to another hour"),
+            pytest.param(as_seeded, 1, {"datum": "2026-03-14"}, id="a kept booking moved to another day"),
+            pytest.param(untimed_first, 1, {"uhrzeit": "18:00:00"}, id="an untimed fixture given its time"),
+            *REOPENING_SAVES,
+        ],
+    )
+    def test_a_save_claiming_or_booking_both_rows_anew_anchors_both(self, season, seasoned, nr, overrides):
+        """A reopening moves no claim, so its cases are `find_new_bookings`' half alone."""
+
+        docs = seasoned(season)
+
+        assert anchored_for(docs, nr, **overrides) == held_by(docs, nr)
+
+    def test_a_referee_swapped_at_the_same_hour_anchors_the_referee_alone(self, season):
+        anchored = anchored_for(season, 1, schiedsrichter=A_DIFFERENT_REFEREE)
+
+        assert anchored == BookedReferences(spielort_id=None, schiedsrichter_id=ObjectId(ANOTHER_SCHIEDSRICHTER))
 
 
 class TestEligibility:
@@ -1324,6 +1570,8 @@ class TestTheResolutionNeverFieldsAClubTwice:
                 advance_bracket_winners(
                     spiele_collection=cast(AsyncCollection, _SeasonCollection(a_decided_gruppe_seating_its_winner_twice)),
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
+                    # Never read: the refusal lands before the resolution judges a booking.
+                    schiedsrichter_collection=cast(AsyncCollection, object()),
                     saison_id=SAISON_ID,
                     rules=RULES,
                     session=cast(AsyncClientSession, object()),
@@ -1358,7 +1606,7 @@ class TestTheClashComparesRealTime:
     """`REQ-CLASH-001` across a date boundary, and the read that has to fetch the fixtures the comparison now reaches."""
 
     def slot(self, datum: str, uhrzeit: str, nr: int = 3) -> BookedSlot:
-        return BookedSlot(spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource="Spielort")
+        return BookedSlot(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource="Spielort")
 
     def test_two_bookings_either_side_of_midnight_clash(self):
         """An hour apart on the clock and a day apart on the calendar: the pair a comparison scoped by date never sees."""
@@ -1390,39 +1638,50 @@ class TestTheClashComparesRealTime:
         assert days_a_clash_can_reach("2026-03-08") == ["2026-03-07", "2026-03-08", "2026-03-09"]
         assert CLASH_REACH_DAYS * MINUTES_PER_DAY >= CLASH_BUFFER_MINUTES
 
-    def test_the_booking_read_is_keyed_on_that_window(self):
-        """Narrow this read back to the payload's own date and the rule above goes quiet rather than red, handed no neighbour to refuse."""
+    def test_the_booking_read_is_keyed_on_that_window(self, season):
+        """Narrow this read back to the claim's own date and the rule above goes quiet rather than red, handed no neighbour to refuse."""
 
-        # Every `datum` the write path puts in a literal, the projection's own `1` among them.
-        keyed_on = {
-            ast.unparse(value)
-            for node in ast.walk(declared(_write_spiel_data))
-            if isinstance(node, ast.Dict)
-            for key, value in zip(node.keys, node.values, strict=True)
-            if isinstance(key, ast.Constant) and key.value == "datum"
-        }
+        claims = find_slot_claims(payload_for(season, 1, datum="2026-03-08"))
 
-        assert "{'$in': days_a_clash_can_reach(spiel_data.datum)}" in keyed_on
-        assert "spiel_data.datum" not in keyed_on, "the booking read is scoped to the payload's own date again"
+        assert build_slot_holder_filter(claims)["datum"] == {"$in": days_a_clash_can_reach("2026-03-08")}
 
     def test_the_window_is_calendar_arithmetic_rather_than_string_work(self):
         """A month boundary is where a day counted off the text of a date goes wrong."""
 
         assert days_a_clash_can_reach("2026-03-01") == ["2026-02-28", "2026-03-01", "2026-03-02"]
 
-    def test_the_clash_block_is_entered_only_where_the_payload_keeps_its_slot(self):
-        """Read off the write path's guard: a fixture called off frees the ground, and judging it would make the admin move it first."""
+    @pytest.mark.parametrize(
+        ("overrides", "claimed"),
+        [
+            *(
+                pytest.param({"sonderereignis": event}, ["Spielort", "Schiedsrichter"], id=f"{event}-keeps-its-slot")
+                for event in SONDEREREIGNIS_KEEPING_ITS_SLOT
+            ),
+            # A fixture called off frees the ground, and judging it would make the admin move it before recording why.
+            *(pytest.param({"sonderereignis": event}, [], id=f"{event}-frees-its-slot") for event in SONDEREREIGNIS_RECORDING_AN_ABSENCE),
+            pytest.param({"datum": None}, [], id="no-date"),
+            pytest.param({"uhrzeit": None}, [], id="no-time"),
+        ],
+    )
+    def test_a_fixture_claims_its_venue_and_its_referee_while_it_keeps_a_slot_at_an_hour(self, season, overrides, claimed):
+        assert [claim.resource for claim in find_slot_claims(payload_for(season, 1, **overrides))] == claimed
 
-        guards = [
-            ast.unparse(node.test)
-            for node in ast.walk(declared(_write_spiel_data))
-            if isinstance(node, ast.If) and "sonderereignis" in ast.unparse(node.test)
-        ]
+    @pytest.mark.parametrize(
+        ("seasoned", "overrides", "made"),
+        [
+            # A note on a fixture a reopening left clashing is saved rather than refused until somebody moves one of the two.
+            pytest.param(as_seeded, A_RESULT, [], id="a result"),
+            pytest.param(as_seeded, A_NOTE, [], id="a note"),
+            pytest.param(as_seeded, {"uhrzeit": "10:00:00"}, ["Spielort", "Schiedsrichter"], id="a new hour"),
+            pytest.param(as_seeded, {"schiedsrichter": A_DIFFERENT_REFEREE}, ["Schiedsrichter"], id="a new referee"),
+            pytest.param(called_off_first, {"sonderereignis": None}, ["Spielort", "Schiedsrichter"], id="a call-off lifted"),
+        ],
+    )
+    def test_a_claim_is_made_where_the_stored_fixture_did_not_already_make_it(self, season, seasoned, overrides, made):
+        docs = seasoned(season)
+        stored = FLSpiel.model_validate(stored_spiel(docs, 1))
 
-        assert guards == ["spiel_data.datum is not None and spiel_data.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT"]
-        # What the guard rests on: an ordinary fixture is judged, and one called off is not.
-        assert None in SONDEREREIGNIS_KEEPING_ITS_SLOT
-        assert "ausgefallen" not in SONDEREREIGNIS_KEEPING_ITS_SLOT
+        assert [claim.resource for claim in find_claims_made(stored, payload_for(docs, 1, **overrides))] == made
 
 
 class TestRemovingATeamFromAPlayedFixture:

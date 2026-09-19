@@ -1,28 +1,50 @@
 import Link from "next/link";
 
-import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { TeamCard } from "../ui/TeamCard";
 
 import type { FLTeam } from "../../schemas";
 
-export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeam[]; urlPrefix: string }) {
+// Each step is n columns of 14.25rem plus the gaps between them: 14.25rem is the narrowest `TeamCard`, at
+// a quarter-rem step, still holding its three chips on one line with a three-digit goal count.
+const COLUMNS = "@min-[30rem]:grid-cols-2 @min-[45.75rem]:grid-cols-3";
+
+export function TeamsGrid({
+  teams,
+  urlPrefix,
+  saisonId,
+  isFinishedSaison,
+}: {
+  teams: FLTeam[];
+  urlPrefix: string;
+  /**
+   * The season the list was read for, `undefined` for the running one. Carried into every card's
+   * link: the club page joins strictly, so a club missing from the running season opens on „nicht gefunden“.
+   */
+  saisonId: string | undefined;
+  isFinishedSaison: boolean;
+}) {
   // Season-scoped: an empty list usually means this season has no teams yet, not that none exist.
   if (teams.length === 0) {
     return (
-      <EmptyState
-        title="Für diese Saison sind noch keine Teams eingetragen."
+      <SeasonEmptyState
+        nothing="keine Teams"
         hint="Sobald Teams gemeldet sind, erscheinen sie hier."
+        isFinishedSaison={isFinishedSaison}
       />
     );
   }
 
   return (
     // The cascade is keyed off `role="listitem"`, not the card type, so every grid arrives alike.
-    <div
+    <CardGrid
+      columns={COLUMNS}
       role="list"
-      className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+      className={CARDS_CASCADE}>
       {teams.map((teamData) => (
         // On the wrapper, never on the <Link>: an explicit role replaces the implicit `link` one,
         // dropping the card out of a screen reader's list of links.
@@ -31,12 +53,12 @@ export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeam[]; urlPrefix: st
           key={teamData.id}
           className="size-full">
           <Link
-            href={`${urlPrefix}/${teamData.id}`}
+            href={withSaisonId(`${urlPrefix}/${teamData.id}`, saisonId)}
             className="block size-full rounded-2xl">
             <TeamCard teamData={teamData} />
           </Link>
         </div>
       ))}
-    </div>
+    </CardGrid>
   );
 }

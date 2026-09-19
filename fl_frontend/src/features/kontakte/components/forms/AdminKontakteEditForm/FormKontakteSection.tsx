@@ -5,28 +5,19 @@ import Link from "next/link";
 
 import { parseDate } from "@internationalized/date";
 
-import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField } from "@heroui/react";
+import { FieldError, Input, Switch, TextField } from "@heroui/react";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import {
-  DATE_PICKER_CALENDAR,
-  DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  FIELD_PAIR,
-  FORM_SECTION_HEADING,
-} from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -78,7 +69,8 @@ export function FormKontakteSection({
   /** The club's own page, where the season membership these seats hang off is entered. */
   teamHref: string;
   banners: readonly KontakteBanner[];
-  onChange: (next: SaisonTeamKontakteDraft | null) => void;
+  /** Never handed `null`: taking the block away is the deletion section's own write, never a draft this panel stages. */
+  onChange: (next: SaisonTeamKontakteDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /** Unsaved work in the draft, which both destructive controls here refuse to write over. */
   isDirty: boolean;
@@ -432,95 +424,20 @@ function KontaktpersonInputs({
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
-          <KontaktDatePicker
-            name={`kontakte.${rolle}.einwilligung.datum`}
-            path={`kontakte.${rolle}.einwilligung`}
+          <AppDatePicker
             isReadOnly={isMirrored}
-            label="Erfasst am"
+            name={`kontakte.${rolle}.einwilligung.datum`}
+            // The record's path rather than the field's: the changed marker belongs to the record's row.
+            label={<FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erfasst am</FieldLabel>}
             calendarLabel={`${label}: Datum der Kenntnisnahme auswählen`}
-            value={person.einwilligung.datum}
-            onChange={(next) => setEinwilligung({ datum: next })}
-            onFieldLeft={onFieldLeft}
+            value={toCalendarDate(person.einwilligung.datum)}
+            // `""` for a cleared date is what the schema rejects with its own German message, so a
+            // half-entered record is a field error rather than a silent skip.
+            onChange={(next) => setEinwilligung({ datum: next?.toString() ?? "" })}
+            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.datum`])}
           />
         </div>
       </div>
     </>
-  );
-}
-
-/** The editor's date field, over a plain `YYYY-MM-DD` so nothing in this panel holds a second shape. */
-function KontaktDatePicker({
-  name,
-  path,
-  label,
-  calendarLabel,
-  value,
-  isReadOnly,
-  onChange,
-  onFieldLeft,
-}: {
-  name: string;
-  /** The row the changed marker belongs to, which for a record's part is the record. */
-  path: string;
-  label: string;
-  calendarLabel: string;
-  value: string;
-  isReadOnly: boolean;
-  onChange: (next: string) => void;
-  onFieldLeft: (paths: readonly string[]) => void;
-}) {
-  return (
-    <DatePicker
-      isReadOnly={isReadOnly}
-      value={toCalendarDate(value)}
-      // `""` for a cleared date is what the schema rejects with its own German message, so a
-      // half-entered record is a field error rather than a silent skip.
-      onChange={(next) => onChange(next?.toString() ?? "")}
-      onBlur={() => onFieldLeft([name])}
-      name={name}
-      className="w-full">
-      <FieldLabel path={path}>{label}</FieldLabel>
-      <DateField.Group
-        fullWidth
-        className={FIELD_GROUP}>
-        <DateField.Input className="fluid-sm">
-          {(segment) => (
-            <DateField.Segment
-              segment={segment}
-              className="data-[type=literal]:text-foreground-muted"
-            />
-          )}
-        </DateField.Input>
-        <DateField.Suffix>
-          <DatePicker.Trigger>
-            <DatePicker.TriggerIndicator />
-          </DatePicker.Trigger>
-        </DateField.Suffix>
-      </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
-      <DatePicker.Popover
-        className={DATE_PICKER_POPOVER}
-        placement={DATE_PICKER_PLACEMENT}>
-        <Calendar
-          aria-label={calendarLabel}
-          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-          <Calendar.Header className="bg-transparent">
-            <Calendar.YearPickerTrigger>
-              <Calendar.YearPickerTriggerHeading />
-              <Calendar.YearPickerTriggerIndicator />
-            </Calendar.YearPickerTrigger>
-            <Calendar.NavButton slot="previous" />
-            <Calendar.NavButton slot="next" />
-          </Calendar.Header>
-          <Calendar.Grid>
-            <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-            <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-          </Calendar.Grid>
-          <Calendar.YearPickerGrid>
-            <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-          </Calendar.YearPickerGrid>
-        </Calendar>
-      </DatePicker.Popover>
-    </DatePicker>
   );
 }

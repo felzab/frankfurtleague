@@ -3,6 +3,23 @@ import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 /** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
 type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean };
 
+/**
+ * Where the route turned the caller away rather than judging the replay, and what the danger toast
+ * says before the page is left: `fl_frontend/src/proxy.ts`'s two destinations, whose sign-in lands on
+ * `/admin` rather than back on this change.
+ */
+const TURNED_AWAY = {
+  signedOut: { destination: "/signin", description: "Die Änderung steht weiterhin. Melde Dich neu an." },
+  // No repair: signing in again is refused to an address the allowlist does not hold.
+  withoutAdminRole: { destination: "/", description: "Die Änderung steht weiterhin. Deine Sitzung hat keine Administratorrechte." },
+} as const;
+
+type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
+
+/** Whether a body parsed at all opens as every outcome of the route's does. */
+const isRouteEnvelope = (body: unknown): boolean =>
+  typeof body === "object" && body !== null && "success" in body && typeof body.success === "boolean";
+
 type UndoOffer<TPayload> = {
   /** The slice's own route on `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest`, whose schema parses `body`. */
   endpoint: `/api/admin/${string}/undo`;
@@ -20,8 +37,8 @@ type UndoOffer<TPayload> = {
   warn?: boolean;
   /** A refusal judged before the press, where the caller already knows the replay is no legal write. */
   unrestorable?: string | null;
-  /** A stable singleton, so the detached press closure may call its `refresh`. */
-  router: { refresh: () => void };
+  /** A stable singleton, so the detached press closure may call its `refresh` and its `replace`. */
+  router: { refresh: () => void; replace: (href: string) => void };
   /** Replaces the transport-failure toast — `AdminEditSpielDataForm` reports the raw error. */
   reportRejection?: (dispatchError: unknown) => void;
 };
@@ -31,15 +48,25 @@ type UndoOffer<TPayload> = {
  * browser elsewhere, and an action dispatched from there trips Next's E592 invariant. Revert to a
  * server action once E592 is fixed upstream.
  */
-async function postUndo<TPayload>(endpoint: string, body: TPayload): Promise<UndoOutcome> {
+async function postUndo<TPayload>(endpoint: string, body: TPayload): Promise<UndoOutcome | TurnedAway> {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
-  // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is a
-  // genuine transport failure.
+  // Before the transport check: nothing standing in front of the route answers 401.
+  if (response.status === 401) {
+    return TURNED_AWAY.signedOut;
+  }
+
+  // An edge challenge answers 403 as well, in markup: only the route's own carries its envelope.
+  if (response.status === 403 && isRouteEnvelope(await response.json().catch(() => null))) {
+    return TURNED_AWAY.withoutAdminRole;
+  }
+
+  // The route answers 200 with the outcome in the body for every other reportable case, so a non-2xx
+  // is a genuine transport failure.
   if (!response.ok) {
     throw new Error(`HTTP ${String(response.status)}`);
   }
@@ -74,13 +101,16 @@ export function offerUndo<TPayload>({
       onPress: () => {
         appToast.clear();
         if (unrestorable !== null) {
-          appToast.danger("Rücknahme nicht möglich", { description: unrestorable });
+          // One title for every way the change stands: the outcome is the same one, and the
+          // description separates a refusal from a dispatch that never landed
+          // (`docs/frontend/spec.md :: I42`).
+          appToast.danger("Änderung nicht zurückgenommen", { description: unrestorable });
           return;
         }
 
         // Closed by its own key: a toast with no explicit timeout inherits a default that would
         // retire it mid-flight.
-        const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
+        const pendingKey = appToast.pending("Nimmt Änderung zurück...");
 
         // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
         const refreshTheScreen = () => {
@@ -96,8 +126,16 @@ export function offerUndo<TPayload>({
         void postUndo(endpoint, body).then(
           (result) => {
             appToast.close(pendingKey);
+            if ("destination" in result) {
+              // Raised BEFORE leaving, and it outlives the navigation: `AppToaster` is mounted above
+              // every route. The destination is the one a save is sent to (`docs/frontend/spec.md :: I251`).
+              appToast.danger("Änderung nicht zurückgenommen", { description: result.description });
+              router.replace(result.destination);
+              return;
+            }
+
             if (!result.success) {
-              appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
+              appToast.danger("Änderung nicht zurückgenommen", { description: result.error ?? "Die Änderung steht weiterhin." });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.
@@ -121,7 +159,7 @@ export function offerUndo<TPayload>({
               return;
             }
 
-            appToast.danger("Rücknahme konnte nicht gesendet werden", {
+            appToast.danger("Änderung nicht zurückgenommen", {
               // The connection alone: the request reached no judgement, so naming what was saved
               // would send the admin to inspect values nothing here read.
               description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",

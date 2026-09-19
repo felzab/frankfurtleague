@@ -5,18 +5,14 @@ import { parseDate } from "@internationalized/date";
 import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSaisonAction } from "@/features/saisons/actions";
-import {
-  SaisonCountSelect,
-  SaisonDateField,
-  SaisonRuleNumberField,
-  SaisonTiebreakSelect,
-} from "@/features/saisons/components/forms/SaisonFormControls";
+import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
@@ -101,18 +97,18 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
           </Callout>
 
           <div className={FIELD_PAIR}>
-            <SaisonDateField
+            <AppDatePicker
               isRequired
               name="start_date"
-              ariaLabel="Beginn auswählen"
+              calendarLabel="Beginn auswählen"
               label={<Label className={FIELD_LABEL}>Beginn</Label>}
               value={asCalendarDate(draft.start_date)}
               onChange={(next) => setDraft((current) => ({ ...current, start_date: next?.toString() ?? "" }))}
             />
-            <SaisonDateField
+            <AppDatePicker
               isRequired
               name="end_date"
-              ariaLabel="Ende auswählen"
+              calendarLabel="Ende auswählen"
               label={<Label className={FIELD_LABEL}>Ende</Label>}
               value={asCalendarDate(draft.end_date)}
               onChange={(next) => setDraft((current) => ({ ...current, end_date: next?.toString() ?? "" }))}
@@ -266,10 +262,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
       )}
       schema={FLPostSaisonPayloadSchema}
       toPayload={(draft) => draft}
-      onSubmit={async (draft) => {
-        const res = await postSaisonAction(draft);
-        return { ...res, success: res.success && !!res.created_id };
-      }}
+      onSubmit={(draft) => postSaisonAction(draft)}
       marksRequired
       successMessage="Saison angelegt"
       onClose={onClose}
