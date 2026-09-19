@@ -12,8 +12,8 @@ for (const key of Object.getOwnPropertyNames(window)) {
 }
 
 // Node's own `navigator` survives the copy above and answers `language` with the runner's locale, which react-aria
-// reads as its default where no `I18nProvider` is mounted: a German machine renders „verringern“ and Linux CI
-// "Decrease". The site pins `de-DE` (`fl_frontend/src/core/providers/RootProviders.tsx`); so does the test window.
+// reads as its default where no `I18nProvider` is mounted. The site pins `de-DE`
+// (`fl_frontend/src/core/providers/RootProviders.tsx`); so does the test window.
 Object.defineProperties(globalThis.navigator, {
   language: { configurable: true, value: "de-DE" },
   languages: { configurable: true, value: ["de-DE"] },
