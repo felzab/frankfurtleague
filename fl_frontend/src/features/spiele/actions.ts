@@ -60,7 +60,10 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
       error: buildRefusal({
-        reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
+        // The second clause for the save that picked nothing: lifting a call-off or clearing a result
+        // books the fixture's own venue and referee again.
+        reason:
+          "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis Du gerade entfernst",
         repair: "Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist",
       }),
     };

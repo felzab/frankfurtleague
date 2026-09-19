@@ -6,6 +6,7 @@ import { BackButton } from "@/shared/components/ui/BackButton";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLSpielerPublic } from "../../schemas";
 
@@ -15,10 +16,21 @@ import type { FLSpielerPublic } from "../../schemas";
  *
  * The fallbacks are load-bearing — `FLSpielerPublic` declares surname, number and position nullable.
  */
-export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpielerPublic[] }) {
+export function TeamSpielerView({
+  teamName,
+  teamSpieler,
+  saisonId,
+  isFinishedSaison,
+}: {
+  teamName: string;
+  teamSpieler: FLSpielerPublic[];
+  saisonId: string | undefined;
+  isFinishedSaison: boolean;
+}) {
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
-      <BackButton fallbackHref="/dashboard/spieler" />
+      {/* The season the page shows, or a cold entry on a past season's squad lands on the running season's list. */}
+      <BackButton fallbackHref={withSaisonId("/dashboard/spieler", saisonId)} />
 
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
@@ -49,7 +61,9 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <p className="muted-hint">Für dieses Team ist noch kein Kader eingetragen.</p>
+                  <p className="muted-hint">
+                    {isFinishedSaison ? "Für dieses Team gibt es keinen Kader." : "Für dieses Team ist noch kein Kader eingetragen."}
+                  </p>
                 </div>
               )}>
               {teamSpieler.map((spielerData) => (

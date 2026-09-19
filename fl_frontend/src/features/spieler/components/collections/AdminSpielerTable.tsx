@@ -10,6 +10,7 @@ import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD, rolleLabel } from "@/features/spieler/constants";
+import { judgeRowReturn } from "@/features/spieler/utils";
 import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -19,9 +20,9 @@ import {
   COLUMN_INNER,
   IDENTITY_HEAD,
   IDENTITY_LINE,
-  IDENTITY_NAME,
   IDENTITY_ROW,
   IDENTITY_STACK,
+  identityName,
   TABLE_HEADING,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -34,7 +35,14 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
-import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
+import type { AdminSpielerRow, RowReturn, SpielerTeamOption } from "../../types";
+
+/** The list's words for a refused return, whose reader stands a page away from the editor's repair. */
+const RETURN_REFUSAL: Record<RowReturn, string | null> = {
+  open: null,
+  clubLeft: LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  squadFull: REACTIVATION_NEEDS_ROOM_IN_SQUAD,
+};
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Spieler für diese Suche.",
@@ -63,7 +71,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   selectedSaisonId: string;
   setDeletingSpieler: (spieler: AdminSpielerRow) => void;
 }) {
-  const [, startReactivating] = useTransition();
+  const [isReactivating, startReactivating] = useTransition();
 
   // The selector's season rides along on every row link, so the editor opens on the season shown.
   const searchParams = useSearchParams();
@@ -117,14 +125,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   // SQUAD ROW. A row can be in either state, both, or neither.
   const renderActions = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
-    // `REQ-SQUAD-001` asked of the row's STORED club, the editor's gate from the list: a club
-    // replacement takes a club out of the season and leaves the squad rows still naming it.
-    const isRowTeamInSaison = row === null || saisonTeams.some((team) => team.teamId === row.team_id);
-    const rowBlockedReason = isRowTeamInSaison ? null : LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
-    // `REQ-SQUAD-003` asked second, the order the endpoint asks it in: a full squad is not a fact
-    // worth reporting about a club the season does not hold.
-    const rowSquadFullReason =
-      saisonTeams.find((team) => team.teamId === row?.team_id)?.isSquadFull === true ? REACTIVATION_NEEDS_ROOM_IN_SQUAD : null;
 
     return (
       <RowActions>
@@ -143,7 +143,10 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           <RowActionRestore
             label="Kadereintrag reaktivieren"
             ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
-            disabledReason={rowBlockedReason ?? rowSquadFullReason}
+            // The editor's gate from the list, asked of the row's STORED club: a club replacement takes a club
+            // out of the season and leaves the squad rows still naming it.
+            disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
+            isPending={isReactivating}
             onPress={() => handleReactivateRow(spieler)}
           />
         )}
@@ -154,6 +157,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           <RowActionRestore
             label="Spieler reaktivieren"
             ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
+            isPending={isReactivating}
             onPress={() => handleReactivatePerson(spieler)}
           />
         ) : (
@@ -207,12 +211,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     );
   };
 
-  const renderIdentity = (spieler: AdminSpielerRow, dimmed: boolean) => (
-    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+  const renderIdentity = (spieler: AdminSpielerRow) => (
+    <div className={IDENTITY_ROW}>
       {renderNummer(spieler)}
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
-          <span className={IDENTITY_NAME}>{spieler.fullName}</span>
+          <span className={identityName(spieler.inactive_since !== null)}>{spieler.fullName}</span>
           {renderRolle(spieler)}
           {renderStatusBadges(spieler)}
         </div>
@@ -239,9 +243,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         {filteredSpieler.map((spieler) => (
           <div
             key={spieler.id}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${spieler.inactive_since !== null ? "opacity-80" : ""}`}>
-            {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
-            {renderIdentity(spieler, false)}
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            {renderIdentity(spieler)}
             {renderKaderMeta(spieler)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(spieler)}</div>
           </div>
@@ -285,7 +288,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   <Table.Row
                     id={spieler.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(spieler, spieler.inactive_since !== null)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(spieler)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER}>
                       {spieler.selected?.position ? (

@@ -3,8 +3,8 @@
 import { postSpielortAction } from "@/features/spielorte/actions";
 import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
 import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
+import { mapsQuery } from "@/features/spielorte/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { formatAddressFull } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
@@ -44,11 +44,11 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
       )}
       schema={FLPostSpielortPayloadSchema}
       toPayload={toPayload}
-      onSubmit={async (draft) => {
+      onSubmit={async (payload) => {
         // The block in `EntityForm` has already proved this parses, so the record below reads the PARSED
-        // rent rather than the draft's, which still carries the empty case.
-        const payload = FLPostSpielortPayloadSchema.parse(toPayload(draft));
-        const res = await postSpielortAction(payload);
+        // rent rather than the payload's, whose type still carries the empty case.
+        const parsed = FLPostSpielortPayloadSchema.parse(payload);
+        const res = await postSpielortAction(parsed);
 
         if (!res.success) return res;
         // An acknowledged create that answered no id leaves the caller nothing to name, so the
@@ -57,11 +57,10 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
 
         onCreated?.({
           id: res.created_id,
-          name: draft.name,
-          address: draft.address,
-          // A plain search string, as the backend stores it; `formatMapsLink` wraps one for an href.
-          maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
-          default_mietpreis: payload.default_mietpreis,
+          name: parsed.name,
+          address: parsed.address,
+          maps_link: mapsQuery(parsed),
+          default_mietpreis: parsed.default_mietpreis,
           // Just created, so current — and `null` is what current means.
           inactive_since: null,
         });

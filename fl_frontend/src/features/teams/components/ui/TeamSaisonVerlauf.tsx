@@ -1,6 +1,7 @@
 import { Chip } from "@heroui/react";
 
 import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
+import { ImElfmeterschiessen } from "@/features/spiele/components/ui/ImElfmeterschiessen";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
@@ -8,6 +9,7 @@ import { computeSaisonVerlauf } from "../../utils";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
+import type { ReactNode } from "react";
 import type { SaisonPhaseOutcome, SaisonPhaseVerlauf } from "../../utils";
 
 /**
@@ -18,8 +20,10 @@ import type { SaisonPhaseOutcome, SaisonPhaseVerlauf } from "../../utils";
  */
 const OUTCOME_TINTS: Record<Exclude<SaisonPhaseOutcome, "pending" | "unknown">, PillTone> = {
   won: "success",
+  wonInShootOut: "success",
   advanced: "success",
   out: "danger",
+  outInShootOut: "danger",
   level: "warning",
 };
 
@@ -36,14 +40,28 @@ const chipTint = ({ phase, outcome }: SaisonPhaseVerlauf): PillTone =>
  * `im` fits the neuter knockout round names; the feminine `Gruppenphase` would read "Im
  * Gruppenphase" and never arrives here.
  */
-const outcomeLabel = ({ phase, outcome }: SaisonPhaseVerlauf): string => {
+const outcomeLabel = ({ phase, outcome }: SaisonPhaseVerlauf): ReactNode => {
   const round = PHASE_LABELS[phase];
 
   switch (outcome) {
     case "won":
       return `${round} gewonnen`;
+    // The verb a decision on goals takes, marked rather than swapped: „überstanden“ is the word for a
+    // round the page knows only by where the team stands next, and a shoot-out names its winner.
+    case "wonInShootOut":
+      return (
+        <>
+          {round} gewonnen (<ImElfmeterschiessen />)
+        </>
+      );
     case "out":
       return `Im ${round} ausgeschieden`;
+    case "outInShootOut":
+      return (
+        <>
+          Im {round} ausgeschieden (<ImElfmeterschiessen />)
+        </>
+      );
     case "advanced":
       return `${round} überstanden`;
     case "pending":

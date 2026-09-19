@@ -20,6 +20,8 @@ export function rolleLabel(rolle: FLSpielerRolle): string {
 export const SPIELER_CRUD_COPY = {
   searchLabel: "Spieler suchen",
   searchPlaceholder: "z.B. Lena Meier oder 7",
+  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
+  createLabel: "Neuen Spieler anlegen",
 } as const;
 
 /** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */
@@ -61,9 +63,9 @@ export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"],
 export const NUMMER_MAX_LENGTH = 4;
 
 /**
- * One sentence, stated by the schema's regex over a validated payload and by the field's own
- * `patternMismatch`. Both reach one slot on one value, so a drift between them would read as two
- * rules. The figure is `NUMMER_MAX_LENGTH`'s, never spelt again.
+ * The squad number's only refusal, carried by the schema's regex to the field on both forms. The
+ * figure is `NUMMER_MAX_LENGTH`'s, never spelt again, so the sentence cannot name a cap the input
+ * does not hold.
  */
 export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern.`;
 

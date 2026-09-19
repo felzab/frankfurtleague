@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
-import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, squadIsFull } from "./utils.ts";
+import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
 
 import type { FLSpielerMembership, FLSpielerWithMemberships } from "./schemas.ts";
 
@@ -211,5 +211,37 @@ describe("squadIsFull", () => {
      accepts, on a figure nothing on that page could show the admin. */
   it("refuses nothing where the cap is unknown", () => {
     assert.equal(squadIsFull(99, null), false);
+  });
+});
+
+describe("judgeRowReturn", () => {
+  const stored = { teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" };
+  const other = { teamId: TEAM_B, name: "TSV Beta", shorthand: "TSB" };
+
+  /* `REQ-SQUAD-001` is asked first there, so a replaced club is reported before any squad count, and a
+     reader is never sent to free a place in a season the club has left. */
+  it("refuses a row whose club the season no longer holds, whatever any squad's room", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [{ ...other, isSquadFull: true }]), "clubLeft");
+    assert.equal(judgeRowReturn(TEAM_A, []), "clubLeft");
+  });
+
+  // The row's own club and no other: the count is per squad.
+  it("refuses a row whose own club's squad is full, and no row for another club's", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [{ ...stored, isSquadFull: true }, other]), "squadFull");
+    assert.equal(judgeRowReturn(TEAM_A, [stored, { ...other, isSquadFull: true }]), "open");
+  });
+
+  // An unknown cap refuses nothing, as `SpielerTeamOption.isSquadFull` declares.
+  it("opens a row whose club's room is unknown", () => {
+    assert.equal(judgeRowReturn(TEAM_A, [stored]), "open");
+  });
+});
+
+describe("nummerPayload", () => {
+  // Both squad forms send through it, so one number is never refused on one form and taken on the other.
+  it("sends a number without the space around it, and an emptied box as no number", () => {
+    assert.equal(nummerPayload(" 7 "), "7");
+    assert.equal(nummerPayload("  "), null);
+    assert.equal(nummerPayload(null), null);
   });
 });

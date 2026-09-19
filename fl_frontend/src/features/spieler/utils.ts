@@ -1,4 +1,5 @@
 import type { FLSpielerRolle, FLSpielerWithMemberships } from "./schemas";
+import type { RowReturn, SpielerTeamOption } from "./types";
 
 /**
  * Who holds each squad role in one season, by team, excluding one player's own rows.
@@ -67,6 +68,27 @@ export function countLiveSquadRows({
   }
 
   return byTeam;
+}
+
+/**
+ * Judged on the season's own junction rows, the one collection `REQ-SQUAD-001` counts, and in the
+ * endpoint's order: a full squad is no fact worth reporting about a club the season does not hold.
+ */
+export function judgeRowReturn(teamId: string, saisonTeams: readonly SpielerTeamOption[]): RowReturn {
+  const club = saisonTeams.find((team) => team.teamId === teamId);
+  if (club === undefined) return "clubLeft";
+
+  return club.isSquadFull === true ? "squadFull" : "open";
+}
+
+/**
+ * A typed squad number as every squad write sends it, the create dialog's and the editor's alike: space
+ * around it is no format an administrator should fight, and an emptied box is a number nobody wears.
+ */
+export function nummerPayload(typed: string | null): string | null {
+  const trimmed = (typed ?? "").trim();
+
+  return trimmed === "" ? null : trimmed;
 }
 
 /**

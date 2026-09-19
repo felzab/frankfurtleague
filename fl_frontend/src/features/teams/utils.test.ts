@@ -4,17 +4,19 @@ import { describe, it } from "node:test";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
+import { GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLGruppenTeamSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
   buildKontaktRows,
+  computeEntscheidungFor,
   computePlatzByTeamId,
   computeQualifyingTeamIds,
   computeSaisonVerlauf,
   describeReplacementUmfang,
+  holdsNobody,
   offeredTrikotFarben,
   toWebsiteUrl,
 } from "./utils.ts";
@@ -185,18 +187,32 @@ const fixture = ({
   ergebnis = null,
   heim = SUBJECT,
   gast = OPPONENT,
+  elfmeterschiessen = null,
+  heimQuelle = null,
+  gastQuelle = null,
 }: {
   phase: FLSaisonPhase;
   ergebnis?: string | null;
   heim?: string;
   gast?: string;
+  elfmeterschiessen?: FLSpiel["elfmeterschiessen"];
+  heimQuelle?: FLSpiel["team1_quelle"];
+  gastQuelle?: FLSpiel["team2_quelle"];
 }): FLSpiel => ({
   ...SPIEL,
   saison_phase: phase,
   ergebnis,
   team1: seite(heim),
   team2: seite(gast),
+  team1_quelle: heimQuelle,
+  team2_quelle: gastQuelle,
+  elfmeterschiessen,
 });
+
+/** The three references a knockout side can stand on. */
+const SIEGER_VON = (spielNr: number): FLSpiel["team1_quelle"] => ({ type: "spiel", spiel_nr: spielNr, ausgang: "sieger" });
+const VERLIERER_VON = (spielNr: number): FLSpiel["team1_quelle"] => ({ type: "spiel", spiel_nr: spielNr, ausgang: "verlierer" });
+const PLATZ = (platz: number): FLSpiel["team1_quelle"] => ({ type: "gruppe", gruppe: "A", platz });
 
 const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf({ spiele, teamId });
 
@@ -212,8 +228,8 @@ describe("computeSaisonVerlauf", () => {
     assert.deepEqual(verlaufOf([]), []);
   });
 
-  it("reports the group phase as come through once a knockout fixture fields the team", () => {
-    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "viertelfinale" })]);
+  it("reports the group phase as come through once a knockout fixture fields the team off its placing", () => {
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "viertelfinale", heimQuelle: PLATZ(1) })]);
 
     assert.deepEqual(verlauf, [
       { phase: "gruppenphase", outcome: "advanced" },
@@ -224,7 +240,7 @@ describe("computeSaisonVerlauf", () => {
   // An organiser may seed a team into a knockout slot before its group has played anything, and
   // "überstanden" there claims a round that has not happened.
   it("claims no outcome for a group phase with no result, however deep the team is standing", () => {
-    const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale" })]);
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale", heimQuelle: PLATZ(1) })]);
 
     assert.deepEqual(verlauf, [
       { phase: "gruppenphase", outcome: "unknown" },
@@ -267,8 +283,8 @@ describe("computeSaisonVerlauf", () => {
 
   // The one case the shoot-out would otherwise be read for: the evidence the tie broke this team's
   // way is where the team stands now.
-  it("reports a level round as come through when a later round fields the team", () => {
-    const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" }), fixture({ phase: "finale" })]);
+  it("reports a level round as come through when a later round fields the team as a winner", () => {
+    const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" }), fixture({ phase: "finale", heimQuelle: SIEGER_VON(13) })]);
 
     assert.deepEqual(verlauf, [
       { phase: "halbfinale", outcome: "advanced" },
@@ -276,10 +292,13 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // A manual pick that did not qualify is warned and never refused, so a beaten team in the next
-  // round is a real state.
-  it("reports a lost round as come through when a later round fields the team anyway", () => {
-    const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
+  // The bracket's movement outranks the goals where a winner's reference fields the team: the reference
+  // is what the resolution wrote, and a scoreline is what somebody typed.
+  it("reports a lost round as come through when a winner's reference fields the team in the next", () => {
+    const verlauf = verlaufOf([
+      fixture({ phase: "viertelfinale", ergebnis: "0:2" }),
+      fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) }),
+    ]);
 
     assert.deepEqual(verlauf, [
       { phase: "viertelfinale", outcome: "advanced" },
@@ -287,10 +306,21 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
+  /* A side no reference feeds may be a beaten team fielded by hand in a third-place play-off as well as
+     one promoted, and nothing on the fixture tells the two apart. */
+  it("reports a lost round as lost where a later round fields the team by hand", () => {
+    const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "viertelfinale", outcome: "out" },
+      { phase: "halbfinale", outcome: "pending" },
+    ]);
+  });
+
   // The bound on the rule above: a team can be seeded out of an UNPLAYED round, and "überstanden"
   // would then sit beside a card with no score.
   it("claims no outcome for an unplayed round, however deep the team is standing", () => {
-    const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale" })]);
+    const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) })]);
 
     assert.deepEqual(verlauf, [
       { phase: "viertelfinale", outcome: "pending" },
@@ -301,7 +331,10 @@ describe("computeSaisonVerlauf", () => {
   // A round the season does not play must produce no chip, never one saying the team failed to
   // reach it.
   it("produces no entry for a round the team has no fixture in", () => {
-    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "1:0" }), fixture({ phase: "halbfinale", ergebnis: "1:0" })]);
+    const verlauf = verlaufOf([
+      fixture({ phase: "gruppenphase", ergebnis: "1:0" }),
+      fixture({ phase: "halbfinale", ergebnis: "1:0", heimQuelle: PLATZ(1) }),
+    ]);
 
     assert.deepEqual(verlauf, [
       { phase: "gruppenphase", outcome: "advanced" },
@@ -318,6 +351,142 @@ describe("computeSaisonVerlauf", () => {
     ]);
 
     assert.deepEqual(verlauf, [{ phase: "viertelfinale", outcome: "won" }]);
+  });
+});
+
+describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
+  const ELFMETER = { team1: 5, team2: 4 };
+
+  /* The defect this reading closes: the bracket sent the club home on penalties while its own page
+     called the round a draw nobody had won. */
+  it("reports the side the shoot-out went against as out, and nothing still undecided", () => {
+    const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "1:1", heim: OPPONENT, gast: SUBJECT, elfmeterschiessen: ELFMETER })]);
+
+    assert.deepEqual(verlauf, [{ phase: "halbfinale", outcome: "outInShootOut" }]);
+  });
+
+  /* A shoot-out names its winner as goals do, so the round reads as won rather than as the
+     „überstanden“ a round known only by where the team stands next takes. */
+  it("reports the side the shoot-out went for as having won, however deep it stands", () => {
+    const winner = fixture({ phase: "halbfinale", ergebnis: "1:1", heim: SUBJECT, gast: OPPONENT, elfmeterschiessen: ELFMETER });
+
+    assert.deepEqual(verlaufOf([winner]), [{ phase: "halbfinale", outcome: "wonInShootOut" }]);
+    assert.deepEqual(verlaufOf([winner, fixture({ phase: "finale" })]), [
+      { phase: "halbfinale", outcome: "wonInShootOut" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+  });
+
+  /* The last round has no later one to fall back on, so both finalists read from the counts alone. */
+  it("reads a final decided on penalties right for both finalists", () => {
+    const finale = fixture({ phase: "finale", ergebnis: "2:2", heim: SUBJECT, gast: OPPONENT, elfmeterschiessen: { team1: 3, team2: 4 } });
+
+    assert.deepEqual(verlaufOf([finale], SUBJECT), [{ phase: "finale", outcome: "outInShootOut" }]);
+    assert.deepEqual(verlaufOf([finale], OPPONENT), [{ phase: "finale", outcome: "wonInShootOut" }]);
+  });
+
+  // A winner's reference outranks a shoot-out loss as it outranks one on goals.
+  it("reports a round lost on penalties as come through when a winner's reference fields the team in the next", () => {
+    const verlauf = verlaufOf([
+      fixture({ phase: "viertelfinale", ergebnis: "0:0", elfmeterschiessen: { team1: 2, team2: 4 } }),
+      fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) }),
+    ]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "viertelfinale", outcome: "advanced" },
+      { phase: "halbfinale", outcome: "pending" },
+    ]);
+  });
+});
+
+describe("computeSaisonVerlauf beside a third-place play-off", () => {
+  const DRITTER = TEAM_ID(3);
+  const VIERTER = TEAM_ID(4);
+
+  /** Both semi-finals, and the play-off their two losers are fed into by `verlierer` references. */
+  const bracket = (halbfinale2: Partial<Parameters<typeof fixture>[0]>): FLSpiel[] => [
+    fixture({ phase: "halbfinale", ergebnis: "0:2", heim: SUBJECT, gast: OPPONENT }),
+    fixture({ phase: "halbfinale", heim: DRITTER, gast: VIERTER, ...halbfinale2 }),
+    fixture({ phase: "finale", heim: SUBJECT, gast: DRITTER, heimQuelle: VERLIERER_VON(13), gastQuelle: VERLIERER_VON(14) }),
+  ];
+
+  /* The defect: a loser fed into the play-off stood in a later round, which outranked its defeat, so the
+     chip beside the play-off read „Halbfinale überstanden“ for a club the semi-final had put out. */
+  it("reports a semi-final lost on goals as lost for the loser the play-off fields", () => {
+    const spiele = bracket({ ergebnis: "1:3" });
+
+    assert.deepEqual(verlaufOf(spiele, SUBJECT), [
+      { phase: "halbfinale", outcome: "out" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+    assert.deepEqual(verlaufOf(spiele, DRITTER), [
+      { phase: "halbfinale", outcome: "out" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+  });
+
+  it("reports a semi-final lost on penalties as lost in the shoot-out for the loser the play-off fields", () => {
+    const spiele = bracket({ ergebnis: "2:2", elfmeterschiessen: { team1: 3, team2: 5 } });
+
+    assert.deepEqual(verlaufOf(spiele, DRITTER), [
+      { phase: "halbfinale", outcome: "outInShootOut" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+  });
+
+  // The other half of the same fixture list: a semi-final left level with no shoot-out names no winner,
+  // and the play-off beside it is no evidence of one.
+  it("claims no winner for a level semi-final whose side the play-off fields", () => {
+    assert.deepEqual(verlaufOf(bracket({ ergebnis: "1:1" }), DRITTER), [
+      { phase: "halbfinale", outcome: "level" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+  });
+});
+
+describe("computeEntscheidungFor", () => {
+  const entscheidung = (spiel: FLSpiel, teamId = SUBJECT) => computeEntscheidungFor({ spiel, teamId });
+
+  it("reads a level knockout's winner and loser off the shoot-out, from each side's own count", () => {
+    const spiel = fixture({
+      phase: "viertelfinale",
+      ergebnis: "1:1",
+      heim: OPPONENT,
+      gast: SUBJECT,
+      elfmeterschiessen: { team1: 3, team2: 5 },
+    });
+
+    assert.deepEqual(entscheidung(spiel, SUBJECT), { ergebnisFor: "S", imElfmeterschiessen: true });
+    assert.deepEqual(entscheidung(spiel, OPPONENT), { ergebnisFor: "N", imElfmeterschiessen: true });
+  });
+
+  /* The table's reading of a group fixture stands however a record reached it, as the bracket's own
+     `_outcome_of` reads no shoot-out there. */
+  it("leaves a group draw a draw, a stray shoot-out record included", () => {
+    const spiel = fixture({ phase: "gruppenphase", ergebnis: "2:2", elfmeterschiessen: { team1: 4, team2: 2 } });
+
+    assert.deepEqual(entscheidung(spiel), { ergebnisFor: "U", imElfmeterschiessen: false });
+  });
+
+  it("lets the goals decide a fixture they already decided, whatever a shoot-out record says", () => {
+    const spiel = fixture({ phase: "halbfinale", ergebnis: "0:1", elfmeterschiessen: { team1: 4, team2: 2 } });
+
+    assert.deepEqual(entscheidung(spiel), { ergebnisFor: "N", imElfmeterschiessen: false });
+  });
+
+  /* A level count names nobody, and a winner guessed from one would be the page's own invention. */
+  it("names no winner from a level knockout with no shoot-out or a level one", () => {
+    assert.deepEqual(entscheidung(fixture({ phase: "finale", ergebnis: "1:1" })), { ergebnisFor: "U", imElfmeterschiessen: false });
+    assert.deepEqual(entscheidung(fixture({ phase: "finale", ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 4 } })), {
+      ergebnisFor: "U",
+      imElfmeterschiessen: false,
+    });
+  });
+
+  it("claims nothing for a team the fixture does not field", () => {
+    const spiel = fixture({ phase: "finale", ergebnis: "1:1", elfmeterschiessen: { team1: 5, team2: 4 } });
+
+    assert.deepEqual(entscheidung(spiel, TEAM_ID(3)), { ergebnisFor: "?", imElfmeterschiessen: false });
   });
 });
 
@@ -445,11 +614,9 @@ describe("buildKontaktRows", () => {
       [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_ist_zugleich: null })],
       SAISON,
     );
-    const leer = buildKontaktRows([club({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null })], SAISON);
 
     assert.equal(voll[0]?.besetzt, 3);
     assert.equal(teilweise[0]?.besetzt, 1);
-    assert.equal(leer[0]?.besetzt, 0);
   });
 
   it("badges no shared seat while the trainer holds nobody, whatever the claim asserts", () => {
@@ -490,8 +657,32 @@ describe("buildKontaktRows", () => {
     assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, true);
   });
 
-  it("contributes no row at all for a club with nothing on file", () => {
+  /* Both shapes nobody on file is stored in, the claim an erasure leaves standing over empty seats
+     included: the Kontakte editor opens all of them as nobody, and a card here would say otherwise. */
+  it("contributes no row at all for a club with nobody on file, whichever shape stores it", () => {
+    const leer = { trainer: null, ansprechperson: null, stellvertretung: null } as const;
+
     assert.deepEqual(buildKontaktRows([club(null)], SAISON), []);
+    assert.deepEqual(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: null })], SAISON), []);
+    assert.deepEqual(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: "ansprechperson" })], SAISON), []);
+  });
+});
+
+describe("holdsNobody", () => {
+  /* The seat-by-seat floor beside the two empty shapes: one seat held is somebody on file, whichever
+     seat it is. */
+  it("reads no block and a block of empty seats alike, and any one held seat as somebody", () => {
+    const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
+
+    assert.equal(holdsNobody(null), true);
+    assert.equal(holdsNobody(leer), true);
+    for (const { value } of KONTAKT_ROLLEN) {
+      assert.equal(
+        holdsNobody({ ...leer, [value]: kontaktperson("Erika") }),
+        false,
+        `a block holding only the ${value} reads as nobody on file`,
+      );
+    }
   });
 });
 
@@ -516,17 +707,16 @@ describe("the club filter a link into the contacts list preselects", () => {
     );
   });
 
-  /* Three arms that partition the list: every row answers exactly one, so the facet cannot leave a
-     club out of all three. */
-  it("grades every club's completeness as exactly one of the three", () => {
+  /* Two arms that partition the list: every row answers exactly one, so the facet cannot leave a club
+     out of both. A club with nobody on file has no row to grade (`buildKontaktRows`). */
+  it("grades every club's completeness as exactly one of the two", () => {
     const angeboten = new Set(KONTAKTE_BESETZUNG_OPTIONS.map((option) => option.value));
 
-    for (const besetzt of [0, 1, 2, 3]) {
+    for (let besetzt = 1; besetzt <= KONTAKT_ROLLEN.length; besetzt += 1) {
       assert.ok(angeboten.has(kontakteBesetzung(besetzt)), `${String(besetzt)} seats grade to something the filter does not offer`);
     }
     assert.equal(kontakteBesetzung(3), "vollstaendig");
-    assert.equal(kontakteBesetzung(0), "leer");
-    // The middle arm too: pinned only at the ends, a grader answering „vollstaendig“ for one seat
+    // Every arm below full: pinned only at the top, a grader answering „vollstaendig“ for one seat
     // passes, and the badge then calls a club reachable through one person fully staffed.
     assert.equal(kontakteBesetzung(1), "teilweise");
     assert.equal(kontakteBesetzung(2), "teilweise");

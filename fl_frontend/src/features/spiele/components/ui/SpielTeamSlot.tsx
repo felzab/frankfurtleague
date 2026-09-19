@@ -4,6 +4,7 @@ import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu"
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { formatQuelle } from "../../utils";
+import { SLOT_LABEL_WRAP, TEAM_NAME_TRACK, TEAM_NAME_WRAP } from "./teamName";
 
 import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
@@ -15,26 +16,41 @@ import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 export function SpielTeamSlot({
   team,
   quelle,
+  saisonId,
   text,
   className,
 }: {
   team: FLSpielTeamFieldJoined | null;
   quelle: FLSpielQuelle | null;
+  /**
+   * The fixture's own `saison_id`, REQUIRED rather than optional: every card holds one, and a card
+   * leaving it out sends a past season's club to „nicht gefunden“.
+   */
+  saisonId: string;
   /** The full name on the two wide cards, the shorthand on the bracket. */
   text: string;
-  /** Layout only; interactive and muted styling is this component's. */
+  /** Size, weight and alignment only; the wrap, interactive and muted styling are this component's. */
   className: string;
 }) {
+  // `className` on the track too, where `lh` resolves against the name's own size, and still on the
+  // name, whose alignment the popover trigger's `text-left` would otherwise decide.
   if (team === null) {
-    return <span className={`${className} text-foreground-muted italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>;
+    return (
+      <span className={`${className} ${TEAM_NAME_TRACK}`}>
+        <span className={`${className} ${SLOT_LABEL_WRAP} text-foreground-muted italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      </span>
+    );
   }
 
   return (
-    <TeamPopoverMenu
-      teamName={team.name}
-      teamId={team.team_id}
-      teamAustritt={team.austritt_type}>
-      <strong className={`${className} hover:text-brand transition-colors duration-(--motion-base)`}>{text}</strong>
-    </TeamPopoverMenu>
+    <span className={`${className} ${TEAM_NAME_TRACK}`}>
+      <TeamPopoverMenu
+        teamName={team.name}
+        teamId={team.team_id}
+        teamAustritt={team.austritt_type}
+        saisonId={saisonId}>
+        <strong className={`${className} ${TEAM_NAME_WRAP} hover:text-brand transition-colors duration-(--motion-base)`}>{text}</strong>
+      </TeamPopoverMenu>
+    </span>
   );
 }

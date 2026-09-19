@@ -64,6 +64,10 @@ export function FormLoeschenSection({
     });
   };
 
+  // The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
+  // löschen“ is agreed to without the reader having to hold what it refers to.
+  const restingLabel = isConfirming ? "Ja, Spieler endgültig löschen" : "Spieler endgültig löschen";
+
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
@@ -131,11 +135,13 @@ export function FormLoeschenSection({
               rollover established. `isErasing` is left out: it ends by itself. */}
           <Hint
             mode="refusal"
-            reason={isErasing ? null : blockedReason}>
+            reason={isErasing ? null : blockedReason}
+            label={restingLabel}>
             <Button
               type="button"
               variant="primary"
-              isDisabled={isErasing || blockedReason !== null}
+              isPending={isErasing}
+              isDisabled={!isErasing && blockedReason !== null}
               onPress={handleErase}
               className={confirmButton(isConfirming)}>
               {!isConfirming && (
@@ -144,9 +150,7 @@ export function FormLoeschenSection({
                   aria-hidden="true"
                 />
               )}
-              {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
-                  löschen“ is agreed to without the reader having to hold what it refers to. */}
-              {isErasing ? "Löscht..." : isConfirming ? "Ja, Spieler endgültig löschen" : "Spieler endgültig löschen"}
+              {isErasing ? "Löscht..." : restingLabel}
             </Button>
           </Hint>
         </ConfirmActionRow>

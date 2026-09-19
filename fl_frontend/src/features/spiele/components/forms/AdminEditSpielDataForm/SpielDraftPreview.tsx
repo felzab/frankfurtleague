@@ -3,10 +3,11 @@
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus, formatQuelle, formatSpielDisplay, isAbgesagt } from "../../../utils";
+import { computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
-import { SpielScore } from "../../ui/SpielScore";
+import { ERGEBNIS_INK, SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
+import { SLOT_LABEL_WRAP, TEAM_NAME_TRACK, TEAM_NAME_WRAP } from "../../ui/teamName";
 
 import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 
@@ -14,8 +15,18 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
  * **Not `SpielCardCompact` itself**: that card mounts a popover whose links navigate away from a
  * page holding unsaved changes. Rendered through the site's own derivations, never copies of them.
  */
-export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpiel: FLSpielWithDraftFields; today: string; isDirty: boolean }) {
-  const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel);
+export function SpielDraftPreview({
+  previewSpiel,
+  today,
+  isDirty,
+  isFinishedSaison,
+}: {
+  previewSpiel: FLSpielWithDraftFields;
+  today: string;
+  isDirty: boolean;
+  isFinishedSaison: boolean;
+}) {
+  const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel, isFinishedSaison);
   const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, sonderereignis: previewSpiel.sonderereignis, today });
 
   // The award is composed on the server from the season's forfeit rule, which this page never loads.
@@ -23,19 +34,17 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
   // save would replace.
   const isAwaitingForfeit = previewSpiel.sonderereignis === "nichtantreten_team1" || previewSpiel.sonderereignis === "nichtantreten_team2";
 
-  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
-  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
-  // than a result still owed.
-  const ergebnisTint =
-    previewSpiel.ergebnis !== null
-      ? "text-success-strong"
-      : isAbgesagt(previewSpiel.sonderereignis)
-        ? "text-danger-strong"
-        : "text-warning-strong";
-
-  // The fall-through every card uses, so this names a side exactly as the bracket will.
-  const team1Name = previewSpiel.team1?.name || formatQuelle(previewSpiel.team1_quelle) || PLACEHOLDER.slot;
-  const team2Name = previewSpiel.team2?.name || formatQuelle(previewSpiel.team2_quelle) || PLACEHOLDER.slot;
+  // The fall-through every card uses, so this names a side exactly as the bracket will: a club clamped
+  // at two lines, a label never.
+  const sideName = (team: FLSpielWithDraftFields["team1"], quelle: FLSpielWithDraftFields["team1_quelle"], align: string) => (
+    <span className={`fluid-xs text-foreground font-bold ${align} ${TEAM_NAME_TRACK}`}>
+      {team?.name ? (
+        <span className={`${align} ${TEAM_NAME_WRAP}`}>{team.name}</span>
+      ) : (
+        <span className={`${align} ${SLOT_LABEL_WRAP}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      )}
+    </span>
+  );
 
   return (
     <div className={`flex w-full flex-col gap-y-3 rounded-xl border p-3 ${isDirty ? "border-brand/50 bg-brand/5" : "border-border"}`}>
@@ -56,13 +65,13 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
       {/* The equal-track grid every scoreline uses: both 1fr columns resolve to the wider
           name's width, so the score stays centred however the two names differ. */}
       <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
-        <span className="fluid-xs text-foreground min-w-0 truncate text-right font-bold">{team1Name}</span>
+        {sideName(previewSpiel.team1, previewSpiel.team1_quelle, "text-right")}
         <SpielScore
           ergebnis={ergebnis}
           elfmeterschiessen={elfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ergebnisTint}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(previewSpiel)]}`}
         />
-        <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>
+        {sideName(previewSpiel.team2, previewSpiel.team2_quelle, "text-left")}
       </div>
 
       {isAwaitingForfeit && <p className="muted-meta text-center">Das Ergebnis steht erst nach dem Speichern fest.</p>}

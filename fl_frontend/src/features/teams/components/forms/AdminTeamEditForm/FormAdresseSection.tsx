@@ -56,7 +56,8 @@ export function FormAdresseSection({
           ) : (
             <Hint
               mode="refusal"
-              reason="Erst Straße und Stadt eingeben">
+              reason="Erst Straße und Stadt eingeben"
+              label="Eingegebene Adresse auf Google Maps öffnen">
               {mapsLink}
             </Hint>
           )}

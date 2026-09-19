@@ -59,7 +59,7 @@ const SQUAD_ROLLE_TAKEN = buildRefusal({
   repair: "Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben",
 });
 
-/** Base tag only: the cached spieler read spans every season. */
+/** Base tag only, for the reason `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives. */
 function invalidateSpieler(): void {
   updateTag("spieler");
 }

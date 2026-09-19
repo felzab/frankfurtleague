@@ -10,6 +10,7 @@ import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { getSpiele } from "../../queries";
+import { SpielCardGrid } from "../ui/SpielCardGrid";
 import { SpielCardSkeletonGrid } from "../ui/SpielCardSkeleton";
 import { SpielCardsList } from "./SpielCardsList";
 
@@ -24,8 +25,6 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
     </div>
   );
 }
-
-const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`;
 
 /**
  * Roughly one card row. Without it an empty section collapses to a single line, the page ends far
@@ -66,7 +65,17 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
  * past results because the upcoming query timed out. `res === null` is a failed fetch and an empty
  * `spiele` a successful one — only one is worth retrying.
  */
-function SectionBody({ res, today, emptyTitle }: { res: Pick<FLSpieleListResponse, "spiele"> | null; today: string; emptyTitle: string }) {
+function SectionBody({
+  res,
+  today,
+  isFinishedSaison,
+  emptyTitle,
+}: {
+  res: Pick<FLSpieleListResponse, "spiele"> | null;
+  today: string;
+  isFinishedSaison: boolean;
+  emptyTitle: string;
+}) {
   if (!res) {
     return (
       /* The same panel a failed dashboard region wears, so one event announces itself as one thing
@@ -98,14 +107,15 @@ function SectionBody({ res, today, emptyTitle }: { res: Pick<FLSpieleListRespons
   }
 
   return (
-    <div
+    <SpielCardGrid
       role="list"
-      className={SECTION_GRID}>
+      className={CARDS_CASCADE}>
       <SpielCardsList
         spiele={res.spiele}
         today={today}
+        isFinishedSaison={isFinishedSaison}
       />
-    </div>
+    </SpielCardGrid>
   );
 }
 
@@ -124,6 +134,8 @@ export async function RecentAndUpcomingSpieleGrid() {
 
   // Safe to read the clock: `connection()` above already made this dynamic.
   const today = getGermanTodayStr();
+  // Read off the season rather than assumed: the default the reads answer for is whichever one the backend calls current.
+  const isFinishedSaison = saison?.saison.status === "past";
 
   return (
     <section className="flex w-full flex-col gap-y-8 pb-10 sm:gap-y-12">
@@ -135,6 +147,7 @@ export async function RecentAndUpcomingSpieleGrid() {
         <SectionBody
           res={upcomingSpieleRes}
           today={today}
+          isFinishedSaison={isFinishedSaison}
           emptyTitle="Aktuell sind keine Spiele angesetzt."
         />
       </div>
@@ -147,6 +160,7 @@ export async function RecentAndUpcomingSpieleGrid() {
         <SectionBody
           res={recentSpieleRes}
           today={today}
+          isFinishedSaison={isFinishedSaison}
           emptyTitle="Es wurde noch kein Spiel ausgetragen."
         />
       </div>

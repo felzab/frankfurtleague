@@ -17,11 +17,11 @@ import {
   COLUMN_INNER,
   IDENTITY_HEAD,
   IDENTITY_LINE,
-  IDENTITY_NAME,
   IDENTITY_NAME_BOX,
   IDENTITY_PAIR,
   IDENTITY_ROW,
   IDENTITY_STACK,
+  identityName,
   TABLE_HEADING,
 } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
@@ -52,7 +52,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   emptiness: CrudEmptiness;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
-  const [, startReactivating] = useTransition();
+  const [isReactivating, startReactivating] = useTransition();
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
@@ -83,7 +83,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     schiedsrichter.name === null ? (
       <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
     ) : (
-      <span className={IDENTITY_NAME}>{schiedsrichter.name}</span>
+      <span className={identityName(schiedsrichter.inactive_since !== null)}>{schiedsrichter.name}</span>
     );
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
@@ -97,11 +97,11 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
    * leaves it standing alone. An address and a number are what a reader copies once they have found
    * somebody.
    */
-  const renderIdentity = (schiedsrichter: FLSchiedsrichter, dimmed: boolean) => (
-    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+  const renderIdentity = (schiedsrichter: FLSchiedsrichter) => (
+    <div className={IDENTITY_ROW}>
       <Person
         aria-hidden="true"
-        className="text-brand size-4.5 shrink-0"
+        className="text-foreground-muted size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
@@ -144,6 +144,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     // The stored values and never the displayed label: a clipboard carrying „anonym“ reads as a detail
     // somebody could paste into a message.
     const kontaktdaten = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
+    const hatKontakt = Boolean(schiedsrichter.kontakt.email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
       <RowActions>
@@ -158,10 +159,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             aria-hidden="true"
           />
         </RowActionLink>
-        {/* No control where there is nothing to copy: an empty write is refused at
-            `fl_frontend/src/shared/utils/clipboard.ts :: copyTextToClipboard`, so the press could only
-            raise the failure toast. */}
-        {kontaktdaten !== "" && (
+        {/* Keyed on an e-mail or a number and never on the joined text: a name alone would be copied
+            under „Kontaktdaten kopiert“ with no way to reach the person on the clipboard. */}
+        {hatKontakt && (
           <RowActionCopy
             label="Kontaktdaten kopieren"
             ariaLabel={kontaktLabel}
@@ -182,6 +182,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           <RowActionRestore
             label="Reaktivieren"
             ariaLabel={`${nennung} reaktivieren`}
+            isPending={isReactivating}
             onPress={() => handleReactivate(schiedsrichter)}
           />
         )}
@@ -204,10 +205,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {filteredSchiedsrichter.map((schiedsrichter) => (
           <div
             key={schiedsrichter.id}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${schiedsrichter.inactive_since !== null ? "opacity-80" : ""}`}>
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
-              <div className="min-w-0 flex-1">{renderIdentity(schiedsrichter, false)}</div>
+              <div className="min-w-0 flex-1">{renderIdentity(schiedsrichter)}</div>
               <span className="shrink-0">{renderHonorar(schiedsrichter)}</span>
             </div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(schiedsrichter)}</div>
@@ -251,7 +251,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   <Table.Row
                     id={schiedsrichter.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(schiedsrichter, schiedsrichter.inactive_since !== null)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(schiedsrichter)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER}>{renderHonorar(schiedsrichter)}</Table.Cell>
 

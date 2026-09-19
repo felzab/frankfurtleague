@@ -165,6 +165,11 @@ export type AdminTeamRow = {
    * (`REQ-RETIRE-001`), which stays authoritative.
    */
   isRetireable: boolean;
+  /**
+   * The season the public club page shows this club in, or `null` where that page serves it in none
+   * (`fl_frontend/src/features/teams/utils.ts :: publicTeamSaisonId`).
+   */
+  publicSaisonId: string | null;
 };
 
 /**

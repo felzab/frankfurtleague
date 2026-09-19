@@ -54,8 +54,7 @@ describe("the squad-row panel a player is taken out of a season on", () => {
         spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
         saisonId: "2026",
         rowInactiveSince: null,
-        isRowTeamInSaison: true,
-        isRowSquadFull: false,
+        rowReturn: "open",
         banners: [],
       }),
     );

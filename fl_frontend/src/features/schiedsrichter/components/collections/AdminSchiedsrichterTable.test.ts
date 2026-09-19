@@ -41,6 +41,9 @@ const NAMENLOS: FLSchiedsrichter = {
 /** Nameless with details still on it, which is the row that keeps every control a named one has. */
 const NAMENLOS_MIT_KONTAKT: FLSchiedsrichter = { ...NAMENLOS, id: "6890a1b2c3d4e5f607800003", kontakt: LIVE.kontakt };
 
+/** Named, with neither an e-mail nor a number: the joined text is not empty, and there is still nothing to reach. */
+const OHNE_KONTAKT: FLSchiedsrichter = { ...LIVE, id: "6890a1b2c3d4e5f607800004", kontakt: { telefon: null, email: null } };
+
 const ROUTER = {
   back: () => undefined,
   forward: () => undefined,
@@ -76,6 +79,22 @@ describe("the referee row's copy control", () => {
 
     assert.ok(gelebt.length > 0, "the live row stopped offering the copy, so the case below proves nothing");
     assert.deepEqual(leer, [], "the empty row still offers a copy that would clear the clipboard");
+  });
+
+  /* The name alone would land on the clipboard under „Kontaktdaten kopiert“, a toast promising a way to
+     reach somebody that the paste does not carry. */
+  it("is withheld for a named referee holding no e-mail and no number", () => {
+    const html = table([OHNE_KONTAKT]);
+
+    assert.deepEqual(
+      namen(html).filter((name) => name.startsWith("Kontaktdaten")),
+      [],
+      "a row carrying only a name still offers to copy its contact details",
+    );
+    assert.ok(
+      namen(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
+      "the named row lost the link to its editor, so the case above passes for the wrong reason",
+    );
   });
 
   /* The rest of the row survives an empty one, so a change that dropped every control would pass the

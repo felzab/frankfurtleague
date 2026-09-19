@@ -2,25 +2,18 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { Calendar, DateField, DatePicker, FieldError, Input, Label, TextField } from "@heroui/react";
+import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
+import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { POSITION_OPTIONS } from "@/features/spieler/constants";
 import { FLCreateSpielerFormPayloadSchema } from "@/features/spieler/schemas";
+import { nummerPayload } from "@/features/spieler/utils";
+import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import {
-  DATE_PICKER_CALENDAR,
-  DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  FIELD_LABEL,
-  FIELD_PAIR,
-} from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
@@ -100,57 +93,16 @@ export function AdminCreateSpielerForm({
             <div className={FIELD_PAIR}>
               {/* Its own row rather than a third name column: this is the person, and the pair below
                   is the season's squad row. */}
-              <DatePicker
+              {/* No span: the calendar greys out what is offered, and this form judges no age
+                  (`fl_backend/app/core/domain.py :: UNENFORCED`). */}
+              <AppDatePicker
                 name="geburtsdatum"
+                label={<Label className={FIELD_LABEL}>Geburtsdatum</Label>}
+                calendarLabel="Geburtsdatum auswählen"
                 value={draft.geburtsdatum === null ? null : parseDate(draft.geburtsdatum)}
                 // A cleared picker is `null`, which is what the payload stores: no date was given.
                 onChange={(next) => setDraft((current) => ({ ...current, geburtsdatum: next?.toString() ?? null }))}
-                className="w-full">
-                <Label className={FIELD_LABEL}>Geburtsdatum</Label>
-                <DateField.Group
-                  fullWidth
-                  className={FIELD_GROUP}>
-                  <DateField.Input className="fluid-sm">
-                    {(segment) => (
-                      <DateField.Segment
-                        segment={segment}
-                        className="data-[type=literal]:text-foreground-muted"
-                      />
-                    )}
-                  </DateField.Input>
-                  <DateField.Suffix>
-                    <DatePicker.Trigger>
-                      <DatePicker.TriggerIndicator />
-                    </DatePicker.Trigger>
-                  </DateField.Suffix>
-                </DateField.Group>
-                <FieldError className={FIELD_ERROR} />
-                <DatePicker.Popover
-                  className={DATE_PICKER_POPOVER}
-                  placement={DATE_PICKER_PLACEMENT}>
-                  {/* No span: the calendar greys out what is offered, and this form judges no age
-                      (`fl_backend/app/core/domain.py :: UNENFORCED`). */}
-                  <Calendar
-                    aria-label="Geburtsdatum auswählen"
-                    className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-                    <Calendar.Header className="bg-transparent">
-                      <Calendar.YearPickerTrigger>
-                        <Calendar.YearPickerTriggerHeading />
-                        <Calendar.YearPickerTriggerIndicator />
-                      </Calendar.YearPickerTrigger>
-                      <Calendar.NavButton slot="previous" />
-                      <Calendar.NavButton slot="next" />
-                    </Calendar.Header>
-                    <Calendar.Grid>
-                      <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-                      <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-                    </Calendar.Grid>
-                    <Calendar.YearPickerGrid>
-                      <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-                    </Calendar.YearPickerGrid>
-                  </Calendar>
-                </DatePicker.Popover>
-              </DatePicker>
+              />
             </div>
 
             <div className={FIELD_PAIR}>
@@ -187,27 +139,12 @@ export function AdminCreateSpielerForm({
             </div>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-              <TextField
-                name="nummer"
+              <NummerField
+                label={<Label className={FIELD_LABEL}>Nummer</Label>}
                 value={draft.nummer ?? ""}
-                // Emptied means absent, not a number nobody wears — the same boundary rule as `nachname`.
-                onChange={(next) => setDraft((current) => ({ ...current, nummer: next.trim() === "" ? null : next }))}
-                maxLength={NUMMER_MAX_LENGTH}
-                inputMode="numeric"
-                pattern="[0-9]*">
-                <Label className={FIELD_LABEL}>Nummer</Label>
-                <Input
-                  placeholder="z.B. 7"
-                  className={`${FIELD_INPUT} font-extrabold tracking-wider`}
-                />
-                <FieldError className={FIELD_ERROR}>
-                  {/* Only the format, which is OUR rule. Every other flag keeps the browser's own sentence in the
-                      reader's language, as `SaisonFormControls.tsx :: SaisonDateField` sets out. */}
-                  {({ validationDetails, validationErrors }) =>
-                    validationDetails.patternMismatch ? NUMMER_MUST_BE_DIGITS : validationErrors.join(" ")
-                  }
-                </FieldError>
-              </TextField>
+                // As typed: `nummerPayload` below decides what an emptied box sends, so the draft holds no second rule.
+                onChange={(next) => setDraft((current) => ({ ...current, nummer: next }))}
+              />
 
               <ClosedSetSelect
                 value={draft.position}
@@ -237,9 +174,9 @@ export function AdminCreateSpielerForm({
         );
       }}
       schema={FLCreateSpielerFormPayloadSchema}
-      toPayload={(draft) => draft}
-      onSubmit={async (draft) => {
-        const res = await postSpielerAction(draft);
+      toPayload={(draft) => ({ ...draft, nummer: nummerPayload(draft.nummer) })}
+      onSubmit={async (payload) => {
+        const res = await postSpielerAction(payload);
         // An acknowledged create that answered no id leaves the caller nothing to name, so the
         // shared refusal stands in for a sentence the action never composed.
         return res.success && res.spieler_id === undefined ? { success: false, error: UNKNOWN_REFUSAL } : res;

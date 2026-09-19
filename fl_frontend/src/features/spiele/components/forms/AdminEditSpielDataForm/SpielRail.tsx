@@ -21,10 +21,12 @@ import type { SpielBanner } from "./banners";
 export function SpielRail({
   previewSpiel,
   today,
+  isFinishedSaison,
   banners,
 }: {
   previewSpiel: FLSpielWithDraftFields;
   today: string;
+  isFinishedSaison: boolean;
   banners: readonly SpielBanner[];
 }) {
   const status = useDraftStatus();
@@ -63,6 +65,7 @@ export function SpielRail({
           previewSpiel={previewSpiel}
           today={today}
           isDirty={status.isDirty}
+          isFinishedSaison={isFinishedSaison}
         />
       </RailSection>
 
@@ -86,8 +89,6 @@ export function SpielRail({
         badge={
           <span className="rail-marker">
             {expectedScheduling.length > 0 && <span className={trackCountBadge("warning")}>{expectedScheduling.length}</span>}
-            {/* Tinted like every other badge — `/15` fill, `-strong` text:
-                the two solid-filled counts were the odd ones out and the least like their markers. */}
             {(expectedScoring.length > 0 || expectedScheduling.length === 0) && (
               <span className={trackCountBadge(expectedScoring.length > 0 ? "danger" : "success")}>{expectedScoring.length}</span>
             )}

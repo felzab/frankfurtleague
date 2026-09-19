@@ -157,7 +157,7 @@ export function FormAnonymisierenSection({
           <Button
             type="button"
             variant="primary"
-            isDisabled={isAnonymising}
+            isPending={isAnonymising}
             onPress={handleAnonymise}
             className={confirmButton(isConfirming)}>
             {!isConfirming && (

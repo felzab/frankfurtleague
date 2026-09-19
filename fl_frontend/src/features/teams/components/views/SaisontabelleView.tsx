@@ -15,8 +15,25 @@ import { typedObjectEntries } from "@/shared/utils/type";
 import { austrittKuerzel, austrittZustand } from "../../constants";
 import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
+import { Tordifferenz } from "../ui/Tordifferenz";
 
 import type { FLGruppen } from "../../schemas";
+
+/**
+ * A sentence per count and per season state. A running season's placing is `aktuell` because a result
+ * can still move it; a finished one's group phase is over, so the same mark states where it ended.
+ */
+function qualifiedLegend(anzahl: number, isFinishedSaison: boolean): string {
+  if (isFinishedSaison) {
+    return anzahl === 1
+      ? "Hervorgehoben ist das Team, das die Gruppenphase auf einem KO-Runden-Platz beendet hat."
+      : `Hervorgehoben sind die ${anzahl} Teams, die die Gruppenphase auf einem KO-Runden-Platz beendet haben.`;
+  }
+
+  return anzahl === 1
+    ? "Hervorgehoben ist das Team, das aktuell auf einem KO-Runden-Platz steht."
+    : `Hervorgehoben sind die ${anzahl} Teams, die aktuell auf einem KO-Runden-Platz stehen.`;
+}
 
 /**
  * Annotative and never additive: a forfeit is in both figures (`docs/backend/spec.md :: I1d`), so a
@@ -38,14 +55,30 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
   );
 }
 
-export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppenData: FLGruppen; qualifiersPerGroup: number }) {
+export function SaisontabelleView({
+  gruppenData,
+  qualifiersPerGroup,
+  saisonId,
+  isFinishedSaison,
+}: {
+  gruppenData: FLGruppen;
+  qualifiersPerGroup: number;
+  /** The season the URL names, `undefined` for the running one, which a bare club link opens too. */
+  saisonId: string | undefined;
+  isFinishedSaison: boolean;
+}) {
   if (typedObjectEntries(gruppenData).length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        <EmptyState
-          title="Für diese Saison gibt es noch keine Tabelle."
-          hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
-        />
+        {/* A finished season's table is not still to come, so it takes no `noch` and no hint. */}
+        {isFinishedSaison ? (
+          <EmptyState title="Für diese Saison gibt es keine Tabelle." />
+        ) : (
+          <EmptyState
+            title="Für diese Saison gibt es noch keine Tabelle."
+            hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
+          />
+        )}
       </div>
     );
   }
@@ -79,10 +112,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
               <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
               {/* Only once something is marked: a legend for an absent highlight reads as a fault. */}
               {qualifying.size > 0 && (
-                <p className="fluid-xxs text-foreground-muted font-medium">
-                  Hervorgehoben {qualifying.size === 1 ? "ist das Team, das" : `sind die ${qualifying.size} Teams, die`} aktuell auf einem
-                  KO-Runden-Platz {qualifying.size === 1 ? "steht" : "stehen"}.
-                </p>
+                <p className="fluid-xxs text-foreground-muted font-medium">{qualifiedLegend(qualifying.size, isFinishedSaison)}</p>
               )}
             </div>
 
@@ -113,7 +143,9 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                 <Table.Body
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                      <p className="muted-hint">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
+                      <p className="muted-hint">
+                        {isFinishedSaison ? "Für diese Gruppe gibt es keine Teams." : "Für diese Gruppe sind noch keine Teams eingeteilt."}
+                      </p>
                     </div>
                   )}>
                   {teamsData.map((teamData) => (
@@ -139,7 +171,8 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
-                          teamAustritt={teamData.austritt_type}>
+                          teamAustritt={teamData.austritt_type}
+                          saisonId={saisonId}>
                           <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
                             {`${teamData.name} (${teamData.shorthand})`}
                           </span>
@@ -204,12 +237,4 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
       })}
     </div>
   );
-}
-
-/** Three arms, not two: a level difference is neither a surplus nor a deficit. */
-function Tordifferenz({ geschossen, kassiert }: { geschossen: number; kassiert: number }) {
-  const differenz = geschossen - kassiert;
-  if (differenz === 0) return <span className="text-foreground">0</span>;
-
-  return differenz > 0 ? <span className="text-success-strong">+{differenz}</span> : <span className="text-danger-strong">{differenz}</span>;
 }

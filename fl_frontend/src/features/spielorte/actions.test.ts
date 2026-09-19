@@ -43,6 +43,12 @@ describe("the venue retirement against the backend's refusal register", () => {
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement consults no mapper");
   });
 
+  /* A dialog's refusal is two sentences, the way out second, and a hand-spelled pair drifts from that
+     register the first time either sentence is edited. */
+  it("words the refusal through the shared refusal shape", () => {
+    assert.match(RETIRE_MAP, /buildRefusal\(\{/, "the retirement's refusal is spelled by hand");
+  });
+
   /* The other three writes answer the register with nothing, so a rule declared against one of them
      reaches the admin as that same wrong sentence — the duplicate name below is no register entry. */
   it("leaves the venue's other three writes with no declared rule to map", () => {

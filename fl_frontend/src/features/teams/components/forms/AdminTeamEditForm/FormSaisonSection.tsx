@@ -34,9 +34,6 @@ import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
 
-/** The sentence the disabled swap button is described by. This control renders at most once per page. */
-const SWAP_BUTTON_HINT_ID = "gruppentausch-team-hinweis";
-
 /**
  * Different words from the season panel's for the same codes, deliberately: here one side is fixed
  * and named at the top of the page, so a row says what is true of the club in it, not of the pair.
@@ -110,6 +107,8 @@ function GruppenTauschControl({
     });
   };
 
+  const restingLabel = isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen";
+
   return (
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
@@ -182,16 +181,21 @@ function GruppenTauschControl({
             </ConfirmReveal>
           )}
 
-          <div className="flex w-full flex-col gap-y-2">
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isSwapping}
-              onCancel={cancel}>
+          <ConfirmActionRow
+            isConfirming={isConfirming}
+            isPending={isSwapping}
+            onCancel={cancel}>
+            {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
+                §1.14). `isSwapping` is left out: it ends by itself. */}
+            <Hint
+              mode="refusal"
+              reason={!isSwapping && partner === null ? "Wähle zuerst ein Team." : null}
+              label={restingLabel}>
               <Button
                 type="button"
                 variant="primary"
-                aria-describedby={!isSwapping && partner === null ? SWAP_BUTTON_HINT_ID : undefined}
-                isDisabled={isSwapping || partner === null}
+                isPending={isSwapping}
+                isDisabled={!isSwapping && partner === null}
                 onPress={handleSwap}
                 className={confirmButton(isConfirming)}>
                 {!isConfirming && (
@@ -200,19 +204,10 @@ function GruppenTauschControl({
                     aria-hidden="true"
                   />
                 )}
-                {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
+                {isSwapping ? "Tauscht..." : restingLabel}
               </Button>
-            </ConfirmActionRow>
-            {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
-            treatment for a control disabled for a reason already on screen. */}
-            {!isSwapping && partner === null && (
-              <Hint
-                mode="inline"
-                describes={SWAP_BUTTON_HINT_ID}
-                text="Wähle zuerst ein Team."
-              />
-            )}
-          </div>
+            </Hint>
+          </ConfirmActionRow>
         </>
       )}
     </div>
@@ -266,8 +261,7 @@ export function FormSaisonSection({
 
   /**
    * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
-   * unsaved-error badge and a `reportValidity()` that moves focus to a form half this branch does
-   * not render.
+   * unsaved-error badge, and `focusFirstRefusal` would answer it as a save nobody pressed.
    */
   const [entryGruppeError, setEntryGruppeError] = useState<string | null>(null);
 
@@ -397,14 +391,22 @@ export function FormSaisonSection({
                 offer={gruppeOffer}
                 error={entryGruppeError ?? undefined}
               />
-              <Button
-                type="button"
-                variant="primary"
-                isDisabled={isEntering}
-                onPress={handleEnterSaison}
-                className={formButton({ intent: "submit" })}>
-                {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
-              </Button>
+              {/* Closed until a group is picked, rather than pressed into a refusal whose message lands under the
+                  picker and moves the row (`docs/frontend/spec.md` §1.14). */}
+              <Hint
+                mode="refusal"
+                reason={!isEntering && gruppe === null ? "Wähle zuerst eine Gruppe." : null}
+                label={`In Saison ${saison.saisonId} aufnehmen`}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isPending={isEntering}
+                  isDisabled={!isEntering && gruppe === null}
+                  onPress={handleEnterSaison}
+                  className={`${formButton({ intent: "submit" })} w-full`}>
+                  {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
+                </Button>
+              </Hint>
             </div>
           </div>
         ) : (

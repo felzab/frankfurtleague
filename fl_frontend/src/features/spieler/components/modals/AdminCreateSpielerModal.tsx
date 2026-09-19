@@ -5,6 +5,7 @@ import { Plus } from "@gravity-ui/icons";
 import { Button, useOverlayState } from "@heroui/react";
 
 import { AdminCreateSpielerForm } from "@/features/spieler/components/forms/AdminCreateSpielerForm";
+import { SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
@@ -36,7 +37,8 @@ export function AdminCreateSpielerModal({
           aria-hidden="true"
           className="size-4.5"
         />
-        <span className="hidden sm:inline">Neuen Spieler anlegen</span>
+        {/* Hidden from sight rather than from the tree below `sm`: it is the button's only name. */}
+        <span className="max-sm:sr-only">{SPIELER_CRUD_COPY.createLabel}</span>
       </Button>
 
       <FormModal

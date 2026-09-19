@@ -50,7 +50,8 @@ export function ClosedSetSelect<TValue extends string>({
   return (
     <Select
       name={name}
-      aria-label={label}
+      // Only without the visible `Label`: beside it the trigger is named twice.
+      aria-label={withOwnLabel ? undefined : label}
       value={value ?? NONE}
       onChange={handleChange}
       isInvalid={error ? true : undefined}

@@ -35,7 +35,10 @@ function mapRetireRefusal(error: unknown): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-RETIRE-003") {
-    return "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben. Verlege diese Spiele auf einen anderen Spielort oder sage sie ab.";
+    return buildRefusal({
+      reason: "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben",
+      repair: "Verlege diese Spiele auf einen anderen Spielort oder sage sie ab",
+    });
   }
   return null;
 }

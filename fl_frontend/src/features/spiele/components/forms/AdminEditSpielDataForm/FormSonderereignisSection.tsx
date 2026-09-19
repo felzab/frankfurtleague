@@ -92,7 +92,9 @@ export function FormSonderereignisSection({
             // no event.
             isRequired
             name="sonderereignis"
-            value={sonderereignis ?? undefined}
+            // `null` and never `undefined` for no event: react-stately reads `undefined` as uncontrolled, so the first
+            // pick would switch the picker to controlled.
+            value={sonderereignis}
             onChange={handleChange}
             isInvalid={status?.error ? true : undefined}
             className="w-full">

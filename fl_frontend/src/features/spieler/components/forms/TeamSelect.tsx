@@ -63,8 +63,11 @@ export function TeamSelect({
     <Select
       isRequired={isRequired}
       name={name}
-      aria-label="Team"
-      value={value ?? undefined}
+      // Only without the visible `Label`: beside it the trigger is named twice, „Team Team“.
+      aria-label={withOwnLabel ? undefined : "Team"}
+      // `null` and never `undefined` for no team: react-stately reads `undefined` as uncontrolled, so the first pick
+      // would switch the picker to controlled.
+      value={value}
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">

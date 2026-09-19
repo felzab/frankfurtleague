@@ -3,6 +3,8 @@ import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugl
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
   searchPlaceholder: "z.B. Goethe-Gymnasium oder GG",
+  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
+  createLabel: "Neues Team anlegen",
 } as const;
 
 export const KONTAKTE_CRUD_COPY = {

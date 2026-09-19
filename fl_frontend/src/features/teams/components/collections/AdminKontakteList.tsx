@@ -31,14 +31,10 @@ type Besetzung = ReturnType<typeof kontakteBesetzung>;
 
 const BESETZUNG_LABELS = Object.fromEntries(KONTAKTE_BESETZUNG_OPTIONS.map(({ value, label }) => [value, label])) as Record<Besetzung, string>;
 
-/**
- * The badge grades the row's completeness, which is the one thing a reader scans this list for.
- * `leer` is the bottom of that grade rather than a missing value: nobody can reach the club at all.
- */
+/** The badge grades the row's completeness, which is the one thing a reader scans this list for. */
 const BESETZUNG_TINT: Record<Besetzung, PillTone> = {
   vollstaendig: "success",
   teilweise: "warning",
-  leer: "danger",
 };
 
 /** What a seat holding nobody says, in the register the rest of the admin uses for an absent value. */
@@ -116,15 +112,11 @@ export const AdminKontakteList = memo(function AdminKontakteList({
 
   const renderActions = (row: AdminKontakteRow) => (
     <RowActions>
-      {/* Dropped rather than disabled where the club has nobody on file: a control offering to copy
-          an empty block is one press that reports success over nothing. */}
-      {row.besetzt > 0 && (
-        <RowActionCopy
-          label="Kontaktdaten kopieren"
-          ariaLabel={`Kontaktdaten von ${row.teamName} kopieren`}
-          onPress={() => void handleCopyKontakte(row)}
-        />
-      )}
+      <RowActionCopy
+        label="Kontaktdaten kopieren"
+        ariaLabel={`Kontaktdaten von ${row.teamName} kopieren`}
+        onPress={() => void handleCopyKontakte(row)}
+      />
       {/* A link and not a press: all three seats are edited together on the club's own contacts page,
           which is what this row stands for. */}
       <RowActionLink

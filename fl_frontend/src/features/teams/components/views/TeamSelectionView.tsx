@@ -4,7 +4,17 @@ import { TeamsGrid } from "../collections/TeamsGrid";
 
 import type { FLTeam } from "../../schemas";
 
-export function TeamSelectionView({ urlPrefix, teams }: { urlPrefix: string; teams: FLTeam[] }) {
+export function TeamSelectionView({
+  urlPrefix,
+  teams,
+  saisonId,
+  isFinishedSaison,
+}: {
+  urlPrefix: string;
+  teams: FLTeam[];
+  saisonId: string | undefined;
+  isFinishedSaison: boolean;
+}) {
   return (
     /* The rise brings in what the cascade cannot: `TeamsGrid`'s empty state, which stands in for
        the whole collection when a season has no teams. */
@@ -12,6 +22,8 @@ export function TeamSelectionView({ urlPrefix, teams }: { urlPrefix: string; tea
       <TeamsGrid
         urlPrefix={urlPrefix}
         teams={teams}
+        saisonId={saisonId}
+        isFinishedSaison={isFinishedSaison}
       />
     </div>
   );

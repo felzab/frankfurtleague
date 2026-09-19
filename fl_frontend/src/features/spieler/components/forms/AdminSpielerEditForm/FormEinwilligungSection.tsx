@@ -62,7 +62,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
             <dl className={FIELD_PAIR}>
               <Angabe label="Umfang">{EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
               <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>
-              {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „TBD“: it promises a
+              {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
                   day that is coming, and nobody was asked for this one. */}
               <Angabe label="Erteilt am">
                 {einwilligung.datum === null ? <KeinTag>Kein Datum</KeinTag> : formatSpielDatum(einwilligung.datum)}

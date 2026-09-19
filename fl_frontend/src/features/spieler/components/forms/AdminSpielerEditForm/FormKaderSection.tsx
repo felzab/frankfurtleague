@@ -7,11 +7,13 @@ import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup }
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
+import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
+import { POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
+import { nummerPayload } from "@/features/spieler/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -76,8 +78,7 @@ export function FormKaderSection({
 
   /**
    * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
-   * unsaved-error badge and a `reportValidity()` that moves focus to a form half this branch does
-   * not render.
+   * unsaved-error badge, and `focusFirstRefusal` would answer it as a save nobody pressed.
    */
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
@@ -92,7 +93,7 @@ export function FormKaderSection({
         team_id: teamId,
         // Emptied means absent — this branch renders no `nummer` input, so a refusal on it would have
         // nowhere to land.
-        nummer: nummer.trim() === "" ? null : nummer.trim(),
+        nummer: nummerPayload(nummer),
         position,
         stufe,
         is_nachgetragen: entryIsNachgetragen,
@@ -150,27 +151,12 @@ export function FormKaderSection({
                 />
               </div>
 
-              <TextField
-                name="nummer"
+              <NummerField
+                label={<FieldLabel path="nummer">Nummer</FieldLabel>}
                 value={nummer}
                 onChange={onNummerChange}
                 onBlur={() => onValidateFields(["nummer"])}
-                maxLength={NUMMER_MAX_LENGTH}
-                inputMode="numeric"
-                pattern="[0-9]*">
-                <FieldLabel path="nummer">Nummer</FieldLabel>
-                <Input
-                  placeholder="z.B. 7"
-                  className={`${FIELD_INPUT} font-extrabold tracking-wider`}
-                />
-                <FieldError className={FIELD_ERROR}>
-                  {/* Only the format, which is OUR rule. Every other flag keeps the browser's own sentence in the
-                      reader's language, as `SaisonFormControls.tsx :: SaisonDateField` sets out. */}
-                  {({ validationDetails, validationErrors }) =>
-                    validationDetails.patternMismatch ? NUMMER_MUST_BE_DIGITS : validationErrors.join(" ")
-                  }
-                </FieldError>
-              </TextField>
+              />
             </div>
 
             {/* A group rather than a switch, unlike `is_nachgetragen`: three states, and pressing the
@@ -178,7 +164,7 @@ export function FormKaderSection({
             <TextField
               name="rolle"
               // The proxy is what makes a refusal land: `ToggleButtonGroup` takes no `name`, so it
-              // joins no field context and `form.reportValidity()` cannot see the group.
+              // joins no field context, and `focusFirstRefusal` finds a control by its `name` alone.
               value={rolle ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
@@ -275,14 +261,22 @@ export function FormKaderSection({
               />
               {/* Its cap refusal is the picker's beside it: `teamId` starts null on this branch and
                   `TeamSelect` is its only writer, so a squad at `REQ-SQUAD-003`'s cap never gets here. */}
-              <Button
-                type="button"
-                variant="primary"
-                isDisabled={isEntering}
-                onPress={handleEnterSaison}
-                className={formButton({ intent: "submit" })}>
-                {isEntering ? "Nimmt auf..." : `In Kader ${saison.saisonId} aufnehmen`}
-              </Button>
+              {/* Closed until a team is picked, rather than pressed into a refusal whose message lands under the
+                  picker and moves the row (`docs/frontend/spec.md` §1.14). */}
+              <Hint
+                mode="refusal"
+                reason={!isEntering && teamId === null ? "Wähle zuerst ein Team." : null}
+                label={`In Kader ${saison.saisonId} aufnehmen`}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isPending={isEntering}
+                  isDisabled={!isEntering && teamId === null}
+                  onPress={handleEnterSaison}
+                  className={`${formButton({ intent: "submit" })} w-full`}>
+                  {isEntering ? "Nimmt auf..." : `In Kader ${saison.saisonId} aufnehmen`}
+                </Button>
+              </Hint>
             </div>
 
             {/* Coloured rather than muted: it announces a value the form chooses on the admin's

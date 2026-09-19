@@ -15,9 +15,9 @@ import {
   COLUMN_INNER,
   IDENTITY_HEAD,
   IDENTITY_LINE,
-  IDENTITY_NAME,
   IDENTITY_ROW,
   IDENTITY_STACK,
+  identityName,
   TABLE_HEADING,
 } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
@@ -58,7 +58,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   emptiness: CrudEmptiness;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
-  const [, startReactivating] = useTransition();
+  const [isReactivating, startReactivating] = useTransition();
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
@@ -95,15 +95,15 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
    * under the name. Two lines and not one: a district joined to its street truncates at every width
    * the table renders at.
    */
-  const renderIdentity = (ort: FLSpielort, dimmed: boolean) => (
-    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+  const renderIdentity = (ort: FLSpielort) => (
+    <div className={IDENTITY_ROW}>
       <MapPin
         aria-hidden="true"
-        className="text-brand size-4.5 shrink-0"
+        className="text-foreground-muted size-4.5 shrink-0"
       />
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
-          <span className={IDENTITY_NAME}>{ort.name}</span>
+          <span className={identityName(ort.inactive_since !== null)}>{ort.name}</span>
           {renderRetiredBadge(ort)}
         </div>
         <span className={IDENTITY_LINE}>
@@ -138,6 +138,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         <RowActionRestore
           label="Reaktivieren"
           ariaLabel={`Spielort ${ort.name} reaktivieren`}
+          isPending={isReactivating}
           onPress={() => handleReactivate(ort)}
         />
       ) : (
@@ -182,10 +183,9 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         {filteredSpielorte.map((ort) => (
           <div
             key={ort.id}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${ort.inactive_since !== null ? "opacity-80" : ""}`}>
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
-              <div className="min-w-0 flex-1">{renderIdentity(ort, false)}</div>
+              <div className="min-w-0 flex-1">{renderIdentity(ort)}</div>
               <span className="shrink-0">{renderMietpreis(ort)}</span>
             </div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
@@ -229,7 +229,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                   <Table.Row
                     id={ort.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(ort, ort.inactive_since !== null)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(ort)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER}>{renderMietpreis(ort)}</Table.Cell>
 

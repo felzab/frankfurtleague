@@ -4,38 +4,58 @@ import { useState } from "react";
 
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardCompact } from "@/features/spiele/components/ui/SpielCardCompact";
-import { computeErgebnisFor } from "@/features/spiele/utils";
+import { IM_ELFMETERSCHIESSEN, IM_ELFMETERSCHIESSEN_GESPROCHEN } from "@/features/spiele/utils";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { sortByDate } from "@/shared/utils/date";
+
+import { computeEntscheidungFor } from "../../utils";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 
 /**
  * The `-solid` fills rather than the tint accents: these are small bold glyphs on an opaque fill,
- * and a white "D" on the plain accent measured 3.44:1 in light and 2.70:1 in dark. The ring keeps
+ * and a white "U" on the plain accent measured 3.44:1 in light and 2.70:1 in dark. The ring keeps
  * the tint accent, being decoration.
  */
 const badgeColor = (ergebnisFor: FLSpielErgebnisFor): string => {
   switch (ergebnisFor) {
-    case "W":
+    case "S":
       return "bg-success-solid text-success-solid-foreground ring-success/30";
-    case "D":
+    case "U":
       return "bg-warning-solid text-warning-solid-foreground ring-warning/30";
-    case "L":
+    case "N":
       return "bg-danger-solid text-danger-solid-foreground ring-danger/30";
     default:
       // The outcome grammar's own null, never the category chip `TeamSaisonVerlauf` gives the
-      // same fixture: a `?` here says nothing is claimed, and W, D and L carry the tones.
+      // same fixture: a `?` here says nothing is claimed, and S, U and N carry the tones.
       return "bg-muted text-foreground-muted ring-border";
   }
+};
+
+/** What a screen reader hears in place of the badge, which would otherwise spell its letter out. */
+const ERGEBNIS_WORT: Record<FLSpielErgebnisFor, string> = {
+  S: "Sieg",
+  U: "Unentschieden",
+  N: "Niederlage",
+  "?": "Kein Ergebnis",
 };
 
 /**
  * `"use client"` is required: this section holds the details modal's state and hands each card the
  * callback that opens it, which a Server Component may not pass (`docs/frontend/spec.md :: I13`).
  */
-export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSpiele: FLSpiel[]; teamId: string; today: string }) {
+export function TeamSaisonSpieleTimeline({
+  teamSpiele,
+  teamId,
+  today,
+  isFinishedSaison,
+}: {
+  teamSpiele: FLSpiel[];
+  teamId: string;
+  today: string;
+  isFinishedSaison: boolean;
+}) {
   // One modal for the whole timeline, PlayoffsView-style.
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
@@ -45,30 +65,52 @@ export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSp
 
       {/* Without this the empty case renders the dashed rail with no items — a bare vertical line. */}
       {teamSpiele.length === 0 ? (
-        <EmptyState
-          title="Für diese Saison sind noch keine Spiele angesetzt."
-          hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
-        />
+        isFinishedSaison ? (
+          // No hint: a finished season's Spielplan is not still to come.
+          <EmptyState title="Für diese Saison gibt es keine Spiele." />
+        ) : (
+          <EmptyState
+            title="Für diese Saison sind noch keine Spiele angesetzt."
+            hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
+          />
+        )
       ) : (
         // Same list semantics as the card grids, so a screen-reader user gets a count and a position.
         <div
           role="list"
           className="border-border relative ml-2 border-l-2 border-dashed">
           {sortByDate({ arr: teamSpiele, key: "datum" }).map((spielData) => {
-            const ergebnisFor = computeErgebnisFor({ spiel: spielData, teamId });
+            const { ergebnisFor, imElfmeterschiessen } = computeEntscheidungFor({ spiel: spielData, teamId });
 
             return (
               <div
                 role="listitem"
                 key={spielData.id}
                 className="relative mb-8 pl-6">
+                <span className="sr-only">
+                  {imElfmeterschiessen ? `${ERGEBNIS_WORT[ergebnisFor]} ${IM_ELFMETERSCHIESSEN_GESPROCHEN}` : ERGEBNIS_WORT[ergebnisFor]}
+                </span>
+
                 <div
+                  aria-hidden="true"
                   className={`absolute top-4 left-[-11px] size-[20px] rounded-full ring-4 ${badgeColor(ergebnisFor)} flex items-center justify-center text-[10px] font-bold shadow-sm`}>
                   {ergebnisFor}
                 </div>
 
+                {/* Under the glyph and never inside it: the circle holds one letter at this size. The
+                    `bg-muted` pill is the `?` badge's own ground, which is what hides the dashed rail
+                    running behind it. */}
+                {imElfmeterschiessen && (
+                  <span
+                    aria-hidden="true"
+                    className="bg-muted text-foreground-muted absolute top-[42px] left-[-15px] w-[28px] rounded-full text-center text-[10px] leading-4 font-bold whitespace-nowrap">
+                    {IM_ELFMETERSCHIESSEN}
+                  </span>
+                )}
+
                 <SpielCardCompact
                   spielData={spielData}
+                  isFinishedSaison={isFinishedSaison}
                   onOpenInfoModal={() => setSelectedSpiel(spielData)}
                 />
               </div>
@@ -82,6 +124,7 @@ export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSp
         <SpielDetailsModal
           spielData={selectedSpiel}
           today={today}
+          isFinishedSaison={isFinishedSaison}
           isOpen={true}
           onClose={() => setSelectedSpiel(null)}
         />

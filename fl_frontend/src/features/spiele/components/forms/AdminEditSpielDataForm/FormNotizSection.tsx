@@ -93,7 +93,7 @@ export function FormNotizSection({
               `FieldLabel.tsx :: FieldLabel` reserves against. */}
           <div className="flex min-h-7 w-full flex-row items-center">
             {/* No confirmation: nothing is written until Speichern, so this is an ordinary draft edit
-                — the same call `FormDateTimeSection.tsx :: ClearFieldButton` makes, and a plain button
+                — the same call `DateTimeFields.tsx :: ClearFieldButton` makes, and a plain button
                 for the same reason. Labelled: a bare X reads only inside a field group. */}
             {hasNotiz && (
               <button

@@ -12,7 +12,8 @@ import type { FLSpielerFilterParams } from "./types";
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
 
-  // Base tag only — this read spans every season, so no granular tag could name a save.
+  // Base tag only — the squad page reads the running season by naming none, so a season tag would miss
+  // the entry a squad save most often has to clear.
   cacheTag("spieler");
   cacheLife("days");
 

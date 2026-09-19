@@ -95,7 +95,8 @@ export function WebsiteUrlField({
         ) : (
           <Hint
             mode="refusal"
-            reason="Erst eine gültige Adresse eingeben">
+            reason="Erst eine gültige Adresse eingeben"
+            label="Website in neuem Tab öffnen">
             {openLink}
           </Hint>
         )}

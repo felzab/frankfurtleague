@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { applyFacets, readFacetSelection } from "@/shared/utils/facets.ts";
+import { applyFacets, offeredOptions, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { ANONYMISED_SCHIEDSRICHTER_VALUE, buildSpielFacets, schiedsrichterFacetValue } from "./facets.ts";
 
@@ -120,6 +120,30 @@ describe("the referee facet an administrator is offered", () => {
 
   it("files a fixture with no referee under no option, rather than under the merged one", () => {
     assert.deepEqual(SCHIEDSRICHTER_FACET?.read(UNASSIGNED), []);
+  });
+
+  /* The referee list links each nameless row on the merged value, so a season whose fixtures name no
+     anonymised referee has to keep that value under the erasure's word, and once for every such row. */
+  it("keeps a nameless row's link under one merged option where no fixture of the season names one", () => {
+    const facets = buildSpielFacets({
+      spiele: [NAMED],
+      today: TODAY,
+      isAdmin: true,
+      schiedsrichter: [
+        { id: ANONYMISIERT_EINS, name: null },
+        { id: ANONYMISIERT_ZWEI, name: null },
+        { id: COLLINA, name: "Pierluigi Collina" },
+      ],
+    });
+    const facet = facets.find((candidate) => candidate.param === SCHIEDSRICHTER_PARAM) ?? assert.fail("the season offers no referee facet");
+    const linked = schiedsrichterFacetValue({ id: ANONYMISIERT_ZWEI, name: null });
+    const selection = readFacetSelection(facets, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${linked}`));
+
+    assert.deepEqual(selection, { [SCHIEDSRICHTER_PARAM]: [ANONYMISED_SCHIEDSRICHTER_VALUE] });
+    assert.deepEqual(
+      offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).filter((option) => option.value === linked),
+      [{ value: ANONYMISED_SCHIEDSRICHTER_VALUE, label: SCHIEDSRICHTER_ANONYM_LABEL }],
+    );
   });
 });
 

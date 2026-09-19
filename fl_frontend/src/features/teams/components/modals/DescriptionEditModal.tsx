@@ -75,8 +75,19 @@ export function DescriptionEditModal({
         </div>
 
         {/* `EntityForm`'s footer band, from the same constant, so every modal draws one boundary
-            between what you fill in and what you press. */}
+            between what you fill in and what you press — and the action first, as in every dialog
+            footer (`docs/frontend/spec.md` §1.19). */}
         <div className={MODAL_FOOTER_ROW}>
+          <Button
+            type="button"
+            variant="primary"
+            className={formButton({ intent: "submit" })}
+            onPress={() => {
+              onApply(draft);
+              onClose();
+            }}>
+            Übernehmen
+          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -87,16 +98,6 @@ export function DescriptionEditModal({
               onClose();
             }}>
             Abbrechen
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            className={formButton({ intent: "submit" })}
-            onPress={() => {
-              onApply(draft);
-              onClose();
-            }}>
-            Übernehmen
           </Button>
         </div>
       </div>

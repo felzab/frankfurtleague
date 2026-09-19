@@ -1,6 +1,10 @@
 import { card } from "@/shared/components/ui/card";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
+import { FROM_THREE_COLUMNS, FROM_TWO_COLUMNS, SpielCardGrid } from "./SpielCardGrid";
+// Never from `SpielTeamSlot`: a `"use client"` module hands this Server Component a reference, not the string.
+import { TEAM_NAME_TRACK } from "./teamName";
+
 /**
  * **The `invisible` spans are load-bearing**, carrying line boxes the visible blocks do not, so
  * deleting one brings back the shift this exists to prevent. Sizes are `SpielCard`'s own classes,
@@ -19,13 +23,14 @@ function SpielCardSkeleton() {
           <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md`}>&nbsp;</span>
         </div>
         <div className="flex w-full items-center justify-end gap-x-2">
-          <span className={`${skeletonBlock()} h-[35px] w-[35px] rounded-xl md:h-[38px] md:w-[38px]`} />
+          <span className={`${skeletonBlock()} size-9 rounded-xl`} />
         </div>
       </div>
 
-      {/* One filled rectangle, not three bars in a tint. Its height comes from the score line, the
-          tallest of the band's cells, so one `fluid-base` spacer reproduces it. */}
+      {/* One filled rectangle, not three bars in a tint. Its height is the taller of the score line and
+          the name track, which reserves two lines on every card whatever its names measure. */}
       <div className={`${skeletonBlock()} flex w-full items-center rounded-xl p-2`}>
+        <span className={`fluid-xs lg:fluid-sm invisible font-bold ${TEAM_NAME_TRACK}`}>&nbsp;</span>
         <span className="fluid-base invisible font-extrabold">&nbsp;</span>
       </div>
 
@@ -48,17 +53,15 @@ const VISIBILITY = [
   "", // 1-3 always: one column -> 3 rows, and the page already exceeds a phone viewport
   "",
   "",
-  "hidden sm:block", // 4th from two columns -> 2 rows
-  "hidden lg:block", // 5th and 6th from three columns -> still 2 rows
-  "hidden lg:block",
+  FROM_TWO_COLUMNS, // 4th from two columns -> 2 rows
+  FROM_THREE_COLUMNS, // 5th and 6th from three columns -> still 2 rows
+  FROM_THREE_COLUMNS,
 ];
 
-/** Skeletons in the same grid the real lists use, revealed per breakpoint by `VISIBILITY`. */
+/** Skeletons in the same grid the real lists use, revealed per column count by `VISIBILITY`. */
 export function SpielCardSkeletonGrid() {
   return (
-    <div
-      role="status"
-      className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+    <SpielCardGrid role="status">
       {/* In the subtree rather than in `aria-label`: a live region announces what its content changes
           to, and a name is not content, so the region announced nothing at all. */}
       <span className="sr-only">Spiele werden geladen</span>
@@ -69,6 +72,6 @@ export function SpielCardSkeletonGrid() {
           <SpielCardSkeleton />
         </div>
       ))}
-    </div>
+    </SpielCardGrid>
   );
 }

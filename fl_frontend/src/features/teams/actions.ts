@@ -265,8 +265,8 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
       return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
-    // Base tag only: retirement hides the club from every season's default list at once. `spiele` is
-    // untouched — a match keeps its embedded copies.
+    // Base tag only: every list and by-id read of the club serves its `inactive_since`, whichever season
+    // it names. `spiele` is untouched — a match keeps its embedded copies.
     updateTag("teams");
     refresh();
 
@@ -434,8 +434,8 @@ export async function replaceSaisonTeamAction(
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
     // The third read this write moves: the same transaction retired the outgoing club's squad, and
-    // the public squad read matches on `inactive_since`. Base tag only, which is `invalidateSpieler`'s
-    // rule — that read spans every season.
+    // the public squad read matches on `inactive_since`. Base tag only, for the reason
+    // `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives.
     updateTag("spieler");
     refresh();
 

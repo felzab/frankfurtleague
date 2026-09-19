@@ -18,9 +18,9 @@ import {
   COLUMN_INNER,
   IDENTITY_HEAD,
   IDENTITY_LINE,
-  IDENTITY_NAME,
   IDENTITY_ROW,
   IDENTITY_STACK,
+  identityName,
   TABLE_HEADING,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -61,14 +61,12 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   emptiness: CrudEmptiness;
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
-  const [, startReactivating] = useTransition();
+  const [isReactivating, startReactivating] = useTransition();
 
   // The selector's season rides along on every row link, so each destination opens on the season
   // this list is showing.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-  // The season the shell is on, handed to `withSaisonId`: it resolves the `?`/`&` split with
-  // `URLSearchParams`, which is the whole reason the two hand-rolled constants existed.
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivate = (team: AdminTeamRow) => {
@@ -101,12 +99,12 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
    * (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx`). The pills join the name's line: a
    * column wide enough for „Stillgelegt 09.09.2026“ leaves the name almost nothing.
    */
-  const renderIdentity = (team: AdminTeamRow, dimmed: boolean) => (
-    <div className={`${IDENTITY_ROW} ${dimmed ? "opacity-60" : ""}`}>
+  const renderIdentity = (team: AdminTeamRow) => (
+    <div className={IDENTITY_ROW}>
       <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
       <div className={IDENTITY_STACK}>
         <div className={IDENTITY_HEAD}>
-          <span className={IDENTITY_NAME}>{team.name}</span>
+          <span className={identityName(team.inactive_since !== null)}>{team.name}</span>
           {renderStatusBadges(team)}
         </div>
         <span className={IDENTITY_LINE}>{team.full_name}</span>
@@ -132,6 +130,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         <RowActionRestore
           label="Reaktivieren"
           ariaLabel={`Team ${team.name} reaktivieren`}
+          isPending={isReactivating}
           onPress={() => handleReactivate(team)}
         />
       ) : (
@@ -146,7 +145,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           onPress={() => setDeletingTeam(team)}
         />
       )}
-      {/* All four leave the row for another list or page, and as inline icons they put six controls
+      {/* Every one leaves the row for another list or page, and as inline icons they put six controls
           in a row that has 631px for everything. */}
       <RowActionMenu ariaLabel={`Weitere Aktionen für Team ${team.name}`}>
         {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
@@ -182,15 +181,20 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             className="text-foreground-muted size-4"
           />
         </RowActionMenuItem>
-        <RowActionMenuItem
-          id="oeffentlich"
-          href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
-          label="Öffentliche Teamseite">
-          <Globe
-            aria-hidden="true"
-            className="text-foreground-muted size-4"
-          />
-        </RowActionMenuItem>
+        {/* The public page's season rather than the selector's: that page withholds a planned season
+            and 404s a club with no row in the one it shows
+            (`fl_frontend/src/features/teams/utils.ts :: publicTeamSaisonId`). */}
+        {team.publicSaisonId !== null && (
+          <RowActionMenuItem
+            id="oeffentlich"
+            href={withSaisonId(`/dashboard/teams/${team.id}`, team.publicSaisonId)}
+            label="Öffentliche Teamseite">
+            <Globe
+              aria-hidden="true"
+              className="text-foreground-muted size-4"
+            />
+          </RowActionMenuItem>
+        )}
       </RowActionMenu>
     </RowActions>
   );
@@ -204,9 +208,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         {filteredTeams.map((team) => (
           <div
             key={team.id}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${team.inactive_since !== null ? "opacity-80" : ""}`}>
-            {/* Undimmed: the card dims its whole box, so a second grade inside it would compound. */}
-            {renderIdentity(team, false)}
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            {renderIdentity(team)}
             {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(team)}</div>
           </div>
@@ -249,7 +252,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   <Table.Row
                     id={team.id}
                     className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(team, team.inactive_since !== null)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE}>{renderIdentity(team)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER}>{renderGruppe(team)}</Table.Cell>
 

@@ -1,9 +1,13 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
+
+import { fireEvent, render } from "@testing-library/react";
 
 import { FLSpielSchema } from "@/features/spiele/schemas.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -16,12 +20,6 @@ import type { SpielBanner } from "./banners.ts";
 const { FormTeamPicker } = await import("./FormTeamPicker.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { SpielExpectedProvider } = await import("./SpielExpectedContext.tsx");
-
-/**
- * The picker's own text, for the two claims no markup carries: `disabledKeys` is consumed by
- * react-aria and never painted, and the pick handler's answer is a change to the draft.
- */
-const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormTeamPicker.tsx"), "utf8");
 
 /** The rule's other half: the picker drops the row, and the editor feeds the banner saying why. */
 const EDITOR = readFileSync(path.resolve(import.meta.dirname, "AdminEditSpielDataForm.tsx"), "utf8");
@@ -163,18 +161,40 @@ describe("the Herkunft picker's group placing", () => {
     // the select whether or not it can be picked. "(Empfohlen)" is the one note a row may carry.
     for (const { text } of options(later, "team1_quelle.type")) assert.match(text, /^[^(]+( \(Empfohlen\))?$/, `the row is annotated: ${text}`);
     assert.doesNotMatch(later, /nur in der ersten KO-Runde/, "the picker restates the banner's sentence at the row");
-
-    /* `disabledKeys` reaches no markup, so the picker's one closed list is read off the file instead:
-       a second one is the greyed group placing back by the other route. */
-    const closedLists = [...SOURCE.matchAll(/disabledKeys=\{(.+?)\}/g)].map(([, keys]) => keys);
-
-    assert.deepEqual(closedLists, ["disabledTeamKeys"], "a Herkunft row is closed rather than absent");
   });
 
-  /* The list is a rendering, and a keyboard pick or a list a render old reaches past what it shows.
-     Read off the file: what the handler resolves against decides a change to the draft, not a paint. */
-  it("re-reads the list on the pick", () => {
-    assert.match(SOURCE, /availableChoices\.find\(\(item\) => item\.key === \(key\?\.toString\(\) \?\? "manuell"\)\)/);
+  /* The list decides and never the event: react-aria mirrors the offered rows into a hidden native
+     `<select>`, where a browser restoring a form can answer with a value outside this round's own list. */
+  it("re-reads the list on a pick through the native mirror", async () => {
+    const seated = (saisonSpiele: FLSpiel[]): (FLSpielQuelle | null)[] => {
+      const picked: (FLSpielQuelle | null)[] = [];
+      const { container, unmount } = render(
+        h(DraftStatusProvider, {
+          status: STATUS,
+          children: h(SpielExpectedProvider, {
+            expected: [],
+            children: h(FormTeamPicker, { ...PICKER, saisonSpiele, onQuelleChange: (next: FLSpielQuelle | null) => void picked.push(next) }),
+          }),
+        }),
+      );
+      const mirror = container.querySelector("select[name='team1_quelle.type']") ?? assert.fail("the Herkunft picker mirrors no select");
+
+      // Planted, because this round offers no such row: what a restored form hands back is a value the
+      // list once held.
+      if (!mirror.querySelector("option[value='gruppe']")) mirror.append(Object.assign(document.createElement("option"), { value: "gruppe" }));
+      fireEvent.change(mirror, { target: { value: "gruppe" } });
+      unmount();
+
+      return picked;
+    };
+
+    // The control: where the round offers the row, the same pick seats a group placing.
+    assert.deepEqual(
+      seated(BRACKET_OF_4).map((quelle) => quelle?.type),
+      ["gruppe"],
+      "a pick through the mirror reaches no handler at all",
+    );
+    assert.deepEqual(seated(BRACKET_OF_16), [], "a value this round does not offer seats a group placing");
   });
 
   /* The side's readout, never an offer: listed while it IS the choice and gone the moment the choice

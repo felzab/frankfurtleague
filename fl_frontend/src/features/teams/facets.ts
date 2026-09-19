@@ -93,17 +93,17 @@ export function buildTeamFacets(numberOfGroups: number | null): readonly Facet<A
   return TEAM_FACETS.map((facet) => (facet === GRUPPE_FACET ? narrowed : facet));
 }
 
-/** What a club's three seats add up to, which is the question the list is worked down by. */
+/**
+ * What a club's three seats add up to, which is the question the list is worked down by. No grade for
+ * nobody: `fl_frontend/src/features/teams/utils.ts :: buildKontaktRows` gives such a club no row.
+ */
 export const KONTAKTE_BESETZUNG_OPTIONS = [
   { value: "vollstaendig", label: "Alle drei besetzt" },
   { value: "teilweise", label: "Teilweise besetzt" },
-  { value: "leer", label: "Keine Kontakte" },
 ] as const;
 
-/** One row answers exactly one of the three, so the facet partitions the list rather than filtering it. */
+/** One row answers exactly one of the two, so the facet partitions the list rather than filtering it. */
 export function kontakteBesetzung(besetzt: number): (typeof KONTAKTE_BESETZUNG_OPTIONS)[number]["value"] {
-  if (besetzt === 0) return "leer";
-
   return besetzt === KONTAKT_ROLLEN.length ? "vollstaendig" : "teilweise";
 }
 

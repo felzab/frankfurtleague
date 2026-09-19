@@ -3,6 +3,7 @@ import { Card, Chip } from "@heroui/react";
 import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
 
 import type { FLTeam } from "../../schemas";
 
@@ -24,9 +25,16 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
     <Card
       variant="default"
       className={`${card({ interactive: true })} flex size-full flex-col items-start p-4`}>
-      <Card.Header className="flex h-fit w-full flex-row items-center justify-between pb-3">
-        <div>
-          <Card.Title className="fluid-base font-bold">{teamData.name}</Card.Title>
+      <Card.Header className="flex h-fit w-full flex-row items-center justify-between gap-x-3 pb-3">
+        {/* `min-w-0`: as a flex item the stack defaults to its longest word, which pushes the Kürzel
+            box past the card's edge at the grid's floor. */}
+        <div className="min-w-0">
+          {/* Level two, under the page's `h1`: HeroUI's title renders level three by default. */}
+          <Card.Title<"h2">
+            render={({ children, ...props }) => <h2 {...props}>{children}</h2>}
+            className={`fluid-base font-bold ${NAME_WRAP}`}>
+            {teamData.name}
+          </Card.Title>
           <Card.Description className="fluid-xxs text-foreground-muted font-medium">{teamData.address.stadtteil}</Card.Description>
         </div>
         <div

@@ -9,9 +9,9 @@ import { Button } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
-import { computeSpielStatus, formatSpielDisplay, isAbgesagt } from "../../utils";
+import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
@@ -23,6 +23,7 @@ export function SpielCard({
   adminEditHref,
   asListitem = true,
   today,
+  isFinishedSaison,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
@@ -37,13 +38,15 @@ export function SpielCard({
    */
   asListitem?: boolean;
   today: string;
+  /** Required: a card omitting it promises a Termin for a finished season's undated fixture. */
+  isFinishedSaison: boolean;
 }) {
   const {
     datum: spielDatum,
     uhrzeit: spielUhrzeit,
     ergebnis: spielErgebnis,
     elfmeterschiessen: spielElfmeterschiessen,
-  } = formatSpielDisplay(spielData);
+  } = formatSpielDisplay(spielData, isFinishedSaison);
 
   const spielStatus = computeSpielStatus({
     datum: spielData.datum,
@@ -51,18 +54,14 @@ export function SpielCard({
     today,
   });
 
-  // A stored result outranks the event: a forfeit's awarded score is what the Saisontabelle counts.
-  // Danger only where none is stored, the placeholder then being one nothing will ever fill rather
-  // than a result still owed.
-  const ergebnisTint =
-    spielData.ergebnis !== null ? "text-success-strong" : isAbgesagt(spielData.sonderereignis) ? "text-danger-strong" : "text-warning-strong";
-
   return (
     <div
       role={asListitem ? "listitem" : undefined}
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
       <div className="flex w-full flex-row items-center justify-between">
-        <div className="flex flex-col">
+        {/* `shrink-0`: beside the `w-full` actions the column shrinks to its longest word, and „Termin
+            offen“ splits into two lines the skeleton reserves one for. */}
+        <div className="flex shrink-0 flex-col">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
@@ -79,10 +78,10 @@ export function SpielCard({
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. The pairing is
                    `-solid` plus its own foreground, like every other opaque fill. */
-                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base) md:h-[38px] md:w-[38px]">
+                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex size-9 items-center justify-center rounded-xl shadow-sm transition-colors duration-(--motion-base)">
                 <PencilToSquare
                   aria-hidden="true"
-                  className="m-0 size-5"
+                  className="m-0 size-4.5"
                 />
               </Link>
             </IconTooltip>
@@ -97,10 +96,10 @@ export function SpielCard({
               /* `flex` over HeroUI's `inline-flex`: a line box round an inline child leaves the
                  trigger's height to the font's metrics rather than to this control. And
                  `bg-hover-muted`, since this rests on `bg-muted` rather than on the page. */
-              className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-(--motion-base) md:h-[38px] md:w-[38px]">
+              className="bg-muted text-foreground data-hovered:bg-hover-muted flex size-9 rounded-xl p-0 transition-colors duration-(--motion-base)">
               <CircleExclamation
                 aria-hidden="true"
-                className="m-0 size-5"
+                className="m-0 size-4.5"
               />
             </Button>
           </IconTooltip>
@@ -113,26 +112,26 @@ export function SpielCard({
           <SpielTeamSlot
             team={spielData.team1}
             quelle={spielData.team1_quelle}
+            saisonId={spielData.saison_id}
             text={spielData.team1?.name || "Team 1"}
-            className="fluid-xs lg:fluid-sm max-w-full truncate text-right font-bold"
+            className="fluid-xs lg:fluid-sm text-right font-bold"
           />
         </span>
 
-        {/* `-strong`, not the plain accents: the tokens' rule is plain for fills, `-strong` for
-            text on a tint, and this sits on `bg-muted`. The shoot-out is a SECOND LINE in the same
-            cell, so the two 1fr team tracks are unaffected. */}
+        {/* The shoot-out is a SECOND LINE in the same cell, so the two 1fr team tracks are unaffected. */}
         <SpielScore
           ergebnis={spielErgebnis}
           elfmeterschiessen={spielElfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ergebnisTint}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
         />
 
         <span className="flex min-w-0 justify-start">
           <SpielTeamSlot
             team={spielData.team2}
             quelle={spielData.team2_quelle}
+            saisonId={spielData.saison_id}
             text={spielData.team2?.name || "Team 2"}
-            className="fluid-xs lg:fluid-sm max-w-full truncate text-left font-bold"
+            className="fluid-xs lg:fluid-sm text-left font-bold"
           />
         </span>
       </div>

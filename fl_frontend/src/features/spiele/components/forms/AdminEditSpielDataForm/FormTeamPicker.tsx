@@ -406,7 +406,7 @@ export function FormTeamPicker({
                   textValue={isRecommended ? `${item.label} (Empfohlen)` : item.label}
                   className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                   <span className="min-w-0 truncate">{item.label}</span>
-                  {/* Success-tinted, not brand: brand on brand was the least readable chip here.
+                  {/* Success, not brand: brand on brand was the least readable chip here.
                       `ml-auto` like every list chip, or two lists park it in two places. */}
                   {isRecommended && <span className={`${trackLabelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>}
                 </ListBox.Item>

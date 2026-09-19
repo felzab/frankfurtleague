@@ -4,6 +4,8 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 export const SCHIEDSRICHTER_CRUD_COPY = {
   searchLabel: "Schiedsrichter suchen",
   searchPlaceholder: "z.B. Pierluigi Collina oder Goethe-Gymnasium",
+  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
+  createLabel: "Neuen Schiedsrichter anlegen",
 } as const;
 
 // Not a first name, which beside a date and a club still identifies one person in a league this

@@ -15,7 +15,6 @@ import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -149,18 +148,9 @@ export function AdminSchiedsrichterEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
-    const blocking = resolveBlockingBanners(banners);
-    if (blocking !== null) {
-      setConfirmingBanners(blocking);
-      return;
-    }
-    handleFormSubmit();
-  };
-
-  const handleFormSubmit = () => {
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
-    guardSubmit({ schiedsrichter: buildPayload() }, writeAfterBlock);
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
+    // (`docs/frontend/spec.md :: I255`).
+    guardSubmit({ schiedsrichter: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 
   const writeAfterBlock = () => {
@@ -282,7 +272,8 @@ export function AdminSchiedsrichterEditForm({
         onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
           setConfirmingBanners(null);
-          handleFormSubmit();
+          // Never back through the gate: it judged this draft before raising the dialog, and would raise it again.
+          writeAfterBlock();
         }}
       />
     </DraftStatusProvider>

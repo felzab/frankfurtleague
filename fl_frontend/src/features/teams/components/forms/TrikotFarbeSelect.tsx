@@ -83,7 +83,8 @@ export function TrikotFarbeSelect({
     <Select
       isRequired={isRequired}
       name={name}
-      aria-label={label}
+      // Only without the visible `Label`: beside it the trigger is named twice, „Trikotfarbe Trikotfarbe“.
+      aria-label={withOwnLabel ? undefined : label}
       value={value ?? leerschluessel}
       onChange={handleChange}
       className="w-full">
