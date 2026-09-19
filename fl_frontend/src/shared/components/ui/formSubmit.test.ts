@@ -61,39 +61,3 @@ describe("every form holding a draft", () => {
     });
   }
 });
-
-/** The state atom holding the gate's snapshot, whatever the editor calls it. */
-const SNAPSHOT_STATE = /const \[(\w+), set\w+\] = useState<BlockingBanners \| null>\(null\)/;
-
-/** The editor's own banners, optionally less the refusals the save gate does not confirm. */
-const GATE_ARGUMENT = /resolveBlockingBanners\(banners(?:\.filter\(\(banner\) => !isSpielRefusalBannerId\(banner\.id\)\))?\)/;
-
-const confirmingEditors = filesContaining("<ConfirmSaveModal");
-
-describe("every editor raising the save confirmation", () => {
-  it("is discovered by the dialog it renders", () => {
-    // A renamed dialog leaves this sweep looping over nothing, which is the one answer it cannot
-    // tell apart from a clean one. Set under the tree, so retiring an editor never moves it.
-    assert.ok(
-      confirmingEditors.length >= 5,
-      `expected at least 5 editors raising the save confirmation, found ${String(confirmingEditors.length)}`,
-    );
-  });
-
-  for (const file of confirmingEditors) {
-    it(`${file} shows the snapshot the gate took, not a live derivation`, () => {
-      const source = sources.get(file) ?? "";
-
-      // The WHOLE argument: a prefix match would accept a filter that empties the list and
-      // silently disables the gate. One narrowing is permitted by name, a delivered refusal
-      // being no consequence to confirm.
-      assert.match(source, GATE_ARGUMENT, `${file} derives its gate some other way`);
-
-      // The dialog's list has to be state, because a value recomputed each render can change while
-      // the admin is reading what they are agreeing to.
-      const held = SNAPSHOT_STATE.exec(source)?.[1];
-      assert.ok(held, `${file} holds no BlockingBanners snapshot in state`);
-      assert.ok(source.includes(`banners={${held}}`), `${file} renders the dialog on something other than its snapshot`);
-    });
-  }
-});

@@ -1,8 +1,19 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
+
+import { createElement as h } from "react";
+/* No public export carries these contexts, and the bar reads the URL through all three. */
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+import { render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
@@ -11,11 +22,15 @@ import {
   countActiveFacets,
   countFacetOptions,
   isFacetOptionReachable,
+  offeredOptions,
   readFacetSelection,
   readFacetSelectionFromRoute,
 } from "./facets";
 
 import type { Facet } from "./facets";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { AdminCrudView } = await import("@/shared/components/ui/AdminCrudView.tsx");
 
 type Row = { id: string; status: string; gruppe: string | null; stufen: string[] };
 
@@ -199,6 +214,70 @@ describe("readFacetSelection", () => {
   });
 });
 
+/**
+ * Options off the rows on hand, beside every value that exists. `Z` exists and no row holds it; its own array,
+ * so the `readFacetSelection` cache keyed on the facet set cannot answer for `FACETS`.
+ */
+const LINKED: readonly Facet<Row>[] = [
+  FACETS[0]!,
+  {
+    ...FACETS[1]!,
+    known: [
+      { value: "A", label: "A" },
+      { value: "Z", label: "Gruppe Z" },
+      // Two rows of one vocabulary mapped onto one value, as every anonymised referee is.
+      { value: "Z", label: "Gruppe Z" },
+    ],
+  },
+];
+
+const GRUPPE_LINKED = LINKED[1]!;
+
+describe("a value a link names that no row on hand holds", () => {
+  /* A link from another list carries a real value nothing here holds, and dropping it shows the reader
+     a page nobody asked anything of in place of an empty answer naming what they came for. */
+  it("is kept in the selection where the facet knows it", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z")), { gruppe: ["Z"] });
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=A,Z")), { gruppe: ["A", "Z"] });
+  });
+
+  it("is offered under its own label, once, after the options the rows hold", () => {
+    assert.deepEqual(offeredOptions(GRUPPE_LINKED, ["Z"]), [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+      { value: "Z", label: "Gruppe Z" },
+    ]);
+  });
+
+  it("counts zero, and stays reachable while picked so it can be removed", () => {
+    const counts = countFacetOptions(ROWS, LINKED, { gruppe: ["Z"] }, GRUPPE_LINKED);
+
+    assert.deepEqual(counts, { A: 2, B: 1, Z: 0 });
+    assert.equal(isFacetOptionReachable(counts["Z"] ?? -1, true), true);
+  });
+
+  it("narrows the rows to nothing rather than to everything", () => {
+    assert.deepEqual(applyFacets(ROWS, LINKED, readFacetSelection(LINKED, new URLSearchParams("gruppe=Z"))), []);
+  });
+
+  it("is dropped where it names nothing the facet knows either", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=6890a1b2c3d4e5f6071900ff")), {});
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z,unsinn")), { gruppe: ["Z"] });
+  });
+
+  /* Once removed nothing names it, so it leaves the panel rather than standing there as a dead row. */
+  it("is offered no longer once the URL stops naming it", () => {
+    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("")), {});
+    assert.equal(offeredOptions(GRUPPE_LINKED, []), GRUPPE_LINKED.options);
+    assert.deepEqual(countFacetOptions(ROWS, LINKED, {}, GRUPPE_LINKED), { A: 2, B: 1 });
+  });
+
+  it("leaves a facet that declares no vocabulary exactly as it was", () => {
+    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z")), {});
+    assert.equal(offeredOptions(FACETS[1]!, ["Z"]), FACETS[1]!.options);
+  });
+});
+
 describe("readFacetSelectionFromRoute", () => {
   it("reads a route's parameters exactly as the bar reads the query string", () => {
     // One reader for both halves: a page narrowing its own request differently from the control that
@@ -366,34 +445,92 @@ describe("every facet set in the app", () => {
   });
 });
 
-const UI_DIR = path.resolve(import.meta.dirname, "..", "components", "ui");
-
-/** Each module of the bar, against every component it renders that has to be handed the told counts. */
-const COUNT_HOPS: [string, string[]][] = [
-  ["AdminCrudView.tsx", ["<FilterLeiste"]],
-  ["FilterLeiste.tsx", ["<FilterRow", "<FilterPill", "<FilterPanel"]],
-  ["FilterPanel.tsx", ["<FilterPanelBody"]],
+/** The triage queue's shape: the page fetched only what `stand` selects, so the rows on hand cannot count its other option. */
+const ERZAEHLT: readonly Facet<Row>[] = [
+  {
+    param: "stand",
+    label: "Stand",
+    options: [
+      { value: "aktiv", label: "Aktiv" },
+      { value: "stillgelegt", label: "Stillgelegt" },
+    ],
+    narrowsTheRead: true,
+    read: (row) => [row.status],
+  },
 ];
+
+/** Apart from both counts the served rows give, so a cell counting them instead reads as neither. */
+const TOLD = { stand: { aktiv: 4, stillgelegt: 9 } };
+
+const SERVED = ROWS.filter((row) => row.status === "aktiv");
+
+const ROUTER = {
+  back: () => undefined,
+  forward: () => undefined,
+  refresh: () => undefined,
+  push: () => undefined,
+  replace: () => undefined,
+  prefetch: () => undefined,
+  bfcacheId: "facetCounts",
+};
+
+/** The whole region a narrowing view renders, under the contexts its bar reads the URL through. */
+function renderRegion(query: string): void {
+  render(
+    h(
+      AppRouterContext.Provider,
+      { value: ROUTER },
+      h(
+        PathnameContext.Provider,
+        { value: "/admin/bewerbungen" },
+        h(SearchParamsContext.Provider, {
+          value: new URLSearchParams(query),
+          children: h(AdminCrudView<Row>, {
+            items: SERVED,
+            searchKeys: ["id"],
+            facets: ERZAEHLT,
+            facetCounts: TOLD,
+            renderTable: () => null,
+          }),
+        }),
+      ),
+    ),
+  );
+}
+
+/** Each option of the open panel, as its label against the count it paints. */
+const panelCounts = (): [string, string][] =>
+  within(screen.getByRole("dialog"))
+    .getAllByRole("option")
+    .map((option) => {
+      const [label, count] = option.querySelectorAll("span");
+      return [label?.textContent.trim() ?? "", count?.textContent.trim() ?? ""];
+    });
 
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
+/* `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes every
+   other case, while the panel silently returns to counting the rows one read served. */
 describe("the counts a server-narrowed facet is told", () => {
-  /* Read as source because nothing here can be rendered: every one of these sits under
-     `useUrlFilters`, whose `useSearchParams` answers null with no Router around it, so a render
-     throws before any markup exists. */
-  it("is forwarded by every hop between the view and the cell that reads it", () => {
-    // `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes
-    // every other case, while the panel silently returns to counting the rows one read served.
-    for (const [module, rendered] of COUNT_HOPS) {
-      const source = readFileSync(path.join(UI_DIR, module), "utf8");
-      const hops = rendered.reduce((total, element) => total + occurrences(source, element), 0);
+  // One case per panel: the add control and a pill each hand the counts on by their own route.
+  it("reach the add control's panel through every hop from the view", async () => {
+    renderRegion("");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Filter hinzufügen" }));
 
-      assert.ok(hops > 0, `${module} renders none of ${rendered.join(", ")}, so this case compares nothing there`);
-      assert.ok(
-        occurrences(source, "facetCounts=") >= hops,
-        `${module} renders ${String(hops)} of the bar's parts without passing facetCounts`,
-      );
-    }
+    assert.deepEqual(panelCounts(), [
+      ["Aktiv", "4"],
+      ["Stillgelegt", "9"],
+    ]);
+  });
+
+  it("reach a pill's panel through every hop from the view", async () => {
+    renderRegion("stand=aktiv");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Stand: Aktiv ändern" }));
+
+    assert.deepEqual(panelCounts(), [
+      ["Aktiv", "4"],
+      ["Stillgelegt", "9"],
+    ]);
   });
 
   it("is handed to `AdminCrudView` by every view whose facets say the server narrows", () => {

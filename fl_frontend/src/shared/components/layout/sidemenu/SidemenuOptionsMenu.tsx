@@ -11,6 +11,7 @@ import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
+import { RAIL_SQUARE_HEROUI_RING } from "./railGutter";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -41,7 +42,7 @@ export function SidemenuOptionsMenu({
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
           className={`text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
-            isDesktopCollapsed ? "w-9 justify-center p-0" : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING}` : "w-full justify-start gap-2 px-3"
           }`}>
           <Ellipsis
             aria-hidden="true"
@@ -56,8 +57,9 @@ export function SidemenuOptionsMenu({
       <Dropdown.Popover
         offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
-        /* Portalled, so overhanging the drawer costs nothing; from `lg` it matches the footer's content box. */
-        className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
+        /* Portalled, so overhanging the drawer costs nothing. From `lg` it takes the row's width: the footer reserves
+           a scrollbar's strip no stylesheet can measure, so a width derived from the rail's overhangs the row. */
+        className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-(--trigger-width)"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             {/* A container for a control rather than a command, so pressing it must not dismiss the menu.

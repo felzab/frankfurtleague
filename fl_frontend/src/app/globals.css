@@ -433,8 +433,8 @@ input:focus:placeholder-shown::placeholder {
 /* THREE CATEGORIES lose the ring that fires on focus no keyboard user asked for, each control
    saying "focused" another way. Unlayered, so nothing in a layer can put that ring back. */
 /* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
-      selectors spec's exception for text entry. Substitute: the border turns
-      brand. Only the ring goes; --tw-shadow is untouched, so the field keeps its own. */
+      selectors spec's exception for text entry. Substitute: the border turns brand and
+      an inset ring thickens it. HeroUI's offset ring goes; --tw-shadow is untouched. */
 /* 2. COLLECTION OPTIONS. react-aria focuses the first option as you type in a combobox, so HeroUI's
       offset ring rang a result nobody chose. Substitute: a background highlight, as every native
       picker does, and the app's inset ring beside it. */
@@ -455,10 +455,34 @@ input:focus:placeholder-shown::placeholder {
   /* Kill one and the offset band is left, which is the white line
      (`fl_frontend/src/app/globals.css :: BOTH ring properties have to be zeroed`). */
   --tw-ring-offset-shadow: 0 0 #0000;
+  /* Declared here rather than left to a fallback, so a field never inherits a refused ancestor's. */
+  --field-focus-accent: var(--accent-brand);
 
-  /* `:not([data-invalid="true"])` matters: without it this stripped HeroUI's danger
-     ring at the moment `useServerFieldErrors` focuses the rejected field, so a
-     field the server had just refused looked normally focused. */
+  /* THE HOVER moves the border and never the fill (`docs/frontend/spec.md` §1.17). Before the focus
+     arm, whose `aria-expanded` arms weigh the same and must win; the variable carries it into the
+     resets below, which out-weigh both. */
+  /* Every exclusion IN `:where()`, a refused one included: one weighed `:not()` here outranks those
+     `aria-expanded` arms, and a hovered open picker drops its focus border. */
+  @media (hover: hover) {
+    &:is(:hover, [data-hovered="true"]):not(
+        :where(
+          [readonly],
+          :has(input[readonly]),
+          :disabled,
+          [data-disabled="true"],
+          [aria-disabled="true"],
+          [data-invalid="true"],
+          :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] *
+        )
+      ) {
+      --field-resting-border: var(--border-control-hover);
+      border-color: var(--field-resting-border);
+    }
+  }
+
+  /* A refused field takes these arms too, in its own colour through `--field-focus-accent`:
+     `useServerFieldErrors` focuses the rejected field, and a danger border alone is what it wore at
+     rest, so its focus showed nothing (WCAG 2.4.7). */
   /* The `aria-expanded` arms cover a picker, whose focus moves into the popover's
      search input. The `:has()` twin catches the ones whose expandable element is a
      BUTTON inside the slot; a forgiving `:is()` would drop it silently. */
@@ -466,23 +490,34 @@ input:focus:placeholder-shown::placeholder {
      react-aria restores focus after the popover's exit animation, and the brand
      border stuck on a control the user had clicked away from. */
   /* TWO shapes because react-aria marks only the field's ROOT read-only: `[readonly]` is the slot
-     that IS the control, `:has(input[readonly])` the group holding one. The invalid arm below takes
+     that IS the control, `:has(input[readonly])` the group holding one. The refusal arm below takes
      neither -- a server refusal reaches a frozen field too. */
   /* IN `:where()`, so the pair weighs NOTHING: the picker and date-group resets below out-specify
-     this arm at (0,4,0), and a plain `:not()` here would outrank every one of them. A condition
+     this arm at (0,3,0), and a plain `:not()` here would outrank every one of them. A condition
      added to this arm belongs inside `:where()` too. */
   &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
-      [data-invalid="true"]
-    ):not([data-border-on-open="true"]):not(:where([readonly], :has(input[readonly]))),
-  &[aria-expanded="true"]:not([data-invalid="true"]),
-  &:has([aria-expanded="true"]):not([data-invalid="true"]) {
-    border-color: var(--accent-brand);
+      [data-border-on-open="true"]
+    ):not(:where([readonly], :has(input[readonly]))),
+  &[aria-expanded="true"],
+  &:has([aria-expanded="true"]) {
+    border-color: var(--field-focus-accent);
+    /* Three pixels: the border's own step is under 3:1, so WCAG 2.4.13 counts the ring alone, and an
+       inset ring needs a third pixel to reach a 2px perimeter's area. */
+    --tw-inset-ring-shadow: inset 0 0 0 3px var(--field-focus-accent);
+    /* Tailwind's own composition, restated so a field no `shadow-*` reaches still draws the ring while
+       one that has a shadow keeps it. */
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     outline: none;
   }
 
-  /* A rejected field says so with its border, focused or not — same language as the brand border,
-     different colour, so the two states are told apart by hue rather than by shape. */
-  &[data-invalid="true"] {
+  /* A REFUSED field wears the danger border at rest, and focused the same 3px ring in danger, so
+     focus reads by weight and refusal by hue (`scripts/checks/docs_gate/scheme.py :: "a refused field's focus ring"`). */
+  /* A picker's refusal is marked on its ROOT alone, never on the trigger this block styles. */
+  &[data-invalid="true"],
+  :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] & {
+    --field-focus-accent: var(--accent-danger);
+    /* So the picker and date-group resets below, which restore the resting border, restore this one. */
+    --field-resting-border: var(--accent-danger);
     border-color: var(--accent-danger);
     outline: none;
   }
@@ -494,7 +529,7 @@ input:focus:placeholder-shown::placeholder {
     outline: none;
   }
 
-  /* The carve-out: `FormDateTimeSection.tsx :: ClearFieldButton` sits in a group of
+  /* The carve-out: `DateTimeFields.tsx :: ClearFieldButton` sits in a group of
      SEVERAL tab stops, so the brand border was already lit when focus reached it —
      the only stop in it with nothing to be told apart by (WCAG 2.4.7). */
   /* INSET because the group is `overflow-hidden` and both buttons sit flush against
@@ -517,7 +552,7 @@ input:focus:placeholder-shown::placeholder {
   outline: none;
 }
 
-/* A PICKER's trigger keeps the brand border only while its popover is open, never
+/* A PICKER's trigger keeps the focus border and ring only while its popover is open, never
    from focus alone: react-aria restores focus AFTER the exit animation, so no
    blur scheduled at close time beats it. */
 /* Only the focus arms above are skipped, so an open picker still reads as active
@@ -530,8 +565,10 @@ input:focus:placeholder-shown::placeholder {
     [data-focused="true"],
     [data-focus-visible="true"],
     [data-focus-within="true"]
-  ):not([aria-expanded="true"]):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
-  border-color: var(--border-control);
+  ):not([aria-expanded="true"]):not(:has([aria-expanded="true"])) {
+  /* Through the variable the hover and the refusal arm set, since this rule out-weighs both. */
+  border-color: var(--field-resting-border, var(--border-control));
+  --tw-inset-ring-shadow: 0 0 #0000;
 }
 
 /* A DATE PICKER's group CANNOT join the rule above. `date-input-group` is a SHARED
@@ -540,8 +577,10 @@ input:focus:placeholder-shown::placeholder {
 /* So it is scoped by the CONTROL: `:has()` on the picker's own trigger, which only
    a DatePicker mounts. --tw-ring-shadow is registered `inherits: false`, so the
    group zeroing its own does not reach the button inside. */
-[data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
-  border-color: var(--border-control);
+[data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])) {
+  /* Through the variable the hover and the refusal arm set, since this rule out-weighs both. */
+  border-color: var(--field-resting-border, var(--border-control));
+  --tw-inset-ring-shadow: 0 0 #0000;
 }
 
 /* The SAME group one state further on: it holds focus ITSELF, because
@@ -552,8 +591,10 @@ input:focus:placeholder-shown::placeholder {
    `:focus` is synchronous, the attribute covers a focus never seen to leave. */
 [data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus:not([data-field-clear="true"]))):not(
     :has([aria-expanded="true"])
-  ):not([data-invalid="true"]) {
-  border-color: var(--border-control);
+  ) {
+  /* Through the variable the hover and the refusal arm set, since this rule out-weighs both. */
+  border-color: var(--field-resting-border, var(--border-control));
+  --tw-inset-ring-shadow: 0 0 #0000;
 }
 
 /* Focus is still SOMEWHERE, and with the border reset above nothing else would
@@ -562,7 +603,7 @@ input:focus:placeholder-shown::placeholder {
 /* `:not(:has(:focus))` is what makes the attribute mean the group rather than a
    segment inside it. A clear control's own focus IS counted here, where the
    border rule above excludes it: that rule asks whether a caret is in the field. */
-[data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+[data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -574,7 +615,7 @@ input:focus:placeholder-shown::placeholder {
   opacity: 0.5;
 }
 
-/* A frozen field and a closed picker are both tab stops that reach neither border
+/* A frozen field and a closed picker are both tab stops that reach no focus border, refused or not
    (`docs/frontend/spec.md :: I173`). react-aria's attribute, not `:focus-visible`, so this outline
    answers a key press, not a click. */
 /* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
@@ -587,10 +628,10 @@ input:focus:placeholder-shown::placeholder {
     [data-slot="search-field-group"],
     [data-slot="date-input-group"],
     [data-slot="textarea"]
-  ):is([readonly], :has(input[readonly]))[data-focus-visible="true"]:not([data-invalid="true"]),
+  ):is([readonly], :has(input[readonly]))[data-focus-visible="true"],
 :is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"])[data-focus-visible="true"]:not([aria-expanded="true"]):not(
     :has([aria-expanded="true"])
-  ):not([data-invalid="true"]) {
+  ) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }

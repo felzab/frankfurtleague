@@ -144,24 +144,25 @@ export function ConfirmDeleteModal({
           )}
         </div>
 
-        {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
+        {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. The action
+            first and the way back second, as on every confirmation (`docs/frontend/spec.md` §1.19). */}
         <div className={MODAL_FOOTER_ROW}>
           <Button
             type="button"
-            variant="secondary"
-            isDisabled={isPending}
-            className={formButton({ intent: "cancel" })}
-            onPress={onClose}>
-            Abbrechen
-          </Button>
-          <Button
-            type="button"
             variant="primary"
-            isDisabled={isPending}
+            isPending={isPending}
             className={formButton({ intent: "destructive" })}
             onPress={handleDelete}>
             {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
             {isPending ? verb.running : confirmStep === 1 ? capitalized : `Ja, ${verb.infinitive}`}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            isPending={isPending}
+            className={formButton({ intent: "cancel" })}
+            onPress={onClose}>
+            Abbrechen
           </Button>
         </div>
       </div>

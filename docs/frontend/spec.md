@@ -148,6 +148,10 @@ access-denied `FormState` rather than throwing, and every one runs inside
 the server-action boundary redacted and replaces the admin page with the error page
 ([`docs/logging/error-codes.md`](../logging/error-codes.md)).
 
+**A save sent without a session leaves for `/signin` as a whole-page navigation** (I251), so on an
+editor holding unsaved changes the browser first asks whether to leave, and staying keeps the draft
+(§4).
+
 **The `auth` slice's two actions are in the table and are not admin mutations, which is the one
 exception to every sentence above and below about a row.** `handleSignIn` is the only server action
 in this application reachable without a session, so it can no more open on `getAdminSession()` than
@@ -235,8 +239,13 @@ rather than dispatching an action, the editor being unmounted by the time the pr
 `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` is where `getAdminSession()` and
 `runAdminMutation` are reached — each of the eight `route.ts` files supplies a name, a schema and
 the replay, and nothing else. **Both answer 200 with the outcome in the body for every reportable
-case**, a non-2xx landing in the dispatch's rejection arm, which blames the transport and sends the
-admin to check a connection that is fine.
+case but a caller with no admin session**, a non-2xx landing in the dispatch's rejection arm, which
+blames the transport and sends the admin to check a connection that is fine. **That caller is turned
+away where `fl_frontend/src/proxy.ts` would send it**, `/api/admin/*` being outside the proxy's
+matcher: a lapsed session answers 401 and leaves for `/signin` (I251), and a session without the
+admin role answers 403 and leaves for `/`. The dispatch reads both ahead of that arm and says the
+change still stands before leaving, a new sign-in landing on `/admin` rather than back on the change;
+the 403 counts only where it carries the route's envelope, an edge challenge answering 403 in markup.
 
 **Seven of the eight undo replays can be refused on the way back**, and each answers in German out of
 its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
@@ -273,7 +282,7 @@ payload and the group shape repaired by the undraw — **and both routes run in 
 it the panel states the freeze rather than a repair**; **the tie-break beside them is the panel's own
 freeze** (`REQ-RULES-012`), `FormRegelnSection` being HANDED the count `FormGruppenSwapSection`
 closes on for `REQ-SWAP-002` rather than reading the fixtures again —
-`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/regelnFreeze.test.ts` pins
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts` pins
 all three halves.
 
 **The group swap also confirms in place, for a different reason: it is its own inverse** — running
@@ -313,7 +322,7 @@ the other refuses.
 | `reactivateSaisonSpielerAction`   | spieler        | `spieler`                                                                                      |
 | `postSaisonAction`                | saisons        | `saisons`                                                                                      |
 | `patchSaisonAction`               | saisons        | `saisons`, `teams`                                                                             |
-| `activateSaisonAction`            | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                                                      |
+| `activateSaisonAction`            | saisons        | `saisons`, `spiele`, `spieltage`, `teams`, `spieler`                                           |
 | `swapGruppenAction`               | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                    |
 | `generateSpielplanAction`         | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
 | `undrawSpielplanAction`           | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
@@ -437,9 +446,9 @@ These satisfy both and exist:
   held.
 - **No `saisons:`, `spieler:` or `spieltage:` season tag**, though all three have write surfaces.
   These fail (b) rather than (a): a season IS the season rather than season-scoped data,
-  `getSaisons` reads every one in a single call, one spieler read spans every season, and one
-  matchday write moves both the season-scoped admin list and the public Spielplan's default-season
-  entry.
+  `getSaisons` reads every one in a single call, a squad save moves the squad page's default-season
+  entry, and one matchday write moves both the season-scoped admin list and the public Spielplan's
+  default-season entry.
 - **No tag keys on a dimension the mutation itself changes** — `spiele:status:*` and
   `spiele:phase:*` are the shapes to refuse: correct invalidation needs the old value and the new
   one, and the action holds only the new one. A tag that is right half the time is worse than no
@@ -469,8 +478,8 @@ serves them.
 
 **A season edited by hand is the case where the daily bound costs the most**: a season decides which
 season an omitted `saison_id` means and its `rules` score the league table, so `saisons`, `spiele`,
-`spieltage` and `teams` all stay stale until their entries expire or the container is recreated. I25
-names what an action clears instead.
+`spieltage`, `teams` and `spieler` all stay stale until their entries expire or the container is
+recreated. I25 names what an action clears instead.
 
 ### 1.6 Deliberate duplication: the three match cards
 
@@ -480,8 +489,8 @@ configuration flag collapses them without producing a three-mode component, whic
 and change than three single-mode ones. **Do not merge them.**
 
 Their genuinely shared code is extracted rather than copied —
-`fl_frontend/src/features/spiele/utils.ts :: formatSpielDisplay` and the two atoms rendering its
-values — and beyond that each card passes only its own wrapper classes. The first extraction was
+`fl_frontend/src/features/spiele/utils.ts :: formatSpielDisplay`, `:: ergebnisTone` and the two
+atoms rendering their values — and beyond that each card passes only its own wrapper classes. The first extraction was
 itself a bug fix: an unplayed match rendered `"- : -"` in one card and `"-:-"` in the other two, on
 the same screen.
 
@@ -577,6 +586,30 @@ cover pure functions, and there is no end-to-end suite.
 with `await import`, never by a static import beside that helper: the helper registers the compile
 step as it evaluates, and every static import in the graph has resolved before then.
 
+**What a person does to a component, and what they then see, is asserted through Testing Library on
+the jsdom window `fl_frontend/src/shared/testing/dom.ts` installs**: rendered with `render`, found
+through `screen` by role and accessible name rather than by a selector, pressed or typed into through
+a `userEvent.setup()` instance, and judged by what the page then shows or by what a stubbed module
+received (`fl_frontend/src/shared/components/ui/ConfirmSaveModal.test.ts`). **`dom.ts` is a test
+file's first import**: `react-dom/client`, Testing Library's `screen` and react-aria each read whether
+a document exists once, as they load, and keep what they found. An error a handler or a frame
+callback throws fails the case it happened in, or the file where it lands between cases, where a
+browser would only log it.
+
+**That layer holds this repository's own component behaviour, and nothing a library already
+guarantees** — a dialog trapping focus, a picker's keyboard handling — **nor anything jsdom cannot
+show**: it lays nothing out and applies no stylesheet, and user-event's hover and focus are dispatched
+events rather than a pointer over a painted page, so geometry, placement, what a class decides and a
+hover's timing stay a browser's to show. A behaviour that layer reaches is never asserted over source
+text instead (`.claude/rules/cross-surface.md`).
+
+**A server action is stubbed at the module boundary, never through a prop the component grows for
+the test**: a `load` hook through `node:module`, registered before the component's `await import`,
+answers the slice's `actions.ts` with a module exporting the same names, so the component reaches the
+stub along the path it reaches the action
+(`fl_frontend/src/features/admin/saveConfirmation.test.ts :: stubbedActions`). A callback the
+component already takes is handed a `mock.fn()` from `node:test`.
+
 **A source-text assertion is for what no rendering can show** — a convention spanning files, a
 directive, a wiring between two of them. Held against a component's own output, a regex over the
 source passes on markup that says the opposite and on a component nothing renders at all.
@@ -600,11 +633,10 @@ way, which is why it sits in `pnpm test` for every runner of the suite rather th
 
 - an async Server Component, whose content sits behind its own awaits — a render reaches the
   fallback it declares, so an assertion over that markup passes without seeing the component's own
-- a state a press or a submit arrives at: the component mounts in its resting form, and every other
-  form it has sits behind an interaction
-  (`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`)
-- an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which the
-  component holds outside the markup it renders, a modal handed `isOpen` included
+- an overlay's body under the server render — a modal, a `ComboBox`'s suggestion list, a
+  `DatePicker`'s calendar — which the component holds outside the markup it renders, a modal handed
+  `isOpen` included; a client render reaches one a press opens, in the document body beside its root
+  rather than in that root's markup
 - a call site taking a class-name recipe rather than the classes it returns
   (`fl_frontend/src/shared/components/ui/overlayPanel.ts`), a literal spelling those classes
   rendering identical markup
@@ -615,6 +647,12 @@ and the control's `required`
 (`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx`). A row's own `isDisabled` is
 not in that mirror, and neither is a `name` the control was never handed
 (`fl_frontend/src/shared/components/ui/RefusableSelect.tsx`).
+
+**A refusal hint is read through `fl_frontend/src/shared/testing/renderTest.ts :: refusalWrappers`,
+over either render's markup, and never through a reader a test spells for itself**: a copy drifts
+from what `fl_frontend/src/shared/components/ui/Hint.tsx :: RefusalHint` renders while every panel
+test reading it stays green, and `fl_frontend/src/shared/components/ui/Hint.test.ts` holds the one
+reader to that markup.
 
 **A component reading a Next client context renders under `renderTree` with that context's provider,
 which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
@@ -792,9 +830,10 @@ and a shoot-out count stand empty while the admin is typing, because `0` is a re
 
 **What the draft holds is narrowed by parsing, never by a cast.** `buildPayload` returns
 `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadDraft`, so the difference is
-a type error at every point the wire payload is wanted, and `handleFormSubmit` parses
-`FLPatchSpielDataPayloadSchema` before it sends — a field still empty becomes a message on its own
-path, where a cast satisfies the type checker while the value travels. **The rail's preview
+a type error at every point the wire payload is wanted: `guardSubmit` refuses a draft
+`FLPatchSpielDataPayloadSchema` does not parse — a field still empty becomes a message on its own
+path — and `writeAfterBlock` narrows by that parse before it sends, where a cast satisfies the type
+checker while the value travels. **The rail's preview
 declares the same gap rather than casting it away**: `fl_frontend/src/features/spiele/draftStatus.ts :: applyDraftToSpiel` returns
 `fl_frontend/src/features/spiele/schemas.ts :: FLSpielWithDraftFields`, whose every reader asks
 whether the venue and the referee are SET, never what either costs — a cast onto `FLSpiel`'s shape
@@ -1083,7 +1122,8 @@ company, and what the surface it describes offers.
 
 Every public route sets its own `title`, `description` and canonical, the homepage excepted: the root
 layout's own three ARE the homepage's, its canonical being `/`. `metadataBase` there is what lets the
-canonicals be paths. **No route under `/admin` sets any**, so the whole admin tree inherits.
+canonicals be paths. **No route under `/admin` sets any but its catch-all**, whose 404 answer is the
+one below, so the rest of the admin tree inherits.
 The consequences worth knowing before editing metadata:
 
 - **A route that sets no metadata inherits the root layout's, canonical included**, so an unset
@@ -1101,16 +1141,29 @@ The consequences worth knowing before editing metadata:
 - **`openGraph` is inherited or replaced whole, never merged field-by-field**, so the root layout
   declares only the site-wide parts and og:title and og:description resolve from each page's own
   title and description.
+- **A season-scoped page's canonical and card name the season its URL names**
+  (`fl_frontend/src/shared/utils/metadata.ts :: seasonScopedMetadata`, swept over every dashboard page
+  resolving a season by `fl_frontend/src/app/dashboard/seasonCanonical.test.ts`): the bare path shows
+  the running season, where a past season's club is „nicht gefunden“. The season is
+  `resolveSaisonId`'s, so a URL naming none reads no season list.
 - **No route ships a `keywords` array, and none is added for a new route** — the engines ignore it
   or read it as a spam signal; ranking terms belong in the title and description.
 - **`metadataBase`, the crawl policy and the sitemap keep `fl_frontend/src/core/brand.ts :: SITE_URL`
   and never read an origin from the environment** — one a misconfigured deploy can put in front of a
   crawler — which is why a message's links follow a setting of their own (I186).
-- **`/bewerbung/[saison_id]` is the one route raising `notFound()` from its metadata**, its season
-  being what a visitor types: the read answering whether that season exists runs there rather than
-  inside the boundary the page body's own read sits in. A season that exists and records no
-  application window is served `robots: { index: false }` instead, that page carrying one sentence
-  rather than content.
+- **Every 404 on a route setting metadata answers with
+  `fl_frontend/src/shared/utils/notFoundMetadata.ts :: NOT_FOUND_METADATA`**, the root boundary, each
+  catch-all and each page generating its metadata alike, which resets the canonical, both cards and
+  the description to `null` rather than leaving them out: left out, a matched 404 streamed as a 200
+  (I242) keeps its layout's address (`fl_frontend/src/app/notFound.test.ts` merges it through Next's
+  own resolver and drives every such page's miss). **A generated answer parses its ids rather than
+  resolving them and returns that object on a miss, the body throwing the `notFound()`**: a throw
+  from the metadata leaves the tab the layout's title.
+- **An admin editor's miss inherits, as its hit does**: no admin route but the catch-all sets
+  metadata, and a miss of its own would repeat the editor's uncached read for a page no crawler
+  reaches.
+- **`/bewerbung/[saison_id]` asks not to be indexed where its season's application window is
+  unrecorded or could not be read**, that page carrying one sentence rather than content.
 
 ### 1.14 The shared editor surface
 
@@ -1144,12 +1197,39 @@ owns no row and every rendered label still finds one (I35).
 German grammar from the call site, where a phrase carrying an article would let a caller pair the
 wrong one with a noun and nothing would report it.
 
-**Three conventions bind every form on the site, an entity editor and the public application form
-alike.** A callback judging a picked value is handed the value the event carried rather than reading
-it back off state, which has not committed at the moment the callback runs. A shared control's
-`name` is the field's dotted path in the payload, which is also its `FieldErrors` key and its anchor
-id (I34). A control disabled for a reason the page already shows carries an inline `Hint` beside it,
-pointed at by `aria-describedby`, so the reason reaches a screen reader that cannot see the page.
+**Four conventions bind every form on the site, an entity editor and the public application form
+alike:**
+
+- **A callback judging a picked value is handed the value the event carried** rather than reading it
+  back off state, which has not committed at the moment the callback runs.
+- **A shared control's `name` is the field's dotted path in the payload**, which is also its
+  `FieldErrors` key and its anchor id (I34).
+- **A control whose write is running is held with HeroUI's `isPending` and never closed with
+  `isDisabled`**, which is a refusal's alone: a disabled button drops the keyboard's focus to the
+  page in the middle of the press that started the write, where a held one keeps it and takes no
+  second press. A control that leaves the page is I68's and stays disabled while it goes.
+- **A panel's action closed until the reader picks, types or changes something, or by a condition
+  standing on the page, carries that reason in the `refusal` mode of
+  `fl_frontend/src/shared/components/ui/Hint.tsx :: Hint`**, laid over the button, and never in a
+  sentence mounted beside it, which comes and goes with a pick or a keystroke and moves the panel
+  under the reader's hands. The overlay stands in for the closed control at its one tab stop, the
+  control sitting `inert` beneath it so assistive technology meets the control once: it is named by
+  the control's own label, so speech input still finds it by the words on screen, announced as
+  disabled, and described by the reason, which a screen reader therefore meets without opening
+  anything, and the dialog it opens takes that name too. A reason arriving while the keyboard rests
+  on the control hands that focus to the overlay rather than to the page. A standing condition is
+  stated in the panel's body as well, because the panel showing the reason opens only on a hover or
+  a press.
+
+**A panel a hover opened never takes focus**: it opens on the pointer moving over the trigger,
+non-modal and without a dialog, and closes on Escape or once the pointer leaves, while a press, or
+Enter or Space as the key is released, opens the dialog, which takes focus and hands it back to the
+trigger on Escape. A panel closed with the pointer still on its trigger stays closed until the
+pointer has left it, and a press on a panel a hover already opened turns it into that dialog rather
+than closing it. That holds for both modes of `Hint` and for
+`fl_frontend/src/shared/components/ui/InfoHint.tsx :: InfoHint`
+(`fl_frontend/src/shared/hooks/useHoverOpenOverlay.ts :: useHoverOpenOverlay`), so a pointer
+crossing a glyph never takes the field somebody is typing in.
 
 **The match editor is the one composer.** `AdminEditSpielDataForm` mounts the shared provider _and_
 `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielExpectedContext.tsx ::
@@ -1247,14 +1327,18 @@ its utility. What no declaration can say is which surface may spend it:
 | `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                                     | A fill                                                                                             |
 | `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge, a count on a recessed track — under its paired on-colour | A tint, or text; the informational fill anywhere but that count                                    |
 | `hover*`                                                    | Every hover, one declared token per family                                                                                      | An alpha at a call site, which composites against its ground and lands differently on each         |
-| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                       | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar`       |
+| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground, but a field's inset focus ring, which continues the field's border   | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar`       |
 | `phase-*`                                                   | A phase badge and its `/15` tint                                                                                                | A state: the sequence is an order, not a meaning                                                   |
 
 **A field's own fill is `--bg-surface` or `--bg-base` and never `--bg-muted` or `--bg-hover`**, on
 which the token measures 2.60:1 and 2.46:1 in the light theme: a recessed fill separates a field
 from the panel behind it by about 1.2:1, which nobody sees, and takes the border below the floor
-that is the whole of what says "field". A field therefore carries no hover fill either, its border
-being what identifies it whether or not a pointer is over it.
+that is the whole of what says "field". **A field's hover therefore moves its border and never its
+fill**, to `--border-control-hover`, the border being what identifies it whether or not a pointer is
+over it. The hover never overrides the focus or the refusal border and reaches no frozen or disabled
+field, and focus does not rest on the hover's step: a focused field's border, brand or on a refused
+field danger, is thickened by an inset ring of its own colour
+(`fl_frontend/src/app/globals.css :: FIELD-SHAPED CONTROLS`).
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
@@ -1347,17 +1431,17 @@ holds whether a conditional block renders or not
   whichever rule shuts it, so a stored value reads as a statement rather than an offer
   (`fl_frontend/src/features/saisons/shapeOffer.ts :: countOptions`,
   `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx`), swept
-  by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: keeps a stored group count the universe does not carry`,
-  `:: keeps a stored qualifier count the universe does not carry`
-  and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/herkunftPick.test.ts :: keeps the stored placing on screen while it is closed`.
+  by `fl_frontend/src/features/saisons/shapeOffer.test.ts :: "keeps a stored group count the universe does not carry"`,
+  `:: "keeps a stored qualifier count the universe does not carry"`
+  and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/herkunftPick.test.ts :: "keeps the stored placing on screen while it is closed"`.
   A record the offered list has DROPPED is the same convention's other shape, put back from what the
   record holds
   (`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormSchiedsrichterSection.tsx`,
   `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormSpielortSection.tsx`),
   swept by
-  `fl_frontend/src/features/spiele/components/schiedsrichterAnzeige.test.ts :: names the held referee even though the list offers nobody`
+  `fl_frontend/src/features/spiele/components/schiedsrichterAnzeige.test.ts :: "names the held referee even though the list offers nobody"`
   and
-  `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/spielortPick.test.ts :: names the held venue even though the list offers none`.
+  `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/spielortPick.test.ts :: "names the held venue even though the list offers none"`.
 - **Every row in a picker's list is composed through
   `fl_frontend/src/shared/components/ui/refusableOption.ts :: listboxRow`**, in whichever of its three
   layouts the row's own content asks for, so two pickers cannot read as two different controls. The
@@ -1365,7 +1449,7 @@ holds whether a conditional block renders or not
   and a filter surface marks the current row in its list from
   `fl_frontend/src/shared/components/ui/pickedOption.ts :: PICKED_OPTION` where a picker's trigger
   carries the value instead. Swept by
-  `fl_frontend/src/shared/components/ui/refusableOption.test.ts :: the row every picker's list is drawn with`,
+  `fl_frontend/src/shared/components/ui/refusableOption.test.ts :: "the row every picker's list is drawn with"`,
   which derives its population from the popover the rows sit in rather than from the recipe.
 - **A link inside text is `textLink`** (I43, I78, I79). A standalone action is a `ctaButton` link
   (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
@@ -1426,8 +1510,24 @@ holds whether a conditional block renders or not
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
 - **Every field-shaped control resolves to one height**
-  (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_HEIGHT`), and focus and refusal
-  are both borders told apart by hue (`fl_frontend/src/app/globals.css :: data-invalid`).
+  (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_HEIGHT`). Refusal is the danger
+  border, and focus thickens whichever border the field wears — brand or danger — with an inset ring
+  of the same colour, so focus reads by weight and refusal by hue
+  (`fl_frontend/src/app/globals.css :: A REFUSED field`); the ring's width is what lets focus meet
+  WCAG 2.4.13 while the border's own step off `control` stays under 3:1.
+- **Every date and time field is
+  `fl_frontend/src/shared/components/ui/DateTimeFields.tsx :: AppDatePicker` or `:: AppTimeField`**,
+  which write two digits where the pinned locale writes one, so a date being entered reads as the
+  `04.09.2016` and a kick-off as the `09:00` every page prints. Swept by
+  `fl_frontend/src/features/saisons/components/forms/dateFieldBounds.test.ts :: "finds every segmented control inside the one composition"`,
+  and the digits by `fl_frontend/src/shared/components/ui/DateTimeFields.test.ts`.
+- **Every dialog's footer puts the action first and the way back second** — left in a row, top in a
+  stack — so the press a reader's hand has learned on one dialog sits in the same place on the next,
+  and `fl_frontend/src/shared/components/ui/ConfirmActionRow.tsx :: ConfirmActionRow` keeps that order
+  inside a panel. Swept by
+  `fl_frontend/src/shared/components/ui/modalFooter.test.ts :: "puts the action first and the way back second"`,
+  which renders every component spelling `fl_frontend/src/shared/components/ui/formButtons.ts :: MODAL_FOOTER`.
+  No dialog gives a button focus on open; the dialog takes it, so a stray Enter confirms nothing.
 - **A page's own exit renders `fl_frontend/src/shared/components/ui/BackButton.tsx :: BackButton`**,
   which carries the guard with the markup: a page spelling the pill out instead gets a control that
   does nothing on a cold entry (I225). Its spacing is a closed pair and SUBSTITUTES rather than
@@ -1480,16 +1580,16 @@ none on a prop, so a row that aligns for everybody else drifts apart for them. T
 axis at a time as well, and a `width` with no `height` leaves the package's own 16 standing — a
 glyph painted at 16 inside a wider box.
 
-| Rung  | What it sizes                                                                      |
-| ----- | ---------------------------------------------------------------------------------- |
-| `3`   | A glyph inside a field marker                                                      |
-| `3.5` | A glyph inside a pill, a chip or a dense strip                                     |
-| `4`   | The common case: a glyph beside a word, a menu row's trailing glyph, a nav entry's |
-| `4.5` | A row action, a form section's lead glyph, the sidemenu's own controls             |
-| `5`   | An icon-only control on a match card, a modal's tone mark                          |
-| `6`   | The admin shell's menu button                                                      |
-| `7`   | The public nav's menu button                                                       |
-| `10`  | The application receipt's success mark                                             |
+| Rung  | What it sizes                                                                                                                           |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `3`   | A glyph inside a field marker                                                                                                           |
+| `3.5` | A glyph inside a pill, a chip or a dense strip                                                                                          |
+| `4`   | The common case: a glyph beside a word, a menu row's trailing glyph, a nav entry's                                                      |
+| `4.5` | A row action, an icon-only control on a match card, a form section's lead glyph, the sidemenu's own controls                            |
+| `5`   | A modal's tone mark, a mark beside a paragraph — a callout's, the Instagram band's — an About tile's glyphs, the drawer's close control |
+| `6`   | The admin shell's menu button                                                                                                           |
+| `7`   | The public nav's menu button                                                                                                            |
+| `10`  | The application receipt's success mark                                                                                                  |
 
 **Two sizings stand on no rung**, each because something else decides the size: `size-full`, on an
 icon filling a box the ladder already sized
@@ -1538,7 +1638,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I29  | **The document root is never a containing block**: `<html>` and `<body>` carry `position: static` and nothing CSS makes one for an absolutely positioned descendant (§1.15)                                                                | review — `fl_frontend/src/app/layout.tsx` holds both class lists; an `html` or `body` selector in `fl_frontend/src/app/globals.css`, `fl_frontend/src/app/admin/admin.css` or `fl_frontend/src/app/schemes/` reaches them too                                                                                            |
 | I30  | **A picker trigger's readout never replays a list row carrying a badge**: it comes from the prop, or a `Value` render prop returning a string                                                                                              | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx :: FormTeamPicker`, the one trigger rendering a pill today                                                                                                                                                                   |
 | I31  | **A clear or dismiss control is spread from `dismissControl`**, whose label names in German what goes; a bare HeroUI dismiss control is the violation                                                                                      | `fl_frontend/src/core/dismissControl.ts :: dismissControl`, and every site rendering a HeroUI `ClearButton`, `CloseTrigger` or `CloseButton`                                                                                                                                                                             |
-| I32  | **A form whose fields are React state submits through `runOnSubmit`, never through a function `action`.** `fl_frontend/src/features/auth/components/forms/SignInForm.tsx` is the one exception, and its field is uncontrolled              | `fl_frontend/src/shared/components/ui/formSubmit.test.ts` sweeps every `.tsx` holding either field-error hook                                                                                                                                                                                                            |
+| I32  | **A form whose fields are React state submits through `runOnSubmit`, never through a function `action`.**                                                                                                                                  | `fl_frontend/src/shared/components/ui/formSubmit.test.ts` sweeps every `.tsx` holding either field-error hook                                                                                                                                                                                                            |
 | I33  | **The match editor's draft reaches the wire payload by a parse, never by a cast**                                                                                                                                                          | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadDraft` makes the gap a type error                                                                                                                                                                                                                  |
 | I34  | **Every field path a refusal can name is a path its form renders a `name` for — or a declared, reasoned exemption**                                                                                                                        | `fl_frontend/src/core/refusalPaths.test.ts`, which sweeps every payload schema an action or a route handler parses against the `name` props of the components dispatching it                                                                                                                                             |
 | I35  | **Every `path` a field label is given is a path its editor's descriptor table carries**                                                                                                                                                    | `fl_frontend/src/shared/components/ui/fieldLabelPaths.test.ts` sweeps every literal, template and composed path a label is handed                                                                                                                                                                                        |
@@ -1620,12 +1720,12 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I175 | **The privacy notice is linked from every public page's footer and from the public application form; the imprint from that footer**                                                                                                        | `fl_frontend/src/shared/components/layout/publicShell.test.ts :: keeps the legal pages in a column of their own` for the footer pair; review for the form's own link                                                                                                                                                     |
 | I186 | **A message's links stand on `AUTH_URL`'s origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`**: one variable behind both puts an environment-read origin before a crawler                                                           | `fl_frontend/src/core/emailShell.ts :: mailOrigin`; `fl_frontend/src/core/emailShell.test.ts` sweeps every builder's close and `fl_frontend/src/features/bewerbungen/bestaetigungLink.test.ts` every minter's origin                                                                                                     |
 | I191 | Every `apiClient` call declares the tier `fl_backend/openapi.json` publishes for the operation it reaches, a wrong one being a 401 no page survives                                                                                        | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                               |
-| I194 | A facet marked `narrowsTheRead` navigates on a change and is given the server's counts, so an option the server left out stays pressable                                                                                                   | `fl_frontend/src/shared/utils/facets.ts :: isFacetOptionReachable`; `fl_frontend/src/shared/utils/facets.test.ts :: COUNT_HOPS`, a hand-written list reading forwarding rather than consumption; `fl_frontend/src/shared/hooks/useUrlFilters.ts :: refetches` navigates, unchecked                                       |
+| I194 | A facet marked `narrowsTheRead` navigates on a change and is given the server's counts, so an option the server left out stays pressable                                                                                                   | `fl_frontend/src/shared/utils/facets.ts :: isFacetOptionReachable`; `fl_frontend/src/shared/utils/facets.test.ts :: "the counts a server-narrowed facet is told"`; `fl_frontend/src/shared/hooks/useUrlFilters.ts :: refetches` navigates, unchecked                                                                     |
 | I197 | The delivery webhook answers 400 for a signature it cannot verify, 503 where the backend is unreachable or answers 5xx, and 200 for all else                                                                                               | `fl_frontend/src/app/api/mail/zustellung/route.ts`; `fl_frontend/src/features/bewerbungen/zustellung.test.ts` drives each of the three                                                                                                                                                                                   |
 | I198 | **`/api/auth/session` carries the presentation fields and `role`, never the adapter's session row**: returning that row serves the `httpOnly` cookie's own value to any script                                                             | `fl_frontend/src/core/auth.ts :: session`; `fl_frontend/src/core/auth.test.ts` drives both the route and the `auth()` path `fl_frontend/src/proxy.ts` takes                                                                                                                                                              |
 | I201 | **Every admin path to a capped squad write states `REQ-SQUAD-003` before the press**                                                                                                                                                       | `fl_frontend/src/features/spieler/utils.ts :: squadIsFull`; `fl_frontend/src/features/spieler/actions.test.ts :: REQ-SQUAD-003 before the press`                                                                                                                                                                         |
 | I205 | One referee option covers every anonymised referee and matches all their fixtures: an option per referee reads as the same word twice                                                                                                      | `fl_frontend/src/features/spiele/facets.ts :: schiedsrichterOptionValue`, swept by `fl_frontend/src/features/spiele/facets.test.ts`                                                                                                                                                                                      |
-| I206 | **One derivation decides a fixture never took place**, read by the status chip and every score placeholder, so none can grade one the others cannot                                                                                        | `fl_frontend/src/features/spiele/utils.ts :: isAbgesagt`, read by `:: computeSpielStatus`, the three `SpielCard` variants and `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx`; pinned by `fl_frontend/src/features/spiele/utils.test.ts :: the tint a score carries`     |
+| I206 | **One derivation decides a fixture never took place**, read by the status chip and every score placeholder, so none can grade one the others cannot                                                                                        | `fl_frontend/src/features/spiele/utils.ts :: isAbgesagt`, read by `:: computeSpielStatus` and by every score surface through `:: ergebnisTone`; pinned by `fl_frontend/src/features/spiele/utils.test.ts :: the tint a score carries`                                                                                    |
 | I207 | A public write names the outcome only where the edge refused the request; every other unread answer claims nothing about it                                                                                                                | `fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`, whose refused arm carries `wroteNothing`, and `fl_frontend/src/shared/utils/publicSubmit.test.ts`, which drives all three refusals against the flag                                                                                                      |
 | I209 | A shape control's open rows are exactly the counts a create saves: no offer the write path refuses, no legal count out of reach                                                                                                            | `fl_frontend/src/features/saisons/shapeOffer.ts`, held to `fl_frontend/src/features/saisons/schemas.ts :: FLPostSaisonPayloadSchema` in both directions by `fl_frontend/src/features/saisons/shapeOffer.test.ts`                                                                                                         |
 | I216 | **An erased referee's editor route answers a read-only readout, never the editor**: `EditPageHeader` is the editor's chrome (I38) and this page carries its own                                                                            | `fl_frontend/src/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.test.ts :: which page a referee's editor route answers with`, which drives the stamped row and the unstamped one; `fl_frontend/src/features/schiedsrichter/components/views/AdminSchiedsrichterGeloeschtView.tsx` is the readout   |
@@ -1654,6 +1754,9 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I248 | **A hover arm matches its host**: `data-hovered:` where react-aria writes it, `hover:` where nothing does; the wrong arm latches or never paints                                                                                           | `fl_frontend/src/shared/components/ui/hoverHost.test.ts`, which grades every JSX host by what it reports and fails an unlisted one; an arm reaching JSX from another module is review's                                                                                                                                  |
 | I249 | **A running label is a plain literal saying what the press itself is doing**: third person, three dots, `Speichert...`                                                                                                                     | `fl_frontend/src/core/pendingLabels.test.ts`, which reads every ellipsed string literal the product declares and names each one no control wears                                                                                                                                                                         |
 | I250 | **A failure toast names the thing rather than the act**: the success title beside it, negated — `Adresse nicht kopiert`                                                                                                                    | `fl_frontend/src/core/toastTitles.test.ts :: NAMES_THE_OPERATION`, which refuses a nominalised, impossible or passive ending in the register; review for every other wording                                                                                                                                             |
+| I251 | **A signed-out admin write leaves for `/signin`**: an action's POST by `x-action-redirect`, never a 307 its `fetch` would replay; an undo by 401                                                                                           | `fl_frontend/src/proxy.test.ts`, which hands the proxy's answer to Next's installed action client; `fl_frontend/src/shared/utils/undoDispatch.test.ts`; `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`                                                                                                        |
+| I253 | **A value a link names is kept picked, under its own label**, wherever the facet knows it and no row on hand holds it                                                                                                                      | `fl_frontend/src/shared/utils/facets.ts :: offeredOptions`, which the selection, the counts, the pill and the panel all read; `fl_frontend/src/shared/utils/facets.test.ts :: "a value a link names"`                                                                                                                    |
+| I255 | **A save confirmation opens only over a draft every schema accepts**, never ahead of the block, where one accepted would be asked again                                                                                                    | `fl_frontend/src/shared/hooks/useDraftFieldErrors.ts :: guardSubmit`; `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts :: "marks and announces a draft the schemas refuse, and raises no dialog over it"`; `fl_frontend/src/features/admin/saveConfirmation.test.ts`, per editor                                |
 
 ## 3. Violation → remedy
 
@@ -1661,7 +1764,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | An admin write saves and toasts, and the list keeps the old rows until a manual reload                                             | The action moves no tag and calls no `refresh()`, so its response carries no re-rendered payload at all                                                                                 | I233 — every admin write ends its success path with `refresh()`; a tag's own re-render is Next's bookkeeping rather than the action's guarantee                          |
 | An admin edit saves, but the list still shows the old data                                                                         | The entry carries only base tags, and only a granular tag was invalidated                                                                                                               | I2 — the base `updateTag`s must stay unconditional                                                                                                                       |
-| A page never refreshes after a rollover                                                                                            | A rollover changes what an omitted `saison_id` resolves to, so it has to clear four tag families rather than one                                                                        | I25 — `fl_frontend/src/features/saisons/actions.ts :: invalidateRollover` must clear `saisons`, `spiele`, `spieltage` and `teams`                                        |
+| A page never refreshes after a rollover                                                                                            | A rollover changes what an omitted `saison_id` resolves to, so it has to clear five tag families rather than one                                                                        | I25 — `fl_frontend/src/features/saisons/actions.ts :: invalidateRollover` must clear `saisons`, `spiele`, `spieltage`, `teams` and `spieler`                             |
 | A season's points change but the table still shows the old standings                                                               | The edit cleared `saisons` and not `teams`, and the table is scored from `rules` on every read                                                                                          | I25 — `invalidateSaisonAndTable` clears both, unconditionally rather than by comparing what moved                                                                        |
 | A matchday list looks right and the playoff bracket's columns are in the wrong order                                               | Something re-sorted the matchdays on this side, so `orderRoundsByWiring` anchored on the wrong round                                                                                    | I27 — remove the sort; the order arrives correct from `order_spieltage`                                                                                                  |
 | A matchday sits in the wrong place in the list                                                                                     | Its stored `position` is wrong, or it sits in the wrong `saison_phase`                                                                                                                  | I60 — no surface repairs either: both are the season's draw's, on no payload and written once                                                                            |
@@ -1674,7 +1777,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | `updateTag` throws inside a route handler                                                                                          | Wrong function for the context                                                                                                                                                          | I14 — `revalidateTag` in route handlers, `updateTag` in server actions                                                                                                   |
 | The three match cards look like duplication                                                                                        | Working as intended — they differ in chips, names and container (§1.6)                                                                                                                  | Nothing. Shared code leaves the cards as §1.6 says — a derivation into `utils.ts`, an atom into `components/ui/` — and never by a merge                                  |
 | A cache tag exists but nothing ever clears it                                                                                      | A granular tag on a resource with no write surface                                                                                                                                      | I1 — add the matching `updateTag` in the same change, or delete the tag                                                                                                  |
-| A server action fails with "An unexpected response was received from the server"                                                   | Something answered its POST with a redirect, so the client read HTML where an RSC payload belongs                                                                                       | The session lapsed — sign in again; `fl_frontend/src/proxy.ts` redirects an `/admin/:path*` POST with no admin session                                                   |
+| A server action fails with "An unexpected response was received from the server"                                                   | Something answered its POST with a redirect, so the client read HTML where an RSC payload belongs                                                                                       | Not `fl_frontend/src/proxy.ts`, which turns a signed-out action away with `x-action-redirect` (I251): find the layer that redirected it                                  |
 | A server action fails with "An unexpected response was received from the server", and the route keeps serving its old data         | A dynamic page awaited `params` at its own top level, so an `updateTag` from another route truncates the response                                                                       | I22 — await inside the page's `<Suspense>` boundary                                                                                                                      |
 | A server action writes, but the screen does not change                                                                             | It was dispatched from a closure whose component has unmounted, so the router never applies its revalidation                                                                            | `updateTag` is required and NOT sufficient there — call `router.refresh()` when the result arrives (the undo toast)                                                      |
 | A white outline appears on a control that already rings                                                                            | The base-layer focus rule painting over a HeroUI control                                                                                                                                | The unlayered opt-out in `globals.css` — HeroUI's own is `:not(:focus)`-gated and cannot fire on a focused element                                                       |
@@ -1695,7 +1798,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | A hover reads differently on a card than on the page                                                                               | An alpha hover wherever it is spelled, compositing against each ground                                                                                                                  | I162 — one of the `hover*` tokens                                                                                                                                        |
 | An option under the keyboard shows a grey fill and nothing else, while the mouse route through the picker is fine                  | A layered rule outranked the `outline` at `fl_frontend/src/app/globals.css :: "The keyboard's own mark"`, or the ring was keyed off `data-focused`, which a pointer sets too            | I230 — the ring keys on `data-focus-visible` unlayered; the fill is its own rule, taking `data-focused` on a menu row                                                    |
 | A count or label pill reads faint on a tab strip, on a row the pointer is over, or on a tinted row                                 | A tint on any fill but `surface` or `background`: composited, its light ink measures under 4.5:1                                                                                        | I229 — `trackCountBadge` or `trackLabelBadge`; a phase tone has no twin, so its pill moves off that fill                                                                 |
-| A field reads as a plain box, or its border changes colour when the pointer crosses it                                             | The call site spells its own border rather than taking `FIELD_INPUT`, `FIELD_GROUP` or `FIELD_TEXTAREA`, or it carries a hover fill                                                     | §1.17 — a field takes `control` and no hover fill                                                                                                                        |
+| A field reads as a plain box, or its fill changes colour when the pointer crosses it                                               | The call site spells its own border rather than taking `FIELD_INPUT`, `FIELD_GROUP` or `FIELD_TEXTAREA`, or it carries a hover fill                                                     | §1.17 — a field takes `control`, and its hover moves the border and never the fill                                                                                       |
 
 ## 4. Known-open
 
@@ -1708,4 +1811,5 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/src/shared/utils/facets.test.ts :: isClientModule` covers `fl_frontend/src/app/`, `:: VIEWS_GLOB` the admin views; a server-render harness is refused               |
 | `fl_frontend/src/app/layout.tsx`'s chrome colour keys on `prefers-color-scheme`, the page's theme on `data-theme`                                    | Accepted — Next offers no other key, so a visitor whose stored theme differs from the operating system's sees a mismatched bar                                                              |
+| A signed-out save on an editor holding unsaved changes leaves its button pending once the browser's leave prompt is answered by staying              | Accepted — the prompt is what protects the draft, and the button settles at the next navigation (I251)                                                                                      |
 | A matched address answers 200 on its 404 (I242), which is the price of the area chrome I232 asks for                                                 | Accepted — `cacheComponents` flushes a prerendered shell before any page runs, and a `proxy.ts` rewrite would drop its status; only a built response carries one                            |

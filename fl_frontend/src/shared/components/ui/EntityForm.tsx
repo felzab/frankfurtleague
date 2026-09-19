@@ -19,7 +19,7 @@ import type { ZodType } from "zod";
  * The create and edit form skeleton, once. The success guard stays at the call site on purpose: create checks
  * `created_id` and edit checks `updated_document`, and folding that in would mean knowing both response shapes.
  */
-export function EntityForm<TDraft>({
+export function EntityForm<TDraft, TPayload = TDraft>({
   initialDraft,
   renderFields,
   onSubmit,
@@ -31,15 +31,18 @@ export function EntityForm<TDraft>({
 }: {
   initialDraft: TDraft;
   renderFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
-  /** The action's own answer, after the caller has folded in its own guard on the record it created. */
-  onSubmit: (draft: TDraft) => Promise<ActionResult>;
+  /**
+   * Handed the payload the block judged, never the draft: a payload step that normalises would otherwise judge
+   * one value and send another. Answers the action's own result, the caller's guard on its created record folded in.
+   */
+  onSubmit: (payload: TPayload) => Promise<ActionResult>;
   /** The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18). */
   schema: ZodType;
   /**
-   * Required rather than defaulted to identity: two of the callers assemble a payload that is not the draft, and a
-   * silent identity would judge the wrong shape and pass everything.
+   * Required rather than defaulted to identity: a caller whose payload is not the draft would have the wrong shape
+   * judged, and a silent identity passes everything.
    */
-  toPayload: (draft: TDraft) => unknown;
+  toPayload: (draft: TDraft) => TPayload;
   /**
    * The title the create raises, and the action's own sentence stands beside it: this literal is
    * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
@@ -67,14 +70,14 @@ export function EntityForm<TDraft>({
   const handleSubmit = () => {
     const payload = toPayload(draft);
     // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
-    guardSubmit({ entity: payload }, writeAfterBlock);
+    guardSubmit({ entity: payload }, () => {
+      writeAfterBlock(payload);
+    });
   };
 
-  const writeAfterBlock = () => {
-    const payload = toPayload(draft);
-
+  const writeAfterBlock = (payload: TPayload) => {
     startTransition(async () => {
-      const res = await onSubmit(draft);
+      const res = await onSubmit(payload);
 
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { entity: payload });
@@ -111,25 +114,26 @@ export function EntityForm<TDraft>({
       {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
-      {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER` owns the arithmetic. */}
+      {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER` owns the arithmetic. The
+          action first and the way back second, as in every dialog footer (`docs/frontend/spec.md` §1.19). */}
       <div className={MODAL_FOOTER_ROW}>
-        {/* Disabled in flight: pressing it unmounts the modal from under a running transition, whose toast then
-            fires against a dead tree — the record is created and nobody is told. */}
-        <Button
-          type="button"
-          variant="secondary"
-          isDisabled={isPending}
-          className={formButton({ intent: "cancel" })}
-          onPress={onClose}>
-          Abbrechen
-        </Button>
         {/* No icon: a checkmark on a button that has not yet done anything reads as "done" rather than "do it". */}
         <Button
           type="submit"
           variant="primary"
-          isDisabled={isPending}
+          isPending={isPending}
           className={formButton({ intent: "submit" })}>
           {isPending ? "Speichert..." : "Speichern"}
+        </Button>
+        {/* Held in flight: pressing it unmounts the modal from under a running transition, whose toast then
+            fires against a dead tree — the record is created and nobody is told. */}
+        <Button
+          type="button"
+          variant="secondary"
+          isPending={isPending}
+          className={formButton({ intent: "cancel" })}
+          onPress={onClose}>
+          Abbrechen
         </Button>
       </div>
     </Form>

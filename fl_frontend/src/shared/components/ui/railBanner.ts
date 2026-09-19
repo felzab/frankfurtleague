@@ -49,8 +49,9 @@ export function resolveRailBanners<B extends RailBanner>(banners: readonly B[]):
 export type BlockingBanners<B extends RailBanner = RailBanner> = readonly [B, ...B[]];
 
 /**
- * The save confirmation's gate in one place: the submit confirms exactly when this is non-null and `ConfirmSaveModal`
- * renders what it returned. A dialog asks about a consequence, so a standing situation asks nothing, however grave.
+ * The save confirmation's gate in one place: a submit `guardSubmit` lets through confirms exactly when this is non-null,
+ * and `ConfirmSaveModal` renders what it returned. A dialog asks about a consequence, so a standing situation asks
+ * nothing, however grave.
  */
 export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B[]): BlockingBanners<B> | null {
   const [first, ...rest] = resolveRailBanners(banners).filter((banner) => banner.severity !== "info" && banner.raisedBy === "change");

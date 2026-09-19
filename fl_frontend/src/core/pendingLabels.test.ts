@@ -76,6 +76,12 @@ const running = quoted.filter((entry) => !NOT_A_RUNNING_LABEL.includes(entry.tex
  */
 const THIRD_PERSON = /t$/;
 
+/**
+ * A third person spelled exactly like its own past participle: an inseparable prefix or an `-ieren`
+ * stem takes no `ge-` of its own, so „Bestätigt...“ on a pressed control reads as already done.
+ */
+const READS_AS_FINISHED = /^(?:be|emp|ent|er|ge|miss|ver|zer)|iert$/;
+
 const opensWith = (text: string): string => (text.replace(ENDS_ELLIPSED, "").split(" ")[0] ?? "").toLowerCase();
 
 describe("every label the product wears while a press runs", () => {
@@ -109,5 +115,25 @@ describe("every label the product wears while a press runs", () => {
       [],
       "a running label opens on something other than a third-person verb -- an infinitive, a `Wir`, or the passive `wird`. Say what the press is doing: `Speichert...`, `Meldet ab...`.",
     );
+  });
+
+  it("never opens on a verb that reads as the finished state", () => {
+    const finished = running.filter((entry) => READS_AS_FINISHED.test(opensWith(entry.text))).map((entry) => `${entry.file}: ${entry.text}`);
+    assert.deepEqual(
+      finished,
+      [],
+      "a running label opens on a verb spelled like its past participle, so the pressed control reads as done. Take a verb that cannot: `Stellt wieder her...`, `Wechselt aus...`.",
+    );
+  });
+
+  // The pattern's own reach, since the tree holds no label it refuses: a sweep whose every case is
+  // clean cannot tell a working pattern from one that matches nothing.
+  it("refuses the spellings that read as finished and keeps the ones that do not", () => {
+    for (const verb of ["bestätigt", "ersetzt", "reaktiviert", "versucht", "entfernt"]) {
+      assert.ok(READS_AS_FINISHED.test(verb), `${verb} reads as finished and passes`);
+    }
+    for (const verb of ["speichert", "sendet", "stellt", "tauscht", "lädt", "löscht", "meldet"]) {
+      assert.ok(!READS_AS_FINISHED.test(verb), `${verb} reads as running and is refused`);
+    }
   });
 });

@@ -41,8 +41,8 @@ const shown = (file: string) => path.relative(APP_DIR, file).split(path.sep).joi
 
 /**
  * What Next resolves for a segment inside `dir`: the nearest boundary of that name at or above it.
- * A route group holds no boundary of its own and inherits the root's, which is a pairing rather
- * than a gap.
+ * A layout holding no boundary of its own inherits the nearest one above it, which is a pairing
+ * rather than a gap.
  */
 function nearest(dir: string, name: string): string | null {
   for (let at = dir; ; at = path.dirname(at)) {

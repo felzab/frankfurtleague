@@ -35,7 +35,6 @@ export function SaisonSelect({
     <Select
       isRequired
       name="saison_id"
-      aria-label="Saison"
       value={value}
       onChange={handleChange}
       className="w-full">

@@ -250,6 +250,17 @@ describe("every icon the tree renders", () => {
     assert.deepEqual(offLadder, [], `an icon is off §1.21's ladder — a size is one of ${RUNGS.join(" ")}:\n${offLadder.join("\n")}`);
   });
 
+  /* A brand glyph at rest reads as the current page or the one press on offer, and a row of them spends
+     the screen's brand budget on decoration; a state alone may turn one brand (`docs/frontend/spec.md` §1.19). */
+  it("wears no brand ink at rest", () => {
+    const brand = icons.filter((icon) => icon.classes?.includes("text-brand"));
+    assert.deepEqual(
+      brand.map((icon) => icon.where),
+      [],
+      `an icon wears \`text-brand\` at rest:\n${brand.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
+    );
+  });
+
   /* An unnamed `<svg>` usually contributes nothing to a name-from-content walk, so this is the
      consistency the ladder is for rather than a defect each site carries. */
   it("carries the hidden mark, unless it is the thing being named", () => {

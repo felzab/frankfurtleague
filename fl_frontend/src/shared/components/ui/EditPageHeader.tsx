@@ -63,9 +63,9 @@ export function EditPageHeader({
           {reactivate !== undefined && (
             <Button
               onPress={reactivate.onPress}
-              isDisabled={reactivate.isPending}
+              isPending={reactivate.isPending}
               className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-              {reactivate.isPending ? "Reaktiviert..." : "Reaktivieren"}
+              {reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
             </Button>
           )}
         </div>

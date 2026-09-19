@@ -8,6 +8,7 @@ import { ArrowUpArrowDown, Sliders, Xmark } from "@gravity-ui/icons";
 import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
+import { offeredOptions } from "@/shared/utils/facets";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
 import { countBadge } from "./badges";
@@ -78,7 +79,7 @@ const CLEAR_ALL_FACE =
  * It drops a value the options no longer offer, so a pill's count can never disagree with the value beside it.
  */
 function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): FacetOption[] {
-  return facet.options.filter((option) => picked.includes(option.value));
+  return offeredOptions(facet, picked).filter((option) => picked.includes(option.value));
 }
 
 /**

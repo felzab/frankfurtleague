@@ -63,7 +63,8 @@ export const formButton = tv({
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
       /**
        * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the
-       * two share that row; below `sm` it continues the bar, with flattened left corners and no label.
+       * two share that row; below `sm` it continues the bar, with flattened left corners and its label for screen
+       * readers alone.
        */
       trigger:
         "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground shrink-0 gap-x-2 font-bold shadow-sm max-sm:rounded-l-none max-sm:px-4 lg:h-15",

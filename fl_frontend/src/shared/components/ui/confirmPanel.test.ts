@@ -217,9 +217,9 @@ function armsAPress(source: string, file: string): boolean {
   const gates = enthuellt(aussen);
 
   return gefunden.some(({ tag, kinder }) => {
-    // Both spellings: a native `<button>` takes `disabled`, and a submitting form whose control this
-    // reads as open lands on the roster beside the panels that actually arm.
-    const geschlossen = new Set([...disjunkte(attributWert(tag, "isDisabled", file)), ...disjunkte(attributWert(tag, "disabled", file))]);
+    // Every spelling: a native `<button>` takes `disabled`, HeroUI holds a running press with `isPending`, and a
+    // submitting form whose control this reads as open lands on the roster beside the panels that actually arm.
+    const geschlossen = new Set(["isDisabled", "disabled", "isPending"].flatMap((attribut) => disjunkte(attributWert(tag, attribut, file))));
 
     return [...zweige(kinder)].some((flag) => gates.has(flag) && !geschlossen.has(flag));
   });
@@ -290,6 +290,8 @@ const SCHREIBWEISEN: Record<string, string> = {
 
 const NATIV_UNTERWEGS = '{sendet && <Spinner />}\n<button disabled={sendet}>{sendet ? "Sendet..." : "Absenden"}</button>';
 
+const GEHALTEN_UNTERWEGS = '{sendet && <Spinner />}\n<Button isPending={sendet}>{sendet ? "Sendet..." : "Absenden"}</Button>';
+
 /* The reveal stands against the wrapper's own `>` or this sample cannot fail: `armsAPress` blanks by
    code-unit offsets, and a surrogate pair above the span moves what it blanks onto that reveal. */
 const umhuelltHinter = (kopf: string): string =>
@@ -333,6 +335,11 @@ describe("the shape the second roster reads", () => {
      only the first reads an ordinary submitting form as one that escalates. */
   it("passes over a native button closed by the plain `disabled` spelling", () => {
     assert.ok(!armsAPress(blankComments(NATIV_UNTERWEGS), "nativ"), "a native control closing on its own request is on the roster");
+  });
+
+  /* The spelling every write holds its control with, so a reader missing it puts every submitting form on the roster. */
+  it("passes over a control HeroUI holds with `isPending` while its write is in flight", () => {
+    assert.ok(!armsAPress(blankComments(GEHALTEN_UNTERWEGS), "gehalten"), "a control held on its own request is on the roster");
   });
 
   /* A control the reader cannot parse would otherwise leave its panel out of the population, where a
@@ -406,12 +413,14 @@ describe("the armed action row", () => {
     assert.deepEqual(beschriftungen(ARMED), ["Ja, löschen", "Abbrechen"], "the armed row does not stand its cancel beside the control");
   });
 
-  /* Closed rather than taken away: a control vanishing mid-press reflows the row under the pointer,
-     and a second cancel during the request would disarm a write already sent. */
-  it("closes the cancel while the write is in flight", () => {
+  /* Held rather than taken away: a control vanishing mid-press reflows the row under the pointer,
+     and a second cancel during the request would disarm a write already sent. Held, not closed, so a
+     keyboard keeps its place. */
+  it("holds the cancel while the write is in flight", () => {
     assert.deepEqual(beschriftungen(IN_FLIGHT), ["Ja, löschen", "Abbrechen"], "the cancel leaves the row mid-press");
-    assert.match(abbrechen(IN_FLIGHT), /\sdisabled=""/, "the cancel stays pressable while the write it would disarm is in flight");
-    assert.doesNotMatch(abbrechen(ARMED), /\sdisabled=""/, "the cancel is closed before there is anything in flight");
+    assert.match(abbrechen(IN_FLIGHT), /\sdata-pending="true"/, "the cancel stays pressable while the write it would disarm is in flight");
+    assert.doesNotMatch(abbrechen(IN_FLIGHT), /\sdisabled=""/, "the cancel is closed mid-press, dropping the keyboard's focus to the page");
+    assert.doesNotMatch(abbrechen(ARMED), /\sdata-pending=|\sdisabled=""/, "the cancel is held before there is anything in flight");
   });
 
   /* The app's one cancel treatment, at the width a column asks for. Spell the classes here and this
@@ -520,10 +529,10 @@ describe("every panel that escalates a press", () => {
     }
   });
 
-  /* Over the set because the gap was per panel: a primary control left open during its own request
-     sends the write a second time. The row's own half — the closed cancel — is asserted on the
-     shell, above. */
-  it("close their primary control while its own request is in flight", () => {
+  /* Per panel, because the gap was: a primary control left open during its request sends the write
+     twice, and one closed by `isDisabled` drops the keyboard's focus mid-press. The held cancel is the
+     shell's case, above. */
+  it("hold their primary control, never close it, while its own request is in flight", () => {
     for (const file of PANELS) {
       const source = read(file);
       const flag = pendingFlag(source);
@@ -537,13 +546,15 @@ describe("every panel that escalates a press", () => {
 
       assert.ok(tag.length > 0, `${file}: no opening tag around the armed control`);
       // Split on the non-word runs so a flag never matches inside a longer name.
-      const bedingung = tag.split("isDisabled={")[1]?.split("}")[0] ?? "";
+      const gehalten = attributWert(tag, "isPending", file).split(/[^A-Za-z0-9_]+/);
+      const geschlossen = disjunkte(attributWert(tag, "isDisabled", file));
 
-      assert.ok(bedingung.split(/[^A-Za-z0-9_]+/).includes(flag), `${file}: a second press during the request sends a second write`);
+      assert.ok(gehalten.includes(flag), `${file}: a second press during the request sends a second write`);
+      assert.ok(!geschlossen.includes(flag), `${file}: the request closes the control, dropping the keyboard's focus to the page`);
     }
   });
 
-  /* Both axes read the armed control's children with the whitespace collapsed: `isDisabled` names the
+  /* Both axes read the armed control's children with the whitespace collapsed: `isPending` names the
      flag in the opening tag, and a panel is free to wrap its glyph in a second ternary. */
   it("drop the glyph and name the request while it is in flight", () => {
     for (const file of PANELS) {

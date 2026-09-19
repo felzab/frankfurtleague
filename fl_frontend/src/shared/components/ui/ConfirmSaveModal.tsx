@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
@@ -28,13 +30,30 @@ export function ConfirmSaveModal({
 }) {
   // The list must outlive the prop going null, or the body blanks while the dialog animates out.
   const shown = useRetainedValue(banners);
+
+  // One press per raise: the buttons stay pressable through the exit animation, and a second press
+  // there would send the write again. Re-opened on the next raise, which may hand the same list back.
+  const isOpen = banners !== null;
+  const [raised, setRaised] = useState(isOpen);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  if (isOpen !== raised) {
+    setRaised(isOpen);
+    if (isOpen) setIsConfirmed(false);
+  }
+
   if (shown === null) return null;
+
+  const confirm = () => {
+    if (isConfirmed) return;
+    setIsConfirmed(true);
+    onConfirm();
+  };
 
   const count = shown.length;
 
   return (
     <ModalShell
-      isOpen={banners !== null}
+      isOpen={isOpen}
       onClose={onClose}
       heading="Speichern trotz Hinweisen?"
       size="form"
@@ -75,14 +94,16 @@ export function ConfirmSaveModal({
           <Button
             type="button"
             variant="primary"
+            isDisabled={isConfirmed}
             className={formButton({ intent: "destructive", fullWidth: true })}
-            onPress={onConfirm}>
+            onPress={confirm}>
             Trotzdem speichern
           </Button>
           {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels. */}
           <Button
             type="button"
             variant="secondary"
+            isDisabled={isConfirmed}
             className={formButton({ intent: "cancel", fullWidth: true })}
             onPress={onClose}>
             Weiter bearbeiten

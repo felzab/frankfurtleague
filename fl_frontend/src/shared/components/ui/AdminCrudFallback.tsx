@@ -152,8 +152,6 @@ function SectionedFallback() {
                 </div>
               </div>
 
-              <span className={`${skeletonBlock()} fluid-xxs block w-24 shrink-0 rounded-md px-1.5 py-0.5`}>&nbsp;</span>
-
               <RowActionCluster
                 slots={SECTION_ROW_ACTIONS}
                 className="border-border/50 -mx-1 border-t pt-2 md:mx-0 md:shrink-0 md:border-t-0 md:pt-0"

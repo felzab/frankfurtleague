@@ -28,6 +28,8 @@ export function PublicShell({ serverStatusSlot, children }: { serverStatusSlot: 
 
       {/* A floor, never a height: a fixed one is left behind by a column gaining a link, and the
           fill stops where the separator and the copyright row are still being drawn. */}
+      {/* The page's one contentinfo landmark, so `Footer` inside it renders a plain box: a second
+          `<footer>` nested here is invalid and announces the footer twice. */}
       <footer className="bg-surface border-border z-10 flex w-full shrink-0 flex-col border-t lg:min-h-[220px]">
         <Footer serverStatusSlot={serverStatusSlot} />
       </footer>

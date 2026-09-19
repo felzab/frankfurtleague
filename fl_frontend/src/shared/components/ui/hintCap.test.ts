@@ -246,6 +246,7 @@ const DATA_TABLES = [
   // A shell fallback holds the one hint for the route its navigation does not name, so its floor is that one hint.
   { file: "features/admin/constants.ts", constant: "ADMIN_SHELL_FALLBACK", shape: "fallback", floor: 1 },
   { file: "features/dashboard/constants.ts", constant: "DASHBOARD_SHELL_FALLBACK", shape: "fallback", floor: 1 },
+  { file: "features/admin/constants.ts", constant: "ADMIN_SHELL_UNLISTED_SECTIONS", shape: "sections", floor: 1 },
 ] as const;
 
 /** One table entry's hint, flattened into the blocks it renders as, the lead first. */
@@ -326,6 +327,13 @@ function fallbackHintsIn(declared: ts.Expression, constant: string): DataHint[] 
   return [{ constant, key: staticText(propertyOf(declared, "label")) ?? "unnamed", blocks: hintBlocks(hint) }];
 }
 
+/** A shell's sections with no nav entry, each shaped as a fallback is. */
+function sectionHintsIn(declared: ts.Expression, constant: string): DataHint[] {
+  if (!ts.isObjectLiteralExpression(declared)) return [];
+
+  return declared.properties.flatMap((section) => (ts.isPropertyAssignment(section) ? fallbackHintsIn(section.initializer, constant) : []));
+}
+
 /**
  * A triage category's panel, which `AdminSpieleActionRequiredView` renders as its `name` over its
  * `desc` — the same lead-and-block shape a `SidemenuHint` writes, so the same cap counts it.
@@ -348,7 +356,7 @@ function triageHintsIn(declared: ts.Expression, constant: string): DataHint[] {
 }
 
 /** Keyed by `shape`, so a table declaring one the sweep cannot read is a compile error rather than an empty result. */
-const READER_FOR = { sidemenu: sidemenuHintsIn, triage: triageHintsIn, fallback: fallbackHintsIn };
+const READER_FOR = { sidemenu: sidemenuHintsIn, triage: triageHintsIn, fallback: fallbackHintsIn, sections: sectionHintsIn };
 
 const dataTables = DATA_TABLES.map((table) => {
   const declared = constantIn(parseModule(table.file), table.constant);

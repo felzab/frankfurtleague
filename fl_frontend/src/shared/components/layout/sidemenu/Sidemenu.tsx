@@ -4,6 +4,7 @@ import React, { Suspense } from "react";
 
 import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";
 import { RAIL_WIDTH_LG } from "../shell/railWidth";
+import { RAIL_GUTTER } from "./railGutter";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import { SidemenuFooter } from "./SidemenuFooter";
 import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
@@ -41,6 +42,7 @@ export function Sidemenu<TIcon extends string>({
   // The `lg:` half is shared with the bar's brand block, so the seam between them cannot drift.
   // Hoisted out of the class template for the reason `AppTopBar` gives.
   const railWidth = `w-sidemenu ${RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"]}`;
+  const railGutter = RAIL_GUTTER[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   const navLinkProps = {
     structure,
@@ -65,10 +67,7 @@ export function Sidemenu<TIcon extends string>({
 
       {/* The gutter is reserved on both edges while collapsed: a one-edge reservation takes its strip off the right
           alone, so the icon column sits left of the rail's centre. Expanded, the content is left-aligned text. */}
-      <div
-        className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${
-          isDesktopCollapsed ? "scrollbar-gutter-stable-both" : "scrollbar-gutter-stable"
-        }`}>
+      <div className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${railGutter}`}>
         {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
         <Suspense fallback={<SaisonSlotSkeleton />}>
           <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>

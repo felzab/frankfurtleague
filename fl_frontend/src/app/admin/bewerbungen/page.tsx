@@ -24,6 +24,9 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
         <AdminCrudSearch
           searchLabel={BEWERBUNGEN_CRUD_COPY.searchLabel}
           searchPlaceholder={BEWERBUNGEN_CRUD_COPY.searchPlaceholder}
+          // This shell passes no `createModal`, so the bar has no trigger to join: it keeps its own
+          // right edge and the row's full width.
+          attachEnd={false}
         />
       }>
       <Suspense fallback={<AdminCrudFallback shape="cards" />}>

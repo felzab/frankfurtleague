@@ -51,7 +51,9 @@ export function RefusableSelect({
   return (
     <Select
       aria-label={label}
-      value={value?.id ?? undefined}
+      // `null` and never `undefined` for no pick: react-stately reads `undefined` as uncontrolled, so the first pick
+      // would switch the picker to controlled.
+      value={value?.id ?? null}
       onChange={handleChange}
       isDisabled={isDisabled}
       className={`w-full ${className ?? ""}`}>

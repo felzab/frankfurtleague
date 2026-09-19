@@ -1,4 +1,21 @@
+import { withSaisonId } from "./saisonHref";
+
 import type { Metadata } from "next";
+
+/**
+ * `saisonId` is `resolveSaisonId`'s answer and never the raw parameter, which would carry a season nobody
+ * serves into the canonical (`docs/frontend/spec.md` §1.13).
+ */
+export function seasonScopedMetadata(path: string, saisonId: string | undefined): Pick<Metadata, "alternates" | "openGraph"> {
+  const url = withSaisonId(path, saisonId);
+
+  return { openGraph: openGraphFor(url), alternates: { canonical: url } };
+}
+
+/** The season a description names, from the same answer: a past season's page never calls itself the running one. */
+export function saisonPhrase(saisonId: string | undefined): string {
+  return saisonId === undefined ? "der laufenden Saison" : `der Saison ${saisonId}`;
+}
 
 /**
  * Call it with the path the route gives `alternates.canonical`. **No route declares a bare `openGraph` object**:

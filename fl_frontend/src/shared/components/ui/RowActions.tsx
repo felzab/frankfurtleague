@@ -20,15 +20,9 @@ const ACTION_SHAPE = `text-foreground-muted flex ${ROW_ACTION_SIZE} shrink-0 ite
 
 const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
 
-/**
- * `disabled:pointer-events-none` is load-bearing: a disabled control dispatches no pointer event and none reaches an
- * ancestor either, so the refusal hint's wrapper is the hit target only once this makes the button transparent.
- */
-const ACTION_BUTTON_SHAPE = `${ACTION_SHAPE} disabled:pointer-events-none`;
+const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
 
-const ACTION_BUTTON_CLASS = `${ACTION_BUTTON_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
-
-const DANGER_CLASS = `${ACTION_BUTTON_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
+const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
 export function RowActionLink({
   href,
@@ -74,16 +68,13 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
   );
 }
 
-/**
- * Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it.
- *
- * It takes the delete's `disabledReason`; `ACTION_BUTTON_SHAPE` carries the mechanism both rely on.
- */
+/** Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it. */
 export function RowActionRestore({
   label,
   ariaLabel,
   onPress,
   disabledReason,
+  isPending = false,
 }: {
   label: string;
   ariaLabel: string;
@@ -93,6 +84,8 @@ export function RowActionRestore({
    * defect whichever control reaches it, and a list reaches the squad row's reactivate as its editor does.
    */
   disabledReason?: string | null;
+  /** While the write runs, so a second press cannot send it twice. Never a `disabledReason`: nothing refuses the row. */
+  isPending?: boolean;
 }) {
   const button = (
     <Button
@@ -100,6 +93,9 @@ export function RowActionRestore({
       aria-label={ariaLabel}
       variant="ghost"
       isDisabled={disabledReason != null}
+      // `isPending` and never `isDisabled`: a disabled button leaves the tab order, dropping the keyboard's focus to the
+      // page mid-press, where react-aria's pending state keeps it and ignores the press.
+      isPending={isPending}
       className={ACTION_BUTTON_CLASS}
       onPress={onPress}>
       <ArrowRotateLeft
@@ -112,7 +108,8 @@ export function RowActionRestore({
   return disabledReason != null ? (
     <Hint
       mode="refusal"
-      reason={disabledReason}>
+      reason={disabledReason}
+      label={ariaLabel}>
       {button}
     </Hint>
   ) : (
@@ -153,7 +150,8 @@ export function RowActionDelete({
   return disabledReason != null ? (
     <Hint
       mode="refusal"
-      reason={disabledReason}>
+      reason={disabledReason}
+      label={ariaLabel}>
       {button}
     </Hint>
   ) : (

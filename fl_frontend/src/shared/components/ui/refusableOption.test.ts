@@ -1,7 +1,13 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
+
+import { createElement as h } from "react";
+
+import { fireEvent, render } from "@testing-library/react";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { renderMarkup } from "@/shared/testing/renderTest";
@@ -49,13 +55,23 @@ describe("the row a refusable picker hands on", () => {
     assert.equal(pickIfOffered([], "frei"), null);
   });
 
-  /* Which function a change handler asks reaches no markup, so that wiring is read where it is
-     written — and the cases above would otherwise pass over a function nobody calls. */
+  /* The cases above would otherwise pass over a function nobody calls. Picked through the native
+     mirror, whose options carry no `disabled`, which is how a closed row's key reaches the handler. */
   it("is what the picker's own change handler asks", () => {
-    const source = readFileSync(path.resolve(import.meta.dirname, "RefusableSelect.tsx"), "utf8");
+    const onChange = mock.fn((_id: string) => undefined);
+    const { container } = render(
+      h(RefusableSelect, { label: "Gruppe", placeholder: "Gruppe wählen", value: null, options: OPTIONS, onChange, isDisabled: false }),
+    );
+    const mirror = container.querySelector("select") ?? assert.fail("the picker mirrors no native select");
 
-    assert.match(source, /pickIfOffered\(options, key\?\.toString\(\) \?\? null\)/);
-    assert.doesNotMatch(source, /options\.find\(/, "the picker looks the row up a second time");
+    fireEvent.change(mirror, { target: { value: "voll" } });
+    fireEvent.change(mirror, { target: { value: "frei" } });
+
+    assert.deepEqual(
+      onChange.mock.calls.map((call) => call.arguments[0]),
+      ["frei"],
+      "a closed row's key reaches the caller, or an offered one does not",
+    );
   });
 });
 

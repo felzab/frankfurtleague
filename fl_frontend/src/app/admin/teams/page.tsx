@@ -7,8 +7,9 @@ import { AdminCreateTeamModal } from "@/features/teams/components/modals/AdminCr
 import { AdminTeamsView } from "@/features/teams/components/views/AdminTeamsView";
 import { TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { buildGruppeOffer } from "@/features/teams/utils";
+import { buildGruppeOffer, publicTeamSaisonId } from "@/features/teams/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
+import { CreateTriggerPlaceholder } from "@/shared/components/ui/AdminCrudLoading";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
@@ -27,8 +28,7 @@ export default function AdminTeamsPage(props: NextPageProps) {
         />
       }
       createModal={
-        // The fallback holds the trigger's own height, so the header row does not jump.
-        <Suspense fallback={<div className="h-12 lg:h-15" />}>
+        <Suspense fallback={<CreateTriggerPlaceholder label={TEAMS_CRUD_COPY.createLabel} />}>
           <CreateTeamModalLoader searchParams={props.searchParams} />
         </Suspense>
       }>
@@ -90,6 +90,7 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
         const status = statusBySaisonId.get(membership.saison_id);
         return status === "active" || status === "future";
       }),
+      publicSaisonId: publicTeamSaisonId(saisons, selectedSaisonId, team.memberships),
     };
   });
 

@@ -10,6 +10,8 @@ import { AppTopBar } from "./AppTopBar";
 import type { FormState, SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 
+type ShellSection = { label: string; hint: SidemenuHint };
+
 /**
  * Owns both pieces of shell state, each being one control split across two places: the hamburger is in the bar and its
  * panel in the sidemenu, and the rail's toggle is in the footer while its width decides the bar's brand treatment.
@@ -19,6 +21,7 @@ export function AppShell<TIcon extends string>({
   linkPrefix,
   iconDictionary,
   saisonMetadataDisplay,
+  unlistedSections = {},
   fallbackTitle,
   fallbackHint,
   onSignOut,
@@ -29,9 +32,11 @@ export function AppShell<TIcon extends string>({
   iconDictionary: Record<TIcon, React.ElementType>;
   saisonMetadataDisplay: React.ReactNode;
   /**
-   * What the bar reads on a route the navigation does not name. Such a page carries its own `h2` naming its subject, so
+   * Sections with a route and no nav entry, by first segment. Such a page carries its own `h2` naming its subject, so
    * the bar names the section and the page names the record.
    */
+  unlistedSections?: Readonly<Record<string, ShellSection>>;
+  /** What the bar reads on an address no entry and no unlisted section claims — the area's name, never a section's. */
   fallbackTitle: string;
   /**
    * Required for the same reason `SidemenuStructureSubOption.hint` is: a glyph present on most routes and absent on one
@@ -77,6 +82,10 @@ export function AppShell<TIcon extends string>({
   const activeOption: SidemenuStructureSubOption<TIcon> | undefined = structure
     .flatMap((group) => group.sub_options)
     .find((option) => option.id === baseSegment);
+  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/admin/constructor`
+  // would otherwise select a prototype member and head the page with nothing at all.
+  const unlistedSection = baseSegment !== undefined && Object.hasOwn(unlistedSections, baseSegment) ? unlistedSections[baseSegment] : undefined;
+  const section: ShellSection = activeOption ?? unlistedSection ?? { label: fallbackTitle, hint: fallbackHint };
 
   return (
     /* `data-app-shell` is read by one rule in `globals.css`, which releases the viewport's reserved scrollbar
@@ -87,8 +96,8 @@ export function AppShell<TIcon extends string>({
       <SkipToContentLink isTargetInert={isMobileOpen} />
 
       <AppTopBar
-        title={activeOption?.label ?? fallbackTitle}
-        hint={activeOption?.hint ?? fallbackHint}
+        title={section.label}
+        hint={section.hint}
         isMobileOpen={isMobileOpen}
         onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
         isDesktopCollapsed={isDesktopCollapsed}

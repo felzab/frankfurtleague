@@ -11,8 +11,8 @@ export const FIELD_LABEL = "fluid-xs text-foreground font-bold";
 export const FIELD_HEIGHT = "h-10";
 
 /**
- * No focus classes here. The border-turns-brand treatment lives once in the unlayered block at the end
- * of `globals.css`, keyed off HeroUI's `data-slot` attributes; repeating it is how it drifted before.
+ * No focus or hover classes: both live once in the unlayered block at the end of `globals.css`, keyed off HeroUI's
+ * `data-slot` attributes; repeating them is how they drifted before.
  * `border-control`, never `border-border`: a field's border alone identifies it.
  */
 export const FIELD_INPUT = `border-control bg-surface text-foreground fluid-sm ${FIELD_HEIGHT} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import { countFacetOptions, isFacetOptionReachable } from "@/shared/utils/facets";
+import { countFacetOptions, isFacetOptionReachable, offeredOptions } from "@/shared/utils/facets";
 
 import { countBadge } from "./badges";
 import { overlayPanel } from "./overlayPanel";
@@ -73,13 +73,13 @@ function FacetCell<TItem>({
 }) {
   const [query, setQuery] = useState("");
 
-  const isWide = facet.options.length > VISIBLE_OPTIONS;
+  const options = offeredOptions(facet, picked);
+  const isWide = options.length > VISIBLE_OPTIONS;
   // The field below quotes a row rather than repeating the act: its icon and its accessible name
   // already carry that. `isWide` is what guarantees there is a row to quote.
-  const [firstOption] = facet.options;
+  const [firstOption] = options;
   // Counts stay over the whole option list, so a hidden option's number is already right when the query clears.
-  const shown: readonly FacetOption[] =
-    isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
+  const shown: readonly FacetOption[] = isWide && query !== "" ? options.filter((option) => fold(option.label).includes(fold(query))) : options;
 
   return (
     <div

@@ -42,6 +42,14 @@ export const IDENTITY_NAME_BOX = "fluid-sm max-w-full min-w-0 shrink-0 truncate 
  */
 export const IDENTITY_NAME = `${IDENTITY_NAME_BOX} text-foreground`;
 
+/**
+ * A retired row's one change of ink, its „Stillgelegt“ pill saying the state. **Never an `opacity`
+ * on the row or its card**: it composites the muted lines and the pill under 4.5:1 (WCAG 1.4.3).
+ */
+export function identityName(isRetired: boolean): string {
+  return isRetired ? `${IDENTITY_NAME_BOX} text-foreground-muted` : IDENTITY_NAME;
+}
+
 export const IDENTITY_LINE = "fluid-xs text-foreground-muted max-w-full min-w-0 truncate";
 
 /** Two facts on one secondary line, with no separator glyph to strand alone at the wrap. */

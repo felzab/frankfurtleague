@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
+import type { BlockingBanners, RailBanner } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ZodType } from "zod";
 
@@ -61,7 +63,7 @@ export function differsFromSubmitted(submitted: unknown, draft: unknown, paths: 
 
 /**
  * The submit's messages, with the verdicts that judged a **moved** value over them: a verdict says only that the schema
- * is happy, and recency cannot stand in, `reportValidity()` moving focus into the very field it refused.
+ * is happy, and recency cannot stand in, `focusFirstRefusal` moving focus into the very field it refused.
  */
 export function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVerdicts): FieldErrors {
   const merged: FieldErrors = { ...submitErrors };
@@ -154,10 +156,26 @@ export const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
  * Spelled per count rather than interpolated: `1` and the rest need their own German. It names no
  * direction: every editor shares this hook, and `focusFirstRefusal` moves the caret to the mark anyway.
  */
-export const blockedSubmitDetail = (refused: number): string =>
-  refused === 1
-    ? "Ein Feld braucht noch eine Angabe. Es ist markiert."
-    : `${String(refused)} Felder brauchen noch eine Angabe. Alle sind markiert.`;
+export const blockedSubmitDetail = (marked: number): string =>
+  // Never a missing answer: the same press refuses a value that is wrong or already taken.
+  marked === 1
+    ? "Ein Feld ist noch nicht richtig ausgefüllt. Es ist markiert."
+    : `${String(marked)} Felder sind noch nicht richtig ausgefüllt. Alle sind markiert.`;
+
+/**
+ * Each control the form holds by a refused name, once. Never the paths, which outnumber the marks wherever one
+ * control writes several — the consent switch writes three seats — or a mirrored copy renders no box.
+ */
+export function markedFieldCount(form: HTMLFormElement | null, refusals: FieldErrors): number {
+  const marked = new Set<string>();
+
+  for (const control of Array.from(form?.elements ?? [])) {
+    const name = control.getAttribute("name");
+    if (name !== null && Object.hasOwn(refusals, name)) marked.add(name);
+  }
+
+  return marked.size;
+}
 
 /**
  * Whether one press may write, and what it must say instead. A UNION, so a caller cannot read the answer without
@@ -209,6 +227,35 @@ export function applyVerdicts(current: FieldVerdicts, incoming: FieldVerdicts | 
   return moved ? { ...current, ...incoming } : current;
 }
 
+/** `current` ITSELF wherever nothing moves: identity is how `useForgiveFixed` knows a commit has nothing to queue. */
+export function settledVerdicts<TSchema extends string>(
+  current: FieldVerdicts,
+  {
+    shown,
+    payloads,
+    schemas,
+    submitted,
+    afterSubmit,
+  }: {
+    shown: FieldErrors;
+    payloads: Readonly<Partial<Record<TSchema, unknown>>>;
+    schemas: Readonly<Record<TSchema, ZodType>>;
+    submitted: Readonly<Partial<Record<TSchema, unknown>>>;
+    afterSubmit: boolean;
+  },
+): FieldVerdicts {
+  const forgiven = applyVerdicts(current, forgivenVerdicts({ shown, payloads, schemas, submitted, afterSubmit }));
+  if (!afterSubmit) return forgiven;
+
+  return applyVerdicts(forgiven, missingVerdicts({ payloads, schemas, submitted }));
+}
+
+/**
+ * What an editor whose save can cause a consequence hands the gate. `confirm` holds the list for `ConfirmSaveModal`,
+ * whose own confirm runs the write directly: the draft behind that list has already been judged.
+ */
+export type SubmitConfirmation = { banners: readonly RailBanner[]; confirm: (blocking: BlockingBanners) => void };
+
 /**
  * The one field-error map an editor renders, so no form wires the merge's order wrong
  * (`docs/frontend/spec.md` I19 and I56). Each key's schema is the one its server action parses
@@ -241,7 +288,7 @@ export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schem
 
   /**
    * What each schema's last submit was answering about. A ref because a blur can land in the same tick as the submit
-   * that wrote it — `reportValidity()` moves focus, blurring whichever field the admin was in.
+   * that wrote it — `focusFirstRefusal` moves focus, blurring whichever field the admin was in.
    */
   const submittedPayloads = useRef<Partial<Record<TSchema, unknown>>>({});
 
@@ -287,14 +334,14 @@ export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schem
     const shown = mergeFieldVerdicts(submitErrors, verdicts);
 
     useEffect(() => {
-      setVerdicts((current) => {
-        const submitted = submittedPayloads.current;
-        const afterSubmit = hasAttemptedSubmit;
-        const forgiven = applyVerdicts(current, forgivenVerdicts({ shown, payloads, schemas, submitted, afterSubmit }));
-        if (!afterSubmit) return forgiven;
+      const settle = (current: FieldVerdicts) =>
+        settledVerdicts(current, { shown, payloads, schemas, submitted: submittedPayloads.current, afterSubmit: hasAttemptedSubmit });
 
-        return applyVerdicts(forgiven, missingVerdicts({ payloads, schemas, submitted }));
-      });
+      // Asked of the RENDERED verdicts before anything is queued. While another update is held pending React cannot
+      // drop a no-op one, replays it from the queue's base, rebuilds a fresh object and renders this form without end.
+      if (settle(verdicts) === verdicts) return;
+
+      setVerdicts(settle);
     });
   };
 
@@ -302,20 +349,34 @@ export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schem
    * **The submit's only gate.** `aria` stops nothing natively, so a form without this call posts what it holds.
    * It RUNS the write rather than answering: a returned answer can be dropped at any of its call sites.
    */
-  const guardSubmit = (payloads: Readonly<Partial<Record<TSchema, unknown>>>, write: () => void): void => {
+  const guardSubmit = (payloads: Readonly<Partial<Record<TSchema, unknown>>>, write: () => void, confirmation?: SubmitConfirmation): void => {
     const decision = submitDecision({ payloads, schemas });
 
     if (decision.blocked) {
       setSubmitFieldErrors(decision.refusals, payloads);
+      const marked = markedFieldCount(formRef.current, decision.refusals);
+
       // Announced as well as marked. A `FieldError` is a plain span in no live region, so a blocked press
       // reaches a screen reader as a button that did nothing; every toast carries `role="alert"`.
-      appToast.danger(BLOCKED_SUBMIT_TITLE, { description: blockedSubmitDetail(Object.keys(decision.refusals).length) });
+
+      // Nothing marked is the map `useServerFieldErrors` announces as unhandled, by the same name walk as this count:
+      // a second toast here would point at marks nobody can see.
+      if (marked > 0) appToast.danger(BLOCKED_SUBMIT_TITLE, { description: blockedSubmitDetail(marked) });
       return;
     }
 
     // Nothing to say, but the attempt still happened: a later blur must not fall back to staying quiet
     // about an emptied field.
     setHasAttemptedSubmit(true);
+
+    // Never ahead of the block above, where a dialog accepted over a refused draft would be asked again once the draft
+    // is fixed (`docs/frontend/spec.md :: I255`).
+    const blocking = resolveBlockingBanners(confirmation?.banners ?? []);
+    if (confirmation !== undefined && blocking !== null) {
+      confirmation.confirm(blocking);
+      return;
+    }
+
     write();
   };
 

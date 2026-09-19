@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { renderMarkup } from "@/shared/testing/renderTest";
+import { refusalWrappers, renderMarkup } from "@/shared/testing/renderTest";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
@@ -68,20 +68,17 @@ describe("a row action the endpoint already refuses", () => {
     }
   });
 
-  /* The refusal belongs to the wrapper: the control inside it is closed, so the wrapper's own name
-     is the only thing a reader gets before pressing anything. */
-  it("says the reason where a pointer can still reach it", () => {
+  /* The refusal belongs to the overlay, the one stop over a closed control: it is named as the
+     control, so speech input still finds the row's action, and describes the reason. */
+  it("says the reason where a pointer and a keyboard can still reach it", () => {
     for (const row of AKTIONEN) {
-      assert.deepEqual(namen(verweigert(row)), [GRUND, row.ariaLabel], `${row.name} does not announce its refusal on the wrapper`);
+      assert.deepEqual(
+        refusalWrappers(verweigert(row)),
+        [{ name: row.ariaLabel, label: row.ariaLabel, reason: GRUND }],
+        `${row.name}'s wrapper is not named by its control, or does not describe its refusal`,
+      );
       assert.deepEqual(namen(angeboten(row)), [row.ariaLabel], `${row.name} announces a refusal on a row that has none`);
-    }
-  });
-
-  /* The one silent half: a disabled control dispatches no pointer event and none reaches an ancestor
-     either, so the wrapper above is the hit target only once this clears them. */
-  it("makes the closed control transparent to the pointer", () => {
-    for (const row of AKTIONEN) {
-      assert.match(knopf(verweigert(row)), /\bdisabled:pointer-events-none\b/, `${row.name} swallows the press that should open its hint`);
+      assert.ok(!angeboten(row).includes("aria-describedby"), `${row.name} describes a refusal on a row that has none`);
     }
   });
 
@@ -123,5 +120,33 @@ describe("a row action the endpoint already refuses", () => {
      and a required prop would put a compile error on every list whose action is never refused. */
   it("leaves the reason optional on both", () => {
     assert.equal(SOURCE.match(/disabledReason\?: string \| null;/g)?.length, AKTIONEN.length, "a row action's reason became required");
+  });
+});
+
+describe("a restore whose write is already running", () => {
+  const RESTORE = AKTIONEN[0]!;
+  const props = { label: RESTORE.label, ariaLabel: RESTORE.ariaLabel, onPress: () => undefined };
+  const laufend = renderMarkup(RowActionRestore, { ...props, isPending: true });
+  const offen = renderMarkup(RowActionRestore, props);
+
+  /* A second press would send the reactivation twice, the list only redrawing once the first returns. */
+  it("takes no press while it runs, and every press once it has returned", () => {
+    assert.match(knopf(laufend), /\saria-disabled="true"/, "the running restore is announced as a control that can be pressed");
+    assert.match(knopf(laufend), /\sdata-pending="true"/, "the running restore still takes a press");
+    assert.doesNotMatch(knopf(offen), /\saria-disabled=|\sdata-pending=/, "an idle restore is held as though its write were running");
+  });
+
+  /* `disabled` takes a button out of the tab order, which drops the keyboard's focus to the page in the
+     middle of the press that started the write. */
+  it("keeps the keyboard's focus where the press left it", () => {
+    assert.doesNotMatch(knopf(laufend), /\sdisabled=""/, "the running restore leaves the tab order");
+    assert.match(knopf(laufend), /\stabindex="0"/, "the running restore cannot be reached by the keyboard");
+  });
+
+  /* The refusal wrapper answers a reason, and a write in flight is none: swapping it in would remount the
+     button under the keyboard's focus and describe a refusal nobody made. */
+  it("keeps the wrapper it had before the press", () => {
+    assert.ok(knopf(laufend) !== "" && knopf(offen) !== "", "a restore rendered no control, so the comparison below proves nothing");
+    assert.equal(laufend.replace(knopf(laufend), ""), offen.replace(knopf(offen), ""), "the running restore is wrapped differently");
   });
 });

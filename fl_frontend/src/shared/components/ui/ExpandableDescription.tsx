@@ -34,7 +34,9 @@ export function ExpandableDescription({ text }: { text: string }) {
       <button
         type="button"
         aria-expanded={isExpanded}
-        className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xs cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
+        // `w-fit` because the enclosing column stretches its items: a stretched button centres its
+        // label across the card and turns the whole row into its press target.
+        className={`${BRAND_INK_OUTSIDE_PROSE} fluid-xs w-fit cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

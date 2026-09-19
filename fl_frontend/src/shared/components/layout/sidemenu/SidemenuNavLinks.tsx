@@ -45,7 +45,9 @@ export function SidemenuNavLinks<TIcon extends string>({
           className="flex flex-col gap-2">
           {/* An unnamed category renders neither a label nor a rule; the gap between groups still separates it. */}
           {isDesktopCollapsed ? (
-            <Separator className="bg-border w-1/2 self-center" />
+            // The glyph's own width, `size-4.5` in `SidemenuNavItem`, rather than a fraction: the column this sits in is
+            // narrower than the squares below it, so half of it is a rule half a glyph wide.
+            <Separator className="bg-border w-4.5 self-center" />
           ) : (
             group.category_name !== "" && <span className="muted-hint px-2">{group.category_name}</span>
           )}

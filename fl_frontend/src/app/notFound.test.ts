@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -11,10 +13,46 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { filesUnder } from "@/core/treeWalk.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { openGraphFor } from "@/shared/utils/metadata.ts";
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
+
+import type { NextPageProps } from "@/shared/types/types";
+import type { Metadata, ResolvedMetadata } from "next";
+
+/* Every read a page's metadata makes answers nothing, which is the miss the crawler cases drive. The
+   views are doubled whole: no case renders a page's body. `connection()` is request-only. */
+const DOUBLES: [string, string][] = [
+  ["/next/server.js", "export const connection = async () => undefined;"],
+  [
+    "/src/features/bewerbungen/queries.ts",
+    "export const getBewerbungFenster = async () => null, getBewerbungSchulen = async () => [], getBewerbungTrikotfarben = async () => [];",
+  ],
+  ["/src/features/teams/queries.ts", "export const getTeam = async () => null;"],
+  ["/src/features/spiele/queries.ts", "export const getSpiele = async () => ({ spiele: [] });"],
+  ["/src/features/spieler/queries.ts", "export const getSpieler = async () => ({ spieler: [] });"],
+  ["/src/features/saisons/queries.ts", "export const getSaisons = async () => ({ saisons: [] }), getAdminSaisons = getSaisons;"],
+];
+
+const VIEW = /\/src\/features\/[a-z]+\/components\/views\/(\w+)\.tsx$/;
+
+registerHooks({
+  load(url, context, nextLoad) {
+    const doubled = DOUBLES.find(([ending]) => url.endsWith(ending));
+    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+
+    const view = VIEW.exec(url);
+    if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
+
+    return nextLoad(url, context);
+  },
+});
 
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
+/* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only the
+   harness's resolve hook answers with the empty build. */
+const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
 
 const APP_DIR = import.meta.dirname;
 
@@ -40,6 +78,12 @@ const isRouteGroup = (dir: string) => path.basename(dir).startsWith("(");
 
 const PREFIXED = AREAS.filter((dir) => !isRouteGroup(dir));
 const ROOT_MOUNTED = AREAS.filter(isRouteGroup);
+
+/**
+ * The boundaries a 404 meets under the public shell, which carries no `h1`: the root one, and each
+ * root-mounted area's. A prefixed area's shell carries the route's `h1` above its boundary.
+ */
+const UNDER_PUBLIC_SHELL = [path.join(APP_DIR, "not-found.tsx"), ...ROOT_MOUNTED.map((dir) => path.join(dir, "not-found.tsx"))];
 
 /** The url prefix an area occupies, which its own boundary's way out has to stay inside. */
 const prefixOf = (dir: string) => `/${path.basename(dir)}`;
@@ -126,31 +170,25 @@ describe("the areas a 404 can be met in", () => {
 describe("where each area's 404 lives", () => {
   /* A boundary placed in a route group answers that group alone: every sibling route falls through
      to the root boundary and loses the shell, which is a gap no area-has-a-boundary count can see. */
-  it("gives every prefixed area one boundary, at the area root", () => {
-    for (const dir of PREFIXED) {
+  it("gives every area one boundary, at the area root", () => {
+    // Root-mounted areas too: Turbopack hands a first-level route group holding no boundary the root
+    // file, inside the group's own layout, so that group's 404 wears the shell twice.
+    for (const dir of AREAS) {
       assert.deepEqual(
         BOUNDARIES.filter(inside(dir)),
         [path.join(dir, "not-found.tsx")],
-        `${prefixOf(dir)} is answered by these, so some of it resolves past the area's own boundary`,
+        `${path.basename(dir)} is answered by these rather than by one boundary at its root`,
       );
     }
   });
 
-  /* A route group contributes no url segment, so an address it does not route is unmatched rather
-     than its own, and the root boundary is already wearing that area's shell. */
-  it("leaves a root-mounted area to the root boundary", () => {
+  /* A route group contributes no url segment, so an address no area routes is unmatched, and only
+     the root file answers it. */
+  it("keeps the root boundary for every address no area routes", () => {
     assert.ok(
       BOUNDARIES.includes(path.join(APP_DIR, "not-found.tsx")),
       "no root boundary stands, so an unmatched address has nothing to land on",
     );
-
-    for (const dir of ROOT_MOUNTED) {
-      assert.deepEqual(
-        BOUNDARIES.filter(inside(dir)),
-        [],
-        `${path.basename(dir)} carries a boundary of its own, which only a matched route could reach`,
-      );
-    }
   });
 
   /* An unmatched address is resolved before any area layout is entered, so a segment that matches
@@ -195,7 +233,7 @@ describe("what every 404 is built from", () => {
      a link like any other, so nothing structural separates one from a panel. */
   it("draws every area's 404 from the one status panel", () => {
     for (const [file, markup] of MARKUP) {
-      const marks = marksOf(file === path.join(APP_DIR, "not-found.tsx") ? "page" : "inline");
+      const marks = marksOf(UNDER_PUBLIC_SHELL.includes(file) ? "page" : "inline");
 
       assert.ok(
         markup.includes(`class="${marks.badge}"`),
@@ -206,11 +244,12 @@ describe("what every 404 is built from", () => {
   });
 
   /* A shell page carries the route's only `h1` (`.claude/rules/frontend.md`), which is what the
-     panel's `inline` variant is for; the root boundary wears no shell and renders its own. */
+     panel's `inline` variant is for; the public shell carries none, so a 404 under it renders
+     its own. */
   it("leaves the h1 to the shell wherever one stands above it", () => {
     for (const [file, markup] of MARKUP) {
-      if (file === path.join(APP_DIR, "not-found.tsx")) {
-        assert.match(markup, /<h1\b/, "the root boundary renders no h1, so the page it answers has no heading at all");
+      if (UNDER_PUBLIC_SHELL.includes(file)) {
+        assert.match(markup, /<h1\b/, `${path.relative(APP_DIR, file)} renders no h1, so the page it answers has no heading at all`);
         continue;
       }
 
@@ -220,10 +259,101 @@ describe("what every 404 is built from", () => {
   });
 });
 
+/**
+ * Every field a layout sets that a 404 may not keep. Spelled here rather than read off a layout: the
+ * root one's `next/font/google` import does not load under this runner, and the claim holds over any.
+ */
+const LAYOUT_METADATA: Metadata = {
+  metadataBase: new URL("https://frankfurtleague.de"),
+  description: "Der Spielplan der laufenden Saison.",
+  alternates: { canonical: "/dashboard" },
+  openGraph: openGraphFor("/dashboard"),
+  twitter: { card: "summary_large_image" },
+};
+
+/** What a crawler reads for `page` under that layout, merged by Next's own installed resolver. */
+const resolvedUnderALayout = (page: Metadata): Promise<ResolvedMetadata> =>
+  accumulateMetadata(
+    "/probe",
+    [
+      [LAYOUT_METADATA, null],
+      [page, null],
+    ],
+    Promise.resolve("/probe"),
+    { trailingSlash: false, isStaticMetadataRouteFile: false },
+  );
+
+/**
+ * Every page raising `notFound()` that sets metadata of its own, which is what its 404 is served with. Read off
+ * every page rather than listed, so a page added later answers to the same rule.
+ */
+const RAISING = PAGES.filter((file) => readFileSync(file, "utf8").includes("notFound()"));
+const STATIC_ANSWERS = [
+  path.join(APP_DIR, "not-found.tsx"),
+  ...RAISING.filter((file) => readFileSync(file, "utf8").includes("export const metadata")),
+];
+const GENERATED_ANSWERS = RAISING.filter((file) => readFileSync(file, "utf8").includes("export async function generateMetadata"));
+
+type GenerateMetadata = (props: NextPageProps<{ saison_id: string; team_id: string }>) => Promise<Metadata>;
+
+/** Every id segment a page reads, well-formed and held by no read, or malformed. */
+const MISSES = {
+  "an id no read holds": { saison_id: "2099", team_id: "6780e194677bfbfb5ea8396c" },
+  "a malformed id": { saison_id: "20266", team_id: "kein-team" },
+};
+
+describe("what every 404 tells a crawler", () => {
+  /* First: an answer nothing reads would pass the cases below over an empty list. */
+  it("finds the root boundary, a catch-all and a page generating its metadata to read", () => {
+    assert.ok(STATIC_ANSWERS.length >= 3, `only ${String(STATIC_ANSWERS.length)} static not-found answers were found`);
+    assert.ok(GENERATED_ANSWERS.length >= 2, `only ${String(GENERATED_ANSWERS.length)} pages generate the metadata a miss answers with`);
+  });
+
+  /* Without a title the tab and a screen reader's page announcement carry the home page's; without the
+     resets a matched 404, streamed as a 200 (`docs/frontend/spec.md :: I242`), claims the layout's address. */
+  it("answers with the one not-found metadata, on the root boundary and every catch-all", async () => {
+    for (const file of STATIC_ANSWERS) {
+      const { metadata } = (await import(pathToFileURL(file).href)) as { metadata?: Metadata };
+
+      assert.deepEqual(metadata, NOT_FOUND_METADATA, `${path.relative(APP_DIR, file)} answers not-found with metadata of its own`);
+    }
+  });
+
+  /* Answered rather than thrown: a `notFound()` from the metadata leaves the tab the layout's title. */
+  it("answers with the one not-found metadata wherever a page's generated metadata misses", async () => {
+    for (const file of GENERATED_ANSWERS) {
+      const { generateMetadata } = (await import(pathToFileURL(file).href)) as { generateMetadata: GenerateMetadata };
+
+      for (const [miss, params] of Object.entries(MISSES)) {
+        const metadata = await generateMetadata({ params: Promise.resolve(params), searchParams: Promise.resolve({}) });
+        assert.deepEqual(metadata, NOT_FOUND_METADATA, `${path.relative(APP_DIR, file)} answers ${miss} with metadata of its own`);
+      }
+    }
+  });
+
+  /* The resets are Next's to honour, and a reset Next reads as absent would leave every 404 inheriting
+     in silence; the layout alone is the control that proves each field is there to lose. */
+  it("leaves none of a layout's address, card or description standing once merged", async () => {
+    const layoutAlone = await resolvedUnderALayout({});
+    assert.ok(
+      layoutAlone.alternates?.canonical && layoutAlone.openGraph && layoutAlone.twitter && layoutAlone.description,
+      "the layout carries nothing for the 404 to lose",
+    );
+
+    const resolved = await resolvedUnderALayout(NOT_FOUND_METADATA);
+
+    assert.equal(resolved.alternates?.canonical ?? null, null, "the 404 claims the layout's canonical");
+    assert.equal(resolved.openGraph, null, "the 404 carries the layout's card");
+    assert.equal(resolved.twitter, null, "the 404 carries the layout's X card");
+    assert.equal(resolved.description, null, "the 404 carries the layout's description");
+    assert.equal(resolved.robots?.basic, "noindex", "the 404 may be indexed");
+  });
+});
+
 describe("where each 404 sends the reader", () => {
-  /* The root boundary is exempt from both cases below: it renders the public shell, whose footer
-     links are the shell's own rather than the 404's, and the public routes mount no season
-     selector for a link to lose. */
+  /* The boundaries under the public shell are exempt from both cases below: that area owns no url
+     prefix for a way out to stay inside, and the public routes mount no season selector for a link
+     to lose. */
   const SHELLED = PREFIXED.map((dir) => {
     const markup = MARKUP.get(path.join(dir, "not-found.tsx"));
     // Throw rather than answer undefined: an area whose boundary has moved would otherwise reach

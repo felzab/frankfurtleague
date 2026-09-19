@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } from "@gravity-ui/icons";
 
 import { IconTooltip } from "../../ui/IconTooltip";
+import { RAIL_GUTTER, RAIL_SQUARE_RING } from "./railGutter";
 import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
 import type { FormState } from "@/shared/types/types";
@@ -21,8 +22,13 @@ export function SidemenuFooter({
   onMobileNavigate: () => void;
   onSignOut?: () => Promise<FormState>;
 }) {
+  // Hoisted out of the class template for the reason `AppTopBar` gives.
+  const railGutter = RAIL_GUTTER[isDesktopCollapsed ? "collapsed" : "expanded"];
+
   return (
-    <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
+    // `overflow-hidden` is what lets the gutter apply: `scrollbar-gutter` reserves nothing on a box that does not clip.
+    <div
+      className={`border-border flex flex-col overflow-hidden border-t p-3 ${railGutter} ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
       {/* Options first: expanded, its menu opens above a full-width row at that row's width, which is what keeps
           the menu inside the sidemenu. */}
       <SidemenuOptionsMenu
@@ -40,7 +46,7 @@ export function SidemenuFooter({
           href="/"
           onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING}` : "w-full justify-start gap-2 px-3"
           }`}
           aria-label="Zur öffentlichen Website">
           <ArrowRightToSquare
@@ -60,7 +66,7 @@ export function SidemenuFooter({
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-hover hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${
-            isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2 px-3"
+            isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING}` : "w-full justify-start gap-2 px-3"
           }`}
           aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
           {isDesktopCollapsed ? (

@@ -35,6 +35,8 @@ registerHooks({
     // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a file
     // path resolves. Both `next-auth` and the application import these bare.
     if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
+    // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
+    if (specifier === "react-server-dom-webpack/client") return nextResolve("next/dist/compiled/react-server-dom-webpack/client.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -144,8 +146,11 @@ describe("where the admin proxy sends a signed-out request", () => {
 
   // The case the whole file exists for: let this one through and Next answers it by rendering the
   // admin layout into the action's response, which is the shell served to a caller with no session.
-  it("redirects a POST carrying `next-action`, the one arrival react-dom really does send an action on", async () => {
-    assert.equal(redirectedTo(await arriveAtAdmin({ method: "POST", action: true })), "/signin");
+  it("turns a POST carrying `next-action` away to `/signin`, in the action's own redirect rather than a 307", async () => {
+    const answer = await arriveAtAdmin({ method: "POST", action: true });
+
+    assert.equal(redirectedTo(answer), null, "a 307 is replayed by the action's fetch as a POST to the sign-in page");
+    assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace");
   });
 });
 
@@ -160,6 +165,7 @@ describe("where the admin proxy sends a signed-in request", () => {
     const answer = await arriveAtAdmin({ method: "POST", action: true, token: ADMIN_TOKEN });
 
     assert.equal(redirectedTo(answer), null);
+    assert.equal(answer.headers.get("x-action-redirect"), null);
     assert.equal(answer.status, 200);
   });
 
@@ -167,7 +173,83 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ token: REMOVED_TOKEN })), "/");
   });
 
-  it("sends that session's action POST to the public root as well", async () => {
-    assert.equal(redirectedTo(await arriveAtAdmin({ method: "POST", action: true, token: REMOVED_TOKEN })), "/");
+  it("turns that session's action POST away to the public root as well, in the action's own redirect", async () => {
+    const answer = await arriveAtAdmin({ method: "POST", action: true, token: REMOVED_TOKEN });
+
+    assert.equal(redirectedTo(answer), null);
+    assert.equal(answer.headers.get("x-action-redirect"), "/;replace");
+  });
+});
+
+/** The browser surface Next's action client touches while it loads and while it reads one answer. */
+function browserGlobals(answer: Response): Record<string, unknown> {
+  return {
+    window: globalThis,
+    location: new URL(ADMIN_URL),
+    document: { documentElement: { dataset: {} } },
+    addEventListener: () => {},
+    // The development build of Next's vendored Flight client reads this at module scope.
+    __webpack_require__: { u: () => "" },
+    fetch: async () => answer,
+  };
+}
+
+/** Runs Next's installed action client against one answer and reports where it left the router. */
+async function dispatchAgainst(answer: Response): Promise<{ canonicalUrl: string; documentNavigation: boolean; rejection: unknown }> {
+  const globals = browserGlobals(answer);
+  const previous = new Map(Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  Object.assign(globalThis, globals);
+
+  try {
+    const { serverActionReducer } = await import("next/dist/client/components/router-reducer/reducers/server-action-reducer.js");
+
+    let rejection: unknown = null;
+    const state = {
+      canonicalUrl: new URL(ADMIN_URL).pathname,
+      tree: ["", { children: ["__PAGE__", {}] }, null, null, true],
+      nextUrl: null,
+      previousNextUrl: null,
+      pushRef: { pendingPush: false, mpaNavigation: false, preserveCustomHistoryState: true },
+      renderedSearch: "",
+      focusAndScrollRef: {},
+      cache: null,
+    } as unknown as Parameters<typeof serverActionReducer>[0];
+
+    const next = await serverActionReducer(state, {
+      type: "server-action",
+      actionId: ACTION_ID.padEnd(42, "0"),
+      actionArgs: [],
+      resolve: () => {},
+      reject: (reason: unknown) => {
+        rejection = reason;
+      },
+    });
+
+    return { canonicalUrl: next.canonicalUrl, documentNavigation: next.pushRef.mpaNavigation, rejection };
+  } finally {
+    for (const [key, descriptor] of previous) {
+      if (descriptor === undefined) Reflect.deleteProperty(globalThis, key);
+      else Object.defineProperty(globalThis, key, descriptor);
+    }
+  }
+}
+
+describe("what Next's own action client does with the proxy's answer to a signed-out action", () => {
+  // The header is Next's rather than a documented contract, so this is what fails when an upgrade
+  // stops reading it: the proxy cases above would still pass.
+  it("leaves the editor for `/signin` on the answer the proxy gives", async () => {
+    const outcome = await dispatchAgainst(await arriveAtAdmin({ method: "POST", action: true }));
+
+    assert.equal(outcome.canonicalUrl, "/signin");
+    assert.equal(outcome.documentNavigation, true);
+    assert.match(String((outcome.rejection as Error | null)?.message), /^NEXT_REDIRECT/, "the awaiting save is not released as a redirect");
+  });
+
+  // Proves the case above can fail: the same client, handed the proxy's page redirect, throws.
+  it("throws on the 307 a page request gets, which is why an action's POST never gets one", async () => {
+    const outcome = await dispatchAgainst(await arriveAtAdmin({ method: "HEAD", action: true }));
+
+    assert.equal(outcome.documentNavigation, false);
+    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
   });
 });

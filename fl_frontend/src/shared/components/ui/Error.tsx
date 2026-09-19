@@ -76,7 +76,7 @@ export function Error({
           onPress={handleRetry}
           isDisabled={isRetrying}
           className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full`}>
-          {isRetrying ? "Versucht erneut..." : "Erneut versuchen"}
+          {isRetrying ? "Lädt neu..." : "Erneut versuchen"}
         </Button>
       </div>
 

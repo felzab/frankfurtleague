@@ -5,12 +5,16 @@ import type { FLAddress } from "../schemas";
  * instead, the same absence reads two ways on one screen.
  */
 export const PLACEHOLDER = {
-  datum: "TBD",
+  /**
+   * Read beside a card's „Ohne Datum“ chip and alone in a dialog or a list, so it names what is still to be settled
+   * rather than restating the chip's absence; a played fixture or a finished season takes `entity`.
+   */
+  datum: "Termin offen",
   uhrzeit: "--:--",
   ergebnis: "-:-",
   /**
-   * A related entity nobody assigned, a venue or a referee. Named in words, `docs/frontend/spec.md` §1.12 ruling out a
-   * lone glyph, and generic rather than `Ohne Ort`: both call sites stand under a heading already naming the entity.
+   * Nothing recorded where nothing is still to come: a venue or a referee nobody assigned, a played fixture's date.
+   * Named in words, `docs/frontend/spec.md` §1.12 ruling out a lone glyph, and generic: every site names the entity.
    */
   entity: "Keine Angabe",
   /** A fixture side with no occupant and no provenance label. A bracket slot that knows where its team comes from shows that. */
@@ -28,19 +32,28 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
   return uhrzeit.slice(0, 5);
 }
 
+/** A part holding only whitespace counts as blank: `stadtteil` reaches storage unstripped on both tiers. */
+const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
+
 export function formatAddress(address?: FLAddress): string {
   if (!address) return "Keine Adresse hinterlegt";
 
   // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
   const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;
-  return `${address.strasse} ${address.hausnummer}, ${address.plz} ${address.stadt}${stadtteil}`;
+  // Joined, as `formatAddressFull` is, so a blank hausnummer leaves no „Feldweg , 60437“ on the team page.
+  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
+  const ort = joinPresent([address.plz, address.stadt], " ");
+
+  return `${joinPresent([strasse, ort], ", ")}${stadtteil}`;
 }
 
 export function formatAddressFull(address: FLAddress): string {
-  // Joined and filtered rather than templated, so an empty optional part cannot leave a double
-  // space in the middle of the line.
-  const ort = [address.plz, address.stadtteil, address.stadt].filter((part) => part.trim() !== "").join(" ");
-  return `${address.strasse} ${address.hausnummer}, ${ort}, Deutschland`;
+  // Joined at both levels rather than templated: the copied line is pasted into a message, where
+  // „Feldweg , 60437“ reads as a typo nobody made.
+  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
+  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
+
+  return joinPresent([strasse, ort, "Deutschland"], ", ");
 }
 
 /** Takes a string rather than a domain object: the call sites feed genuinely different queries, and only the shell is shared. */

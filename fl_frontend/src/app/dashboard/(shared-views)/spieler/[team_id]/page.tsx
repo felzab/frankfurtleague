@@ -2,32 +2,36 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpielerView";
 import { getSpieler } from "@/features/spieler/queries";
 import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { seasonScopedMetadata } from "@/shared/utils/metadata";
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { parseObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   await connection();
-  const team_id = await resolveTeamId(props.params);
 
-  const teamRes = await getTeam(team_id, { saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
+  // Every miss answered with the shared object, for `teams/[team_id]/page.tsx`'s reason.
+  const team_id = await parseObjectIdParam(props.params, "team_id");
+  if (team_id === null) return NOT_FOUND_METADATA;
+
+  const saisonId = await resolveSaisonId(props.searchParams);
+
+  const teamRes = await getTeam(team_id, { saison_id: saisonId }).catch(() => null);
   const teamData = teamRes?.team;
-
-  // See teams/[team_id]: the miss must not inherit the layout's /dashboard canonical.
-  if (!teamData) return { title: "Kader nicht gefunden", robots: { index: false, follow: false } };
+  if (!teamData) return NOT_FOUND_METADATA;
 
   return {
     title: `Kader ${teamData.name}`,
     description: `Der Kader von ${teamData.name} in der Frankfurt League: alle Spielerinnen und Spieler der gewählten Saison.`,
-    openGraph: openGraphFor(`/dashboard/spieler/${team_id}`),
-    alternates: { canonical: `/dashboard/spieler/${team_id}` },
+    ...seasonScopedMetadata(`/dashboard/spieler/${team_id}`, saisonId),
   };
 }
 
@@ -48,11 +52,12 @@ async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
   const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
-  const [teamRes, spielerRes] = await Promise.all([
+  const [teamRes, spielerRes, isFinishedSaison] = await Promise.all([
     // Null for "no such team", converted inside the query — see the note on `getTeam`. Everything
     // else still throws.
     getTeam(team_id, { saison_id: specifiedSaisonId }),
     getSpieler({ team_id: team_id, saison_id: specifiedSaisonId }),
+    resolveIsFinishedSaison(specifiedSaisonId),
   ]);
 
   if (!teamRes) {
@@ -63,6 +68,8 @@ async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
     <TeamSpielerView
       teamName={teamRes.team.name}
       teamSpieler={spielerRes.spieler}
+      saisonId={specifiedSaisonId}
+      isFinishedSaison={isFinishedSaison}
     />
   );
 }

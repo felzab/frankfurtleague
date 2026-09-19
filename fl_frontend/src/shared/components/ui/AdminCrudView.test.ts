@@ -13,7 +13,7 @@ import postcss from "postcss";
 import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
-import { renderMarkup, renderTree } from "@/shared/testing/renderTest.ts";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { Rule as CssRule } from "postcss";
@@ -23,8 +23,10 @@ import type { AdminCrudShape } from "./AdminCrudFallback";
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminCrudFallback } = await import("./AdminCrudFallback.tsx");
+const { AdminCrudLoading } = await import("./AdminCrudLoading.tsx");
 const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
+const { SearchBar } = await import("./SearchBar.tsx");
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -101,6 +103,22 @@ compiled.root.walkAtRules("keyframes", (frames) => {
     WRITING.set(declaration.prop, [...(WRITING.get(declaration.prop) ?? []), frames.params]);
   });
 });
+
+/* Off the stylesheet rather than written here: the room a layer's clip leaves is only enough against the
+   outline a focused control really draws, which is the base rule every `[tabindex]` takes. */
+const OUTLINE_REACH = ((): number => {
+  const reaches: number[] = [];
+  compiled.root.walkRules((rule) => {
+    if (!rule.selectors.includes("[tabindex]:focus-visible")) return;
+    const outline = rule.nodes.find((node) => node.type === "decl" && node.prop === "outline");
+    const offset = rule.nodes.find((node) => node.type === "decl" && node.prop === "outline-offset");
+    if (outline?.type !== "decl" || offset?.type !== "decl") return;
+    reaches.push(parseFloat(outline.value) + parseFloat(offset.value));
+  });
+  assert.equal(reaches.length, 1, `${String(reaches.length)} rules draw a focused control's outline`);
+
+  return reaches[0]!;
+})();
 
 /* A Tailwind `animate-` utility declares the theme variable and never the keyframes, so the name an
    animation runs is one substitution below the rule. */
@@ -360,7 +378,7 @@ describe("the box an admin CRUD region holds", () => {
   /* A class on the region proves nothing on its own: what decides the box is the rule Tailwind
      compiles it to. A `group-` variant compiles to a descendant selector, and the region is the group. */
   it("takes the box and the cover over it from inside the region, which is the element carrying both", () => {
-    const THE_BOX = ["max-height", "overflow", "opacity", "display", "grid-row-start", "grid-column-start", "--admin-region-held"];
+    const THE_BOX = ["max-height", "overflow", "opacity", "position", "display", "grid-row-start", "grid-column-start", "--admin-region-held"];
 
     for (const shape of SHAPES) {
       const html = render({ shape, hasFacets: true });
@@ -382,6 +400,38 @@ describe("the box an admin CRUD region holds", () => {
 
       assert.equal(lengthPx(opacity, { "--admin-region-held": "1" }), 1, `${shape}: the cover is not opaque while the box is held`);
       assert.equal(lengthPx(opacity, { "--admin-region-held": "0" }), 0, `${shape}: the cover survives the box it covers`);
+    }
+  });
+
+  /* Markup order decides paint only within one paint layer. A cover left in flow paints beneath every
+     positioned box the content holds — HeroUI's table root, each `Button`, a filter pill's scroller. */
+  it("positions the cover, so the rows' positioned boxes paint beneath it rather than over it", () => {
+    for (const shape of SHAPES)
+      for (const band of ["narrow", "wide"] as const) {
+        const position = settled(coverClasses(render({ shape, hasFacets: true })), "position", band);
+
+        assert.notEqual(position, "static", `${shape} at ${band}: the cover is in flow, under every positioned box in the content`);
+      }
+  });
+
+  /* A clamped layer is laid out whole, so what lies past its clamp is clipped or on the page. A clip at the
+     region would take the outline and shadow of any box flush with its edge. */
+  it("clips each layer at its own edge, an outline's reach outside its content, and never the region", () => {
+    for (const shape of SHAPES) {
+      const html = render({ shape, hasFacets: true });
+      assert.deepEqual(declared(regionClasses(html), "overflow"), [], `${shape}: the region clips what its layers draw`);
+
+      for (const [which, classes] of [
+        ["the content", contentClasses(html)],
+        ["the cover", coverClasses(html)],
+      ] as const)
+        for (const band of ["narrow", "wide"] as const) {
+          assert.equal(settled(classes, "overflow", band), "clip", `${shape} at ${band}: ${which} is not clipped at its own edge`);
+
+          const room = lengthPx(settled(classes, "padding", band), {});
+          assert.ok(room >= OUTLINE_REACH, `${shape} at ${band}: ${which} leaves ${String(room)}px for a ${String(OUTLINE_REACH)}px outline`);
+          assert.equal(lengthPx(settled(classes, "margin", band), {}), -room, `${shape} at ${band}: ${which} sits elsewhere than its cell`);
+        }
     }
   });
 
@@ -545,6 +595,72 @@ describe("the hold every admin CRUD region reads", () => {
   });
 });
 
+/* A route's loading boundary is replaced by its page whole, so whatever the page's shell draws around the
+   list and the loading boundary does not is how far the list moves when the page arrives. */
+describe("the placeholder a list route draws while its page loads", () => {
+  it("stands inside the page's own shell, under a search row as tall as the bar that replaces it", () => {
+    const chrome = renderMarkup(AdminCrudShell, { search: null, children: null }).replace(/(<\/div>)+$/, "");
+    const bar = renderMarkup(SearchBar, { label: "Suchen", placeholder: "Suchen", value: "", onChange: () => undefined });
+    const group = classesAt(bar, opensCarrying(bar, "lg:h-15"));
+
+    for (const shape of SHAPES)
+      for (const hasFacets of [true, false]) {
+        const html = renderMarkup(AdminCrudLoading, { shape, hasFacets });
+
+        assert.ok(html.startsWith(chrome), `${shape}/${String(hasFacets)}: the placeholder stands outside the page's shell`);
+        assert.ok(
+          html.includes(renderMarkup(AdminCrudFallback, { shape, hasFacets })),
+          `${shape}/${String(hasFacets)}: it draws another placeholder`,
+        );
+
+        const search = classesAt(html, chrome.length);
+        for (const band of ["narrow", "wide"] as const)
+          assert.equal(settled(search, "height", band), settled(group, "height", band), `${shape} at ${band}: the search row changes height`);
+      }
+  });
+
+  /* The bar takes what a trigger beside it leaves, and the trigger is as wide as its words: a placeholder bar
+     spanning the row, or standing beside a box of another width, moves when the page arrives. */
+  it("draws the loaded bar's width, and beside a trigger a box of the trigger's own recipe", async () => {
+    const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
+    const { Button } = await import("@heroui/react");
+    const { formButton } = await import("./formButtons.ts");
+
+    const loadedBar = (attachEnd: boolean): string[] =>
+      classesAt(renderTree(underNext(h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }))), 0);
+    const WIDTH = ["width", "min-width", "max-width", "flex"] as const;
+    const widthOf = (classes: readonly string[]) => WIDTH.map((property) => [property, declared(classes, property)]);
+
+    const chrome = renderMarkup(AdminCrudShell, { search: null, children: null }).replace(/(<\/div>)+$/, "");
+    const ohne = renderMarkup(AdminCrudLoading, {});
+    const mit = renderMarkup(AdminCrudLoading, { createLabel: "Neu anlegen" });
+
+    // Before the comparisons read as agreement: two bars declaring no width at all would agree too.
+    assert.ok(
+      WIDTH.some((property) => declared(loadedBar(true), property).length > 0),
+      "the loaded bar declares no width at all",
+    );
+    assert.deepEqual(
+      widthOf(classesAt(ohne, chrome.length)),
+      widthOf(loadedBar(false)),
+      "the bar with no trigger beside it is drawn another width",
+    );
+    assert.deepEqual(widthOf(classesAt(mit, chrome.length)), widthOf(loadedBar(true)), "the bar beside a trigger is drawn another width");
+
+    // HeroUI's own half included: its rule pulls a trigger's glyph in at both sides, which a box of the recipe alone misses.
+    const trigger = classesAt(renderTree(h(Button, { className: formButton({ intent: "trigger" }) }, "Neu anlegen")), 0);
+    const drawn = /<div aria-hidden="true" class="([^"]*)">([\s\S]*?)<\/div>/.exec(mit.slice(chrome.length));
+    assert.ok(drawn !== null, "the placeholder beside a trigger draws no trigger box");
+    assert.deepEqual(
+      drawn[1]!.split(/\s+/).filter((className) => className !== "invisible"),
+      trigger,
+      "the trigger's box is drawn from classes the trigger does not wear",
+    );
+    assert.equal(textOf(drawn[2]!).trim(), "Neu anlegen", "the trigger's box is sized by words other than the ones it was handed");
+    assert.ok(!ohne.includes('aria-hidden="true" class="button'), "a row whose page passes no trigger draws a trigger's box");
+  });
+});
+
 /* No utility in the tree reaches outside the element it sits on, so the tree alone cannot tell this
    reader from one that answers false to everything. */
 describe("the reader behind the ancestor sweep", () => {
@@ -684,11 +800,33 @@ describe("every admin CRUD route", () => {
 
       const drawn = drawnBy(oneElement(elementsOf(page), "AdminCrudFallback", `${route}/page.tsx`), "hasFacets");
 
-      assert.deepEqual(drawnBy(oneElement(elementsOf(loading), "AdminCrudFallback", `${route}/loading.tsx`), "hasFacets"), drawn);
+      assert.deepEqual(drawnBy(oneElement(elementsOf(loading), "AdminCrudLoading", `${route}/loading.tsx`), "hasFacets"), drawn);
       assert.deepEqual(drawnBy(oneElement(elementsOf(view), "AdminCrudView", specifier), "facets"), drawn, `${route}: ${viewName} disagrees`);
     }
 
     assert.deepEqual(reached.sort(), rendering.sort(), "a view holding the region sits under no route that draws its placeholder");
+  });
+
+  /* The wiring between a route's fallback and its page: a trigger's box drawn where the shell passes none, or
+     missing where it passes one, moves the bar on arrival. Its words are
+     `fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`'s. */
+  it("draws a trigger's box exactly where the page's shell passes a trigger", async () => {
+    assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
+
+    for (const route of ROUTES) {
+      const page = await parse(path.join(ADMIN, route, "page.tsx"));
+      const loading = await parse(path.join(ADMIN, route, "loading.tsx"));
+
+      const hasTrigger = oneElement(elementsOf(page), "AdminCrudShell", `${route}/page.tsx`).attributes.has("createModal");
+      const attachEnd = oneElement(elementsOf(page), "AdminCrudSearch", `${route}/page.tsx`).attributes.get("attachEnd");
+
+      assert.equal(
+        oneElement(elementsOf(loading), "AdminCrudLoading", `${route}/loading.tsx`).attributes.has("createLabel"),
+        hasTrigger,
+        `${route}: its fallback and its page disagree on a trigger`,
+      );
+      assert.equal(attachEnd?.getText().includes("false") !== true, hasTrigger, `${route}: its bar joins a trigger its shell does not pass`);
+    }
   });
 
   /* The shell is the only thing in the tree that runs the hold, and a region reaching no shell reads

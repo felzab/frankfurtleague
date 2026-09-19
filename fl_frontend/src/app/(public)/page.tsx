@@ -28,7 +28,7 @@ export default function LandingPage() {
                   year to name, and a chip holding nothing reads as a value that failed to load. */}
               <Suspense
                 fallback={
-                  <SaisonChip>
+                  <SaisonChip isLaufend>
                     {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
                     <span className="invisible">Saison 0000</span>
                   </SaisonChip>
@@ -128,7 +128,8 @@ async function CurrentSaisonChip() {
   const current = await getCurrentSaisonOrNull();
   if (current === null) return null;
 
-  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
+  // `/saisons/current` answers the active season alone, so this chip always names a running one.
+  return <SaisonChip isLaufend>Saison {current.saison.id}</SaisonChip>;
 }
 
 /**
