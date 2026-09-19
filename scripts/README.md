@@ -34,7 +34,6 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/ops/local.sh`                        | dev — Windows | Run the production image locally, behind nginx and a database of its own                                                             |
 | `scripts/ops/publish.sh`                      | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                                              |
 | `scripts/ops/deploy.sh`                       | prod — Linux  | Pull and restart in place, verify health, roll back                                                                                  |
-| `scripts/ops/make-icons.mjs`                  | dev — either  | Redraw the committed rasters from `fl_frontend/src/app/icon.svg`; `--out` writes elsewhere for a comparison                          |
 | `scripts/lib/_lib.sh`                         | —             | The output standard: strict mode, the traps, the sections and the exit contract; sourced, never run                                  |
 | `scripts/lib/checker_kernel.py`               | —             | What every checker is built on; imported, never run directly                                                                         |
 | `scripts/tests/`                              | any           | pytest over the gate and the checkers this folder holds; the directory lists what is covered                                         |
