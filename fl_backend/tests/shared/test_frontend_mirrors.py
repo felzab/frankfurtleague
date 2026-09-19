@@ -21,6 +21,7 @@ from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
@@ -188,6 +189,31 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
 
     assert claimed, f"{module} names {MIRROR_CLAIM} and no claim was attributed to any constant in it"
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
+
+
+# The one mirrored value that is not a number, so the integer machinery above cannot reach it: a
+# STRING the frontend compares a booking's referee id against to tell the ghost from a person
+# (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+MIRRORED_SENTINELS: Final = (
+    (
+        "features/schiedsrichter/constants.ts",
+        "GHOST_SCHIEDSRICHTER_ID",
+        str(GHOST_SCHIEDSRICHTER_ID),
+    ),
+)
+
+
+@pytest.mark.parametrize(("module", "name", "declared"), MIRRORED_SENTINELS, ids=lambda value: value if isinstance(value, str) else "")
+def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, declared: str):
+    """A frontend comparing the wrong 24 characters tells an administrator that nobody was erased, or that everybody was.
+
+    Read as a quoted string: the id is hex and its leading zeroes are load-bearing.
+    """
+
+    found = re.search(rf'^export const {name} = "([0-9a-f]{{24}})";$', _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer exports {name} as a bare lowercase-hex string"
+    assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
 
 
 class ModelBound(NamedTuple):

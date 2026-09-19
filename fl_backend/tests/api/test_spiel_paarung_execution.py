@@ -207,7 +207,6 @@ def schiedsrichter_document() -> dict[str, Any]:
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": {"telefon": None, "email": None},
         "inactive_since": None,
-        "anonymisiert_am": None,
     }
 
 
@@ -424,7 +423,6 @@ class TestARewrittenPaarungLeavesNoScoreline:
                             # Nothing beyond the Paarung, which is what leaves the fields asserted
                             # below the stored document's rather than this request's.
                             "other_fields": None,
-                            "voided_schiedsrichter": None,
                         }
                     )
                 ],

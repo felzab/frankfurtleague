@@ -1,12 +1,10 @@
 from collections.abc import Mapping, Sequence, Set
-from dataclasses import replace
 from typing import Any, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.schiedsrichter.services import ANONYMISIERT_AM
 from app.api.spiele.schemas import (
     FLBracketFault,
     FLSpiel,
@@ -17,11 +15,9 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
     FLSpielPriorOtherFields,
     FLSpielPriorPaarung,
-    FLSpielPriorSchiedsrichter,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
     FLSpielRestorableField,
-    FLSpielSchiedsrichterField,
     FLSpielSlotHolder,
     FLSpielSlotHolderListAdapter,
     FLSpielTeamField,
@@ -285,13 +281,11 @@ async def pull_booked_referee(
     if schiedsrichter_id is None:
         return None
 
-    row = await schiedsrichter_collection.find_one(
-        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, ANONYMISIERT_AM: 1}, session=session
-    )
+    row = await schiedsrichter_collection.find_one({"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1}, session=session)
     if row is None:
         return None
 
-    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], anonymisiert_am=row[ANONYMISIERT_AM])
+    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"])
 
 
 async def anchor_a_booked_venue(
@@ -320,7 +314,7 @@ async def anchor_a_booked_referee(
     # REQUIRED for `anchor_a_booked_venue`'s reason.
     session: AsyncClientSession,
 ) -> None:
-    """Put a write booking this referee into the write set of `REQ-RETIRE-004` and of the erasure: both read fixtures and write the referee."""
+    """Put a write booking this referee into the write set of `REQ-RETIRE-004` and of the erasure: both judge fixtures and write this row."""
 
     await patch_many_in_db(
         collection=schiedsrichter_collection,
@@ -331,20 +325,18 @@ async def anchor_a_booked_referee(
     )
 
 
-async def judge_rewritten_bookings[Rewrite: (SlotAdvancement, SpieltagRelease)](
+def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
     *,
-    schiedsrichter_collection: AsyncCollection,
     season: Sequence[FLSpiel],
     rewrites: Sequence[Rewrite],
-    session: AsyncClientSession | None,
-) -> tuple[list[Rewrite], list[BookedReferences]]:
-    """Each rewrite carrying the erased referee's booking it takes off a fixture it reopens, and every reference it books again.
+) -> list[BookedReferences]:
+    """Every reference a rewrite books afresh by reopening its fixture.
 
-    The save and its preview both call this, so neither reports a booking the other keeps (`docs/backend/spec.md :: I256`).
+    Called by the save and its preview alike, so neither anchors what the other leaves alone. A
+    rewrite keeps the booking it finds (`docs/backend/spec.md :: I257`).
     """
 
     by_id = {spiel.id: spiel for spiel in season}
-    judged: list[Rewrite] = []
     booked_again: list[BookedReferences] = []
 
     for rewrite in rewrites:
@@ -355,32 +347,20 @@ async def judge_rewritten_bookings[Rewrite: (SlotAdvancement, SpieltagRelease)](
 
         # A lifted no-show claims its slot again even on a fixture that stays unplayed, which `REQ-CLASH-001` judges.
         if not reopened and rewrite.voided_sonderereignis is None:
-            judged.append(rewrite)
             continue
 
-        erased = False
-        if reopened and stored.schiedsrichter is not None:
-            referee = await pull_booked_referee(
-                schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id, session=session
-            )
-            # The stamp and never the null name (`docs/backend/spec.md :: I214`). A referee merely retired
-            # stays, the league being free to reactivate them, and is reported rather than taken off.
-            erased = referee is not None and referee.anonymisiert_am is not None
-
-        judged.append(replace(rewrite, voided_schiedsrichter=stored.schiedsrichter) if erased else rewrite)
         booked_again.append(
             BookedReferences(
                 spielort_id=stored.ort.spielort_id if stored.ort is not None else None,
-                schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None and not erased else None,
+                schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
             )
         )
 
-    return judged, booked_again
+    return booked_again
 
 
 async def preview_bracket_after_patch(
     teams_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
     saison_id: str,
     rules: FLSaisonRules,
     season: Sequence[FLSpiel],
@@ -392,10 +372,6 @@ async def preview_bracket_after_patch(
     The same `_resolve_one_saison` the save uses, over a season rebuilt in memory with the releases
     substituted FIRST: a released slot can be refilled by the resolution.
     """
-
-    releases, _ = await judge_rewritten_bookings(
-        schiedsrichter_collection=schiedsrichter_collection, season=season, rewrites=releases, session=None
-    )
 
     substituted = {patched.id: patched}
     for release in releases:
@@ -414,12 +390,8 @@ async def preview_bracket_after_patch(
     # the rail would then invite an edit that 409s on the button beside it.
     refuse(find_advancement_occupancy_refusal(would_hold, resolution.advancements))
 
-    advancements, _ = await judge_rewritten_bookings(
-        schiedsrichter_collection=schiedsrichter_collection, season=would_hold, rewrites=resolution.advancements, session=None
-    )
-
     return (
-        [report_advancement(advancement) for advancement in advancements],
+        [report_advancement(advancement) for advancement in resolution.advancements],
         [report_release(release) for release in releases],
         resolution.bracket_faults,
     )
@@ -476,11 +448,9 @@ async def advance_bracket_winners(
     # leave the season part-advanced, which no later save reproduces and nothing reports as unfinished.
     refuse(find_advancement_occupancy_refusal(spiele, resolution.advancements))
 
-    advancements, booked_again = await judge_rewritten_bookings(
-        schiedsrichter_collection=schiedsrichter_collection, season=spiele, rewrites=resolution.advancements, session=session
-    )
+    booked_again = references_booked_again(season=spiele, rewrites=resolution.advancements)
 
-    for advancement in advancements:
+    for advancement in resolution.advancements:
         # The result goes with the occupant (`docs/backend/spec.md :: I25b`): what was scored here
         # was scored by a team no longer in the fixture.
         await patch_one_in_db(
@@ -495,13 +465,12 @@ async def advance_bracket_winners(
                     # Conditional, so only a no-show goes: `ausgefallen`, `annulliert` and `abgebrochen`
                     # name no side, so replacing an occupant leaves each of them true.
                     **({"sonderereignis": None} if advancement.voided_sonderereignis is not None else {}),
-                    **({"schiedsrichter": None} if advancement.voided_schiedsrichter is not None else {}),
                 }
             },
             session=session,
         )
 
-    return [report_advancement(advancement) for advancement in advancements], resolution.bracket_faults, booked_again
+    return [report_advancement(advancement) for advancement in resolution.advancements], resolution.bracket_faults, booked_again
 
 
 def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
@@ -513,7 +482,6 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
         voided_ergebnis=advancement.voided_ergebnis,
         voided_elfmeterschiessen=advancement.voided_elfmeterschiessen,
         voided_sonderereignis=advancement.voided_sonderereignis,
-        voided_schiedsrichter=advancement.voided_schiedsrichter,
     )
 
 
@@ -528,7 +496,6 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
         voided_ergebnis=release.voided_ergebnis,
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
-        voided_schiedsrichter=release.voided_schiedsrichter,
     )
 
 
@@ -538,9 +505,7 @@ def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | No
     return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
 
 
-def _prior_paarung(
-    stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None, voided_schiedsrichter: FLSpielSchiedsrichterField | None
-) -> FLSpielPriorPaarung:
+def _prior_paarung(stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None) -> FLSpielPriorPaarung:
     return FLSpielPriorPaarung(
         spiel_id=stored.id,
         team1=_payload_side(stored.team1),
@@ -548,12 +513,6 @@ def _prior_paarung(
         elfmeterschiessen=stored.elfmeterschiessen,
         sonderereignis=stored.sonderereignis,
         other_fields=other_fields,
-        # The id and the fee alone, as every booking a restore names: the name is composed on the replay (`docs/backend/spec.md :: I3`).
-        voided_schiedsrichter=(
-            None
-            if voided_schiedsrichter is None
-            else FLSpielPriorSchiedsrichter(schiedsrichter_id=voided_schiedsrichter.schiedsrichter_id, payment=voided_schiedsrichter.payment)
-        ),
     )
 
 
@@ -596,17 +555,11 @@ def report_prior_paarungen(
 
     named = stored_in_slice(edited, season)
 
-    # At most one per fixture: a release writes before the resolution reads, so the resolution finds no
-    # booking on a fixture the release already stripped.
-    voided = {
-        report.spiel_id: report.voided_schiedsrichter for report in (*released_sides, *advanced_to) if report.voided_schiedsrichter is not None
-    }
-
     # LEADING, because a restore replays this list in order: putting the named fixture back frees the
     # occupants the resolution then hands to the moved ones, where the reverse order overwrites them.
     return [
-        _prior_paarung(named, _fields_this_write_replaced(named, patched), voided.get(named.id)),
-        *(_prior_paarung(spiel, None, voided.get(spiel.id)) for spiel in stored),
+        _prior_paarung(named, _fields_this_write_replaced(named, patched)),
+        *(_prior_paarung(spiel, None) for spiel in stored),
     ]
 
 
@@ -636,14 +589,12 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
             # Conditional for the reason `advance_bracket_winners` states, and read off the release
             # rather than off `spiel`, so the model and the `$set` cannot key on different facts.
             **({"sonderereignis": None} if release.voided_sonderereignis is not None else {}),
-            **({"schiedsrichter": None} if release.voided_schiedsrichter is not None else {}),
         }
     )
 
 
 async def release_spieltag_sides(
     spiele_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
     # The slice the releases were judged on, which holds every fixture they empty as it stood.
     season: Sequence[FLSpiel],
     releases: Sequence[SpieltagRelease],
@@ -655,9 +606,7 @@ async def release_spieltag_sides(
     released state and can refill the slot.
     """
 
-    releases, booked_again = await judge_rewritten_bookings(
-        schiedsrichter_collection=schiedsrichter_collection, season=season, rewrites=releases, session=session
-    )
+    booked_again = references_booked_again(season=season, rewrites=releases)
 
     # Grouped, because a payload can field both clubs of one held fixture: a second `$set` would
     # create `team1.tore` under the null the first wrote -- `PathNotViable`, and the save falls. The
@@ -682,9 +631,6 @@ async def release_spieltag_sides(
 
             if release.voided_sonderereignis is not None:
                 changes["sonderereignis"] = None
-
-            if release.voided_schiedsrichter is not None:
-                changes["schiedsrichter"] = None
 
         await patch_one_in_db(
             collection=spiele_collection,

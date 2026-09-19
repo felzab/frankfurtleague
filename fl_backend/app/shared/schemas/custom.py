@@ -22,20 +22,32 @@ DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
 
+def parse_object_id(value: str) -> ObjectId | None:
+    """`None` rather than a raise: the log's search term answers a malformed id with a text match.
+
+    One reader for it and for the payload type, so the two cannot disagree about what names a document.
+    """
+
+    try:
+        oid = ObjectId(value)
+    except InvalidId:
+        return None
+
+    # `bytes.fromhex` skips ASCII whitespace and bson re-checks no length, so a 24-character value
+    # holding two of them is kept as an eleven-byte id nobody sent. Folded, because bson
+    # lower-cases a well-formed upper-case id and that is not the defect.
+    return oid if str(oid).lower() == value.lower() else None
+
+
 class CustomObjectIdAnnotation:
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
 
         def validate_str_to_oid(v: str) -> ObjectId:
-            try:
-                oid = ObjectId(v)
-            except InvalidId as invalid_id_error:
-                raise ValueError("Invalid ObjectId") from invalid_id_error
-
-            # `bytes.fromhex` skips ASCII whitespace and bson re-checks no length, so a 24-character
-            # value holding two of them is kept as an eleven-byte id nobody sent. Folded, because
-            # bson lower-cases a well-formed upper-case id and that is not the defect.
-            if str(oid).lower() != v.lower():
+            oid = parse_object_id(v)
+            if oid is None:
+                # No `from`: the reader answers `None` both for a value bson refused and for one
+                # it decoded to something else, so there is no single cause to chain.
                 raise ValueError("Invalid ObjectId")
 
             return oid

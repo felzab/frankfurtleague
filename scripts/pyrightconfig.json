@@ -7,21 +7,28 @@
 // below it: `include` is read relative to this file, and a copy inside a category would type-check
 // that category alone.
 
-// `extraPaths` names the two directories a run puts on `sys.path` for itself — `lib/` through the
-// insert each entry point carries, `checks/` because python seeds the directory of the script it
-// was handed. pyright emulates neither, so without these every `checker_kernel` and `docs_gate`
-// import reads as unresolved.
+// `extraPaths` names the directories a run puts on `sys.path` for itself, which pyright emulates
+// for none of them: `lib/` through each entry point's own insert, `checks/` because python seeds
+// the script's directory.
 
-// No venvPath or venv, deliberately: every import here is standard library or a module in `lib/`
-// or `checks/`, and naming the backend's virtualenv would make the gate's own tooling depend on
-// that environment being installed.
+// `../fl_backend` is there through the insert `ops/ghost_schiedsrichter.py` carries, so a
+// migration reads the ghost's one declaration rather than retyping it.
+
+// `venvPath`/`venv` name the backend's environment, as `fl_backend/pyproject.toml`'s block names
+// the same one for the same reason: `ops/ghost_schiedsrichter.py` is the first third-party import
+// under this folder, and an EDITOR resolves it from whatever interpreter it happens to have.
+
+// The gate resolves it either way -- `scripts/gate/verify.sh :: do_pyright` invokes pyright with
+// that interpreter already -- so what these two lines buy is the editor agreeing with the gate.
 
 // `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
 // for the reason its own block records, so the two settings are measured separately rather than
 // one following the other.
 {
   "include": ["."],
-  "extraPaths": ["lib", "checks"],
+  "extraPaths": ["lib", "checks", "../fl_backend"],
+  "venvPath": "../fl_backend",
+  "venv": ".venv",
   "typeCheckingMode": "standard",
   "pythonVersion": "3.14"
 }

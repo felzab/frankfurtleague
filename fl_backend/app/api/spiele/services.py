@@ -30,7 +30,6 @@ from app.api.spiele.schemas import (
     FLSpielJoinedInternal,
     FLSpielOrtField,
     FLSpielOrtFieldPayload,
-    FLSpielPriorSchiedsrichter,
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
@@ -48,6 +47,7 @@ from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -200,7 +200,7 @@ def voided_no_show(sonderereignis: FLSonderereignis | None) -> FLSonderereignis 
 def reopens(stored: FLSpielCommon, *, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
     """Whether a write leaving this fixture with `ergebnis` and `sonderereignis` puts it back among those still to be played.
 
-    ONE question for a save and a rewrite alike, so `REQ-BOOKING-001` and the erasure's strip cannot disagree.
+    ONE question for a save and a rewrite alike, so `REQ-BOOKING-001` and the reports over a rewrite cannot disagree.
     """
 
     return not is_unplayed(ergebnis=stored.ergebnis, sonderereignis=stored.sonderereignis) and is_unplayed(
@@ -220,8 +220,6 @@ class SlotAdvancement:
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
     # Null unless this rewrite destroys the event too, so the write path decides with a null check.
     voided_sonderereignis: FLSonderereignis | None
-    # Null as the walk builds it, which reads no referee: `fl_backend/app/api/spiele/crud.py :: judge_rewritten_bookings` fills it.
-    voided_schiedsrichter: FLSpielSchiedsrichterField | None
 
 
 def _source_spiel_nr(quelle: FLSpielQuelle | None) -> int | None:
@@ -568,7 +566,6 @@ def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppe
                 voided_ergebnis=spiel.ergebnis,
                 voided_elfmeterschiessen=spiel.elfmeterschiessen,
                 voided_sonderereignis=voided_no_show(spiel.sonderereignis),
-                voided_schiedsrichter=None,
             )
         )
 
@@ -625,12 +622,10 @@ class BookedVenue:
 class BookedReferee:
     """The `schiedsrichter` row a fixture's referee reference names."""
 
-    #: `None` once the erasure has nulled it, which is the one way a stored referee has no name.
+    #: `None` on the ghost alone, which is the one referee row nobody stands behind
+    #: (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     name: str | None
     inactive_since: str | None
-    # What every judgement of an erasure keys on, never the null name: a name typed back onto the row
-    # leaves the person erased (`docs/backend/spec.md :: I214`).
-    anonymisiert_am: str | None
 
 
 @dataclass(frozen=True)
@@ -988,8 +983,8 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
     chosen = _chosen_references(payload)
     held = _chosen_references(stored)
 
-    # A retirement and the erasure both pass a played or called-off fixture by and leave its booking,
-    # so the save putting it back among those still to be played is the booking neither judged.
+    # A retirement passes a played or called-off fixture by and leaves its booking, so the save
+    # putting it back among those still to be played is the booking nothing judged.
     reopened = reopens(stored, ergebnis=compose_result(payload, rules).ergebnis, sonderereignis=payload.sonderereignis)
 
     return BookedReferences(
@@ -1004,13 +999,8 @@ def find_booking_refusal(
     season: Sequence[FLSpiel],
     resolved: ResolvedReferences,
     rules: FLSaisonRules,
-    *,
-    restored_schiedsrichter: FLSpielPriorSchiedsrichter | None,
 ) -> WriteRefusal | None:
-    """Why this patch's VENUE or REFEREE must be refused, or `None`. Only a reference `find_new_bookings` names is judged.
-
-    `restored_schiedsrichter` is the erased referee's booking a replay entry puts back (`restore_the_voided_referee`).
-    """
+    """Why this patch's VENUE or REFEREE must be refused, or `None`. Only a reference `find_new_bookings` names is judged."""
 
     stored = stored_in_slice(spiel_id, season)
     new = find_new_bookings(stored, payload, rules)
@@ -1030,16 +1020,12 @@ def find_booking_refusal(
                 message=f"{resource} {chosen} is not in the league's records; pick one the list offers",
             )
 
-        if isinstance(row, BookedReferee) and _puts_back_the_erased_booking(payload, row, restored_schiedsrichter, rules):
-            continue
-
         if row.inactive_since is not None:
-            # An erased referee is retired by the erasure and has no name to print, and the
-            # reactivation this sentence would otherwise offer is itself refused
-            # (`REQ-ANONYMISE-003`), so the erased arm names neither.
-            erased = isinstance(row, BookedReferee) and row.anonymisiert_am is not None
-            named = f"the {resource} chosen" if erased or row.name is None else f"{resource} {row.name}"
-            way_back = "their data were deleted on request; pick another" if erased else "reactivate it or pick another"
+            # The ghost is the one row here with no name to print, and it is never brought back, so
+            # the sentence offering a reactivation is for a named row alone
+            # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+            named = f"the {resource} chosen" if row.name is None else f"{resource} {row.name}"
+            way_back = "pick another" if row.name is None else "reactivate it or pick another"
 
             return WriteRefusal(
                 error_code=BOOKING_UNKNOWN_RESOURCE,
@@ -1050,42 +1036,6 @@ def find_booking_refusal(
             )
 
     return None
-
-
-def _leaves_unplayed(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> bool:
-    return is_unplayed(ergebnis=compose_result(payload, rules).ergebnis, sonderereignis=payload.sonderereignis)
-
-
-def restore_the_voided_referee(
-    stored: FLSpiel, payload: FLPatchSpielDataPayload, voided: FLSpielPriorSchiedsrichter | None, rules: FLSaisonRules
-) -> FLPatchSpielDataPayload:
-    """The erased referee's booking an undone write took off, back where the replay leaves the fixture played or called off.
-
-    The erasure itself keeps a booking there, and nowhere else (`docs/backend/spec.md :: I256`).
-    """
-
-    # A referee the fixture holds now was booked after the undone write, and survives its undo as any
-    # later edit does (`docs/backend/spec.md :: I210`).
-    if voided is None or stored.schiedsrichter is not None or payload.schiedsrichter is not None or _leaves_unplayed(payload, rules):
-        return payload
-
-    return payload.model_copy(
-        update={"schiedsrichter": FLSpielSchiedsrichterFieldPayload(schiedsrichter_id=voided.schiedsrichter_id, payment=voided.payment)}
-    )
-
-
-def _puts_back_the_erased_booking(
-    payload: FLPatchSpielDataPayload, row: BookedReferee, restored: FLSpielPriorSchiedsrichter | None, rules: FLSaisonRules
-) -> bool:
-    """Whether the payload's referee is exactly the erased booking `restore_the_voided_referee` puts back, which `REQ-BOOKING-001` accepts."""
-
-    return (
-        restored is not None
-        and payload.schiedsrichter is not None
-        and (payload.schiedsrichter.schiedsrichter_id, payload.schiedsrichter.payment) == (restored.schiedsrichter_id, restored.payment)
-        and row.anonymisiert_am is not None
-        and not _leaves_unplayed(payload, rules)
-    )
 
 
 @dataclass(frozen=True)
@@ -1127,7 +1077,11 @@ def find_slot_claims(spiel: FLSpielCommon | FLPatchSpielDataPayload) -> list[Slo
 
     if held.spielort_id is not None:
         claims.append(SlotClaim("Spielort", "ort.spielort_id", held.spielort_id, spiel.datum, spiel.uhrzeit))
-    if held.schiedsrichter_id is not None:
+
+    # The ghost claims nothing, where `find_new_bookings` beside this still names it: every erased
+    # referee's fixtures share this one id, so two strangers' matches would read as one person
+    # double-booked (`docs/backend/spec.md :: I259`).
+    if held.schiedsrichter_id is not None and held.schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
         claims.append(SlotClaim("Schiedsrichter", "schiedsrichter.schiedsrichter_id", held.schiedsrichter_id, spiel.datum, spiel.uhrzeit))
 
     return claims
@@ -1346,6 +1300,7 @@ def find_retired_bookings(
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
                     booking="ort",
+                    booking_id=spiel.ort.spielort_id,
                     name=spiel.ort.name,
                     inactive_since=retired_on,
                 )
@@ -1358,6 +1313,7 @@ def find_retired_bookings(
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
                     booking="schiedsrichter",
+                    booking_id=spiel.schiedsrichter.schiedsrichter_id,
                     name=spiel.schiedsrichter.name,
                     inactive_since=retired_on,
                 )
@@ -1419,8 +1375,6 @@ class SpieltagRelease:
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
     # Carried for `other_side_present`'s reason: the `$set` cannot read the fixture it empties.
     voided_sonderereignis: FLSonderereignis | None
-    # For the same reason, and null as `judge_spieltag_occupancy` builds it, for `SlotAdvancement`'s.
-    voided_schiedsrichter: FLSpielSchiedsrichterField | None
 
 
 @dataclass(frozen=True)
@@ -1485,7 +1439,6 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
                     voided_ergebnis=other.ergebnis,
                     voided_elfmeterschiessen=other.elfmeterschiessen,
                     voided_sonderereignis=voided_no_show(other.sonderereignis),
-                    voided_schiedsrichter=None,
                 )
             )
 

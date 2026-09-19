@@ -2,7 +2,7 @@
 API · what an erasure of one contact person has to reach, spelled apart from the request
 
 The slot names are read off `FLSaisonTeamKontakte` rather than typed here, the shape
-`app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT` uses for a referee's two contact fields.
+`app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` reads for the ghost's two contact fields.
 """
 
 import re

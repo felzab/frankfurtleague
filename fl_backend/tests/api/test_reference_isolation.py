@@ -28,7 +28,7 @@ from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
-from app.api.schiedsrichter.services import ANONYMISIERT_AM, REFEREE_STILL_ASSIGNED
+from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielePaarungenPayload, unplayed_filter
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, FIXTURE_DOUBLE_BOOKED
@@ -39,6 +39,7 @@ from app.api.teams.admin_router import delete_team, patch_team, post_saison_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPostSaisonTeamPayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
 from tests.payloads import spiel_patch_body
@@ -212,7 +213,6 @@ LEAGUE: dict[Collection, list[dict[str, Any]]] = {
             "default_payment": 20,
             "kontakt": {"telefon": "+49 69 1234567", "email": "koerner.anna@example.com"},
             "inactive_since": None,
-            ANONYMISIERT_AM: None,
             "bounded_writes": 1,
         }
     ],
@@ -287,7 +287,6 @@ def restored(other_fields: dict[str, Any] | None) -> Write:
         "elfmeterschiessen": None,
         "sonderereignis": None,
         "other_fields": other_fields,
-        "voided_schiedsrichter": None,
     }
 
     async def write(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
@@ -391,7 +390,6 @@ async def erase_the_referee(client: AsyncMongoClient, handles: Mapping[Collectio
         aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         germany_now=ERASED_AT,
-        today=RETIRED_ON,
     )
 
 
@@ -575,14 +573,14 @@ class Retirement:
     #: Where it reads what it judges, which a rival booking lands straight after: a later read would
     #: open the snapshot, hiding a read left off the session.
     judged: Collection
-    #: What it answers a booking it missed; the erasure refuses nothing and unassigns instead.
+    #: What it answers a booking it missed; the erasure refuses nothing and repoints instead.
     refused_with: str
 
 
 RETIRE_THE_CLUB = Retirement("retirement", retire_the_club, Collection.SAISON_TEAMS, RETIRE_BLOCKED)
 RETIRE_THE_VENUE = Retirement("retirement", retire_the_venue, Collection.SPIELE, VENUE_STILL_BOOKED)
 RETIRE_THE_REFEREE = Retirement("retirement", retire_the_referee, Collection.SPIELE, REFEREE_STILL_ASSIGNED)
-# After its first read, the referee's: it writes the fixtures only after the referee.
+# After its first read, the referee's: it reads the row before it touches a fixture.
 ERASE_THE_REFEREE = Retirement("erasure", erase_the_referee, Collection.SCHIEDSRICHTER, COMMITTED)
 
 
@@ -740,13 +738,23 @@ def booked_inside_the_rename(url: str, reference: Reference, booking: Write) -> 
 class TestARetirementLandingMidBookingIsJudgedAgain:
     """The entry, the booking or the revival has read the row as current when the retirement commits."""
 
-    @pytest.mark.parametrize(("reference", "retirement", "booking"), REFUSING_RACES + ERASURE_RACES)
+    @pytest.mark.parametrize(("reference", "retirement", "booking"), REFUSING_RACES)
     def test_the_booking_is_refused_on_the_date_the_retirement_stamped(
         self, mongo_replica_set_url: str, reference: Reference, retirement: Retirement, booking: Booking
     ):
         raced = interleaved(mongo_replica_set_url, booking.write, reference.collection, retirement.write, reference.standing, booking.spiele)
 
         assert raced == (reference.refused_with, COMMITTED, (RETIRED_ON, False))
+
+    @pytest.mark.parametrize(("reference", "retirement", "booking"), ERASURE_RACES)
+    def test_the_booking_is_refused_on_a_referee_the_erasure_removed(
+        self, mongo_replica_set_url: str, reference: Reference, retirement: Retirement, booking: Booking
+    ):
+        """The other order of the erasure's race: the booking retries, finds no row at all, and is refused as any unknown id is."""
+
+        raced = interleaved(mongo_replica_set_url, booking.write, reference.collection, retirement.write, nothing_names_them, booking.spiele)
+
+        assert raced == (reference.refused_with, COMMITTED, (False, 0))
 
 
 class TestABookingLandingMidRetirementIsJudgedAgain:
@@ -761,12 +769,39 @@ class TestABookingLandingMidRetirementIsJudgedAgain:
         assert raced == (retirement.refused_with, COMMITTED, (None, True))
 
     @pytest.mark.parametrize(("reference", "retirement", "booking"), ERASURE_RACES)
-    def test_the_erasure_unassigns_the_booking_it_missed(
+    def test_the_erasure_hands_the_booking_it_missed_to_the_ghost(
         self, mongo_replica_set_url: str, reference: Reference, retirement: Retirement, booking: Booking
     ):
-        raced = interleaved(mongo_replica_set_url, retirement.write, retirement.judged, booking.write, reference.standing, booking.spiele)
+        """The erasure refuses nothing: a booking landing inside it is repointed by the retry rather than left on a row that is gone."""
 
-        assert raced == (COMMITTED, COMMITTED, (RETIRED_ON, False))
+        raced = interleaved(mongo_replica_set_url, retirement.write, retirement.judged, booking.write, erased_standing, booking.spiele)
+
+        assert raced == (COMMITTED, COMMITTED, (False, GHOST_SCHIEDSRICHTER_ID))
+
+
+async def erased_standing(database: AsyncDatabase) -> tuple[bool, ObjectId | None]:
+    """Whether the referee's row survived, and which referee `FIXTURE` names now.
+
+    Read instead of `slot_standing`: the erasure deletes the row, so a retirement date read off it
+    would answer `None` whether the erasure ran or not.
+    """
+
+    row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE})
+    fixture = await database[Collection.SPIELE].find_one({"_id": FIXTURE}) or {}
+
+    return row is not None, (fixture.get("schiedsrichter") or {}).get("schiedsrichter_id")
+
+
+async def nothing_names_them(database: AsyncDatabase) -> tuple[bool, int]:
+    """Whether the referee's row survived, and how many fixtures still name it.
+
+    Counted rather than read off one: these bookings seed different fixtures, and what holds for all
+    is that none points at a row that is gone.
+    """
+
+    row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE})
+
+    return row is not None, await database[Collection.SPIELE].count_documents({"schiedsrichter.schiedsrichter_id": REFEREE})
 
 
 RENAME_RACES = [
@@ -912,6 +947,18 @@ def reopening_of(slot: Slot, spiel_id: ObjectId) -> Callable[[AsyncDatabase], Aw
     return standing
 
 
+def erased_reopening_of(spiel_id: ObjectId) -> Callable[[AsyncDatabase], Awaitable[tuple[bool, ObjectId | None, str | None]]]:
+    """Whether the referee's row survived, which referee the reopened fixture names, and the result it was left holding."""
+
+    async def standing(database: AsyncDatabase) -> tuple[bool, ObjectId | None, str | None]:
+        row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE})
+        fixture = await database[Collection.SPIELE].find_one({"_id": spiel_id}) or {}
+
+        return row is not None, (fixture.get("schiedsrichter") or {}).get("schiedsrichter_id"), fixture.get("ergebnis")
+
+    return standing
+
+
 class TestAReopeningAndARetirementLandingInsideEachOther:
     """A reopening is judged by no booking rule, so a retirement inside it changes what the queue reports and never whether it saves.
 
@@ -924,8 +971,6 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
         [
             pytest.param(ORT, RETIRE_THE_VENUE, Collection.SPIELE, (RETIRED_ON, VENUE, None, 2), id="venue"),
             pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, Collection.SPIELE, (RETIRED_ON, REFEREE, None, 2), id="referee"),
-            # The reopening read the referee as bookable; judged again, it finds them erased, keeps them off and anchors nothing.
-            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, Collection.SCHIEDSRICHTER, (RETIRED_ON, None, None, 1), id="erasure"),
         ],
     )
     def test_the_reopening_commits_beside_the_retirement(
@@ -951,7 +996,6 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
         [
             pytest.param(ORT, RETIRE_THE_VENUE, (None, VENUE, None, 2), id="venue"),
             pytest.param(SCHIEDSRICHTER, RETIRE_THE_REFEREE, (None, REFEREE, None, 2), id="referee"),
-            pytest.param(SCHIEDSRICHTER, ERASE_THE_REFEREE, (RETIRED_ON, None, None, 2), id="erasure"),
         ],
     )
     def test_the_retirement_is_judged_again_on_the_fixture_reopened(
@@ -969,6 +1013,37 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
         )
 
         assert raced == (retirement.refused_with, COMMITTED, standing)
+
+    @pytest.mark.parametrize("reopening", REOPENINGS)
+    @pytest.mark.parametrize(
+        "erasure_first",
+        [pytest.param(True, id="erasure-first"), pytest.param(False, id="reopening-first")],
+    )
+    def test_a_reopening_and_the_erasure_leave_the_fixture_on_the_ghost(
+        self, mongo_replica_set_url: str, reopening: Reopening, erasure_first: bool
+    ):
+        """Both orders, one case: neither write refuses, so whichever retries lands on the same state.
+
+        The retirement's cases above read the row back; here it is gone, so what is read is the
+        fixture and the ghost it names.
+        """
+
+        under_test, hooked, rival = (
+            (ERASE_THE_REFEREE.write, ERASE_THE_REFEREE.judged, reopening.write)
+            if erasure_first
+            else (reopening.write, Collection.SCHIEDSRICHTER, ERASE_THE_REFEREE.write)
+        )
+
+        raced = interleaved(
+            mongo_replica_set_url,
+            under_test,
+            hooked,
+            rival,
+            erased_reopening_of(reopening.reopened),
+            reopening.spiele(SCHIEDSRICHTER),
+        )
+
+        assert raced == (COMMITTED, COMMITTED, (False, GHOST_SCHIEDSRICHTER_ID, None))
 
 
 BOOKED_ON_BOTH = fixture_document(ort=ORT.stored, schiedsrichter=SCHIEDSRICHTER.stored)

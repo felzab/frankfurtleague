@@ -569,7 +569,6 @@ class TestEveryReadInsideATransactionCarriesIt:
 HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
     "app/api/saisons/admin_router.py :: judge_and_write_the_rules hands movable_figures": ("session", "None"),
     "app/api/saisons/admin_router.py :: judge_and_roll_the_league_over hands the_targets_status": ("session", "None"),
-    "app/api/schiedsrichter/admin_router.py :: clear_the_details_and_the_record hands stored_referee": ("session", "None"),
 }
 
 

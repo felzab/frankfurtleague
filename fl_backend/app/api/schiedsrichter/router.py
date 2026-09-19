@@ -7,7 +7,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterSingleResponse,
 )
-from app.api.schiedsrichter.services import ANONYMISIERT_AM
+from app.api.schiedsrichter.services import build_real_referees_filter, build_referee_filter
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
@@ -34,10 +34,9 @@ async def get_schiedsrichter(
     The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
     stay retrievable for a historical match.
 
-    A referee whose data were erased is OFF this list: they can be booked, edited, reactivated and
-    restored by nobody, so the list an administrator works from does not offer them.
-    `GET /{schiedsrichter_id}` answers for one whatever their state, and is the only read that
-    answers for an erased one at all.
+    The ghost is OFF this list whatever the query string asks for: no person stands behind it, so
+    there is nothing an administrator could book it for, edit on it or reactivate it into
+    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     """
 
     schiedsrichter_raw = await pull_many_from_db(
@@ -46,7 +45,7 @@ async def get_schiedsrichter(
             filters,
             terms={"default_payment"},
             include_inactive=filters.include_inactive,
-            compiled={ANONYMISIERT_AM: None},
+            compiled=build_real_referees_filter(),
         ),
         limit=filters.limit,
         sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
@@ -63,9 +62,11 @@ async def get_schiedsrichter_by_id(
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
-    Deactivated ones included -- a historical match references them by id.
+    Deactivated ones included -- a historical match references them by id. The ghost answers 404, as
+    does an id whose referee has been erased: the document is gone
+    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     """
 
-    schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id})
+    schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
 
     return FLSchiedsrichterSingleResponse(schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw))

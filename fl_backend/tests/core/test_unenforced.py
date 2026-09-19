@@ -526,7 +526,6 @@ class TestARetiredBookingOnAReopenedFixture:
             FLSpielListAdapter.validate_python([reopened_document]),
             resolved,
             RULES_OF_THE_SEASON,
-            restored_schiedsrichter=None,
         )
         newly_booked = find_booking_refusal(
             ObjectId(MATCH_ID.format(SLOT_NR)),
@@ -534,7 +533,6 @@ class TestARetiredBookingOnAReopenedFixture:
             FLSpielListAdapter.validate_python([unbooked_document]),
             resolved,
             RULES_OF_THE_SEASON,
-            restored_schiedsrichter=None,
         )
 
         assert kept is None

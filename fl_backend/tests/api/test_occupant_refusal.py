@@ -19,7 +19,6 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
-    FLSpielPriorSchiedsrichter,
     FLSpielTeamField,
 )
 from app.api.spiele.services import (
@@ -55,12 +54,13 @@ from app.api.spiele.services import (
     find_eligibility_refusal,
     find_references_to_anchor,
     find_result_removal_refusal,
+    find_retired_bookings,
     find_slot_claims,
     find_state_refusal,
     judge_spieltag_occupancy,
-    restore_the_voided_referee,
 )
 from app.core.exceptions import DocumentConflictException, WriteRefusal
+from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -232,9 +232,10 @@ A_DIFFERENT_REFEREE = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 3
 
 LIVE_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
 RETIRED_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
-LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, anonymisiert_am=None)
-RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", anonymisiert_am=None)
-ERASED_REFEREE = BookedReferee(name=None, inactive_since="2026-02-01", anonymisiert_am="2026-02-01")
+LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None)
+RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01")
+# The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01")
 
 
 def patched_spiel(
@@ -453,26 +454,30 @@ class TestComposingTheDisplayCopies:
         assert patched.ort is None and patched.schiedsrichter is None
 
 
-def booking_refusal_for(
-    season_docs: list[dict[str, Any]],
-    nr: int,
-    resolved: ResolvedReferences,
-    # Positional-only, so no field `overrides` spreads can land here.
-    restored: FLSpielPriorSchiedsrichter | None = None,
-    /,
-    **overrides: Any,
-) -> str | None:
+def booking_refusal(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> WriteRefusal | None:
     stored = stored_spiel(season_docs, nr)
-    refusal = find_booking_refusal(
+
+    return find_booking_refusal(
         ObjectId(stored["_id"]),
         payload_for(season_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(season_docs),
         resolved,
         RULES,
-        restored_schiedsrichter=restored,
     )
 
+
+def booking_refusal_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+    refusal = booking_refusal(season_docs, nr, resolved, **overrides)
+
     return None if refusal is None else refusal.error_code
+
+
+def booking_refusal_message_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+    """The sentence rather than the code, for the one case where two rows share a code and must not share a wording."""
+
+    refusal = booking_refusal(season_docs, nr, resolved, **overrides)
+
+    return None if refusal is None else refusal.message
 
 
 class TestTheBookingRefusal:
@@ -527,7 +532,7 @@ def as_seeded(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def called_off_first(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """`season` with spiel 1 called off, which a retirement and the erasure both pass by."""
+    """`season` with spiel 1 called off, which a retirement passes by."""
 
     return [{**season_docs[0], "sonderereignis": "ausgefallen"}, *season_docs[1:]]
 
@@ -548,7 +553,7 @@ class TestAFixtureReopenedBooksWhatItKeeps:
     @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
     @pytest.mark.parametrize("slot", ["ort", "schiedsrichter"])
     def test_a_save_reopening_the_fixture_books_the_retired_row_it_kept(self, season, seasoned, nr, overrides, slot):
-        """The erasure's case: the fixture it passed by would stand to be played by a person who asked to be forgotten."""
+        """The retirement's case: the fixture it passed by would stand to be played by a row the league has taken out of service."""
 
         assert booking_refusal_for(seasoned(season), nr, references(**ONE_RETIRED[slot]), **overrides) == BOOKING_UNKNOWN_RESOURCE
 
@@ -571,99 +576,103 @@ class TestAFixtureReopenedBooksWhatItKeeps:
         assert booking_refusal_for(seasoned(season), nr, references(**BOTH_RETIRED), **overrides) is None
 
 
-def reopened_second(season_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """`season` with spiel 2 as a reopening leaves it: the result voided with its occupants, and an erased referee's booking taken off."""
-
-    played = stored_spiel(season_docs, 2)
-    reopened = {
-        **played,
-        "team1": {**played["team1"], "tore": None},
-        "team2": {**played["team2"], "tore": None},
-        "ergebnis": None,
-        "schiedsrichter": None,
-    }
-
-    return [reopened if doc["spiel_nr"] == 2 else doc for doc in season_docs]
-
-
-def the_voided_booking(season_docs: list[dict[str, Any]]) -> FLSpielPriorSchiedsrichter:
-    """What that reopening's report carried back for spiel 2: the booking it took off, as a restore names one."""
-
-    booked = stored_spiel(season_docs, 2)["schiedsrichter"]
-
-    return FLSpielPriorSchiedsrichter(schiedsrichter_id=booked["schiedsrichter_id"], payment=booked["payment"])
-
-
-def as_booked(voided: FLSpielPriorSchiedsrichter, **overrides: Any) -> dict[str, Any]:
-    return {"schiedsrichter_id": str(voided.schiedsrichter_id), "payment": voided.payment, **overrides}
-
-
 # Spiel 2's own result, which is what the replay of its Paarung writes back.
 PLAYED_AGAIN = {"team1": team(CRONBERG, "Cronberg", tore=3), "team2": team(DORNBUSCH, "Dornbusch", tore=1)}
 
 
-class TestAReplayPutsBackTheErasedRefereesBooking:
-    """The one erased booking a write may make: the one a reopening took off, back where the replay leaves the fixture played or called off."""
+A_NAMELESS_RETIRED_REFEREE = ObjectId("6890a1b2c3d4e5f607182939")
+REFEREE_RETIRED_ON = "2026-01-15"
 
-    def restored(self, season_docs: list[dict[str, Any]], **overrides: Any) -> FLPatchSpielDataPayload:
-        reopened = reopened_second(season_docs)
-        stored = FLSpiel.model_validate(stored_spiel(reopened, 2))
 
-        return restore_the_voided_referee(stored, payload_for(reopened, 2, **overrides), the_voided_booking(season_docs), RULES)
+def booked_by(season_docs: list[dict[str, Any]], nr: int, schiedsrichter_id: ObjectId) -> dict[str, Any]:
+    """One fixture of `season` holding a NAMELESS referee booking, which is what both rows below leave on one."""
 
-    @pytest.mark.parametrize("outcome", [PLAYED_AGAIN, {"sonderereignis": "ausgefallen"}], ids=["played", "called-off"])
-    def test_a_fixture_the_replay_leaves_played_or_called_off_gets_it_back(self, season, outcome):
-        """The two states in which the erasure itself keeps a booking."""
+    stored = stored_spiel(season_docs, nr)
 
-        payload = self.restored(season, **outcome)
+    return {**stored, "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": None, "payment": 20}}
 
-        assert payload.schiedsrichter is not None
-        assert payload.schiedsrichter.model_dump() == the_voided_booking(season).model_dump()
 
-    def test_a_fixture_the_replay_leaves_still_to_be_played_stays_unassigned(self, season):
-        assert self.restored(season).schiedsrichter is None
+class TestTheGhostIsToldFromAnyOtherNamelessRow:
+    """A null name says a name is missing, never WHICH row is missing it, so the queue reads the id.
 
-    def test_a_referee_booked_since_survives_the_replay(self, season):
-        """An edit after the undone write survives its undo, the booking included."""
+    Calling a merely retired row a deletion tells an administrator that somebody asked to be
+    forgotten who did not.
+    """
 
-        booked_since = {"schiedsrichter_id": ObjectId(ANOTHER_SCHIEDSRICHTER), "name": "C. Pfiff", "payment": 35}
-        reopened = [{**doc, "schiedsrichter": booked_since} if doc["spiel_nr"] == 2 else doc for doc in reopened_second(season)]
-        stored = FLSpiel.model_validate(stored_spiel(reopened, 2))
+    def test_each_fault_names_the_row_it_is_about(self, season):
+        ghosted = booked_by(season, 1, GHOST_SCHIEDSRICHTER_ID)
+        retired = booked_by(season, 29, A_NAMELESS_RETIRED_REFEREE)
 
-        payload = restore_the_voided_referee(stored, payload_for(reopened, 2, **PLAYED_AGAIN), the_voided_booking(season), RULES)
-
-        assert payload.schiedsrichter is not None and str(payload.schiedsrichter.schiedsrichter_id) == ANOTHER_SCHIEDSRICHTER
-
-    def test_the_booking_refusal_accepts_exactly_that_restore(self, season):
-        voided = the_voided_booking(season)
-        erased = references(schiedsrichter=ERASED_REFEREE)
-        refused = booking_refusal_for(reopened_second(season), 2, erased, voided, schiedsrichter=as_booked(voided), **PLAYED_AGAIN)
-
-        assert refused is None
-
-    @pytest.mark.parametrize(
-        ("resolved_referee", "restoring", "booked", "outcome"),
-        [
-            pytest.param(ERASED_REFEREE, False, {}, PLAYED_AGAIN, id="a save naming no restore"),
-            pytest.param(ERASED_REFEREE, True, {}, {}, id="a replay leaving the fixture still to be played"),
-            pytest.param(ERASED_REFEREE, True, {"payment": 99}, PLAYED_AGAIN, id="a fee the voided booking never carried"),
-            pytest.param(RETIRED_REFEREE, True, {}, PLAYED_AGAIN, id="a referee retired and never erased"),
-        ],
-    )
-    def test_every_other_booking_of_a_retired_referee_is_still_refused(self, season, resolved_referee, restoring, booked, outcome):
-        """The retired arm keeps its own route, a reactivation, so the carve-out is the erasure's alone."""
-
-        voided = the_voided_booking(season)
-        refused = booking_refusal_for(
-            reopened_second(season),
-            2,
-            references(schiedsrichter=resolved_referee),
-            voided if restoring else None,
-            schiedsrichter=as_booked(voided, **booked),
-            **outcome,
+        faults = find_retired_bookings(
+            FLSpielListAdapter.validate_python([ghosted, retired]),
+            retired_venues={},
+            retired_referees={GHOST_SCHIEDSRICHTER_ID: GHOST_INACTIVE_SINCE, A_NAMELESS_RETIRED_REFEREE: REFEREE_RETIRED_ON},
         )
 
-        assert refused == BOOKING_UNKNOWN_RESOURCE
+        assert [(fault.spiel_nr, fault.booking_id) for fault in faults] == [(1, GHOST_SCHIEDSRICHTER_ID), (29, A_NAMELESS_RETIRED_REFEREE)]
+        # The premise: both rows leave the same null, so nothing but the id parts them.
+        assert {fault.name for fault in faults} == {None}
+
+    def test_a_venue_fault_names_its_own_row_too(self, season):
+        """Required on both arms, so a reader reaches the venue by id as well rather than by its name alone."""
+
+        retired_ground = {"spielort_id": ObjectId(ANOTHER_SPIELORT), "name": "Platz", "maps_link": "Platz, Frankfurt", "mietpreis": 40}
+        booked = {**stored_spiel(season, 1), "ort": retired_ground}
+
+        (fault,) = find_retired_bookings(
+            FLSpielListAdapter.validate_python([booked]),
+            retired_venues={ObjectId(ANOTHER_SPIELORT): REFEREE_RETIRED_ON},
+            retired_referees={},
+        )
+
+        assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
+
+    def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, season):
+        """`REQ-CLASH-001` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
+
+        Counted, it would report two strangers' matches as one person double-booked and refuse a
+        save that merely re-times either.
+        """
+
+        ghosted, retired = FLSpielListAdapter.validate_python(
+            [booked_by(season, 1, GHOST_SCHIEDSRICHTER_ID), booked_by(season, 29, A_NAMELESS_RETIRED_REFEREE)]
+        )
+
+        def referees_claimed(spiel):
+            return [claim.reference for claim in find_slot_claims(spiel) if claim.resource == "Schiedsrichter"]
+
+        assert referees_claimed(ghosted) == []
+        # The control: the same fixture shape under any other id still claims its slot.
+        assert referees_claimed(retired) == [A_NAMELESS_RETIRED_REFEREE]
+
+
+class TestTheGhostIsRefusedAsAnyRetiredRowIs:
+    """`REQ-BOOKING-001` meets the ghost where it meets any retired referee.
+
+    Its own class because the ghost is the one retired row with no name, and the sentence a named
+    row gets offers a reactivation it never takes.
+    """
+
+    def test_a_save_reopening_the_fixture_is_refused_it(self, season):
+        assert booking_refusal_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **CLEARED) == BOOKING_UNKNOWN_RESOURCE
+
+    def test_a_save_leaving_the_fixture_played_keeps_it(self, season):
+        """A played fixture records who officiated it, and after an erasure that record is the ghost."""
+
+        assert booking_refusal_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **PLAYED_AGAIN) is None
+
+    def test_the_sentence_names_the_resource_and_offers_no_reactivation(self, season):
+        """Read against the named row's own sentence.
+
+        One wording for both prints a referee called nothing and offers a control the ghost has not
+        got.
+        """
+
+        ghost = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **CLEARED)
+        named = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=RETIRED_REFEREE), **CLEARED)
+
+        assert ghost is not None and "the Schiedsrichter chosen" in ghost and "reactivate" not in ghost
+        assert named is not None and "B. Whistle" in named and "reactivate" in named
 
 
 def anchored_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> BookedReferences:
@@ -1413,7 +1422,6 @@ def advancement(
         voided_ergebnis=None,
         voided_elfmeterschiessen=None,
         voided_sonderereignis=None,
-        voided_schiedsrichter=None,
     )
 
 
@@ -1581,7 +1589,6 @@ class TestTheResolutionNeverFieldsAClubTwice:
             asyncio.run(
                 preview_bracket_after_patch(
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
-                    schiedsrichter_collection=cast(AsyncCollection, object()),
                     saison_id=SAISON_ID,
                     rules=RULES,
                     season=season,

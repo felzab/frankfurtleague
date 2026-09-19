@@ -4,7 +4,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.spiele.schemas import unplayed_filter
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
@@ -13,7 +12,7 @@ from app.api.spielorte.schemas import (
     FLSpielort,
     FLSpielortWriteResponse,
 )
-from app.api.spielorte.services import find_venue_retire_refusal
+from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
@@ -116,7 +115,7 @@ async def delete_spielort(
 
         booked = await pull_many_from_db(
             collection=spiele_collection,
-            db_filter={"ort.spielort_id": spielort_id, **unplayed_filter()},
+            db_filter=build_unplayed_booking_filter(spielort_id),
             projection={"spiel_nr": 1},
             session=session,
         )

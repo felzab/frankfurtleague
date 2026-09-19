@@ -4,54 +4,81 @@ from typing import Any
 from app.api.spiele.schemas import unplayed_filter
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt
 
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
-# Not a boolean: a person asking later when their erasure ran is answered by the row, their own
-# request having redacted the log that would otherwise say (`docs/glossary.md :: inactive_since`).
-ANONYMISIERT_AM = "anonymisiert_am"
+# Its own code rather than the 404 every other endpoint answers for this id: an administrator who
+# reached the ghost is owed the reason it cannot be erased, not the claim that it is not there.
+GHOST_ERASED = "REQ-ANONYMISE-004"
 
-# Dotted keys, so `kontakt` itself survives: `app/core/constraints.py :: _KONTAKT` types it required
-# and non-nullable, its members string-or-null. Read off the model, so a contact field added later is
-# cleared rather than silently left behind.
-ANONYMISED_KONTAKT: dict[str, None] = {f"kontakt.{field}": None for field in FLKontakt.model_fields}
 
-# One mapping, so nothing can clear the details while leaving the person named. Null and never a
-# label: one word standing for every erased person is a second row `uniq_schiedsrichter_name`
-# refuses (`docs/backend/spec.md :: 1.1`).
-ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {
-    **ANONYMISED_KONTAKT,
-    "name": None,
-    # The PERSON's own attribute: beside a fixture list that never expires it narrows them to the few
-    # referees one school sent. `default_payment` stays, and is THAT referee's own agreed fee rather
-    # than anything about them.
-    "schule": None,
-}
+def build_ghost_schiedsrichter() -> dict[str, Any]:
+    """The row an erased referee's fixtures are repointed to, as it is first written.
 
-# An erasure beats the last writer: a detail re-entered mid-anonymisation is a person's data
-# the answer would report gone, and clearing it again is one more click.
-KONTAKT_RE_ENTERED_MID_ANONYMISATION = "REQ-ANONYMISE-001"
+    Retired, so `REQ-BOOKING-001` refuses it every new fixture under the rule a retired referee
+    already meets rather than under one written for the ghost.
+    """
 
-# An anonymisation an ordinary edit can undo is not an anonymisation: the name goes back onto the row
-# and onto every fixture they officiated, closed seasons' included, and the person is never told.
-ANONYMISATION_UNDONE_BY_AN_EDIT = "REQ-ANONYMISE-002"
+    return {
+        "_id": GHOST_SCHIEDSRICHTER_ID,
+        "name": None,
+        "schule": None,
+        # Zero rather than a rate: no fee was ever agreed with nobody, and each fixture keeps the
+        # `payment` it recorded (`docs/backend/spec.md :: I6`).
+        "default_payment": 0,
+        # Read off the model, so a contact field added later arrives null here rather than missing.
+        "kontakt": dict.fromkeys(FLKontakt.model_fields),
+        "inactive_since": GHOST_INACTIVE_SINCE,
+    }
 
-# A reactivation would put the erased row back into a picker, and a booking is fresh personal data
-# about somebody who asked to be left out. What `REQ-BOOKING-001` reads is the retirement the erasure
-# writes.
-ANONYMISED_REFEREE_REACTIVATED = "REQ-ANONYMISE-003"
+
+# The one term excluding the ghost, spelled once for the list read and for the by-id filter below.
+_NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SCHIEDSRICHTER_ID}
+
+
+def build_real_referees_filter() -> Mapping[str, Any]:
+    """Every referee a person stands behind, which is the whole collection but the ghost."""
+
+    return {"_id": dict(_NOT_THE_GHOST)}
+
+
+def build_referee_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
+    """One real referee by id, answering nothing for the ghost.
+
+    One spelling for the read, the edit, the retirement and the reactivation: reached by any, the
+    ghost takes a name onto every erased referee's fixtures or returns to the picker.
+    """
+
+    return {"_id": {"$eq": schiedsrichter_id, **_NOT_THE_GHOST}}
+
+
+def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
+    """Every fixture naming this referee, played or not — the set the erasure repoints."""
+
+    return {"schiedsrichter.schiedsrichter_id": schiedsrichter_id}
 
 
 def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """Every fixture this referee holds that is still to be played.
+    """Every fixture this referee holds that is still to be played, which is what the retirement's refusal judges.
 
-    One filter for the retirement's own refusal and for the erasure's unassign, so the two cannot
-    disagree about what is still to come.
+    Composed from `build_assignment_filter` rather than spelled again, so the path cannot be
+    narrowed on one seam alone.
     """
 
-    return {"schiedsrichter.schiedsrichter_id": schiedsrichter_id, **unplayed_filter()}
+    return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
+
+
+def build_ghost_repoint() -> Mapping[str, Any]:
+    """What a fixture's booking becomes once the person behind it is deleted.
+
+    `payment` stays: it records what THIS match agreed (`docs/backend/spec.md :: I6`). The ghost has
+    no name, and every surface reads a null one.
+    """
+
+    return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "schiedsrichter.name": None}}
 
 
 def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -68,35 +95,11 @@ def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
     return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
 
 
-def _stored_at(schiedsrichter: Mapping[str, Any], path: str) -> Any:
-    """The value a dotted key of `ANONYMISED_SCHIEDSRICHTER` addresses, or `None` where a segment is missing."""
-
-    found: Any = schiedsrichter
-
-    for segment in path.split("."):
-        if not isinstance(found, Mapping):
-            return None
-        found = found.get(segment)
-
-    return found
-
-
-def holds_an_anonymisable_value(schiedsrichter: Mapping[str, Any]) -> bool:
-    """Whether anything `ANONYMISED_SCHIEDSRICHTER` writes still stands as something else.
-
-    Read off that mapping rather than off the models again, so what the erasure writes and what
-    this weighs cannot become two lists.
-    """
-
-    return any(_stored_at(schiedsrichter, path) != value for path, value in ANONYMISED_SCHIEDSRICHTER.items())
-
-
 def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
     """The day already stamped, or today.
 
-    One helper for both dates the erasure writes: a repeat moving `anonymisiert_am` moves the date a
-    person was given, and one moving `inactive_since` says a referee retired today who retired last
-    season.
+    A second press of the retirement would otherwise move the day a referee stopped officiating,
+    which is the day a fee is reconciled against.
     """
 
     stamped = stored.get(field)
@@ -104,59 +107,17 @@ def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
     return today if stamped is None else str(stamped)
 
 
-def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
-    """Why this anonymisation must be refused, or `None` (`docs/backend/spec.md :: I217`).
+def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None:
+    """Why erasing this id must be refused, or `None`."""
 
-    `re_entered` is read OUTSIDE the transaction: a row already cleared is `$set` to what it holds,
-    so nothing is written and nothing conflicts (`docs/backend/spec.md :: I117` and `:: I53`).
-    """
-
-    if not re_entered:
+    if schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
         return None
 
     return WriteRefusal(
-        error_code=KONTAKT_RE_ENTERED_MID_ANONYMISATION,
+        error_code=GHOST_ERASED,
         message=(
-            "the referee's name, school or contact details were entered again while this anonymisation ran, so it "
-            "cleared nothing and left them standing; run it again to remove what is there now"
-        ),
-    )
-
-
-def find_anonymisation_undo_refusal(*, stored: Mapping[str, Any]) -> WriteRefusal | None:
-    """Why this edit must be refused, or `None`.
-
-    Keyed on `ANONYMISIERT_AM` and never on the stored values (`docs/backend/spec.md :: I214`).
-    """
-
-    # Nothing about the payload is weighed beside the stamp: `FLPatchSchiedsrichterPayload.name`
-    # admits no null and no blank, so every edit reaching an erased row puts a name back.
-    if stored.get(ANONYMISIERT_AM) is None:
-        return None
-
-    return WriteRefusal(
-        error_code=ANONYMISATION_UNDONE_BY_AN_EDIT,
-        message=(
-            "this referee's name, school and contact details were deleted on request, and this save would put them back on the row "
-            "and on every fixture they officiated; a deletion made by mistake is recovered from a backup rather than typed in again"
-        ),
-    )
-
-
-def find_reactivation_refusal(*, anonymisiert_am: Any) -> WriteRefusal | None:
-    """Why this reactivation must be refused, or `None`.
-
-    Read off the erasure's stamp and never off the nulled name (`docs/backend/spec.md :: I214`).
-    """
-
-    if anonymisiert_am is None:
-        return None
-
-    return WriteRefusal(
-        error_code=ANONYMISED_REFEREE_REACTIVATED,
-        message=(
-            "this referee's data were deleted on request, so they take no further fixtures and cannot be brought back; "
-            "a person officiating again is entered as a new referee"
+            "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
+            "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"
         ),
     )
 

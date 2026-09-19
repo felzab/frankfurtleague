@@ -206,7 +206,11 @@ def test_every_transaction_judging_a_booking_anchors_it():
 
 @pytest.mark.parametrize(("function", "collection_parameter"), ANCHORS, ids=lambda value: getattr(value, "__name__", ""))
 def test_a_choke_point_anchors_the_document_its_read_is_scoped_by(function: Callable[..., Any], collection_parameter: str):
-    """Drop the `$inc` and this fails, where the refusal itself and every suite over it stay green."""
+    """One anchor per helper, on the session, keyed on the document -- a convention spanning files.
+
+    `tests/api/test_reference_isolation.py` and `:: test_capacity_isolation.py` read the count back
+    at the sites they drive, and this is the shape at every helper.
+    """
 
     anchors = _anchor_calls(function)
 

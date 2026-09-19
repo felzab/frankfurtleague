@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, StringConstraints, ValidationError
 
-from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString
+from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString, parse_object_id
 
 
 class _Date(BaseModel):
@@ -212,6 +212,27 @@ def test_accepts_an_upper_case_id_and_serialises_it_lower_case():
 
     parsed = _ObjectId.model_validate({"value": "6890A1B2C3D4E5F607182930"})
     assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("6890a1b2c3d4e5f607182930", ObjectId("6890a1b2c3d4e5f607182930")),
+        ("6890A1B2C3D4E5F607182930", ObjectId("6890a1b2c3d4e5f607182930")),
+        ("not-an-objectid", None),
+        ("6890a1b2c3d4e5f60718293", None),
+        ("6890a1b2 c3d4e5f6 071829", None),
+        ("", None),
+    ],
+)
+def test_the_shared_reader_compiles_an_id_or_answers_none(value: str, expected: ObjectId | None):
+    """The upper-case case is load-bearing: bson lower-cases it, so a comparison without the fold refuses a well-formed id.
+
+    `None` and never a raise, the log's search term falling back to a text match instead
+    (`app/api/aktionen/services.py :: document_id_term`).
+    """
+
+    assert parse_object_id(value) == expected
 
 
 # Taken from the tree's own fixtures, because refusing one of these turns a school away over how it

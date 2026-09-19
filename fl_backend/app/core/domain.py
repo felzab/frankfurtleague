@@ -269,18 +269,17 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SCHIEDSRICHTER,
         on_reference_created=Action.RESTRICT,
         on_target_change=Action.CASCADE,
-        on_target_removed=Action.RESTRICT,
+        on_target_removed=Action.CASCADE,
         note=(
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation retires the row itself, so an erased referee is refused a NEW fixture by the same rule "
-            "and is never reactivated (`REQ-ANONYMISE-003`). It SATISFIES that refusal rather than consulting it: every "
-            "fixture still to be played loses this reference in the same transaction, a request to be forgotten not "
-            "being something a booking may block, so a PLAYED or CALLED-OFF fixture alone keeps its assignment, under a "
-            "nulled name, and a save reopening one is refused it. A bracket resolution, or a side emptied for a "
-            "Spieltag clash, reopening one takes the assignment off in its own write, as the erasure would have; a merely "
-            "retired referee stays and is reported. "
+            "The anonymisation is the one removal, and it CASCADES rather than being refused: a request to be forgotten "
+            "is not something a booking may block, so the row is deleted and every fixture naming it is repointed at the "
+            "ghost in the same transaction, each keeping its own `payment`. The ghost is permanently retired, so a "
+            "fixture holding it takes no new booking and is refused a save putting it back among those still to be "
+            "played; one a bracket resolution or a Spieltag release reopens keeps it and is reported as a retired "
+            "booking, exactly as a merely retired referee is. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`). "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -898,10 +897,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` and the anonymisation both stamp it, the erasure keeping a day the row already carries, and "
-        "`POST /reactivate` clears it unless the erasure has run (`REQ-ANONYMISE-003`); `DELETE` is refused while an "
-        "unplayed fixture still names this referee, and the erasure's stamp never meets that refusal, having emptied "
-        "every such booking first",
+        "`DELETE` stamps it and `POST /reactivate` clears it, `DELETE` being refused while an unplayed fixture still "
+        "names this referee; the anonymisation writes it on no row, deleting the referee instead and leaving their "
+        "fixtures on the ghost, which carries a stamp of its own and is reachable by neither control",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
 )
@@ -1401,28 +1399,12 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
     ),
     Rule(
-        code="REQ-ANONYMISE-001",
+        code="REQ-ANONYMISE-004",
         operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
         aggregate="Schiedsrichter",
-        summary="contact details entered again while an anonymisation runs are refused, never left standing",
-        implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
-    ),
-    Rule(
-        code="REQ-ANONYMISE-002",
-        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
-        aggregate="Schiedsrichter",
-        summary="a name or a contact detail may not be written back onto an anonymised referee",
-        implemented_by="app.api.schiedsrichter.services.find_anonymisation_undo_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused",
-    ),
-    Rule(
-        code="REQ-ANONYMISE-003",
-        operation="POST /schiedsrichter/{schiedsrichter_id}/reactivate",
-        aggregate="Schiedsrichter",
-        summary="a referee whose data were erased on request may not be brought back",
-        implemented_by="app.api.schiedsrichter.services.find_reactivation_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestBringingAnErasedRefereeBackIsRefused",
+        summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
+        implemented_by="app.api.schiedsrichter.services.find_ghost_erasure_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestErasingTheGhostIsRefused",
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -1658,8 +1640,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "that would refuse the correction upstream -- or any save of the season, the resolution running whole -- over a "
             "booking nobody touched, where a result a rewrite destroys is reported rather than refused. The row stays "
             "booked and is reported as a derived fault (`docs/backend/spec.md :: I257`), because only a person chooses "
-            "between reactivating it and booking another, and a save keeping it books nothing new. An ERASED referee is "
-            "taken off in that same write instead (`docs/backend/spec.md :: I256`)."
+            "between reactivating it and booking another, and a save keeping it books nothing new. The ghost a referee's "
+            "erasure leaves is a retired row like any other and is reported the same way (`docs/backend/spec.md :: I259`)."
         ),
         near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
         proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",

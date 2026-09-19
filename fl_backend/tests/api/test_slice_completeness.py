@@ -82,7 +82,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
 
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES, restored_schiedsrichter=None)
+            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES)
 
 
 RULES = FLSaisonRules.model_validate(

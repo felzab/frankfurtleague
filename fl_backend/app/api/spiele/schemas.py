@@ -98,7 +98,7 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 
 
 def is_unplayed(*, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
-    """Whether a fixture is still to be played, which every retirement, the erasure, the rollover and `REQ-BOOKING-001` ask alike.
+    """Whether a fixture is still to be played, which every retirement, the rollover and `REQ-BOOKING-001` ask alike.
 
     `unplayed_filter` is the same partition asked of stored fixtures, and
     `tests/api/test_spiele.py :: test_the_unplayed_filter_selects_what_the_predicate_answers` holds the two together.
@@ -217,7 +217,7 @@ def public_referee_name(name: str | None) -> str | None:
     `Ada van der B.`, publishing the particle.
     """
 
-    # An erased referee stays erased: an initial composed for a name nobody holds would read as a name.
+    # The ghost stays nameless: an initial composed for a name nobody holds would read as a name.
     if name is None:
         return None
 
@@ -241,8 +241,8 @@ class _SpielSchiedsrichterBooking(BaseModel):
 # The name sits on a shared private base rather than on the served shape, so the stored shape below
 # can carry it without inheriting the reduction the served one applies.
 class _SpielSchiedsrichterBooked(_SpielSchiedsrichterBooking):
-    # Nullable, unlike the venue's: a referee is a person, and their erasure nulls this copy on every
-    # fixture they officiated. The word a reader is shown instead is the frontend's
+    # Nullable, unlike the venue's: a referee is a person, so an erasure repoints this copy at the
+    # nameless ghost. The word a reader is shown instead is the frontend's
     # (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
     name: CustomNonEmptyString | None
 
@@ -416,8 +416,11 @@ class FLBracketFaultBooking(_BracketFault):
 
     reason: Literal["retired_booking"]
     booking: Literal["ort", "schiedsrichter"]
-    # The fixture's own copy: null where the erasure nulled a referee's, which is also how a reader
-    # tells an erased referee from one merely retired.
+    # The retired row itself, beside its name as an occupant fault carries `team_id` beside one: a
+    # reader tells the ghost from a referee by comparing this and never by the null below.
+    booking_id: CustomObjectId
+
+    # The fixture's own copy, null where the row carries no name.
     name: str | None
     inactive_since: CustomDateString
 
@@ -611,10 +614,6 @@ class _SpielRestore(_SpielPaarung):
     """A Paarung beside the fields outside it one write replaced: the whole of what an undo of that write puts back."""
 
     other_fields: FLSpielPriorOtherFields | None
-
-    # Its own field rather than a `replaced` entry, which restores unconditionally: this goes back only
-    # onto a fixture the replay leaves played or called off (`docs/backend/spec.md :: I256`).
-    voided_schiedsrichter: FLSpielPriorSchiedsrichter | None
 
 
 class FLPatchSpielPaarungPayload(_SpielRestore):
@@ -831,9 +830,6 @@ class _VoidedResult(BaseModel):
     # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
     # occupant leaves each of them true and none of them is cleared.
     voided_sonderereignis: FLSonderereignis | None
-    # Only ever an erased referee's, on a fixture this rewrite puts back among those still to be
-    # played (`docs/backend/spec.md :: I256`).
-    voided_schiedsrichter: FLSpielSchiedsrichterField | None
 
 
 class FLSpielAdvancement(_VoidedResult):

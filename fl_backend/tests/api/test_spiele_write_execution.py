@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -23,7 +23,6 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
-    FLSpielSchiedsrichterField,
 )
 from app.api.spiele.services import (
     BOOKING_UNKNOWN_RESOURCE,
@@ -35,6 +34,7 @@ from app.api.spiele.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -360,10 +360,6 @@ SPIELORT_UNKNOWN = ObjectId("6890a1b2c3d4e5f6072200b9")
 
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
 SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
-# Erased as `anonymise_schiedsrichter` leaves a row: the name nulled and the retirement stamped.
-SCHIEDSRICHTER_ERASED = ObjectId("6890a1b2c3d4e5f6072200c3")
-# Erased, and a name typed back onto the row by hand since: only the stamp still says so.
-SCHIEDSRICHTER_STAMPED = ObjectId("6890a1b2c3d4e5f6072200c4")
 
 RETIRED_ON = "2026-02-01"
 
@@ -371,10 +367,10 @@ VENUES = {SPIELORT: ("Sportplatz Ost", None), SPIELORT_RETIRED: ("Bezirkssportan
 REFEREES = {
     SCHIEDSRICHTER: ("A. Referee", None),
     SCHIEDSRICHTER_RETIRED: ("B. Whistle", RETIRED_ON),
-    SCHIEDSRICHTER_ERASED: (None, RETIRED_ON),
-    SCHIEDSRICHTER_STAMPED: ("C. Stamp", RETIRED_ON),
+    # Every erasure's fixtures end here, and it is the one referee row with no name
+    # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+    GHOST_SCHIEDSRICHTER_ID: (None, GHOST_INACTIVE_SINCE),
 }
-ANONYMISED = {SCHIEDSRICHTER_ERASED, SCHIEDSRICHTER_STAMPED}
 
 
 def venue_documents() -> list[dict[str, Any]]:
@@ -405,7 +401,6 @@ def referee_documents() -> list[dict[str, Any]]:
             "default_payment": DEFAULT_PAYMENT,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": inactive_since,
-            "anonymisiert_am": inactive_since if schiedsrichter_id in ANONYMISED else None,
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]
@@ -588,7 +583,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         "kept",
         [
             pytest.param({"ort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
-            pytest.param({"schiedsrichter": assignment(SCHIEDSRICHTER_ERASED)}, id="erased-referee"),
+            pytest.param({"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, id="the-ghost"),
         ],
     )
     def test_lifting_a_call_off_books_the_row_it_kept_again(self, mongo_replica_set_url: str, kept: dict[str, Any], dry_run: bool):
@@ -1159,6 +1154,11 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
             pytest.param(
                 {"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="referee"
             ),
+            # The erasure's own case: the fixture keeps the ghost and the queue reports it as any
+            # retired booking, where the arm this replaces stripped the booking instead.
+            pytest.param(
+                {"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="the-ghost"
+            ),
             # The control: the fault is the row's retirement, never the reopening.
             pytest.param({"ort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
         ],
@@ -1172,8 +1172,7 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
             "a booking only the league can choose to reactivate or replace was taken off"
         )
 
-        (advancement,) = run.saved.advanced_to
-        assert advancement.voided_schiedsrichter is None
+        assert len(run.saved.advanced_to) == 1
         assert run.preview == run.saved, "the preview answered differently from the save it previews"
 
         assert (booking_faults(run.faults), booking_faults(run.saved.bracket_faults)) == (reported, [])
@@ -1211,157 +1210,6 @@ async def replay(database: AsyncDatabase, client: AsyncMongoClient, paarungen: l
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
     )
-
-
-class TestAnErasedRefereesBookingGoesWithTheResultAReopeningVoids:
-    """A booking on a fixture still to be played is fresh data about a person who asked to be forgotten, so no rewrite leaves one standing."""
-
-    @pytest.mark.parametrize(
-        "referee",
-        [
-            pytest.param(SCHIEDSRICHTER_ERASED, id="erased"),
-            # The stamp decides, never the null name (`docs/backend/spec.md :: I214`).
-            pytest.param(SCHIEDSRICHTER_STAMPED, id="a-name-typed-back-onto-the-erased-row"),
-        ],
-    )
-    def test_the_resolution_takes_it_off_and_the_preview_says_so(self, mongo_replica_set_url: str, referee: ObjectId):
-        erased = assignment(referee)
-        run = on_a_seeded_season(mongo_replica_set_url, reopened_by_the_overturn, spiele=a_played_semi_final_booked(schiedsrichter=erased))
-
-        assert run.after_save[HALBFINALE_NR]["ergebnis"] is None
-        assert run.after_save[HALBFINALE_NR]["schiedsrichter"] is None
-
-        (advancement,) = run.saved.advanced_to
-        assert advancement.voided_schiedsrichter == FLSpielSchiedsrichterField.model_validate(erased)
-        # The dry run reads the same referee, so the editor names what the save takes off before the press.
-        assert run.preview == run.saved, "the preview answered differently from the save it previews"
-        assert booking_faults(run.faults) == []
-
-    def test_a_fixture_the_rewrite_leaves_called_off_keeps_it(self, mongo_replica_set_url: str):
-        """The control: the booking goes because the fixture is back among those still to be played, never because an occupant changed.
-
-        A call-off names no side, so it survives the rewrite and the fixture stays out of that set.
-        """
-
-        erased = assignment(SCHIEDSRICHTER_ERASED)
-        quarter, semi = a_played_semi_final_booked(schiedsrichter=erased)
-        called_off = {
-            **semi,
-            "team1": side(BETA),
-            "team2": side(GAMMA),
-            "ergebnis": None,
-            "elfmeterschiessen": None,
-            "sonderereignis": "ausgefallen",
-        }
-
-        run = on_a_seeded_season(mongo_replica_set_url, reopened_by_the_overturn, spiele=[quarter, called_off])
-
-        assert run.after_save[HALBFINALE_NR]["team1"]["team_id"] == ALPHA, "nothing was rewritten, so the control reads nothing"
-        assert run.after_save[HALBFINALE_NR]["schiedsrichter"] == erased
-
-        (advancement,) = run.saved.advanced_to
-        assert advancement.voided_schiedsrichter is None
-
-    def test_a_replay_reopening_it_takes_it_off(self, mongo_replica_set_url: str):
-        """`PATCH /spiele/paarungen` runs the same resolution, so an undo reaching this fixture is held to the same line."""
-
-        overturned = {
-            "spiel_id": str(VIERTELFINALE),
-            "team1": {"team_id": str(ALPHA), "tore": 3},
-            "team2": {"team_id": str(BETA), "tore": 1},
-            "elfmeterschiessen": None,
-            "sonderereignis": None,
-            "other_fields": None,
-            "voided_schiedsrichter": None,
-        }
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await replay(database, client, [overturned]), await spiele_now(database)
-
-        replayed, spiele = on_a_seeded_season(
-            mongo_replica_set_url, body, spiele=a_played_semi_final_booked(schiedsrichter=assignment(SCHIEDSRICHTER_ERASED))
-        )
-
-        assert spiele[HALBFINALE_NR]["schiedsrichter"] is None
-        (advancement,) = replayed.advanced_to
-        assert advancement.voided_schiedsrichter is not None
-
-    def test_a_release_takes_it_off_as_the_model_predicts(self, mongo_replica_set_url: str):
-        """`release_spieltag_sides` writes a hand-built `$set` where the preview applies the model, so the strip is held to both."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
-            season = FLSpielListAdapter.validate_python(rows)
-            before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
-
-            spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA))
-            (release,) = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
-
-            preview = await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=True)
-            saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return ReleaseRun(
-                before=before,
-                predicted=apply_release_to_spiel(before, replace(release, voided_schiedsrichter=before.schiedsrichter)),
-                after_preview=before,
-                after_save=await read_spiel(database, GRUPPE_HELD),
-                preview=preview,
-                saved=saved,
-            )
-
-        held, filling = one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1))
-        run = on_a_seeded_season(mongo_replica_set_url, body, spiele=[{**held, "schiedsrichter": assignment(SCHIEDSRICHTER_ERASED)}, filling])
-
-        assert run.after_save.schiedsrichter is None
-        assert run.after_save == run.predicted
-        assert run.saved == run.preview, "the preview answered differently from the save it previews"
-
-        (released,) = run.saved.released_sides
-        assert released.voided_schiedsrichter == run.before.schiedsrichter
-
-    def test_the_undo_puts_it_back_on_the_result_it_restores(self, mongo_replica_set_url: str):
-        """The erasure keeps a booking on a played fixture, so the undo returning one leaves nobody to assign and nobody engaged anew."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            run = await reopened_by_the_overturn(database, client)
-            await replay(database, client, [prior.model_dump(mode="json") for prior in run.saved.prior_paarungen])
-
-            return run, await spiele_now(database)
-
-        erased = assignment(SCHIEDSRICHTER_ERASED)
-        run, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_played_semi_final_booked(schiedsrichter=erased))
-
-        assert run.after_save[HALBFINALE_NR]["schiedsrichter"] is None, "the save took nothing off, so the undo had nothing to put back"
-        assert (spiele[HALBFINALE_NR]["ergebnis"], spiele[HALBFINALE_NR]["schiedsrichter"]) == ("2:2", erased)
-
-    def test_a_replay_leaving_the_fixture_still_to_be_played_keeps_it_off(self, mongo_replica_set_url: str):
-        """The erasure's own line: the booking goes back only where the erasure itself would have kept it."""
-
-        erased = assignment(SCHIEDSRICHTER_ERASED)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await reopened_by_the_overturn(database, client)
-            await replay(
-                database,
-                client,
-                [
-                    {
-                        "spiel_id": str(HALBFINALE),
-                        "team1": {"team_id": str(ALPHA), "tore": None},
-                        "team2": {"team_id": str(GAMMA), "tore": None},
-                        "elfmeterschiessen": None,
-                        "sonderereignis": None,
-                        "other_fields": None,
-                        "voided_schiedsrichter": {"schiedsrichter_id": str(SCHIEDSRICHTER_ERASED), "payment": erased["payment"]},
-                    }
-                ],
-            )
-
-            return await spiele_now(database)
-
-        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_played_semi_final_booked(schiedsrichter=erased))
-
-        assert (spiele[HALBFINALE_NR]["ergebnis"], spiele[HALBFINALE_NR]["schiedsrichter"]) == (None, None)
 
 
 def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:

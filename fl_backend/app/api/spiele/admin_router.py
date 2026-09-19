@@ -57,7 +57,6 @@ from app.api.spiele.services import (
     find_state_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
-    restore_the_voided_referee,
     slots_booked_against,
     stored_in_slice,
 )
@@ -285,12 +284,7 @@ async def _write_spiel_data(
 
         # Completed HERE and never at the write, so the refusals, the composed result and the
         # resolution below all judge the one shape they were written against.
-        restored_schiedsrichter = None if isinstance(submitted, FLPatchSpielDataPayload) else submitted.voided_schiedsrichter
-        spiel_data = (
-            submitted
-            if isinstance(submitted, FLPatchSpielDataPayload)
-            else restore_the_voided_referee(stored, submitted.completed_with(stored), restored_schiedsrichter, saison_rules)
-        )
+        spiel_data = submitted if isinstance(submitted, FLPatchSpielDataPayload) else submitted.completed_with(stored)
 
         # First, and on the payload alone: the event the admin just chose is what the rest of this
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
@@ -344,7 +338,7 @@ async def _write_spiel_data(
             ),
         )
         # Before the clash: whether a ground exists at all is more basic than who else is on it.
-        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules, restored_schiedsrichter=restored_schiedsrichter))
+        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules))
 
         claims = find_claims_made(stored, spiel_data)
         holders = await pull_slot_holders(spiele_collection=spiele_collection, claims=claims, session=session)
@@ -372,7 +366,6 @@ async def _write_spiel_data(
         season, releases, patched, _ = await judge(None, spiel_id, spiel_data, saison_id, saison_rules)
         advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
             teams_collection=teams_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
             saison_id=saison_id,
             rules=saison_rules,
             season=season,
@@ -416,7 +409,6 @@ async def _write_spiel_data(
             # and the reverse order would leave the season one pass behind.
             released_sides, booked_again_by_the_release = await release_spieltag_sides(
                 spiele_collection=spiele_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
                 season=season,
                 releases=releases,
                 session=session,
@@ -531,10 +523,6 @@ async def patch_spiele_paarungen(
     `quelle`s are otherwise read from the stored document rather than from the request, so a value
     somebody moved since that save survives. Every refusal, and the resolution itself, are
     `PATCH /spiele/{spiel_id}`'s.
-
-    An entry's `voided_schiedsrichter` is the erased referee's booking that save took off the fixture.
-    It goes back only where the entry leaves the fixture played or called off and the fixture holds no
-    referee now; left still to be played, the fixture stays unassigned rather than refused.
 
     `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
     restore; one it puts back afterwards is the order doing its work rather than a loss. No

@@ -40,18 +40,15 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Nullable where the payload is not, the erasure nulling the stored name
-    # (`docs/backend/spec.md :: I213`). The floor stays on the string branch, an empty one being the
-    # sentinel this design exists to remove.
+    # Nullable where the payload is not, for the one row that stands behind nobody
+    # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`). The floor stays on the string branch, an
+    # empty one being the sentinel this design exists to remove.
     name: CustomNonEmptyString | None
     # Redeclared without the payload's empty-string coercion: a read answers with the value as
     # stored, never a repaired copy of it.
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # On no payload either, and the row's only record that the erasure ran: whoever renders the
-    # referee reads the word „anonym" off this rather than out of the name column.
-    anonymisiert_am: CustomOptionalDateString
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -81,7 +78,11 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."""
+    """Shared by delete, reactivate and anonymisieren.
+
+    The first two answer with the referee as they now stand; the erasure answers with the ghost,
+    the row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`).
+    """
 
     updated_document: FLSchiedsrichter
 

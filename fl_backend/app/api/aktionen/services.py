@@ -1,9 +1,7 @@
 from typing import Any
 
-from bson import ObjectId
-from bson.errors import InvalidId
-
 from app.core.crud import build_sort
+from app.shared.schemas.custom import parse_object_id
 
 
 def document_id_term(value: str | None) -> dict[str, Any] | None:
@@ -16,18 +14,9 @@ def document_id_term(value: str | None) -> dict[str, Any] | None:
     if value is None:
         return None
 
-    try:
-        compiled = ObjectId(value)
-    except InvalidId:
-        return {"document_id": value}
+    compiled = parse_object_id(value)
 
-    # `bytes.fromhex` skips ASCII whitespace and bson re-checks no length, so a 24-character value
-    # holding two builds an eleven-byte id the driver zero-pads on the wire into a different
-    # well-formed one. Folded, because bson lower-cases an upper-case id.
-    if str(compiled).lower() != value.lower():
-        return {"document_id": value}
-
-    return {"document_id": compiled}
+    return {"document_id": value if compiled is None else compiled}
 
 
 def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:

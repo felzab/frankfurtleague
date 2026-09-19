@@ -1829,7 +1829,7 @@
     "/api/v0/schiedsrichter": {
       "get": {
         "summary": "List Schiedsrichter",
-        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nA referee whose data were erased is OFF this list: they can be booked, edited, reactivated and\nrestored by nobody, so the list an administrator works from does not offer them.\n`GET /{schiedsrichter_id}` answers for one whatever their state, and is the only read that\nanswers for an erased one at all.",
+        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.\n\nThe ghost is OFF this list whatever the query string asks for: no person stands behind it, so\nthere is nothing an administrator could book it for, edit on it or reactivate it into\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
         "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
         "security": [
           {
@@ -1930,7 +1930,7 @@
       },
       "post": {
         "summary": "Create a Schiedsrichter",
-        "description": "Create a referee. `inactive_since` and `anonymisiert_am` are set to null here and are on no payload.",
+        "description": "Create a referee. `inactive_since` is set to null here and is on no payload.",
         "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
         "security": [
           {
@@ -1975,7 +1975,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -2019,7 +2019,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nA save reaching a referee whose data were erased is refused (`REQ-ANONYMISE-002`): the payload\ncarries a name on every field it edits, so an erased row takes no edit at all.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2576,7 +2576,7 @@
     "/api/v0/spiele/paarungen": {
       "patch": {
         "summary": "Restore the Paarungen one save moved",
-        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\nAn entry's `voided_schiedsrichter` is the erased referee's booking that save took off the fixture.\nIt goes back only where the entry leaves the fixture played or called off and the fixture holds no\nreferee now; left still to be played, the fixture stays unassigned rather than refused.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
+        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
         "operationId": "patch_spiele_paarungen_api_v0_spiele_paarungen_patch",
         "requestBody": {
           "content": {
@@ -4017,7 +4017,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nA referee whose data were erased is refused (`REQ-ANONYMISE-003`): the erasure retires them, and\nbringing them back would offer a nameless row for a new fixture, which is fresh personal data\nabout the person who asked to be left out.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -4063,7 +4063,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Anonymise a Schiedsrichter",
-        "description": "Null the referee's name, school, telephone number and email address, and stamp the day it was done.\n\nWritten to the row, to every Spiel they officiated and to the log, in one transaction. The row\nitself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under\nthe erasure is refused (`REQ-ANONYMISE-001`).\n\n**It also retires the referee and unassigns them from every fixture still to be played**, so they\nhold none of those fixtures, take no new one and are refused on any a later save puts back among\nthem (`REQ-BOOKING-001`), and cannot be brought back (`REQ-ANONYMISE-003`): a booking of any kind\nwould create fresh personal data about the person who asked to be left out. Such a fixture loses the\nwhole `schiedsrichter` block, the fee agreed for it included, and answers\n`GET /spiele/action_required` until somebody assigns a referee to it; a fixture played or called\noff keeps its block under the nulled name. A retirement already stamped keeps its own day. What a\nreader is shown in place of the nulled name is the frontend's word, so no endpoint answers one.",
+        "description": "Delete the referee's document and repoint every fixture that named them at the ghost.\n\nThe row does not survive, and nothing on it is nulled in place: the fixtures keep their own\n`payment` and read from then on as officiated by nobody. It cannot be undone, and an id already\nerased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).\n\n**The response carries the ghost rather than the person**: the row the path named is gone, and\nanswering an erasure with the name and contact details it just destroyed would serve them once\nmore. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.\n\n**The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported\nby `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and\na save putting a played or called-off one back among those still to be played is refused it\n(`REQ-BOOKING-001`).",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {
@@ -7821,6 +7821,10 @@
             ],
             "title": "Booking"
           },
+          "booking_id": {
+            "type": "string",
+            "title": "Booking Id"
+          },
           "name": {
             "anyOf": [
               {
@@ -7844,6 +7848,7 @@
           "spiel_nr",
           "reason",
           "booking",
+          "booking_id",
           "name",
           "inactive_since"
         ],
@@ -9490,16 +9495,6 @@
               }
             ]
           },
-          "voided_schiedsrichter": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielPriorSchiedsrichter"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -9513,7 +9508,6 @@
           "elfmeterschiessen",
           "sonderereignis",
           "other_fields",
-          "voided_schiedsrichter",
           "spiel_id"
         ],
         "title": "FLPatchSpielPaarungPayload",
@@ -11243,18 +11237,6 @@
               }
             ],
             "title": "Inactive Since"
-          },
-          "anonymisiert_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Anonymisiert Am"
           }
         },
         "type": "object",
@@ -11264,8 +11246,7 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since",
-          "anonymisiert_am"
+          "inactive_since"
         ],
         "title": "FLSchiedsrichter"
       },
@@ -11335,7 +11316,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."
+        "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
       },
       "FLSpielAdvancement": {
         "properties": {
@@ -11387,16 +11368,6 @@
               }
             ],
             "title": "Voided Sonderereignis"
-          },
-          "voided_schiedsrichter": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielSchiedsrichterField"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -11405,8 +11376,7 @@
           "spiel_nr",
           "voided_ergebnis",
           "voided_elfmeterschiessen",
-          "voided_sonderereignis",
-          "voided_schiedsrichter"
+          "voided_sonderereignis"
         ],
         "title": "FLSpielAdvancement",
         "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check."
@@ -12171,16 +12141,6 @@
               }
             ]
           },
-          "voided_schiedsrichter": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielPriorSchiedsrichter"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -12193,7 +12153,6 @@
           "elfmeterschiessen",
           "sonderereignis",
           "other_fields",
-          "voided_schiedsrichter",
           "spiel_id"
         ],
         "title": "FLSpielPriorPaarung",
@@ -12344,16 +12303,6 @@
             ],
             "title": "Voided Sonderereignis"
           },
-          "voided_schiedsrichter": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielSchiedsrichterField"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "side": {
             "type": "string",
             "enum": [
@@ -12375,7 +12324,6 @@
           "voided_ergebnis",
           "voided_elfmeterschiessen",
           "voided_sonderereignis",
-          "voided_schiedsrichter",
           "side",
           "team_name"
         ],
