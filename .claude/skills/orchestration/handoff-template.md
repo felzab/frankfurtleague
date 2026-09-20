@@ -76,7 +76,9 @@ Where a plan's handoff protocol differs from this file, `SKILL.md` §7 decides.
 
 Every later session's starter prompt is a short map, under a page, that points at its predecessor's
 handoff and carries the lines below — never a copy of the handoff, which the reading order already
-delivers. The owner sends `/orchestration` as its own message before pasting it
+delivers. **Where a programme's playbook lists what every starter carries, that list wins over the
+page bound**: each of its items is one the session needs before it has opened anything, and a
+starter cut to length drops the ones that look least like instructions. The owner sends `/orchestration` as its own message before pasting it
 ([USAGE.md](USAGE.md)).
 
 ```
