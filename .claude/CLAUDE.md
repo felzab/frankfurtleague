@@ -255,10 +255,12 @@ convention is in `docs/`; match the surrounding code.
 
 **Every line here, and every line under `.claude/rules/`, is a never-clause, and each is
 deliberate.** Never flag, refactor or optimize one without an instruction naming it; if you believe
-one is wrong, say so and stop. The argument for a line is in the commit that made it — `git log -S`
-on the constraint it names, or `git blame` from the line it governs — and several rest on a
-measurement paid for once and recorded there. A clause this short is easy to think wrong, and the
-moment a better solution suggests itself is the moment the decision has already weighed it.
+one is wrong, say so and stop. **The line is the record of the decision.** Where an argument
+survives it sits at the line the clause governs, or in a commit `git blame` reaches from there —
+several rest on a measurement paid for once and recorded so — while `git log -S` on a clause moved
+into `.claude/rules/` lands on the move and argues nothing, and a clause with no surviving argument
+is still deliberate. A clause this short is easy to think wrong, and the moment a better solution
+suggests itself is the moment the decision has already weighed it.
 
 **Read every rules file that loaded in full before proposing a change on its surface, and open the
 file for a surface you are about to touch even when no read has pulled it in yet** — the clause you
