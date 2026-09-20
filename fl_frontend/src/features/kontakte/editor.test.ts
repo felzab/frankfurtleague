@@ -1252,7 +1252,7 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
   };
 
   /* A date typed on somebody's behalf is the one field the published notice says only that person
-     fills, and it is what the age floor at the confirmation is there to judge (ruling 274). */
+     fills, and it is what the age floor at the confirmation is there to judge. */
   it("reads the stored date out and offers no box to type one into", () => {
     const box = birthdateBox(sectionMarkup(BLOCK), "trainer");
 

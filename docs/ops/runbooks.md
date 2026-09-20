@@ -765,35 +765,26 @@ and no validator expresses the pairing either
 
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
-were collected on ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. In `mongosh` against the cluster, as §2's `collMod`
-command is — the backend image carries none, and §2 says what a command run through that image
-instead looks like:
+were collected on
+([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
+so an accepted school holds each date twice. **The clear is typed by hand in `mongosh` against the
+cluster, as every migration here is** (§2) — the backend image carries none, and §2 says what a
+command run through that image instead looks like. Four things decide whether the one typed is
+right:
 
-```javascript
-const seats = ["trainer", "ansprechperson", "stellvertretung"];
-const term = (seat) => ({ [`kontakte.${seat}.geburtsdatum`]: { $ne: null }, [`kontakte.${seat}.einwilligung.bestaetigt_am`]: null });
-for (const seat of seats)
-  for (const name of ["saison_teams", "bewerbungen"]) print(name, seat, db.getCollection(name).countDocuments(term(seat)));
-```
+- **Count before clearing, per seat and per collection, on the term the clear will use** — a date
+  that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
+  update reports as modified against its count.
+- **The `null` half is what reaches a record written before `bestaetigt_am` existed**, matching an
+  absent key as well as a stored null, which is why that key sits outside `required`
+  (`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`). The `$ne: null` half matches a
+  stored value alone, so an empty seat and an already-clear one match neither.
+- **Null rather than `$unset`**, which is the shape every write path stores and every read answers
+  as none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`).
+- **One update per seat, each carrying its own seat's term**, for the reason §2's rename gives: a
+  dotted path cannot traverse a null, and a document the term matched necessarily holds that seat.
 
-**The `null` half is what reaches a record written before `bestaetigt_am` existed**, matching an
-absent key as well as a stored null, which is why that key sits outside `required`
-(`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`). The `$ne: null` half matches a
-stored value alone, so an empty seat and an already-clear one match neither. The clear reads that
-same `seats` and `term`, so it goes in the shell the count ran in rather than a fresh one:
-
-```javascript
-for (const seat of seats)
-  for (const name of ["saison_teams", "bewerbungen"])
-    print(name, seat, db.getCollection(name).updateMany(term(seat), { $set: { [`kontakte.${seat}.geburtsdatum`]: null } }).modifiedCount);
-```
-
-**Null rather than `$unset`**, which is the shape every write path stores and every read answers as
-none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`). **One update per seat, each
-carrying its own seat's term**, for the reason §2's rename gives: a dotted path cannot traverse a
-null, and a document the term matched necessarily holds that seat. Each `modifiedCount` should equal
-the count above it. Then `--check` again.
+Then `--check` again.
 
 ## 12. Deleting this season's player records and resetting the action log
 
@@ -810,21 +801,14 @@ the player half takes is not settled here.
 
 **What the reset reaches that the retention index cannot is the unstamped rows.** The TTL expires a
 row on `at_date`, and only `fl_backend/app/core/recording.py :: record_write` ever wrote one, so a row
-standing before that writer shipped is expired by nothing (I119). What says how many are left, in
-`mongosh` as §11's commands are:
-
-```javascript
-db.getCollection("aktionen").countDocuments({ at_date: { $exists: false } });
-```
+standing before that writer shipped is expired by nothing (I119), and a count of the rows carrying
+no `at_date` says how many are left.
 
 **Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
 write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
 so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
-first ([section 13](#13-after-a-restore-from-a-snapshot)).
-
-```javascript
-db.getCollection("aktionen").deleteMany({});
-```
+first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is typed by
+hand in `mongosh`, as every migration here is (§2).
 
 ## 13. After a restore from a snapshot
 

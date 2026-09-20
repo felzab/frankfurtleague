@@ -56,23 +56,6 @@
 # median about as far as the merge itself did. It narrows once the window clears the merge, and
 # until then only a large change reaches the report on that row.
 #
-# `frontend`'s reference stands where it does because the gate step grew, and not the setup around
-# it. Medians over the completed main push runs of `.github/workflows/verify.yml`, 66 successful
-# frontend jobs from 2026-08-12 to 2026-09-07, each span taken first step to last: 98 s through
-# 2026-08-21, 110 s over the pushes to 2026-08-31, 118 s from 2026-09-01 -- windows cut by date
-# rather than by the row's own stamped population, so that last figure is not the reference beside
-# it. The `Run the frontend scope` step reads 69 s, 83 s and 86.5 s over those same three windows,
-# tracking the job almost exactly, while the toolchain action got faster across them, 23 s to 18 s,
-# and the steps the last window added cost 0-4 s each: neither a runner change nor pool width is
-# needed to explain the move. Inside the step, two runs -- run 32450493617 job 96678012838 on
-# 2026-08-21 against run 34085018333 job 101627272597 on 2026-09-07 -- put the growth in the unit
-# tests above all, 7.0 s against 35 s, with eslint 18 s against 28 s and tsc 9.9 s against 17 s on a
-# larger source tree, offset by a build that fell from 30 s to 8.4 s once `next typegen` was split
-# out ahead of it. Those two are runs and not medians, the first above its window's median and the
-# second below its own, so they say which units grew and not how far the reference moved. Neither
-# the reference nor the budget moves on any of it and neither takes a new stamp: an attribution is
-# not a measurement of the row.
-#
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
 # checks' own rather than the walk's. Their 1.06 s sits inside the floor the `docs` row carries.
@@ -193,12 +176,13 @@
 # floor the `scripts` row carries, so neither the reference nor the budget moves and neither takes a
 # new stamp.
 #
-# `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and its budget
-# rose to 370 s by the rule above over the one successful pull-request run of this branch's job,
-# 294 s first step to last on 2026-09-19; the two failed runs beside it, 197 s and 271 s, are
-# dropped as `scripts/checks/check_gate_budget.py` drops them. The reference keeps its 24-run
-# figure, which the stamp cannot say: the branch has no main run, a median over one run is no
-# median, and the row is re-cut once a window of main runs holds it. The unit tests are the whole
+# `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and its row is
+# cut from the five completed main push runs since they landed, 2026-09-19 to 2026-09-20: 243, 260,
+# 264, 268 and 287 s first step to last, so the reference is their median and the budget the rule
+# above over the widest. The floor keeps the figure the 24-run population gave it: five runs are too
+# few to draw a twelve-run median from, and drawn with replacement they answer 5 percent, which
+# reads the smallness of the population rather than the job. It is re-cut, floor included, once
+# twelve such runs exist. The unit tests are the whole
 # move, 171 s on the runner against 35 s in the last stamped window, and the cost is each file's own
 # process loading jsdom (1.05 s) and the HeroUI entry point (1.31 s) before a case runs, measured
 # locally on 2026-09-19 on the sixteen-core machine: a file rendering nothing starts in 0.2 s and
@@ -223,8 +207,8 @@ backend-db	49	40	125	24@2026-09-07
 commits	-	-	25	24@2026-09-07
 docs	39	10	60	24@2026-09-07
 format	-	-	50	3@2026-08-31
-frontend	122	10	370	1@2026-09-19
+frontend	264	10	360	5@2026-09-20
 images	101	29	-	24@2026-09-07
 ops	17	29	45	13@2026-09-07
 scripts	52	16	80	24@2026-09-07
-total	415	10	-	-
+total	557	10	-	-

@@ -59,9 +59,9 @@ Resume this session. Do not continue any work until you have finished this proto
    it is either a lost agent or a conflict incident. Do not commit anything you cannot attribute.
 
 5. INSTRUCTIONS. Re-read every standing instruction and confirm each is still being followed --
-   the repository's own rules file, the ratified decisions, the owner's standing-instructions file
-   and the starter, whose paths the register header carries, the rulings recorded in the register,
-   and the constraints in the brief that started this session. Say which ones the work in flight
+   the repository's own rules file, the ratified decisions, the owner's own `~/.claude/CLAUDE.md`,
+   the starter, whose path the register header carries, the rulings recorded in the register, and
+   the constraints in the brief that started this session. Say which ones the work in flight
    touches. An instruction nobody restated after a gap is the one that gets dropped.
    Then read the register's list of changes made for an unattended stretch, and confirm each is
    still exactly as the register describes it -- still uncommitted, its backup still on disk, its
@@ -95,10 +95,10 @@ rests on a resume** — never from a tool description, which has named a send to
 have ([agent-brief-template.md](agent-brief-template.md) section 13).
 
 - **With a send tool**, that tool resumes an agent from its transcript, **addressed by the id the
-  Agent tool returned rather than by the name in its brief, a send by name having failed** (the
-  owner's standing instructions), which is why the register carries the id beside it. An agent stopped
-  by a quota limit has come back that way with its context intact and nothing on disk, and the
-  attempt costs one message where a re-brief costs the whole context.
+  Agent tool returned rather than by the name in its brief, a send by name having failed**, which
+  is why the register carries the id beside it. An agent stopped by a quota limit has come back
+  that way with its context intact and nothing on disk, and the attempt costs one message where a
+  re-brief costs the whole context.
 - **Without one, every continuation is a fresh dispatch carrying a corrected brief**, and the only
   material it can be built from is what the register banked plus what is on disk: an unbanked
   verdict is unreachable however live the transcript looks. A follow-up then costs a whole brief

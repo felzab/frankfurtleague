@@ -15,10 +15,10 @@ paths:
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change
 - **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
-- **domain** — Import `app/core/domain.py` from `app/`; generate it; enforce it
+- **domain** — Generate `app/core/domain.py`
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
-- **spiele** — Drop a forfeit from the cancellation count; merge it into the scoring lookup
+- **spiele** — Merge the cancellation count into the scoring lookup
 - **tests** — Mark a test `db` for a decision the default tier reaches
 
 ## Traps

@@ -943,6 +943,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   words, and every place naming the repository, the package, the domain, an image or a logger
   spells it as one. The reservation enumerations are the exception and keep both, plus the
   hyphenated variant, because what they protect is the set.
+- **A navigation label is one or two words, and it is mine to choose** (my rule, 2026-09-06):
+  navigation is scanned rather than read, so a label reading as a headline is the wrong label, and
+  where a word is barred for another reason the answer is a different short word, never a phrase.
 - **_Already_ is `schon`** (my rule, 2026-08-31): never `bereits`, which takes a capital at the
   head of a sentence, so a case-sensitive sweep leaves those occurrences standing; `bereit` and
   `bereiten` are other words and stay.
@@ -1159,6 +1162,11 @@ The consequences worth knowing before editing metadata:
 - **`metadataBase`, the crawl policy and the sitemap keep `fl_frontend/src/core/brand.ts :: SITE_URL`
   and never read an origin from the environment** — one a misconfigured deploy can put in front of a
   crawler — which is why a message's links follow a setting of their own (I186).
+- **A page whose name changes takes a new route segment and a new sitemap entry, and its old
+  address answers 404 rather than redirecting** (my rule, 2026-09-06): an address naming nothing
+  says so, a redirect kept for a renamed page is a route nobody removes afterwards, and the lost
+  index entry is the accepted cost. A page folded into another is a different case and keeps its
+  redirect (`fl_frontend/next.config.ts`).
 - **Every 404 on a route setting metadata answers with
   `fl_frontend/src/shared/utils/notFoundMetadata.ts :: NOT_FOUND_METADATA`**, the root boundary, each
   catch-all and each page generating its metadata alike, which resets the canonical, both cards and
@@ -1313,6 +1321,10 @@ keeps whatever weight a numeric site spells.
 | `font-bold`      | A label — a field label, a pill, a button, a `<dt>`, a switch label, a strapline, a reader's own value     |
 | `font-semibold`  | A label ranked below its neighbours: a footer column title, a compact readout's value, the `cancel` button |
 | `font-medium`    | Every run of prose; a bold run is a label or a one-liner and never a paragraph (I167)                      |
+
+**A person's own datum never sits unmarked in prose** — a name, a role, a date they gave takes the
+`font-bold` rung on a page and `<strong>` in a mail, one mechanism on both surfaces, so a page and
+the message about it emphasise the same words.
 
 **Uppercase is a label voice or the display voice, and never a value, a hint or a paragraph.** The
 label voice is Raleway tracked wide — `fl_frontend/src/shared/components/ui/formFieldStyles.ts ::

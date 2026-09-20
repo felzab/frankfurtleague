@@ -44,6 +44,10 @@ did the reasonable thing in their absence.
 - **Never cap the report's length.** A cap makes an agent drop its caveats, its not-established
   notes and its out-of-scope findings first, those looking least like findings, which is the class
   the report exists to carry. Shape is the instruction instead, and section 14 gives it.
+- **Never give a brief a time budget, an expectation or a stop-at-N clause.** An agent that stops
+  on a clock hands back partial work the next one re-derives, and a session's wall clock is spent
+  on routing and waiting, never on an agent running long; where something must be bounded, bound
+  the scope, and measure durations after the fact.
 - **A judgement test the brief hands out names its parameters, and is calibrated once with a worked
   verdict before it reaches a second agent.** A test phrased over "a reader" left every sweep to
   pick its own, each picking the most generous one available, so one rule produced opposite verdicts
@@ -131,8 +135,9 @@ did the reasonable thing in their absence.
                 whose draft pull request is open. That definition is addressed to me, not to you:
                 YOU are finished when your report lands.
 
-6  SUB-AGENTS.  ZERO, whatever this task looks like it needs: the owner's standing instructions
-                allow no agent to spawn one. Where a question needs a fresh agent, say so and
+6  SUB-AGENTS.  ZERO, whatever this task looks like it needs. `/docs:audit` fans out to a fleet of
+                auditors, sub-agents by another route, and `/docs:audit-pr` edits the branch in
+                place: never run either. Where a question needs a fresh agent, say so and
                 stop -- I dispatch it myself at the top level. Unbounded fan-out has twice
                 consumed the whole concurrency budget and blocked the work queued behind it.
 
