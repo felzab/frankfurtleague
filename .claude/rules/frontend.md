@@ -9,7 +9,7 @@ paths:
 `.claude/CLAUDE.md` §7's never-clauses whose only violator is a session inside `fl_frontend/`, its
 own config files included, on §7's terms.
 
-- **cache** — Add a granular cache tag with no `updateTag`; make base tags conditional
+- **cache** — Make base tags conditional
 - **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
 - **spiele** — Merge the three `SpielCard` variants
 - **pages** — Remove an `await connection()` before a page fetch
