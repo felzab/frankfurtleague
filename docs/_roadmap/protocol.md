@@ -71,7 +71,7 @@ changes rows nobody edited. **A closing commit walks the entire table and re-der
 
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
 remains. **`Skipped` is not declined**: the work is still wanted, so the entry stays and nothing
-re-opens it until I say so (ruling 137, 2026-09-06). A status that contradicts the `Depends on`
+re-opens it until I say so (ruled 2026-09-06). A status that contradicts the `Depends on`
 beside it is the failure this rule exists to catch, so read the two columns together. **Both
 listings carry the same word, that word is one the table above derives, and a `Blocked` names an
 entry the page still holds** (`scripts/checks/docs_gate/checks.py :: _check_status_agreement`),

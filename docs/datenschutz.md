@@ -228,12 +228,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   the submission. This is the period the published notice shows a visitor
   (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this section: every
   figure in it is a hand-checked mirror of the clocks recorded here. **An application whose deletion notice the
-  provider refuses is held past that window rather than erased** (ruling 182,
-  `docs/backend/spec.md :: I196`): the provider accepts a send to a suppressed address and skips
-  it, so erasing on a stamp saying the notice went out is erasing somebody who was told nothing,
-  which is what ruling 87 refuses. It stands until an administrator enters a reachable address or
-  decides the application, and in neither case past the end of the season it applied for. Ruled
-  2026-09-08.
+  provider refuses is held past that window rather than erased** (`docs/backend/spec.md :: I196`):
+  the provider accepts a send to a suppressed address and skips it, so erasing on a stamp saying
+  the notice went out is erasing somebody who was told nothing, which is what the sweep's own
+  ordering refuses: it mails the un-announced, stamps what was delivered and erases only what was
+  announced. It stands until an administrator enters a reachable address or decides the
+  application, and in neither case past the end of the season it applied for. Ruled 2026-09-08.
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
