@@ -849,10 +849,17 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   fi
 
   step "Security headers, as served over HTTPS"
-  # No `-f`: it discards the reply for any status past 399, so an edge answering 502 with every
-  # header set reads exactly like an edge that answered nothing at all. Read first, then graded.
-  head_out="$(curl -sSI --max-time 10 https://frankfurtleague.de 2>/dev/null || true)"
-  headers="$(printf '%s\n' "$head_out" | grep -iE "content-security-policy|strict-transport-security" || true)"
+  # Asked again before it is graded: a reply the edge composes while nginx is still reloading is the
+  # edge's own and carries none of nginx's headers, which a steady site serves on every reply.
+  head_out="" headers=""
+  for _ in 1 2 3 4; do
+    # No `-f`: it discards the reply for any status past 399, so an edge answering 502 with every
+    # header set reads exactly like an edge that answered nothing at all. Read first, then graded.
+    head_out="$(curl -sSI --max-time 10 https://frankfurtleague.de 2>/dev/null || true)"
+    headers="$(printf '%s\n' "$head_out" | grep -iE "content-security-policy|strict-transport-security" || true)"
+    if [[ -n "$headers" || -z "$head_out" ]]; then break; fi
+    sleep 3
+  done
   if [[ -n "$headers" ]]; then
     printf '%s\n' "$headers" | detail
     ok "the edge is serving them"
