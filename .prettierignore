@@ -15,7 +15,6 @@ __pycache__
 node_modules
 fl_frontend/.next/
 fl_frontend/out/
-fl_frontend/coverage
 *.tsbuildinfo
 next-env.d.ts
 
