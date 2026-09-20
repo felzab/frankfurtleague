@@ -78,5 +78,4 @@ instruction, in a transcript already carrying this session's work, treats it as 
 
 ## Precedence
 
-This skill never overrides `.claude/CLAUDE.md` or the owner's standing-instructions file the
-starter names ([SKILL.md](SKILL.md) §7).
+This skill never overrides `.claude/CLAUDE.md` ([SKILL.md](SKILL.md) §7).

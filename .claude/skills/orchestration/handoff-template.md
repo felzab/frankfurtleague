@@ -10,12 +10,13 @@ register's resume point, never by a handoff. `SKILL.md` §7 says when it is writ
 # Handoff -- <session name> to <next session name>
 
 ## Read these, in this order
-<Each file, and the one question it answers. Point at files; do not restate them.>
+<Each file, and the one question it answers. Point at files; do not restate them. The programme
+register holding this programme's rulings is one of them, by path: it is their only home.>
 
 ## What this session settled, so you do not re-open it
-<Decisions with the argument's location, not the argument. Every owner ruling taken this session,
-dated, in the owner's words -- and copied into the owner's standing-instructions file in the
-same edit, so the two never diverge.>
+<Decisions with the argument's location, not the argument. The owner's rulings are cited by their
+row in the programme's register, which is their single home (`register-template.md`): a copy of one
+here is the copy that diverges.>
 
 ## The single most important thing in this handoff
 <One item. If everything is important, nothing is.>
@@ -55,8 +56,8 @@ this session could not run, say so instead of guessing.>
 - **A filename a pending fix round will rename.** Hand over only what has reached the end of its
   cycle; a handoff written mid-cycle sent the next session to a file about to be split.
 - **A question the owner has ruled.** One handoff re-asked the ruling that changed the per-slice
-  discipline, against its own "do not re-ask" line, because the ruling was in one copy of the
-  owner's file and not the other.
+  discipline, against its own "do not re-ask" line, because the ruling stood in one of two copies
+  and not the other.
 
 Incidents. A handoff that restated the rules file, the plan and this skill for a third of its
 length buried the four incidents only it knew. One paragraph named twelve modules where there were
@@ -64,10 +65,12 @@ fourteen, and a collected test count moved through four values during a single a
 
 ## Planning a programme
 
-The owner's standing instructions hold the shape — a separate planning session, one pull request
-per session; size a session to be worth its own branch and not exhaust its context, and give a
-phase whose verification verdict must stand alone its own session. Where a plan's handoff protocol
-differs from this file, `SKILL.md` §7 decides.
+**A programme is planned in its own session**, whose plan lays a path through the whole programme,
+one pull request per session; size a session to be worth its own branch and not exhaust its
+context, and give a phase whose verification verdict must stand alone its own session. **The plan
+is audited cold and its findings fixed before the owner sees it**, how well its sessions will
+execute in parallel included: a plan the owner reads first is one they review instead of approve.
+Where a plan's handoff protocol differs from this file, `SKILL.md` §7 decides.
 
 ## The starter prompt
 
@@ -78,9 +81,10 @@ delivers. The owner sends `/orchestration` as its own message before pasting it
 
 ```
 - Invoke the `orchestration` skill first if it is not already in context.
-- Read <owner's standing-instructions path>, then <handoff path>, in that order, before doing
-  anything else. Where the two disagree, the owner's file wins on process; a ruling in it that
-  names a programme binds that programme, and is history for any other.
+- Read <handoff path> before doing anything else, then the decisions table of the programme
+  register it names. Where the handoff and a rule file -- `~/.claude/CLAUDE.md`, the repository's
+  `.claude/CLAUDE.md` -- disagree, the rule file wins on process; a ruling binds the programme
+  whose register holds it, and is history for any other.
 - Your scope is <session scope>. Its exit condition is <exit condition>. One pull request.
 - Raise every open question the moment it arises, in one batch where you can, never in a wrap-up.
 - You end by writing the handoff for the next session and having an agent that has not seen your

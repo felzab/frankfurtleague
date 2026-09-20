@@ -43,7 +43,8 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
   ([resume-prompt.md](resume-prompt.md)). **The resume point is this session continuing, never a
   handoff** ([handoff-template.md](handoff-template.md)).
 - **Before recording that the owner's process lacks a step, check whether the step exists and you
-  skipped it.**
+  skipped it.** **A programme's rulings live in its register alone**
+  ([register-template.md](register-template.md)).
 - **Send the owner every question as one batch before the first dispatch**, and each later one the
   moment it arises: owner latency is unbounded and gates whole branches of the schedule, and asking
   one at a time was the programme's largest avoidable delay. **Settle it against the live system
@@ -109,8 +110,7 @@ The ending, in order:
    work, then fixed.
 
 **Where a programme plan's handoff instructions differ from this skill's, this skill wins; where
-this skill differs from `.claude/CLAUDE.md` or the owner's standing instructions, this skill is
-wrong and is fixed here.**
+this skill differs from `.claude/CLAUDE.md`, this skill is wrong and is fixed here.**
 
 ## 3. Every dispatch
 
@@ -119,9 +119,7 @@ Run it for every agent, the fifteenth as much as the first.
 1. **Read the live-agent table.** Is a live agent already covering this question? Resume it rather
    than start a fresh one, which hands you a second conclusion to drive; a resumed agent re-enters
    its partition, so check its files are still free. **That the harness can resume an agent at all
-   is established by attempting one send** ([resume-prompt.md](resume-prompt.md)): without one, a
-   live agent is waited out and a finished one's follow-up is a fresh brief carrying the verdict the
-   register banked.
+   is established by attempting one send** ([resume-prompt.md](resume-prompt.md)).
 2. **Diff this brief's file list against what every unclosed agent OWNS, path by path** — its whole
    brief list, never the subset it is writing now, because an agent can return to any of its files
    until it reports. Nothing mechanical sees
@@ -139,11 +137,12 @@ Run it for every agent, the fifteenth as much as the first.
    against `HEAD` before its briefs are written** — half of them otherwise carry one the tree
    contradicts ([the brief](agent-brief-template.md)), each paid for twice, in the agent's
    rediscovery and in the fix round that follows.
-5. **Dispatch a judging auditor as `cold-auditor`**; a re-auditor that must plant needs a shell and
-   goes as `general-purpose`, read-only by prose alone. Each form is in
-   [the brief](agent-brief-template.md).
-6. **Set the model the owner's file names for this kind of work, on every dispatch** (§1): nothing
-   inherits it.
+5. **Dispatch a judging auditor as `cold-auditor`**; an auditor needing a shell — to plant, run a
+   suite, read an exit code or committed state — goes as `general-purpose`, read-only by prose
+   ([the brief](agent-brief-template.md)).
+6. **Pass `model: "opus"` on every dispatch unless the owner or the programme's register names
+   another for that work**: nothing inherits it, and a wave sent on the wrong model is stopped and
+   re-sent.
 7. **Record the dispatch in the register before it runs.** One working tree, never worktrees.
 
 ## 4. Running the fleet
@@ -160,9 +159,8 @@ Run it for every agent, the fifteenth as much as the first.
 - **Dispatch before you read, and before you reply.** A landed report frees a slot, and the queue's
   next standing action fills it before the report is opened.
 - **An agent is bought for a fresh reader, for breadth you cannot cover, or for tool-hours — never
-  for typing** (the owner's standing instructions): every dispatch costs a brief, a report you must
-  read, a slot, and the risk of a second conclusion to drive. Dispatch the handoff, a document that
-  must be checked cold, a fix round across many files, and any read of a corpus you have not seen.
+  for typing**: every dispatch costs a brief, a report you must read, a slot, and the risk of a
+  second conclusion to drive.
 - **A follow-up on an agent's own files goes to that agent (§3)** rather than to a stranger, an
   audit's fixes included **where the finding is SETTLED** — by a driven plant, an owner's
   ruling, a quoted never-clause. A finding that argues the shape is wrong goes to a fresh reader
@@ -216,9 +214,10 @@ rather than the change ([the brief](agent-brief-template.md) section 12).
 
 ## 6. The cycle
 
-**research/think → implement → audit → fix → re-audit → fix → END.** Its length, its ending on a
-fix, the re-audit's subject and the lightening floor are the owner's standing instructions, which
-the starter names: read them there, never from memory (§1). What they leave to you:
+**research/think → implement → audit → fix → re-audit → fix → END**, unless the owner asks for
+more. **It ends on a fix, never on an audit**: ending on an audit ships known open findings, which
+defeats having audited. The re-audit's subject is [the brief](agent-brief-template.md)'s, the
+lightening floor and its discriminator [register-template.md](register-template.md)'s. Beyond them:
 
 - **The re-audit's agent wrote none of the fixes.**
 - **A document is audited once, cold, and its fix is read by you**; where one is re-audited anyway
@@ -236,7 +235,8 @@ the starter names: read them there, never from memory (§1). What they leave to 
   (CLAUDE.md §5) as soon as it is served and before its fix rounds close — rounds of owner feedback
   over a served build have reopened decisions every cold audit had passed. Yours: the stack up, a
   checklist of what changed, and the structural checks. **A look ruling is a class** and binds every
-  surface in flight.
+  surface in flight, and **the owner is the primary source on what the owner has looked at**: where
+  a handoff's list disagrees, the list is withdrawn.
 - **At many slices the lightening is the normal allocation and the full cycle the exception**
   ([register-template.md](register-template.md)).
 - **Audits are bought by blast radius, not by agent count.** One cold auditor per seam takes every

@@ -25,16 +25,19 @@ nothing outlives the turn except what I put here.
 
 Repository state at the start of this fleet: <branch, tip subject, tree clean or not, what is
 being written to the repository while the fleet runs>.
-Concurrency budget: <cap>, helpers included -- the owner's number, which paces quota; it is read
-from their file at its latest value, never inferred, raised or exceeded. Beneath it sits a lower
-ceiling, what quality bears, which is learned by watching quality rather than taken from a figure
-some earlier session remembered. Sub-agent cap per agent: zero, always -- a fresh agent is a second
-dispatch of mine.
+Concurrency budget: <cap>, helpers included -- what the owner last said: this session, else the
+latest row of the programme register, else 12, under a ceiling of 20; it paces quota, and is never
+taken from a handoff, which is written before a session ends. Beneath it sits a lower ceiling, what
+quality bears, which is learned by watching quality rather than taken from a figure some earlier
+session remembered.
+Sub-agent cap per agent: zero, always -- a fresh agent is a second dispatch of mine.
+Model: every dispatch passes "opus" unless the owner or a ruling below names another for that
+work; design and plan-audit work may take the stronger model the owner names for it, one such agent
+at a time, and whether a piece of work earns it is mine to decide rather than to ask.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every
 brief>.
-Starter prompt: <path>. Previous handoff: <path, or none>. Owner's standing instructions: <path>.
-These three are what a resume re-reads (`resume-prompt.md` steps 2 and 5), and a compacted
-transcript may name none of them.
+Starter prompt: <path>. Previous handoff: <path, or none>. These two are what a resume re-reads
+(`resume-prompt.md` steps 2 and 5), and a compacted transcript may name neither.
 
 ## Prepared for the unattended stretch -- and nothing here depends on my remembering it
 
@@ -102,6 +105,9 @@ audit. What that script owes:
   found it and the run is repeated rather than unpicked.
 - **It refuses to run against an index that is not empty** unless told the hunks were staged
   deliberately: in a shared tree an inherited index sweeps another agent's work into your commit.
+  `git commit --amend` commits that same index rather than the tip's file set, so the refusal binds
+  an amend as it binds a commit; a tip that folded foreign files in is repaired with
+  `git reset --soft HEAD~1` and a re-stage from the folded commit.
 - **It stages from a diff captured at the start of the run, never with `git add`.** In a tree the
   fleet is still writing, `git add <path>` stages whatever the file holds at that instant rather
   than the content you judged.
@@ -122,13 +128,14 @@ audit. What that script owes:
 | Slice | Rounds | Critical -- is a wrong result SILENT? Reason |
 | ----- | ------ | ------------------------------------------- |
 
-**The discriminator is the owner's, at the standing-instructions path** (`SKILL.md` §6), and the
-allocation it yields is one audit and one fix for everything whose failure is loud: two rounds cost
-two agents a slice, so fifteen slices is thirty audit agents spent before a finding exists. The
-full cycle goes to the few slices every other one is judged against -- a defect there propagates
-into all the rest before anyone sees it. Every row carries its reason, written before any finding
-exists either way, and a lightened slice's single fix is walked by the next driving re-auditor
-rather than by a re-audit of its own (`SKILL.md` §6).
+**The discriminator is whether a wrong result is SILENT** (`SKILL.md` §6): a slice whose failure
+looks exactly like success keeps the full cycle, and the allocation that yields is one audit and
+one fix for everything whose failure is loud -- which is also the floor, no slice shipping on a
+cold read alone: two rounds cost two agents a slice, so fifteen slices is thirty audit agents spent
+before a finding exists. The full cycle goes to the few slices every other one is judged against --
+a defect there propagates into all the rest before anyone sees it. Every row carries its reason,
+written before any finding exists either way, and a lightened slice's single fix is walked by the
+next driving re-auditor rather than by a re-audit of its own (`SKILL.md` §6).
 
 **A slice whose output a person looks at carries its browser pass in this table beside its rounds**
 (`SKILL.md` §6). A cold read cannot see a layout, so that pass is the slice's audit and not an
@@ -169,10 +176,9 @@ mentioned the failure under "what I could not verify".>
 
 The name is the one it was dispatched under: its scratch subdirectory is named for it and its brief
 calls it `<your agent name>`. **The address a resume or a follow-up is sent to is the id the Agent
-tool returned, never the name** -- the owner's standing instructions record a send by name failing.
-Record both at dispatch; a resume has nothing to aim at otherwise, and where this harness has no
-send tool at all (`resume-prompt.md`) the banked verdict is the whole of what a follow-up brief can
-be built from.
+tool returned, never the name** -- a send by name has failed. Record both at dispatch; a resume has
+nothing to aim at otherwise, and where this harness has no send tool at all (`resume-prompt.md`)
+the banked verdict is the whole of what a follow-up brief can be built from.
 
 Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
@@ -194,6 +200,11 @@ Cycle is one of: implement, audit, fix, re-audit, fix, done.
 One row per block of remaining work rather than per agent, and the third column is what stops a
 guess hardening into a plan on its second reading. What the read-back is for, and what it looks
 for, is `SKILL.md` §4.
+
+**A figure the owner will act on is taken in one exclusive window a session**: announced to the
+owner and started at once rather than held for a reply, the fleet stopped and the owner asked off
+the machine, with whatever else it was running recorded beside the figure. A figure taken while anyone
+works the same machine measures contention.
 
 **My own serial work is a row here, and it is the row a wave estimate cannot contain.** A wave's
 figure is its longest agent's and mine is a sum over every commit, report and routing decision, and
@@ -217,6 +228,14 @@ this list is what remains, dispatch nothing new.>
 "Routed to" names a live agent or my own next action, never an artefact. A ruling routed to "the
 commit" is owed by nobody: no brief carried it, no agent's file list held it, and a cold auditor
 found it undone with the commit's trailer already written against it.
+
+**This table is the single home of every ruling taken this session**, dated and in the owner's
+words: every other site cites the row by its number here and never copies the text, a second copy
+diverging silently, and a number taken from a transcript rather than from this table is checkable
+by nobody. A ruling that binds the repository beyond this programme is recorded in the tree as the
+constraint itself -- a rules clause, a CLAUDE.md line, an invariant, a comment at the line -- so
+the tree never depends on this file surviving; one that binds how the owner works in every
+repository goes to their own `~/.claude/CLAUDE.md`.
 
 ## Open, awaiting the owner
 
@@ -319,3 +338,6 @@ only thing that will still be true in the morning.
   its reasoning and what reversing it would cost. A decision handed back costs more than one taken
   wrongly, because the wrong one is visible in a diff and the deferred one is a pile of homework
   waiting at breakfast.
+- **Deciding in the owner's place is a grant the owner gives for a named stretch**, never assumed
+  and never carried into the next session. It covers routine judgement on best-practice terms: a
+  question genuinely unsettled is held for the owner, and so is any string a visitor navigates by.

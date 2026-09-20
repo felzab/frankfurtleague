@@ -1,6 +1,6 @@
 ---
 name: cold-auditor
-description: Read-only auditor for a diff, a document, a plan or a handoff. Use for every audit and re-audit that judges rather than drives. It cannot edit or stage anything in the repository and cannot spawn agents, and its report is its final message rather than a file. A re-audit that must plant a violation and restore it needs a shell and uses the general-purpose agent under the brief's prose rule instead.
+description: Read-only auditor for a diff, a document, a plan or a handoff. Use for every audit and re-audit that judges rather than drives. It cannot edit or stage anything in the repository and cannot spawn agents, and its report is its final message rather than a file. An audit that must plant a violation, run a suite, read an exit code or read committed state needs a shell and uses the general-purpose agent under the brief's prose rule instead.
 tools: Read, Grep, Glob, Write
 model: inherit
 hooks:
