@@ -994,7 +994,9 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   `frankfurtleague-net` with TLS kept, its `Origin Server Name` set to the name the mounted
   certificate carries (§1.2) and `No TLS Verify` off, so the header set and the certificates in
   `nginx/prod.conf` are what a visitor's request still meets. **The dashboard is where its token is
-  issued**, and the server holds the issued value at `./secrets/tunnel_token` (§1.2).
+  issued**, and the server holds the issued value at `./secrets/tunnel_token` (§1.2). Each
+  hostname's DNS record is the tunnel's own, written when the hostname was added, so the zone holds
+  no record naming the origin's address.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole

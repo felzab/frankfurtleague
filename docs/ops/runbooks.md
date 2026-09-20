@@ -695,7 +695,10 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    `./scripts/ops/deploy.sh --status`.** The site is dark from the recreate until those hostnames
    route, because DNS still names an origin that now publishes nothing. Each hostname's origin
    settings are [`spec.md`](spec.md) §1.8's; an ingress pointed at the plain port meets the
-   redirect block and loops on its 301 rather than failing.
+   redirect block and loops on its 301 rather than failing. **Adding a hostname writes its DNS
+   record, and the dashboard refuses one whose name already holds an `A`, `AAAA` or `CNAME`**, so
+   the records naming the origin's address are deleted first — and written down before that,
+   nothing else recording them once they are gone. `MX` and `TXT` records are no part of this.
 5. **Expect that run to exit 1 and to put nothing back.** The security-header read and the liveness
    probe both run after the health check and both fail into that dark window, while
    `scripts/ops/deploy.sh :: roll_back` is reached from the not-healthy branch alone — so a `fail`
@@ -706,7 +709,9 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
 That path restores IMAGES, and what would be wrong here is the topology: only the reverted commit
 puts the `ports:` block back and stops the connector, and re-running the deploy after it is what
 applies them. Step 3 leaves preflight no running pair to record besides, so there would be nothing
-for it to restore in any case (§1).
+for it to restore in any case (§1). **The edge is the other half, and no commit reaches it**: the
+two hostnames come off the tunnel and the address records step 4 deleted are created again, and
+whatever closed the host's inbound 80 and 443 since is opened.
 
 ## 9. Checking that the retention sweep has run
 
