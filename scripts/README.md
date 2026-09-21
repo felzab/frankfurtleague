@@ -27,7 +27,7 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/checks/check_regenerate_spelling.py` | any           | Every file printing the command that regenerates `openapi.json`, against the spelling the backend declares                           |
 | `scripts/checks/check_log_quoting_class.py`   | any           | The console format's quoting class in one package against the other's, character by character                                        |
 | `scripts/checks/check_test_estate.py`         | any           | The backend suite's silent shapes: a db read in the wrong tier, an empty parametrize, an unconsumed fixture                          |
-| `scripts/checks/check_conflict_markers.py`    | any           | Every tracked file, for a merge conflict marker left in it                                                                           |
+| `scripts/checks/check_tracked_text.py`        | any           | Every tracked file, for a merge conflict marker or an invisible character                                                            |
 | `scripts/checks/check_pr_body.py`             | CI only       | A pull request body, which is not in the repository                                                                                  |
 | `scripts/checks/check_gate_budget.py`         | any           | The gate's wall-clock budget: a run's jobs against their ceilings, and a raised figure against its measurement                       |
 | `scripts/checks/ts_normalize.mjs`             | any           | Whether two TypeScript files differ by anything but comments                                                                         |

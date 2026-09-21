@@ -197,7 +197,7 @@
 # reopening's first read of `spiele` the two take 0.08 s each, and the tier runs its 1113 cases in
 # 21 s locally at width 6 on 2026-09-19, its slowest case 1.04 s.
 #
-# `docs` gained a rule: `check_conflict_markers.py` refuses an invisible character beside a conflict
+# `docs` gained a rule: `check_tracked_text.py` refuses an invisible character beside a conflict
 # marker, and that rule costs 60.9-62.1 ms over the corpus it already walks -- 1235 files read as
 # text, 13.3 million characters -- against 686.7-705.6 ms for the conflict rule over the same corpus
 # in the same process, the two arms interleaved across eight rounds. Measured locally on 2026-09-21

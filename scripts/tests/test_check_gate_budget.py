@@ -25,7 +25,7 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPTS.parent
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_conflict_markers.py`.
+# Withdrawn again, kernel dropped from the cache with it, matching `test_check_tracked_text.py`.
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     budget = importlib.import_module("check_gate_budget")
@@ -78,7 +78,7 @@ def payload(*jobs: dict[str, Any]) -> dict[str, Any]:
 
 
 def written(path: Path, text: str) -> Path:
-    """`test_check_conflict_markers.py :: written`'s argument, over text whose caller has already ended it."""
+    """`test_check_tracked_text.py :: written`'s argument, over text whose caller has already ended it."""
     path.write_bytes(text.encode("utf-8"))
     return path
 

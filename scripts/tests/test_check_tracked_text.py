@@ -27,10 +27,10 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 # repository.
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
-    markers = importlib.import_module("check_conflict_markers")
+    markers = importlib.import_module("check_tracked_text")
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_conflict_markers", None)
+    sys.modules.pop("check_tracked_text", None)
     sys.modules.pop("checker_kernel", None)
 
 OPENER = "<" * 7
@@ -67,7 +67,7 @@ def run_main(*argv: str) -> tuple[int, str, str]:
     """
     out, err = io.StringIO(), io.StringIO()
     argv_before = markers.sys.argv
-    markers.sys.argv = ["check_conflict_markers.py", *argv]
+    markers.sys.argv = ["check_tracked_text.py", *argv]
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = markers.main()

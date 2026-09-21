@@ -213,7 +213,7 @@ do_pytest() {
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
 # the others read a repository nobody locks.
-do_conflict_markers() { "$PY" scripts/checks/check_conflict_markers.py; }
+do_tracked_text() { "$PY" scripts/checks/check_tracked_text.py; }
 # The flag only under Actions: `github` mode prints workflow commands INSTEAD of the human report,
 # so an unconditional one destroys the local report and leaves the run green while doing it.
 do_docs_gate() {
@@ -348,7 +348,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(conflict_markers docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
+DOCS_POOL=(tracked_text docs_gate commit_messages public_routes regenerate_spelling log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -871,17 +871,17 @@ if (( RUN_DOCS )); then
   section docs
   DOCS_OK=1
 
-  # Safe together, for `do_conflict_markers`' reason.
+  # Safe together, for `do_tracked_text`' reason.
   start_steps --docs "${DOCS_POOL[@]}"
 
   # Read first, and given no file list, so it reads the whole tracked tree rather than a branch's
   # diff: an unresolved conflict reaching main is what makes every finding below it unreliable.
   step "docs · no tracked file carries a conflict marker or an invisible character"
-  unit_join conflict_markers
-  if run_checker collect "scripts/checks/check_conflict_markers.py" "A tracked file still holds a merge conflict marker, or a character nobody can see in a
+  unit_join tracked_text
+  if run_checker collect "scripts/checks/check_tracked_text.py" "A tracked file still holds a merge conflict marker, or a character nobody can see in a
 diff. Each finding above names the file and the line it stands on. Resolve the conflict; delete the
 character, or spell it by code point where a test is about the character itself." \
-    unit_replay conflict_markers; then
+    unit_replay tracked_text; then
     ok "no tracked file carries a conflict marker or an invisible character"
   else
     DOCS_OK=0
