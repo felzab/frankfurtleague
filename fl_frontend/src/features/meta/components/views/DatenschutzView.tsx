@@ -179,7 +179,10 @@ export function DatenschutzView() {
               Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens; wie das bei Schiedsrichterinnen und
               Schiedsrichtern genau aussieht, steht in Abschnitt 10.
             </li>
-            <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
+            <li className={ABSATZ}>
+              Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein; als Ansprechperson oder Stellvertretung
+              mindestens 18.
+            </li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
             </li>
@@ -279,8 +282,8 @@ export function DatenschutzView() {
 
         <LegalSection title="6. Wenn eine Schule sich bewirbt">
           <p className={ABSATZ}>
-            Über das Bewerbungsformular kann eine Schule ihre Aufnahme in die Liga beantragen. Bewerben darf sich, wer mindestens 16 Jahre alt
-            ist.
+            Über das Bewerbungsformular kann eine Schule ihre Aufnahme in die Liga beantragen. Als Kontaktperson eingetragen werden darf, wer
+            mindestens 16 Jahre alt ist; als Ansprechperson oder Stellvertretung nur, wer mindestens 18 Jahre alt ist.
           </p>
           <p className={ABSATZ}>Was in das Formular eingetragen wird:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
@@ -305,12 +308,13 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Jede der drei Kontaktpersonen bekommt eine eigene E-Mail mit einem persönlichen Link. Über diesen Link bestätigt sie ihren Eintrag
             in der genannten Rolle und trägt dabei ihr Geburtsdatum ein. Das Geburtsdatum erreicht uns also erst an dieser Stelle und von der
-            Person selbst; wir prüfen damit, ob sie mindestens 16 Jahre alt ist. Das ist keine Einwilligung, sondern eine Bestätigung: Sie
-            belegt, dass die angegebene E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass sie mindestens 16
-            Jahre alt ist und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung
-            bleibt so lange offen, bis alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt,
-            löschen wir die Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze
-            Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.
+            Person selbst; wir prüfen damit, ob sie das Mindestalter ihrer Rolle erreicht: 16 Jahre für die Trainerin oder den Trainer, 18 Jahre
+            für Ansprechperson und Stellvertretung. Das ist keine Einwilligung, sondern eine Bestätigung: Sie belegt, dass die angegebene
+            E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass sie dieses Mindestalter erreicht und dass sie
+            diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung bleibt so lange offen, bis
+            alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt, löschen wir die Bewerbung
+            mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine
+            Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ}>
             Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige
@@ -426,7 +430,7 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
             nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
-            wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
+            wir damit nicht. Ein Mindestalter gilt allein für die Kontaktpersonen einer Bewerbung.
           </p>
           <p className={ABSATZ}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil

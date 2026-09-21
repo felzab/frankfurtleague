@@ -8,8 +8,10 @@ import { parseDate } from "@internationalized/date";
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
-import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
+import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
 import {
   abiJahrgang,
   bewerbungHerkunft,
@@ -247,26 +249,52 @@ describe("the birthdate window a contact person's date has to fall in", () => {
   /* Bounds and not an age: the picker needs a `minValue` and a `maxValue`, the schema needs a string
      comparison, and one derivation serving both is what stops the two drifting apart. */
   it("spans both bounds off today, and both ends are inclusive", () => {
-    assert.deepEqual(geburtsdatumSpanne("2026-08-29"), { frueheste: "1905-08-30", spaeteste: "2010-08-29" });
+    assert.deepEqual(geburtsdatumSpanne("2026-08-29", BEWERBUNG_MIN_ALTER), { frueheste: "1905-08-30", spaeteste: "2010-08-29" });
+  });
+
+  /* The floor moves with the seat while the ceiling does not, so a derivation that read a constant
+     for either would offer one seat a date the endpoint then refuses. */
+  it("moves the floor's end with the seat and leaves the ceiling's where it is", () => {
+    assert.deepEqual(geburtsdatumSpanne("2026-08-29", VERTRETUNG_MIN_ALTER), { frueheste: "1905-08-30", spaeteste: "2008-08-29" });
   });
 
   /* A 29 February has no counterpart in a year that is not a leap year, 1903 and 2100 among them, so
      an arithmetic that kept the day would hand the picker a date its own parse refuses. */
   it("clamps a leap day onto the end of February where the target year has none", () => {
-    assert.deepEqual(geburtsdatumSpanne("2024-02-29"), { frueheste: "1903-03-01", spaeteste: "2008-02-29" });
-    assert.equal(geburtsdatumSpanne("2116-02-29").spaeteste, "2100-02-28");
+    assert.deepEqual(geburtsdatumSpanne("2024-02-29", BEWERBUNG_MIN_ALTER), { frueheste: "1903-03-01", spaeteste: "2008-02-29" });
+    assert.equal(geburtsdatumSpanne("2116-02-29", BEWERBUNG_MIN_ALTER).spaeteste, "2100-02-28");
   });
 
   /* Both tiers refuse the same set. A band the page turns away and the endpoint accepts is a
      contact person told to correct a date that was right. */
-  it("ends both bounds exactly where the endpoint's whole-year count does", () => {
-    for (const today2 of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
-      const { frueheste, spaeteste } = geburtsdatumSpanne(today2);
+  it("ends both bounds exactly where the endpoint's whole-year count does, at either floor", () => {
+    for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
+      for (const today2 of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
+        const { frueheste, spaeteste } = geburtsdatumSpanne(today2, mindestalter);
+        const wo = `${today2} at ${String(mindestalter)}`;
 
-      assert.equal(wholeYears(frueheste, today2), BEWERBUNG_MAX_ALTER, `${today2}: the earliest date offered is not the oldest accepted`);
-      assert.equal(wholeYears(previousDay(frueheste), today2), BEWERBUNG_MAX_ALTER + 1, `${today2}: the day before it is accepted too`);
-      assert.equal(wholeYears(spaeteste, today2), BEWERBUNG_MIN_ALTER, `${today2}: the latest date offered is not the youngest accepted`);
-      assert.equal(wholeYears(nextDay(spaeteste), today2), BEWERBUNG_MIN_ALTER - 1, `${today2}: the day after it is accepted too`);
+        assert.equal(wholeYears(frueheste, today2), BEWERBUNG_MAX_ALTER, `${wo}: the earliest date offered is not the oldest accepted`);
+        assert.equal(wholeYears(previousDay(frueheste), today2), BEWERBUNG_MAX_ALTER + 1, `${wo}: the day before it is accepted too`);
+        assert.equal(wholeYears(spaeteste, today2), mindestalter, `${wo}: the latest date offered is not the youngest accepted`);
+        assert.equal(wholeYears(nextDay(spaeteste), today2), mindestalter - 1, `${wo}: the day after it is accepted too`);
+      }
+    }
+  });
+
+  /* The offer's other half, which the picker cannot show: the SCHEMA takes the latest date the
+     control offers and refuses the day after it. On a module constant it does neither at eighteen. */
+  it("accepts the latest date the control offers and refuses the day after it, at either floor", () => {
+    for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
+      const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+      const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
+      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+
+      assert.equal(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, true, `${String(mindestalter)}: the offer is refused`);
+      assert.equal(
+        schema.safeParse({ ...antwort, geburtsdatum: nextDay(spaeteste) }).success,
+        false,
+        `${String(mindestalter)}: a day younger than the offer is accepted`,
+      );
     }
   });
 });
@@ -533,7 +561,7 @@ describe("the confirmation's refusals against the backend's register", () => {
   /* A declared code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation declares", () => {
-    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code)) !== null);
+    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER) !== null);
 
     assert.deepEqual(mapped, declaredCodes(CONFIRM_OPERATION));
   });
@@ -541,7 +569,9 @@ describe("the confirmation's refusals against the backend's register", () => {
   /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
      is a reader sent to the wrong one of the two, with no way to tell. */
   it("gives each code its own answer", () => {
-    const answers = declaredCodes(CONFIRM_OPERATION).map((code) => JSON.stringify(mapEinwilligungRefusal(refusalFor(code))));
+    const answers = declaredCodes(CONFIRM_OPERATION).map((code) =>
+      JSON.stringify(mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER)),
+    );
 
     assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");
   });
@@ -549,7 +579,7 @@ describe("the confirmation's refusals against the backend's register", () => {
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("asks its caller to read the already-answered link rather than naming a state", () => {
-    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"));
+    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
 
     assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
     assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
@@ -558,17 +588,31 @@ describe("the confirmation's refusals against the backend's register", () => {
 
   /* The age refusal spends no token, so it has to land on the one field the page renders: a `zustand`
      here would replace a live form with a dead-link panel and lose the date the person typed. */
-  it("answers the age refusal at the field and never as a state", () => {
-    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"));
+  it("answers the age refusal at the field, naming the floor it was given and never a state", () => {
+    for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
+      const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"), floor);
+      const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
-    assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
-    assert.equal(mappedRefusal?.fieldErrors?.geburtsdatum, ALTER_AUSSERHALB);
+      assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
+      assert.ok(gesagt.includes(String(floor)), `the sentence does not name ${String(floor)}, which is the floor it was handed`);
+    }
+  });
+
+  /* The floor-aware half, which the page states because it knows the seat: a sentence carrying one
+     floor at both seats tells a refused Ansprechperson their date cleared the bar. */
+  it("names the floor it was given, and the ceiling either way", () => {
+    for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
+      const gesagt = alterAusserhalb(floor);
+
+      assert.ok(gesagt.includes(String(floor)), `the sentence for ${String(floor)} does not name it`);
+      assert.ok(gesagt.includes(String(BEWERBUNG_MAX_ALTER)), "a mistyped century is answered with the floor alone");
+    }
   });
 
   /* A drifted client, since every body rule the panel can break is mirrored. The remedy is the
      reload, and the answer names no box: nothing here knows which one broke. */
   it("answers a body refusal without pointing at the one field", () => {
-    const mappedRefusal = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"));
+    const mappedRefusal = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"), VERTRETUNG_MIN_ALTER);
 
     assert.notEqual(mappedRefusal, null, "a 422 falls through to the shared handler");
     assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");

@@ -53,6 +53,8 @@ HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 A_CHILDS_BIRTHDATE = "2018-01-01"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
+# 17 years and 364 days against `TODAY`: the one age the two floors answer differently.
+A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
 ADDRESS: Mapping[str, Any] = {
     "strasse": "Hanauer Landstraße",
@@ -278,6 +280,26 @@ class TestWhatALinkOpens:
 
         assert (response.rolle, response.zugleich_rolle) == (seat, zugleich_rolle)
 
+    @pytest.mark.parametrize(
+        ("seat", "trainer_ist_zugleich", "mindestalter"),
+        [
+            pytest.param("trainer", None, 16, id="the Trainer, who takes the league's own floor"),
+            pytest.param("ansprechperson", None, 18, id="the Ansprechperson, who signs for the school"),
+            pytest.param("stellvertretung", None, 18, id="the Stellvertretung, who stands in for them"),
+            pytest.param("trainer", "ansprechperson", 18, id="a Trainer who is also the Ansprechperson, on the Trainer's own link"),
+        ],
+    )
+    def test_the_link_answers_the_floor_the_person_holding_it_has_to_clear(
+        self, mongo_replica_set_url: str, seat: str, trainer_ist_zugleich: str | None, mindestalter: int
+    ):
+        """The page fills its `{minAlter}` slots and bounds its date control from this, so a wrong number offers a date the answer refuses."""
+
+        seeded = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich=trainer_ist_zugleich))
+
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW[seat]), documents=[seeded])
+
+        assert response.mindestalter == mindestalter
+
     def test_the_seats_the_view_names_are_the_seats_the_answer_writes(self, mongo_replica_set_url: str):
         paired = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
 
@@ -453,6 +475,36 @@ class TestTheLinkIsSpentByTheStamp:
         assert view.zustand == "gueltig"
         assert document == bewerbung_document()
         assert rows == []
+
+    def test_the_seat_that_signs_for_the_school_is_refused_a_day_short_of_eighteen_and_nothing_is_written(self, mongo_replica_set_url: str):
+        """The same date the Trainer's link takes: a floor judged for the application rather than the seat admits this person."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as conflict:
+                await answer(database, client, RAW["ansprechperson"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
+
+            return conflict.value.error_code, conflict.value.error_detail["message"], await stored(database), await log_rows(database)
+
+        code, message, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_ALTER
+        # The person reads this sentence, so „16“ here would tell them the date they typed was fine.
+        assert "18" in message and "16" not in message
+        assert document == bewerbung_document()
+        assert rows == []
+
+    def test_the_trainer_seat_takes_that_same_date(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a floor raised on all three seats."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
+
+            return response, await stored(database)
+
+        response, document = on_a_league(mongo_replica_set_url, body)
+
+        assert response.ergebnis == "bestaetigt"
+        assert document["kontakte"]["trainer"]["geburtsdatum"] == A_SEVENTEEN_YEAR_OLDS_BIRTHDATE
 
     def test_a_link_past_its_deadline_is_refused_before_the_seat_is_judged(self, mongo_replica_set_url: str):
         expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)

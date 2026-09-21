@@ -5,7 +5,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SEAT_MIN_ALTER } from "./constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
@@ -100,10 +100,20 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 }
 
 /**
- * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
- * one derivation serves both.
+ * The floor the PERSON clears, mirroring `fl_backend/app/api/bewerbungen/services.py ::
+ * mindestalter_for`: the highest any seat they hold asks for. Never the one seat a surface happens
+ * to be rendering, or a Trainer sitting in one of the other two is offered sixteen.
  */
-export function geburtsdatumSpanne(today: string): { frueheste: string; spaeteste: string } {
+export function mindestalterFuer(seats: readonly KontaktRolle[]): number {
+  return Math.max(...seats.map((seat) => SEAT_MIN_ALTER[seat]));
+}
+
+/**
+ * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
+ * one derivation serves both. The floor is the seat's, which the link's own read answers
+ * (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungAnsichtResponse`).
+ */
+export function geburtsdatumSpanne(today: string, mindestalter: number): { frueheste: string; spaeteste: string } {
   const heute = parseDate(today);
 
   // The day AFTER one year past the ceiling: `_whole_years_between` in
@@ -114,7 +124,7 @@ export function geburtsdatumSpanne(today: string): { frueheste: string; spaetest
       .subtract({ years: BEWERBUNG_MAX_ALTER + 1 })
       .add({ days: 1 })
       .toString(),
-    spaeteste: heute.subtract({ years: BEWERBUNG_MIN_ALTER }).toString(),
+    spaeteste: heute.subtract({ years: mindestalter }).toString(),
   };
 }
 
@@ -188,8 +198,13 @@ export function stampEinwilligungFassung<T extends object>(payload: T): T & { te
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand; nachlesen?: true };
 
-/** A confirmation 409 as what the page should show, or `null` where the code is none of these. */
-export function mapEinwilligungRefusal(error: unknown): EinwilligungRefusal | null {
+/**
+ * A confirmation 409 as what the page should show, or `null` where the code is none of these.
+ *
+ * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
+ * two of the three seats.
+ */
+export function mapEinwilligungRefusal(error: unknown, mindestalter: number): EinwilligungRefusal | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
   // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
@@ -213,7 +228,7 @@ export function mapEinwilligungRefusal(error: unknown): EinwilligungRefusal | nu
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-BEWERBUNG-012":
-      return { fieldErrors: { geburtsdatum: ALTER_AUSSERHALB } };
+      return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
     default:
       return null;
   }

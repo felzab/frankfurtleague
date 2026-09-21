@@ -30,9 +30,10 @@ import {
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import {
-  ALTER_AUSSERHALB,
+  alterAusserhalb,
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
+  BEWERBUNG_MIN_ALTER,
   BEWERBUNG_STUFENGROESSE_MAX,
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
@@ -714,6 +715,9 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // alone: a dead link's panel has nobody to name and must not invent one.
   vorname: z.string().nullable(),
   text_version: z.string().nullable(),
+  // The floor this link's person has to reach, over both their seats: the page bounds its date
+  // control and words its own sentences from this rather than from a constant of its own.
+  mindestalter: z.number().int(),
 });
 export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 
@@ -722,50 +726,58 @@ export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungE
  * judged against the German day here as the endpoint judges it, so both tiers refuse the same two
  * numbers on the same day.
  */
-export const FLBewerbungEinwilligungAntwortPayloadSchema = z
-  .object({
-    token: einwilligungToken,
-    // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
-    // answer, and the repair is the reload rather than a choice.
-    antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
-    geburtsdatum: CustomDateStringSchema.nullable(),
-    whatsapp: z.boolean(),
-    // The version this page rendered, never the one the submission stamped: the seat's record has to
-    // cite the words the confirming person read, and the two are months apart.
-    text_version: z
-      .string()
-      .trim()
-      .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
-      .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-        error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-      }),
-  })
-  .superRefine((payload, ctx) => {
-    if (payload.antwort !== "erteilt") {
-      // Mirrored because the endpoint refuses it: an objection carrying a date would record one for
-      // a seat that refused to be recorded at all.
-      if (payload.geburtsdatum !== null) {
-        ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
+export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
+  z
+    .object({
+      token: einwilligungToken,
+      // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
+      // answer, and the repair is the reload rather than a choice.
+      antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
+      geburtsdatum: CustomDateStringSchema.nullable(),
+      whatsapp: z.boolean(),
+      // The version this page rendered, never the one the submission stamped: the seat's record has to
+      // cite the words the confirming person read, and the two are months apart.
+      text_version: z
+        .string()
+        .trim()
+        .nonempty({ error: "Die Bestätigung nennt keine Fassung. Lade die Seite neu." })
+        .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
+          error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
+        }),
+    })
+    .superRefine((payload, ctx) => {
+      if (payload.antwort !== "erteilt") {
+        // Mirrored because the endpoint refuses it: an objection carrying a date would record one for
+        // a seat that refused to be recorded at all.
+        if (payload.geburtsdatum !== null) {
+          ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
+        }
+
+        // Mirrored for the date's reason: an objection empties the slot, so a scope sent with one is a
+        // permission no record holds and the echo would report it back as stored.
+        if (payload.whatsapp) {
+          ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
+        }
+        return;
       }
 
-      // Mirrored for the date's reason: an objection empties the slot, so a scope sent with one is a
-      // permission no record holds and the echo would report it back as stored.
-      if (payload.whatsapp) {
-        ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
+      if (payload.geburtsdatum === null) {
+        ctx.addIssue({ code: "custom", message: "Bitte gib Dein Geburtsdatum ein.", path: ["geburtsdatum"] });
+        return;
       }
-      return;
-    }
 
-    if (payload.geburtsdatum === null) {
-      ctx.addIssue({ code: "custom", message: "Bitte gib Dein Geburtsdatum ein.", path: ["geburtsdatum"] });
-      return;
-    }
+      const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+      if (payload.geburtsdatum < frueheste || payload.geburtsdatum > spaeteste) {
+        ctx.addIssue({ code: "custom", message: alterAusserhalb(mindestalter), path: ["geburtsdatum"] });
+      }
+    });
 
-    const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
-    if (payload.geburtsdatum < frueheste || payload.geburtsdatum > spaeteste) {
-      ctx.addIssue({ code: "custom", message: ALTER_AUSSERHALB, path: ["geburtsdatum"] });
-    }
-  });
+/**
+ * The league's floor, which every seat's person clears: `fl_frontend/src/app/api/bestaetigung/route.ts`
+ * parses a body carrying the token alone, so the seat's own floor is the page's to offer and the
+ * endpoint's to refuse.
+ */
+export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
 export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEinwilligungAntwortPayloadSchema>;
 
 /** The write's echo: what was stored for this seat, and which seats the application still waits on. */

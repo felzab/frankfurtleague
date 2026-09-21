@@ -21,7 +21,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_GRUND_MAX_LENGTH,
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TOKEN_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
@@ -376,7 +375,7 @@ def _whole_years_between(*, born: str, today: str) -> int:
     return now.year - birth.year - ((now.month, now.day) < (birth.month, birth.day))
 
 
-def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
+def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
     A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
@@ -385,8 +384,10 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
 
     age = _whole_years_between(born=geburtsdatum, today=today)
 
-    if age < BEWERBUNG_KONTAKT_MIN_AGE_YEARS:
-        raise ValueError(f"Eine Kontaktperson muss mindestens {BEWERBUNG_KONTAKT_MIN_AGE_YEARS} Jahre alt sein.")
+    # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
+    # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
+    if age < mindestalter:
+        raise ValueError(f"Eine Kontaktperson muss mindestens {mindestalter} Jahre alt sein.")
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
@@ -763,6 +764,9 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
     vorname: str | None
     text_version: str | None
+    # The PERSON's floor over the seats this link answers for, so the page bounds its date control
+    # and fills its own sentences from what the answer will judge rather than from a constant.
+    mindestalter: int
 
 
 class FLBewerbungEinwilligungAntwortPayload(BaseModel):

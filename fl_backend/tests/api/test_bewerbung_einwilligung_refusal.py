@@ -19,6 +19,7 @@ from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANTWORT_FIELDS,
     KONTAKT_SEATS,
+    SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
     ausstehende_seats,
@@ -33,6 +34,7 @@ from app.api.bewerbungen.services import (
     find_expired_token_refusal,
     find_unknown_token_refusal,
     hash_token,
+    mindestalter_for,
     mint_token,
     paired_seat,
     seat_holding,
@@ -41,7 +43,12 @@ from app.api.bewerbungen.services import (
 )
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.constraints import _BEWERBUNG_BESTAETIGUNG, _BEWERBUNG_BESTAETIGUNGEN
-from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_TOKEN_MAX_LENGTH
+from app.shared.schemas.bounds import (
+    BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+    BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    BEWERBUNG_TOKEN_MAX_LENGTH,
+    VERTRETUNG_MIN_AGE_YEARS,
+)
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -323,42 +330,85 @@ class TestWholeYears:
 
 
 # Exact ages against a fixed day, so both boundaries are pinned without a clock. Against `TODAY`,
-# `2010-04-01` is 16 to the day and `1905-04-02` is the last date that is still 120.
+# `2010-04-01` is 16 to the day, `2008-04-01` is 18 to the day, and `1905-04-02` is the last date
+# that is still 120.
 AGE_BOUNDARIES = [
-    pytest.param("2010-04-02", True, id="a day short of the floor, at 15"),
-    pytest.param("2010-04-01", False, id="the floor, to the day"),
-    pytest.param("2010-03-31", False, id="a day inside the floor"),
-    pytest.param("1905-04-02", False, id="the ceiling, on its last day at 120"),
-    pytest.param("1905-04-01", True, id="a day past the ceiling, at 121"),
+    pytest.param(16, "2010-04-02", True, id="a day short of the sixteen floor, at 15"),
+    pytest.param(16, "2010-04-01", False, id="the sixteen floor, to the day"),
+    pytest.param(16, "2010-03-31", False, id="a day inside the sixteen floor"),
+    pytest.param(18, "2008-04-02", True, id="a day short of the eighteen floor, at 17 and 364 days"),
+    pytest.param(18, "2008-04-01", False, id="the eighteen floor, to the day"),
+    pytest.param(18, "2010-04-01", True, id="sixteen to the day, which the eighteen floor refuses"),
+    pytest.param(16, "1905-04-02", False, id="the ceiling, on its last day at 120"),
+    pytest.param(16, "1905-04-01", True, id="a day past the ceiling, at 121"),
 ]
+
+
+class TestWhichFloorAPersonClears:
+    """`mindestalter_for`: the floor is the PERSON's, so a seat they also hold can only raise it."""
+
+    def test_every_seat_declares_a_floor_and_no_other_key_does(self):
+        """A seat added to the set with no row here is a `KeyError` at the confirmation rather than a silent 16."""
+
+        assert set(SEAT_MIN_AGE_YEARS) == set(KONTAKT_SEATS)
+
+    # The NUMBERS rather than the constants that hold them: read through the constants, every case
+    # here passes with both of them set to one value, which is the state this slice exists to end.
+    @pytest.mark.parametrize(
+        ("seats", "floor"),
+        [
+            pytest.param(("trainer",), 16, id="the Trainer alone"),
+            pytest.param(("ansprechperson",), 18, id="the Ansprechperson alone"),
+            pytest.param(("stellvertretung",), 18, id="the Stellvertretung alone"),
+            pytest.param(("trainer", "ansprechperson"), 18, id="a Trainer who is also the Ansprechperson"),
+            pytest.param(("ansprechperson", "trainer"), 18, id="the same pair, pressed from the other link"),
+            pytest.param(("trainer", "stellvertretung"), 18, id="a Trainer who is also the Stellvertretung"),
+        ],
+    )
+    def test_the_pair_takes_the_higher_of_the_two_floors(self, seats: tuple[str, ...], floor: int):
+        assert mindestalter_for(seats) == floor
+
+    def test_the_two_constants_are_the_two_numbers_the_cases_above_pin(self):
+        """The one place the literals above are tied to the names the rest of the package reads."""
+
+        assert (BEWERBUNG_KONTAKT_MIN_AGE_YEARS, VERTRETUNG_MIN_AGE_YEARS) == (16, 18)
 
 
 class TestTheAgeAtConfirmation:
     """`REQ-BEWERBUNG-012`: the bound `refuse_age_outside_the_bounds` holds, reached as a 409 with its own German."""
 
-    @pytest.mark.parametrize(("geburtsdatum", "refused"), AGE_BOUNDARIES)
-    def test_each_boundary_falls_where_the_bound_says(self, geburtsdatum: str, refused: bool):
+    @pytest.mark.parametrize(("mindestalter", "geburtsdatum", "refused"), AGE_BOUNDARIES)
+    def test_each_boundary_falls_where_the_bound_says(self, mindestalter: int, geburtsdatum: str, refused: bool):
         """Move either comparison by one and a case here goes red; the endpoint cannot show that."""
 
         if not refused:
-            assert refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY) is None
+            assert refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY, mindestalter=mindestalter) is None
             return
 
         with pytest.raises(ValueError):
-            refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY)
+            refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY, mindestalter=mindestalter)
 
-    def test_a_leap_birthday_reaches_the_floor_on_the_day_the_calendar_does(self):
-        """Someone born on 29 February turns 16 the moment the date arrives, and is 15 the day before."""
+    @pytest.mark.parametrize(
+        ("mindestalter", "a_year_short", "the_floor", "the_day_after"),
+        [
+            pytest.param(16, "2028-02-28", "2028-02-29", "2028-03-01", id="sixteen, in a leap year that has the birthday"),
+            pytest.param(18, "2030-02-28", "2030-03-01", "2030-03-02", id="eighteen, in a year that has no 29 February"),
+        ],
+    )
+    def test_a_leap_birthday_reaches_a_floor_on_the_day_the_calendar_does(
+        self, mindestalter: int, a_year_short: str, the_floor: str, the_day_after: str
+    ):
+        """Someone born on 29 February reaches a floor the moment the date arrives; where the year has none, on 1 March."""
 
         with pytest.raises(ValueError):
-            refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-02-28")
+            refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today=a_year_short, mindestalter=mindestalter)
 
-        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-02-29") is None
-        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-03-01") is None
+        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today=the_floor, mindestalter=mindestalter) is None
+        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today=the_day_after, mindestalter=mindestalter) is None
 
-    @pytest.mark.parametrize(("geburtsdatum", "refused"), AGE_BOUNDARIES)
-    def test_the_refusal_carries_the_bound_and_the_code(self, geburtsdatum: str, refused: bool):
-        refusal = find_alter_refusal(geburtsdatum=geburtsdatum, today=TODAY)
+    @pytest.mark.parametrize(("mindestalter", "geburtsdatum", "refused"), AGE_BOUNDARIES)
+    def test_the_refusal_carries_the_bound_and_the_code(self, mindestalter: int, geburtsdatum: str, refused: bool):
+        refusal = find_alter_refusal(geburtsdatum=geburtsdatum, today=TODAY, mindestalter=mindestalter)
 
         assert (refusal is not None) == refused
         assert refusal is None or refusal.error_code == BEWERBUNG_KONTAKT_ALTER
@@ -368,10 +418,19 @@ class TestTheAgeAtConfirmation:
         """It surfaces on the confirmation page, so the message is what the person who typed the date reads."""
 
         born = "2020-01-01" if bound == "mindestens" else "1800-01-01"
-        refusal = find_alter_refusal(geburtsdatum=born, today=TODAY)
+        refusal = find_alter_refusal(geburtsdatum=born, today=TODAY, mindestalter=BEWERBUNG_KONTAKT_MIN_AGE_YEARS)
 
         assert refusal is not None
         assert bound in refusal.message
+
+    @pytest.mark.parametrize("mindestalter", [BEWERBUNG_KONTAKT_MIN_AGE_YEARS, VERTRETUNG_MIN_AGE_YEARS])
+    def test_the_floor_refusal_names_the_floor_it_judged_by(self, mindestalter: int):
+        """A sentence naming 16 to a seat refused at 18 tells the person their date was accepted."""
+
+        refusal = find_alter_refusal(geburtsdatum="2020-01-01", today=TODAY, mindestalter=mindestalter)
+
+        assert refusal is not None
+        assert str(mindestalter) in refusal.message
 
 
 class TestWhatAReopenedLinkShows:

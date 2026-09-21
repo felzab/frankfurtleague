@@ -43,6 +43,11 @@ BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
+# The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
+# asks contractual capacity rather than the age a person consents for themselves at
+# (`docs/backend/spec.md :: I180`).
+VERTRETUNG_MIN_AGE_YEARS: Final = 18
+
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
 # never stored twice.

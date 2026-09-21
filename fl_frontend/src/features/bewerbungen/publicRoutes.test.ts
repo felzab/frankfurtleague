@@ -8,6 +8,7 @@ import { describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
 
+import { parseDate } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
@@ -18,9 +19,10 @@ import { NAME_WRAP } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
-import { BEWERBUNG_MIN_ALTER } from "./constants.ts";
+import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
 import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
@@ -175,7 +177,7 @@ function isRouteAnswered(href: string): boolean {
 }
 
 /** The confirmation form a contact's link opens, rendered so a press can arm the objection. */
-function renderBestaetigung() {
+function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
   const user = userEvent.setup();
   const view = render(
     h(BestaetigungFormPanel, {
@@ -184,12 +186,33 @@ function renderBestaetigung() {
       schule: "Lessing-Kolleg",
       saison: "2026",
       rolle: "Ansprechperson",
+      mindestalter: mindestalter,
       onAbschluss: () => undefined,
     }),
   );
 
   return { user, ...view };
 }
+
+/** One live link's whole page, as the read that opened it would have answered for that seat. */
+const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, mindestalter = VERTRETUNG_MIN_ALTER): string =>
+  renderMarkup(BestaetigungView, {
+    start: {
+      zustand: "gueltig",
+      token: "kein-echtes-token",
+      ansicht: {
+        acknowledged: 1,
+        zustand: "gueltig",
+        saison_id: "2026",
+        schule: "Lessing-Kolleg",
+        rolle: rolle,
+        zugleich_rolle: zugleich_rolle,
+        vorname: "Mira",
+        text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+        mindestalter: mindestalter,
+      },
+    },
+  });
 
 describe("the window state the application page renders", () => {
   /* First: every case below reads these renders, and a props table that had collapsed onto one state
@@ -911,7 +934,9 @@ describe("which of the confirmation page's words its stamped version covers", ()
     rolle: "Ansprechperson",
     vorname: "Mira",
     ablehnen: ABLEHNEN_LABEL,
-    minAlter: String(BEWERBUNG_MIN_ALTER),
+    // The Ansprechperson's own floor, because `SLOTS.rolle` is that seat: a stamped paragraph is
+    // compared against what THIS reader was shown, and the two seats are shown different numbers.
+    minAlter: String(VERTRETUNG_MIN_ALTER),
     kontakt: KONTAKT_EMAIL,
     // The slot renders as a link, whose own words are what a reader sees in the sentence.
     datenschutz: "Datenschutzerklärung",
@@ -928,9 +953,21 @@ describe("which of the confirmation page's words its stamped version covers", ()
   /* The four components carrying the standing text, the armed decline's own paragraph among them, and
      nothing else: the panel around them words its own prose, which the version never covers. */
   const STANDING_TEXT = [
-    renderMarkup(BestaetigungHinweise, { schule: SLOTS.schule, saison: SLOTS.saison, rolle: SLOTS.rolle, ablehnenLabel: ABLEHNEN_LABEL }),
+    renderMarkup(BestaetigungHinweise, {
+      schule: SLOTS.schule,
+      saison: SLOTS.saison,
+      rolle: SLOTS.rolle,
+      mindestalter: VERTRETUNG_MIN_ALTER,
+      ablehnenLabel: ABLEHNEN_LABEL,
+    }),
     renderMarkup(WhatsappHinweis, {}),
-    renderMarkup(KlickBestaetigung, { id: "klick-punkte", vorname: SLOTS.vorname, schule: SLOTS.schule, rolle: SLOTS.rolle }),
+    renderMarkup(KlickBestaetigung, {
+      id: "klick-punkte",
+      vorname: SLOTS.vorname,
+      schule: SLOTS.schule,
+      rolle: SLOTS.rolle,
+      mindestalter: VERTRETUNG_MIN_ALTER,
+    }),
     renderMarkup(WiderspruchFolge, {}),
   ].join("");
 
@@ -940,6 +977,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     schule: SLOTS.schule,
     saison: SLOTS.saison,
     rolle: SLOTS.rolle,
+    mindestalter: VERTRETUNG_MIN_ALTER,
     onAbschluss: () => undefined,
   });
 
@@ -1020,6 +1058,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     zugleich_rolle: null,
     vorname: "Mira",
     text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    mindestalter: VERTRETUNG_MIN_ALTER,
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
@@ -1031,7 +1070,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     rolle: "Ansprechperson",
     vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
-    minAlter: String(BEWERBUNG_MIN_ALTER),
+    minAlter: String(OPENED_LINK.mindestalter),
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
@@ -1193,24 +1232,6 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
 });
 
 describe("how the confirmation page names a person entered in two seats", () => {
-  const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null): string =>
-    renderMarkup(BestaetigungView, {
-      start: {
-        zustand: "gueltig",
-        token: "kein-echtes-token",
-        ansicht: {
-          acknowledged: 1,
-          zustand: "gueltig",
-          saison_id: "2026",
-          schule: "Lessing-Kolleg",
-          rolle: rolle,
-          zugleich_rolle: zugleich_rolle,
-          vorname: "Mira",
-          text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
-        },
-      },
-    });
-
   const roleInBanner = (markup: string): string => textOf(/<dt[^>]*>Deine Rolle<\/dt><dd[^>]*>([\s\S]*?)<\/dd>/.exec(markup)?.[1] ?? "");
   const BOTH_SEATS = /Deine Antwort gilt für beide Einträge\./;
 
@@ -1238,6 +1259,89 @@ describe("how the confirmation page names a person entered in two seats", () => 
     );
     assert.equal(roleInBanner(singleSeatPage), "Ansprechperson", "a single seat is named as something else");
     assert.doesNotMatch(textOf(singleSeatPage, " "), BOTH_SEATS, "a single seat is told of a second entry it does not have");
+  });
+});
+
+describe("which age floor the confirmation page states", () => {
+  const SEATS: [FLKontaktRolle, number][] = [
+    ["trainer", BEWERBUNG_MIN_ALTER],
+    ["ansprechperson", VERTRETUNG_MIN_ALTER],
+    ["stellvertretung", VERTRETUNG_MIN_ALTER],
+  ];
+
+  /* A page keeping a module constant at any one slot promises a number the press is not judged by.
+     The sentence is the stamped label's, asserted as RENDERED and never as true. */
+  it("fills every {minAlter} slot from the seat's own floor and names no other number", () => {
+    for (const [rolle, floor] of SEATS) {
+      const gelesen = textOf(pageFor(rolle, null, floor), " ");
+      const andere = floor === BEWERBUNG_MIN_ALTER ? VERTRETUNG_MIN_ALTER : BEWERBUNG_MIN_ALTER;
+
+      assert.ok(
+        gelesen.includes(`mindestens ${String(floor)} Jahre alt`),
+        `the ${rolle} page does not say the reader has to be ${String(floor)}`,
+      );
+      assert.ok(!gelesen.includes(`mindestens ${String(andere)} Jahre alt`), `the ${rolle} page also states ${String(andere)}`);
+    }
+  });
+
+  /* The paragraph around the slot has to be TRUE at both floors: „unter {minAlter} kann bei uns
+     niemand mitmachen“ was not, a Trainer being allowed 16 where the slot reads 18. */
+  it("reads the birthdate paragraph's own sentence at either floor, and the superseded one at neither", () => {
+    for (const [rolle, floor] of SEATS) {
+      const gelesen = textOf(pageFor(rolle, null, floor), " ");
+
+      assert.ok(gelesen.includes("So alt muss sein, wer diese Rolle übernimmt."), `the ${rolle} page dropped the paragraph's own sentence`);
+      assert.ok(!gelesen.includes("kann bei uns niemand mitmachen"), `the ${rolle} page still renders the sentence the two floors made false`);
+    }
+  });
+
+  /* A double-seated person meets the higher of their two floors on either link, which is the one
+     case a page reading `rolle` alone would get wrong. */
+  it("states the pair's higher floor on the Trainer's own link", () => {
+    assert.ok(
+      textOf(pageFor("trainer", "ansprechperson", VERTRETUNG_MIN_ALTER), " ").includes(`mindestens ${String(VERTRETUNG_MIN_ALTER)} Jahre alt`),
+      "the Trainer link of a double-seated person states the Trainer's own floor",
+    );
+  });
+});
+
+describe("which floor the confirmation form judges a typed date by", () => {
+  /** The three segments in the order the German picker renders them, typed as a reader types them. */
+  async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum: string) {
+    const [jahr = "", monat = "", tag = ""] = datum.split("-");
+    await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
+    await user.keyboard(`${tag}${monat}${jahr}`);
+    // Twice: the first leaves the year segment for the calendar trigger, which is INSIDE the group,
+    // so the control's own `onBlur` — the one that asks the schema — fires only on the second.
+    await user.tab();
+    await user.tab();
+  }
+
+  /** A date between the two floors: the only band the two seats answer differently. */
+  const zwischenDenBoeden = (): string => parseDate(getGermanTodayStr()).subtract({ years: 17 }).toString();
+
+  const zuJungPanel = () => screen.queryByText("Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.");
+
+  /* Replace `mindestalter` with the module constant at either the schema call or the span call and
+     this case goes red while every other suite stays green. */
+  it("refuses a date a year short of eighteen where the link answered eighteen", async () => {
+    const { user } = renderBestaetigung(VERTRETUNG_MIN_ALTER);
+    await tippeGeburtsdatum(user, zwischenDenBoeden());
+
+    assert.notEqual(zuJungPanel(), null, "a seventeen-year-old is accepted at a seat whose floor is eighteen");
+    assert.ok(
+      (zuJungPanel()?.parentElement?.textContent ?? "").includes(`ab ${String(VERTRETUNG_MIN_ALTER)}`),
+      "the panel that names the floor and points at the Widerspruch states another number",
+    );
+  });
+
+  /* The other half, which is what makes the case above about the FLOOR rather than about the date:
+     the same date, the same control, the seat that asks sixteen. */
+  it("takes that same date where the link answered sixteen", async () => {
+    const { user } = renderBestaetigung(BEWERBUNG_MIN_ALTER);
+    await tippeGeburtsdatum(user, zwischenDenBoeden());
+
+    assert.equal(zuJungPanel(), null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
   });
 });
 

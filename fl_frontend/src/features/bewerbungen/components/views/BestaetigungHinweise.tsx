@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
-import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 
@@ -14,8 +13,10 @@ import type { ReactNode } from "react";
 const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT = "flex flex-col gap-y-2";
 
+// No `{minAlter}` here: two of the three seats answer it differently, so a constant would put a
+// number on the page that the press is not judged by.
 /** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
-const KONSTANTEN = { minAlter: String(BEWERBUNG_MIN_ALTER), kontakt: KONTAKT_EMAIL } as const;
+const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
 /** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
 const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
@@ -92,15 +93,18 @@ export function BestaetigungHinweise({
   schule,
   saison,
   rolle,
+  /** The floor the link's own read answered, which the standing text names in two paragraphs. */
+  mindestalter,
   /** The objection control's own label, named in the text so a reader finds the control it describes. */
   ablehnenLabel,
 }: {
   schule: string;
   saison: string;
   rolle: string;
+  mindestalter: number;
   ablehnenLabel: string;
 }) {
-  const werte = { ...KONSTANTEN, schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
+  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
@@ -233,14 +237,16 @@ export function KlickBestaetigung({
   vorname,
   schule,
   rolle,
+  mindestalter,
 }: {
   /** Published for the submit button's `aria-describedby`, so the points reach a reader who cannot see them. */
   id: string;
   vorname: string;
   schule: string;
   rolle: string;
+  mindestalter: number;
 }) {
-  const werte = { ...KONSTANTEN, vorname: vorname, schule: schule, rolle: rolle };
+  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
 
   return (
     <div

@@ -209,6 +209,11 @@ const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
 /** Spelled out for the reason above. The sign-in link states the same sentence, and the two move together. */
 const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
+/* Spelled out rather than imported: a shared inbox reads one message under two floors, and these
+   words are what stop a later edit personalising the number for a message two people read. */
+const ALTERS_SATZ =
+  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist.";
+
 /** What each message states about who it reached: the two decisions reach three seats, the link messages one mailbox. */
 const RECIPIENT_SENTENCE = {
   kontaktpersonen: "Diese E-Mail geht an die Kontaktpersonen der Bewerbung.",
@@ -951,7 +956,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
       `Für die Schule ${BESTAETIGUNG.schule} wurde eine Bewerbung zur Saison ${BESTAETIGUNG.saisonId} der Frankfurt League eingereicht.`,
       `Darin bist Du als ${ERIKA.rolleText} eingetragen.`,
       "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
-      "Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist.",
+      `Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ}`,
       "Du kannst dem Eintrag auch widersprechen.",
       `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
@@ -1019,7 +1024,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
       `Eure Einträge für die Saison ${BESTAETIGUNG.saisonId}`,
       `Mit dieser E-Mail-Adresse sind darin ${both} eingetragen.`,
       "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen.",
-      "Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen.",
+      `${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen.`,
       `Jeder Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;",
       // The two the singular block also asserts: the arms are separate literals („dieser Links“
@@ -1282,7 +1287,7 @@ describe("buildBewerbungWiderspruchEmail", () => {
       // „Diese Angaben“ stands where „seine“ or „ihre“ would, so the sentence reads for every name.
       "Diese Angaben haben wir aus der Bewerbung entfernt.",
       `So kann die Bewerbung nicht vollständig werden; am ${FRIST} löschen wir sie.`,
-      "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.",
+      "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
     ]) {
       assert.ok(flat(readable(mail.html)).includes(sentence), `the HTML branch lost „${sentence}“`);
       assert.ok(flat(mail.text).includes(sentence), `the text branch lost „${sentence}“`);

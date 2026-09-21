@@ -123,7 +123,9 @@ export function FormKontaktpersonenSection({
           <Hint
             mode="inline"
             describes={altersHinweisId}
-            text="Kontaktperson kann sein, wer mindestens 16 ist."
+            // Both floors, though one panel carries this: the submitter enters all three people, and
+            // a number stated for the seat this panel happens to be leaves the other two unsaid.
+            text="Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist."
           />
         )}
 

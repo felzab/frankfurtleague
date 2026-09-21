@@ -40,7 +40,7 @@ class FLEinwilligung(BaseModel):
     umfang: Literal["kader_oeffentlich", "intern"]
     # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
     # consent was collected stays distinguishable from one a person actually gave. `volljaehrig`
-    # pins no age; the league's is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`.
+    # pins no age: the floor is per seat (`docs/backend/spec.md :: I180`).
     erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString

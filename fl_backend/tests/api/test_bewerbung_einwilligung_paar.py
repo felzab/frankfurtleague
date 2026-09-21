@@ -10,8 +10,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import KONTAKT_SEATS, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.core.collections import Collection
+from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -32,6 +33,8 @@ RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_SEAT
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
+# 17 years and 364 days against `TODAY`: the age the Trainer seat takes and the other two refuse.
+A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
 ADDRESS: Mapping[str, Any] = {
     "strasse": "Hanauer Landstraße",
@@ -175,6 +178,46 @@ class TestAPairedDecline:
         assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
         assert document["bestaetigungen"]["trainer"] is None
         assert document["kontakte"]["trainer"] == paired_kontakte()["trainer"]
+
+
+class TestTheFloorIsThePersons:
+    """One person, two seats, one floor: the higher of the two, whichever of their links they press."""
+
+    @pytest.mark.parametrize("zweitsitz", ["ansprechperson", "stellvertretung"])
+    def test_a_double_seated_trainer_a_day_short_of_eighteen_is_refused_on_the_trainers_own_link(
+        self, mongo_replica_set_url: str, zweitsitz: str
+    ):
+        """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
+
+        held_by_the_trainer = {zweitsitz: person("Wraxlington"), "trainer_ist_zugleich": zweitsitz}
+        other = "stellvertretung" if zweitsitz == "ansprechperson" else "ansprechperson"
+        paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: person("Bramblewick")}))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as conflict:
+                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
+
+            return conflict.value.error_code, await stored(database), await log_rows(database)
+
+        code, document, rows = on_a_league(mongo_replica_set_url, body, documents=[paired])
+
+        assert code == BEWERBUNG_KONTAKT_ALTER
+        assert document == paired
+        assert rows == []
+
+    def test_a_trainer_holding_that_seat_alone_takes_the_same_date(self, mongo_replica_set_url: str):
+        """Without it the case above passes for a floor raised on every seat rather than carried by the second one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
+
+            return response, await stored(database)
+
+        single = bewerbung_document(kontakte=paired_kontakte(trainer_ist_zugleich=None, ansprechperson=person("Quillhilde")))
+        response, document = on_a_league(mongo_replica_set_url, body, documents=[single])
+
+        assert response.ergebnis == "bestaetigt"
+        assert document["kontakte"]["trainer"]["geburtsdatum"] == A_SEVENTEEN_YEAR_OLDS_BIRTHDATE
 
 
 class TestAPairedConfirmation:

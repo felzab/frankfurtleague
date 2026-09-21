@@ -4795,7 +4795,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -4840,7 +4840,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span\n(`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this\nperson holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year\nspends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -6286,6 +6286,10 @@
               }
             ],
             "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
           }
         },
         "type": "object",
@@ -6296,7 +6300,8 @@
           "rolle",
           "zugleich_rolle",
           "vorname",
-          "text_version"
+          "text_version",
+          "mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
         "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, the roles one answer covers and a wording's version."

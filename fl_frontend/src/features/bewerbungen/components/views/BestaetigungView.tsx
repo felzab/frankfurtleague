@@ -122,6 +122,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
           rolle={rollenLangform(stand.ansicht)}
+          mindestalter={stand.ansicht.mindestalter}
           onAbschluss={(abschluss) => {
             setHatGeantwortet(true);
             setStand(nachAntwort(abschluss, stand.ansicht));

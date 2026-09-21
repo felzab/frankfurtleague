@@ -16,7 +16,7 @@ two** — which is what a reviewer needs before reading the published notice
 | Section                                                                                                    | Answers                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
-| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes             |
+| [2. Consent comes from the person, from 16 or 18](#2-consent-comes-from-the-person-from-16-or-18)          | The sign-up flow every ruling on consent assumes             |
 | [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
 | [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
@@ -42,7 +42,7 @@ two** — which is what a reviewer needs before reading the published notice
   is the procedure that answers one. Self-service comes with the account tiers planned for teams,
   players and referees, and the deletion route lives there once they exist.
 
-## 2. Consent comes from the person, from 16
+## 2. Consent comes from the person, from 16 or 18
 
 Every ruling below assumes the sign-up flow settled for the next season, which does not exist yet.
 
@@ -54,13 +54,18 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
-- **The minimum age is 16 for every role, and today only one write judges it.**
-  Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a
+- **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
+  Once the sign-up flow exists it refuses a registration below 16. Sixteen is the age at which a
   person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
-  three. That write is the contact person's own confirmation:
-  they type their date on the confirmation page and
-  `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. **That confirmation is also the only route by which the date reaches the database**: the
+  three. **The Ansprechperson and the Stellvertretung are held to 18** because those two seats
+  commit the school — they are the people a fixture, a withdrawal and the entry itself are agreed
+  with — and committing a school is contractual capacity rather than a consent anybody gives for
+  themselves, which is the one ground Art. 8's sixteen does not supply. Ruled 2026-09-06.
+  Today one write judges either number: the contact person's own confirmation, where they type
+  their date and
+  `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it against the floor
+  `:: mindestalter_for` answers for the seats that person holds, before anything is written.
+  **That confirmation is also the only route by which the date reaches the database**: the
   junction contacts editor accepts no birthdate, refusing the key outright rather than taking a null
   (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries a date forward only where the
   stored seat holds the same person — the same address and the same name, folded for case and inner
@@ -75,9 +80,11 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
-  the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
-  for a contact person
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`).
+  the rule gets a Trainer's threshold wrong by two years; the two numbers the tree commits to for a
+  contact person are
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`) and
+  (`:: VERTRETUNG_MIN_AGE_YEARS`), one per seat in
+  `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
 - **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
   2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
   the one field whose purpose is the age floor, a validator that invalidates every standing pupil

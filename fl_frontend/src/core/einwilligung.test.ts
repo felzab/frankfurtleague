@@ -23,10 +23,12 @@ const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
   "2026-09-bestaetigung": "b503d29ff41e70cdf5b129b43e0f95568a2849fd0b88d01443b367d07a12d818",
   "2026-09-bestaetigung-2": "9d075e3f8b6f38e2e70577134c22dc1a2f6c31ddb5390b803e76cf6c510d6a05",
   "2026-09-bestaetigung-3": "af66039f44dc5aceb10f01d7d01e4ca9acbb628050b2d085ed726deb37d7a36e",
+  "2026-09-bestaetigung-4": "0f2b1a2299e42b1325e685455ed31257195a670e5b40bad6d06fe316ab35fa08",
   "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
   "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
   "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
   "2026-09-bestaetigungsseite-4": "3e1b323c33619294f7f76112cd5ad2583461b04a1b729826dd584eaa71f204cf",
+  "2026-09-bestaetigungsseite-5": "9685a0ae7de41ed8d1a72682597e3ea3728c41750b729d825860456ad7fac1bb",
 };
 
 const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");

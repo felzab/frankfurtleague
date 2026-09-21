@@ -1,6 +1,7 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
+import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -93,8 +94,15 @@ export async function POST(request: NextRequest) {
       try {
         antwort = await postEinwilligung(parsed.data);
       } catch (error) {
+        // Read on this path alone: the age refusal spends nothing, so the link still answers the
+        // floor its own seats ask (`fl_frontend/src/features/bewerbungen/utils.ts :: mapEinwilligungRefusal`).
+        const { mindestalter } = await getEinwilligungAnsicht(parsed.data.token).then(
+          (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : { mindestalter: BEWERBUNG_MIN_ALTER }),
+          () => ({ mindestalter: BEWERBUNG_MIN_ALTER }),
+        );
+
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
-        const refusal = mapEinwilligungRefusal(error);
+        const refusal = mapEinwilligungRefusal(error, mindestalter);
         if (refusal === null) throw error;
 
         // Destructured rather than spread whole: `nachlesen` is this handler's instruction, and the

@@ -1538,7 +1538,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-BEWERBUNG-012",
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary="a contact person confirms with a date of birth inside the league's age span, judged before anything is written",
+        summary="a contact person confirms with a date of birth inside the span the seats they hold ask for, judged before anything is written",
         implemented_by="app.api.bewerbungen.services.find_alter_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
     ),
@@ -1733,8 +1733,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "No flow exists through which a pupil supplies their own date, so requiring one would refuse every "
             "squad entry an administrator makes today. `POST /spieler` takes the field nullable and the "
             "`spieler` validator leaves it out of `required`, so a person stored before it still writes. The "
-            "league's threshold is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`, judged for a "
-            "contact seat answering its own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
+            "league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
+            "for a contact person answering their own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
             "`FLEinwilligung.erteilt_von`'s `volljaehrig` names "
             "who spoke rather than an age. THE TRIGGER IS THE NEXT SEASON'S REGISTRATION: every pupil row standing "
             "today is dropped once at the end of this season (`docs/datenschutz.md`), and from that registration "

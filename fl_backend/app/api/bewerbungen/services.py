@@ -10,7 +10,13 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import (
+    BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+    BEWERBUNG_ERINNERUNG_TAGE,
+    BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    SAISON_ID_LENGTH,
+    VERTRETUNG_MIN_AGE_YEARS,
+)
 
 # What every code below refuses is `docs/logging/error-codes.md`.
 BEWERBUNG_ALREADY_DECIDED = "REQ-BEWERBUNG-001"
@@ -262,6 +268,23 @@ def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
 # The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
 KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
 
+# Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
+# (`docs/backend/spec.md :: I180`).
+SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
+    "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    "ansprechperson": VERTRETUNG_MIN_AGE_YEARS,
+    "stellvertretung": VERTRETUNG_MIN_AGE_YEARS,
+}
+
+
+def mindestalter_for(seats: Sequence[str]) -> int:
+    """The floor the PERSON clears: the highest any seat they hold asks for.
+
+    Never the pressed seat's, or a Trainer sitting in one of the other two passes at sixteen.
+    """
+
+    return max(SEAT_MIN_AGE_YEARS[seat] for seat in seats)
+
 
 def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
     """The three people as `saison_teams` stores them, each seat's record recomposed here.
@@ -480,7 +503,7 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
     return None
 
 
-def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
+def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
     A 409 with `refuse_age_outside_the_bounds`'s own German rather than a bare `REQ-VAL-001`, which
@@ -488,7 +511,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     """
 
     try:
-        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today)
+        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
     except ValueError as too_young_or_too_old:
         return WriteRefusal(error_code=BEWERBUNG_KONTAKT_ALTER, message=str(too_young_or_too_old))
 
