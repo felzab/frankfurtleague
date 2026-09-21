@@ -134,6 +134,10 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
+    # The delivery state at the register's other home, its carrier `bestaetigung` having no model of
+    # its own: one shared sub-schema in Python, and the drift walk reaching each path separately
+    # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
@@ -327,6 +331,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
+    # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
 ]
 
 
@@ -408,6 +415,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The pass's own clock rather than a fact about the season it is stored on: an operator asks
     # whether the sweep ran, and no page of a season is that question.
     (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
+    # What became of the last message to this referee, written by the system tier and read by no
+    # admin model: an administrator acts on the referee's own record, never on a provider's report.
+    (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),
 }
 
 

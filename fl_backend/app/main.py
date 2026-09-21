@@ -26,6 +26,7 @@ from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
+from app.api.zustellung.router import router as zustellung_router
 from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
 from app.core.exception_handlers import register_exception_handlers
@@ -63,7 +64,7 @@ WRITE_ROUTERS = (
 PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
 # Its own group for the same reason: system-tier writes, made by the application to itself, which
 # neither tuple above describes.
-SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router)
+SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router, zustellung_router)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).

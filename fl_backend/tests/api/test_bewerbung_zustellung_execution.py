@@ -207,6 +207,22 @@ class TestTheAcceptedSend:
 
         assert on_a_league(mongo_replica_set_url, body) == ([], 1)
 
+    def test_a_re_send_stamped_before_the_event_the_seat_holds_takes_the_seat(self, mongo_replica_set_url: str):
+        """A provider clock ahead of this host's, at both ends: the re-send has to land, or every event about the fresh message is discarded."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await accept(database, client, rollen=["trainer"])
+            await report(database, client, rollen=["trainer"], stand="unzustellbar", grund="NoEmail")
+            resent = await accept(database, client, rollen=["trainer"], nachricht_id=SECOND_MESSAGE)
+            followed = await report(database, client, rollen=["trainer"], stand="zugestellt", nachricht_id=SECOND_MESSAGE, am=LATER_STILL)
+
+            return resent, followed, await state_of(database, "trainer")
+
+        resent, followed, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (resent.angewendet, followed.angewendet) == (["trainer"], ["trainer"])
+        assert stored == {"nachricht_id": SECOND_MESSAGE, "stand": "zugestellt", "grund": None, "am": LATER_STILL}
+
 
 class TestAnEventReachesTheSeatItWasSentTo:
     def test_a_bounce_marks_every_seat_the_message_covered(self, mongo_replica_set_url: str):

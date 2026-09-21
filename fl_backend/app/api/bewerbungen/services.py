@@ -715,6 +715,8 @@ def compose_kontakt_email_update(
 # endpoints alone, and read by the reminder clock and the fourteen-day clock below.
 
 
+# `app/api/zustellung/router.py` judges every other home through these too, passing the document for
+# `bestaetigungen` and the record's carrier key for `seat`.
 def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
     entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
 
@@ -770,8 +772,16 @@ def zustellung_send_applies(*, bestaetigungen: Any, seat: str, am: str) -> bool:
         return False
 
     stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
+    # A stored EVENT never blocks a send: its stamp is the provider's clock, and a host running
+    # behind one would drop every re-send, freezing the seat on a message whose events the judge
+    # above then discards.
+    if stored is None or stored.get("stand") != "angenommen":
+        return True
 
-    return stored is None or str(stored.get("am") or "") < am
+    # Two accepts ARE comparable, both stamps being this host's: one fan-out mints a message per
+    # address of a record and settles them together
+    # (`fl_frontend/src/features/zustellung/notifications.ts :: sendZielMail`).
+    return str(stored.get("am") or "") < am
 
 
 def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand: str, grund: str | None, am: str) -> Mapping[str, Any]:

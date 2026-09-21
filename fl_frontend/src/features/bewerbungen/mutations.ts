@@ -140,7 +140,7 @@ export async function meldeZustellungAngenommen(payload: FLBewerbungZustellungAn
 
 /**
  * Its own endpoint beside the acceptance above, because the two are judged differently: an
- * acceptance is taken whatever is stored, and an event only where it beats what the seat holds.
+ * acceptance is stopped by a newer acceptance alone, and an event only where it beats what the seat holds.
  */
 export async function meldeZustellEreignis(payload: FLBewerbungZustellungEreignisPayload): Promise<FLBewerbungZustellungResponse> {
   return apiClient<FLBewerbungZustellungResponse>("/bewerbungen/zustellung", FLBewerbungZustellungResponseSchema, {

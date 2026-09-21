@@ -270,8 +270,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
-  half of that). The delivery state is stored beside the seat it was sent to and is erased with the
-  application (`docs/glossary.md :: Zustellstand`). Ruled 2026-09-08.
+  half of that). A delivery state is stored beside the record its message was
+  sent about and goes with that record: an application's is erased with the application, and a
+  person's own row carries theirs until the row is deleted outright on request
+  (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
+  **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
+  kept for its own sake. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks

@@ -253,6 +253,8 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "POST"),
     ("/api/v0/bewerbungen/zustellung", "POST"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "POST"),
+    ("/api/v0/zustellung", "POST"),
+    ("/api/v0/zustellung/angenommen", "POST"),
 ]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.

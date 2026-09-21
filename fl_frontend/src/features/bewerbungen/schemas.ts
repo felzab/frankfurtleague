@@ -531,7 +531,7 @@ const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
  */
 // One asymmetry, fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED
 // with one is taken by the API and refused here.
-const einzeiligerName = (schema: z.ZodString, feld: string) =>
+export const einzeiligerName = (schema: z.ZodString, feld: string) =>
   schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
     error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
@@ -887,7 +887,7 @@ export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
   stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
   // No floor beside the ceiling, unlike the two above: the endpoint takes an empty reason and a
   // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
-  grund: z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }).nullable(),
+  grund: einzeiligerName(z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }), "Der Grund").nullable(),
 });
 export type FLBewerbungZustellungEreignisPayload = z.infer<typeof FLBewerbungZustellungEreignisPayloadSchema>;
 

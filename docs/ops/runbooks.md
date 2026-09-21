@@ -816,6 +816,17 @@ the endpoint and notifies the account; nothing in the product reports it, and re
 here by hand. A frontend that boots without the secret crash-loops rather than answering, which is
 the boot check doing its job.
 
+**What a disabled endpoint looks like from inside the product.** The six subscriptions above feed
+every delivery record this database holds, and a record has one home per kind
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I266). So the signature is the same at
+each of them: every message sent after the endpoint went quiet stands at the state its own send
+wrote — `angenommen`, with no provider event after it — while the messages before it carry a
+delivered or refused state as usual. The application's triage queue is the one surface that renders
+this today; every other home is read through its own record, so a kind whose page nobody has opened
+shows nothing at all. **No bounce rate is aggregated anywhere**, deliberately: nothing in this tree
+sums delivery states, and at this volume the records a person already opens answer the same
+question.
+
 ## 11. A contact seat's birthdate that no confirmation stamped
 
 **The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears

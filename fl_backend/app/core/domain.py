@@ -910,6 +910,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
+        "bestaetigung",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block, and no admin write on the referee's own record touches it: `POST /zustellung` and "
+        "`POST /zustellung/angenommen` write the delivery state under it on the system key alone, each applying only where the "
+        "report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
+        "to state a delivery state is a client able to say a message bounced that never went",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it, `DELETE` being refused while an unplayed fixture still "

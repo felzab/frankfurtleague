@@ -5068,7 +5068,7 @@
     "/api/v0/bewerbungen/zustellung/angenommen": {
       "post": {
         "summary": "Record the message the provider accepted for these seats",
-        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than what the seat already holds, so a call retried after a\nlater one landed writes nothing. A seat the application does not hold -- erased, or never mailed -- is skipped\nrather than refused, and the answer names the seats that were written. 404 where no application has the id.",
+        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than the ACCEPT the seat already holds, so a call retried after\na later one landed writes nothing; a delivery state the provider stamped never blocks it, that stamp being the\nprovider's clock rather than this sender's. A seat the application does not hold -- erased, or never mailed -- is\nskipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.",
         "operationId": "angenommen_zustellung_api_v0_bewerbungen_zustellung_angenommen_post",
         "requestBody": {
           "content": {
@@ -5132,6 +5132,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung/angenommen": {
+      "post": {
+        "summary": "Record the message the provider accepted for this record",
+        "description": "Record that the mail provider accepted one message about the record named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it\nis discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and\n`POST /zustellung` is where the recipient's own mail server is heard from.\n\nApplied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed\nwrites nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that\nstamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --\nnever mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.",
+        "operationId": "angenommen_zustellung_api_v0_zustellung_angenommen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung": {
+      "post": {
+        "summary": "Apply one delivery event to the record its message was sent about",
+        "description": "Record what the mail provider reported about one message, on the record that message was sent about.\n\nApplied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a\nre-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a\nlater one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries\nanything but a success and would resend a settled event for hours.\n\n404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not\nretry maps it rather than repeating the call.",
+        "operationId": "post_zustellung_api_v0_zustellung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungEreignisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
                 }
               }
             }
@@ -14235,6 +14325,125 @@
         ],
         "title": "FLUndrawSpielplanResponse",
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
+      },
+      "FLZustellungAngenommenPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "nachricht_id",
+          "am"
+        ],
+        "title": "FLZustellungAngenommenPayload",
+        "description": "One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state."
+      },
+      "FLZustellungEreignisPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "nachricht_id",
+          "am",
+          "stand",
+          "grund"
+        ],
+        "title": "FLZustellungEreignisPayload",
+        "description": "One delivery event about a message this record was sent."
+      },
+      "FLZustellungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angewendet": {
+            "type": "boolean",
+            "title": "Angewendet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angewendet"
+        ],
+        "title": "FLZustellungResponse",
+        "description": "Whether the write reached the record; false where the report is about a message the record does not hold.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
       },
       "HTTPValidationError": {
         "properties": {

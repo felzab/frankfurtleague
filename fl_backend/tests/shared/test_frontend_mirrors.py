@@ -18,6 +18,7 @@ from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.api.zustellung import schemas as zustellung_schemas
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
@@ -225,7 +226,7 @@ class ModelBound(NamedTuple):
     field: str
 
 
-# The ceilings the delivery-event endpoint states at its own fields rather than in `bounds.py`, one
+# The ceilings a delivery-event endpoint states at its own fields rather than in `bounds.py`, one
 # field stating each. Read off the model's metadata, so a constraint respelled there still pairs.
 MIRRORED_MODEL_BOUNDS: Final = (
     ModelBound(
@@ -246,7 +247,30 @@ MIRRORED_MODEL_BOUNDS: Final = (
         bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
         "am",
     ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_GRUND_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "grund",
+    ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "nachricht_id",
+    ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "am",
+    ),
 )
+
+# Every model the register pairs, so the other direction below is asked of each. Both event payloads
+# are in it: one frontend constant bounds the field the webhook parses before it knows which
+# endpoint the report is for.
+MIRRORED_PAYLOADS: Final = tuple(dict.fromkeys(mirror.model for mirror in MIRRORED_MODEL_BOUNDS))
 
 
 def _model_max_length(model: type[BaseModel], field: str) -> int:
@@ -273,10 +297,10 @@ def test_every_model_bound_agrees_with_its_frontend_constant(mirror: ModelBound)
     assert int(found[1]) == _model_max_length(mirror.model, mirror.field), f"{mirror.typescript} disagrees with {mirror.field}'s ceiling"
 
 
-def test_every_ceiling_the_event_payload_states_is_paired_here():
+@pytest.mark.parametrize("payload", MIRRORED_PAYLOADS, ids=lambda payload: payload.__name__)
+def test_every_ceiling_an_event_payload_states_is_paired_here(payload: type[BaseModel]):
     """The other direction, off the model's own field list: a fourth ceiling would otherwise be mirrored by nothing and read as covered."""
 
-    payload = bewerbungen_schemas.FLBewerbungZustellungEreignisPayload
     bounded = {
         name
         for name, field in payload.model_fields.items()

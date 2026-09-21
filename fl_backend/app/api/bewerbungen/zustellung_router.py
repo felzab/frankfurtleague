@@ -89,9 +89,10 @@ async def angenommen_zustellung(
     about it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the
     message, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.
 
-    Applied per seat and only where this send is newer than what the seat already holds, so a call retried after a
-    later one landed writes nothing. A seat the application does not hold -- erased, or never mailed -- is skipped
-    rather than refused, and the answer names the seats that were written. 404 where no application has the id.
+    Applied per seat and only where this send is newer than the ACCEPT the seat already holds, so a call retried after
+    a later one landed writes nothing; a delivery state the provider stamped never blocks it, that stamp being the
+    provider's clock rather than this sender's. A seat the application does not hold -- erased, or never mailed -- is
+    skipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.
     """
 
     return await _apply(

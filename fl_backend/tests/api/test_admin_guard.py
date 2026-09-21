@@ -98,6 +98,8 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
+    ("/api/v0/zustellung", "post"),
+    ("/api/v0/zustellung/angenommen", "post"),
 ]
 
 MUTATIONS = [

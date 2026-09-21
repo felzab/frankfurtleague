@@ -253,10 +253,9 @@ export async function sendBewerbungLinkMail({
 }
 
 /**
- * The seats one accepted message covered, stamped with THIS server's clock.
- *
- * The backend takes an `angenommen` write whatever it already holds, so the two clocks are never
- * compared: every later event is ordered against the provider's own timestamps alone.
+ * The seats one accepted message covered, stamped with THIS server's clock — which the backend
+ * orders against the seat's own last accept and against no provider stamp
+ * (`fl_backend/app/api/bewerbungen/services.py :: zustellung_send_applies`).
  */
 async function meldeAngenommen(
   auftrag: BewerbungMailAuftrag,

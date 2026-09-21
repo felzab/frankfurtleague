@@ -100,6 +100,11 @@ CustomZustellzeitpunkt = Annotated[
 # arrives from outside and is stored.
 CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
+# ONE ceiling over both homes of the delivery state, so a refusal the application's endpoint takes is
+# one every other kind's takes too. Bounded and single-line for `CustomNachrichtId`'s reason, the
+# token being the provider's own and never its prose.
+CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
+
 
 class FLBewerbungZustellung(BaseModel):
     """What became of the last message to one seat.
@@ -1010,7 +1015,7 @@ class FLBewerbungZustellungEreignisPayload(_ZustellungPayload):
     stand: FLBewerbungZustellEreignis
     # Required as a KEY and null where the event carries none: a state with no token is a fact about
     # the mailbox all the same, and an omitted key would read as a client that forgot it.
-    grund: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
+    grund: CustomZustellgrund
 
 
 class FLBewerbungZustellungResponse(BaseAPIResponse):
