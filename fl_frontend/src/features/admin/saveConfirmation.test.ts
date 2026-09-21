@@ -277,7 +277,7 @@ const EDITORS: Record<string, Editor> = {
             bewerbung: null,
             registrierung: null,
           },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [] },
+          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
           swap: { teams: [], playedKnockoutSpiele: 0 },
           ersatz: { rows: [], candidates: [] },
           spielplan: {

@@ -1,4 +1,4 @@
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_ANY } from "@/features/saisons/constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_ANY, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
 import { drawGruppenRefusal, drawnSpieltage, drawShapeRefusal, fitsAnOfferedShape } from "@/features/saisons/shapeOffer";
 
 import type { FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
@@ -218,11 +218,14 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
  */
 export function rolloverBlockedReason({
   hasDrawnSpiele,
+  hasUndatierteSpieltage,
   outgoingSaisonId,
   offeneSpieleCount,
 }: {
   /** `REQ-ACTIVATE-003`: whether THIS season holds fixtures of its own. */
   hasDrawnSpiele: boolean;
+  /** `REQ-ACTIVATE-004`'s condition: whether any of THIS season's matchdays carries no `beginn`. */
+  hasUndatierteSpieltage: boolean;
   /** The season the rollover would close, or `null` when nothing holds `active`. */
   outgoingSaisonId: string | null;
   /** `REQ-ACTIVATE-001`'s condition, counted over the OUTGOING season. */
@@ -232,6 +235,10 @@ export function rolloverBlockedReason({
   // `fl_backend/app/api/saisons/services.py :: find_activation_refusal` orders them: an incumbent
   // an admin can go and finish is beside the point where this season may not be promoted at all.
   if (!hasDrawnSpiele) return "Umstellen geht erst, wenn diese Saison einen Spielplan hat. Lege ihn im Abschnitt Spielplan an.";
+
+  // After the draw for the endpoint's reason: an undrawn season holds no matchday to date, so this
+  // sentence would name a repair nobody can make.
+  if (hasUndatierteSpieltage) return SPIELTAGE_UNDATED;
 
   // Nothing holds `active` on a fresh database, so there is no outgoing season to be unfinished and
   // that first rollover stays live.

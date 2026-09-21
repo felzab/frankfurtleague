@@ -144,6 +144,13 @@ export const GRUPPEN_OFF_RULES =
   "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an.";
 
 /**
+ * `REQ-ACTIVATE-004`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked
+ * reason and the action's arm both return it. The backend raises the code in English, as its three
+ * siblings do, so this is the only German for it.
+ */
+export const SPIELTAGE_UNDATED = "Die Saison kann erst aktiviert werden, wenn jeder Spieltag ein Datum hat.";
+
+/**
  * The two of `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS` a save has to warn
  * about, hand-copied and split by reach: one moves every total, the other moves none and only the
  * order under them.

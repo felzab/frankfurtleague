@@ -3770,7 +3770,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, and a `past` target\nis refused (`docs/backend/spec.md :: I18`).",
+        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date (`docs/backend/spec.md :: I18`).",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {

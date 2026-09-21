@@ -208,6 +208,11 @@ def on_a_seeded_saison(url: str, body: Body, *, saisons: Sequence[dict[str, Any]
             # drawn season really holds, watermark included.
             for saison_id in drawn:
                 await call_draw(database, client, saison_id=saison_id)
+                # The draw leaves every matchday undated, and this file's rival write is a rollover
+                # onto the drawn season, which `REQ-ACTIVATE-004` would otherwise refuse.
+                await database[Collection.SPIELTAGE].update_many(
+                    {"saison_id": saison_id}, {"$set": {"beginn": f"{saison_id}-03-01", "ende": f"{saison_id}-03-02"}}
+                )
 
             return await body(database, client)
 
@@ -302,6 +307,7 @@ async def call_roll_the_league_over(database: AsyncDatabase, client: AsyncMongoC
         saison_id=RIVAL_SAISON_ID,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
     )
 

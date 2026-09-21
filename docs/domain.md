@@ -98,8 +98,9 @@ Each stage below narrows what the one before it left open.
   season in one operation, from the rules and the clubs entered. Nothing it writes carries a date; dating a
   matchday is a separate write afterwards.
 - **Activation** — `POST /saisons/{saison_id}/activate` is the only path to `active`. It refuses a season
-  holding no fixtures (`REQ-ACTIVATE-003`), and demotes the incumbent to `past`, which is refused while that
-  incumbent still has fixtures neither played nor cancelled (`REQ-ACTIVATE-001`).
+  holding no fixtures (`REQ-ACTIVATE-003`) and one whose matchdays are not all dated
+  (`REQ-ACTIVATE-004`), and demotes the incumbent to `past`, which is refused while that incumbent still
+  has fixtures neither played nor cancelled (`REQ-ACTIVATE-001`).
 - **`past`** — the end, and there is no way out of it. A finished season's points, its groups and the table
   derived from them are the record of what happened, and activating it again would reopen all three
   (`REQ-ACTIVATE-002`). A season closed by mistake is repaired at the database.

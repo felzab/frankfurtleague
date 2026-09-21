@@ -8,7 +8,7 @@ import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation, VALIDATION_FAILED } f
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE } from "./constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants";
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import {
   FLActivateSaisonPayloadSchema,
@@ -338,9 +338,12 @@ export async function patchSaisonAction(
 }
 
 /**
- * The only path to `status: "active"`, under three refusals: `REQ-ACTIVATE-001` while the outgoing
- * season still owes results, `REQ-ACTIVATE-002` on a `past` target nothing reopens, and
- * `REQ-ACTIVATE-003` on one with nothing drawn to play.
+ * The only path to `status: "active"`, under four refusals:
+ *
+ * - `REQ-ACTIVATE-001` while the outgoing season owes results
+ * - `REQ-ACTIVATE-002` on a `past` target nothing reopens
+ * - `REQ-ACTIVATE-003` on one with nothing drawn to play
+ * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
   return runAdminMutation("activateSaisonAction", async () => {
@@ -354,8 +357,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The panel closes the control for all three, so any of them arriving here means the page is
-    // stale. Two name a remedy; `REQ-ACTIVATE-002` has none, and says so rather than implying one.
+    // The panel closes the control for all four, so any of them arriving here means the page is
+    // stale. Three name a remedy; `REQ-ACTIVATE-002` has none, and says so rather than implying one.
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
@@ -379,6 +382,11 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
             error:
               "Diese Saison hat noch keinen Spielplan, und ohne Spiele wird sie nicht zur laufenden Saison. Lege den Spielplan an und stelle danach um.",
           };
+        }
+        // The declaration rather than a copy of its words: the closed press reads the same constant,
+        // so the toast and the button cannot say different things about one rule.
+        if (error.serverErrorCode === "REQ-ACTIVATE-004") {
+          return { success: false, error: SPIELTAGE_UNDATED };
         }
       }
       throw error;

@@ -261,7 +261,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
             bewerbung: null,
             registrierung: null,
           },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [] },
+          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
           swap: { teams: [], playedKnockoutSpiele: 1 },
           ersatz: { rows: [], candidates: [] },
           spielplan: {

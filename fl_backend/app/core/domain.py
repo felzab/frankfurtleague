@@ -1060,6 +1060,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_activation_refusal.py::TestASeasonWithNothingDrawn",
     ),
     Rule(
+        code="REQ-ACTIVATE-004",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="every matchday of the season carries a date before it is made active",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithAnUndatedMatchday",
+    ),
+    Rule(
         code="REQ-ENTER-001",
         operation="POST /teams/{team_id}/saisons · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",

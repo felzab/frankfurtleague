@@ -151,6 +151,11 @@ def on_a_league(
             # removes from are the ones a drawn season really holds, watermark included.
             for saison_id in drawn:
                 await call_draw(database, client, saison_id)
+                # The draw leaves every matchday undated, so without this `REQ-ACTIVATE-004` would
+                # answer every case in this file before the interference it is about could be judged.
+                await database[Collection.SPIELTAGE].update_many(
+                    {"saison_id": saison_id}, {"$set": {"beginn": f"{saison_id}-03-01", "ende": f"{saison_id}-03-02"}}
+                )
 
             for saison_id in finished:
                 await database[Collection.SPIELE].update_many({"saison_id": saison_id}, {"$set": {"ergebnis": FINAL_SCORE}})
@@ -198,6 +203,7 @@ async def call_activate(
         saison_id=saison_id,
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
     )
 

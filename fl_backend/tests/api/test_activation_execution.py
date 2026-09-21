@@ -9,7 +9,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST
+from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_SPIELTAGE_UNDATED, ACTIVATE_TARGET_PAST
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
@@ -86,11 +86,30 @@ def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     }
 
 
+def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
+    """Every validator-required key stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
+
+    return {
+        "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
+        "saison_id": saison_id,
+        "saison_phase": "gruppenphase",
+        "position": position,
+        "beginn": beginn,
+        "ende": None if beginn is None else f"{saison_id}-03-02",
+    }
+
+
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(
-    url: str, body: Body, *, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None, mutates_schema: bool = False
+    url: str,
+    body: Body,
+    *,
+    saisons: list[dict[str, Any]],
+    spiele: list[dict[str, Any]] | None = None,
+    spieltage: list[dict[str, Any]] | None = None,
+    mutates_schema: bool = False,
 ) -> Any:
     """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
@@ -102,6 +121,10 @@ def on_a_league(
             await database[Collection.SAISONS].insert_many(saisons)
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
+            # Absent on every case but `REQ-ACTIVATE-004`'s: a season holding no matchday row owes no
+            # date, which is the state each of the older cases here is about.
+            if spieltage:
+                await database[Collection.SPIELTAGE].insert_many(spieltage)
 
             return await body(database, client)
 
@@ -113,6 +136,7 @@ async def call_activate(database: AsyncDatabase, client: AsyncMongoClient, saiso
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
     )
 
@@ -281,3 +305,82 @@ class TestTheRolloverRefusesAFinishedTarget:
 
         assert code == ACTIVATE_TARGET_PAST
         assert statuses == {ARCHIVED: "past", FIRST_INCUMBENT: "active"}
+
+
+class TestTheRolloverRefusesAnUndatedMatchday:
+    """`REQ-ACTIVATE-004` through the route, the only thing proving the matchdays are counted.
+
+    The demotion shares the promotion's transaction, so a refusal ordered after it would leave the
+    league with no active season.
+    """
+
+    def test_the_last_undated_matchday_refuses_the_rollover(self, mongo_replica_set_url: str):
+        """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_activate(database, client, TARGET)
+
+            return refusal.value.error_code, await statuses_now(database)
+
+        code, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spieltage=[
+                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
+                spieltag_document(TARGET, 2, beginn=None),
+            ],
+        )
+
+        assert code == ACTIVATE_SPIELTAGE_UNDATED
+        assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}, "the incumbent was demoted by a refused rollover"
+
+    def test_an_undated_matchday_of_another_season_leaves_this_rollover_open(self, mongo_replica_set_url: str):
+        """The count's season filter: a query reading the whole collection refuses every league holding one undated row anywhere."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await call_activate(database, client, TARGET)
+
+            return response, await statuses_now(database)
+
+        response, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spieltage=[
+                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
+                spieltag_document(FIRST_INCUMBENT, 2, beginn=None),
+            ],
+        )
+
+        assert statuses == {FIRST_INCUMBENT: "past", TARGET: "active"}
+        assert response.deactivated == 1
+
+    def test_dating_that_matchday_lets_the_same_request_through(self, mongo_replica_set_url: str):
+        """The repair the refusal names, driven: without it the case above would pass on an endpoint that refused every rollover."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELTAGE].update_one(
+                {"saison_id": TARGET, "beginn": None}, {"$set": {"beginn": f"{TARGET}-03-08", "ende": f"{TARGET}-03-09"}}
+            )
+
+            response = await call_activate(database, client, TARGET)
+
+            return response, await statuses_now(database)
+
+        response, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[spiel_document(TARGET, ergebnis=None), spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+            spieltage=[
+                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
+                spieltag_document(TARGET, 2, beginn=None),
+            ],
+        )
+
+        assert statuses == {FIRST_INCUMBENT: "past", TARGET: "active"}
+        assert response.deactivated == 1

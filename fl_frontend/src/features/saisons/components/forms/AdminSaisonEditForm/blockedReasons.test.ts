@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { GRUPPEN_OFF_RULES } from "@/features/saisons/constants.ts";
+import { GRUPPEN_OFF_RULES, SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 
 import {
   rolloverBlockedReason,
@@ -41,7 +41,13 @@ const undrawBlock = (overrides: Partial<SpielplanControlInput> = {}): string | n
 const DRAWN: Partial<SpielplanControlInput> = { hasSpielplan: true, hasDrawnSpiele: true, spieltageCount: 8 };
 
 const rolloverBlock = (overrides: Partial<Parameters<typeof rolloverBlockedReason>[0]> = {}): string | null =>
-  rolloverBlockedReason({ hasDrawnSpiele: true, outgoingSaisonId: null, offeneSpieleCount: 0, ...overrides });
+  rolloverBlockedReason({
+    hasDrawnSpiele: true,
+    hasUndatierteSpieltage: false,
+    outgoingSaisonId: null,
+    offeneSpieleCount: 0,
+    ...overrides,
+  });
 
 describe("spielplanBlockedReason", () => {
   it("offers the draw for an empty planned season", () => {
@@ -406,5 +412,22 @@ describe("rolloverBlockedReason", () => {
 
     assert.match(both ?? "", /Spielplan/);
     assert.doesNotMatch(both ?? "", /laufende Saison keine offenen/);
+  });
+
+  /* The declaration rather than a copy of its words: `features/saisons/actions.ts` returns the same
+     constant for `REQ-ACTIVATE-004`, so a sentence retyped at either site parts the two. */
+  it("closes the rollover on an undated matchday with the one declared sentence", () => {
+    assert.equal(rolloverBlock({ hasUndatierteSpieltage: true }), SPIELTAGE_UNDATED);
+    assert.equal(rolloverBlock({ hasUndatierteSpieltage: false }), null);
+  });
+
+  /* The whole chain in one case, in `find_activation_refusal`'s order: a `past` target closes the
+     panel rather than this function, so the three it decides are the three below. */
+  it("resolves every pair of refusals the way an administrator can act on them", () => {
+    const undrawn = { hasDrawnSpiele: false, hasUndatierteSpieltage: true, outgoingSaisonId: "2025", offeneSpieleCount: 3 };
+
+    assert.match(rolloverBlock(undrawn) ?? "", /Abschnitt Spielplan/);
+    assert.equal(rolloverBlock({ ...undrawn, hasDrawnSpiele: true }), SPIELTAGE_UNDATED);
+    assert.match(rolloverBlock({ ...undrawn, hasDrawnSpiele: true, hasUndatierteSpieltage: false }) ?? "", /keine offenen Spiele mehr/);
   });
 });
