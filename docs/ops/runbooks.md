@@ -231,14 +231,11 @@ either fails loudly if it cannot.
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
 refusal does not say. **A changed RETENTION bound** is moved at the keyboard first, from the same
-shell the `--check` above runs in:
-
-```javascript
-db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
-```
+shell the `--check` above runs in: a `collMod` on the `aktionen` collection, naming the index
+`aktionen_retention` and setting its `expireAfterSeconds` to the new bound.
 
 Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
-is the smaller window, no read losing the index in between. `<new>` must equal
+is the smaller window, no read losing the index in between. The new bound must equal
 `fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
