@@ -12,8 +12,11 @@ registerHooks({
   },
 });
 
-const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+
+/** Derived, so what this file reads for is the sentence rather than a second copy of the figure. */
+const GUELTIGKEIT = `${String(LINK_VALIDITY_MINUTES)} Minuten`;
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -47,8 +50,8 @@ function readable(html: string): string {
 
 const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
-/** What Auth.js hands the builder: its own origin, plus the address a stranger typed into the sign-in form. */
-const URL_ = "https://frankfurtleague.de/api/auth/callback/resend?callbackUrl=%2Fadmin&token=abc123&email=erika%40beispiel.de";
+/** What the builder is handed: the page whose button completes the sign-in, and the credential on it. */
+const URL_ = "https://frankfurtleague.de/signin/bestaetigen?token=abc123";
 
 /** The one interpolated value, carrying every character `escapeHtml` covers. An address is typed by hand. */
 const HOSTILE_URL = `https://frankfurtleague.de/x?email=a"<script>&b='c'`;
@@ -65,30 +68,38 @@ const TEXT_SCHLUSS = [
   `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
 ].join("\n");
 
+describe("how long the mailed link stays good for", () => {
+  /* The literal, because every other case here derives its expectation from the constant and so
+     passes at any figure. A link is a bearer credential in an inbox, and this is what bounds it. */
+  it("is ten minutes", () => {
+    assert.equal(LINK_VALIDITY_MINUTES, 10);
+  });
+});
+
 describe("buildMagicLinkEmail", () => {
   /* A mail client renders one branch or the other, so a fact only one half carried would reach only
      half the readers -- and here that fact is the link the message exists to deliver. */
   it("states the same facts in both branches", () => {
     const mail = buildMagicLinkEmail(URL_, ORIGIN);
 
-    for (const fakt of [URL_, "Anmeldung bestätigen", "15 Minuten", "kann nur einmal verwendet werden", IGNORIER_SATZ]) {
+    for (const fakt of [URL_, "Anmeldung bestätigen", GUELTIGKEIT, "kann nur einmal verwendet werden", IGNORIER_SATZ]) {
       assert.ok(flat(readable(mail.html)).includes(fakt), `the HTML branch lost „${fakt}“`);
       assert.ok(flat(mail.text).includes(fakt), `the text branch lost „${fakt}“`);
     }
     assert.equal(mail.subject, "Anmeldelink für Frankfurt League");
   });
 
-  /* The validity the message states is copy, and the TTL that enforces it is Auth.js's. A reader told
-     the wrong number asks for a link that has already expired, or trusts one that has. */
-  it("states the validity its own constant carries, in both branches", () => {
+  /* One constant carries the figure, so what this case holds is the SENTENCE around it: a reader
+     told the link lasts longer than it does trusts one that has expired. */
+  it("sets that figure in the sentence a reader acts on, in both branches", () => {
     const mail = buildMagicLinkEmail(URL_, ORIGIN);
 
-    assert.ok(readable(mail.html).includes("Der Link ist 15 Minuten gültig"));
-    assert.ok(mail.text.includes("Er ist 15 Minuten gültig"));
+    assert.ok(readable(mail.html).includes(`Der Link ist ${GUELTIGKEIT} gültig`));
+    assert.ok(mail.text.includes(`Er ist ${GUELTIGKEIT} gültig`));
   });
 
-  /* Auth.js builds the URL from the address typed into a public form, so it reaches the markup as a
-     caller's value like any other -- an unescaped `&` alone already makes the document invalid. */
+  /* The URL carries a minted credential and reaches the markup as a value like any other -- an
+     unescaped `&` alone already makes the document invalid. */
   it("escapes the link it is handed", () => {
     const mail = buildMagicLinkEmail(HOSTILE_URL, ORIGIN);
 

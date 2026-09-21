@@ -280,11 +280,9 @@ describe("the administrator allowlist", () => {
     }
   });
 
-  /* `@auth/core`'s `defaultNormalizer` NFKC-normalises before it lower-cases, and
-     `fl_frontend/src/core/auth.ts :: isUserAdmin` compares its output against these entries with
-     `includes`: the two spellings of an umlaut are different strings, so an entry left decomposed
-     matches nothing anybody can type. */
-  it("holds each entry in the form Auth.js hands the allowlist check", () => {
+  /* The two spellings of an umlaut are different strings, so an entry left decomposed matches
+     nothing anybody can type (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
+  it("holds each entry in the form the allowlist check folds an address into", () => {
     assert.notEqual(COMPOSED, DECOMPOSED);
 
     assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${COMPOSED.toUpperCase()} , ${DECOMPOSED} `).data, [COMPOSED, COMPOSED]);

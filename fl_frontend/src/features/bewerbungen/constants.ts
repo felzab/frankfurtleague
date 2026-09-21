@@ -1,5 +1,6 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
@@ -92,10 +93,28 @@ export const BEWERBUNG_STUFENGROESSE_MAX = 999;
 export const BEWERBUNG_MIN_ALTER = 16;
 export const BEWERBUNG_MAX_ALTER = 120;
 
-// Named for the floor alone, a mistyped year answers a 190-year-old date with „mindestens 16“, which
-// is a different fault. Here rather than at the schema, so the mapper needs no import from it.
-export const ALTER_AUSSERHALB =
-  `Eine Kontaktperson ist mindestens ${String(BEWERBUNG_MIN_ALTER)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt. ` +
+/**
+ * The floor the Ansprechperson and the Stellvertretung clear, mirrored from
+ * `fl_backend/app/shared/schemas/bounds.py`. Those two sign what binds the school, which asks
+ * contractual capacity rather than the age a person consents for themselves at.
+ */
+export const VERTRETUNG_MIN_ALTER = 18;
+
+/**
+ * Which floor each seat asks of its own person, paired with
+ * `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`. A TABLE rather than the two
+ * numbers alone: a seat given the wrong one of two correct numbers offers a date the endpoint refuses.
+ */
+export const SEAT_MIN_ALTER: Record<KontaktRolle, number> = {
+  ansprechperson: VERTRETUNG_MIN_ALTER,
+  stellvertretung: VERTRETUNG_MIN_ALTER,
+  trainer: BEWERBUNG_MIN_ALTER,
+};
+
+// Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
+// 190-year-old date with „mindestens 16“, which is a different fault.
+export const alterAusserhalb = (mindestalter: number): string =>
+  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. ` +
   `Prüfe das Geburtsdatum.`;
 
 /**

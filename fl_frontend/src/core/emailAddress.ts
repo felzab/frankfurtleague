@@ -60,8 +60,9 @@ export function isDeliverableAddress(value: string): boolean {
 }
 
 /**
- * The form `@auth/core`'s own `defaultNormalizer` hands the `signIn` callback, which is what
- * `fl_frontend/src/core/auth.ts :: isUserAdmin` compares an allowlist entry against.
+ * The one folded form `fl_frontend/src/core/auth.ts :: isUserAdmin` compares an allowlist entry
+ * against, and the form each entry is stored in: the sign-in library lower-cases only the row it
+ * stores, and normalises nothing on either lane.
  */
 export function asSignInIdentifier(value: string): string {
   // NFKC before the fold, in that order: the composed and decomposed spellings of one umlaut are

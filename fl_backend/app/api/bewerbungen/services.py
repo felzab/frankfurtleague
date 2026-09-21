@@ -10,7 +10,13 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import (
+    BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+    BEWERBUNG_ERINNERUNG_TAGE,
+    BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    SAISON_ID_LENGTH,
+    VERTRETUNG_MIN_AGE_YEARS,
+)
 
 # What every code below refuses is `docs/logging/error-codes.md`.
 BEWERBUNG_ALREADY_DECIDED = "REQ-BEWERBUNG-001"
@@ -262,6 +268,23 @@ def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
 # The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
 KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
 
+# Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
+# (`docs/backend/spec.md :: I180`).
+SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
+    "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    "ansprechperson": VERTRETUNG_MIN_AGE_YEARS,
+    "stellvertretung": VERTRETUNG_MIN_AGE_YEARS,
+}
+
+
+def mindestalter_for(seats: Sequence[str]) -> int:
+    """The floor the PERSON clears: the highest any seat they hold asks for.
+
+    Never the pressed seat's, or a Trainer sitting in one of the other two passes at sixteen.
+    """
+
+    return max(SEAT_MIN_AGE_YEARS[seat] for seat in seats)
+
 
 def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
     """The three people as `saison_teams` stores them, each seat's record recomposed here.
@@ -295,9 +318,8 @@ KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
 def hash_token(raw: str) -> str:
     """The form the database holds a token in.
 
-    UNKEYED, unlike Auth.js's `createHash(token + secret)`: 256 random bits have no dictionary to
-    search, and a pepper would cost a backend environment name reaching the server, CI and the
-    local stack.
+    UNKEYED: 256 random bits have no dictionary to search, and a pepper would cost a backend
+    environment name reaching the server, CI and the local stack.
     """
 
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -481,7 +503,7 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
     return None
 
 
-def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
+def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
     A 409 with `refuse_age_outside_the_bounds`'s own German rather than a bare `REQ-VAL-001`, which
@@ -489,7 +511,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     """
 
     try:
-        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today)
+        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
     except ValueError as too_young_or_too_old:
         return WriteRefusal(error_code=BEWERBUNG_KONTAKT_ALTER, message=str(too_young_or_too_old))
 
@@ -693,6 +715,8 @@ def compose_kontakt_email_update(
 # endpoints alone, and read by the reminder clock and the fourteen-day clock below.
 
 
+# `app/api/zustellung/router.py` judges every other home through these too, passing the document for
+# `bestaetigungen` and the record's carrier key for `seat`.
 def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
     entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
 
@@ -748,8 +772,16 @@ def zustellung_send_applies(*, bestaetigungen: Any, seat: str, am: str) -> bool:
         return False
 
     stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
+    # A stored EVENT never blocks a send: its stamp is the provider's clock, and a host running
+    # behind one would drop every re-send, freezing the seat on a message whose events the judge
+    # above then discards.
+    if stored is None or stored.get("stand") != "angenommen":
+        return True
 
-    return stored is None or str(stored.get("am") or "") < am
+    # Two accepts ARE comparable, both stamps being this host's: one fan-out mints a message per
+    # address of a record and settles them together
+    # (`fl_frontend/src/features/zustellung/notifications.ts :: sendZielMail`).
+    return str(stored.get("am") or "") < am
 
 
 def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand: str, grund: str | None, am: str) -> Mapping[str, Any]:

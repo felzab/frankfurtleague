@@ -7,6 +7,7 @@ import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
+import { SPIELTAGE_UNDATED } from "@/features/saisons/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -64,7 +65,12 @@ export function FormRolloverSection({
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
 
-  const blockedReason = rolloverBlockedReason({ hasDrawnSpiele, outgoingSaisonId: outgoing, offeneSpieleCount: offene.length });
+  const blockedReason = rolloverBlockedReason({
+    hasDrawnSpiele,
+    hasUndatierteSpieltage: rollover.hasUndatierteSpieltage,
+    outgoingSaisonId: outgoing,
+    offeneSpieleCount: offene.length,
+  });
 
   const handleActivate = () => {
     press(async () => {
@@ -155,6 +161,16 @@ export function FormRolloverSection({
               </Callout>
             )}
 
+            {/* Behind the draw, in `rolloverBlockedReason`'s order: an undrawn season holds no
+                matchday to date, so both at once would name a repair nobody can make yet. */}
+            {hasDrawnSpiele && rollover.hasUndatierteSpieltage && (
+              <Callout
+                severity="warning"
+                title="Diese Saison hat Spieltage ohne Datum">
+                {SPIELTAGE_UNDATED} Trage die Daten unter <strong>Spieltage</strong> ein.
+              </Callout>
+            )}
+
             {/* The list, not a number: a count tells the operator that something is open and
                 nothing about whether it matters. A finale without a result is a different decision
                 from four group games nobody waits on. */}
@@ -200,9 +216,9 @@ export function FormRolloverSection({
               </ConfirmReveal>
             )}
 
-            {/* Disabled rather than left live to fail. The endpoint refuses both of these and
-                stays the authority; this only stops the page offering an act it knows the answer
-                to, and the body above says which one in a form the admin can act on. */}
+            {/* Disabled rather than left live to fail: the endpoint refuses each of these itself
+                and stays the authority, and this only stops the page offering an act it knows the
+                answer to. */}
             <ConfirmActionRow
               isConfirming={isConfirming}
               isPending={isActivating}

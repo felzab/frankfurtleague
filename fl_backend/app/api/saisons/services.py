@@ -347,6 +347,10 @@ ACTIVATE_TARGET_PAST = "REQ-ACTIVATE-002"
 # a season from going live undrawn in the first place.
 ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
 
+# Every matchday rather than the first alone: a season goes public with a whole calendar, and a
+# league running `active` with nothing dated enters every late addition as an ordinary one.
+ACTIVATE_SPIELTAGE_UNDATED = "REQ-ACTIVATE-004"
+
 # The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
 
@@ -443,12 +447,13 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     return sorted(spiel.spiel_nr for spiel in spiele if is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis))
 
 
-def find_activation_refusal(*, target_status: str, target_fixtures: int, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
+def find_activation_refusal(
+    *, target_status: str, target_fixtures: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
+) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
-    `target_status` is the status of the season being promoted, and `outgoing_unplayed` is empty
-    where there is no incumbent. The outgoing set excludes the target, so a season is never blocked
-    by its own.
+    `undated_spieltage` counts the TARGET season's matchdays holding no `beginn`; `outgoing_unplayed`
+    is the incumbent's alone, empty where there is none, and never the target's own fixtures.
     """
 
     # The target first: an incumbent an admin can go and finish is beside the point where the season
@@ -464,6 +469,14 @@ def find_activation_refusal(*, target_status: str, target_fixtures: int, outgoin
         return WriteRefusal(
             error_code=ACTIVATE_TARGET_UNDRAWN,
             message="the target season has no fixtures; draw its Spielplan first, or the league goes live with nothing to play",
+        )
+
+    # After the undrawn target and before the incumbent: an undrawn season holds no matchday to
+    # date, so this refusal would name a repair the admin cannot make there.
+    if undated_spieltage > 0:
+        return WriteRefusal(
+            error_code=ACTIVATE_SPIELTAGE_UNDATED,
+            message=f"{undated_spieltage} of the target season's matchdays carry no date; date every matchday before the season goes live",
         )
 
     if not outgoing_unplayed:

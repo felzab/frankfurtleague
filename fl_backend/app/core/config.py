@@ -30,6 +30,11 @@ INTERNAL_API_KEY_LENGTH: Final = 64
 # Pinned identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` (`docs/ops/spec.md :: I11`).
 INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
+# The ban list's key is never rotated, every stored hash having been taken under it and no address
+# surviving to re-hash (`docs/ops/runbooks.md :: 5`), so the boot is the one place a weak one is
+# still cheap to replace.
+SPERRLISTE_KEY_MIN_LENGTH: Final = 64
+
 
 def _only_printable_ascii(key: SecretStr) -> SecretStr:
     """A validator rather than `Field(pattern=)`, which pydantic refuses to apply to a `SecretStr`."""
@@ -111,6 +116,11 @@ class BackendConfig(BaseSettings):
     internal_api_key_base: InternalAPIKey = Field(description="Base internal API-key")
     internal_api_key_system: InternalAPIKey = Field(description="Internal API-key for the system router")
     internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the admin router")
+
+    # The floor is HMAC-SHA256's own digest width in characters: shorter, and the ban list's rows
+    # are cheaper to break than the addresses they were taken from
+    # (`app/api/sperrliste/services.py :: adresse_hash`). No ceiling — HMAC takes a key of any length.
+    sperrliste_schluessel: SecretStr = Field(min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC key for the email ban list")
 
     log_level_app: LogLevel = Field(
         default="INFO",

@@ -28,7 +28,7 @@ const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
 const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };`;
 const NEXT_HEADERS = `export const headers = async () => new Headers();`;
 const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
-export const auth = async () => globalThis.__flUndoSession;`;
+export const getSignInDestination = async () => globalThis.__flUndoDestination;`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 const API = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.__flUndoCalls.push({ endpoint, method: options.method, body: options.body });
@@ -123,6 +123,7 @@ beforeEach(() => {
   tags.length = 0;
   calls.length = 0;
   recorders.__flUndoSession = { user: { email: "admin@example.de" } };
+  recorders.__flUndoDestination = "/admin";
   recorders.__flUndoAnswer = () => RESTORED;
 });
 
@@ -277,10 +278,36 @@ describe("the undo route, driven", () => {
 
   it("answers a caller with no admin session 401 and writes nothing", async () => {
     recorders.__flUndoSession = null;
+    recorders.__flUndoDestination = "/signin";
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
     assert.equal(answered.success, false);
+    assert.equal(answered.status, 401);
+    assert.equal(calls.length, 0);
+  });
+
+  /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the public root,
+     so a person's live session answered 401 would loop them through a sign-in they already hold. */
+  it("answers a session that is live but not an administrator's 403", async () => {
+    recorders.__flUndoSession = null;
+    recorders.__flUndoDestination = "/";
+
+    const answered = await post(aReplayOf(SPIEL_ID));
+
+    assert.equal(answered.success, false);
+    assert.equal(answered.status, 403);
+    assert.equal(calls.length, 0);
+  });
+
+  /* An administrator past a lifetime or short of the second factor: a live session, and 401 rather
+     than 403, because the way back is a sign-in rather than the public root. */
+  it("answers an administrator whose session no longer satisfies the guard 401", async () => {
+    recorders.__flUndoSession = null;
+    recorders.__flUndoDestination = "/signin/passkey";
+
+    const answered = await post(aReplayOf(SPIEL_ID));
+
     assert.equal(answered.status, 401);
     assert.equal(calls.length, 0);
   });

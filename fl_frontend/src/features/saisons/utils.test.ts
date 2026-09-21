@@ -17,6 +17,7 @@ import {
   describeSpielplanPermanenz,
   describeSpielplanUmfang,
   holdsDrawnSpiele,
+  holdsUndatierteSpieltage,
   searchWithoutSaisonId,
 } from "./utils.ts";
 
@@ -64,6 +65,31 @@ describe("holdsDrawnSpiele", () => {
 
   it("answers false only for a season with neither", () => {
     assert.equal(holdsDrawnSpiele({ gruppenSpiele: [], playoffSpiele: [] }), false);
+  });
+});
+
+describe("holdsUndatierteSpieltage", () => {
+  /* One undated matchday among dated ones is the whole of `REQ-ACTIVATE-004`, and the case a count
+     over a truncated list gets wrong in the other direction: nothing here may need every row. */
+  it("answers true from a single undated matchday among dated ones", () => {
+    assert.equal(
+      holdsUndatierteSpieltage([
+        { beginn: "2026-09-05", ende: "2026-09-05" },
+        { beginn: null, ende: null },
+      ]),
+      true,
+    );
+  });
+
+  it("answers false for a season whose matchdays are all dated, and for one holding none", () => {
+    assert.equal(holdsUndatierteSpieltage([{ beginn: "2026-09-05", ende: "2026-09-05" }]), false);
+    assert.equal(holdsUndatierteSpieltage([]), false);
+  });
+
+  /* `beginn` alone, though the row offers both ends: reading `ende` too would close a rollover
+     `find_activation_refusal` allows, which is the mirror this derivation is for. */
+  it("leaves a matchday that carries a beginn and no ende dated", () => {
+    assert.equal(holdsUndatierteSpieltage([{ beginn: "2026-09-05", ende: null }]), false);
   });
 });
 

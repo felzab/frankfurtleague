@@ -1,11 +1,14 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
+import { after } from "next/server";
 
-import { AuthError } from "next-auth";
+import { APIError } from "better-auth/api";
 
-import { CALLBACK_URL_COOKIE, signIn, signOut } from "@/core/auth";
+import { auth } from "@/core/auth";
+import { asSignInIdentifier } from "@/core/emailAddress";
+import { logger } from "@/core/logging";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -13,26 +16,15 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import type { FormState } from "@/shared/types/types";
 
 // Deliberately identical whether or not the address is allowlisted: this action is public, so a
-// distinguishable "not authorized" is a membership oracle. `submittedEmail` is the caller's own.
+// distinguishable "not authorized" is a membership oracle.
+
+// `submittedEmail` reaches the panel that names where the link went, so it is the folded address a
+// send was really addressed to rather than the keystrokes -- which the refusal above echoes instead.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
-  message: "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs.",
+  message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldelink unterwegs.",
   submittedEmail,
 });
-
-// A floor, not a delay: the allowlisted path writes a verification token the rejected path never
-// reaches, and an unfloored answer times that write. The send is behind the response
-// (`fl_frontend/src/core/auth.ts`).
-const MIN_RESPONSE_MS = 700;
-
-async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
-  const remaining = MIN_RESPONSE_MS - (Date.now() - startedAt);
-  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
-  return result;
-}
-
-// What bounds the send is the allowlist: `@auth/core` calls the `signIn` callback before
-// `sendVerificationRequest`, so a rejected address is mailed nothing.
 
 /**
  * Public by necessity. `nginx/prod.conf :: location = /signin` bounds that PATH rather than this
@@ -43,65 +35,71 @@ async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
 // previous state first -- and read by nothing: the form re-renders from the returned state alone.
 export async function handleSignIn(_prevState: FormState | undefined, formData: FormData): Promise<FormState> {
   return runWithIncomingTrace(async () => {
-    const startedAt = Date.now();
-
     // The only server action reachable without a session, so its input is parsed and never cast.
     const submittedEmail = String(formData.get("email") ?? "");
     const validated = SignInPayloadSchema.safeParse({ email: submittedEmail });
     if (!validated.success) {
       // Safe to be specific: a format check on what the user typed leaks no membership.
-      return settleAfterFloor(startedAt, {
+      return {
         success: false,
         error: "Gib eine gültige E-Mail-Adresse ein.",
         fieldErrors: toFieldErrors(validated.error),
         // Echoed so the form records the refusal against the address that was SENT, rather than
         // against whatever is in the box by the time the answer lands.
         submittedEmail,
-      });
+      };
     }
 
-    try {
-      // `redirect: false` is the other half of `neutralResult`: by default an allowlisted address
-      // navigates and a rejected one does not, so navigating IS the oracle. `redirectTo` is separate.
-      await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
-    } catch (error) {
-      // `unstable_rethrow` stops a future `redirect()` or `notFound()` from being swallowed by the
-      // AuthError branch below.
-      unstable_rethrow(error);
+    // Read once and closed over: the callback below runs after this function has returned, and a
+    // second read inside it would be a second trip through Next's own request store for one value.
+    const requestHeaders = await headers();
 
-      // AccessDenied from the allowlist check arrives as an AuthError, and rethrowing one would
-      // answer the rejected address with the error page while an allowlisted one gets a sentence.
-      if (!(error instanceof AuthError)) throw error;
-    } finally {
-      // Equalises the side effects as `neutralResult` equalises the body: only the allowlisted branch
-      // reaches Auth.js's callback-url write, and that one `Set-Cookie`, the revalidation header it
-      // draws and the page render that follows each name the address as allowlisted.
-      (await cookies()).delete(CALLBACK_URL_COOKIE);
-    }
+    // Folded HERE, which is the boundary: below this line the verification row, the mailed
+    // recipient, the allowlist gate and the stored `user` row all carry one string.
+
+    // The library folds CASE alone, so two NFKC spellings would verify into two administrators.
+    const email = asSignInIdentifier(validated.data.email);
+
+    // The whole call, behind the response: the allowlist gate, the token write and the send all
+    // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
+    after(async () => {
+      try {
+        // No `callbackURL`: the plugin spends it building a `url` this application discards, and a
+        // destination named at the request reads as one travelling in the mailed link.
+
+        // No `request` either, so the endpoint's own form-CSRF check never runs: what stands in its
+        // place is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
+        // request carrying none through with a warning.
+        await auth.api.signInMagicLink({ body: { email }, headers: requestHeaders });
+      } catch (failed) {
+        // Name only: an error on this path routinely carries the submitted address, and
+        // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
+        logger.error("auth.sign_in_failed", undefined, {
+          error_code: "FE-AUTH-002",
+          name: failed instanceof Error ? failed.name : "unknown",
+        });
+      }
+    });
 
     // The one exit both outcomes take. A second `return` above it is how the two become
     // distinguishable, which is the membership oracle this action exists to withhold.
-    return settleAfterFloor(startedAt, neutralResult(validated.data.email));
+    return neutralResult(email);
   });
 }
 
-/**
- * `redirect: false` is load-bearing: next-auth's default calls `redirect()`, which throws
- * `NEXT_REDIRECT` — Next navigates, but the client promise settles as a rejection, so a caller
- * reports a failure for a sign-out that succeeded.
- */
 export async function signOutAction(): Promise<FormState> {
   return runWithIncomingTrace(async () => {
     try {
-      await signOut({ redirect: false });
+      await auth.api.signOut({ headers: await headers() });
 
       return { success: true, message: "Abgemeldet" };
     } catch (error) {
-      // The same guard as `handleSignIn`: keep a framework redirect from being reported as a failed
-      // sign-out.
+      // Keeps a framework redirect from being reported as a failed sign-out.
       unstable_rethrow(error);
 
-      if (error instanceof AuthError) {
+      // Narrowed rather than caught whole: anything the library did not raise is a defect here,
+      // and answering it with a retry sentence is how one goes unseen.
+      if (error instanceof APIError) {
         return { success: false, error: "Versuche es erneut." };
       }
 

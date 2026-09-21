@@ -7,7 +7,7 @@ import sys
 import pytest
 from pydantic import SecretStr
 
-from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig
+from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
 from app.core.logging import (
     FL_LOGGER_NAME,
     FORWARDED_FAILURE_CODE,
@@ -336,6 +336,7 @@ class TestLoggingSettings:
             internal_api_key_base=SecretStr("b" * INTERNAL_API_KEY_LENGTH),
             internal_api_key_system=SecretStr("s" * INTERNAL_API_KEY_LENGTH),
             internal_api_key_admin=SecretStr("a" * INTERNAL_API_KEY_LENGTH),
+            sperrliste_schluessel=SecretStr("k" * SPERRLISTE_KEY_MIN_LENGTH),
             **overrides,
         )
 

@@ -235,6 +235,10 @@ const ERASURE_HAS_NO_FIELDS =
 const THE_PERSON_THE_PANEL_IS_FOR =
   "the address of the person whose panel this is, handed in as a prop, so no control offers it and no refusal can land on one";
 
+/** A panel standing on a list row rather than a page, which is why `NO_FORM_AT_ALL` would read wrong beside it. */
+const A_ROWS_OWN_REMOVAL =
+  "the removal's panel on the row: the id is in the path and the confirmation is a two-press escalation, neither being an input";
+
 const UNDRAW_HAS_NO_FIELDS =
   "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
 
@@ -260,7 +264,7 @@ const ONE_SCOPE = "the Kenntnisnahme's only scope, written by the panel rather t
 const ONE_SWITCH_FOR_THREE_SEATS =
   "one switch confirms all three seats and is named for `kontakte.ansprechperson.einwilligung.erteilt`, which every refusal on this path arrives beside";
 
-/** The create dialog offers no control over the window, so the null it sends is the only value it can produce. */
+/** The create dialog offers no control over either window, so the null it sends is the only value it can produce. */
 const WINDOW_OPENS_LATER = "the create draft sends the null the field allows; the window is opened in the season editor";
 
 /**
@@ -281,6 +285,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSchiedsrichterKeyPayloadSchema: { id: NO_FORM_AT_ALL },
+  FLSperrlisteKeyPayloadSchema: { id: A_ROWS_OWN_REMOVAL },
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
 
@@ -289,7 +294,12 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLAnnehmenBewerbungPayloadSchema: { id: IN_THE_PATH },
   FLAblehnenBewerbungPayloadSchema: { id: IN_THE_PATH },
 
-  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH, bewerbung: RECORD_ITSELF, "rules.erlaubte_stufen.0": A_STUFE_ROW },
+  FLPatchSaisonPayloadSchema: {
+    id: IN_THE_PATH,
+    bewerbung: RECORD_ITSELF,
+    registrierung: RECORD_ITSELF,
+    "rules.erlaubte_stufen.0": A_STUFE_ROW,
+  },
   FLPatchSchiedsrichterPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielerPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielortPayloadSchema: { id: IN_THE_PATH },
@@ -331,6 +341,10 @@ const EXEMPT: Record<string, Record<string, string>> = {
     "bewerbung.offen": WINDOW_OPENS_LATER,
     "bewerbung.von": WINDOW_OPENS_LATER,
     "bewerbung.bis": WINDOW_OPENS_LATER,
+    registrierung: WINDOW_OPENS_LATER,
+    "registrierung.offen": WINDOW_OPENS_LATER,
+    "registrierung.von": WINDOW_OPENS_LATER,
+    "registrierung.bis": WINDOW_OPENS_LATER,
   },
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
@@ -521,7 +535,7 @@ describe("every path a refusal mapper emits", () => {
   const DECLARES_FIELD_ERRORS = /\)\s*:\s*(?:Promise<)?\{[^{}]*fieldErrors\?:\s*FieldErrors/;
   // A code in a COMPARISON, never anywhere in the file: one quoted in prose above an unrelated
   // function would otherwise make that file a mapper owing an excuse.
-  const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"REQ-[A-Z]+-\d+"/;
+  const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
 
   /**
    * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
@@ -635,20 +649,57 @@ describe("every path a refusal mapper emits", () => {
   /** `app/api/bewerbung/route.ts` answers at `/api/bewerbung`: a handler's URL is its own path. */
   const routeUrl = (file: string): string => `/${file.replace(/^app\//, "").replace(/\/route\.ts$/, "")}`;
 
+  const ROUTE_HANDLER = /^app\/api\/.*route\.ts$/;
+
+  /** Every module that names one of this file's exports as a call. */
+  function callersOfModule(file: string): string[] {
+    const symbols = exportedSymbols(sources.get(file) ?? "");
+
+    // A test file's fixtures are not production text a sweep asserts over
+    // (`.claude/rules/cross-surface.md`): the sample below declares two real action names.
+    return [...sources]
+      .filter(([other, text]) => other !== file && !isTestFile(other) && symbols.some((symbol) => text.includes(`${symbol}(`)))
+      .map(([other]) => other);
+  }
+
   /**
    * The forms a mapper's paths can land on: whatever calls it, plus — where a ROUTE HANDLER calls it —
    * whatever fetches that handler's URL. The public form reaches its refusals only through the second.
    */
   function audienceOf(file: string): string[] {
-    const symbols = exportedSymbols(sources.get(file) ?? "");
-    const callers = [...sources]
-      .filter(([other, text]) => other !== file && symbols.some((symbol) => text.includes(`${symbol}(`)))
-      .map(([other]) => other);
+    const walked = new Set<string>([file]);
+    let frontier = [file];
 
-    const urls = callers.filter((caller) => /^app\/api\/.*route\.ts$/.test(caller)).map(routeUrl);
-    const fetchers = components.filter((component) => urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`)));
+    while (frontier.length > 0) {
+      const audience = new Set<string>();
+      const hops: string[] = [];
 
-    return [...new Set([...callers.filter((caller) => caller.endsWith(".tsx")), ...fetchers])];
+      for (const current of frontier) {
+        const callers = callersOfModule(current);
+        for (const caller of callers) if (caller.endsWith(".tsx")) audience.add(caller);
+
+        const urls = callers.filter((caller) => ROUTE_HANDLER.test(caller)).map(routeUrl);
+        for (const component of components) {
+          if (urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`))) audience.add(component);
+        }
+
+        // A route handler is never a hop: its own audience is what fetches its URL, read just above,
+        // and walking its exports would take `POST(` to every caller of every other `POST`.
+        for (const caller of callers) {
+          if (caller.endsWith(".tsx") || ROUTE_HANDLER.test(caller) || walked.has(caller)) continue;
+
+          walked.add(caller);
+          hops.push(caller);
+        }
+      }
+
+      // The NEAREST layer of forms, never every layer: a mapper a component calls is answered by
+      // that component, and one called from `actions.ts` alone is answered a hop out, not by nothing.
+      if (audience.size > 0) return [...audience];
+      frontier = hops;
+    }
+
+    return [];
   }
 
   it("is found by the sweep at all", () => {

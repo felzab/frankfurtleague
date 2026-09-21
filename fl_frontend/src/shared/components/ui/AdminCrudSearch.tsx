@@ -1,11 +1,12 @@
 "use client";
 
-import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
+import { useCrudSearchField } from "./AdminCrudPrivateQuery";
 import { SearchBar } from "./SearchBar";
 
 /**
- * Its own client island in the shell's header row, so that row renders immediately. It writes the debounced `?q=` and
- * `AdminCrudView` reads the same parameter, so no state crosses the Suspense boundary between them.
+ * Its own client island in the shell's header row, so that row renders immediately. Where it meets `AdminCrudView` is
+ * the shell's to decide: the debounced `?q=` on every ordinary list, and a held value on a page that passes
+ * `privateQuery`.
  */
 export function AdminCrudSearch({
   searchLabel,
@@ -21,7 +22,7 @@ export function AdminCrudSearch({
    */
   attachEnd?: boolean;
 }) {
-  const { inputValue, setInputValue } = useDebouncedUrlQuery();
+  const { inputValue, setInputValue } = useCrudSearchField();
 
   return (
     <SearchBar

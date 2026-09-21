@@ -10,7 +10,7 @@ DELIVERABLE: required tables — the ASVS coverage table (S0), the per-export se
 authorization table (S1), and the per-segment protected-route table (S3). Every finding carries a
 concrete exploit sentence.
 
-CONTEXT — derive, do not assume: auth is next-auth via `src/core/auth.ts` with a proxy matcher on
+CONTEXT — derive, do not assume: auth is Better Auth via `src/core/auth.ts` with a proxy matcher on
 `/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both still
 exist rather than assuming either); the frontend holds tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a

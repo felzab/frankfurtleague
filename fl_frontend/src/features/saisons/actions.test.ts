@@ -133,7 +133,7 @@ describe("the saison actions against the backend's refusal register", () => {
   it("maps every refusal the rollover endpoint declares", () => {
     const declared = declaredCodes("POST /saisons/{saison_id}/activate");
 
-    assert.deepEqual(declared, ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003"]);
+    assert.deepEqual(declared, ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"]);
     for (const code of declared)
       assert.ok(ACTIVATE_ACTION.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic failure`);
   });
@@ -280,6 +280,15 @@ describe("the German each widened refusal renders", () => {
   /* `REQ-ACTIVATE-003` is the one activation refusal with a remedy the admin can act on here. */
   it("names the draw as the remedy for a rollover onto an undrawn season", () => {
     assert.match(activateBranch("REQ-ACTIVATE-003"), /Spielplan/);
+  });
+
+  /* No call reaches this: an action outside a request raises Next's request-scope error, the
+     standing excuse `fl_backend/tests/api/test_rules_refusal_mirror.py` records. The pre-flight's
+     own case compares the same declaration by calling. */
+  it("answers the undated-matchday refusal with the declaration the closed press reads", () => {
+    assert.match(activateBranch("REQ-ACTIVATE-004"), /error: SPIELTAGE_UNDATED }/);
+    // The sentence itself, at neither site: a copy of its words here would pass the match above.
+    assert.ok(!ACTIVATE_ACTION.includes("jeder Spieltag ein Datum"), "the ruled sentence is retyped in the action");
   });
 });
 

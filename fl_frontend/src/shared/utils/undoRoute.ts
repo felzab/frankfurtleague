@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { auth, getAdminSession } from "@/core/auth";
+import { getAdminSession, getSignInDestination } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
@@ -62,10 +62,12 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   let status: 200 | 401 | 403 = 200;
 
   const result = await runAdminMutation(route.mutationName, async () => {
+    // Asked only once refused, so an admin's undo pays one session read.
     if (!(await getAdminSession())) {
-      // `fl_frontend/src/proxy.ts`'s two destinations, asked only once refused, so an admin's undo pays one session
-      // read: the proxy never sees `/api/admin/*`.
-      status = (await auth()) === null ? 401 : 403;
+      // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
+      // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
+      // somewhere they can get back in.
+      status = (await getSignInDestination()) === "/" ? 403 : 401;
       return { success: false as const, error: ADMIN_FORBIDDEN };
     }
 

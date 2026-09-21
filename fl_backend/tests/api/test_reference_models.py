@@ -3,6 +3,7 @@ import string
 from typing import Any, get_args
 
 import pytest
+from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
@@ -18,6 +19,7 @@ from app.api.spieler.schemas import (
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerMembership,
+    FLSpielerWithMemberships,
 )
 from app.api.spieler.services import registration_einwilligung
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
@@ -31,6 +33,12 @@ from app.api.teams.schemas import (
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
+
+EINWILLIGUNG_DATABASE_NAME = worker_database("fl_einwilligung_validator_test")
+
+SPIELER_OID = ObjectId("6890a1b2c3d4e5f607420001")
 
 _GRUPPEN_ALPHABET = string.ascii_uppercase
 
@@ -238,12 +246,29 @@ class TestEinwilligung:
 
     @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
-        """All four are in the validator's `required` tuple, so a model accepting three would read back a row the database refuses to store."""
+        """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
 
         incomplete = einwilligung()
         del incomplete[field]
 
         assert_rejects(FLEinwilligung, incomplete, field)
+
+    def test_a_record_predating_the_two_optional_keys_reads_back(self, einwilligung):
+        """The whole stored population: a model requiring either would 500 a list over every person the league already holds."""
+
+        parsed = FLEinwilligung.model_validate(einwilligung())
+
+        assert parsed.text_version is None
+        assert parsed.medien is False
+
+    def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
+        """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
+
+        parsed = FLEinwilligung.model_validate(einwilligung(text_version="liga-2026-03", medien=True))
+
+        assert parsed.text_version == "liga-2026-03"
+        assert parsed.medien is True
+        assert parsed.umfang == "kader_oeffentlich"
 
     def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
         """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""
@@ -305,6 +330,59 @@ class TestEinwilligung:
         """`bestandsuebernahme` is reserved for the backfill; composing it here would make a real consent unfindable among the assumed ones."""
 
         assert registration_einwilligung(today="2026-04-01").erteilt_von != "bestandsuebernahme"
+
+
+@pytest.mark.db
+class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
+    """What the Pydantic defaults claim, judged by `$jsonSchema` instead.
+
+    A model's default is a READ; `required` is what a write meets, and the two are declared in
+    different files.
+    """
+
+    # Never `_stored`, which this module already spells for the write-path table below:
+    # `scripts/checks/check_test_estate.py :: Estate.resolve` keys on the bare name, so the shadow
+    # would report every caller of that one as reaching a database.
+    def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
+        async def body() -> Any:
+            async with a_clean_database(url, EINWILLIGUNG_DATABASE_NAME) as (_, database):
+                await database.spieler.insert_one(
+                    {
+                        "_id": SPIELER_OID,
+                        "vorname": "Wiltrudis",
+                        "nachname": "Meier",
+                        "inactive_since": None,
+                        "einwilligung": einwilligung,
+                    }
+                )
+
+                return await database.spieler.find_one({"_id": SPIELER_OID})
+
+        return on_the_seed_loop(body())
+
+    def test_a_four_key_record_is_stored_and_reads_back_at_the_models_defaults(self, mongo_url: str, einwilligung):
+        """The whole stored population, past the validator rather than past Pydantic.
+
+        A `required` tuple holding either new key refuses every record the league already holds.
+        """
+
+        stored = self._written(mongo_url, einwilligung())
+
+        assert set(stored["einwilligung"]) == {"umfang", "erteilt_von", "datum", "bestaetigt_am"}
+
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "memberships": []})
+
+        assert parsed.einwilligung is not None
+        assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == (None, False)
+
+    def test_a_six_key_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
+        """The other direction: a validator declaring neither key would refuse the record the registration flow is built to write."""
+
+        stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "memberships": []})
+
+        assert parsed.einwilligung is not None
+        assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == ("liga-2026-03", True)
 
 
 class TestSaisonSpielerRow:
@@ -523,9 +601,9 @@ class TestSaison:
 
 
 class TestTheSeasonsSpans:
-    """`refuse_reversed_span` under both callers, with the labels each passes it.
+    """`refuse_reversed_span` under every caller, with the labels each passes it.
 
-    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors both sentences word
+    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors each sentence word
     for word.
     """
 
@@ -540,6 +618,7 @@ class TestTheSeasonsSpans:
             "end_date": stored["end_date"],
             "rules": stored["rules"],
             "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
+            "registrierung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
             **overrides,
         }
 
@@ -574,6 +653,57 @@ class TestTheSeasonsSpans:
             FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
 
         assert "Das Enddatum darf nicht vor dem Startdatum liegen." in str(failure.value)
+
+    def test_accepts_a_registration_window_that_runs_forwards(self, saison):
+        """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
+        parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
+
+        assert parsed.registrierung is not None
+        assert parsed.registrierung.offen is True
+
+    def test_accepts_no_registration_window_at_all(self, saison):
+        """`None` is the season taking no registrations, which the span rule has nothing to say about."""
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
+
+    def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
+        """The third caller's own label pair: the two windows raise different sentences, and one moved alone is what this catches."""
+        reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
+
+        assert "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen." in str(failure.value)
+
+    def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
+        """Two decisions rather than one span: registration may legitimately close before applications do."""
+        overlapping = {"offen": True, "von": "2025-08-01", "bis": "2025-09-15"}
+
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
+
+
+class TestTheSeasonsWindowsAreRequiredWithNoDefault:
+    """Parametrised over both windows: a default added to either would leave the other's case green.
+
+    The `None` re-declaration on the read model is what lets a season stored before a field validate.
+    """
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_payload_omitting_a_window_is_refused_rather_than_closing_it(self, saison, field, assert_rejects):
+        body = {key: value for key, value in TestTheSeasonsSpans.payload(saison).items() if key != field}
+
+        assert_rejects(FLPatchSaisonPayload, body, field)
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_payload_carrying_an_explicit_null_is_accepted(self, saison, field):
+        body = {**TestTheSeasonsSpans.payload(saison), field: None}
+
+        assert getattr(FLPatchSaisonPayload.model_validate(body), field) is None
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_stored_season_carrying_no_window_key_still_validates(self, saison, field):
+        stored = {key: value for key, value in saison().items() if key != field}
+
+        assert getattr(FLSaison.model_validate(stored), field) is None
 
 
 class TestSpielBooking:
@@ -689,6 +819,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         # The stored rows minus what only storage carries, which is what each create payload takes.
         new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
         new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
+        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 

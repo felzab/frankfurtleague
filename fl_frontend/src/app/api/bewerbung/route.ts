@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         (seat) => !imEmpfang.includes(seat.value) && (seat.value !== "trainer" || zugleich === null),
       ).map((seat) => ({
         vorname: kontakte[seat.value].vorname,
-        // Folded as `notifications.ts :: seatsByMailbox` folds it, one press answering both seats of
+        // Folded as `fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox` folds it, one press answering both seats of
         // a mirrored pair: two rows would name one person as two people still to be chased.
         rolleText: seat.value === zugleich ? rollenText([seat.value, "trainer"]) : seat.label,
       }));

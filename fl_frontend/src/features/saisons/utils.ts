@@ -219,6 +219,17 @@ export function holdsDrawnSpiele({
 }
 
 /**
+ * Whether any matchday carries no `beginn`: `REQ-ACTIVATE-004`'s condition. A boolean for
+ * `holdsDrawnSpiele`'s reason, and a list cut at the backend's limit can read false where a matchday
+ * past the cut is undated, which the endpoint refuses itself.
+ */
+export function holdsUndatierteSpieltage(spieltage: readonly { beginn: string | null; ende: string | null }[]): boolean {
+  // `beginn` alone though both ends are on offer, as `find_activation_refusal`'s own count reads it:
+  // no write in the tree dates one end of a matchday without the other.
+  return spieltage.some((spieltag) => spieltag.beginn === null);
+}
+
+/**
  * What a confirmed replace of this season's draw destroys, plus the figure `REQ-SPIELPLAN-005`
  * weighs against it. Counted off the two fixture reads the season editor already makes,
  * `gruppenphase` and `playoffs` being that season's exact partition.

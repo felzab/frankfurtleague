@@ -53,8 +53,8 @@ const BACKEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY: Record<string, string> = {
   BaseAPIResponse: "the envelope is inlined into every response rather than published as a component",
 
-  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to Auth.js, which mails the link.
-  SignInPayload: "the sign-in action posts to Auth.js rather than to the API, so no component describes it",
+  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to the sign-in library, which mails the link.
+  SignInPayload: "the sign-in action posts to the sign-in library rather than to the API, so no component describes it",
 
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
@@ -78,6 +78,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -109,6 +110,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
@@ -338,7 +340,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 184;
+const EXPECTED_PAIRS = 198;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

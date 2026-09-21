@@ -29,6 +29,8 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   inactive_since: null,
   geburtsdatum: null,
   einwilligung: null,
+  // A person the admission has never written an address for, which is every stored row until it has.
+  email: null,
   memberships: [MEMBERSHIP],
 } satisfies FLSpielerWithMemberships);
 

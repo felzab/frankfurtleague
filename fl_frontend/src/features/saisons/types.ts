@@ -3,6 +3,7 @@ import type {
   FLPostSaisonPayload,
   FLSaisonBewerbung,
   FLSaisonPhaseSchedule,
+  FLSaisonRegistrierung,
   FLSaisonRules,
   FLSaisonSpielplan,
   FLSaisonStatus,
@@ -42,6 +43,8 @@ export type SaisonDraftFields = {
    * stands empty, which is the mid-edit state the payload schema refuses by name.
    */
   bewerbung: FLSaisonBewerbung | null;
+  /** `null` is the season that takes no registrations, held the same way as the window above. */
+  registrierung: FLSaisonRegistrierung | null;
 };
 
 export type AdminSaisonRow = {
@@ -69,6 +72,11 @@ export type SaisonRolloverContext = {
   outgoingSaisonId: string | null;
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
+  /**
+   * `REQ-ACTIVATE-004` over THIS season: whether any of its matchdays carries no `beginn`. Here
+   * rather than beside `hasDrawnSpiele` because only the rollover reads it.
+   */
+  hasUndatierteSpieltage: boolean;
 };
 
 /**

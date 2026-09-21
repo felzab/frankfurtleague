@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 
-import { auth } from "./core/auth";
+import { auth, isAdminSession, SIGN_IN_LANDING } from "./core/auth";
 
 import type { NextRequest } from "next/server";
 
 /**
  * No per-request nonce CSP here: the one enforced policy lives in `nginx/prod.conf`. That is what lets
- * the matcher stay scoped to `/admin` — `auth()` is a Mongo round trip, never on a public load.
+ * the matcher stay scoped to `/admin` — the session read is a Mongo round trip, never on a public load.
  */
-export default auth((req) => {
+export async function proxy(req: NextRequest): Promise<NextResponse> {
   // A server action's POST takes the checks below too: an action writing a cookie makes Next render
   // the tree at the POSTed URL into its response, admin layout and all (`docs/frontend/spec.md :: I243`).
-  const isLoggedIn = !!req.auth;
+  const session = await auth.api.getSession({ headers: req.headers });
 
-  // No callbackUrl: honouring one needs the destination checked against an allowlist first.
-  if (!isLoggedIn) {
+  // No return destination carried across: honouring one needs it checked against an allowlist first.
+  if (!session) {
     return turnAway(req, "/signin");
   }
 
-  if (req.auth?.user?.role !== "admin") {
-    return turnAway(req, "/");
+  // Re-derived here rather than read off the session: the verdict is the allowlist, the two
+  // administrator figures and the factor, each judged against this request (`:: I122`).
+
+  // To the landing rather than the public root: an administrator refused for the missing factor
+  // alone is one step from being through, and the root offers them neither that step nor a message.
+  if (!isAdminSession(session)) {
+    return turnAway(req, SIGN_IN_LANDING);
   }
 
   return NextResponse.next();
-});
+}
 
 function turnAway(req: NextRequest, destination: string): NextResponse {
   // Never a 307 for an action's POST: its `fetch` replays one as a POST it cannot read. This header,

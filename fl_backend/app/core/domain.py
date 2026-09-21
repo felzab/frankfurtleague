@@ -220,6 +220,22 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "the row -- the enumeration of those writes is `docs/backend/spec.md :: I42`'s, not this note's."
         ),
     ),
+    Aggregate(
+        name="Sperrliste",
+        root=Collection.SPERRLISTE,
+        members=(),
+        boundary=(
+            "One barred address, as an HMAC under this deployment's key, beside the administrator who entered it and "
+            "their reason. Held true against nothing: a row states that an administrator barred an address on a day, "
+            "which stays true however either person is recorded afterwards -- so it is in no boundary with `spieler`, "
+            "with an application, or with whatever a later sign-up writes, and it carries no reference to any of them. "
+            "That independence is what lets the row outlive the erasure of the person it bars and of the administrator "
+            "it names, standing until an administrator lifts it (`docs/backend/spec.md :: I268`), where a member of "
+            "either person's own boundary would have to go with them. Anonymous it is not: `erstellt_von` is that "
+            "administrator's address in plain and `grund` is free text that may name the person barred, both served "
+            "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
+        ),
+    ),
 )
 
 
@@ -534,6 +550,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "registrierung",
+        Editability.EDITABLE,
+        "the application window's twin, on the same payload and with no default for the same reason; a row of its own "
+        "because the two windows are two decisions, so one closed early says nothing about the other",
+        "app.api.saisons.schemas.FLPatchSaisonPayload",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "start_date",
         Editability.EDITABLE,
         "editable even on a finished season, and refused where the new span would stop covering a live matchday "
@@ -720,6 +744,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SPIELER,
+        "email",
+        Editability.IMMUTABLE,
+        "written by no route, at create or after: no payload carries the field, so whatever a row holds here is what it keeps, "
+        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is. "
+        "`POST /identitaet/subjekt` joins on the field by equality against `sign_in_identifier`'s output, so a value stored in "
+        "any other form is matched by nothing",
+    ),
+    FieldPolicy(
+        Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league",
@@ -895,6 +928,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
+        "bestaetigung",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block, and no admin write on the referee's own record touches it: `POST /zustellung` and "
+        "`POST /zustellung/angenommen` write the delivery state under it on the system key alone, each applying only where the "
+        "report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
+        "to state a delivery state is a client able to say a message bounced that never went",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it, `DELETE` being refused while an unplayed fixture still "
@@ -1050,6 +1092,14 @@ RULES: tuple[Rule, ...] = (
         summary="a season holding no fixtures is never made active",
         implemented_by="app.api.saisons.services.find_activation_refusal",
         tested_by="tests/api/test_activation_refusal.py::TestASeasonWithNothingDrawn",
+    ),
+    Rule(
+        code="REQ-ACTIVATE-004",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="every matchday of the season carries a date before it is made active",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithAnUndatedMatchday",
     ),
     Rule(
         code="REQ-ENTER-001",
@@ -1538,7 +1588,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-BEWERBUNG-012",
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary="a contact person confirms with a date of birth inside the league's age span, judged before anything is written",
+        summary="a contact person confirms with a date of birth inside the span the seats they hold ask for, judged before anything is written",
         implemented_by="app.api.bewerbungen.services.find_alter_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
     ),
@@ -1565,6 +1615,14 @@ RULES: tuple[Rule, ...] = (
         summary="a player still in the league is not erased, retirement being the step that comes first",
         implemented_by="app.api.spieler.services.find_erasure_refusal",
         tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-001",
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="an address the list already holds takes no second ban",
+        implemented_by="app.api.sperrliste.services.find_sperrliste_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestASecondBanOfOneAddress",
     ),
 )
 
@@ -1733,8 +1791,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "No flow exists through which a pupil supplies their own date, so requiring one would refuse every "
             "squad entry an administrator makes today. `POST /spieler` takes the field nullable and the "
             "`spieler` validator leaves it out of `required`, so a person stored before it still writes. The "
-            "league's threshold is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`, judged for a "
-            "contact seat answering its own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
+            "league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
+            "for a contact person answering their own confirmation link and by no other write (`REQ-BEWERBUNG-012`), and "
             "`FLEinwilligung.erteilt_von`'s `volljaehrig` names "
             "who spoke rather than an age. THE TRIGGER IS THE NEXT SEASON'S REGISTRATION: every pupil row standing "
             "today is dropped once at the end of this season (`docs/datenschutz.md`), and from that registration "

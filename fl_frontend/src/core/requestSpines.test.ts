@@ -14,12 +14,14 @@ const KOPF = 'const secFetchSite = request.headers.get("sec-fetch-site");';
 /** `null` passes deliberately: a browser too old to send the header is still a reader of this page. */
 const BEDINGUNG = 'secFetchSite !== null && secFetchSite !== "same-origin"';
 
-/* An OAuth callback arrives cross-site by construction and Auth.js brings its own CSRF token, so
-   this guard would refuse the one request this handler exists to take. */
+/* The sign-in library's verification path is followed out of a mail client, so it arrives
+   cross-site by construction and this guard would refuse it; the library brings an origin check of
+   its own to every path a browser posts to. */
+
 // The provider's delivery webhook takes neither spine, and the reason is in its own doc
 // block: `handlePublicRequest` always answers 200, which would tell a caller that retries on
 // non-200 that a forgery and an unreachable backend were both accepted.
-const UNGUARDED_BY_DECISION = [path.join("api", "auth", "[...nextauth]", "route.ts"), path.join("api", "mail", "zustellung", "route.ts")];
+const UNGUARDED_BY_DECISION = [path.join("api", "auth", "[...all]", "route.ts"), path.join("api", "mail", "zustellung", "route.ts")];
 
 const SOURCES = new Map<string, string>();
 

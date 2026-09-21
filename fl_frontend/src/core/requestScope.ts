@@ -28,9 +28,16 @@ export function getRequestActor(): string | undefined {
 }
 
 // Mutates the live store: the session resolves after the scope is entered, and `run()` seeds at
-// entry alone. A no-op outside a scope, and on the address-less session Auth.js's types admit but
-// the Resend provider cannot produce.
+// entry alone. A no-op outside a scope, and on the address-less session the sign-in library's types
+// admit but a mailed link cannot produce.
 export function setRequestActor(actor: string | null | undefined): void {
   const store = storage.getStore();
-  if (store && actor) store.actor = actor;
+  if (!store || !actor) return;
+
+  // Two session guards ran on one request, which is a programming error rather than a shape to
+  // serve: whichever landed last would name the actor of every write this request makes
+  // (`docs/frontend/spec.md :: I272`).
+  if (store.actor !== undefined && store.actor !== actor) throw new Error("A second actor was set on one request scope.");
+
+  store.actor = actor;
 }

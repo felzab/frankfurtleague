@@ -1,5 +1,7 @@
 import z from "zod";
 
+import { ANMELDUNG_LINK, ANMELDUNG_TAG } from "@/core/anmeldeTag";
+import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import {
@@ -10,6 +12,7 @@ import {
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "./schemas";
 
+import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
 
@@ -112,11 +115,49 @@ function rollenAus(value: string | undefined): FLKontaktRolle[] | null {
   return gelesen.success ? gelesen.data : null;
 }
 
+/** What every event says whatever record it is about: the message, the state it leaves, and the instant that orders it. */
+type ZustellGemeinsam = {
+  nachricht_id: string;
+  stand: FLBewerbungZustellungEreignisPayload["stand"];
+  grund: string | null;
+  am: string;
+};
+
+/** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
+export type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar";
+
+/**
+ * **`bewerbung` is the fall-through**: no message the application flow sends carries a `ziel`, so an
+ * event naming neither that nor the sign-in lane is read as that flow's rather than as unplaceable.
+ */
+export type ZustellMeldung =
+  | { ziel: "bewerbung"; meldung: FLBewerbungZustellungEreignisPayload }
+  | { ziel: FLZustellungZiel; meldung: FLZustellungEreignisPayload }
+  // Carries no `meldung` because nothing stores this lane: an administrator locked out of their own
+  // mailbox is a line for an operator, and a record here would be a second home for the `auth` store.
+  | { ziel: "anmeldung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
+  // Its own arm rather than `null`: read as nothing, a tag block this side cannot place is dropped
+  // exactly as an untagged message is, and a slice's bounces go unrecorded in silence.
+  | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
+
+/** The generic arm: a kind names a population, so an event carrying one without the row's own id is placed nowhere. */
+function leseZielMeldung(ziel: string, zielId: string | undefined, gemeinsam: ZustellGemeinsam): ZustellMeldung {
+  const art = FLZustellungZielSchema.safeParse(ziel);
+  if (!art.success) return { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null };
+
+  const zeile = CustomObjectIdStringSchema.safeParse(zielId);
+  const meldung = zeile.success
+    ? FLZustellungEreignisPayloadSchema.safeParse({ ziel: art.data, ziel_id: zeile.data, ...gemeinsam }).data
+    : undefined;
+
+  return meldung === undefined ? { ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: art.data } : { ziel: art.data, meldung: meldung };
+}
+
 /**
  * One event as the write it asks for, or `null` where nothing is owed. **Every `null` is answered
  * 200**: the provider retries a non-200 for thirty-two hours and then disables the endpoint.
  */
-export function leseZustellEreignis(raw: unknown): FLBewerbungZustellungEreignisPayload | null {
+export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
   const gelesen = ZustellEreignisSchema.safeParse(raw);
   if (!gelesen.success) return null;
 
@@ -124,18 +165,14 @@ export function leseZustellEreignis(raw: unknown): FLBewerbungZustellungEreignis
   const stand = standAus(ereignis);
   if (stand === null) return null;
 
-  const bewerbungId = CustomObjectIdStringSchema.safeParse(ereignis.data.tags?.["bewerbung_id"]);
-  const rollen = rollenAus(ereignis.data.tags?.["rollen"]);
   const nachrichtId = ZustellNachrichtIdSchema.safeParse(ereignis.data.email_id);
   const am = ZustellZeitpunktSchema.safeParse(ereignis.created_at);
 
   // The message and the instant are refused rather than repaired, unlike `grund` below: one the
-  // endpoint will not take names neither the link a seat holds nor the order two events fall in.
-  if (!bewerbungId.success || rollen === null || !nachrichtId.success || !am.success) return null;
+  // endpoint will not take names neither the link a record holds nor the order two events fall in.
+  if (!nachrichtId.success || !am.success) return null;
 
-  const meldung = {
-    bewerbung_id: bewerbungId.data,
-    rollen: rollen,
+  const gemeinsam: ZustellGemeinsam = {
     nachricht_id: nachrichtId.data,
     stand: stand.stand,
     // Null where the provider sent prose rather than its own token: the state is a fact about the
@@ -144,9 +181,28 @@ export function leseZustellEreignis(raw: unknown): FLBewerbungZustellungEreignis
     am: am.data,
   };
 
+  // First, because this lane carries neither a `ziel` nor an application's id: read after them it
+  // would fall through to the application flow and be reported against a record nobody has.
+  if (ereignis.data.tags?.[ANMELDUNG_TAG] === ANMELDUNG_LINK) {
+    return { ziel: "anmeldung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
+  }
+
+  const ziel = ereignis.data.tags?.["ziel"];
+  if (ziel !== undefined) return leseZielMeldung(ziel, ereignis.data.tags?.["ziel_id"], gemeinsam);
+
+  const bewerbungId = CustomObjectIdStringSchema.safeParse(ereignis.data.tags?.["bewerbung_id"]);
+  const rollen = rollenAus(ereignis.data.tags?.["rollen"]);
+  if (!bewerbungId.success || rollen === null) return null;
+
   // The wire's own mirror last, over a payload already held to the ceilings above: nothing this
   // module composes reaches the endpoint in a shape it refuses.
-  return FLBewerbungZustellungEreignisPayloadSchema.safeParse(meldung).data ?? null;
+  const meldung = FLBewerbungZustellungEreignisPayloadSchema.safeParse({
+    bewerbung_id: bewerbungId.data,
+    rollen: rollen,
+    ...gemeinsam,
+  }).data;
+
+  return meldung === undefined ? null : { ziel: "bewerbung", meldung: meldung };
 }
 
 /**
@@ -170,9 +226,9 @@ export const ZUSTELLUNG_CHIP: Record<FLBewerbungZustellstand, { label: string; t
   // is that the link has not arrived, and neither of the two is the address refusing for good.
   verzoegert: { label: "Noch nicht zugestellt", tone: "warning" },
   unzustellbar: { label: "Unzustellbar", tone: "danger" },
-  // Named for what the administrator sees, not for the provider's own mechanism: the address is on a
-  // list that skips every send to it, so nothing this page does can reach it.
-  unterdrueckt: { label: "Adresse gesperrt", tone: "danger" },
+  // The message's fate, as its three siblings say, and never the ban list's „gesperrt“: the list an
+  // administrator would then search is the league's own, which never held this address.
+  unterdrueckt: { label: "Zustellung blockiert", tone: "danger" },
   beschwerde: { label: "Als Spam gemeldet", tone: "danger" },
 };
 

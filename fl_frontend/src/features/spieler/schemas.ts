@@ -35,6 +35,12 @@ export const FLEinwilligungSchema = z.object({
   erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]),
   datum: CustomDateStringSchema.nullable(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
+  // The label of an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry and never the words; null on
+  // every record stored before the registration flow stamped one.
+  text_version: z.string().nullable(),
+  // A second consent under one record: `umfang` and this are independent answers, so a reader
+  // deciding whether a photo may be published asks this one and never that one.
+  medien: z.boolean(),
 });
 export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
 
@@ -45,7 +51,9 @@ export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
  */
 export const FLSpielerPublicSchema = z.object({
   id: CustomObjectIdStringSchema,
-  vorname: z.string().nonempty(),
+  // Both names arrive `null` for a person the publication gate withholds (`READ-PUPIL-003`), so a
+  // non-empty rule here would refuse the answer the API is entitled to give.
+  vorname: z.string().nullable(),
   nachname: z.string().nullable(),
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
@@ -88,6 +96,9 @@ export const FLSpielerWithMembershipsSchema = z.object({
   // Nullable rather than optional, mirroring the backend default: a person stored before consent
   // was collected has no record, and this tier is the only one that may read one.
   einwilligung: FLEinwilligungSchema.nullable(),
+  // The address the person signs in on, folded. Read-only wherever it renders: no payload carries
+  // it, so a control bound to this key would offer a write the API refuses.
+  email: z.string().nullable(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;

@@ -16,7 +16,7 @@ two** — which is what a reviewer needs before reading the published notice
 | Section                                                                                                    | Answers                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
-| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes             |
+| [2. Consent comes from the person, from 16 or 18](#2-consent-comes-from-the-person-from-16-or-18)          | The sign-up flow every ruling on consent assumes             |
 | [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
 | [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
@@ -42,7 +42,7 @@ two** — which is what a reviewer needs before reading the published notice
   is the procedure that answers one. Self-service comes with the account tiers planned for teams,
   players and referees, and the deletion route lives there once they exist.
 
-## 2. Consent comes from the person, from 16
+## 2. Consent comes from the person, from 16 or 18
 
 Every ruling below assumes the sign-up flow settled for the next season, which does not exist yet.
 
@@ -54,13 +54,18 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-records-a-pupils-consent-and-what-a-contact-seat-was-told)).
   `8wd7-ff49` holds the question this answers.
-- **The minimum age is 16 for every role, and today only one write judges it.**
-  Once the sign-up flow exists it refuses a registration below it. Sixteen is the age at which a
+- **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
+  Once the sign-up flow exists it refuses a registration below 16. Sixteen is the age at which a
   person consents for themselves under Art. 8 GDPR in Germany, and one rule for every role replaces
-  three. That write is the contact person's own confirmation:
-  they type their date on the confirmation page and
-  `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it before anything is
-  written. **That confirmation is also the only route by which the date reaches the database**: the
+  three. **The Ansprechperson and the Stellvertretung are held to 18** because those two seats
+  commit the school — they are the people a fixture, a withdrawal and the entry itself are agreed
+  with — and committing a school is contractual capacity rather than a consent anybody gives for
+  themselves, which is the one ground Art. 8's sixteen does not supply. Ruled 2026-09-06.
+  Today one write judges either number: the contact person's own confirmation, where they type
+  their date and
+  `fl_backend/app/api/bewerbungen/services.py :: find_alter_refusal` judges it against the floor
+  `:: mindestalter_for` answers for the seats that person holds, before anything is written.
+  **That confirmation is also the only route by which the date reaches the database**: the
   junction contacts editor accepts no birthdate, refusing the key outright rather than taking a null
   (`docs/backend/spec.md :: I141`, `:: I142`), and a save there carries a date forward only where the
   stored seat holds the same person — the same address and the same name, folded for case and inner
@@ -75,9 +80,11 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
-  the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
-  for a contact person
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`).
+  the rule gets a Trainer's threshold wrong by two years; the two numbers the tree commits to for a
+  contact person are
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`) and
+  (`:: VERTRETUNG_MIN_AGE_YEARS`), one per seat in
+  `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
 - **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
   2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
   the one field whose purpose is the age floor, a validator that invalidates every standing pupil
@@ -92,16 +99,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   is an administrator; that path goes with the flow that replaces it, and the consent vocabulary
   then needs to express only a person's own consent and a carried-over record. The comment at
   that line gives a reason that is true of no caller, and is false today.
-- **Nothing about a person is published without that person's recorded consent.** The gate reads
-  the consent the sign-up flow stores. It may be built before the flow ships, provided every
-  pupil row that exists today counts as fully consented, since those rows go at the season's end
-  ([section 3](#3-the-current-pupil-records-are-reset-once)) and the gate must not empty the public
-  squad lists meanwhile. The predicate is written into
-  [`backend/spec.md`](backend/spec.md#17-tier-rules) before any code. Today no read consults the
-  stored consent, and the published notice claims the narrower basis it can honestly claim
-  meanwhile: a squad row and a referee at a fixture stand there on a legitimate interest rather than
-  on a consent (`DatenschutzView.tsx :: VEROEFFENTLICHT`). That wording returns to consent in the
-  change that builds the gate, which is `8wd7-ff49`'s own Done-when.
+- **Nothing about a person is published without that person's recorded consent.** Both public reads
+  of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
+  publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
+  its `bestaetigt_am` is stamped (`docs/backend/spec.md :: READ-PUPIL-003`); every other row is
+  served as a nameless slot keeping its `nummer` and `position`. **The gate fails closed**, so a
+  record nobody confirmed withholds the name rather than publishing it — the state
+  `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
+  the one a scope read on its own would publish.
 - **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
   whose phone, email and school are stored, and today no consent field exists for them;
   `docs/_roadmap/items.md :: pw5c-zps5` is where that work stands.
@@ -111,8 +116,10 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **The backfilled consents stand until the end of this season.** The pupil rows that were
   backfilled carry a consent nobody was asked for, marked as carried over
   (`bestandsuebernahme`); the rows registered since through the admin form carry the guardian
-  consent an administrator composed. Nothing is built against either population and nobody is
-  unpublished in the meantime. **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
+  consent an administrator composed. The publication gate reads both populations alike
+  (`docs/backend/spec.md :: READ-PUPIL-003`): a carried-over record whose `bestaetigt_am` is stamped
+  publishes as before, and one with no stamp withholds the name.
+  **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
   2026-09-01 and 2026-09-02.
 - **At the end of this season, once, every player row is deleted and the action log is reset in
   full.** From the next season on every player signs up through the website, and from then on
@@ -179,15 +186,36 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
   removal records).
-- **An administrator's erasure includes the sign-in store.** The second database holding
-  administrators' addresses, sessions and sign-in tokens is inside the erasure, and it is reached by
-  hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
+- **An administrator's erasure includes the sign-in store.** The `auth` database holding
+  administrators' addresses, sessions, sign-in tokens and passkeys is inside the erasure, and it is
+  reached by hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place an administrator's own data sits. **A session and a sign-in token
-  each carry an expiry set at that configuration, and the expiry bounds the credential rather than
-  the row**: the adapter drops a session row when its holder presents the stale cookie and leaves it
-  standing where nobody comes back, and it drops a sign-in token's row on redemption alone, so an
-  unredeemed one is deleted by nothing. Neither collection has a retention index.
+  is what names it as the place an administrator's own data sits. Its collections are `user`,
+  `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
+  identifier and the counters the browser reports, and never a secret the person holds, the private
+  key staying on their own device; a `session` row holds the administrator it belongs to, its own
+  expiry and which factor made it, and neither the address nor the browser the sign-in came from. **A session and a sign-in token each carry an expiry set at that
+  configuration, and the expiry bounds the credential rather than the row**: the library drops a
+  session row when its holder presents the stale cookie and leaves it standing where nobody comes
+  back, and it consumes a sign-in token's row when the link is followed, live or expired, so one
+  nobody follows is deleted by nothing. Neither collection is swept by the application; the
+  retention index each needs is a console step
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
+- **The sign-in store holds more than administrators.** The sign-in send is public and the library
+  writes its `verification` row before the allowlist is consulted, so the address of anyone who
+  submits the form is held there — an allowlisted administrator's and a stranger's alike — until
+  that retention index removes it
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
+  recorded of such a person: no `user` row is written until a link is followed, and a session row
+  carries neither the caller's address nor their browser identifier
+  (`fl_frontend/src/core/auth.ts`).
+- **A person's own address is in no log row today, and the first person-tier write would put one
+  there.** `fl_frontend/src/core/subject.ts :: getSubjectSession` already folds the address of
+  whoever opens a panel into the request's actor, and `fl_frontend/src/core/api.ts` sends that actor
+  to the backend on admin-tier calls alone, so no `aktionen` row carries a person's. The first write
+  a person makes for themselves would file it in `actor.email`, which the redaction above does not
+  reach — that exception was taken for administrators and for the reason administrators give. Whether
+  it extends to everybody else is decided before that write ships, not with it.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
@@ -196,6 +224,22 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). No replay of erasures after
   a restore is built, so a restore is followed by running each of them again by hand
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
+- **One record outlives an erasure, and it is a record about two people.** An address barred from
+  signing up is stored as an HMAC under a key this controller holds, beside the administrator's
+  reason, their own address and the day (`docs/glossary.md :: Sperrliste`). The BARRED address is in
+  no field and derivable from no row without that key, so the row is neither that person's own
+  document to delete nor a shell of nulls left where one stood, which is why it survives a request
+  that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
+  data rather than none** — this controller holds the key that re-identifies it — and two people are
+  in it past their own erasure: the person barred, whom the free-text reason may name outright, and
+  the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
+  either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
+  It is bounded by an administrator's removal and never by age, which is the one shape the rule
+  below permits. **Lifting the ban removes the row, and the action log keeps a copy of it** — the
+  hash, the key label, the reason and the administrator, and no barred address — for the twelve
+  months every stamped log row is kept
+  (`docs/backend/spec.md :: I48`, `:: I119`), so a lifted ban is readable at `/admin/aktionen` for
+  that period and enforced by nothing from the moment it is lifted.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
@@ -249,8 +293,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
-  half of that). The delivery state is stored beside the seat it was sent to and is erased with the
-  application (`docs/glossary.md :: Zustellstand`). Ruled 2026-09-08.
+  half of that). A delivery state is stored beside the record its message was
+  sent about and goes with that record: an application's is erased with the application, and a
+  person's own row carries theirs until the row is deleted outright on request
+  (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
+  **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
+  kept for its own sake. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks
@@ -359,3 +407,22 @@ the `Entry` column carries a token only where one still resolves in that file.
   host's; Cloudflare's retention is set in its dashboard rather than in this repository, and the
   host's in a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either
   period was honoured rests on reading the host rather than on a report.
+- **The ban list's surviving row is kept about two people past their own erasure, and no
+  Datenschutzexperte has ruled on it.** What is kept of the person barred is an HMAC of their folded
+  email address under a key this controller holds, so it is pseudonymised personal data rather than
+  no personal data at all; beside it stand a free-text reason that may name them and the entering
+  administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
+  for keeping any of it is legitimate interest in refusing a re-registration the league has already
+  declined — a refusal no route yet performs, the list being read by an administrator and consulted
+  by nothing ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Two questions to put: whether that basis carries a record retained without a bound and
+  without a review date; and what an access request reaches, given that no route finds the row from
+  the address it was taken from while the reason beside it may name its subject outright.
+- **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
+  as easy as giving.** A pupil's consent record is composed by the registration and carried on no
+  payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),
+  so giving it is a form and taking it back is either the erasure that removes the person outright or
+  a hand edit in the database console
+  ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).
+  The question to put is whether a withdrawal performed by hand inside Art. 12 (3)'s period satisfies
+  that article at this scale, or whether a control a person reaches themselves is owed before the
+  registration flow ships. Whether to build one is mine and is not yet decided.

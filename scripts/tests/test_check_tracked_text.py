@@ -1,7 +1,8 @@
-"""SCRIPTS · the conflict-marker check, over the forms a marker actually reaches the tree in.
+"""SCRIPTS · the conflict-marker and invisible-character check, over the forms each reaches the tree in.
 
-Every marker here is BUILT from a repeated character rather than typed. A literal one would make
-this file a finding of the checker it drives, and the suite would fail on its own source.
+Every marker here is BUILT from a repeated character rather than typed, and every invisible
+character is written as a `\\u` or `\\x` escape. A literal one of either would make this file a
+finding of the checker it drives, and the suite would fail on its own source.
 
 `main` is exercised as well as the rules, the exit contract being the half a rule test cannot
 reach: a checker answering 0 where it found something is the failure this one exists to prevent.
@@ -26,10 +27,10 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 # repository.
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
-    markers = importlib.import_module("check_conflict_markers")
+    markers = importlib.import_module("check_tracked_text")
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_conflict_markers", None)
+    sys.modules.pop("check_tracked_text", None)
     sys.modules.pop("checker_kernel", None)
 
 OPENER = "<" * 7
@@ -66,7 +67,7 @@ def run_main(*argv: str) -> tuple[int, str, str]:
     """
     out, err = io.StringIO(), io.StringIO()
     argv_before = markers.sys.argv
-    markers.sys.argv = ["check_conflict_markers.py", *argv]
+    markers.sys.argv = ["check_tracked_text.py", *argv]
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = markers.main()
@@ -221,7 +222,7 @@ def test_a_binary_file_is_skipped(tmp_path: Path):
     blob = tmp_path / "payload.bin"
     blob.write_bytes(b"\x00\x01" + OPENER.encode() + b" HEAD\n")
 
-    assert markers.text_of(blob) is None
+    assert markers.text_of(blob.read_bytes()) is None
 
 
 def test_a_nul_past_the_sniff_window_leaves_the_file_text(tmp_path: Path):
@@ -229,7 +230,7 @@ def test_a_nul_past_the_sniff_window_leaves_the_file_text(tmp_path: Path):
     blob = tmp_path / "late.md"
     blob.write_bytes(b"a" * markers.BINARY_SNIFF_BYTES + b"\n" + OPENER.encode() + b" HEAD\n\x00")
 
-    text = markers.text_of(blob)
+    text = markers.text_of(blob.read_bytes())
 
     assert text is not None
     assert kinds(text) == ["a conflict opener"]
@@ -239,7 +240,7 @@ def test_a_text_file_is_read_as_text(tmp_path: Path):
     """The other side of the binary test, so a skip cannot pass for a clean read."""
     source = written(tmp_path / "note.md", f"{OPENER} HEAD")
 
-    text = markers.text_of(source)
+    text = markers.text_of(source.read_bytes())
 
     assert text is not None
     assert kinds(text) == ["a conflict opener"]
@@ -250,10 +251,116 @@ def test_a_byte_order_mark_does_not_hide_the_opener(tmp_path: Path):
     source = tmp_path / "bom.md"
     source.write_bytes(b"\xef\xbb\xbf" + f"{OPENER} HEAD\n".encode())
 
-    text = markers.text_of(source)
+    text = markers.text_of(source.read_bytes())
 
     assert text is not None
     assert kinds(text) == ["a conflict opener"]
+
+
+def carried(text: str) -> list[str]:
+    """What the checker calls each invisible character it found, in file order."""
+    return [what for _, what in markers.invisible_in(text)]
+
+
+def test_a_clean_file_carries_no_invisible_character():
+    """The ordinary case, and the pass every run of the gate takes over almost every file."""
+    assert markers.invisible_in(joined("A heading", "", "Body\ttext.", "")) == []
+
+
+def test_a_c0_control_is_caught():
+    """The incident's own shape: a word-boundary escape decoded into a backspace inside a regex literal."""
+    assert carried(joined("const seen = /\x08noch\x08|sobald/i;")) == ["a control character U+0008", "a control character U+0008"]
+
+
+def test_a_bidirectional_override_is_caught():
+    """An override reorders the rest of the line on screen, so what a reviewer reads is not what runs."""
+    assert carried(joined("const owner = \u202eadmin;")) == ["a bidirectional control U+202E"]
+
+
+def test_a_zero_width_character_is_caught():
+    """A zero-width joiner inside an identifier makes two spellings that no diff tells apart."""
+    assert carried(joined("const sperr\u200bliste = 1;")) == ["a zero-width character U+200B"]
+
+
+def test_a_line_separator_is_caught():
+    """U+2028 ends a line for a JavaScript parser and for nothing that counts lines here."""
+    assert carried(joined("const copy = 'a\u2029b';")) == ["a line separator U+2029"]
+
+
+def test_a_mid_file_byte_order_mark_is_caught():
+    """Only a LEADING mark is a byte order mark; one further in is a zero-width no-break space."""
+    assert carried(joined("first", "second\ufeff")) == ["a byte order mark U+FEFF"]
+
+
+def test_a_tab_and_the_two_line_endings_are_not_findings():
+    """The three controls a text file is made of, or every file in the tree would be a finding."""
+    assert markers.invisible_in("a\tb\nc\r\nd") == []
+
+
+def test_the_invisible_line_number_is_the_one_a_reader_opens():
+    """A finding locates the character, which is the whole of what a reader can act on."""
+    assert markers.invisible_in(joined("one", "two", "th\u200bree")) == [(3, "a zero-width character U+200B")]
+
+
+def test_the_pattern_finds_exactly_what_the_map_names():
+    """The two are one population: a character the pattern finds and the map cannot name raises `KeyError`."""
+    assert all(markers.FORBIDDEN.fullmatch(character) for character in markers.NAMED)
+    assert markers.FORBIDDEN.search("plain\ttext\r\nhere") is None
+
+
+def test_main_grades_an_invisible_character_as_a_finding(tmp_path: Path):
+    """The exit contract's own case for the second rule: what it found has to reach the shell's code."""
+    source = written(tmp_path / "note.ts", "const a = '\u200b';")
+
+    assert run_main(str(source))[0] == 1
+
+
+def test_main_grades_a_leading_byte_order_mark_as_a_finding(tmp_path: Path):
+    """`text_of` drops the mark before decoding, so `main` is the only place that can see this one."""
+    source = tmp_path / "bom.ts"
+    source.write_bytes(b"\xef\xbb\xbf" + b"const a = 1;\n")
+
+    code, out, _ = run_main(str(source))
+
+    assert code == 1
+    assert "U+FEFF opening the file" in out
+
+
+def test_main_spares_an_allowlisted_file(tmp_path: Path):
+    """A file whose subject IS the character passes, or the rule could not ship beside that file."""
+    source = written(tmp_path / "note.ts", "const a = '\u200b';")
+
+    with patch.object(markers, "ALLOWED", {markers.shown(source): "its subject"}):
+        assert run_main(str(source))[0] == 0
+
+
+def test_main_fails_a_stale_allowlist_entry():
+    """An entry outliving its reason spares a file nothing is wrong with, and hides the next one."""
+    with patch.object(markers, "ALLOWED", {"fl_frontend/src/core/nothing-here.ts": "its subject"}):
+        with patch.object(markers, "tracked_files", return_value=[]):
+            code, out, _ = run_main()
+
+    assert code == 1
+    assert "drop the entry" in out
+
+
+def test_a_named_run_grades_no_allowlist_entry_stale(tmp_path: Path):
+    """A run given a file list was never offered the other entries, so it cannot call one stale."""
+    source = written(tmp_path / "note.md", "Body text.")
+
+    with patch.object(markers, "ALLOWED", {"fl_frontend/src/core/nothing-here.ts": "its subject"}):
+        assert run_main(str(source))[0] == 0
+
+
+def test_main_reports_both_rules_from_one_run(tmp_path: Path):
+    """One walk answers for both, so a file carrying each must not have one of them swallowed."""
+    source = written(tmp_path / "note.md", joined(f"{OPENER} HEAD", "a\u200bb"))
+
+    code, out, _ = run_main(str(source))
+
+    assert code == 1
+    assert "is a conflict opener" in out
+    assert "carries a zero-width character U+200B" in out
 
 
 def test_main_grades_a_marker_as_a_finding(tmp_path: Path):

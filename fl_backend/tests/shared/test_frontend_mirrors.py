@@ -12,11 +12,13 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.bewerbungen import services as bewerbungen_services
 from app.api.saisons.schemas import TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.api.zustellung import schemas as zustellung_schemas
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
@@ -62,6 +64,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH", "BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MIN_ALTER", "BEWERBUNG_KONTAKT_MIN_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MAX_ALTER", "BEWERBUNG_KONTAKT_MAX_AGE_YEARS"),
+    Mirror("features/bewerbungen/constants.ts", "VERTRETUNG_MIN_ALTER", "VERTRETUNG_MIN_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "KUERZEL_LAENGE", "TEAM_SHORTHAND_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_ERINNERUNG_TAGE", "BEWERBUNG_ERINNERUNG_TAGE"),
@@ -74,6 +77,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
+    Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -223,7 +227,7 @@ class ModelBound(NamedTuple):
     field: str
 
 
-# The ceilings the delivery-event endpoint states at its own fields rather than in `bounds.py`, one
+# The ceilings a delivery-event endpoint states at its own fields rather than in `bounds.py`, one
 # field stating each. Read off the model's metadata, so a constraint respelled there still pairs.
 MIRRORED_MODEL_BOUNDS: Final = (
     ModelBound(
@@ -244,7 +248,30 @@ MIRRORED_MODEL_BOUNDS: Final = (
         bewerbungen_schemas.FLBewerbungZustellungEreignisPayload,
         "am",
     ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_GRUND_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "grund",
+    ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "nachricht_id",
+    ),
+    ModelBound(
+        "features/bewerbungen/schemas.ts",
+        "ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH",
+        zustellung_schemas.FLZustellungEreignisPayload,
+        "am",
+    ),
 )
+
+# Every model the register pairs, so the other direction below is asked of each. Both event payloads
+# are in it: one frontend constant bounds the field the webhook parses before it knows which
+# endpoint the report is for.
+MIRRORED_PAYLOADS: Final = tuple(dict.fromkeys(mirror.model for mirror in MIRRORED_MODEL_BOUNDS))
 
 
 def _model_max_length(model: type[BaseModel], field: str) -> int:
@@ -271,10 +298,10 @@ def test_every_model_bound_agrees_with_its_frontend_constant(mirror: ModelBound)
     assert int(found[1]) == _model_max_length(mirror.model, mirror.field), f"{mirror.typescript} disagrees with {mirror.field}'s ceiling"
 
 
-def test_every_ceiling_the_event_payload_states_is_paired_here():
+@pytest.mark.parametrize("payload", MIRRORED_PAYLOADS, ids=lambda payload: payload.__name__)
+def test_every_ceiling_an_event_payload_states_is_paired_here(payload: type[BaseModel]):
     """The other direction, off the model's own field list: a fourth ceiling would otherwise be mirrored by nothing and read as covered."""
 
-    payload = bewerbungen_schemas.FLBewerbungZustellungEreignisPayload
     bounded = {
         name
         for name, field in payload.model_fields.items()
@@ -413,6 +440,47 @@ def _object_literal(module: str, name: str) -> dict[str, str]:
     return {row["key"]: row["value"] for row in OBJECT_ROW.finditer(source[opens.end() : closes.start()])}
 
 
+# The seat-to-floor assignment, which `MIRRORED_BOUNDS` cannot reach: that register pairs integers by
+# name, and what drifts here is which seat takes which of two correct numbers.
+SEAT_FLOORS: Final = ("features/bewerbungen/constants.ts", "SEAT_MIN_ALTER")
+
+INTEGER_ROW: Final = re.compile(r"^ +(?P<key>[a-z_]+): (?P<value>[A-Z][A-Z0-9_]*),$", re.MULTILINE)
+
+
+def _named_integer_literal(module: str, name: str) -> dict[str, int]:
+    """One frontend object literal whose values are named integers, resolved through that module's own exports."""
+
+    source = _source(module)
+    opens = re.search(rf"^export const {name}[^=]*= \{{$", source, re.MULTILINE)
+
+    assert opens is not None, f"{module} no longer opens {name} as an object literal on one line"
+
+    closes = OBJECT_CLOSE.search(source, opens.end())
+
+    assert closes is not None, f"{module} no longer closes {name} at the start of a line"
+
+    resolved: dict[str, int] = {}
+    for row in INTEGER_ROW.finditer(source[opens.end() : closes.start()]):
+        found = re.search(rf"^export const {row['value']} = (\d+);$", source, re.MULTILINE)
+
+        assert found is not None, f"{name}.{row['key']} names {row['value']}, which {module} does not export as a bare integer"
+        resolved[row["key"]] = int(found[1])
+
+    return resolved
+
+
+def test_every_seat_takes_the_floor_this_package_gives_it():
+    """A seat handed the other of two correct numbers offers a date the confirmation endpoint refuses, with every number test green."""
+
+    module, name = SEAT_FLOORS
+    offered = _named_integer_literal(module, name)
+
+    assert offered, f"{module} no longer spells {name} as one named integer per row, so this case compares nothing"
+    assert offered == dict(bewerbungen_services.SEAT_MIN_AGE_YEARS), (
+        f"{name} offers {sorted(offered.items())}, where this package judges {sorted(bewerbungen_services.SEAT_MIN_AGE_YEARS.items())}"
+    )
+
+
 def test_the_log_files_every_actor_kind_under_the_origin_this_package_files_it_under():
     """A disagreement answers a told count with an empty table.
 
@@ -516,7 +584,7 @@ UNPAIRABLE_PATTERNS: Final = (
         r"`\p{L}` is a Unicode property class `re` cannot compile, and `re` is the only engine `_javascript_accepted` has",
     ),
     Unpairable(
-        "shared/schemas.ts",
+        "core/objectId.ts",
         "OBJECT_ID_REGEX",
         "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
         "the backend end builds a `bson.ObjectId` rather than stating a pattern, so no pattern string reaches `_pydantic_accepted`",
@@ -550,6 +618,13 @@ UNPAIRABLE_PATTERNS: Final = (
         "INTERNAL_API_KEY",
         "app/core/config.py :: INTERNAL_API_KEY_CHARACTERS",
         "the frontend end is a literal inside a `z.string()` chain rather than the named constant `_typescript_pattern` reads",
+    ),
+    Unpairable(
+        "features/sperrliste/schemas.ts",
+        "ADRESSE_IM_GRUND_REGEX",
+        "app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT",
+        "`NEEDS_QUOTING`'s two reasons at once: `\\s` is outside `MODELLED_ESCAPES`, and neither end is anchored "
+        "because both must find an address INSIDE a sentence where the comparison above full-matches one",
     ),
 )
 

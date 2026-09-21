@@ -42,14 +42,9 @@ const TIME_REGEX = /^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
  */
 export const CustomTimeStringSchema = z.string().regex(TIME_REGEX, { error: "Bitte gib eine gültige Uhrzeit ein." });
 
-// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS`
-// can hold it against the backend's own rule for an id.
-const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
-
-export const CustomObjectIdStringSchema = z.string().regex(OBJECT_ID_REGEX, {
-  // German, like every message here, because a failure reaches a `<FieldError>` under a picker rather than a console.
-  error: "Bitte wähle den Eintrag erneut aus.",
-});
+// Re-exported rather than moved out of every call site: a read model declared in `core` validates
+// the same ids, and `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` this module.
+export { CustomObjectIdStringSchema } from "@/core/objectId";
 
 /** Refused as a URL entirely, which is the format check's answer to give rather than this one's. */
 function carriesUserinfo(value: string): boolean {

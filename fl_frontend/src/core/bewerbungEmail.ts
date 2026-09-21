@@ -463,7 +463,7 @@ function seatFakten(seats: BewerbungBestaetigungData["seats"]): Fakt[] {
   return seats.map((seat) => ({ label: "Eingetragen als", value: seatName(seat) }));
 }
 
-/** One control per entry, which `notifications.ts :: seatsByMailbox` makes one per link rather than one per seat. */
+/** One control per entry, which `fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox` makes one per link rather than one per seat. */
 function seatAktionen(seats: readonly BewerbungLinkSeat[]): Aktion[] {
   return seats.map((seat) => ({
     href: einzeilig(seat.link),
@@ -501,6 +501,13 @@ function fallbackBloecke(adressen: readonly Fallback[], satz: string): string[] 
 function fallbackZeilen(adressen: readonly Fallback[]): string[] {
   return adressen.flatMap(({ label, url }, index) => [...(index === 0 ? [] : [""]), ...(label === "" ? [] : [`${label}:`]), url]);
 }
+
+/**
+ * **Both floors, never the reader's own**: `seats` is one entry per LINK, so a shared school inbox
+ * holding two people arrives as one message under two floors, and one figure would be wrong for one.
+ */
+const ALTERS_SATZ =
+  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist.";
 
 /** Both link messages open on this, and only the school and the season in it are theirs to differ on. */
 function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean): string {
@@ -547,8 +554,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
     ),
     paragraph(
       mehrere
-        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
-        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst dem Eintrag auch widersprechen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
+        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
+        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Du kannst dem Eintrag auch widersprechen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
     ),
     paragraph(
       mehrere
@@ -566,8 +573,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
       : "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
     "",
     mehrere
-      ? "Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen."
-      : "Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst dem Eintrag auch widersprechen.",
+      ? `Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen.`
+      : `Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Du kannst dem Eintrag auch widersprechen.`,
     mehrere
       ? `Jeder Link ist bis zum ${frist} gültig und funktioniert nur einmal.`
       : `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
@@ -903,7 +910,7 @@ export function buildBewerbungWiderspruchEmail({
       `${strong(`${escapeHtml(wer)} hat dem Eintrag als Kontaktperson widersprochen.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
     ),
     paragraph(
-      `So kann die Bewerbung nicht vollständig werden; am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.`,
+      `So kann die Bewerbung nicht vollständig werden; am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.`,
     ),
   ]);
 
@@ -911,7 +918,7 @@ export function buildBewerbungWiderspruchEmail({
     `${wer} hat dem Eintrag als Kontaktperson widersprochen. Diese Angaben haben wir aus der Bewerbung entfernt.`,
     "",
     `So kann die Bewerbung nicht vollständig werden; am ${frist} löschen wir sie.`,
-    "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.",
+    "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
   ]);
 
   return { subject: `Widerspruch zum Eintrag: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };

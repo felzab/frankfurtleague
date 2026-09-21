@@ -8,7 +8,13 @@ from fastapi import FastAPI
 from pydantic import SecretStr, ValidationError
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
 
-from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig, EnvironmentValidationError, get_config
+from app.core.config import (
+    INTERNAL_API_KEY_LENGTH,
+    SPERRLISTE_KEY_MIN_LENGTH,
+    BackendConfig,
+    EnvironmentValidationError,
+    get_config,
+)
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 from tests.config import ConfigReadingNoDotenvFile
 
@@ -22,6 +28,10 @@ def a_key_the_boot_accepts(prefix: str) -> str:
     return prefix.ljust(INTERNAL_API_KEY_LENGTH, "0")
 
 
+# Its own padding rather than the helper above: the two floors are separate decisions, and one
+# helper would make a change to either silently move the other's fixtures.
+BAN_LIST_KEY = "ban-list".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
+
 # Spelled as the environment spells them, because the gate under test is what reads the environment.
 REQUIRED = {
     "API_TRUSTED_HOSTS": "testserver,localhost",
@@ -31,6 +41,7 @@ REQUIRED = {
     "INTERNAL_API_KEY_BASE": a_key_the_boot_accepts("base"),
     "INTERNAL_API_KEY_SYSTEM": a_key_the_boot_accepts("system"),
     "INTERNAL_API_KEY_ADMIN": a_key_the_boot_accepts("admin"),
+    "SPERRLISTE_SCHLUESSEL": BAN_LIST_KEY,
 }
 
 
@@ -50,6 +61,7 @@ WELL_FORMED: dict[str, Any] = {
     "internal_api_key_base": SecretStr(a_key_the_boot_accepts("base")),
     "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
     "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
+    "sperrliste_schluessel": SecretStr(BAN_LIST_KEY),
 }
 
 
@@ -205,6 +217,50 @@ class TestTheInternalKeys:
         placeholder = "x" * INTERNAL_API_KEY_LENGTH
 
         assert getattr(build(**{field: SecretStr(placeholder)}), field).get_secret_value() == placeholder
+
+
+class TestTheBanListKey:
+    def test_an_environment_carrying_none_refuses_the_boot_naming_the_variable(self, monkeypatch, tmp_path):
+        """The one variable whose absence is silent at every other rung: every ban would hash under a key nobody chose.
+
+        Driven through the environment rather than `build`, because what a deployment omits is a
+        name the process never carries.
+        """
+        an_environment(monkeypatch, tmp_path)
+        monkeypatch.delenv("SPERRLISTE_SCHLUESSEL")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: SPERRLISTE_SCHLUESSEL"
+
+    def test_a_key_carrying_a_value_is_never_echoed_by_the_refusal_beside_it(self, monkeypatch, tmp_path):
+        """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
+        short = "x" * (SPERRLISTE_KEY_MIN_LENGTH - 1)
+        an_environment(monkeypatch, tmp_path, SPERRLISTE_SCHLUESSEL=short)
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: SPERRLISTE_SCHLUESSEL"
+        assert short not in str(raised.value)
+
+    def test_a_key_under_the_floor_fails_the_boot(self):
+        """The boot is the last cheap moment: the key can never be rotated, every stored hash having been taken under it."""
+        with pytest.raises(ValidationError):
+            build(sperrliste_schluessel=SecretStr("k" * (SPERRLISTE_KEY_MIN_LENGTH - 1)))
+
+    def test_a_key_at_the_floor_boots(self):
+        """The boundary, or a floor written one past its intent refuses the value the runbook tells an operator to generate."""
+        at_the_floor = "k" * SPERRLISTE_KEY_MIN_LENGTH
+
+        assert build(sperrliste_schluessel=SecretStr(at_the_floor)).sperrliste_schluessel.get_secret_value() == at_the_floor
+
+    def test_a_longer_key_boots(self):
+        """No ceiling, deliberately: HMAC takes a key of any length, and one here would refuse a passphrase for nothing."""
+        longer = "k" * (SPERRLISTE_KEY_MIN_LENGTH * 2)
+
+        assert build(sperrliste_schluessel=SecretStr(longer)).sperrliste_schluessel.get_secret_value() == longer
 
 
 class TestTheNamesOnlyErrorPath:

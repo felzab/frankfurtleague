@@ -74,14 +74,13 @@ that line cannot render this app at all. It does **not** govern Next's own polyf
 
 ## Authentication and authorization
 
-Auth.js, with a Resend magic-link provider. **This is the one place the frontend touches MongoDB
-directly** — a separate `authjs` database, no business entities — and it exists because the Auth.js
-adapter has no HTTP transport and sits on the hot path of every authorization check. Application data
-goes through FastAPI without exception.
+Better Auth, with a magic-link sign-in and a passkey as the administrator's second factor. **This is
+the one place the frontend touches MongoDB directly** — a separate `auth` database, no business
+entities — and it exists because the adapter has no HTTP transport and sits on the hot path of every
+authorization check. Application data goes through FastAPI without exception.
 
-**Admin is an email allowlist, not a stored role.** `ALLOWED_ADMIN_EMAILS` is checked at sign-in and
-again when the session is built, both through `fl_frontend/src/core/auth.ts :: isUserAdmin`, where the
-policy is defined. `getAdminSession()` is the single gate server code reaches it through, and its
+**Admin is an email allowlist, not a stored role.** `ALLOWED_ADMIN_EMAILS` is checked on every
+session read, through `fl_frontend/src/core/auth.ts :: isUserAdmin`, where the policy is defined. `getAdminSession()` is the single gate server code reaches it through, and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 **Route protection is layered**: `fl_frontend/src/proxy.ts` guards `/admin/:path*`, and

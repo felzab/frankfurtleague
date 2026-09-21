@@ -20,6 +20,7 @@ const stored: SaisonDraftFields = {
     erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
   },
   bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
+  registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
 };
 
 const draftFrom = (overrides: Partial<SaisonDraftFields>): SaisonDraftFields => ({ ...stored, ...overrides });
@@ -33,7 +34,7 @@ describe("deriveSaisonDraftStatus", () => {
     const status = deriveSaisonDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {} });
 
     // `status` is deliberately not a field: the rollover is a control, never a draft the bar counts.
-    assert.equal(status.fields.length, 12);
+    assert.equal(status.fields.length, 13);
   });
 
   it("reads the tiebreak as its German name, so the change list and the picker agree", () => {
@@ -177,6 +178,31 @@ describe("deriveSaisonDraftStatus", () => {
     });
 
     assert.equal(status.byPath.get("bewerbung")?.error, "Bitte gib ein gültiges Datum ein.");
+  });
+
+  it("reports the registration window as its own row, so closing one window leaves the other alone", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom({ registrierung: null }),
+      fieldErrors: {},
+    });
+
+    assert.equal(status.changed.length, 1);
+    const row = status.byPath.get("registrierung");
+    assert.equal(row?.group, "Registrierung");
+    assert.equal(row?.storedText, "Freigeschaltet: 01.07.2025 bis 15.08.2025");
+    assert.equal(row?.draftText, null);
+    assert.equal(status.byPath.get("bewerbung")?.isChanged, false);
+  });
+
+  it("lands one registration date's own error on that window's single row", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom({ registrierung: { offen: true, von: "2025-07-01", bis: "" } }),
+      fieldErrors: { "registrierung.bis": "Bitte gib ein gültiges Datum ein." },
+    });
+
+    assert.equal(status.byPath.get("registrierung")?.error, "Bitte gib ein gültiges Datum ein.");
   });
 
   it("counts several changes across both groups, in the descriptor table's order", () => {

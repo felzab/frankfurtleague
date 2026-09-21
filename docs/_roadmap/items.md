@@ -86,10 +86,10 @@ deliverable.
 | `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite     | FE, Docs, versions                                                          | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `dgdv-27yw` | Ninety-four test files parse source by hand, and no rule engine has been measured against one                                | FE, BE, Ops, Docs, gate, ci, tests, versions                                | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped  |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                              | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                            | FE, BE, spiele                                                              | Skipped  |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Skipped  |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                  | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                | FE, BE, Docs, admin, spiele                                                 | Skipped  |
 | `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                 | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
 | `v9tn-3hce` | The log answers what broke and hardly what happened                                                                          | FE, BE, Docs                                                                | Open     |
@@ -383,10 +383,10 @@ question that could move Mantine's rank.
 | --------------------------- | ------- | ----------- |
 | FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
 
-**The flow it waits on is skipped, so the wait is indefinite rather than a turn in a queue.** The
-`Depends on` beside it names `f3ar-m4qf`, the sign-up flow, which I deferred until the whole
-flow is built; `Skipped` is not declined and the work is still wanted, so the block stands and the
-status derives correctly. Nothing here is owed until that entry moves.
+**The flow it waits on is the one that writes the consent.** The `Depends on` beside it names
+`f3ar-m4qf`, the sign-up flow, which is open and whose player registration is the writer this entry
+asks for; while that entry is on the page the block stands and the status derives correctly. Nothing
+here is worked apart from that flow.
 
 **`einwilligung.bestaetigt_am` has a schema and no writer a person reaches.**
 `fl_backend/app/api/spieler/services.py :: registration_einwilligung` composes one, writing
@@ -468,9 +468,9 @@ cites a public repository a reader can open, never a claim about what is usual.
 
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                        | Status  | Depends on |
-| --------------------------------------------------------------------------- | ------- | ---------- |
-| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Skipped | —          |
+| Tags                                                                        | Status | Depends on |
+| --------------------------------------------------------------------------- | ------ | ---------- |
+| FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open   | —          |
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through a whole
 new season — its dates, which clubs play it, which clubs are new, and the rules it runs under — and the season
@@ -553,10 +553,10 @@ application, authorised by an emailed token rather than by a session. Every othe
 data sits behind `verify_access_admin`, declared at router level and inherited by the endpoints
 under it; the browser side of that is an email allowlist checked at sign-in and re-derived on every
 session read (`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no
-application data — the sign-in action, which triggers an outbound email and writes into the Auth.js
-store alone, and `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each
-public write has its own `limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is
-limited. **A self-registration page is the first that inserts a person**, and the first whose text
+application data — the sign-in action, which triggers an outbound email and writes into the sign-in
+store alone, and `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and every
+public write is metered in `nginx/prod.conf` on a zone keyed so that only the POST is limited, the
+sign-in link's completion sharing the confirmation write's budget rather than taking its own. **A self-registration page is the first that inserts a person**, and the first whose text
 reaches a public page with no decision standing between.
 
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
@@ -711,9 +711,9 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
-| Tags                                                   | Status  | Depends on |
-| ------------------------------------------------------ | ------- | ---------- |
-| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Skipped | —          |
+| Tags                                                   | Status | Depends on |
+| ------------------------------------------------------ | ------ | ---------- |
+| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
 
 **A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
 `fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
@@ -907,7 +907,7 @@ log, these gaps:
   be read beside the failures around it without leaving the log; the row's `trace_id` is the join
   key that makes a line cheap.
 - **External calls log their refusals and never their outcomes.** No line says a mail was sent, a
-  sign-in succeeded or a session was created; Auth.js has no `events` block; the database logs its
+  sign-in succeeded or a session was created; the sign-in configuration logs no success; the database logs its
   boot and nothing after.
 - **The retention sweep writes no start, end or counts**, so an hour in which the timer did not fire
   reads like a pass that mailed nobody; neither service writes a line at readiness or shutdown, and

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
@@ -17,7 +18,7 @@ const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "9. September 2026";
+const STAND = "21. September 2026";
 
 /** Every recipient outside the league, as one card each: five facts across seven rows read as a table nothing can wrap at 375px. */
 const EMPFAENGER = [
@@ -81,8 +82,8 @@ const VEROEFFENTLICHT = [
   },
   { was: "Spielpläne, Spieltage, Spielorte, Ergebnisse und Tabellen", grundlage: "Art. 6 Abs. 1 lit. b DSGVO" },
   {
-    was: "Kaderlisten: Vorname und erster Buchstabe des Nachnamens",
-    grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
+    was: "Kaderlisten: Vorname und erster Buchstabe des Nachnamens, sofern die Person dafür eine Einwilligung erteilt hat",
+    grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
     was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
@@ -116,6 +117,16 @@ const FRISTEN = [
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
+  {
+    daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
+    frist: "Bis die Verwaltung die Sperre aufhebt; der Eintrag bleibt auch bestehen, wenn die übrigen Daten gelöscht werden",
+  },
+  {
+    daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
+    // The figure's one home is `fl_frontend/src/core/authEmail.ts :: LINK_VALIDITY_MINUTES`, which
+    // the link is minted on and the message states: a copy typed here is a promise nothing keeps.
+    frist: `Ein Anmeldelink gilt ${String(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft nach höchstens 90 Tagen ab. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+  },
   {
     daten: "Änderungsprotokoll der Verwaltung",
     frist: "12 Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
@@ -172,7 +183,10 @@ export function DatenschutzView() {
               Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens; wie das bei Schiedsrichterinnen und
               Schiedsrichtern genau aussieht, steht in Abschnitt 10.
             </li>
-            <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
+            <li className={ABSATZ}>
+              Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein; als Ansprechperson oder Stellvertretung
+              mindestens 18.
+            </li>
             <li className={ABSATZ}>
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
             </li>
@@ -272,8 +286,8 @@ export function DatenschutzView() {
 
         <LegalSection title="6. Wenn eine Schule sich bewirbt">
           <p className={ABSATZ}>
-            Über das Bewerbungsformular kann eine Schule ihre Aufnahme in die Liga beantragen. Bewerben darf sich, wer mindestens 16 Jahre alt
-            ist.
+            Über das Bewerbungsformular kann eine Schule ihre Aufnahme in die Liga beantragen. Als Kontaktperson eingetragen werden darf, wer
+            mindestens 16 Jahre alt ist; als Ansprechperson oder Stellvertretung nur, wer mindestens 18 Jahre alt ist.
           </p>
           <p className={ABSATZ}>Was in das Formular eingetragen wird:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
@@ -298,12 +312,13 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Jede der drei Kontaktpersonen bekommt eine eigene E-Mail mit einem persönlichen Link. Über diesen Link bestätigt sie ihren Eintrag
             in der genannten Rolle und trägt dabei ihr Geburtsdatum ein. Das Geburtsdatum erreicht uns also erst an dieser Stelle und von der
-            Person selbst; wir prüfen damit, ob sie mindestens 16 Jahre alt ist. Das ist keine Einwilligung, sondern eine Bestätigung: Sie
-            belegt, dass die angegebene E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass sie mindestens 16
-            Jahre alt ist und dass sie diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung
-            bleibt so lange offen, bis alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt,
-            löschen wir die Bewerbung mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze
-            Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.
+            Person selbst; wir prüfen damit, ob sie das Mindestalter ihrer Rolle erreicht: 16 Jahre für die Trainerin oder den Trainer, 18 Jahre
+            für Ansprechperson und Stellvertretung. Das ist keine Einwilligung, sondern eine Bestätigung: Sie belegt, dass die angegebene
+            E-Mail-Adresse zu dieser Person gehört, dass die Person von ihrem Eintrag weiß, dass sie dieses Mindestalter erreicht und dass sie
+            diese Datenschutzerklärung zur Kenntnis nehmen konnte. Nach drei Tagen erinnern wir einmal. Die Bewerbung bleibt so lange offen, bis
+            alle drei bestätigt haben. Hat vierzehn Tage nach dem Versand dieser E-Mails nicht jede Person bestätigt, löschen wir die Bewerbung
+            mit allen Kontaktdaten. Ersetzen wir einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine
+            Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ}>
             Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige
@@ -412,14 +427,15 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Von einer Spielerin und einem
-            Spieler werden Vorname und erster Buchstabe des Nachnamens veröffentlicht, dazu das Team, die Rückennummer und die Position, soweit
-            sie angegeben sind.
+            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Vorname und erster Buchstabe des
+            Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten
+            ist; ohne sie steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
+            angegeben sind.
           </p>
           <p className={ABSATZ}>
             Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
             nicht veröffentlicht. Sie ist dafür da, dass sich das Alter im Bedarfsfall nachprüfen lässt; eine Altersgrenze für den Kader prüfen
-            wir damit nicht. Die 16 Jahre gelten allein für die Kontaktperson einer Bewerbung.
+            wir damit nicht. Ein Mindestalter gilt allein für die Kontaktpersonen einer Bewerbung.
           </p>
           <p className={ABSATZ}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
@@ -437,8 +453,10 @@ export function DatenschutzView() {
           <p className={ABSATZ}>Diese Website setzt zwei Dinge im Browser, und beide sind für den Betrieb notwendig:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>
-              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung, gilt 48 Stunden
-              und hält die Sitzung. Wer sich nicht anmeldet, bekommt es nie.
+              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung und hält die
+              Sitzung. Das Cookie selbst läuft nach höchstens 90 Tagen ab; für den Zugang zur Verwaltung prüfen wir bei jedem Aufruf zusätzlich,
+              ob die Anmeldung nicht länger als 48 Stunden her ist, und verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt
+              es nie.
             </li>
             <li className={ABSATZ}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim
@@ -506,12 +524,12 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Widerspruch gegen jede Verarbeitung, die wir auf ein berechtigtes Interesse stützen, aus Gründen, die sich aus Deiner besonderen
               Situation ergeben (Art. 21 DSGVO). Das betrifft die Zugriffsprotokolle, die Freitexte, die Anschrift der Schule als Anschrift des
-              Teams, die Kaderlisten, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen
-              einer Bewerbung.
+              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen einer Bewerbung.
             </li>
             <li className={ABSATZ}>
-              Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Was bis zum Widerruf geschah, bleibt
-              rechtmäßig.
+              Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
+              Spielerin oder eines Spielers in den Kaderlisten, die Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“
+              und den freiwilligen Schalter für WhatsApp. Was bis zum Widerruf geschah, bleibt rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ}>
@@ -532,6 +550,12 @@ export function DatenschutzView() {
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
             wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht.
+          </p>
+          <p className={ABSATZ}>
+            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
+            einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
+            eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
+            nach einer Löschung bestehen, bis die Verwaltung die Sperre aufhebt.
           </p>
         </LegalSection>
 

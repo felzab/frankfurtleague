@@ -89,14 +89,18 @@ Each stage below narrows what the one before it left open.
 - **Applications** — a school applies while the season's own window is open (`REQ-BEWERBUNG-004`). Accepting
   one creates the club where it is new and writes its junction row, held to the same entry rules a direct
   entry meets.
+- **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
+  and open exactly when its flag is on and the day falls inside its span. It is judged apart from the
+  application window above and from the season's own dates, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`REQ-ENTER-001`), only in a
   group the season runs (`REQ-ENTER-002`), and only while that group has room (`REQ-ENTER-003`).
 - **The draw** — `POST /saisons/{saison_id}/spielplan` composes every matchday and every fixture of the
   season in one operation, from the rules and the clubs entered. Nothing it writes carries a date; dating a
   matchday is a separate write afterwards.
 - **Activation** — `POST /saisons/{saison_id}/activate` is the only path to `active`. It refuses a season
-  holding no fixtures (`REQ-ACTIVATE-003`), and demotes the incumbent to `past`, which is refused while that
-  incumbent still has fixtures neither played nor cancelled (`REQ-ACTIVATE-001`).
+  holding no fixtures (`REQ-ACTIVATE-003`) and one whose matchdays are not all dated
+  (`REQ-ACTIVATE-004`), and demotes the incumbent to `past`, which is refused while that incumbent still
+  has fixtures neither played nor cancelled (`REQ-ACTIVATE-001`).
 - **`past`** — the end, and there is no way out of it. A finished season's points, its groups and the table
   derived from them are the record of what happened, and activating it again would reopen all three
   (`REQ-ACTIVATE-002`). A season closed by mistake is repaired at the database.

@@ -163,15 +163,23 @@ class TestWhenAnAcceptedSendApplies:
         assert zustellung_send_applies(bestaetigungen=block, seat="trainer", am=STAMP)
 
     def test_no_id_is_compared_because_the_send_is_what_mints_one(self):
-        """The accepted send establishes the join key, so nothing stored can match it and only the ordering decides."""
+        """The accepted send establishes the join key, so nothing stored can match it."""
 
         assert zustellung_send_applies(bestaetigungen=bestaetigungen(), seat="trainer", am=LATER)
 
     @pytest.mark.parametrize("am", [STAMP, EARLIER])
-    def test_a_send_older_than_what_the_seat_holds_is_a_no_op(self, am: str):
-        """A retried call, or one overtaken by the reminder's send: the newer state stands."""
+    def test_a_send_older_than_the_accept_the_seat_holds_is_a_no_op(self, am: str):
+        """A retried call, or one overtaken by the reminder's send: one host stamped both, so the newer state stands."""
 
         assert not zustellung_send_applies(bestaetigungen=bestaetigungen(), seat="trainer", am=am)
+
+    @pytest.mark.parametrize("stand", sorted(get_args(FLBewerbungZustellEreignis)))
+    def test_a_send_older_than_an_event_the_seat_holds_still_applies(self, stand: str):
+        """A provider clock ahead of this host's: dropped here, the seat freezes on a superseded message and loses the new one's events."""
+
+        block = bestaetigungen(trainer={**bestaetigungen()["trainer"], "zustellung": zustellung(stand=stand, am=LATER)})
+
+        assert zustellung_send_applies(bestaetigungen=block, seat="trainer", am=EARLIER)
 
     def test_an_erased_seat_takes_no_send(self):
         assert not zustellung_send_applies(bestaetigungen=bestaetigungen(trainer=None), seat="trainer", am=LATER)

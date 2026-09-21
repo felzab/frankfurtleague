@@ -994,7 +994,7 @@
     "/api/v0/spieler": {
       "get": {
         "summary": "List Spieler",
-        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).",
+        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);\nthe row keeps its `nummer` and `position`.",
         "operationId": "get_spieler_api_v0_spieler_get",
         "security": [
           {
@@ -1147,7 +1147,7 @@
     "/api/v0/spieler/{spieler_id}": {
       "get": {
         "summary": "One Spieler",
-        "description": "Return one player -- an id, a forename and an INITIAL, which is all this surface needs.\n\nNOT the flattened squad shape the list returns: those are season-scoped, and picking a season\nhere would make the answer depend on a default nobody asked for.",
+        "description": "Return one player -- an id, a forename and an INITIAL, which is all this surface needs.\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).\n\nNOT the flattened squad shape the list returns: those are season-scoped, and picking a season\nhere would make the answer depend on a default nobody asked for.",
         "operationId": "get_spieler_by_id_api_v0_spieler__spieler_id__get",
         "security": [
           {
@@ -3770,7 +3770,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, and a `past` target\nis refused (`docs/backend/spec.md :: I18`).",
+        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date (`docs/backend/spec.md :: I18`).",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -4596,6 +4596,120 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/sperrliste": {
+      "get": {
+        "summary": "List the banned addresses",
+        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `erstellt_von` is the administrator who entered the\nrow, and is an address. **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**,\nso where `anzahl_gesamt` exceeds the rows served, bans are enforced that this answer does not\nshow — and a ban nobody can see is one nobody can lift.",
+        "operationId": "get_sperrliste_api_v0_sperrliste_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSperrlisteListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Ban an email address",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`). The ban stands until an\nadministrator removes it, and it survives that person's erasure.",
+        "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSperrlistePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostSperrlisteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/sperrliste/{sperrliste_id}": {
+      "delete": {
+        "summary": "Lift a ban",
+        "description": "Lift a ban, removing the row. HARD, and there is no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
+        "operationId": "delete_sperrliste_eintrag_api_v0_sperrliste__sperrliste_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sperrliste_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sperrliste Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSperrlisteWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
@@ -4795,7 +4909,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -4840,7 +4954,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span\n(`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this\nperson holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year\nspends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -5068,7 +5182,7 @@
     "/api/v0/bewerbungen/zustellung/angenommen": {
       "post": {
         "summary": "Record the message the provider accepted for these seats",
-        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than what the seat already holds, so a call retried after a\nlater one landed writes nothing. A seat the application does not hold -- erased, or never mailed -- is skipped\nrather than refused, and the answer names the seats that were written. 404 where no application has the id.",
+        "description": "Record that the mail provider accepted one message for the seats named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event\nabout it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the\nmessage, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.\n\nApplied per seat and only where this send is newer than the ACCEPT the seat already holds, so a call retried after\na later one landed writes nothing; a delivery state the provider stamped never blocks it, that stamp being the\nprovider's clock rather than this sender's. A seat the application does not hold -- erased, or never mailed -- is\nskipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.",
         "operationId": "angenommen_zustellung_api_v0_bewerbungen_zustellung_angenommen_post",
         "requestBody": {
           "content": {
@@ -5132,6 +5246,141 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung/angenommen": {
+      "post": {
+        "summary": "Record the message the provider accepted for this record",
+        "description": "Record that the mail provider accepted one message about the record named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it\nis discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and\n`POST /zustellung` is where the recipient's own mail server is heard from.\n\nApplied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed\nwrites nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that\nstamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --\nnever mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.",
+        "operationId": "angenommen_zustellung_api_v0_zustellung_angenommen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungAngenommenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/zustellung": {
+      "post": {
+        "summary": "Apply one delivery event to the record its message was sent about",
+        "description": "Record what the mail provider reported about one message, on the record that message was sent about.\n\nApplied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a\nre-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a\nlater one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries\nanything but a success and would resend a settled event for hours.\n\n404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not\nretry maps it rather than repeating the call.",
+        "operationId": "post_zustellung_api_v0_zustellung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLZustellungEreignisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLZustellungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/identitaet/subjekt": {
+      "post": {
+        "summary": "Say which league records one mailbox holds",
+        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- NFKC, lower-cased, trimmed -- on arrival and compared in that form, so\n`Anna.Müller@Schule.de` in a contact seat answers for `anna.müller@schule.de`. `ß` is not folded to `ss`, so `poststrasse@` and\n`poststraße@` are two mailboxes here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the\nfolded form already.\n\nA contact seat and a referee record store the address as it was typed, so both are read in two steps: a case-insensitive database\nmatch narrows, and the fold decides on each candidate's own stored value. The two rules differ, and the database's is the wider --\nit holds U+0345 equal to an iota, where the fold leaves them two addresses -- so a row the match reaches is one the fold may still\nrefuse, and that refusal is what keeps this answer's rule the same rule sign-in applies.\n\nA stored address in a decomposed Unicode form is MISSED, the match comparing code points and normalising nothing, so a composed\nidentifier does not reach a decomposed spelling of the same address. Every address written through this API arrives composed, which\nis why neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either, for an edge no write path here produces.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSubjektPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSubjektResponse"
                 }
               }
             }
@@ -6286,6 +6535,10 @@
               }
             ],
             "title": "Text Version"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
           }
         },
         "type": "object",
@@ -6296,7 +6549,8 @@
           "rolle",
           "zugleich_rolle",
           "vorname",
-          "text_version"
+          "text_version",
+          "mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
         "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, the roles one answer covers and a wording's version."
@@ -8282,6 +8536,22 @@
               }
             ],
             "title": "Bestaetigt Am"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien",
+            "default": false
           }
         },
         "type": "object",
@@ -8292,7 +8562,7 @@
           "bestaetigt_am"
         ],
         "title": "FLEinwilligung",
-        "description": "What this person agreed may be published about them.\n\nRequired TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that\nsomebody consented, and the surface reading this may not tell the two apart."
+        "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
       },
       "FLGenerateSpielplanPayload": {
         "properties": {
@@ -8842,6 +9112,16 @@
                 "type": "null"
               }
             ]
+          },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -8850,7 +9130,8 @@
           "start_date",
           "end_date",
           "rules",
-          "bewerbung"
+          "bewerbung",
+          "registrierung"
         ],
         "title": "FLPatchSaisonPayload"
       },
@@ -9975,6 +10256,16 @@
               }
             ]
           },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "maxLength": 4,
@@ -9990,6 +10281,7 @@
           "end_date",
           "rules",
           "bewerbung",
+          "registrierung",
           "id"
         ],
         "title": "FLPostSaisonPayload"
@@ -10209,6 +10501,52 @@
           "created_id"
         ],
         "title": "FLPostSchiedsrichterResponse"
+      },
+      "FLPostSperrlistePayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "grund": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "grund"
+        ],
+        "title": "FLPostSperrlistePayload"
+      },
+      "FLPostSperrlisteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostSperrlisteResponse"
       },
       "FLPostSpielerPayload": {
         "properties": {
@@ -10554,6 +10892,16 @@
               }
             ]
           },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "maxLength": 4,
@@ -10677,6 +11025,32 @@
         ],
         "title": "FLSaisonPhaseSchedule",
         "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order."
+      },
+      "FLSaisonRegistrierung": {
+        "properties": {
+          "offen": {
+            "type": "boolean",
+            "title": "Offen"
+          },
+          "von": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Von"
+          },
+          "bis": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "offen",
+          "von",
+          "bis"
+        ],
+        "title": "FLSaisonRegistrierung",
+        "description": "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one."
       },
       "FLSaisonRules": {
         "properties": {
@@ -11317,6 +11691,93 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+      },
+      "FLSperrlisteEintrag": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "grund": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Grund"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "grund",
+          "erstellt_von",
+          "erstellt_am"
+        ],
+        "title": "FLSperrlisteEintrag",
+        "description": "One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."
+      },
+      "FLSperrlisteListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sperrliste": {
+            "items": {
+              "$ref": "#/components/schemas/FLSperrlisteEintrag"
+            },
+            "type": "array",
+            "title": "Sperrliste"
+          },
+          "anzahl_gesamt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Anzahl Gesamt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sperrliste",
+          "anzahl_gesamt"
+        ],
+        "title": "FLSperrlisteListResponse",
+        "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach."
+      },
+      "FLSperrlisteWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sperrliste_id": {
+            "type": "string",
+            "title": "Sperrliste Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sperrliste_id"
+        ],
+        "title": "FLSperrlisteWriteResponse",
+        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo."
       },
       "FLSpielAdvancement": {
         "properties": {
@@ -12683,6 +13144,7 @@
           },
           "vorname": {
             "type": "string",
+            "minLength": 1,
             "title": "Vorname"
           },
           "nachname": {
@@ -12717,7 +13179,7 @@
           "inactive_since"
         ],
         "title": "FLSpielerAdminSingleResponse",
-        "description": "The same player echoed back to the admin who just wrote them, with their surname whole.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date."
+        "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date."
       },
       "FLSpielerErasureResponse": {
         "properties": {
@@ -12908,8 +13370,14 @@
       "FLSpielerPublic": {
         "properties": {
           "vorname": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Vorname"
           },
           "nachname": {
@@ -12958,7 +13426,6 @@
         },
         "type": "object",
         "required": [
-          "vorname",
           "nachname",
           "id"
         ],
@@ -12981,7 +13448,14 @@
             "title": "Spieler Id"
           },
           "vorname": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Vorname"
           },
           "nachname": {
@@ -13060,6 +13534,17 @@
                 "type": "null"
               }
             ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "memberships": {
             "items": {
@@ -13389,6 +13874,137 @@
           "spieltag"
         ],
         "title": "FLSpieltageSingleResponse"
+      },
+      "FLSubjektPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLSubjektPayload",
+        "description": "Which mailbox is asking, folded to the one spelling the join, the header and the log agree on."
+      },
+      "FLSubjektResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSitz"
+            },
+            "type": "array",
+            "title": "Sitze"
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSpieler"
+            },
+            "type": "array",
+            "title": "Spieler"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSchiedsrichter"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sitze",
+          "spieler",
+          "schiedsrichter"
+        ],
+        "title": "FLSubjektResponse",
+        "description": "Which league records one mailbox matches, as three lists rather than three optional records.\n\nA list under each because one inbox holds seats at two clubs and two pupils share an address\n(`docs/datenschutz.md :: \"Colleagues sharing a school inbox\"`)."
+      },
+      "FLSubjektSchiedsrichter": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id"
+        ],
+        "title": "FLSubjektSchiedsrichter",
+        "description": "One referee record the mailbox names, carrying the id alone for `FLSubjektSpieler`'s reason."
+      },
+      "FLSubjektSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "saison_status": {
+            "type": "string",
+            "enum": [
+              "past",
+              "active",
+              "future"
+            ],
+            "title": "Saison Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "rolle",
+          "team_name",
+          "saison_status"
+        ],
+        "title": "FLSubjektSitz",
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as `app/api/kontakte/schemas.py :: FLKontaktSitz` is: one row\nseats one person twice where `trainer_ist_zugleich` says so."
+      },
+      "FLSubjektSpieler": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id"
+        ],
+        "title": "FLSubjektSpieler",
+        "description": "One pupil record the mailbox names.\n\nThe id alone: the caller composed the address it asked about, and anything else here hands a\nmachine read a fresh copy of somebody's own data for nothing."
       },
       "FLSwapGruppenPayload": {
         "properties": {
@@ -14132,6 +14748,125 @@
         ],
         "title": "FLUndrawSpielplanResponse",
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
+      },
+      "FLZustellungAngenommenPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "nachricht_id",
+          "am"
+        ],
+        "title": "FLZustellungAngenommenPayload",
+        "description": "One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state."
+      },
+      "FLZustellungEreignisPayload": {
+        "properties": {
+          "ziel": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Ziel"
+          },
+          "ziel_id": {
+            "type": "string",
+            "title": "Ziel Id"
+          },
+          "nachricht_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nachricht Id"
+          },
+          "am": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Am"
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ziel",
+          "ziel_id",
+          "nachricht_id",
+          "am",
+          "stand",
+          "grund"
+        ],
+        "title": "FLZustellungEreignisPayload",
+        "description": "One delivery event about a message this record was sent."
+      },
+      "FLZustellungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angewendet": {
+            "type": "boolean",
+            "title": "Angewendet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angewendet"
+        ],
+        "title": "FLZustellungResponse",
+        "description": "Whether the write reached the record; false where the report is about a message the record does not hold.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
       },
       "HTTPValidationError": {
         "properties": {

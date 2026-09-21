@@ -24,6 +24,7 @@ from app.api.bewerbungen.services import (
     find_expired_token_refusal,
     find_unknown_token_refusal,
     hash_token,
+    mindestalter_for,
     paired_seat,
     seat_holding,
     seat_vorname,
@@ -69,6 +70,8 @@ async def get_einwilligung_ansicht(
 
     The seat's state, the school, the season, the role, the holder's first name and the consent wording's version,
     and `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.
+    `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
+    exactly the dates the answer will take.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
     so a reopened link shows what became of it.
@@ -86,15 +89,19 @@ async def get_einwilligung_ansicht(
     slot = (bewerbung_raw.get("kontakte") or {}).get(seat)
     einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
+    # The answer's own resolution, so the page names exactly the seats a press will write and states
+    # the floor that press will be judged by.
+    zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat)
+
     return FLBewerbungEinwilligungAnsichtResponse(
         zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today),
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
-        # The answer's own resolution, so the page names exactly the seats a press will write.
-        zugleich_rolle=paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat),
+        zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
+        mindestalter=mindestalter_for((seat,) if zugleich is None else (seat, zugleich)),
     )
 
 
@@ -113,8 +120,9 @@ async def post_einwilligung(
     A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;
     a decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:
     a token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided
-    (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span
-    (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.
+    (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this
+    person holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year
+    spends nothing.
 
     The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
     mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
@@ -161,7 +169,9 @@ async def post_einwilligung(
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
-            refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today))
+            # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
+            # person they are rather than as the link they pressed.
+            refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
 
             updated_raw = await patch_one_in_db(
                 collection=bewerbungen_collection,

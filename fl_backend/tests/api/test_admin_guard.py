@@ -98,6 +98,12 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
+    ("/api/v0/zustellung", "post"),
+    ("/api/v0/zustellung/angenommen", "post"),
+    # A POST that stores nothing, listed for `ADMIN_READS`' Kontakte entry's reason: the address
+    # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
+    # system tier's.
+    ("/api/v0/identitaet/subjekt", "post"),
 ]
 
 MUTATIONS = [
@@ -124,6 +130,9 @@ ADMIN_READS = [
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/kontakte/erasure/ansicht", "post"),
+    # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
+    # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
+    ("/api/v0/sperrliste", "get"),
 ]
 
 

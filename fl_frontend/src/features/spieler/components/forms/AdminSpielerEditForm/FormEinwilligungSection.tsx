@@ -1,6 +1,12 @@
 "use client";
 
-import { EINWILLIGUNG_HERKUNFT_LABELS, EINWILLIGUNG_UMFANG_LABELS } from "@/features/spieler/constants";
+import { einwilligungFassung } from "@/core/einwilligung";
+import {
+  EINWILLIGUNG_HERKUNFT_LABELS,
+  EINWILLIGUNG_MEDIEN_LABELS,
+  EINWILLIGUNG_UMFANG_LABELS,
+  EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
+} from "@/features/spieler/constants";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -23,6 +29,26 @@ function Angabe({ label, children }: { label: string; children: ReactNode }) {
 /** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
 function KeinTag({ children }: { children: ReactNode }) {
   return <span className="text-foreground-muted italic">{children}</span>;
+}
+
+/**
+ * A stored label names an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry, so one no entry
+ * answers is a record citing words nobody can produce, and a bare key renders the two alike.
+ */
+function Fassung({ textVersion }: { textVersion: string | null }) {
+  if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
+
+  // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
+  // resolved to nothing.
+  if (einwilligungFassung(textVersion) === null) {
+    return (
+      <>
+        {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
+      </>
+    );
+  }
+
+  return textVersion;
 }
 
 /**
@@ -71,16 +97,23 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
               <Angabe label="Bestätigt am">
                 {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
               </Angabe>
+              {/* The key rather than a German gloss of it, which would be a second name for one
+                  wording. */}
+              <Angabe label="Fassung">
+                <Fassung textVersion={einwilligung.text_version} />
+              </Angabe>
+              {/* A word and never a switch: this panel reads a record back, and a control here would
+                  offer an administrator the answer that is the person's alone. */}
+              <Angabe label="Medien">
+                {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+              </Angabe>
             </dl>
           </>
         )}
 
-        {/* On both branches, because the record gates nothing either way: an administrator reading
-            „Nur innerhalb der Liga“ would otherwise take this player off the public squad list. */}
-        <p className="muted-hint">
-          Der Eintrag steuert die Veröffentlichung nicht: Im öffentlichen Kader stehen Vorname und erster Buchstabe des Nachnamens jeder
-          Spielerin und jedes Spielers.
-        </p>
+        {/* On both branches, because what the record answers is what the squad page serves: an
+            administrator meeting an empty panel would otherwise read the list as the whole story. */}
+        <p className="muted-hint">{EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS}</p>
       </div>
     </section>
   );

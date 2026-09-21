@@ -31,8 +31,8 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
 
-    Required TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that
-    somebody consented, and the surface reading this may not tell the two apart.
+    The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
+    confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
     """
 
     # Inline rather than a module-level alias, as the `spiele` quelle Literals are: each is used
@@ -40,20 +40,28 @@ class FLEinwilligung(BaseModel):
     umfang: Literal["kader_oeffentlich", "intern"]
     # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
     # consent was collected stays distinguishable from one a person actually gave. `volljaehrig`
-    # pins no age; the league's is `app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`.
+    # pins no age: the floor is per seat (`docs/backend/spec.md :: I180`).
     erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString
     # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
     # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
     bestaetigt_am: CustomOptionalDateString
+    # The registry label of `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN` and never
+    # the words, as `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must
+    # not change what a stored record claims. Defaulted, every stored record predating it.
+    text_version: str | None = None
+    # A SECOND consent under one record rather than a third `umfang` member: publication and media
+    # are independent answers, so withdrawing one leaves the other standing. Defaulted for
+    # `text_version`'s reason.
+    medien: bool = False
 
 
 class _SpielerPerson(BaseModel):
     """The person's own two fields, shared so no read of a player declares them differently.
 
-    The tiers put different CONTENT in `nachname` -- the base one an initial (`READ-PUPIL-001`)
-    -- which is a projection's business and not a declaration's.
+    A public read serves an initial for the surname (`READ-PUPIL-001`), or neither name at all
+    (`READ-PUPIL-003`) -- a projection's business, and not a declaration's.
     """
 
     vorname: CustomNonEmptyString
@@ -87,6 +95,14 @@ class FLSpielerPublic(_SpielerPerson):
     # is how a consent record came to be published.
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
+    # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
+    # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
+    # list over a withheld row rather than withholding it.
+
+    # DEFAULTED for a row the `spieler` validator refuses, one hand-written without the key: the
+    # mask's published arm is `$vorname` itself, so such a row reaches `$project` with no key at all.
+    vorname: str | None = None
+
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
     # would 500 the list over an ordinary retirement.
@@ -115,6 +131,10 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # No default, unlike every defaulted field above: every stored row carries one after the
     # backfill, and a default here would let a row with no consent read back as though it had been asked.
     einwilligung: FLEinwilligung
+    # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
+    # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
+    # breaks it silently.
+    email: str | None = None
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
@@ -229,16 +249,22 @@ class FLSpielerSingleResponse(BaseAPIResponse):
     """
 
     spieler_id: CustomObjectId
-    vorname: str
+    # Nullable for `FLSpielerPublic.vorname`'s reason: this path is masked by the same predicate
+    # (`READ-PUPIL-003`), and the admin echo below re-declares the forename it is served whole.
+    vorname: str | None
     nachname: str | None
 
 
 class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
-    """The same player echoed back to the admin who just wrote them, with their surname whole.
+    """The same player echoed back to the admin who just wrote them, with their whole name.
 
     `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
     surface renders a pupil's leaving date.
     """
+
+    # Required again where the public read narrowed it: this tier is served no mask, so an echo
+    # answering `null` here is the mask having reached the admin editor, and this line fails first.
+    vorname: CustomNonEmptyString
 
     # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
     # the calendar rule `FLSpieler` states refuses nothing this echo can serve.
@@ -303,6 +329,9 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
     # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
     einwilligung: FLEinwilligung | None = None
+    # Served here and withheld from the base tier, as the record above is: this read is the admin
+    # editor's, and an address is the person's own.
+    email: str | None = None
     memberships: list[FLSpielerMembership]
 
 

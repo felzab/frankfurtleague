@@ -1191,7 +1191,7 @@ def repo_path(token: str) -> str | None:
     path a reader can grep for.
     """
     # A dot-only SEGMENT, never the substring: `..` traverses, and Windows strips a trailing `...`
-    # back to the directory above it, a spelling no Linux runner holds. `[...nextauth]` is a real
+    # back to the directory above it, a spelling no Linux runner holds. `[...all]` is a real
     # route segment a substring test refuses.
     if token.startswith("/") or any(set(part) == {"."} for part in token.split("/")):
         return None

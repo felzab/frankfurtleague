@@ -302,7 +302,7 @@ describe("the bracket wiring's empty state", () => {
      reader of a past season to come back for rounds that were never drawn. */
   it("says a finished season has no Finalrunden, and promises none", () => {
     assert.ok(empty(true).includes("Für diese Saison gibt es keine Finalrunden."), empty(true));
-    assert.doesNotMatch(empty(true), /noch|sobald/i);
+    assert.doesNotMatch(empty(true), /\bnoch\b|sobald/i);
   });
 
   it("keeps the running season's promise that the KO-Runde's Spieltage are still to come", () => {

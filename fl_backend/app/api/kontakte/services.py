@@ -22,8 +22,8 @@ KONTAKT_SLOTS: tuple[str, ...] = tuple(
 def _same_address(email: str) -> Mapping[str, Any]:
     """Anchored and escaped, so the case is all this ignores.
 
-    A collation with `strength: 2` would be the indexed answer, and
-    `app/core/crud.py :: aggregate_many_from_db` takes none.
+    A `strength: 2` collation with an index per slot is the indexed answer, refused for what it
+    would index: an erasure scans rows a league counts in hundreds.
     """
 
     return {"$regex": f"^{re.escape(email)}$", "$options": "i"}

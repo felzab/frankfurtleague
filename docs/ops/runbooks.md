@@ -21,6 +21,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The order the two halves run in, and what is lost with them    |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
+| [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
 
 ---
 
@@ -119,13 +120,14 @@ docker run --rm --network <compose-network> \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Seven variables are required and the environment file is what supplies them.** `BackendConfig`
-declares seven fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all seven; the settings class reads its file from the image's own working directory
+**Eight variables are required and the environment file is what supplies them.** `BackendConfig`
+declares eight fields with no default, so a run reaching none of them exits 1 on a validation error
+naming all eight; the settings class reads its file from the image's own working directory
 (`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the seven
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the eight
 as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up six values `--check` never reads. It is the same mount
+operator looking up six values `--check` never reads — the run touches `MONGODB_URI` and
+`DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
 `scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
 
 Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so both
@@ -188,7 +190,7 @@ database, so what is written here is the order alone.
 
 - **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
   one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
-  than `--check`'s seven.
+  than `--check`'s eight.
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
 - **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
   new validator refuses for a reason of its own. Repair the row the raised error names and run again:
@@ -229,14 +231,11 @@ either fails loudly if it cannot.
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
 refusal does not say. **A changed RETENTION bound** is moved at the keyboard first, from the same
-shell the `--check` above runs in:
-
-```javascript
-db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
-```
+shell the `--check` above runs in: a `collMod` on the `aktionen` collection, naming the index
+`aktionen_retention` and setting its `expireAfterSeconds` to the new bound.
 
 Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
-is the smaller window, no read losing the index in between. `<new>` must equal
+is the smaller window, no read losing the index in between. The new bound must equal
 `fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
@@ -314,8 +313,31 @@ a perfectly good name, and a row missing its name can name a club that exists.
 Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
 is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
 
-- **The session row is not the grant.** It stays in the `authjs` database after a revocation and authorizes
+- **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
+- **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
+  allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
+  until one stands, so there is nothing to prepare for them and nothing to hand over.
+- **A lost passkey is recovered in the Atlas console**, by deleting that administrator's rows in the
+  `passkey` collection of the `auth` database; their next sign-in through the e-mail link enrols a
+  new one. **Until that row is gone both enrolment endpoints answer 404 to every session**, their
+  own included, so a deletion against the wrong database reads to them as the step never being
+  offered. One passkey per administrator is the whole requirement, and no control here lists or
+  deletes another person's: that is a listing and a write against the sign-in store, and it buys a
+  console step already available.
+- **A device that cannot enrol a passkey locks that administrator out, and no setting here relaxes
+  it.** The enrolment asks for a discoverable credential and for the person to be verified
+  (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  nothing where the machine has no platform authenticator and no security key supporting both — an
+  older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
+  resident-key and user-verification support, or a second device they can enrol from; there is no
+  password and no code to fall back to. **Where nobody can get in at all, the way back is the
+  previous image** (§1's deploy by tag), which authenticates against the store that build carries —
+  so it works only while that store is still there, and dropping it is what closes this route.
+- **Deleting one's OWN passkey is no recovery, and no page offers it.** A session that could reach
+  such a control has already passed the factor, so offering it to a link-borne session would let a
+  stolen mailbox swap the passkey for its own — which is the attack the second factor exists
+  against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
 
@@ -400,12 +422,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                 |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                           |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on |
-| Administrator  | The sign-in store — the second database, holding the address, the sessions and the sign-in tokens                                   |
+| Role           | Where their data is read                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                 |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                           |
+| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                 |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
 
 `/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -433,6 +456,23 @@ reading before you save: a club rename fans out into the matches of every season
 ([`../glossary.md`](../glossary.md#spiel--one-match)), and a referee rename fans out into every
 season's matches, a referee not being season-scoped.
 
+**An email address is not an ordinary rectification, and which procedure applies is decided by the
+role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
+as them.
+
+- **A pupil.** `spieler.email` is on no payload and no route writes one, so the league holds no
+  pupil's address here to correct, and the answer to somebody asking is that sentence.
+- **A referee.** Correct `kontakt.email` in the referee editor. It is the ordinary rectification
+  above: nothing is minted from a referee's address and nothing signs in as one.
+- **A contact seat.** Correct it through
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, the one field of a
+  submitted application an administrator may rewrite. It mints the fresh link, voids the old one and
+  restarts the confirmation deadline, and where one person holds two seats it corrects both.
+
+**The self-service change is not built.** It would be an endpoint, a page, a proving link and a
+notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
+request for one is answered by performing it rather than by building the route.
+
 **A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
 you are in is decided by that seat's own link, not by the person's role:
 
@@ -447,6 +487,25 @@ you are in is decided by that seat's own link, not by the person's role:
   person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
+
+**A pupil withdrawing the consent that publishes their name is the case with no route at all.** The
+record is composed at registration and no payload carries it
+(`fl_backend/app/api/spieler/services.py :: registration_einwilligung`), so nothing an administrator
+presses changes it. Two answers, and which one you give is the person's to choose:
+
+- **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
+  `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
+  the person.
+- **They want their name withheld and their place kept.** Clear that person's consent record on
+  their `spieler` document in the Atlas console; the publication gate fails closed, so the next read
+  serves the row as a nameless slot
+  (`docs/backend/spec.md :: READ-PUPIL-003`). **The squad list is
+  cached for a day and a console edit invalidates nothing**
+  ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)), so the name stays on
+  the page for up to that long — save anything in the admin player editor afterwards, which drops the
+  tag, and check the public squad page before you answer the person.
+
+Tell them which of the two you did, and that the second is reversible and the first is not.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -466,6 +525,44 @@ they are what say how far the write reached.
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
 in the same reply.
+
+**A false birthdate is found by a person, and the answer is a decision and a ban rather than a
+rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
+and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
+Decline the application, bar the address at `/admin/sperrliste` with the reason in your own words
+and no person named in it, the row outliving that person's erasure
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)), and tell them by mail that they may apply again when they are old enough. **The ban records the
+decision and refuses nothing by itself** — no route consults the list
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)) — so what actually keeps the
+address out until one does is the queue being read by a person.
+
+**A ban stands until you lift it.** It carries no review date and no expiry, deliberately: a queue of
+review dates is a queue nobody works, and the removal is already one press on the page you are
+reading the list on. A ban entered because somebody lied about their age loses its purpose the day
+they reach the floor their seat asks for, and the page is where somebody notices.
+
+**Generating the key is the one command in this section.** A key-generation command is an operator
+instruction rather than a database migration, so it stands here; nothing it produces is ever written
+into this repository. Dev, on Windows in Git Bash, or on the server — generate it on whichever
+machine you will paste from, so the value is not carried between two of them:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Thirty-two random bytes as sixty-four hexadecimal characters. **The boot's floor counts CHARACTERS
+and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`), so sixty-four
+repeated letters pass it and are worthless: what makes the value a key is that it came from this
+command and not from a keyboard.
+
+**`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list.** Every row of
+`sperrliste` holds an HMAC taken under that value and no address survives to re-hash
+([`../backend/spec.md`](../backend/spec.md#15-environment)), so replacing it disarms every ban in
+silence: the list renders exactly as before while no stored hash can be matched again, and a second
+ban of an address already on it is admitted rather than refused. Treat it as the one backend secret
+with no recovery: back it up where the
+database's own access details are backed up, and where it is genuinely gone, clear the list and
+enter the bans again from whatever record names the addresses.
 
 ## 6. When personal data has been exposed
 
@@ -755,6 +852,17 @@ the endpoint and notifies the account; nothing in the product reports it, and re
 here by hand. A frontend that boots without the secret crash-loops rather than answering, which is
 the boot check doing its job.
 
+**What a disabled endpoint looks like from inside the product.** The six subscriptions above feed
+every delivery record this database holds, and a record has one home per kind
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I266). So the signature is the same at
+each of them: every message sent after the endpoint went quiet stands at the state its own send
+wrote — `angenommen`, with no provider event after it — while the messages before it carry a
+delivered or refused state as usual. The application's triage queue is the one surface that renders
+this today; every other home is read through its own record, so a kind whose page nobody has opened
+shows nothing at all. **No bounce rate is aggregated anywhere**, deliberately: nothing in this tree
+sums delivery states, and at this volume the records a person already opens answer the same
+question.
+
 ## 11. A contact seat's birthdate that no confirmation stamped
 
 **The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
@@ -843,7 +951,7 @@ does not look erased, and each role's guard reads something the restore took awa
   keyed on the address, so the address off the thread is the whole input — and the armed panel's list
   now names seats written since the snapshot as well, which is why section 5 says to read it before
   pressing.
-- **An administrator.** The sign-in store is a second database reached by hand (section 5), so whether
+- **An administrator.** The sign-in store is the `auth` database, reached by hand (section 5), so whether
   the restore reached it is a question about what was restored rather than about this step.
 
 **The log's redactions came back as well**, so re-running each erasure is also what re-empties the
@@ -855,3 +963,25 @@ time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spe
 I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
 answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
 misses.
+
+## 14. The `auth` database's two expiry indexes
+
+The sign-in library writes an `expiresAt` on every `verification` row and every `session` row, and
+it deletes neither on a schedule: a verification row is removed only by the caller that redeems it,
+and a session row only when its own cookie comes back. **Both collections therefore need a TTL index
+on `expiresAt`, created once in the Atlas console**, with an expiry-after of zero seconds so the
+stored value is itself the deletion time.
+
+`verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
+any URL on the site rather than to `/signin` alone, and the library writes the row before the
+allowlist is consulted — so every address anyone submits is kept, with no path in the running system
+that removes it.
+
+`session` is smaller and the index is defence in depth: a row for an administrator who closed the
+browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
+serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+
+**Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
+configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
+declared indexes, which these are not — so the console is where both are made and where their
+presence is read.

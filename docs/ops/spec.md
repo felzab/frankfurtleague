@@ -105,22 +105,21 @@ uncommittable from a checkout that has to hold it.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                   | Upstream        | Notes                                                                                                                                                                                                |
-| -------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                | `frontend:3000` | Auth.js's remaining actions, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                                                                  |
-| `/api/auth/signin`         | `frontend:3000` | Auth.js's own sign-in POST, metered on `signin`/`signin48` — a PREFIX, so no trailing-slash twin                                                                                                     |
-| `/api/auth/callback`       | `frontend:3000` | The magic link's landing — a PREFIX, and deliberately unmetered, since a refusal's error line carries the token this path's query string holds                                                       |
-| `= /api/client-error`      | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
-| `= /api/bewerbung`         | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel` | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung`      | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
-| `= /api/mail/zustellung`   | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
-| the `/` twins              | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
-| `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
-| `= /signin`                | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `/_next/static/`           | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
-| `/`                        | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
+| Location                    | Upstream        | Notes                                                                                                                                                                                                |
+| --------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                 | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                       |
+| `= /api/client-error`       | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
+| `= /api/bewerbung`          | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
+| `= /api/bewerbung/kuerzel`  | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
+| `= /api/bestaetigung`       | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
+| `= /api/signin/bestaetigen` | `frontend:3000` | Next route handler, the mailed sign-in link's completion — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                          |
+| `= /api/mail/zustellung`    | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
+| the `/` twins               | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
+| `/api/admin/`               | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
+| `= /api/v0/system/is_live`  | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
+| `= /signin`                 | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
+| `/_next/static/`            | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
+| `/`                         | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
 
 **Every `/api/...` path but the liveness probe reaches Next** — some through a block naming it, the
 rest through the catch-all, which answers Next's HTML 404 where nothing routes the path (§3). The
@@ -132,9 +131,9 @@ what meets it.
 **Every route handler in the App Router tree is accounted for against these locations, public or
 not**: either an exact-match location carrying `limit_req`, or a prefix location covering it with a
 reason recorded at `scripts/checks/check_public_routes.py :: REASONS` — `/api/admin/` for the
-page-owned undo handlers, `/api/auth` for Auth.js's catch-all. **A handler under a dynamic segment
-is unmeterable unless a prefix covers it**, an exact match being unable to name the URLs a catch-all
-answers. The accounting is total rather than aimed at the public handlers alone because no predicate
+page-owned undo handlers, `/api/auth` for the sign-in library's catch-all. **A handler under a
+dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
+URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`, which three handlers use. A
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
@@ -226,16 +225,26 @@ makes one directive count differently in the two files**: `nginx/local.conf` ser
 the identical line bounds whole connections locally. The mirror holds the two lines equal (§1.6)
 and cannot see that they mean different things.
 
-**Two public writes cap their bodies against the server block's `20M`** — the application form's at
-`64k`, the confirmation link's at `8k`. The `64k` cap alone is measured, 2026-08-30: a
-100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
+**Three public writes cap their bodies against the server block's `20M`** — the application form's
+at `64k`, the confirmation link's and the sign-in link's completion at `8k`. The `64k` cap alone is
+measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST
+reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
 `fl_json` line carrying `"status":429` with an empty `upstream_duration_s` and the headers on the
-refusal being I2's observation; `limit_req` also writes an `error`-level record outside the JSON
-envelope, nginx's own behaviour. No rate here is measured — the figures remain judgement calls, and
+refusal being I2's observation. No rate here is measured — the figures remain judgement calls, and
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
+
+**A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
+both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
+`Referer` with it, and no `map` reaches that log — its format is not configurable (both records
+driven against `nginx:1.31-alpine` and read back, 2026-09-21). The live sign-in token travels in the
+query of `/signin/bestaetigen`, a page, so what stands over it is `location /`'s connection ceiling
+rather than any rate zone. **What the pair does not close is every OTHER `error`-level line**, an
+upstream failure among them, which repeats the same request line
+([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
+zone that refused, the access line carrying `status` alone.
 
 **The liveness location carries no `limit_req` zone, and that is a decision rather than an
 omission**: a zone would throttle the uptime monitor the path is published for (§3) before it
@@ -343,10 +352,14 @@ public.
 database and no empty read is cached for the days the reference reads hold a value
 ([`../frontend/spec.md`](../frontend/spec.md) §1.2).
 
-**The copy is the application database and not the Auth.js store beside it** — the backend's
+**The copy is the application database and not the sign-in store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
-local stack starts with an empty `authjs` and a sign-in builds it; the allowlist deciding who may
-sign in is an environment value rather than a stored row.
+local stack starts with an empty `auth` and a sign-in builds it; the allowlist deciding who may
+sign in is an environment value rather than a stored row. **A sign-in alone does not reach `/admin`
+there**: the link stamps its session `link` where the admin guard wants `passkey`
+(`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
+bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
+gives. Every machine, and every `--fresh`, enrols again.
 
 **The production tier's limitations shape that command**, and they are the fastest-rotting fact on
 this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial
@@ -392,9 +405,8 @@ unreadable, and **an unreadable line is an advisory rather than a refusal**, the
 being a guess about the rest.
 
 **The declared set is the whole of what the undeclared half judges**, and not what the container
-looks up: Node, Next and Auth.js read `TZ`, `NODE_OPTIONS`, `PORT`, `HOSTNAME` and
-`AUTH_TRUST_HOST` of their own, and `fl_frontend/src/core/config.ts` reads `SKIP_ENV_VALIDATION`,
-none of them declared there. So an undeclared name in the file is a line to delete, a spelling to
+looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of their own, and
+`fl_frontend/src/core/config.ts` reads `SKIP_ENV_VALIDATION`, none of them declared there. So an undeclared name in the file is a line to delete, a spelling to
 correct, or a name to declare in the schema — the same three the backend's arm offers for its
 settings class.
 
@@ -602,10 +614,16 @@ each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent
 does not hold; the frontend job in `.github/workflows/verify.yml` diffs that one path after the
 scope and fails on it.
 
-**The conflict-marker check reads every tracked file and exempts no path**: each of its rules
-wants its marker at the start of a line, so a document quoting one in backticks or mid-sentence
-is never a finding, while a fenced block reproducing a conflict as git writes it is one
-(`scripts/checks/check_conflict_markers.py`).
+**One check reads every tracked file, for two defects a review cannot see**
+(`scripts/checks/check_tracked_text.py`). Each conflict-marker rule wants its marker at the
+start of a line, so a document quoting one in backticks or mid-sentence is never a finding, while
+a fenced block reproducing a conflict as git writes it is one. The second rule refuses a control
+character outside tab, newline and carriage return, a zero-width character, a bidirectional
+control, a line separator, and a byte order mark anywhere — the leading one read off the raw bytes,
+which the decode drops. That rule alone exempts a path, through
+`scripts/checks/check_tracked_text.py :: ALLOWED`, whose entry carries the reason its file's
+invisible characters are the file's subject; an entry naming a file that carries none fails, so
+the list cannot outlive its reason.
 
 **The estate check refuses three silences the backend suite would otherwise pass**
 (`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls
@@ -651,16 +669,16 @@ and why a job mapped off reads as `skipped`, is at that job in `.github/workflow
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
 `version-file`; each flag's argument is at the `commits` job in `.github/workflows/verify.yml`.
 
-| Scope        | Runs                                                                                                                                                                                                                                                                                                              | Needs                                                                                                                                        |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                                                               | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
-| `--docs`     | `check_conflict_markers.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_regenerate_spelling.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
-| `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                                                          | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
-| `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                                                  | pnpm install                                                                                                                                 |
-| `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                                                                                                                    | pnpm install                                                                                                                                 |
-| `--ops`      | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                                                    | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
-| `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                                                         | venv + Docker                                                                                                                                |
-| `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                                            | Docker                                                                                                                                       |
+| Scope        | Runs                                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                                                           | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
+| `--docs`     | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_regenerate_spelling.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
+| `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                                                      | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
+| `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
+| `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                                                                                                                | pnpm install                                                                                                                                 |
+| `--ops`      | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                                                | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
+| `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                                                     | venv + Docker                                                                                                                                |
+| `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                                        | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
 image that would not run at all is refused at exit 2 rather than graded, as `publish.sh`'s
@@ -1015,7 +1033,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_mirror.py :: off_host_ports` over both files, and its `:: DECLARED_DELTAS` row pinning production's `services.nginx.ports` absent                                                                                                                    |
 | I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `scripts/checks/check_csp_identity.py :: dropped` for the policy, over every block that sets a header and does not redirect; the other four observed carrying, 2026-08-30                                                                                                          |
 | I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                                                                                                          |
-| I4   | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                                                                                                         |
+| I4   | Sign-in metering is POST-keyed and edge-only: the library's limiter is off, and a request meets the zone its PATH fell to and nothing else                                    | the `map` producing an empty key otherwise, and the library's own limiter, on by default in production, turned off in `fl_frontend/src/core/auth.ts`                                                                                                                               |
 | I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                                                                                                |
 | I6   | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                                                                                                             |
 | I7   | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                                                                                                    |
@@ -1088,7 +1106,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The frontend's `API_VERSION` is deployed rather than committed    | Open — `fl_frontend/src/core/config.ts :: frontend_config` reads a per-environment value no commit carries, so a stale one sends every fetch to `location /` (I13)                                 |
 | A rollback moves nothing in the registry                          | Accepted — `scripts/ops/deploy.sh :: roll_back` re-tags this host's local `:latest` and reaches no registry, so a re-deploy pulls the failed build back ([`runbooks.md`](runbooks.md) §1)          |
 | Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
-| Revoking admin access needs a restart                             | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                                                                                     |
+| Revoking admin access needs a restart                             | Accepted — the allowlist is validated at boot; after it, the admin verdict is re-derived per request and the session authorizes nothing                                                            |
 | Nothing announces that a season rollover is due                   | Accepted — nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                    |
 | `nginx` drops no capabilities                                     | Open — every other service carries `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                        |
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |

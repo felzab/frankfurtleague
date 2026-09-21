@@ -7,6 +7,7 @@ import { APIBadStatusError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { meldeZustellEreignis } from "@/features/bewerbungen/mutations";
 import { leseZustellEreignis } from "@/features/bewerbungen/zustellung";
+import { meldeZielZustellEreignis } from "@/features/zustellung/mutations";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
@@ -23,6 +24,9 @@ const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
 // Built per call and never held at module scope: a `Response` carries a body stream that is consumed
 // once, so a shared instance answers the second request of its kind with an unusable body.
 const ANGEWENDET = (angewendet: readonly FLKontaktRolle[]) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
+// A boolean where the application's answer is a list of seats: the generic endpoint writes one
+// record, so there is no set of seats for it to name.
+const ZIEL_ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
 const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
@@ -58,13 +62,43 @@ export async function POST(request: NextRequest) {
     }
 
     // An untagged message and an event about no seat state are both acknowledged and recorded
-    // nowhere: the sign-in link is one, and a retried refusal would disable the endpoint over it.
+    // nowhere, and a retried refusal would disable the endpoint over one.
     const meldung = leseZustellEreignis(ereignis);
     if (meldung === null) return ANGEWENDET([]);
 
+    // The sign-in lane, which no store holds: anything but a delivery locks an administrator out
+    // of their only way in, so the LINE is the record.
+
+    // Never the address (`docs/logging/spec.md :: L9`).
+    if (meldung.ziel === "anmeldung") {
+      if (meldung.stand !== "zugestellt") {
+        logger.warn("mail.anmeldelink_nicht_zugestellt", {
+          error_code: "FE-MAIL-007",
+          stand: meldung.stand,
+          nachricht_id: meldung.nachricht_id,
+        });
+      }
+
+      return ANGEWENDET([]);
+    }
+
+    // 200 because no retry repairs it, and a line because the alternative is a drop no operator can
+    // tell from the sign-in mail's.
+    if (meldung.ziel === "unplatzierbar") {
+      // Never the raw kind: one that failed the set is a value the provider echoed back from
+      // whatever it was handed (`docs/logging/spec.md :: L9`).
+      logger.warn("mail.zustellung_unplatzierbar", { error_code: "FE-MAIL-006", grund: meldung.grund, ziel: meldung.art ?? undefined });
+      return ANGEWENDET([]);
+    }
+
     try {
-      const { angewendet } = await meldeZustellEreignis(meldung);
-      return ANGEWENDET(angewendet);
+      if (meldung.ziel === "bewerbung") {
+        const { angewendet } = await meldeZustellEreignis(meldung.meldung);
+        return ANGEWENDET(angewendet);
+      }
+
+      const { angewendet } = await meldeZielZustellEreignis(meldung.meldung);
+      return ZIEL_ANGEWENDET(angewendet);
     } catch (error) {
       const unerreichbar = error instanceof APINetworkError || (error instanceof APIBadStatusError && error.statusCode >= 500);
 
@@ -75,9 +109,9 @@ export async function POST(request: NextRequest) {
         status: error instanceof APIBadStatusError ? error.statusCode : undefined,
       });
 
-      // A 404 is an application the retention sweep has already erased, and every other answered
-      // status is a contract this side got wrong: retrying either buys nothing and spends the
-      // endpoint's standing with the provider.
+      // A 404 is a record an erasure or the retention sweep has already taken, and every other
+      // answered status is a contract this side got wrong: retrying either buys nothing and spends
+      // the endpoint's standing with the provider.
       return unerreichbar ? KEIN_BACKEND() : ANGEWENDET([]);
     }
   });

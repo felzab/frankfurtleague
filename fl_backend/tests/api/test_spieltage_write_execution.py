@@ -150,7 +150,9 @@ async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
 
     return await patch_saison(
         saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(start_date=SAISON_START, end_date=end_date, rules=FLSaisonRules.model_validate(RULES), bewerbung=None),
+        saison_data=FLPatchSaisonPayload(
+            start_date=SAISON_START, end_date=end_date, rules=FLSaisonRules.model_validate(RULES), bewerbung=None, registrierung=None
+        ),
         saisons_collection=database.saisons,
         saison_teams_collection=database.saison_teams,
         spiele_collection=database.spiele,

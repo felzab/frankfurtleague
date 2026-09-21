@@ -6,7 +6,13 @@ import { buildReplacementContext } from "@/features/saisons/components/forms/Adm
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
-import { buildGruppenSwapContext, buildSpielplanBestand, buildSpieltagBound, holdsDrawnSpiele } from "@/features/saisons/utils";
+import {
+  buildGruppenSwapContext,
+  buildSpielplanBestand,
+  buildSpieltagBound,
+  holdsDrawnSpiele,
+  holdsUndatierteSpieltage,
+} from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
@@ -80,7 +86,11 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
-  const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
+  const rollover: SaisonRolloverContext = {
+    outgoingSaisonId,
+    offeneSpiele,
+    hasUndatierteSpieltage: holdsUndatierteSpieltage(spieltageRes.spieltage),
+  };
 
   // The condition `REQ-SPIELPLAN-001`, `REQ-ACTIVATE-003` and `REQ-RULES-011` each read, derived off
   // the two fixture reads the swap already needs.
@@ -136,6 +146,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
         end_date: saison.end_date,
         rules: saison.rules,
         bewerbung: saison.bewerbung,
+        registrierung: saison.registrierung,
       }}
       rollover={rollover}
       swap={swap}

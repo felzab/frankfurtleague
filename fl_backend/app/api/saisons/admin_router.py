@@ -439,13 +439,14 @@ async def activate_saison(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
     """
     Make this the active season, moving whichever holds `active` to `past` in one transaction.
 
-    The only path to `status: "active"`. The outgoing season must be finished, and a `past` target
-    is refused (`docs/backend/spec.md :: I18`).
+    The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
+    refused, and every matchday of the target carries a date (`docs/backend/spec.md :: I18`).
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
@@ -490,10 +491,15 @@ async def activate_saison(
         # has no repair, activation writing `status` one way only.
         target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
+        # In-session for `target_status`'s reason, and `beginn` alone: `ende` is dated with it, and a
+        # matchday half-dated is a shape no write here produces.
+        undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "beginn": None}, session=session)
+
         refuse(
             find_activation_refusal(
                 target_status=target_status,
                 target_fixtures=target_fixtures,
+                undated_spieltage=undated_spieltage,
                 outgoing_unplayed=unplayed,
             )
         )
@@ -521,11 +527,16 @@ async def activate_saison(
         # The STATUS alone, because it is the only input a rival can move here: an undraw and a
         # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
         # only from a rollover that demotes this target.
+
+        # Dated-ness rides on the in-session count for the same reason: this branch re-promotes a
+        # season that is already live, so a matchday drawn under it cannot make the league go live
+        # undated.
         if target_status == "active":
             refuse(
                 find_activation_refusal(
                     target_status=await the_targets_status(None),
                     target_fixtures=target_fixtures,
+                    undated_spieltage=undated_spieltage,
                     outgoing_unplayed=unplayed,
                 )
             )

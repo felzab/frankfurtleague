@@ -131,7 +131,7 @@ _AKTION_REQUEST = _object(
     properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
 )
 
-# Required TOGETHER: the four keys are always present, and a null `bestaetigt_am` is what says
+# Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
 # the consent is UNCONFIRMED rather than absent.
 _EINWILLIGUNG = _object(
     required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
@@ -140,6 +140,11 @@ _EINWILLIGUNG = _object(
         "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
         "datum": {"bsonType": _STRING_OR_NULL},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+        # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
+        # predates them. A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG`
+        # member, so a record can be withdrawn from one and stand in the other.
+        "text_version": {"bsonType": _STRING_OR_NULL},
+        "medien": {"bsonType": "bool"},
     },
 )
 
@@ -198,18 +203,19 @@ _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, prop
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
-# The six a seat's delivery state may read. `angenommen` is the provider ACCEPTING the request,
-# which is all a send ever learns; the other five are what a delivery event reports.
-_BEWERBUNG_ZUSTELLSTAENDE = ["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+# The six a delivery state may read. `angenommen` is the provider ACCEPTING the request, which is
+# all a send ever learns; the other five are what a delivery event reports.
+_ZUSTELLSTAENDE = ["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
-# What became of the last message to one seat. Required TOGETHER as `_EINWILLIGUNG` is: the write
-# condition is an ordering, and a state carrying no stamp orders against nothing.
-_BEWERBUNG_ZUSTELLUNG = _object(
+# One shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, not the
+# application's alone. Required TOGETHER as `_EINWILLIGUNG` is: the write condition is an ordering,
+# and a state carrying no stamp orders against nothing.
+_ZUSTELLUNG = _object(
     nullable=True,
     required=("nachricht_id", "stand", "grund", "am"),
     properties={
         "nachricht_id": {"bsonType": "string"},
-        "stand": {"bsonType": "string", "enum": _BEWERBUNG_ZUSTELLSTAENDE},
+        "stand": {"bsonType": "string", "enum": _ZUSTELLSTAENDE},
         "grund": {"bsonType": _STRING_OR_NULL},
         # An INSTANT where every other stamp here is a date: two events about one message share a
         # day, and only sub-day ordering makes a redelivery a no-op.
@@ -233,7 +239,7 @@ _BEWERBUNG_BESTAETIGUNG = _object(
         "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
         # Out of `required` for `token_hash_zuvor`'s reason: the first mint knows nothing yet about
         # the message its link goes out in, and a re-send writes a fresh entry carrying none.
-        "zustellung": _BEWERBUNG_ZUSTELLUNG,
+        "zustellung": _ZUSTELLUNG,
     },
 )
 
@@ -250,6 +256,18 @@ _BEWERBUNG_BESTAETIGUNGEN = _object(
 )
 
 _SAISON_BEWERBUNG = _object(
+    nullable=True,
+    required=("offen", "von", "bis"),
+    properties={
+        "offen": {"bsonType": "bool"},
+        "von": {"bsonType": "string"},
+        "bis": {"bsonType": "string"},
+    },
+)
+
+# Spelled out rather than assigned `_SAISON_BEWERBUNG`: one name over both blocks would let a
+# widening of either window widen the other silently.
+_SAISON_REGISTRIERUNG = _object(
     nullable=True,
     required=("offen", "von", "bis"),
     properties={
@@ -437,6 +455,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # together: a switch with no span cannot say when the window closes, and a span with
                 # no switch cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
+                # Out of `required` on the same terms as the window above it.
+                "registrierung": _SAISON_REGISTRIERUNG,
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
                 "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
@@ -496,6 +516,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": _EINWILLIGUNG,
+                # Out of `required` for `saisons.spielplan`'s reason. Stored as
+                # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
+                # sign-in seam's equality compares against.
+                "email": {"bsonType": _STRING_OR_NULL},
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -622,6 +646,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "default_payment": {"bsonType": "int"},
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
+                # The confirmation bookkeeping a message to this referee is recorded against
+                # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required` because no
+                # create composes the key, and hand-written because `_object` would spell the empty
+                # `required` mongod refuses.
+                "bestaetigung": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
             },
         )
     },
@@ -716,6 +745,25 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.SPERRLISTE: {
+        "$jsonSchema": _object(
+            # Every key required and none nullable: a ban nobody is named for cannot be lifted by
+            # the person who would know why.
+            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # Required above rather than optional: MongoDB indexes a missing key as null, so one
+                # row without a hash would reserve that null against every later ban.
+                "adresse_hash": {"bsonType": "string"},
+                # No `enum`: a label this validator closed would refuse the rows keyed under the
+                # previous one, which is exactly the population it exists to keep readable.
+                "schluessel_version": {"bsonType": "string"},
+                "grund": {"bsonType": "string"},
+                "erstellt_von": {"bsonType": "string"},
+                "erstellt_am": {"bsonType": "string"},
+            },
+        )
+    },
 }
 
 
@@ -753,6 +801,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "saison_phase", "position"),
         "one matchday per position within a phase of a season",
     ),
+    # It is also the READ path: the sign-up check is one indexed equality against this key, so
+    # dropping the index costs a collection scan per submission as well as the rule.
+    UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
 )
 
 
@@ -839,6 +890,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "saisons_status",
         (("status", ASCENDING),),
         "the withheld-season set every unnarrowed base-tier read must exclude",
+    ),
+    # A support index and never a unique one: one family mailbox really is shared by two pupils, so
+    # this read answers a list rather than refusing the second person who registers under it.
+    SupportIndex(
+        Collection.SPIELER,
+        "spieler_email",
+        (("email", ASCENDING),),
+        "the rows a signed-in person may be joined to, matched on the folded address",
     ),
 )
 

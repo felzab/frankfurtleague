@@ -26,11 +26,13 @@ from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonBewerbung,
     FLSaisonForfeitErgebnis,
+    FLSaisonRegistrierung,
     FLSaisonRules,
     FLSaisonSpielplan,
     FLSaisonStatus,
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
+from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
     FLSonderereignis,
@@ -116,6 +118,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISONS, ("rules", "forfeit_ergebnis"), FLSaisonForfeitErgebnis, frozenset()),
     (Collection.SAISONS, ("spielplan",), FLSaisonSpielplan, frozenset()),
     (Collection.SAISONS, ("bewerbung",), FLSaisonBewerbung, frozenset()),
+    (Collection.SAISONS, ("registrierung",), FLSaisonRegistrierung, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
     (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
@@ -132,6 +135,10 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
+    # The delivery state at the register's other home, its carrier `bestaetigung` having no model of
+    # its own: one shared sub-schema in Python, and the drift walk reaching each path separately
+    # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
@@ -175,6 +182,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
+    (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -325,6 +333,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
+    # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+    (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
 ]
 
 
@@ -406,6 +417,13 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The pass's own clock rather than a fact about the season it is stored on: an operator asks
     # whether the sweep ran, and no page of a season is that question.
     (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
+    # The lookup key, and the whole of what a row holds about a person. Serving it would hand
+    # whoever reads the list the one value a leaked collection is missing, and the label beside it
+    # says which key that is.
+    (Collection.SPERRLISTE, ()): frozenset({"adresse_hash", "schluessel_version"}),
+    # What became of the last message to this referee, written by the system tier and read by no
+    # admin model: an administrator acts on the referee's own record, never on a provider's report.
+    (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),
 }
 
 

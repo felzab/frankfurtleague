@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 
 import { CircleCheck } from "@gravity-ui/icons";
 import { parseDate } from "@internationalized/date";
@@ -8,8 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { Button, Form, Label, Switch } from "@heroui/react";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
-import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
-import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
+import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -55,7 +54,10 @@ const WIDERSPRUCH_SENDEN = "Widerspruch senden";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
-const GEBURTSDATUM_HINWEIS = `Kontaktperson kann sein, wer mindestens ${String(BEWERBUNG_MIN_ALTER)} ist. Das Datum wird mit Deinem Eintrag gespeichert.`;
+// The floor is the person's rather than a seat's — one press answers for both seats of a mirrored
+// pair, and the link's read hands over the higher of the two.
+const geburtsdatumHinweis = (mindestalter: number): string =>
+  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} Jahre alt sein. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
 type Entwurf = { geburtsdatum: string; whatsapp: boolean };
@@ -95,15 +97,17 @@ function BestaetigungAngaben({
   onGeburtsdatumVerlassen,
   isDisabled,
   hinweisId,
+  mindestalter,
 }: {
   entwurf: Entwurf;
   onEntwurf: (entwurf: Entwurf) => void;
   onGeburtsdatumVerlassen: () => void;
   isDisabled: boolean;
   hinweisId: string;
+  mindestalter: number;
 }) {
   const panel = formPanel();
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
+  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
   return (
     <>
@@ -132,7 +136,7 @@ function BestaetigungAngaben({
             <Hint
               mode="inline"
               describes={hinweisId}
-              text={GEBURTSDATUM_HINWEIS}
+              text={geburtsdatumHinweis(mindestalter)}
             />
           </div>
         </div>
@@ -241,6 +245,7 @@ export function BestaetigungFormPanel({
   schule,
   saison,
   rolle,
+  mindestalter,
   onAbschluss,
 }: {
   token: string;
@@ -249,6 +254,8 @@ export function BestaetigungFormPanel({
   saison: string;
   /** The seat's long label, resolved by the caller so this form renders no role table of its own. */
   rolle: string;
+  /** The floor the answer will be judged by, answered by the link's own read for the seats it covers. */
+  mindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -258,10 +265,14 @@ export function BestaetigungFormPanel({
   const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
+  // Built from the floor the link answered, never the module's own: the endpoint judges this
+  // person's seats, so a schema on the league floor would let the press through at the wrong number.
+  const antwortSchema = useMemo(() => buildEinwilligungAntwortPayloadSchema(mindestalter), [mindestalter]);
+
   // The payload the write is judged by, judging the draft too: a second schema here would be the
   // page refusing at numbers the endpoint does not, on the day the two disagree.
   const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { einwilligung: FLBewerbungEinwilligungAntwortPayloadSchema },
+    schemas: { einwilligung: antwortSchema },
     // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
     // change nobody here made, and two titles for one failure read as two failures.
     failureTitle: "Antwort nicht gespeichert",
@@ -269,7 +280,7 @@ export function BestaetigungFormPanel({
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
 
-  const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
+  const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // sending a 190-year-old to the submitter for a replacement is the wrong repair.
@@ -347,6 +358,7 @@ export function BestaetigungFormPanel({
         schule={schule}
         saison={saison}
         rolle={rolle}
+        mindestalter={mindestalter}
         ablehnenLabel={ABLEHNEN_LABEL}
       />
 
@@ -356,6 +368,7 @@ export function BestaetigungFormPanel({
           vorname={vorname}
           schule={schule}
           rolle={rolle}
+          mindestalter={mindestalter}
         />
 
         <BestaetigungAngaben
@@ -364,6 +377,7 @@ export function BestaetigungFormPanel({
           onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
           isDisabled={isConfirming}
           hinweisId={geburtsdatumHinweisId}
+          mindestalter={mindestalter}
         />
 
         {istZuJung && (
@@ -372,8 +386,8 @@ export function BestaetigungFormPanel({
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.">
             Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese
-            Person braucht jemanden ab {String(BEWERBUNG_MIN_ALTER)} in Deiner Rolle. Du kannst dem Eintrag auch widersprechen, dann entfernen
-            wir Deine Angaben.
+            Person braucht an Deiner Stelle jemanden ab {String(mindestalter)}. Du kannst dem Eintrag auch widersprechen, dann entfernen wir
+            Deine Angaben.
           </Callout>
         )}
 

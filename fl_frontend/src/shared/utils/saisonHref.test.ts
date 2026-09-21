@@ -91,7 +91,7 @@ const SEASONLESS: Record<string, string> = {
   "proxy.ts :: /admin/:path*": "the authorization matcher, not a link",
   "features/admin/components/ui/AdminShell.tsx :: /admin":
     "the sidemenu's link PREFIX; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds",
-  "features/auth/actions.ts :: /admin": "where a magic link lands; no season is in scope at sign-in, so the default is right",
+  "core/auth.ts :: /admin": "where a finished sign-in lands; no season is in scope at sign-in, so the default is right",
   "shared/components/layout/topnav/TopNav.tsx :: /admin": "the public chrome's way into the admin area; no season is in scope outside it",
 };
 

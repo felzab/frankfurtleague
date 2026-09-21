@@ -785,7 +785,7 @@ class TestAPupilStoredWithNoBirthdate:
         assert "geburtsdatum" not in schema["required"]
 
     def test_the_leagues_age_reaches_no_squad_module(self):
-        """The threshold is one constant, so where a module can read it is where an age can be judged."""
+        """Both thresholds are named constants, so where a module can read either is where an age can be judged."""
 
         # The reader's own floor, against a sample: every module in the tree names the value in its
         # import, so no count over the tree separates a correct reader from one matching that alone.

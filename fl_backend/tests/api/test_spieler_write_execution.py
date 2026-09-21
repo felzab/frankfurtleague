@@ -193,6 +193,8 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
             "erteilt_von": "erziehungsberechtigt",
             "datum": TODAY,
             "bestaetigt_am": TODAY,
+            "medien": False,
+            "text_version": None,
         }
 
     def test_correcting_a_name_leaves_the_consent_record_standing(self, mongo_replica_set_url: str):

@@ -6,7 +6,7 @@ past that swap, and the assertion that then goes quiet is the green one: a case 
 out of a capture which was always empty passes whatever the checker found.
 
 Invariants:
-  A marker this file names is built from a repeated character, never typed: `check_conflict_markers.py` reads its own source like any other.
+  A marker this file names is built from a repeated character, never typed: `check_tracked_text.py` reads its own source like any other.
 """
 
 from __future__ import annotations
@@ -27,11 +27,11 @@ sys.path.insert(0, str(SCRIPTS / "lib"))
 sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     kernel = importlib.import_module("checker_kernel")
-    markers = importlib.import_module("check_conflict_markers")
+    markers = importlib.import_module("check_tracked_text")
 finally:
     sys.path.remove(str(SCRIPTS / "checks"))
     sys.path.remove(str(SCRIPTS / "lib"))
-    withdraw("check_conflict_markers", "checker_kernel")
+    withdraw("check_tracked_text", "checker_kernel")
 
 OPENER: Final = "<" * 7
 
@@ -52,7 +52,7 @@ def test_a_checker_driven_in_process_has_its_findings_captured(tmp_path: Path, c
     # Bytes, so the plant is not turned into a carriage return pair the marker reader would miss.
     source.write_bytes(f"Intro.\n{OPENER} HEAD\n".encode())
     argv_before = sys.argv
-    sys.argv = ["check_conflict_markers.py", str(source)]
+    sys.argv = ["check_tracked_text.py", str(source)]
     try:
         code = markers.main()
     finally:

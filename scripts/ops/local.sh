@@ -85,7 +85,7 @@ clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e "s/^[$q]//" -e "s/[$q]\$//"; 
 uri=$(clean "$MONGODB_URI")
 base=$(clean "$DB_BASE_NAME")
 # The application database alone: the Flex tier denies `admin`, and this credential cannot read the
-# Auth.js store beside it -- least privilege working. One collection at a time stays under the
+# sign-in store beside it -- least privilege working. One collection at a time stays under the
 # tier's rate cap.
 mongodump --uri="$uri" --db="$base" --numParallelCollections=1 --out=/dump
 CONTAINER

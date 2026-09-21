@@ -207,9 +207,9 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
 
-  // Logged where the detail exists: Auth.js hands its own logger the error alone, so a status and
-  // the provider's code reach no stream otherwise. The recipient never travels on either line
-  // (`docs/logging/spec.md :: L9`).
+  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
+  // a status and the provider's code reach no stream otherwise. The recipient never travels on
+  // either line (`docs/logging/spec.md :: L9`).
   const failNetwork = (error: unknown) => {
     const failure = new APINetworkError({
       message: "Mail request failed.",

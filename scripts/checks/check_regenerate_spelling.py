@@ -216,7 +216,7 @@ def main() -> int:
     if not findings:
         print(f"      {len(found)} tracked file(s) name the command, {len(SITES)} registered site(s) beside {HOME}")
 
-    # A finding outranks a refusal, for the reason `scripts/checks/check_conflict_markers.py` records
+    # A finding outranks a refusal, for the reason `scripts/checks/check_tracked_text.py` records
     # at its own: exit 2 says nothing here stands as a verdict, contradicting the FAIL lines above it.
     if unread and not findings:
         return EXIT_REFUSED

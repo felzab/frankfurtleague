@@ -8,13 +8,15 @@ import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
+import { istNameZurueckgehalten, spielerAnzeigename, spielerInitialen } from "../../constants";
+
 import type { FLSpielerPublic } from "../../schemas";
 
 /**
  * `"use client"` is required: `Table.Body` takes a `renderEmptyState` render prop, which a Server
  * Component may not pass.
  *
- * The fallbacks are load-bearing — `FLSpielerPublic` declares surname, number and position nullable.
+ * The fallbacks are load-bearing — `FLSpielerPublic` declares both names, number and position nullable.
  */
 export function TeamSpielerView({
   teamName,
@@ -77,13 +79,15 @@ export function TeamSpielerView({
                         color="accent"
                         variant="soft"
                         className="hidden shrink-0 sm:flex">
-                        <Avatar.Fallback className="font-bold">
-                          {spielerData.vorname.charAt(0).toUpperCase()}
-                          {spielerData.nachname?.charAt(0).toUpperCase() ?? ""}
-                        </Avatar.Fallback>
+                        <Avatar.Fallback className="font-bold">{spielerInitialen(spielerData)}</Avatar.Fallback>
                       </Avatar>
-                      <span className="fluid-xs text-foreground line-clamp-1 font-bold">
-                        {[spielerData.vorname, spielerData.nachname].filter(Boolean).join(" ")}
+                      {/* The grade a nameless row wears on `AdminSchiedsrichterTable`: at a name's
+                          weight the stand-in word reads as somebody's name. */}
+                      <span
+                        className={`fluid-xs line-clamp-1 ${
+                          istNameZurueckgehalten(spielerData) ? "text-foreground-muted italic" : "text-foreground font-bold"
+                        }`}>
+                        {spielerAnzeigename(spielerData)}
                       </span>
                     </div>
                   </Table.Cell>

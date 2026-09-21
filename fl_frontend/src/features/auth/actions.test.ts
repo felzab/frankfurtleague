@@ -8,7 +8,7 @@ import ts from "typescript";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 /** The sentence the action answers with whether or not the address is allowlisted. */
-const NEUTRAL_ANSWER = "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs.";
+const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldelink unterwegs.";
 
 const ACTIONS = path.join(import.meta.dirname, "actions.ts");
 const actionsSource = readFileSync(ACTIONS, "utf8");
@@ -62,6 +62,32 @@ describe("handleSignIn's answer", () => {
     );
 
     assert.equal(built.length, 1, `handleSignIn answers neutrally from ${String(built.length)} places`);
+  });
+
+  /* `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and
+     a failure on this path routinely carries the submitted address, which
+     `docs/logging/spec.md :: L9` keeps off the stream. The same sweep over the module this action
+     calls is `fl_frontend/src/core/authLogging.test.ts`. */
+  it("hands the log stream no error object, only the name and the code", () => {
+    const calls = [...descendants(parsed)].filter(
+      (node) =>
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === "logger" &&
+        node.expression.name.text === "error",
+    ) as ts.CallExpression[];
+
+    assert.ok(calls.length > 0, "no logger.error call was found, so this test proves nothing");
+
+    for (const call of calls) {
+      const errorArgument = call.arguments[1];
+      assert.ok(errorArgument, "logger.error was called without the error argument this test reads");
+      assert.ok(
+        ts.isIdentifier(errorArgument) && errorArgument.text === "undefined",
+        `logger.error was handed \`${errorArgument.getText(parsed)}\` where it must be handed \`undefined\``,
+      );
+    }
   });
 });
 

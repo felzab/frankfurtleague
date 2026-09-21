@@ -17,8 +17,13 @@ import {
 
 import type { Aktion } from "./emailShell";
 
-/** Copy only. The real TTL is the Resend `maxAge` in `fl_frontend/src/core/auth.ts` — change both. */
-const LINK_VALIDITY_TEXT = "15 Minuten";
+/**
+ * The one figure: `fl_frontend/src/core/auth.ts` expires the link on it and this message states it.
+ * It lives HERE because the import the other way round would read it inside its own dead zone.
+ */
+export const LINK_VALIDITY_MINUTES = 10;
+
+const LINK_VALIDITY_TEXT = `${String(LINK_VALIDITY_MINUTES)} Minuten`;
 
 const UEBERSCHRIFT = "Anmeldung bestätigen";
 
@@ -45,8 +50,11 @@ function renderHtml(url: string, origin: string): string {
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(UEBERSCHRIFT),
     bloecke: [
+      // The button opens a page that asks for a second press, so the sentence promises that step
+      // rather than the sign-in: a reader told they are being signed in reads the next card as a
+      // failure.
       paragraph(
-        `Klicke auf den Button, um Dich bei der Verwaltung der ${BRAND_NAME} anzumelden. Der Link ist ${strong(LINK_VALIDITY_TEXT)} gültig und kann nur einmal verwendet werden. Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.`,
+        `Klicke auf den Button und bestätige dort Deine Anmeldung bei der Verwaltung der ${BRAND_NAME}. Der Link ist ${strong(LINK_VALIDITY_TEXT)} gültig und kann nur einmal verwendet werden. Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.`,
       ),
       paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
       /* The signed URL runs past the card's width, so this one paragraph breaks inside a word.
@@ -64,7 +72,7 @@ function renderText(url: string, origin: string): string {
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `Öffne diesen Link, um Dich bei der Verwaltung der ${BRAND_NAME} anzumelden.`,
+    `Öffne diesen Link und bestätige dort Deine Anmeldung bei der Verwaltung der ${BRAND_NAME}.`,
     `Er ist ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.`,
     "",
     "Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.",
@@ -82,8 +90,8 @@ function renderText(url: string, origin: string): string {
  * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail`).
  */
 export function buildMagicLinkEmail(url: string, origin: string): MagicLinkEmail {
-  // Passed rather than read off `url`: Auth.js composes that URL, so a close following it would rest
-  // on a coupling nothing states.
+  // Passed rather than read off `url`: the sign-in link is spelled in its own module, so a close
+  // following it would rest on a coupling nothing states.
   const site = mailOrigin(origin);
 
   return {
