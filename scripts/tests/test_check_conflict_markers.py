@@ -1,4 +1,4 @@
-"""SCRIPTS · the conflict-marker check, over the forms a marker actually reaches the tree in.
+"""SCRIPTS · the conflict-marker and invisible-character check, over the forms each reaches the tree in.
 
 Every marker here is BUILT from a repeated character rather than typed, and every invisible
 character is written as a `\\u` or `\\x` escape. A literal one of either would make this file a

@@ -535,7 +535,7 @@ describe("every path a refusal mapper emits", () => {
   const DECLARES_FIELD_ERRORS = /\)\s*:\s*(?:Promise<)?\{[^{}]*fieldErrors\?:\s*FieldErrors/;
   // A code in a COMPARISON, never anywhere in the file: one quoted in prose above an unrelated
   // function would otherwise make that file a mapper owing an excuse.
-  const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"REQ-[A-Z]+-\d+"/;
+  const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"(?:REQ|DB)-[A-Z]+-\d+"/;
 
   /**
    * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
