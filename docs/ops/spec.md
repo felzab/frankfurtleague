@@ -614,10 +614,16 @@ each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent
 does not hold; the frontend job in `.github/workflows/verify.yml` diffs that one path after the
 scope and fails on it.
 
-**The conflict-marker check reads every tracked file and exempts no path**: each of its rules
-wants its marker at the start of a line, so a document quoting one in backticks or mid-sentence
-is never a finding, while a fenced block reproducing a conflict as git writes it is one
-(`scripts/checks/check_conflict_markers.py`).
+**One check reads every tracked file, for two defects a review cannot see**
+(`scripts/checks/check_conflict_markers.py`). Each conflict-marker rule wants its marker at the
+start of a line, so a document quoting one in backticks or mid-sentence is never a finding, while
+a fenced block reproducing a conflict as git writes it is one. The second rule refuses a control
+character outside tab, newline and carriage return, a zero-width character, a bidirectional
+control, a line separator, and a byte order mark anywhere — the leading one read off the raw bytes,
+which the decode drops. That rule alone exempts a path, through
+`scripts/checks/check_conflict_markers.py :: ALLOWED`, whose entry carries the reason its file's
+invisible characters are the file's subject; an entry naming a file that carries none fails, so
+the list cannot outlive its reason.
 
 **The estate check refuses three silences the backend suite would otherwise pass**
 (`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls

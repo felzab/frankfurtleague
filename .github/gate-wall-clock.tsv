@@ -197,6 +197,17 @@
 # reopening's first read of `spiele` the two take 0.08 s each, and the tier runs its 1113 cases in
 # 21 s locally at width 6 on 2026-09-19, its slowest case 1.04 s.
 #
+# `docs` gained a rule: `check_conflict_markers.py` refuses an invisible character beside a conflict
+# marker, and that rule costs 60.9-62.1 ms over the corpus it already walks -- 1235 files read as
+# text, 13.3 million characters -- against 686.7-705.6 ms for the conflict rule over the same corpus
+# in the same process, the two arms interleaved across eight rounds. Measured locally on 2026-09-21
+# on a sixteen-core Windows machine carrying a fleet of agent sessions and an editor, so both ends
+# are upper bounds reading that contention as much as the rule. The walk and the byte read are the
+# checker's already, so that span is the whole marginal cost: one character-class scan answers a file
+# holding none, which is nearly every file, and only a file with a hit is walked character by
+# character. It sits far inside the floor the `docs` row carries, so neither the reference nor the
+# budget moves and neither takes a new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

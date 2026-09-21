@@ -876,12 +876,13 @@ if (( RUN_DOCS )); then
 
   # Read first, and given no file list, so it reads the whole tracked tree rather than a branch's
   # diff: an unresolved conflict reaching main is what makes every finding below it unreliable.
-  step "docs · no tracked file carries a conflict marker"
+  step "docs · no tracked file carries a conflict marker or an invisible character"
   unit_join conflict_markers
-  if run_checker collect "scripts/checks/check_conflict_markers.py" "A tracked file still holds a merge conflict marker. Each finding above names the
-file and the line it stands on. Resolve the conflict and commit the resolution." \
+  if run_checker collect "scripts/checks/check_conflict_markers.py" "A tracked file still holds a merge conflict marker, or a character nobody can see in a
+diff. Each finding above names the file and the line it stands on. Resolve the conflict; delete the
+character, or spell it by code point where a test is about the character itself." \
     unit_replay conflict_markers; then
-    ok "no tracked file carries a conflict marker"
+    ok "no tracked file carries a conflict marker or an invisible character"
   else
     DOCS_OK=0
   fi

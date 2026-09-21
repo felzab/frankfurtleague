@@ -751,11 +751,16 @@ assignment whose value is none of the shapes it handles (I34, I63).
 value arriving from a prop resolving only while every call site passes a literal (I42).
 `fl_frontend/src/core/schemaGerman.test.ts` reports every required control whose schema path it
 cannot build — a `name` arriving through a props spread, and an opening tag it could not read at all
-— and spares only a control that fixes no path of its own: a `name` passed on as a bare prop, or no
-`name` and no spread at all, its path being written at each call site. A call site whose own tag it
+— and follows a path written in the other file of the pair. A marked site handing over no `name` takes the default the control destructures, where that default reaches a `name` attribute; a control forwarding a bare `name={…}` prop takes the literal `name` each of its own call sites passes, as a templated name already does. Both resolve against the component the mark stands INSIDE rather than the file's first, three rule controls sharing one module. What it still spares is a mark whose path neither route can build. A call site whose own tag it
 cannot read fails the run rather than being credited the prop's default, which would name a path no
-form writes. Every name it reads lands on some payload schema's path, so a field renamed on one side
-alone is a failure rather than a smaller run. The mark it reads is the bare attribute or the literal
+form writes. Every name it reads lands on a path of the schema THAT form's own draft block judges,
+resolved from the form's `schemas: { … }` entry or its `schema=` prop through that file's imports to
+the bound export — a factory by the bound export declared with it — so a field renamed on one side
+alone is a failure rather than a smaller run. Matching a name against every payload instead lets a
+schema no control of its own marks answer for another form's mark, which any field name two payloads
+share is one form away from. A form whose schema will not resolve, and a marked control no resolved
+form's import tree reaches, each fail the run rather than leaving the population.
+The mark it reads is the bare attribute or the literal
 `isRequired={true}`; a conditional mark is out of reach.
 `fl_frontend/src/core/bewerbungEmail.test.ts` asserts that no line of either mail OPENS with a
 forged fact shaped like a real row but written by no message, so a hit is the forgery rather than a

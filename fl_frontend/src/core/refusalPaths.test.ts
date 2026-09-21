@@ -649,20 +649,57 @@ describe("every path a refusal mapper emits", () => {
   /** `app/api/bewerbung/route.ts` answers at `/api/bewerbung`: a handler's URL is its own path. */
   const routeUrl = (file: string): string => `/${file.replace(/^app\//, "").replace(/\/route\.ts$/, "")}`;
 
+  const ROUTE_HANDLER = /^app\/api\/.*route\.ts$/;
+
+  /** Every module that names one of this file's exports as a call. */
+  function callersOfModule(file: string): string[] {
+    const symbols = exportedSymbols(sources.get(file) ?? "");
+
+    // A test file's fixtures are not production text a sweep asserts over
+    // (`.claude/rules/cross-surface.md`): the sample below declares two real action names.
+    return [...sources]
+      .filter(([other, text]) => other !== file && !isTestFile(other) && symbols.some((symbol) => text.includes(`${symbol}(`)))
+      .map(([other]) => other);
+  }
+
   /**
    * The forms a mapper's paths can land on: whatever calls it, plus — where a ROUTE HANDLER calls it —
    * whatever fetches that handler's URL. The public form reaches its refusals only through the second.
    */
   function audienceOf(file: string): string[] {
-    const symbols = exportedSymbols(sources.get(file) ?? "");
-    const callers = [...sources]
-      .filter(([other, text]) => other !== file && symbols.some((symbol) => text.includes(`${symbol}(`)))
-      .map(([other]) => other);
+    const walked = new Set<string>([file]);
+    let frontier = [file];
 
-    const urls = callers.filter((caller) => /^app\/api\/.*route\.ts$/.test(caller)).map(routeUrl);
-    const fetchers = components.filter((component) => urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`)));
+    while (frontier.length > 0) {
+      const audience = new Set<string>();
+      const hops: string[] = [];
 
-    return [...new Set([...callers.filter((caller) => caller.endsWith(".tsx")), ...fetchers])];
+      for (const current of frontier) {
+        const callers = callersOfModule(current);
+        for (const caller of callers) if (caller.endsWith(".tsx")) audience.add(caller);
+
+        const urls = callers.filter((caller) => ROUTE_HANDLER.test(caller)).map(routeUrl);
+        for (const component of components) {
+          if (urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`))) audience.add(component);
+        }
+
+        // A route handler is never a hop: its own audience is what fetches its URL, read just above,
+        // and walking its exports would take `POST(` to every caller of every other `POST`.
+        for (const caller of callers) {
+          if (caller.endsWith(".tsx") || ROUTE_HANDLER.test(caller) || walked.has(caller)) continue;
+
+          walked.add(caller);
+          hops.push(caller);
+        }
+      }
+
+      // The NEAREST layer of forms, never every layer: a mapper a component calls is answered by
+      // that component, and one called from `actions.ts` alone is answered a hop out, not by nothing.
+      if (audience.size > 0) return [...audience];
+      frontier = hops;
+    }
+
+    return [];
   }
 
   it("is found by the sweep at all", () => {
