@@ -60,8 +60,8 @@ class FLEinwilligung(BaseModel):
 class _SpielerPerson(BaseModel):
     """The person's own two fields, shared so no read of a player declares them differently.
 
-    The tiers put different CONTENT in `nachname` -- the base one an initial (`READ-PUPIL-001`)
-    -- which is a projection's business and not a declaration's.
+    A public read serves an initial for the surname (`READ-PUPIL-001`), or neither name at all
+    (`READ-PUPIL-003`) -- a projection's business, and not a declaration's.
     """
 
     vorname: CustomNonEmptyString
@@ -94,6 +94,14 @@ class FLSpielerPublic(_SpielerPerson):
     # sensitive puts each later addition to the document on the wire until somebody notices -- which
     # is how a consent record came to be published.
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
+    # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
+    # list over a withheld row rather than withholding it.
+
+    # DEFAULTED for a row the `spieler` validator refuses, one hand-written without the key: the
+    # mask's published arm is `$vorname` itself, so such a row reaches `$project` with no key at all.
+    vorname: str | None = None
 
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
@@ -237,16 +245,22 @@ class FLSpielerSingleResponse(BaseAPIResponse):
     """
 
     spieler_id: CustomObjectId
-    vorname: str
+    # Nullable for `FLSpielerPublic.vorname`'s reason: this path is masked by the same predicate
+    # (`READ-PUPIL-003`), and the admin echo below re-declares the forename it is served whole.
+    vorname: str | None
     nachname: str | None
 
 
 class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
-    """The same player echoed back to the admin who just wrote them, with their surname whole.
+    """The same player echoed back to the admin who just wrote them, with their whole name.
 
     `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
     surface renders a pupil's leaving date.
     """
+
+    # Required again where the public read narrowed it: this tier is served no mask, so an echo
+    # answering `null` here is the mask having reached the admin editor, and this line fails first.
+    vorname: CustomNonEmptyString
 
     # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
     # the calendar rule `FLSpieler` states refuses nothing this echo can serve.

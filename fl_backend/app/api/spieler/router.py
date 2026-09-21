@@ -8,7 +8,7 @@ from app.api.spieler.schemas import (
     FLSpielerListResponse,
     FLSpielerSingleResponse,
 )
-from app.api.spieler.services import build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_spieler_pipeline, public_person
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpielerCollection
@@ -34,6 +34,9 @@ async def get_spieler(
     Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
     while no season is active. Naming neither lists every season's players, a season this tier may not
     read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
+
+    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
+    the row keeps its `nummer` and `position`.
     """
 
     # Resolved here, never as a field default, and only beside a team: a squad is one season's
@@ -64,16 +67,26 @@ async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection:
     """
     Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
 
+    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
+
     NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
     here would make the answer depend on a default nobody asked for.
     """
 
-    spieler_raw = await pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id})
-
-    # Redacted HERE and whole on the admin echo: the list publishes every pupil's id, so a surname
-    # left standing on this path would be one dereference away from public.
-    return FLSpielerSingleResponse(
-        spieler_id=spieler_raw["_id"],
-        vorname=spieler_raw["vorname"],
-        nachname=public_initial(spieler_raw.get("nachname")),
+    # An allow-list, as the list read's `$project` is: the whole person is a birthdate, an address
+    # and a consent record, and one materialised here to be discarded is one a later edit can serve.
+    spieler_raw = await pull_one_from_db(
+        collection=spieler_collection,
+        db_filter={"_id": spieler_id},
+        projection={"vorname": 1, "nachname": 1, "einwilligung": 1},
     )
+
+    # Redacted HERE and whole on the admin echo: the list publishes every pupil's id, so a name
+    # left standing on this path would be one dereference away from public.
+    served = public_person(
+        vorname=spieler_raw.get("vorname"),
+        nachname=spieler_raw.get("nachname"),
+        einwilligung=spieler_raw.get("einwilligung"),
+    )
+
+    return FLSpielerSingleResponse(spieler_id=spieler_raw["_id"], vorname=served.vorname, nachname=served.nachname)

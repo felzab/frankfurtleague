@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -12,6 +13,8 @@ import {
   ERASURE_NEEDS_RETIREMENT,
   RETIREMENT_CONSEQUENCE,
   RETIREMENT_KEEPS_SQUAD_ROWS,
+  SPIELER_ANONYM_LABEL,
+  spielerAnzeigename,
 } from "./constants.ts";
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
@@ -136,5 +139,22 @@ describe("the sentences the player's own write paths answer with", () => {
   it("names the pupil neutrally in the erasure's precondition", () => {
     assert.doesNotMatch(ERASURE_NEEDS_RETIREMENT, MASKULIN, "the repair names the pupil with a masculine word");
     assert.match(ERASURE_NEEDS_RETIREMENT, /in ihrer Zeile/, "the repair stopped saying which row holds the control");
+  });
+});
+
+describe("the word a person absent from a public page is named by", () => {
+  /* Equal by decision: a reader cannot tell a withheld name from a deleted person, so the page keeps
+     the two apart nowhere and the storage keeps them apart instead. */
+  it("is the same for a withheld pupil and an erased referee", () => {
+    assert.equal(SPIELER_ANONYM_LABEL, SCHIEDSRICHTER_ANONYM_LABEL, "one of the two words was edited without the other");
+  });
+
+  it("is reached through the null name the gate serves, on a row that is still stored", () => {
+    assert.equal(spielerAnzeigename({ vorname: null, nachname: null }), SPIELER_ANONYM_LABEL);
+    assert.equal(spielerAnzeigename({ vorname: "Alina", nachname: "F." }), "Alina F.");
+  });
+
+  it("is never reached for a person whose surname alone is absent", () => {
+    assert.equal(spielerAnzeigename({ vorname: "Alina", nachname: null }), "Alina");
   });
 });

@@ -82,8 +82,8 @@ const VEROEFFENTLICHT = [
   },
   { was: "Spielpläne, Spieltage, Spielorte, Ergebnisse und Tabellen", grundlage: "Art. 6 Abs. 1 lit. b DSGVO" },
   {
-    was: "Kaderlisten: Vorname und erster Buchstabe des Nachnamens",
-    grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
+    was: "Kaderlisten: Vorname und erster Buchstabe des Nachnamens, sofern die Person dafür eine Einwilligung erteilt hat",
+    grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
     was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
@@ -423,9 +423,10 @@ export function DatenschutzView() {
 
         <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
-            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Von einer Spielerin und einem
-            Spieler werden Vorname und erster Buchstabe des Nachnamens veröffentlicht, dazu das Team, die Rückennummer und die Position, soweit
-            sie angegeben sind.
+            Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Vorname und erster Buchstabe des
+            Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese Person eine Einwilligung dafür festgehalten
+            ist; ohne sie steht die Person als „anonym“ im Kader. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
+            angegeben sind.
           </p>
           <p className={ABSATZ}>
             Zu einer Spielerin und einem Spieler kann die Verwaltung außerdem das Geburtsdatum eintragen. Die Angabe ist freiwillig und wird
@@ -519,12 +520,12 @@ export function DatenschutzView() {
             <li className={ABSATZ}>
               Widerspruch gegen jede Verarbeitung, die wir auf ein berechtigtes Interesse stützen, aus Gründen, die sich aus Deiner besonderen
               Situation ergeben (Art. 21 DSGVO). Das betrifft die Zugriffsprotokolle, die Freitexte, die Anschrift der Schule als Anschrift des
-              Teams, die Kaderlisten, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen
-              einer Bewerbung.
+              Teams, die Namen der Schiedsrichterinnen und Schiedsrichter an einem Spiel und die Daten der Kontaktpersonen einer Bewerbung.
             </li>
             <li className={ABSATZ}>
-              Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Was bis zum Widerruf geschah, bleibt
-              rechtmäßig.
+              Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
+              Spielerin oder eines Spielers in den Kaderlisten, die Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“
+              und den freiwilligen Schalter für WhatsApp. Was bis zum Widerruf geschah, bleibt rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ}>

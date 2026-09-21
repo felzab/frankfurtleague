@@ -5,7 +5,12 @@ import { einwilligungFassung } from "@/core/einwilligung";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { EINWILLIGUNG_HERKUNFT_LABELS, EINWILLIGUNG_MEDIEN_LABELS, EINWILLIGUNG_UMFANG_LABELS } from "../../../constants.ts";
+import {
+  EINWILLIGUNG_HERKUNFT_LABELS,
+  EINWILLIGUNG_MEDIEN_LABELS,
+  EINWILLIGUNG_UMFANG_LABELS,
+  EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
+} from "../../../constants.ts";
 
 import type { FLEinwilligung } from "../../../schemas.ts";
 
@@ -41,6 +46,13 @@ const ERTEILT: FLEinwilligung = {
 
 const markup = (einwilligung: FLEinwilligung | null): string => renderMarkup(FormEinwilligungSection, { einwilligung });
 const words = (einwilligung: FLEinwilligung | null): string => textOf(markup(einwilligung));
+
+/** The panel's last paragraph, which is where the publication rule is written on either branch. */
+const closingNote = (einwilligung: FLEinwilligung | null): string => {
+  const paragraphs = [...markup(einwilligung).matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((found) => textOf(found[1] ?? ""));
+
+  return paragraphs.at(-1) ?? "";
+};
 
 describe("the stored consent panel", () => {
   it("names the carry-over where the record is one, and never where somebody consented", () => {
@@ -131,6 +143,8 @@ describe("the stored consent panel", () => {
   /* Half the league's squads are girls, and one panel calling the same person „dieser Spieler“ in one
      sentence and „jeder Spielerin und jedes Spielers“ in the next is wrong about half of them. */
   it("pairs the feminine form wherever it names a player at all", () => {
+    let maskulinInsgesamt = 0;
+
     for (const [name, record] of [
       ["a stored record", UEBERNOMMEN],
       ["an empty panel", null],
@@ -140,9 +154,13 @@ describe("the stored consent panel", () => {
       // comparable rather than one counting the other.
       const maskulin = (text.match(/Spieler(?!in)/g) ?? []).length;
 
-      assert.ok(maskulin > 0, `${name}: no player noun at all, so this case judges nothing`);
+      maskulinInsgesamt += maskulin;
       assert.equal((text.match(/Spielerin/g) ?? []).length, maskulin, `${name}: a masculine player noun stands without its pair`);
     }
+
+    // Floored over the panel rather than per render: the stored branch names „die Person“ throughout,
+    // and a run finding no noun in either render would report a panel of pronouns as paired.
+    assert.ok(maskulinInsgesamt > 0, "neither render names a player, so this case judges nothing");
   });
 
   /* The readout has no sentence beside it to qualify a gendered noun, so each origin is named
@@ -153,13 +171,15 @@ describe("the stored consent panel", () => {
     }
   });
 
-  it("refuses the publication reading on both branches, the record gating nothing", () => {
+  /* Compared whole rather than by an opening fragment: „steuert die Veröffentlichung“ is a prefix of
+     its own negation, so a sentence saying the opposite about a pupil's privacy passes on it. */
+  it("names the publication rule on both branches, the record steering it", () => {
     const withheld: FLEinwilligung = { ...UEBERNOMMEN, umfang: "intern" };
 
-    // `intern` is the case that misreads: rendered as „Nur innerhalb der Liga“ beside no such
-    // sentence, it reads as this player's name being off the public squad list, which it is not.
+    // The empty branch needs it as much as the stored one: an administrator meeting a panel with no
+    // record would otherwise read the public squad list as the whole story about this person.
     for (const record of [UEBERNOMMEN, withheld, null]) {
-      assert.ok(words(record).includes("steuert die Veröffentlichung nicht"), "the panel reads as a promise about the public squad list");
+      assert.equal(closingNote(record), EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS, "the panel closes on words the constant does not carry");
     }
   });
 });

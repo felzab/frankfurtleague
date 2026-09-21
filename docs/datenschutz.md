@@ -99,16 +99,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   is an administrator; that path goes with the flow that replaces it, and the consent vocabulary
   then needs to express only a person's own consent and a carried-over record. The comment at
   that line gives a reason that is true of no caller, and is false today.
-- **Nothing about a person is published without that person's recorded consent.** The gate reads
-  the consent the sign-up flow stores. It may be built before the flow ships, provided every
-  pupil row that exists today counts as fully consented, since those rows go at the season's end
-  ([section 3](#3-the-current-pupil-records-are-reset-once)) and the gate must not empty the public
-  squad lists meanwhile. The predicate is written into
-  [`backend/spec.md`](backend/spec.md#17-tier-rules) before any code. Today no read consults the
-  stored consent, and the published notice claims the narrower basis it can honestly claim
-  meanwhile: a squad row and a referee at a fixture stand there on a legitimate interest rather than
-  on a consent (`DatenschutzView.tsx :: VEROEFFENTLICHT`). That wording returns to consent in the
-  change that builds the gate, which is `8wd7-ff49`'s own Done-when.
+- **Nothing about a person is published without that person's recorded consent.** Both public reads
+  of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
+  publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
+  its `bestaetigt_am` is stamped (`docs/backend/spec.md :: READ-PUPIL-003`); every other row is
+  served as a nameless slot keeping its `nummer` and `position`. **The gate fails closed**, so a
+  record nobody confirmed withholds the name rather than publishing it — the state
+  `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
+  the one a scope read on its own would publish.
 - **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
   whose phone, email and school are stored, and today no consent field exists for them;
   `docs/_roadmap/items.md :: pw5c-zps5` is where that work stands.
@@ -118,8 +116,10 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **The backfilled consents stand until the end of this season.** The pupil rows that were
   backfilled carry a consent nobody was asked for, marked as carried over
   (`bestandsuebernahme`); the rows registered since through the admin form carry the guardian
-  consent an administrator composed. Nothing is built against either population and nobody is
-  unpublished in the meantime. **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
+  consent an administrator composed. The publication gate reads both populations alike
+  (`docs/backend/spec.md :: READ-PUPIL-003`): a carried-over record whose `bestaetigt_am` is stamped
+  publishes as before, and one with no stamp withholds the name.
+  **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
   2026-09-01 and 2026-09-02.
 - **At the end of this season, once, every player row is deleted and the action log is reset in
   full.** From the next season on every player signs up through the website, and from then on
@@ -380,3 +380,12 @@ the `Entry` column carries a token only where one still resolves in that file.
   host's; Cloudflare's retention is set in its dashboard rather than in this repository, and the
   host's in a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either
   period was honoured rests on reading the host rather than on a report.
+- **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
+  as easy as giving.** A pupil's consent record is composed by the registration and carried on no
+  payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),
+  so giving it is a form and taking it back is either the erasure that removes the person outright or
+  a hand edit in the database console
+  ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).
+  The question to put is whether a withdrawal performed by hand inside Art. 12 (3)'s period satisfies
+  that article at this scale, or whether a control a person reaches themselves is owed before the
+  registration flow ships. Whether to build one is mine and is not yet decided.

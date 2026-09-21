@@ -142,3 +142,53 @@ export const ALREADY_IN_SAISON = buildRefusal({
   reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
   repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
 });
+
+// Its own constant: the referee slice's names a row an erasure emptied, and this one a row still
+// stored with its name withheld at read time.
+
+/**
+ * What a reader is shown where the publication gate withholds a name. The same word as an erased
+ * referee's by decision, so a copy edit to either is a decision about both.
+ */
+export const SPIELER_ANONYM_LABEL = "anonym";
+
+/**
+ * What the consent panel closes with, on both of its branches. The two words the public page really
+ * shows are interpolated, so a reword of either reaches this sentence rather than leaving it
+ * describing a squad list of its own.
+ */
+export const EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS =
+  "Der Eintrag steuert die Veröffentlichung: Im öffentlichen Kader stehen Vorname und erster Buchstabe des Nachnamens nur, wenn hier " +
+  `„${EINWILLIGUNG_UMFANG_LABELS.kader_oeffentlich}“ steht und ein Bestätigungsdatum eingetragen ist. Sonst steht die Person als ` +
+  `„${SPIELER_ANONYM_LABEL}“ im Kader, mit Nummer und Position.`;
+
+/** The two name fields as `READ-PUPIL-003` serves them, which is the only shape either reader below takes. */
+type SpielerName = { vorname: string | null; nachname: string | null };
+
+/**
+ * **The null forename decides, and nothing else**: the gate answers both names as `null` for a person
+ * it withholds, so a row still carrying one is a row a reader may be shown.
+ */
+export function spielerAnzeigename({ vorname, nachname }: SpielerName): string {
+  if (vorname === null) return SPIELER_ANONYM_LABEL;
+
+  return [vorname, nachname].filter(Boolean).join(" ");
+}
+
+/**
+ * The decider `spielerAnzeigename` reads, so the word a row shows and the grade it is set in can
+ * never disagree about which rows the gate withheld.
+ */
+export function istNameZurueckgehalten({ vorname }: SpielerName): boolean {
+  return vorname === null;
+}
+
+/**
+ * One letter from each NAME FIELD rather than from the joined string: a two-word forename splits on
+ * its space, and three letters overflow the fixed circle the avatar draws them in.
+ */
+export function spielerInitialen(name: SpielerName): string {
+  if (name.vorname === null) return SPIELER_ANONYM_LABEL.charAt(0).toUpperCase();
+
+  return `${name.vorname.charAt(0)}${name.nachname?.charAt(0) ?? ""}`.toUpperCase();
+}

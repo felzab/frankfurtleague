@@ -15,6 +15,10 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
   // Base tag only — the squad page reads the running season by naming none, so a season tag would miss
   // the entry a squad save most often has to clear.
   cacheTag("spieler");
+
+  // The consent record is an input here (`READ-PUPIL-003`) and no `spieler` write touches it: a
+  // writer of a pupil's consent that drops no tag leaves a withdrawn name published for days.
+  // `docs/frontend/spec.md :: I14` decides which call drops it.
   cacheLife("days");
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {

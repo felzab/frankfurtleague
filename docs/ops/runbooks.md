@@ -473,6 +473,25 @@ you are in is decided by that seat's own link, not by the person's role:
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
 
+**A pupil withdrawing the consent that publishes their name is the case with no route at all.** The
+record is composed at registration and no payload carries it
+(`fl_backend/app/api/spieler/services.py :: registration_einwilligung`), so nothing an administrator
+presses changes it. Two answers, and which one you give is the person's to choose:
+
+- **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
+  `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
+  the person.
+- **They want their name withheld and their place kept.** Clear that person's consent record on
+  their `spieler` document in the Atlas console; the publication gate fails closed, so the next read
+  serves the row as a nameless slot
+  (`docs/backend/spec.md :: READ-PUPIL-003`). **The squad list is
+  cached for a day and a console edit invalidates nothing**
+  ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)), so the name stays on
+  the page for up to that long — save anything in the admin player editor afterwards, which drops the
+  tag, and check the public squad page before you answer the person.
+
+Tell them which of the two you did, and that the second is reversible and the first is not.
+
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.

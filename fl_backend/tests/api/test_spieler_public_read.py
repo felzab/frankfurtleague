@@ -3,15 +3,17 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-from typing import Any, cast, get_args
+from typing import Any, NamedTuple, cast, get_args
 
 import pytest
 from bson import ObjectId
+from bson import encode as bson_encode
 from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.spieler.admin_router import _as_single
 from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
@@ -250,9 +252,10 @@ class TestTheProjection:
     def test_it_emits_only_the_public_keys(self):
         assert set(_project()) == {"_id", "vorname", "nachname", "nummer", "position"}
 
-    def test_the_consent_record_is_not_projected(self):
-        """Stored on the PERSON rather than the junction, so it rode along on a `1` nobody had to name."""
+    def test_the_consent_record_is_read_and_projected_nowhere(self):
+        """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
         assert "einwilligung" not in _project()
+        assert "$einwilligung.umfang" in json.dumps(_project())
 
     def test_the_level_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
         """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
@@ -265,6 +268,20 @@ class TestTheProjection:
         assert "is_nachgetragen" not in _project()
         assert "is_nachgetragen" not in BASE_QUERY_PARAMETERS
         assert "is_nachgetragen" not in get_args(FLSpielerSortOptions)
+
+    def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
+        """`sort_by` is a published parameter.
+
+        An order keyed on the stored forename answers, for a withheld row, what the projection
+        withholds.
+        """
+        stages = [next(iter(stage)) for stage in build_spieler_pipeline(_filters())]
+
+        assert stages.index("$sort") > stages.index("$project")
+
+    def test_nothing_a_caller_may_send_narrows_on_a_name(self):
+        """The other half of the same channel: a term matching a stored name would report a withheld row's name by which requests return it."""
+        assert BASE_QUERY_PARAMETERS == {"team_id", "saison_id", "limit", "sort_by", "order"}
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
@@ -556,6 +573,31 @@ class TestTheBaseTierReadExecuted:
             "nachname": "W.",
         }
 
+    def test_the_stored_row_is_byte_identical_after_both_base_tier_reads(self, seeded_url: str):
+        """The mask is a projection and never a write, so nothing on this path may stamp the row it redacts.
+
+        Encoded rather than compared directly: a key order or a BSON type that moved leaves two
+        dicts equal.
+        """
+
+        # Marek, whom no case above reads by id: this module shares one corpus, so against a person
+        # an earlier case already fetched, a second stamp would write the value it wrote the first time.
+        subject = SPIELER_OIDS["Adler"]
+
+        async def body(database: AsyncDatabase) -> Any:
+            before = await database.spieler.find_one({"_id": subject})
+
+            await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=_filters())
+            await get_spieler_by_id(spieler_id=subject, spieler_collection=database.spieler)
+
+            return before, await database.spieler.find_one({"_id": subject})
+
+        before, after = on_a_database(seeded_url, body)
+
+        # The floor: `find_one` answers `None` for a row it did not reach, and two of those agree.
+        assert before is not None and after is not None
+        assert bson_encode(before) == bson_encode(after)
+
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
@@ -662,6 +704,339 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     with unwritten(mongo_url, SQUAD_DATABASE_NAME):
         yield mongo_url
+
+
+MASK_DATABASE_NAME = worker_database("fl_spieler_mask_read_test")
+
+
+class MaskedRow(NamedTuple):
+    """One seeded person, their consent record, and the two names the base tier must answer for them."""
+
+    oid: ObjectId
+    vorname: str | None
+    nachname: str | None
+    einwilligung: dict[str, Any]
+    served_vorname: str | None
+    served_nachname: str | None
+    # False stores NO `vorname` key. The mask's published arm is `$vorname` itself, so such a row
+    # leaves `$project` short of the key rather than carrying a null, which is a different shape.
+    stores_a_vorname_key: bool = True
+
+
+def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
+    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
+
+
+# Each served pair is written out rather than composed from `public_initial`, which would compare the
+# redaction with itself. No forename holds a surname as a substring: one case greps the whole payload.
+MASKED_SQUAD = {
+    "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_oeffentlich"), "Alina", "F."),
+    "Intern": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("intern"), None, None),
+    "Unbestaetigt": MaskedRow(
+        ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=None), None, None
+    ),
+    # The carry-over population owner step 13 counts, pinned at the state that count expects to find.
+    "Uebernommen": MaskedRow(
+        ObjectId("6890a1b2c3d4e5f607390034"), "Dario", "Jansen", _consent("kader_oeffentlich", erteilt_von="bestandsuebernahme"), "Dario", "J."
+    ),
+    # A row whose name is not stored at all, under a record that DOES publish: an absent name is not
+    # a consent decision, and the mask must not invent one either way.
+    "Namenlos": MaskedRow(ObjectId("6890a1b2c3d4e5f607390035"), None, None, _consent("kader_oeffentlich"), None, None),
+    # The same person one write earlier: no `vorname` KEY rather than a stored null, which is what a
+    # nameless row written past the validator looks like and what `$project` drops rather than nulls.
+    "Schluessellos": MaskedRow(
+        ObjectId("6890a1b2c3d4e5f607390036"), None, None, _consent("kader_oeffentlich"), None, None, stores_a_vorname_key=False
+    ),
+}
+
+# Both names of both withheld rows: a payload grep on the surnames alone leaves the forename, which
+# is the half `READ-PUPIL-001` never withheld and `READ-PUPIL-003` is the first rule to reach.
+WITHHELD_NAMES = ("Bruno", "Gerber", "Carla", "Hoffmann")
+
+
+@pytest.mark.db
+class TestThePublicationGate:
+    """`READ-PUPIL-003` over both base-tier reads, against a squad holding one row per state the predicate decides between."""
+
+    def _read(self, url: str) -> dict[str, Any]:
+        async def body(database: AsyncDatabase) -> Any:
+            response = await get_spieler(
+                spieler_collection=database.spieler,
+                saisons_collection=database.saisons,
+                filters=_filters(),
+            )
+
+            return response.model_dump(mode="json", by_alias=True)
+
+        return _on_the_mask_database(url, body)
+
+    def _by_id(self, url: str) -> dict[str, dict[str, Any]]:
+        return {row["id"]: row for row in self._read(url)["spieler"]}
+
+    def test_the_corpus_really_stores_the_names_and_the_records_the_cases_below_read(self, masked_url: str):
+        """First: every case below would pass just as well against a corpus that stored no name to withhold."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return {person["_id"]: person for person in await database.spieler.find({}).to_list(None)}
+
+        stored = _on_the_mask_database(masked_url, body)
+
+        assert len(stored) == len(MASKED_SQUAD)
+        for row in MASKED_SQUAD.values():
+            assert (stored[row.oid].get("vorname"), stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
+            assert ("vorname" in stored[row.oid]) is row.stores_a_vorname_key
+            assert stored[row.oid]["einwilligung"] == row.einwilligung
+
+    def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
+        """A withheld name is a nameless SLOT and never a missing row: `all` over a list a broken join emptied passes every case below."""
+        assert len(self._by_id(masked_url)) == len(MASKED_SQUAD)
+
+    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str, case: str):
+        row = MASKED_SQUAD[case]
+        served = self._by_id(masked_url)[str(row.oid)]
+
+        assert (served["vorname"], served["nachname"]) == (row.served_vorname, row.served_nachname)
+
+    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    def test_a_withheld_row_keeps_its_number_and_its_position(self, masked_url: str, case: str):
+        """The mask reaches the two name fields, so the slot the person holds in the squad stands either way."""
+        served = self._by_id(masked_url)[str(MASKED_SQUAD[case].oid)]
+
+        assert (served["nummer"], served["position"]) == ("7", "Angriff")
+
+    @pytest.mark.parametrize("name", WITHHELD_NAMES)
+    def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
+        """Against the SERIALISED body: what the page ships is the whole payload, not the part it renders."""
+        assert name not in json.dumps(self._read(masked_url), ensure_ascii=False)
+
+    def test_a_row_storing_no_forename_key_reaches_the_read_model_without_one(self, masked_url: str):
+        """What the DEFAULT on `FLSpielerPublic.vorname` is for: a required field would 500 the whole squad over this one row."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            rows = await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(_filters()))
+
+            return {row["_id"]: row for row in rows}
+
+        projected = _on_the_mask_database(masked_url, body)[MASKED_SQUAD["Schluessellos"].oid]
+
+        assert "vorname" not in projected
+        assert self._by_id(masked_url)[str(MASKED_SQUAD["Schluessellos"].oid)]["vorname"] is None
+
+    @pytest.mark.parametrize("key", ["einwilligung", "umfang"])
+    def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
+        """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
+        assert all(key not in served for served in self._by_id(masked_url).values())
+
+    def _read_one(self, url: str, case: str) -> dict[str, Any]:
+        async def body(database: AsyncDatabase) -> Any:
+            response = await get_spieler_by_id(spieler_id=MASKED_SQUAD[case].oid, spieler_collection=database.spieler)
+
+            return response.model_dump(mode="json", by_alias=True)
+
+        return _on_the_mask_database(url, body)
+
+    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    def test_the_single_read_answers_the_same_two_names(self, masked_url: str, case: str):
+        """The second base-tier path: one predicate, so a `find` and an aggregation cannot disagree about one person."""
+        row = MASKED_SQUAD[case]
+
+        assert self._read_one(masked_url, case) == {
+            "acknowledged": 1,
+            "spieler_id": str(row.oid),
+            "vorname": row.served_vorname,
+            "nachname": row.served_nachname,
+        }
+
+
+class TestTheAdminEchoIsServedNoMask:
+    """`FLSpielerAdminSingleResponse` extends the narrowed read, so the split holds the echo's forename required."""
+
+    def test_the_echo_carries_a_withheld_person_s_whole_name(self):
+        """Composed by the handler from the stored document, over the row whose public reads serve neither name."""
+        row = MASKED_SQUAD["Intern"]
+        echoed = _as_single({"_id": row.oid, "vorname": row.vorname, "nachname": row.nachname, "inactive_since": None})
+
+        assert (echoed.vorname, echoed.nachname) == (row.vorname, row.nachname)
+
+    def test_the_echo_refuses_a_withheld_forename(self, assert_rejects):
+        """A `null` forename here is the mask having reached the admin editor, and this declaration is what fails first."""
+        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "nachname": "Gerber", "inactive_since": None}
+
+        assert_rejects(FLSpielerAdminSingleResponse, {**body, "vorname": None}, "vorname")
+
+    def test_the_public_single_read_takes_the_forename_the_echo_refuses(self):
+        """The contrast is the assertion: the two shapes differ on exactly this field, and the echo extends the public one."""
+        assert FLSpielerSingleResponse(spieler_id=MASKED_SQUAD["Intern"].oid, vorname=None, nachname=None).vorname is None
+
+    def test_the_squad_row_takes_it_too(self):
+        """A required forename on the list's shape would 500 the whole squad over one withheld row."""
+        served = FLSpielerPublic.model_validate({"_id": MASKED_SQUAD["Intern"].oid, "vorname": None, "nachname": None})
+
+        assert (served.vorname, served.nachname) == (None, None)
+
+
+@pytest.fixture(scope="module")
+def masked_url(mongo_url: str) -> Iterator[str]:
+    """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
+
+    async def _seed() -> None:
+        # UNCONSTRAINED: the `spieler` validator requires `vorname` as a string, so the nameless row
+        # this corpus exists to serve is one a constrained database refuses.
+        async with a_clean_database(mongo_url, MASK_DATABASE_NAME, constraints=False) as (_, database):
+            await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+            await database.spieler.insert_many(
+                [
+                    {
+                        "_id": row.oid,
+                        **({"vorname": row.vorname} if row.stores_a_vorname_key else {}),
+                        "nachname": row.nachname,
+                        "inactive_since": None,
+                        "einwilligung": row.einwilligung,
+                    }
+                    for row in MASKED_SQUAD.values()
+                ]
+            )
+            await database.saison_spieler.insert_many(
+                [{**_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3"), "spieler_id": row.oid} for row in MASKED_SQUAD.values()]
+            )
+
+    on_the_seed_loop(_seed())
+
+    with unwritten(mongo_url, MASK_DATABASE_NAME):
+        yield mongo_url
+
+
+SORT_ORACLE_DATABASE_NAMES = {
+    "first": worker_database("fl_spieler_sort_oracle_first_test"),
+    "last": worker_database("fl_spieler_sort_oracle_last_test"),
+}
+
+# The one value the two corpora differ in, chosen to sort either side of both published forenames:
+# an order reading the stored name puts the withheld row at a different index in each.
+WITHHELD_FORENAMES = {"first": "Ada", "last": "Zita"}
+
+SORT_ORACLE_OIDS = {
+    "Zurueckgehalten": ObjectId("6890a1b2c3d4e5f607390041"),
+    "Berger": ObjectId("6890a1b2c3d4e5f607390042"),
+    "Yilmaz": ObjectId("6890a1b2c3d4e5f607390043"),
+}
+
+# Equal across the three rows, so every `sort_by` value falls through to the chain's `vorname` and
+# each of the three is a way of asking the same question.
+SORT_ORACLE_NUMMER = "7"
+SORT_ORACLE_POSITION = "Angriff"
+
+
+@pytest.mark.db
+class TestTheOrderIsNoOracleForAWithheldName:
+    """One squad seeded twice, differing only in the withheld row's stored forename: its place in the answer may not move with it."""
+
+    def _served_ids(self, url: str, corpus: str, sort_by: str) -> list[str]:
+        async def body(database: AsyncDatabase) -> Any:
+            invalidate_saison_cache()
+            response = await get_spieler(
+                spieler_collection=database.spieler,
+                saisons_collection=database.saisons,
+                filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON, sort_by=cast(Any, sort_by)),
+            )
+
+            return [str(row.id) for row in response.spieler]
+
+        return on_the_seed_loop(body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]]))
+
+    def test_the_two_corpora_really_store_the_two_forenames_and_nothing_else_apart(self, sort_oracle_url: str):
+        """First: every case below passes against two corpora seeded identically, which is exactly what would prove nothing."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return sorted(repr(person) for person in await database.spieler.find({}).to_list(None))
+
+        stored = {corpus: _on_a_sort_oracle_database(sort_oracle_url, corpus, body) for corpus in WITHHELD_FORENAMES}
+
+        assert stored["first"] != stored["last"]
+        for corpus, forename in WITHHELD_FORENAMES.items():
+            assert sum(forename in person for person in stored[corpus]) == 1
+
+    def test_the_published_rows_really_are_ordered_by_the_name_the_read_serves(self, sort_oracle_url: str):
+        """The second floor: an answer in seeding order would hold the withheld row still for a reason nothing here is testing."""
+        served = self._served_ids(sort_oracle_url, "first", "vorname")
+
+        assert served.index(str(SORT_ORACLE_OIDS["Berger"])) < served.index(str(SORT_ORACLE_OIDS["Yilmaz"]))
+
+    @pytest.mark.parametrize("sort_by", get_args(FLSpielerSortOptions))
+    def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str, sort_by: str):
+        places = {
+            corpus: self._served_ids(sort_oracle_url, corpus, sort_by).index(str(SORT_ORACLE_OIDS["Zurueckgehalten"]))
+            for corpus in WITHHELD_FORENAMES
+        }
+
+        assert places["first"] == places["last"]
+
+
+@pytest.fixture(scope="module")
+def sort_oracle_url(mongo_url: str) -> Iterator[str]:
+    """Two corpora, each one squad of three: two published rows and one the `intern` scope withholds."""
+
+    async def _seed() -> None:
+        for corpus, withheld_forename in WITHHELD_FORENAMES.items():
+            # UNCONSTRAINED for `masked_url`'s reason, the corpora sharing its seeding shape.
+            async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
+                await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+                await database.spieler.insert_many(
+                    [
+                        {
+                            "_id": SORT_ORACLE_OIDS["Zurueckgehalten"],
+                            "vorname": withheld_forename,
+                            "nachname": "Kessler",
+                            "inactive_since": None,
+                            "einwilligung": _consent("intern"),
+                        },
+                        {
+                            "_id": SORT_ORACLE_OIDS["Berger"],
+                            "vorname": "Bea",
+                            "nachname": "Berger",
+                            "inactive_since": None,
+                            "einwilligung": _consent("kader_oeffentlich"),
+                        },
+                        {
+                            "_id": SORT_ORACLE_OIDS["Yilmaz"],
+                            "vorname": "Yara",
+                            "nachname": "Yilmaz",
+                            "inactive_since": None,
+                            "einwilligung": _consent("kader_oeffentlich"),
+                        },
+                    ]
+                )
+                await database.saison_spieler.insert_many(
+                    [
+                        {
+                            **_squad_row("Mueller", nummer=SORT_ORACLE_NUMMER, position=SORT_ORACLE_POSITION, stufe="Q3"),
+                            "spieler_id": oid,
+                        }
+                        for oid in SORT_ORACLE_OIDS.values()
+                    ]
+                )
+
+    on_the_seed_loop(_seed())
+
+    with unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["first"]), unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["last"]):
+        yield mongo_url
+
+
+def _on_a_sort_oracle_database(url: str, corpus: str, body: Body) -> Any:
+    async def _run() -> Any:
+        return await body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]])
+
+    return on_the_seed_loop(_run())
+
+
+def _on_the_mask_database(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[MASK_DATABASE_NAME])
+
+    return on_the_seed_loop(_run())
 
 
 def on_a_database(url: str, body: Body) -> Any:

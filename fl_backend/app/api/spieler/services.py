@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, NamedTuple
 
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
@@ -37,6 +37,65 @@ def public_initial(nachname: str | None) -> str | None:
         return None
 
     return f"{nachname[:1]}."
+
+
+def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
+    """`READ-PUPIL-003`: whether a base-tier read may serve this person's name at all.
+
+    Fails CLOSED, so an absent record, a scope no enum holds and an unconfirmed one each withhold.
+    """
+
+    if einwilligung is None:
+        return False
+
+    stamped = einwilligung.get("bestaetigt_am")
+
+    # Both, never the scope alone: `app/core/constraints.py :: _EINWILLIGUNG` admits a null
+    # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. An empty
+    # string is another such record, and a type test alone calls it stamped.
+    return einwilligung.get("umfang") == "kader_oeffentlich" and isinstance(stamped, str) and stamped != ""
+
+
+# `name_is_public`'s three inputs as a Mongo expression. By `$type` rather than `$eq: null`, for
+# `PUBLIC_NACHNAME`'s reason: an absent key and a stored null are one state to a read.
+_NAME_IS_PUBLIC: Mapping[str, Any] = {
+    "$and": [
+        {"$eq": [{"$type": "$einwilligung"}, "object"]},
+        {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
+        {"$eq": [{"$type": "$einwilligung.bestaetigt_am"}, "string"]},
+        # Beside the type test rather than instead of it: `$type` calls `""` a string, so an arm
+        # reading the type alone publishes a record nobody confirmed.
+        {"$ne": ["$einwilligung.bestaetigt_am", ""]},
+    ]
+}
+
+# The two NAME fields alone: a withheld row keeps its `nummer` and `position`, so a `$cond` reaching
+# further would withhold the squad slot rather than the name. The record is read here and projected
+# nowhere.
+PUBLIC_PERSON: Mapping[str, Any] = {
+    "vorname": {"$cond": {"if": _NAME_IS_PUBLIC, "then": "$vorname", "else": None}},
+    "nachname": {"$cond": {"if": _NAME_IS_PUBLIC, "then": PUBLIC_NACHNAME, "else": None}},
+}
+
+
+class PublicPerson(NamedTuple):
+    """The two name fields as the base tier serves them."""
+
+    vorname: str | None
+    nachname: str | None
+
+
+def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Mapping[str, Any] | None) -> PublicPerson:
+    """`PUBLIC_PERSON` above where a `find` serves the read and no aggregation runs.
+
+    A name handed over as null is served as null: the predicate decides publication and never
+    whether a name is there to publish.
+    """
+
+    if not name_is_public(einwilligung):
+        return PublicPerson(vorname=None, nachname=None)
+
+    return PublicPerson(vorname=vorname, nachname=public_initial(nachname))
 
 
 def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: Sequence[str] = ()) -> list[Mapping[str, Any]]:
@@ -102,8 +161,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
         {
             "$project": {
                 "_id": 1,
-                "vorname": 1,
-                "nachname": PUBLIC_NACHNAME,
+                **PUBLIC_PERSON,
                 "position": f"${AS_NAME}.position",
                 "nummer": f"${AS_NAME}.nummer",
             }

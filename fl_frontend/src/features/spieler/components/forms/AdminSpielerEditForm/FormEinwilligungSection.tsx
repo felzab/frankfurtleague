@@ -1,7 +1,12 @@
 "use client";
 
 import { einwilligungFassung } from "@/core/einwilligung";
-import { EINWILLIGUNG_HERKUNFT_LABELS, EINWILLIGUNG_MEDIEN_LABELS, EINWILLIGUNG_UMFANG_LABELS } from "@/features/spieler/constants";
+import {
+  EINWILLIGUNG_HERKUNFT_LABELS,
+  EINWILLIGUNG_MEDIEN_LABELS,
+  EINWILLIGUNG_UMFANG_LABELS,
+  EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
+} from "@/features/spieler/constants";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -106,12 +111,9 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           </>
         )}
 
-        {/* On both branches, because the record gates nothing either way: an administrator reading
-            „Nur innerhalb der Liga“ would otherwise take this player off the public squad list. */}
-        <p className="muted-hint">
-          Der Eintrag steuert die Veröffentlichung nicht: Im öffentlichen Kader stehen Vorname und erster Buchstabe des Nachnamens jeder
-          Spielerin und jedes Spielers.
-        </p>
+        {/* On both branches, because what the record answers is what the squad page serves: an
+            administrator meeting an empty panel would otherwise read the list as the whole story. */}
+        <p className="muted-hint">{EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS}</p>
       </div>
     </section>
   );
