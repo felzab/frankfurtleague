@@ -217,6 +217,22 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). No replay of erasures after
   a restore is built, so a restore is followed by running each of them again by hand
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
+- **One record outlives an erasure, and it is a record about two people.** An address barred from
+  signing up is stored as an HMAC under a key this controller holds, beside the administrator's
+  reason, their own address and the day (`docs/glossary.md :: Sperrliste`). The BARRED address is in
+  no field and derivable from no row without that key, so the row is neither that person's own
+  document to delete nor a shell of nulls left where one stood, which is why it survives a request
+  that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
+  data rather than none** — this controller holds the key that re-identifies it — and two people are
+  in it past their own erasure: the person barred, whom the free-text reason may name outright, and
+  the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
+  either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
+  It is bounded by an administrator's removal and never by age, which is the one shape the rule
+  below permits. **Lifting the ban removes the row, and the action log keeps a copy of it** — the
+  hash, the key label, the reason and the administrator, and no barred address — for the twelve
+  months every stamped log row is kept
+  (`docs/backend/spec.md :: I48`, `:: I119`), so a lifted ban is readable at `/admin/aktionen` for
+  that period and enforced by nothing from the moment it is lifted.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
@@ -384,6 +400,16 @@ the `Entry` column carries a token only where one still resolves in that file.
   host's; Cloudflare's retention is set in its dashboard rather than in this repository, and the
   host's in a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a claim that either
   period was honoured rests on reading the host rather than on a report.
+- **The ban list's surviving row is kept about two people past their own erasure, and no
+  Datenschutzexperte has ruled on it.** What is kept of the person barred is an HMAC of their folded
+  email address under a key this controller holds, so it is pseudonymised personal data rather than
+  no personal data at all; beside it stand a free-text reason that may name them and the entering
+  administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
+  for keeping any of it is legitimate interest in refusing a re-registration the league has already
+  declined — a refusal no route yet performs, the list being read by an administrator and consulted
+  by nothing ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Two questions to put: whether that basis carries a record retained without a bound and
+  without a review date; and what an access request reaches, given that no route finds the row from
+  the address it was taken from while the reason beside it may name its subject outright.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
   as easy as giving.** A pupil's consent record is composed by the registration and carried on no
   payload any route accepts (`fl_backend/app/api/spieler/services.py :: registration_einwilligung`),

@@ -66,7 +66,20 @@ COMPOSED_KEY = "<composed at run time>"
 # them: a glob narrowing to nothing would pass every clause below over no module at all.
 # `app/api/system/` declares none.
 SERVICE_PACKAGES: frozenset[str] = frozenset(
-    {"aktionen", "bewerbungen", "kontakte", "saisons", "schiedsrichter", "spiele", "spieler", "spielorte", "spieltage", "teams", "zustellung"}
+    {
+        "aktionen",
+        "bewerbungen",
+        "kontakte",
+        "saisons",
+        "schiedsrichter",
+        "sperrliste",
+        "spiele",
+        "spieler",
+        "spielorte",
+        "spieltage",
+        "teams",
+        "zustellung",
+    }
 )
 
 # The driver itself, and the two modules that hand a live handle out. `bson` is deliberately

@@ -192,3 +192,9 @@ async def get_bewerbungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.BEWERBUNGEN]
+
+
+async def get_sperrliste_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.SPERRLISTE]

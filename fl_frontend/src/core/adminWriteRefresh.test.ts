@@ -46,6 +46,7 @@ const ROSTERS: Record<string, { writes: readonly string[]; readOnly: readonly st
     ],
     readOnly: [],
   },
+  "features/sperrliste/actions.ts": { writes: ["postSperreAction", "deleteSperreAction"], readOnly: [] },
   "features/spiele/actions.ts": {
     writes: ["patchAdminSpielDataAction"],
     // The save's dry run, which reports what the save would void and voids nothing.

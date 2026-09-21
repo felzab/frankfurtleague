@@ -9,7 +9,15 @@ import { QUERY_PARAM, useUrlQuery } from "./useUrlQuery";
  * Two-way binds a URL search param to a debounced input. The URL stays the source of truth — filtering on the input
  * breaks back and forward — so `urlValue` is what consumers filter on and `inputValue` what the field displays.
  */
-export function useDebouncedUrlQuery({ param = QUERY_PARAM, delayMs = 300 }: { param?: string; delayMs?: number } = {}) {
+export function useDebouncedUrlQuery({
+  param = QUERY_PARAM,
+  delayMs = 300,
+  /**
+   * False where the field's value is the reader's own business: the write below is a navigation, and
+   * a navigation is what files a typed value in nginx's access log and in `aktionen.request`.
+   */
+  writesTheUrl = true,
+}: { param?: string; delayMs?: number; writesTheUrl?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -30,6 +38,8 @@ export function useDebouncedUrlQuery({ param = QUERY_PARAM, delayMs = 300 }: { p
 
   // Written lazily: a `router.replace` per keystroke is one navigation per keystroke on a route that awaits the request.
   useEffect(() => {
+    if (!writesTheUrl) return;
+
     const timer = setTimeout(() => {
       if (urlValue === inputValue) return;
 
@@ -44,7 +54,7 @@ export function useDebouncedUrlQuery({ param = QUERY_PARAM, delayMs = 300 }: { p
     }, delayMs);
 
     return () => clearTimeout(timer);
-  }, [inputValue, urlValue, param, delayMs, router, pathname, searchParams]);
+  }, [inputValue, urlValue, param, delayMs, writesTheUrl, router, pathname, searchParams]);
 
   return { urlValue, inputValue, setInputValue };
 }

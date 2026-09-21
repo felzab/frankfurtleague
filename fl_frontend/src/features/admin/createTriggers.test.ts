@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { AdminCreateSaisonModal } = await import("@/features/saisons/components/modals/AdminCreateSaisonModal.tsx");
 const { AdminCreateSchiedsrichterModal } = await import("@/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal.tsx");
+const { AdminCreateSperreModal } = await import("@/features/sperrliste/components/modals/AdminCreateSperreModal.tsx");
 const { AdminCreateSpielerModal } = await import("@/features/spieler/components/modals/AdminCreateSpielerModal.tsx");
 const { AdminCreateSpielortModal } = await import("@/features/spielorte/components/modals/AdminCreateSpielortModal.tsx");
 const { AdminCreateTeamModal } = await import("@/features/teams/components/modals/AdminCreateTeamModal.tsx");
@@ -24,6 +25,7 @@ const markup = (modal: ReactNode): string => renderTree(underNext(modal));
 const TRIGGERS: Record<string, { name: string; html: string }> = {
   AdminCreateSaisonModal: { name: "Neue Saison anlegen", html: markup(h(AdminCreateSaisonModal)) },
   AdminCreateSchiedsrichterModal: { name: "Neuen Schiedsrichter anlegen", html: markup(h(AdminCreateSchiedsrichterModal)) },
+  AdminCreateSperreModal: { name: "Adresse sperren", html: markup(h(AdminCreateSperreModal)) },
   AdminCreateSpielerModal: {
     name: "Neuen Spieler anlegen",
     html: markup(h(AdminCreateSpielerModal, { saisonOptions: [], defaultSaisonId: null })),

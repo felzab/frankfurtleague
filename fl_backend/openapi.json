@@ -4596,6 +4596,120 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/sperrliste": {
+      "get": {
+        "summary": "List the banned addresses",
+        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `erstellt_von` is the administrator who entered the\nrow, and is an address. **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**,\nso where `anzahl_gesamt` exceeds the rows served, bans are enforced that this answer does not\nshow — and a ban nobody can see is one nobody can lift.",
+        "operationId": "get_sperrliste_api_v0_sperrliste_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSperrlisteListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Ban an email address",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`). The ban stands until an\nadministrator removes it, and it survives that person's erasure.",
+        "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSperrlistePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostSperrlisteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/sperrliste/{sperrliste_id}": {
+      "delete": {
+        "summary": "Lift a ban",
+        "description": "Lift a ban, removing the row. HARD, and there is no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
+        "operationId": "delete_sperrliste_eintrag_api_v0_sperrliste__sperrliste_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sperrliste_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sperrliste Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSperrlisteWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
@@ -10343,6 +10457,52 @@
         ],
         "title": "FLPostSchiedsrichterResponse"
       },
+      "FLPostSperrlistePayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "grund": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "grund"
+        ],
+        "title": "FLPostSperrlistePayload"
+      },
+      "FLPostSperrlisteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostSperrlisteResponse"
+      },
       "FLPostSpielerPayload": {
         "properties": {
           "vorname": {
@@ -11486,6 +11646,93 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete, reactivate and anonymisieren.\n\nThe first two answer with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+      },
+      "FLSperrlisteEintrag": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "grund": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Grund"
+          },
+          "erstellt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erstellt Von"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "grund",
+          "erstellt_von",
+          "erstellt_am"
+        ],
+        "title": "FLSperrlisteEintrag",
+        "description": "One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."
+      },
+      "FLSperrlisteListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sperrliste": {
+            "items": {
+              "$ref": "#/components/schemas/FLSperrlisteEintrag"
+            },
+            "type": "array",
+            "title": "Sperrliste"
+          },
+          "anzahl_gesamt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Anzahl Gesamt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sperrliste",
+          "anzahl_gesamt"
+        ],
+        "title": "FLSperrlisteListResponse",
+        "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach."
+      },
+      "FLSperrlisteWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sperrliste_id": {
+            "type": "string",
+            "title": "Sperrliste Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sperrliste_id"
+        ],
+        "title": "FLSperrlisteWriteResponse",
+        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo."
       },
       "FLSpielAdvancement": {
         "properties": {

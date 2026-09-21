@@ -118,6 +118,10 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
+    daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
+    frist: "Bis die Verwaltung die Sperre aufhebt; der Eintrag bleibt auch bestehen, wenn die übrigen Daten gelöscht werden",
+  },
+  {
     daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
     // The figure's one home is `fl_frontend/src/core/authEmail.ts :: LINK_VALIDITY_MINUTES`, which
     // the link is minted on and the message states: a copy typed here is a promise nothing keeps.
@@ -546,6 +550,12 @@ export function DatenschutzView() {
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
             wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht.
+          </p>
+          <p className={ABSATZ}>
+            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
+            einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
+            eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
+            nach einer Löschung bestehen, bis die Verwaltung die Sperre aufhebt.
           </p>
         </LegalSection>
 

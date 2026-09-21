@@ -49,6 +49,7 @@
 | `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                      |
 | `admin`          |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
 | `kontakte`       |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                            |
+| `sperrliste`     |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                     |
 | `auth`           |    —    |     —     |   ✅    |   ✅    | `handleSignIn` + `signOutAction`, neither an admin mutation (§1.3); one sign-in payload the form and the action both parse (I18)               |
 | `dashboard`      |    —    |     —     |    —    |    —    | —                                                                                                                                              |
 | `meta`           |    —    |     —     |    —    |    —    | —                                                                                                                                              |

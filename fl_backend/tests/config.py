@@ -1,7 +1,7 @@
 from pydantic import SecretStr
 from pydantic_settings import SettingsConfigDict
 
-from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig
+from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -18,6 +18,10 @@ TEST_BASE_URL = "http://testserver"
 _KEY_BASE = "test-key-base".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _KEY_SYSTEM = "test-key-system".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
+
+# Obviously fake and padded to the boot's floor, as the three above are. A suite asserting that one
+# address hashes differently under two keys builds its own second key rather than reading this one.
+_SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
 # The header a request carries to reach each tier, built from the keys `build_test_config` configures
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
@@ -52,4 +56,5 @@ def build_test_config() -> BackendConfig:
         internal_api_key_base=SecretStr(_KEY_BASE),
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
+        sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
     )

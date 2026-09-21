@@ -120,13 +120,14 @@ docker run --rm --network <compose-network> \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Seven variables are required and the environment file is what supplies them.** `BackendConfig`
-declares seven fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all seven; the settings class reads its file from the image's own working directory
+**Eight variables are required and the environment file is what supplies them.** `BackendConfig`
+declares eight fields with no default, so a run reaching none of them exits 1 on a validation error
+naming all eight; the settings class reads its file from the image's own working directory
 (`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the seven
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the eight
 as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up six values `--check` never reads. It is the same mount
+operator looking up six values `--check` never reads — the run touches `MONGODB_URI` and
+`DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
 `scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
 
 Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so both
@@ -189,7 +190,7 @@ database, so what is written here is the order alone.
 
 - **The backend image carries pymongo and no `mongosh`**, so a command run through it is a Python
   one-liner. It builds no `BackendConfig`, so it needs `MONGODB_URI` and `DB_BASE_NAME` alone rather
-  than `--check`'s seven.
+  than `--check`'s eight.
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
 - **`update_many` is ordered**, so a count below what step 1 reported means it stopped at a row the
   new validator refuses for a reason of its own. Repair the row the raised error names and run again:
@@ -424,13 +425,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                        |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                  |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                        |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey                                                             |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14) |
+| Role           | Where their data is read                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                 |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                           |
+| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                 |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
 
 `/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -527,6 +528,44 @@ they are what say how far the write reached.
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
 in the same reply.
+
+**A false birthdate is found by a person, and the answer is a decision and a ban rather than a
+rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
+and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
+Decline the application, bar the address at `/admin/sperrliste` with the reason in your own words
+and no person named in it, the row outliving that person's erasure
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)), and tell them by mail that they may apply again when they are old enough. **The ban records the
+decision and refuses nothing by itself** — no route consults the list
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)) — so what actually keeps the
+address out until one does is the queue being read by a person.
+
+**A ban stands until you lift it.** It carries no review date and no expiry, deliberately: a queue of
+review dates is a queue nobody works, and the removal is already one press on the page you are
+reading the list on. A ban entered because somebody lied about their age loses its purpose the day
+they reach the floor their seat asks for, and the page is where somebody notices.
+
+**Generating the key is the one command in this section.** A key-generation command is an operator
+instruction rather than a database migration, so it stands here; nothing it produces is ever written
+into this repository. Dev, on Windows in Git Bash, or on the server — generate it on whichever
+machine you will paste from, so the value is not carried between two of them:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Thirty-two random bytes as sixty-four hexadecimal characters. **The boot's floor counts CHARACTERS
+and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`), so sixty-four
+repeated letters pass it and are worthless: what makes the value a key is that it came from this
+command and not from a keyboard.
+
+**`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list.** Every row of
+`sperrliste` holds an HMAC taken under that value and no address survives to re-hash
+([`../backend/spec.md`](../backend/spec.md#15-environment)), so replacing it disarms every ban in
+silence: the list renders exactly as before while no stored hash can be matched again, and a second
+ban of an address already on it is admitted rather than refused. Treat it as the one backend secret
+with no recovery: back it up where the
+database's own access details are backed up, and where it is genuinely gone, clear the list and
+enter the bans again from whatever record names the addresses.
 
 ## 6. When personal data has been exposed
 

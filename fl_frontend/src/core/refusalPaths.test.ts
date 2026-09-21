@@ -235,6 +235,10 @@ const ERASURE_HAS_NO_FIELDS =
 const THE_PERSON_THE_PANEL_IS_FOR =
   "the address of the person whose panel this is, handed in as a prop, so no control offers it and no refusal can land on one";
 
+/** A panel standing on a list row rather than a page, which is why `NO_FORM_AT_ALL` would read wrong beside it. */
+const A_ROWS_OWN_REMOVAL =
+  "the removal's panel on the row: the id is in the path and the confirmation is a two-press escalation, neither being an input";
+
 const UNDRAW_HAS_NO_FIELDS =
   "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
 
@@ -281,6 +285,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSchiedsrichterKeyPayloadSchema: { id: NO_FORM_AT_ALL },
+  FLSperrlisteKeyPayloadSchema: { id: A_ROWS_OWN_REMOVAL },
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
 

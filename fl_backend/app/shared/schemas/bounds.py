@@ -108,3 +108,7 @@ LIST_LIMIT_MAX: Final = 1024
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
 # no calendar months.
 AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
+
+# Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
+# page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
+SPERRLISTE_GRUND_MAX_LENGTH: Final = 500

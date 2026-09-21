@@ -367,6 +367,7 @@ interface RegisteredTitle {
 
 const TOAST_TITLES: Record<string, RegisteredTitle> = {
   Abgemeldet: { variant: "success", identifies: "one site" },
+  "Adresse gesperrt": { variant: "success", identifies: "one site" },
   "Adresse kopiert": { variant: "success", identifies: "one site" },
   "Adresse korrigiert": { variant: "success", identifies: "one site" },
   "Adresse nicht kopiert": { variant: "danger", identifies: "one site" },
@@ -416,6 +417,8 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Schiedsrichter stillgelegt": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten gelöscht": { variant: "success", identifies: "one site" },
   "Schiedsrichterdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
+  "Sperre aufgehoben": { variant: "success", identifies: "one site" },
+  "Sperre nicht aufgehoben": { variant: "danger", identifies: "one site" },
   "Spieler angelegt": { variant: "success", identifies: "one site" },
   "Spieler aufgenommen": { variant: "success", identifies: "one site" },
   "Spieler gelöscht": { variant: "success", identifies: "one site" },

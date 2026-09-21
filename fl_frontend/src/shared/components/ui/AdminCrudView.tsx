@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 
 import { useFacetSelection } from "../../hooks/useFacetSelection";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
-import { useUrlQuery } from "../../hooks/useUrlQuery";
 import { applyFacets } from "../../utils/facets";
 import { AdminCrudFallback } from "./AdminCrudFallback";
+import { useCrudListQuery } from "./AdminCrudPrivateQuery";
 import { FilterLeiste } from "./FilterLeiste";
 import { CONTENT_LAYER, COVER_LAYER, PLACEHOLDER_BOX } from "./placeholderBox";
 
@@ -86,8 +86,8 @@ export function AdminCrudView<TItem extends { id: string }>({
   /** Optional: a season is never deleted, since removing it would orphan every row carrying its id. */
   renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
-  // The narrowing controls live above and below this component; the URL is where they meet it.
-  const query = useUrlQuery();
+  // The narrowing controls live above and below this component; where they meet it is the shell's.
+  const query = useCrudListQuery();
   const selection = useFacetSelection(facets);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 

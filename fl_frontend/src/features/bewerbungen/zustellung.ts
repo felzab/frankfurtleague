@@ -226,9 +226,9 @@ export const ZUSTELLUNG_CHIP: Record<FLBewerbungZustellstand, { label: string; t
   // is that the link has not arrived, and neither of the two is the address refusing for good.
   verzoegert: { label: "Noch nicht zugestellt", tone: "warning" },
   unzustellbar: { label: "Unzustellbar", tone: "danger" },
-  // Named for what the administrator sees, not for the provider's own mechanism: the address is on a
-  // list that skips every send to it, so nothing this page does can reach it.
-  unterdrueckt: { label: "Adresse gesperrt", tone: "danger" },
+  // The message's fate, as its three siblings say, and never the ban list's „gesperrt“: the list an
+  // administrator would then search is the league's own, which never held this address.
+  unterdrueckt: { label: "Zustellung blockiert", tone: "danger" },
   beschwerde: { label: "Als Spam gemeldet", tone: "danger" },
 };
 

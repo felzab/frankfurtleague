@@ -77,6 +77,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
+    Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -617,6 +618,13 @@ UNPAIRABLE_PATTERNS: Final = (
         "INTERNAL_API_KEY",
         "app/core/config.py :: INTERNAL_API_KEY_CHARACTERS",
         "the frontend end is a literal inside a `z.string()` chain rather than the named constant `_typescript_pattern` reads",
+    ),
+    Unpairable(
+        "features/sperrliste/schemas.ts",
+        "ADRESSE_IM_GRUND_REGEX",
+        "app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT",
+        "`NEEDS_QUOTING`'s two reasons at once: `\\s` is outside `MODELLED_ESCAPES`, and neither end is anchored "
+        "because both must find an address INSIDE a sentence where the comparison above full-matches one",
     ),
 )
 

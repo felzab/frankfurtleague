@@ -413,6 +413,17 @@ describe("what a seat's row says about the last message to it", () => {
     assert.equal(Object.values(ZUSTELLUNG_CHIP).filter((chip) => chip !== null).length, 4);
   });
 
+  /* The ban list's verb names an act on an address; this chip names a message the provider refused,
+     so an administrator meeting „gesperrt“ here would look the address up in a Sperrliste that
+     never held it. */
+  it("names the provider's suppression as the message's fate rather than in the ban list's verb", () => {
+    assert.equal(ZUSTELLUNG_CHIP.unterdrueckt?.label, "Zustellung blockiert");
+
+    for (const chip of Object.values(ZUSTELLUNG_CHIP)) {
+      assert.doesNotMatch(chip?.label ?? "", /gesperrt/i, `a chip wears the ban list's verb: ${chip?.label ?? ""}`);
+    }
+  });
+
   /* One label for the temporary bounce and the failed send both, because neither is the address
      refusing for good and the administrator can act on neither differently. */
   it("grades the trouble that can still clear apart from the three that cannot", () => {

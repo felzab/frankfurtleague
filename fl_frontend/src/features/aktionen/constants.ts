@@ -26,6 +26,7 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   spielorte: "Spielorte",
   schiedsrichter: "Schiedsrichter",
   bewerbungen: "Bewerbungen",
+  sperrliste: "Sperrliste",
 };
 
 /**

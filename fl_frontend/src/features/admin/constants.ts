@@ -1,4 +1,5 @@
 import {
+  Ban,
   Calendar,
   ClockArrowRotateLeft,
   Envelope,
@@ -35,6 +36,7 @@ export const ADMIN_SIDEMENU_ICONS = {
   Sliders,
   Calendar,
   ClockArrowRotateLeft,
+  Ban,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -206,6 +208,28 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         iconName: "MapPin",
         hint: {
           lead: "Alle Austragungsorte, mit Adresse und Miete.",
+        },
+      },
+    ],
+  },
+
+  // Its own group rather than a row under „Ansetzung“ or „Protokoll“: neither a fixture nor a record
+  // of what an administrator did, and a group of one is what keeps the other two answering for
+  // themselves.
+  {
+    category_name: "Zugang",
+    sub_options: [
+      {
+        id: "sperrliste",
+        label: "Sperrliste",
+        iconName: "Ban",
+        hint: {
+          lead: "Adressen, die von der Liga gesperrt wurden.",
+          // What a reader would otherwise hunt the list for: the search bar reaches the reason and
+          // the administrator, and a stored ban holds no address to match against.
+          points: [{ term: "Die Adresse selbst", detail: "steht in keiner Zeile und lässt sich hier nicht suchen." }],
+          // What an admin comes here to do and cannot: no row expires, and none ever will.
+          note: "Eine Sperre bleibt, bis sie hier aufgehoben wird.",
         },
       },
     ],

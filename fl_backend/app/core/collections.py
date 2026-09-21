@@ -32,3 +32,7 @@ class Collection(StrEnum):
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
     AKTIONEN = "aktionen"
+    #: A row survives its person's erasure deliberately (`docs/backend/spec.md :: I268`): it names
+    #: nobody and yields no address without the key, so it is neither their document to delete nor
+    #: a shell of nulls.
+    SPERRLISTE = "sperrliste"

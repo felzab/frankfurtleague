@@ -110,6 +110,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
@@ -339,7 +340,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 188;
+const EXPECTED_PAIRS = 193;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

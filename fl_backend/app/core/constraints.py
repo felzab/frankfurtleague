@@ -745,6 +745,25 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.SPERRLISTE: {
+        "$jsonSchema": _object(
+            # Every key required and none nullable: a ban nobody is named for cannot be lifted by
+            # the person who would know why.
+            required=("_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # Required above rather than optional: MongoDB indexes a missing key as null, so one
+                # row without a hash would reserve that null against every later ban.
+                "adresse_hash": {"bsonType": "string"},
+                # No `enum`: a label this validator closed would refuse the rows keyed under the
+                # previous one, which is exactly the population it exists to keep readable.
+                "schluessel_version": {"bsonType": "string"},
+                "grund": {"bsonType": "string"},
+                "erstellt_von": {"bsonType": "string"},
+                "erstellt_am": {"bsonType": "string"},
+            },
+        )
+    },
 }
 
 
@@ -782,6 +801,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "saison_phase", "position"),
         "one matchday per position within a phase of a season",
     ),
+    # It is also the READ path: the sign-up check is one indexed equality against this key, so
+    # dropping the index costs a collection scan per submission as well as the rule.
+    UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
 )
 
 

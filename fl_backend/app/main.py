@@ -15,6 +15,7 @@ from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
+from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
@@ -58,6 +59,7 @@ WRITE_ROUTERS = (
     aktionen_admin_router,
     bewerbungen_admin_router,
     kontakte_admin_router,
+    sperrliste_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.

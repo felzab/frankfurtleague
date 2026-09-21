@@ -126,6 +126,9 @@ ADMIN_READS = [
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/kontakte/erasure/ansicht", "post"),
+    # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
+    # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
+    ("/api/v0/sperrliste", "get"),
 ]
 
 

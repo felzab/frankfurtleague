@@ -32,6 +32,7 @@ from app.api.saisons.schemas import (
     FLSaisonStatus,
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
+from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
     FLSonderereignis,
@@ -181,6 +182,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
+    (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -415,6 +417,10 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The pass's own clock rather than a fact about the season it is stored on: an operator asks
     # whether the sweep ran, and no page of a season is that question.
     (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am"}),
+    # The lookup key, and the whole of what a row holds about a person. Serving it would hand
+    # whoever reads the list the one value a leaked collection is missing, and the label beside it
+    # says which key that is.
+    (Collection.SPERRLISTE, ()): frozenset({"adresse_hash", "schluessel_version"}),
     # What became of the last message to this referee, written by the system tier and read by no
     # admin model: an administrator acts on the referee's own record, never on a provider's report.
     (Collection.SCHIEDSRICHTER, ()): frozenset({"bestaetigung"}),

@@ -58,6 +58,7 @@ AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 ORPHAN_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200008")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
+SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 
 # The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
 # fails here instead of quietly changing what the report is understood to mean.
@@ -243,6 +244,16 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "before": {"name": "Lessing"},
             "modified_count": None,
             "redacted_at": None,
+        },
+        # A hash rather than anything recognisable: the collection's whole point is that a row
+        # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
+        "sperrliste": {
+            "_id": SPERRLISTE_OID,
+            "adresse_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "schluessel_version": "sperrliste-v1",
+            "grund": "Falsches Geburtsdatum bei der Anmeldung",
+            "erstellt_von": "admin@example.invalid",
+            "erstellt_am": "2026-03-15",
         },
     }
 
@@ -448,6 +459,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_saison_id_saison_phase_position": (
         valid_documents()["spieltage"],
         valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22"),
+    ),
+    # The second row differs in its reason and its author: the index refuses on the hash alone, and
+    # a pair agreeing in everything would pass while keyed on anything at all.
+    "uniq_sperrliste_adresse_hash": (
+        valid_documents()["sperrliste"],
+        valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", erstellt_von="zweite@example.invalid"),
     ),
 }
 

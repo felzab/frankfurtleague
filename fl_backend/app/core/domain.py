@@ -220,6 +220,22 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "the row -- the enumeration of those writes is `docs/backend/spec.md :: I42`'s, not this note's."
         ),
     ),
+    Aggregate(
+        name="Sperrliste",
+        root=Collection.SPERRLISTE,
+        members=(),
+        boundary=(
+            "One barred address, as an HMAC under this deployment's key, beside the administrator who entered it and "
+            "their reason. Held true against nothing: a row states that an administrator barred an address on a day, "
+            "which stays true however either person is recorded afterwards -- so it is in no boundary with `spieler`, "
+            "with an application, or with whatever a later sign-up writes, and it carries no reference to any of them. "
+            "That independence is what lets the row outlive the erasure of the person it bars and of the administrator "
+            "it names, standing until an administrator lifts it (`docs/backend/spec.md :: I268`), where a member of "
+            "either person's own boundary would have to go with them. Anonymous it is not: `erstellt_von` is that "
+            "administrator's address in plain and `grund` is free text that may name the person barred, both served "
+            "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
+        ),
+    ),
 )
 
 
@@ -1597,6 +1613,14 @@ RULES: tuple[Rule, ...] = (
         summary="a player still in the league is not erased, retirement being the step that comes first",
         implemented_by="app.api.spieler.services.find_erasure_refusal",
         tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-001",
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="an address the list already holds takes no second ban",
+        implemented_by="app.api.sperrliste.services.find_sperrliste_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestASecondBanOfOneAddress",
     ),
 )
 
