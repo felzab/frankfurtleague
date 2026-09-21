@@ -84,6 +84,18 @@ class FLSaisonBewerbung(BaseModel):
     bis: CustomDateString
 
 
+class FLSaisonRegistrierung(BaseModel):
+    """When a pupil may register for this season.
+
+    Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
+    decisions an administrator takes apart, and one component name on both would publish them as one.
+    """
+
+    offen: bool
+    von: CustomDateString
+    bis: CustomDateString
+
+
 class FLSaisonPhaseSchedule(BaseModel):
     """One phase of a season: how many matchdays it takes, and how many matches each holds.
 
@@ -108,6 +120,8 @@ class _SaisonWritable(BaseModel):
     # omitted key would close the application window as an edit nobody asked for. `FLSaison` below
     # adds one back.
     bewerbung: FLSaisonBewerbung | None
+    # No default either, for the reason above: the second window is shut by the same omission.
+    registrierung: FLSaisonRegistrierung | None
 
 
 class _SaisonPayload(_SaisonWritable):
@@ -132,6 +146,17 @@ class _SaisonPayload(_SaisonWritable):
 
         return self
 
+    @model_validator(mode="after")
+    def the_registration_window_ends_after_it_opens(self) -> Self:
+        """Its own validator rather than a branch inside the one above: two windows are two refusals, and a shared one names neither."""
+
+        if self.registrierung is not None:
+            refuse_reversed_span(
+                start=self.registrierung.von, end=self.registrierung.bis, start_label="dem Beginn der Registrierungsfrist", end_label="Das Ende"
+            )
+
+        return self
+
 
 class FLSaison(_SaisonWritable):
     # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands:
@@ -147,6 +172,9 @@ class FLSaison(_SaisonWritable):
     # DEFAULTED for `spielplan`'s reason, and re-declared rather than defaulted on the base above:
     # a default there would put the field on the PATCH payload as one an old client may omit.
     bewerbung: FLSaisonBewerbung | None = None
+
+    # DEFAULTED and re-declared for `bewerbung`'s reason above.
+    registrierung: FLSaisonRegistrierung | None = None
 
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.

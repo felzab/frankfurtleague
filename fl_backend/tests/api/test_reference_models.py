@@ -601,9 +601,9 @@ class TestSaison:
 
 
 class TestTheSeasonsSpans:
-    """`refuse_reversed_span` under both callers, with the labels each passes it.
+    """`refuse_reversed_span` under every caller, with the labels each passes it.
 
-    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors both sentences word
+    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors each sentence word
     for word.
     """
 
@@ -618,6 +618,7 @@ class TestTheSeasonsSpans:
             "end_date": stored["end_date"],
             "rules": stored["rules"],
             "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
+            "registrierung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
             **overrides,
         }
 
@@ -652,6 +653,57 @@ class TestTheSeasonsSpans:
             FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
 
         assert "Das Enddatum darf nicht vor dem Startdatum liegen." in str(failure.value)
+
+    def test_accepts_a_registration_window_that_runs_forwards(self, saison):
+        """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
+        parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
+
+        assert parsed.registrierung is not None
+        assert parsed.registrierung.offen is True
+
+    def test_accepts_no_registration_window_at_all(self, saison):
+        """`None` is the season taking no registrations, which the span rule has nothing to say about."""
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
+
+    def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
+        """The third caller's own label pair: the two windows raise different sentences, and one moved alone is what this catches."""
+        reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
+
+        assert "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen." in str(failure.value)
+
+    def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
+        """Two decisions rather than one span: registration may legitimately close before applications do."""
+        overlapping = {"offen": True, "von": "2025-08-01", "bis": "2025-09-15"}
+
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
+
+
+class TestTheSeasonsWindowsAreRequiredWithNoDefault:
+    """Parametrised over both windows: a default added to either would leave the other's case green.
+
+    The `None` re-declaration on the read model is what lets a season stored before a field validate.
+    """
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_payload_omitting_a_window_is_refused_rather_than_closing_it(self, saison, field, assert_rejects):
+        body = {key: value for key, value in TestTheSeasonsSpans.payload(saison).items() if key != field}
+
+        assert_rejects(FLPatchSaisonPayload, body, field)
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_payload_carrying_an_explicit_null_is_accepted(self, saison, field):
+        body = {**TestTheSeasonsSpans.payload(saison), field: None}
+
+        assert getattr(FLPatchSaisonPayload.model_validate(body), field) is None
+
+    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
+    def test_a_stored_season_carrying_no_window_key_still_validates(self, saison, field):
+        stored = {key: value for key, value in saison().items() if key != field}
+
+        assert getattr(FLSaison.model_validate(stored), field) is None
 
 
 class TestSpielBooking:
@@ -767,6 +819,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         # The stored rows minus what only storage carries, which is what each create payload takes.
         new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
         new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
+        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 

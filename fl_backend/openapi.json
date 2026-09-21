@@ -8863,6 +8863,16 @@
                 "type": "null"
               }
             ]
+          },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -8871,7 +8881,8 @@
           "start_date",
           "end_date",
           "rules",
-          "bewerbung"
+          "bewerbung",
+          "registrierung"
         ],
         "title": "FLPatchSaisonPayload"
       },
@@ -9996,6 +10007,16 @@
               }
             ]
           },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "maxLength": 4,
@@ -10011,6 +10032,7 @@
           "end_date",
           "rules",
           "bewerbung",
+          "registrierung",
           "id"
         ],
         "title": "FLPostSaisonPayload"
@@ -10575,6 +10597,16 @@
               }
             ]
           },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "maxLength": 4,
@@ -10698,6 +10730,32 @@
         ],
         "title": "FLSaisonPhaseSchedule",
         "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order."
+      },
+      "FLSaisonRegistrierung": {
+        "properties": {
+          "offen": {
+            "type": "boolean",
+            "title": "Offen"
+          },
+          "von": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Von"
+          },
+          "bis": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "offen",
+          "von",
+          "bis"
+        ],
+        "title": "FLSaisonRegistrierung",
+        "description": "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one."
       },
       "FLSaisonRules": {
         "properties": {

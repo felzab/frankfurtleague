@@ -230,9 +230,10 @@ async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
             start_date=SAISON_START,
             end_date=SAISON_END,
             rules=FLSaisonRules.model_validate(rules_document(**overrides)),
-            # Stated rather than omitted: the payload replaces the season wholesale, so `bewerbung`
-            # carries no default and this helper is not about the application window.
+            # Stated rather than omitted: the payload replaces the season wholesale, so neither
+            # window carries a default and this helper is about neither of them.
             bewerbung=None,
+            registrierung=None,
         ),
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

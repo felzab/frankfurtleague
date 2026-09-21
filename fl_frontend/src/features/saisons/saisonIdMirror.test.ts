@@ -38,6 +38,7 @@ const create = (id: string) => ({
   start_date: "2025-09-01",
   end_date: "2026-06-30",
   bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
+  registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
   rules,
 });
 

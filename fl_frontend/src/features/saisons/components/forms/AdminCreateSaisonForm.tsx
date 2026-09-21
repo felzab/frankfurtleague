@@ -27,9 +27,10 @@ const EMPTY_DRAFT: SaisonCreateDraft = {
   id: "",
   start_date: "",
   end_date: "",
-  // The explicit null the payload demands rather than an omitted key: this dialog offers no control
-  // over the window, which is opened on the new season's own page.
+  // The explicit null each payload key demands rather than an omitted one: this dialog offers no
+  // control over either window, both being opened on the new season's own page.
   bewerbung: null,
+  registrierung: null,
   rules: {
     win_points: 3,
     draw_points: 1,

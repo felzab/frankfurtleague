@@ -33,12 +33,13 @@ import { spielplanUndrawBlockedReason } from "./blockedReasons";
 import { FormBewerbungSection } from "./FormBewerbungSection";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
+import { FormRegistrierungSection } from "./FormRegistrierungSection";
 import { FormRolloverSection } from "./FormRolloverSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
-import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   FLSaisonRulesDraft,
   SaisonDraftFields,
@@ -96,6 +97,9 @@ export function AdminSaisonEditForm({
   // The whole block or `null`, never a boolean beside a span: `null` is the season that takes no
   // applications, and the panel is what turns one into the other.
   const [bewerbung, setBewerbung] = useState<FLSaisonBewerbung | null>(saison.bewerbung);
+  // Its own state beside the window above, never one pair for both: the two windows are saved
+  // together and decided apart.
+  const [registrierung, setRegistrierung] = useState<FLSaisonRegistrierung | null>(saison.registrierung);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
@@ -114,6 +118,7 @@ export function AdminSaisonEditForm({
     end_date: endDate?.toString() ?? "",
     rules,
     bewerbung,
+    registrierung,
   });
 
   const draftFields: SaisonDraftFields = {
@@ -121,12 +126,14 @@ export function AdminSaisonEditForm({
     end_date: endDate?.toString() ?? "",
     rules,
     bewerbung,
+    registrierung,
   };
   const storedFields: SaisonDraftFields = {
     start_date: saison.start_date,
     end_date: saison.end_date,
     rules: saison.rules,
     bewerbung: saison.bewerbung,
+    registrierung: saison.registrierung,
   };
 
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
@@ -154,6 +161,19 @@ export function AdminSaisonEditForm({
     setBewerbung(next);
     if (next === null) {
       validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"]);
+    }
+  };
+
+  /** Only the way OUT is judged, for `changeBewerbung`'s reason above. */
+  const changeRegistrierung = (next: FLSaisonRegistrierung | null) => {
+    setRegistrierung(next);
+    if (next === null) {
+      validatePaths("saison", { ...buildPayload(), registrierung: next }, [
+        "registrierung",
+        "registrierung.offen",
+        "registrierung.von",
+        "registrierung.bis",
+      ]);
     }
   };
 
@@ -199,6 +219,7 @@ export function AdminSaisonEditForm({
     setEndDate(parseDate(saison.end_date));
     setRules(saison.rules);
     setBewerbung(saison.bewerbung);
+    setRegistrierung(saison.registrierung);
 
     setSubmitFieldErrors({}, {});
   };
@@ -227,6 +248,7 @@ export function AdminSaisonEditForm({
         end_date: saison.end_date,
         rules: saison.rules,
         bewerbung: saison.bewerbung,
+        registrierung: saison.registrierung,
       };
 
       const payload = buildPayload();
@@ -326,6 +348,14 @@ export function AdminSaisonEditForm({
           <FormBewerbungSection
             bewerbung={bewerbung}
             onBewerbungChange={changeBewerbung}
+            onFieldLeft={validateFields}
+          />
+
+          {/* Directly under the application window, the order the two run in: a school applies, and
+              its pupils register once it is in. */}
+          <FormRegistrierungSection
+            registrierung={registrierung}
+            onRegistrierungChange={changeRegistrierung}
             onFieldLeft={validateFields}
           />
 

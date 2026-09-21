@@ -264,6 +264,18 @@ _SAISON_BEWERBUNG = _object(
     },
 )
 
+# Spelled out rather than assigned `_SAISON_BEWERBUNG`: one name over both blocks would let a
+# widening of either window widen the other silently.
+_SAISON_REGISTRIERUNG = _object(
+    nullable=True,
+    required=("offen", "von", "bis"),
+    properties={
+        "offen": {"bsonType": "bool"},
+        "von": {"bsonType": "string"},
+        "bis": {"bsonType": "string"},
+    },
+)
+
 # The club this school proposes, filled in only where the applicant picked no existing one. The
 # fields are spelled as `teams` spells them and acceptance copies them across; `description` is
 # not among them, and acceptance writes it empty.
@@ -442,6 +454,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # together: a switch with no span cannot say when the window closes, and a span with
                 # no switch cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
+                # Out of `required` on the same terms as the window above it.
+                "registrierung": _SAISON_REGISTRIERUNG,
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
                 "sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},

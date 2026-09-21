@@ -8,7 +8,7 @@ import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatu
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
-type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung";
+type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung" | "Registrierung";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 
@@ -100,6 +100,21 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
       return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.bis)}`;
     },
     errorPaths: ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"],
+  },
+  {
+    path: "registrierung",
+    label: "Registrierungsfrist",
+    group: "Registrierung",
+    // Read the way the window above is read, spelled out rather than shared: the two rhyme today and
+    // change for reasons of their own, one being a school's deadline and one a pupil's.
+    read: (source) => {
+      const fenster = source.registrierung;
+      if (fenster === null) return null;
+
+      const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
+      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.bis)}`;
+    },
+    errorPaths: ["registrierung", "registrierung.offen", "registrierung.von", "registrierung.bis"],
   },
 ];
 

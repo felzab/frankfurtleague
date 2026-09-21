@@ -534,6 +534,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "registrierung",
+        Editability.EDITABLE,
+        "the application window's twin, on the same payload and with no default for the same reason; a row of its own "
+        "because the two windows are two decisions, so one closed early says nothing about the other",
+        "app.api.saisons.schemas.FLPatchSaisonPayload",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "start_date",
         Editability.EDITABLE,
         "editable even on a finished season, and refused where the new span would stop covering a live matchday "

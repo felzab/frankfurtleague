@@ -260,7 +260,7 @@ const ONE_SCOPE = "the Kenntnisnahme's only scope, written by the panel rather t
 const ONE_SWITCH_FOR_THREE_SEATS =
   "one switch confirms all three seats and is named for `kontakte.ansprechperson.einwilligung.erteilt`, which every refusal on this path arrives beside";
 
-/** The create dialog offers no control over the window, so the null it sends is the only value it can produce. */
+/** The create dialog offers no control over either window, so the null it sends is the only value it can produce. */
 const WINDOW_OPENS_LATER = "the create draft sends the null the field allows; the window is opened in the season editor";
 
 /**
@@ -289,7 +289,12 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLAnnehmenBewerbungPayloadSchema: { id: IN_THE_PATH },
   FLAblehnenBewerbungPayloadSchema: { id: IN_THE_PATH },
 
-  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH, bewerbung: RECORD_ITSELF, "rules.erlaubte_stufen.0": A_STUFE_ROW },
+  FLPatchSaisonPayloadSchema: {
+    id: IN_THE_PATH,
+    bewerbung: RECORD_ITSELF,
+    registrierung: RECORD_ITSELF,
+    "rules.erlaubte_stufen.0": A_STUFE_ROW,
+  },
   FLPatchSchiedsrichterPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielerPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielortPayloadSchema: { id: IN_THE_PATH },
@@ -331,6 +336,10 @@ const EXEMPT: Record<string, Record<string, string>> = {
     "bewerbung.offen": WINDOW_OPENS_LATER,
     "bewerbung.von": WINDOW_OPENS_LATER,
     "bewerbung.bis": WINDOW_OPENS_LATER,
+    registrierung: WINDOW_OPENS_LATER,
+    "registrierung.offen": WINDOW_OPENS_LATER,
+    "registrierung.von": WINDOW_OPENS_LATER,
+    "registrierung.bis": WINDOW_OPENS_LATER,
   },
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },

@@ -19,9 +19,10 @@ const create = (overrides: Partial<typeof rules> = {}) => ({
   id: "2026",
   start_date: "2025-09-01",
   end_date: "2026-06-30",
-  // Present on every case: the key is required with no default, so leaving it out would refuse each
-  // payload below on `bewerbung` and tell nobody which rule was under test.
+  // Present on every case: each key is required with no default, so leaving one out would refuse
+  // each payload below on that window and tell nobody which rule was under test.
   bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
+  registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
   rules: { ...rules, ...overrides },
 });
 
@@ -32,7 +33,7 @@ const pathsRefused = (schema: typeof FLPostSaisonPayloadSchema | typeof FLPatchS
   return result.success ? [] : result.error.issues.map((issue) => issue.path.join("."));
 };
 
-const messagesRefused = (schema: typeof FLPostSaisonPayloadSchema, value: unknown): string[] => {
+const messagesRefused = (schema: typeof FLPostSaisonPayloadSchema | typeof FLPatchSaisonPayloadSchema, value: unknown): string[] => {
   const result = schema.safeParse(value);
 
   return result.success ? [] : result.error.issues.map((issue) => issue.message);
@@ -100,6 +101,16 @@ describe("FLPostSaisonPayloadSchema", () => {
   it("takes an explicit null, which is the season that accepts no applications at all", () => {
     assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, { ...create(), bewerbung: null }), []);
   });
+
+  it("demands the registration window as a key too, the create dialog sending the null it allows", () => {
+    const { registrierung: _dropped, ...withoutWindow } = create();
+
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, withoutWindow), ["registrierung"]);
+  });
+
+  it("takes an explicit null there as well, which is the season that takes no registrations", () => {
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, { ...create(), registrierung: null }), []);
+  });
 });
 
 describe("FLPatchSaisonPayloadSchema", () => {
@@ -131,5 +142,31 @@ describe("FLPatchSaisonPayloadSchema", () => {
     const halfEntered = { ...create(), bewerbung: { offen: false, von: "", bis: "" } };
 
     assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered), ["bewerbung.von", "bewerbung.bis"]);
+  });
+
+  it("refuses a reversed registration window under its own field, so the two panels never share a message", () => {
+    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", bis: "2025-07-01" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, reversed), ["registrierung.bis"]);
+  });
+
+  it("words that refusal for the registration window rather than the application one", () => {
+    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", bis: "2025-07-01" } };
+
+    assert.deepEqual(messagesRefused(FLPatchSaisonPayloadSchema, reversed), [
+      "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen.",
+    ]);
+  });
+
+  it("names each empty date of a half-entered registration window, as the application window's case does", () => {
+    const halfEntered = { ...create(), registrierung: { offen: false, von: "", bis: "" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered), ["registrierung.von", "registrierung.bis"]);
+  });
+
+  it("judges the two windows apart, so one may run long after the other has closed", () => {
+    const later = { ...create(), registrierung: { offen: true, von: "2026-01-01", bis: "2026-02-01" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, later), []);
   });
 });

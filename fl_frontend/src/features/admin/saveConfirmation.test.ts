@@ -268,7 +268,15 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSaisonEditForm, {
-          saison: { id: "2026", status: "future", start_date: "2026-08-01", end_date: "2027-06-30", rules: RULES, bewerbung: null },
+          saison: {
+            id: "2026",
+            status: "future",
+            start_date: "2026-08-01",
+            end_date: "2027-06-30",
+            rules: RULES,
+            bewerbung: null,
+            registrierung: null,
+          },
           rollover: { outgoingSaisonId: null, offeneSpiele: [] },
           swap: { teams: [], playedKnockoutSpiele: 0 },
           ersatz: { rows: [], candidates: [] },

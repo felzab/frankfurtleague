@@ -149,6 +149,7 @@ class TestTheCreatedSeasonsIdIsAYear:
             "end_date": stored["end_date"],
             "rules": stored["rules"],
             "bewerbung": None,
+            "registrierung": None,
         }
 
     def test_the_unmodified_body_is_accepted(self, new_saison):

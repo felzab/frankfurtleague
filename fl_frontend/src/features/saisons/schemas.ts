@@ -116,6 +116,17 @@ export const FLSaisonBewerbungSchema = z.object({
 export type FLSaisonBewerbung = z.infer<typeof FLSaisonBewerbungSchema>;
 
 /**
+ * Mirrors `FLSaisonRegistrierung`, when a pupil may register. Its own schema rather than a second name
+ * for the window above: the two are two decisions, and one shape would widen both at once.
+ */
+export const FLSaisonRegistrierungSchema = z.object({
+  offen: z.boolean(),
+  von: CustomDateStringSchema,
+  bis: CustomDateStringSchema,
+});
+export type FLSaisonRegistrierung = z.infer<typeof FLSaisonRegistrierungSchema>;
+
+/**
  * Every field naming a season already stored, at one width: unbounded, an id lets `SaisonSelector`
  * offer a season the backend cannot hold. `saisonIdField` below MINTS one and carries the pattern
  * and the year range besides.
@@ -140,6 +151,8 @@ export const FLSaisonSchema = z.object({
   // Required and nullable for `spielplan`'s reason: the model defaults it, so every response carries
   // the key. `null` is the season that takes no applications at all.
   bewerbung: FLSaisonBewerbungSchema.nullable(),
+  // Required and nullable on the same terms. `null` is the season that takes no registrations.
+  registrierung: FLSaisonRegistrierungSchema.nullable(),
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
@@ -196,10 +209,17 @@ const windowEndsAfterItOpens = {
  * legitimately open before the season does. `null` is the season taking no applications, which this
  * rule has nothing to say about.
  */
-const windowRunsForwards = (bewerbung: FLSaisonBewerbung | null) => bewerbung === null || bewerbung.bis >= bewerbung.von;
+const windowRunsForwards = (fenster: FLSaisonBewerbung | FLSaisonRegistrierung | null) => fenster === null || fenster.bis >= fenster.von;
+
+// The sentence `the_registration_window_ends_after_it_opens` raises, worded for its own window:
+// one message over both would name neither panel's field.
+const registrationWindowEndsAfterItOpens = {
+  error: "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen.",
+  path: ["registrierung", "bis"],
+};
 
 /**
- * Shared by create and patch, which replace the season wholesale. **`bewerbung` is required and
+ * Shared by create and patch, which replace the season wholesale. **Each window is required and
  * nullable, never optional**: an omitted key would close a window somebody opened.
  */
 const saisonPayloadFields = {
@@ -207,6 +227,7 @@ const saisonPayloadFields = {
   end_date: CustomDateStringSchema,
   rules: FLSaisonRulesSchema,
   bewerbung: FLSaisonBewerbungSchema.nullable(),
+  registrierung: FLSaisonRegistrierungSchema.nullable(),
 };
 
 /**
@@ -255,6 +276,7 @@ export const FLPostSaisonPayloadSchema = z
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
   .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
+  .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens)
   .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
@@ -266,7 +288,8 @@ export const FLPatchSaisonPayloadSchema = z
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
-  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens);
+  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
+  .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens);
 export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */

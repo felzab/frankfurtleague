@@ -3,6 +3,7 @@ import type {
   FLPostSaisonPayload,
   FLSaisonBewerbung,
   FLSaisonPhaseSchedule,
+  FLSaisonRegistrierung,
   FLSaisonRules,
   FLSaisonSpielplan,
   FLSaisonStatus,
@@ -42,6 +43,8 @@ export type SaisonDraftFields = {
    * stands empty, which is the mid-edit state the payload schema refuses by name.
    */
   bewerbung: FLSaisonBewerbung | null;
+  /** `null` is the season that takes no registrations, held the same way as the window above. */
+  registrierung: FLSaisonRegistrierung | null;
 };
 
 export type AdminSaisonRow = {
