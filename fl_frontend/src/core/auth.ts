@@ -411,6 +411,7 @@ function withinLifetime(session: { createdAt: Date; updatedAt: Date }, lifetime:
   return now - updated < lifetime.idle && now - created < lifetime.absolute;
 }
 
+/** Exported for `fl_frontend/src/core/subject.ts`, which judges the same window in its own lane. */
 export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Date }): boolean {
   return withinLifetime(session, PERSON_LIFETIME);
 }

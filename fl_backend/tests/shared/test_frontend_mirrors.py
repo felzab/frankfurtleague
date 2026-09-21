@@ -584,7 +584,7 @@ UNPAIRABLE_PATTERNS: Final = (
         r"`\p{L}` is a Unicode property class `re` cannot compile, and `re` is the only engine `_javascript_accepted` has",
     ),
     Unpairable(
-        "shared/schemas.ts",
+        "core/objectId.ts",
         "OBJECT_ID_REGEX",
         "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
         "the backend end builds a `bson.ObjectId` rather than stating a pattern, so no pattern string reaches `_pydantic_accepted`",

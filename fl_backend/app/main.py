@@ -10,6 +10,7 @@ from app.api.bewerbungen.public_router import router as bewerbungen_public_route
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
+from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
@@ -64,9 +65,10 @@ WRITE_ROUTERS = (
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
 PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
-# Its own group for the same reason: system-tier writes, made by the application to itself, which
-# neither tuple above describes.
-SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router, zustellung_router)
+# Its own group for the same reason: system-tier operations the application makes to itself, which
+# neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
+# it beside the writes.
+SYSTEM_ROUTERS = (bewerbungen_sweep_router, bewerbungen_zustellung_router, zustellung_router, identitaet_router)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).
@@ -124,7 +126,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.add_middleware(TraceContextMiddleware)
 
     app.include_router(system_router)
-    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_WRITE_ROUTERS):
+    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS):
         app.include_router(router)
 
     # The published prose is the decorator's rather than the docstring's: a docstring cannot

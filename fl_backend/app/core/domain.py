@@ -747,7 +747,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "email",
         Editability.IMMUTABLE,
         "written by no route, at create or after: no payload carries the field, so whatever a row holds here is what it keeps, "
-        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is.",
+        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is. "
+        "`POST /identitaet/subjekt` joins on the field by equality against `sign_in_identifier`'s output, so a value stored in "
+        "any other form is matched by nothing",
     ),
     FieldPolicy(
         Collection.SPIELER,

@@ -5359,6 +5359,51 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/identitaet/subjekt": {
+      "post": {
+        "summary": "Say which league records one mailbox holds",
+        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- NFKC, lower-cased, trimmed -- on arrival and compared in that form, so\n`Anna.Müller@Schule.de` in a contact seat answers for `anna.müller@schule.de`. `ß` is not folded to `ss`, so `poststrasse@` and\n`poststraße@` are two mailboxes here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the\nfolded form already.\n\nA contact seat and a referee record store the address as it was typed, so both are read in two steps: a case-insensitive database\nmatch narrows, and the fold decides on each candidate's own stored value. The two rules differ, and the database's is the wider --\nit holds U+0345 equal to an iota, where the fold leaves them two addresses -- so a row the match reaches is one the fold may still\nrefuse, and that refusal is what keeps this answer's rule the same rule sign-in applies.\n\nA stored address in a decomposed Unicode form is MISSED, the match comparing code points and normalising nothing, so a composed\nidentifier does not reach a decomposed spelling of the same address. Every address written through this API arrives composed, which\nis why neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either, for an edge no write path here produces.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSubjektPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSubjektResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -13829,6 +13874,137 @@
           "spieltag"
         ],
         "title": "FLSpieltageSingleResponse"
+      },
+      "FLSubjektPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLSubjektPayload",
+        "description": "Which mailbox is asking, folded to the one spelling the join, the header and the log agree on."
+      },
+      "FLSubjektResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSitz"
+            },
+            "type": "array",
+            "title": "Sitze"
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSpieler"
+            },
+            "type": "array",
+            "title": "Spieler"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSubjektSchiedsrichter"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sitze",
+          "spieler",
+          "schiedsrichter"
+        ],
+        "title": "FLSubjektResponse",
+        "description": "Which league records one mailbox matches, as three lists rather than three optional records.\n\nA list under each because one inbox holds seats at two clubs and two pupils share an address\n(`docs/datenschutz.md :: \"Colleagues sharing a school inbox\"`)."
+      },
+      "FLSubjektSchiedsrichter": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id"
+        ],
+        "title": "FLSubjektSchiedsrichter",
+        "description": "One referee record the mailbox names, carrying the id alone for `FLSubjektSpieler`'s reason."
+      },
+      "FLSubjektSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "saison_status": {
+            "type": "string",
+            "enum": [
+              "past",
+              "active",
+              "future"
+            ],
+            "title": "Saison Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "rolle",
+          "team_name",
+          "saison_status"
+        ],
+        "title": "FLSubjektSitz",
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as `app/api/kontakte/schemas.py :: FLKontaktSitz` is: one row\nseats one person twice where `trainer_ist_zugleich` says so."
+      },
+      "FLSubjektSpieler": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id"
+        ],
+        "title": "FLSubjektSpieler",
+        "description": "One pupil record the mailbox names.\n\nThe id alone: the caller composed the address it asked about, and anything else here hands a\nmachine read a fresh copy of somebody's own data for nothing."
       },
       "FLSwapGruppenPayload": {
         "properties": {

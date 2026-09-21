@@ -32,5 +32,12 @@ export function getRequestActor(): string | undefined {
 // admit but a mailed link cannot produce.
 export function setRequestActor(actor: string | null | undefined): void {
   const store = storage.getStore();
-  if (store && actor) store.actor = actor;
+  if (!store || !actor) return;
+
+  // Two session guards ran on one request, which is a programming error rather than a shape to
+  // serve: whichever landed last would name the actor of every write this request makes
+  // (`docs/frontend/spec.md :: I272`).
+  if (store.actor !== undefined && store.actor !== actor) throw new Error("A second actor was set on one request scope.");
+
+  store.actor = actor;
 }

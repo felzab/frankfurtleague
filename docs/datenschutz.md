@@ -209,6 +209,13 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   recorded of such a person: no `user` row is written until a link is followed, and a session row
   carries neither the caller's address nor their browser identifier
   (`fl_frontend/src/core/auth.ts`).
+- **A person's own address is in no log row today, and the first person-tier write would put one
+  there.** `fl_frontend/src/core/subject.ts :: getSubjectSession` already folds the address of
+  whoever opens a panel into the request's actor, and `fl_frontend/src/core/api.ts` sends that actor
+  to the backend on admin-tier calls alone, so no `aktionen` row carries a person's. The first write
+  a person makes for themselves would file it in `actor.email`, which the redaction above does not
+  reach — that exception was taken for administrators and for the reason administrators give. Whether
+  it extends to everybody else is decided before that write ships, not with it.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live

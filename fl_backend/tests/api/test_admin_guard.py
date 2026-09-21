@@ -100,6 +100,10 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
     ("/api/v0/zustellung", "post"),
     ("/api/v0/zustellung/angenommen", "post"),
+    # A POST that stores nothing, listed for `ADMIN_READS`' Kontakte entry's reason: the address
+    # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
+    # system tier's.
+    ("/api/v0/identitaet/subjekt", "post"),
 ]
 
 MUTATIONS = [
