@@ -61,6 +61,15 @@ export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"],
 };
 
 /**
+ * `false` is read as nobody having agreed rather than as a refusal: the value stands on a carried-over
+ * record nobody was asked, and a word naming a decision would put one in that person's mouth.
+ */
+export const EINWILLIGUNG_MEDIEN_LABELS = {
+  erteilt: "Fotos, Videos und Interviews zugesagt",
+  nicht_erteilt: "Nicht zugesagt",
+} as const;
+
+/**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value
  * getting past it earns is `NUMMER_MUST_BE_DIGITS`, which builds its figure from this one.
  */

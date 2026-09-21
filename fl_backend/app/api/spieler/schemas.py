@@ -31,8 +31,8 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
 
-    Required TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that
-    somebody consented, and the surface reading this may not tell the two apart.
+    The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
+    confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
     """
 
     # Inline rather than a module-level alias, as the `spiele` quelle Literals are: each is used
@@ -47,6 +47,14 @@ class FLEinwilligung(BaseModel):
     # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
     # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
     bestaetigt_am: CustomOptionalDateString
+    # The registry label of `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN` and never
+    # the words, as `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must
+    # not change what a stored record claims. Defaulted, every stored record predating it.
+    text_version: str | None = None
+    # A SECOND consent under one record rather than a third `umfang` member: publication and media
+    # are independent answers, so withdrawing one leaves the other standing. Defaulted for
+    # `text_version`'s reason.
+    medien: bool = False
 
 
 class _SpielerPerson(BaseModel):

@@ -35,6 +35,12 @@ export const FLEinwilligungSchema = z.object({
   erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]),
   datum: CustomDateStringSchema.nullable(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
+  // The label of an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry and never the words; null on
+  // every record stored before the registration flow stamped one.
+  text_version: z.string().nullable(),
+  // A second consent under one record: `umfang` and this are independent answers, so a reader
+  // deciding whether a photo may be published asks this one and never that one.
+  medien: z.boolean(),
 });
 export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
 

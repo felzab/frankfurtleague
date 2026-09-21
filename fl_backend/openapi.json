@@ -8282,6 +8282,22 @@
               }
             ],
             "title": "Bestaetigt Am"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien",
+            "default": false
           }
         },
         "type": "object",
@@ -8292,7 +8308,7 @@
           "bestaetigt_am"
         ],
         "title": "FLEinwilligung",
-        "description": "What this person agreed may be published about them.\n\nRequired TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that\nsomebody consented, and the surface reading this may not tell the two apart."
+        "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
       },
       "FLGenerateSpielplanPayload": {
         "properties": {

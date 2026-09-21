@@ -131,7 +131,7 @@ _AKTION_REQUEST = _object(
     properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
 )
 
-# Required TOGETHER: the four keys are always present, and a null `bestaetigt_am` is what says
+# Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
 # the consent is UNCONFIRMED rather than absent.
 _EINWILLIGUNG = _object(
     required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
@@ -140,6 +140,11 @@ _EINWILLIGUNG = _object(
         "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
         "datum": {"bsonType": _STRING_OR_NULL},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+        # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
+        # predates them. A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG`
+        # member, so a record can be withdrawn from one and stand in the other.
+        "text_version": {"bsonType": _STRING_OR_NULL},
+        "medien": {"bsonType": "bool"},
     },
 )
 
