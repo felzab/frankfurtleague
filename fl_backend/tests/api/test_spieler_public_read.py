@@ -47,9 +47,9 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 # What the base tier serves, and the whole of it.
 PUBLIC_FIELDS = {"id", "vorname", "nachname", "nummer", "position"}
 
-# `stufe` and `einwilligung` are the two confidentiality rules; the rest fails the allow-list, which
-# asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "team_id", "is_nachgetragen", "rolle", "inactive_since"]
+# `stufe`, `einwilligung` and `email` are the confidentiality rules; the rest fails the allow-list,
+# which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
+WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "is_nachgetragen", "rolle", "inactive_since"]
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.

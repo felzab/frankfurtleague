@@ -7,18 +7,26 @@ from pymongo.database import Database
 
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
+    FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
     FLSpieler,
     FLSpielerFilterParams,
     FLSpielerMembership,
     FLSpielerMembershipsResponse,
     FLSpielerPublic,
+    FLSpielerSingleResponse,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline
+from app.shared.folding import sign_in_identifier
 
 SAISON = "2026"
 PRIOR_SAISON = "2025"
+
+# The address a person typed, and the form a row stores. Spelled out rather than computed, so a
+# folding that moved parts from this corpus instead of moving it.
+TYPED_ADDRESS = "Wiltrudis@Schule.DE "
+STORED_ADDRESS = "wiltrudis@schule.de"
 
 SPIELER_OIDS = {
     "Abel": ObjectId("6890a1b2c3d4e5f607290001"),
@@ -225,6 +233,35 @@ class TestWhichTierMayReadTheConsentRecord:
         assert FLSpieler.model_fields["einwilligung"].is_required()
 
 
+class TestTheAddressASignedInPersonIsJoinedOn:
+    """The field itself, whose one writer is the admission. What a read may serve and what a payload may carry are what this tier decides."""
+
+    def test_this_read_carries_it_and_the_base_tier_does_not(self):
+        """Both halves in one assertion, as the consent record's split is: an address is the person's and a squad list is read by anybody."""
+        assert "email" in FLSpielerWithMemberships.model_fields
+        # Both base-tier shapes, the list's row and the single read's body: each is its own
+        # allow-list, so one widened alone would serve the address on one path and not the other.
+        assert "email" not in FLSpielerPublic.model_fields
+        assert "email" not in FLSpielerSingleResponse.model_fields
+
+    def test_it_sits_on_the_person_and_not_on_the_squad_row(self):
+        """One mailbox for one person across every season, so a junction row carrying it would be a copy per season to keep in step."""
+        assert "email" not in FLSpielerMembership.model_fields
+
+    def test_the_stored_form_is_the_folding_s_own_output(self):
+        """What makes the seam an equality: an address stored as typed sits beside the folded one a sign-in produces and matches nothing."""
+        assert sign_in_identifier(TYPED_ADDRESS) == STORED_ADDRESS
+
+    def test_no_administrator_payload_takes_one(self, assert_rejects):
+        """The refusal IS the posture: a mistyped address is corrected by registering again, and a route accepting one would undo that."""
+        assert "email" not in FLPatchSpielerPayload.model_fields
+
+        names = {"vorname": "Wiltrudis", "nachname": "Meier", "geburtsdatum": None}
+
+        assert FLPatchSpielerPayload.model_validate(names).vorname == "Wiltrudis"
+        assert_rejects(FLPatchSpielerPayload, {**names, "email": STORED_ADDRESS}, "email")
+
+
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return {
         "_id": SPIELER_OIDS[name],
@@ -282,7 +319,9 @@ def squads(mongo_database: Database) -> Database:
 
     mongo_database.spieler.insert_many(
         [
-            _spieler("Abel"),
+            # The one row carrying an address, so every other person here is the shape a row written
+            # before the field existed has: the key absent rather than null.
+            {**_spieler("Abel"), "email": STORED_ADDRESS},
             _legacy_spieler("Alt"),
             # The person is retired and their squad row is not: the two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
@@ -372,3 +411,14 @@ class TestTheMembershipsPipelineExecuted:
 
         assert "einwilligung" not in raw
         assert self._by_surname(squads)["Alt"].einwilligung is None
+
+    def test_the_stored_address_reaches_this_read_in_the_form_it_was_stored(self, squads: Database):
+        """Through a real aggregation: the root is unprojected, so a key added to the document rides along, and this tier is where it may."""
+        assert self._by_surname(squads)["Abel"].email == STORED_ADDRESS
+
+    def test_a_person_stored_before_the_address_existed_does_not_break_the_list(self, squads: Database):
+        """The whole list again, over the population every stored row is in: no document carries the key until an admission writes one."""
+        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Baum")
+
+        assert "email" not in raw
+        assert self._by_surname(squads)["Baum"].email is None

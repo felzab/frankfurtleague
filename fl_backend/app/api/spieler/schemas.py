@@ -131,6 +131,10 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # No default, unlike every defaulted field above: every stored row carries one after the
     # backfill, and a default here would let a row with no consent read back as though it had been asked.
     einwilligung: FLEinwilligung
+    # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
+    # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
+    # breaks it silently.
+    email: str | None = None
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
@@ -325,6 +329,9 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
     # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
     einwilligung: FLEinwilligung | None = None
+    # Served here and withheld from the base tier, as the record above is: this read is the admin
+    # editor's, and an address is the person's own.
+    email: str | None = None
     memberships: list[FLSpielerMembership]
 
 

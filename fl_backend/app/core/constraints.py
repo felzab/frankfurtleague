@@ -515,6 +515,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": _EINWILLIGUNG,
+                # Out of `required` for `saisons.spielplan`'s reason. Stored as
+                # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
+                # sign-in seam's equality compares against.
+                "email": {"bsonType": _STRING_OR_NULL},
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -858,6 +862,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "saisons_status",
         (("status", ASCENDING),),
         "the withheld-season set every unnarrowed base-tier read must exclude",
+    ),
+    # A support index and never a unique one: one family mailbox really is shared by two pupils, so
+    # this read answers a list rather than refusing the second person who registers under it.
+    SupportIndex(
+        Collection.SPIELER,
+        "spieler_email",
+        (("email", ASCENDING),),
+        "the rows a signed-in person may be joined to, matched on the folded address",
     ),
 )
 

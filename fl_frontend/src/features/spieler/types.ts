@@ -42,6 +42,9 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
   team_id: string | null;
 };
 
+// The sign-in address is the admission's to write and no route's to edit, a mistyped one being
+// corrected by registering again (`docs/ops/runbooks.md` §5): a field for it here would bind a
+// control to a save the API refuses.
 /**
  * Its own type rather than `FLPostSpielerPayload`, whose `nachname` is optional: the editor always
  * holds a value — `null` for an empty box — and an `undefined` reaching the patch erases the

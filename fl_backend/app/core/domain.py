@@ -728,6 +728,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SPIELER,
+        "email",
+        Editability.IMMUTABLE,
+        "written by no route, at create or after: no payload carries the field, so whatever a row holds here is what it keeps, "
+        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is.",
+    ),
+    FieldPolicy(
+        Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league",

@@ -96,6 +96,9 @@ export const FLSpielerWithMembershipsSchema = z.object({
   // Nullable rather than optional, mirroring the backend default: a person stored before consent
   // was collected has no record, and this tier is the only one that may read one.
   einwilligung: FLEinwilligungSchema.nullable(),
+  // The address the person signs in on, folded. Read-only wherever it renders: no payload carries
+  // it, so a control bound to this key would offer a write the API refuses.
+  email: z.string().nullable(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;

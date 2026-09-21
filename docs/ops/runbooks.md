@@ -458,6 +458,23 @@ reading before you save: a club rename fans out into the matches of every season
 ([`../glossary.md`](../glossary.md#spiel--one-match)), and a referee rename fans out into every
 season's matches, a referee not being season-scoped.
 
+**An email address is not an ordinary rectification, and which procedure applies is decided by the
+role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
+as them.
+
+- **A pupil.** `spieler.email` is on no payload and no route writes one, so the league holds no
+  pupil's address here to correct, and the answer to somebody asking is that sentence.
+- **A referee.** Correct `kontakt.email` in the referee editor. It is the ordinary rectification
+  above: nothing is minted from a referee's address and nothing signs in as one.
+- **A contact seat.** Correct it through
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, the one field of a
+  submitted application an administrator may rewrite. It mints the fresh link, voids the old one and
+  restarts the confirmation deadline, and where one person holds two seats it corrects both.
+
+**The self-service change is not built.** It would be an endpoint, a page, a proving link and a
+notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
+request for one is answered by performing it rather than by building the route.
+
 **A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
 you are in is decided by that seat's own link, not by the person's role:
 

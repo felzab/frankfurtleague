@@ -13153,6 +13153,17 @@
               }
             ]
           },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "memberships": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerMembership"
