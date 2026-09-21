@@ -10,6 +10,7 @@ import { USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { appToast } from "@/shared/utils/appToast";
+import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 /** Named off `fl_frontend/src/core/auth.ts :: PasskeyStep`, whose verdict the page hands over. */
 type Step = "enrol" | "assert";
@@ -84,16 +85,24 @@ export function PasskeyForm({ step, address, next }: { step: Step; address: stri
       return;
     }
 
-    // The enrolment leaves the reader in front of the SECOND card, asking for another ceremony:
-    // silent, that reads as the press having failed.
+    if (step === "enrol") {
+      // The enrolment leaves the reader in front of the SECOND card, asking for another ceremony:
+      // silent, that reads as the press having failed.
 
-    // Literals at the call, where `core/toastTitles.test.ts` reads a title from.
-    if (step === "enrol") appToast.success("Passkey eingerichtet", { description: "Melde Dich jetzt damit an." });
+      // Literals at the call, where `core/toastTitles.test.ts` reads a title from.
+      appToast.success("Passkey eingerichtet", { description: "Melde Dich jetzt damit an." });
 
-    // The guard's answer has just changed under this page, so the landing is re-read rather than
-    // served from the router's own copy of it.
-    router.refresh();
-    router.replace(next);
+      // This same page offers the assertion next, so it is re-read in place: the session is
+      // unchanged, the guard's answer is not, and a navigation would drop the toast.
+      setIsPending(false);
+      router.refresh();
+      return;
+    }
+
+    // Never `router.refresh()` beside a soft navigation here: the assertion replaced the session, so
+    // this page's own guard redirects to the landing while the navigation redirects past it, and
+    // the two left the reader on the landing for good.
+    leaveDocumentFor(next);
   };
 
   return (

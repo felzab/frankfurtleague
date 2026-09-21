@@ -22,10 +22,15 @@ const CLIENT_DOUBLE = `export const authClient = {
   signIn: { passkey: () => globalThis.${BUS}.run("signInPasskey") },
 };`;
 
+/* A full document navigation, which jsdom does not implement and whose `location` no test can
+   replace: recorded at the same module boundary the credential calls are. */
+const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${BUS}.left.push(path); }`;
+
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -38,7 +43,11 @@ const reached: string[] = [];
 /** What the next ceremony answers. Better Auth reports a cancelled prompt on `error`, never by throwing. */
 let answer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: null });
 
+/** Every path the card left the document for. */
+const left: string[] = [];
+
 Reflect.set(globalThis, BUS, {
+  left: left,
   run: (name: string) => {
     reached.push(name);
     return answer();
@@ -59,6 +68,7 @@ function renderCard(step: "enrol" | "assert") {
 beforeEach(() => {
   reached.length = 0;
   raised.length = 0;
+  left.length = 0;
   seen.replaced.length = 0;
   seen.refresh = 0;
   answer = () => Promise.resolve({ data: {}, error: null });
@@ -73,7 +83,6 @@ describe("which ceremony the card runs", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
     assert.deepEqual(reached, ["addPasskey"]);
-    assert.deepEqual(seen.replaced, [LANDING]);
     unmount();
 
     reached.length = 0;
@@ -82,16 +91,29 @@ describe("which ceremony the card runs", () => {
     assert.deepEqual(reached, ["signInPasskey"]);
   });
 
-  /* The enrolment leaves the link-borne session standing, so the landing is what sends the same
-     person back here to assert; a card navigating anywhere else decides that itself. */
-  it("leaves for the landing that decides where the reader goes, re-reading it first", async () => {
+  /* The enrolment leaves the link-borne session standing, so this same page is what offers the
+     assertion next: re-read, the guard answers the other step, and the toast above it survives. */
+  it("re-reads its own page after an enrolment, and goes nowhere", async () => {
     const user = userEvent.setup();
     renderCard("enrol");
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual(seen.replaced, [LANDING]);
-    assert.equal(seen.refresh, 1, "the landing is served from the router's copy, made before the passkey existed");
+    assert.equal(seen.refresh, 1, "the card still offers the enrolment the reader has just completed");
+    assert.deepEqual([seen.replaced, left], [[], []]);
+    assert.ok(screen.getByRole("button", { name: "Jetzt einrichten" }), "the control stayed pending over a page that re-renders under it");
+  });
+
+  /* The assertion replaces the session, so this page's own guard now redirects: a refresh racing a
+     soft navigation left the reader on the landing for good. One document load decides once. */
+  it("leaves the document for the landing after an assertion, racing no refresh against it", async () => {
+    const user = userEvent.setup();
+    renderCard("assert");
+
+    await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
+
+    assert.deepEqual(left, [LANDING]);
+    assert.deepEqual([seen.refresh, seen.replaced], [0, []]);
   });
 });
 
@@ -119,7 +141,7 @@ describe("what the reader is told when the step worked", () => {
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
 
     assert.deepEqual(raised, []);
-    assert.deepEqual(seen.replaced, [LANDING]);
+    assert.deepEqual(left, [LANDING]);
   });
 });
 
@@ -148,7 +170,7 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual(seen.replaced, [], "a refused ceremony sent the reader on");
+    assert.deepEqual([seen.replaced, left], [[], []], "a refused ceremony sent the reader on");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkey nicht eingerichtet", "Versuche es noch einmal."]],
